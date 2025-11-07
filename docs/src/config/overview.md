@@ -12,48 +12,84 @@ Create a configuration file in your project root:
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
-  // Your configuration
+  monorepo: {
+    versionMode: 'selective',
+    packageGlobs: ['packages/*'],
+  },
 })
 ```
 
 ```js [relizy.config.js]
-export default {
-  // Your configuration
-}
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    versionMode: 'selective',
+    packageGlobs: ['packages/*'],
+  },
+})
 ```
 
 ```json [relizy.config.json]
 {
-  // Your configuration
+  "monorepo": {
+    "versionMode": "selective",
+    "packageGlobs": ["packages/*"]
+  }
 }
+```
+
+```json [package.json]
+{
+  "name": "my-monorepo",
+  "version": "1.0.0",
+  "monorepo": {
+    "versionMode": "selective",
+    "packageGlobs": ["packages/*"]
+  }
+}
+```
+
+```yml [relizy.config.yml]
+monorepo:
+  versionMode: selective
+  packageGlobs:
+    - packages/*
+```
+
+```toml [relizy.config.toml]
+[monorepo]
+versionMode = "selective"
+packageGlobs = [ "packages/*" ]
 ```
 
 :::
 
 ## Supported Formats
 
-Relizy supports multiple configuration formats:
+Relizy supports multiple configuration formats. It loaded with [c12](https://github.com/unjs/c12), check the documentation for more details.
 
 - `relizy.config.ts` (recommended)
 - `relizy.config.js`
 - `relizy.config.mjs`
 - `relizy.config.json`
 - `relizy.config.yaml`
+- `relizy.config.yml`
 - `relizy.config.toml`
+- And more...
 
 ## Zero Configuration
 
-Relizy works out of the box without any configuration:
+Relizy works out of the box without any configuration (for single package):
 
 ```bash
-npx relizy release --patch
+relizy release
 ```
 
 Configuration is only needed for:
 
-- Custom monorepo settings
+- Monorepo settings (needs `monorepo` section with `versionMode` and `packages` glob patterns to find your packages)
 - Custom commit types
-- Custom changelog formatting
 - Multiple release strategies
 
 ## Quick Start
@@ -63,7 +99,7 @@ Configuration is only needed for:
 No configuration needed! Just run:
 
 ```bash
-npx relizy release --minor
+relizy release --minor
 ```
 
 ### Monorepo - Basic
@@ -86,8 +122,8 @@ export default {
   monorepo: {
     versionMode: 'selective',
     packageGlobs: ['packages/*'],
-    dependencyTypes: ['dependencies', 'peerDependencies'],
-    ignorePackageNames: ['example-*'],
+    dependencyTypes: ['dependencies', 'devDependencies'],
+    ignorePackageNames: ['pacakge-a'],
   },
   types: {
     feat: { title: '🎉 Features', semver: 'minor' },
@@ -102,20 +138,19 @@ export default {
 
 ## Configuration Sections
 
-| Section                                 | Description                |
-| --------------------------------------- | -------------------------- |
-| [monorepo](/config/monorepo)            | Monorepo-specific settings |
-| [types](/config/changelog#commit-types) | Commit type customization  |
-| [bump](/config/bump)                    | Version bump settings      |
-| [publish](/config/publish)              | NPM publishing options     |
-| [release](/config/release)              | Release workflow settings  |
+| Section                            | Description                |
+| ---------------------------------- | -------------------------- |
+| [monorepo](monorepo.md)            | Monorepo-specific settings |
+| [types](changelog.md#commit-types) | Commit type customization  |
+| [bump](bump.md)                    | Version bump settings      |
+| [publish](publish.md)              | NPM publishing options     |
+| [release](release.md)              | Release workflow settings  |
 
 ## TypeScript Support
 
 Get full IntelliSense with TypeScript:
 
 ```ts
-import type { RelizyConfig } from 'relizy'
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
@@ -132,13 +167,13 @@ Override configuration with environment variables:
 
 ```bash
 # Set version mode
-export RELIZY_VERSION_MODE=independent
+export RELIZY_GITHUB_TOKEN=your-github-token
 
 # Set log level
 export RELIZY_LOG_LEVEL=debug
 
 # Run release
-npx relizy release
+relizy release
 ```
 
 ## Multiple Configurations
@@ -147,10 +182,10 @@ Use different configs for different workflows:
 
 ```bash
 # Use default config
-npx relizy release
+relizy release
 
 # Use staging config
-npx relizy release --config staging
+relizy release --config staging
 
 # Uses changelog.staging.config.ts
 ```
@@ -163,33 +198,65 @@ If no config file exists, Relizy uses these defaults:
 
 ```ts
 const defaultConfig = {
-  monorepo: {
-    versionMode: 'unified',
-    packageGlobs: ['packages/*'],
-    dependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies'],
-    ignorePackageNames: [],
-  },
+  cwd: process.cwd(),
   types: {
-    feat: { title: '🚀 Features', semver: 'minor' },
-    fix: { title: '🐛 Bug Fixes', semver: 'patch' },
-    perf: { title: '⚡ Performance', semver: 'patch' },
-    refactor: { title: '♻️ Refactors', semver: 'patch' },
-    docs: { title: '📚 Documentation', semver: 'patch' },
-    style: { title: '💅 Styles', semver: 'patch' },
-    test: { title: '✅ Tests', semver: 'patch' },
+    feat: { title: '🚀 Enhancements', semver: 'minor' },
+    perf: { title: '🔥 Performance', semver: 'patch' },
+    fix: { title: '🩹 Fixes', semver: 'patch' },
+    refactor: { title: '💅 Refactors', semver: 'patch' },
+    docs: { title: '📖 Documentation', semver: 'patch' },
     build: { title: '📦 Build', semver: 'patch' },
-    ci: { title: '🤖 CI/CD', semver: 'patch' },
-    chore: { title: '🏠 Chores', semver: 'patch' },
+    types: { title: '🌊 Types', semver: 'patch' },
+    chore: { title: '🏡 Chore' },
+    examples: { title: '🏀 Examples' },
+    test: { title: '✅ Tests' },
+    style: { title: '🎨 Styles' },
+    ci: { title: '🤖 CI' },
+  },
+  templates: {
+    commitMessage: 'chore(release): bump version to {{newVersion}}',
+    tagMessage: 'Bump version to v{{newVersion}}',
+    tagBody: 'v{{newVersion}}',
+    emptyChangelogContent: 'No relevant changes for this release',
+  },
+  excludeAuthors: [],
+  noAuthors: false,
+  bump: {
+    type: 'release',
+    clean: true,
+    dependencyTypes: ['dependencies'],
+    yes: false,
+  },
+  changelog: {
+    rootChangelog: true,
+    includeCommitBody: true,
   },
   publish: {
-    access: 'public',
-    tag: 'latest',
+    private: false,
+    args: [],
   },
+  tokens: {
+    gitlab:
+        process.env.RELIZY_GITLAB_TOKEN
+        || process.env.GITLAB_TOKEN
+        || process.env.GITLAB_API_TOKEN
+        || process.env.CI_JOB_TOKEN,
+    github:
+        process.env.RELIZY_GITHUB_TOKEN
+        || process.env.GITHUB_TOKEN
+        || process.env.GH_TOKEN,
+  },
+  scopeMap: {},
   release: {
     commit: true,
-    tag: true,
+    publish: true,
+    changelog: true,
     push: true,
+    clean: true,
+    providerRelease: true,
+    noVerify: false,
   },
+  logLevel: 'default',
 }
 ```
 

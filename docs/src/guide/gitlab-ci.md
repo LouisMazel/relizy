@@ -15,7 +15,7 @@ release:
     - npm ci
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy release --$RELEASE_TYPE --yes --publish --provider-release
+    - relizy release --$RELEASE_TYPE --yes
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
   only:
@@ -35,7 +35,7 @@ release:patch:
   when: manual
   script:
     - npm ci
-    - npx relizy release --patch --yes
+    - relizy release --patch --yes
   only:
     - main
 
@@ -45,7 +45,7 @@ release:minor:
   when: manual
   script:
     - npm ci
-    - npx relizy release --minor --yes
+    - relizy release --minor --yes
   only:
     - main
 
@@ -55,7 +55,7 @@ release:major:
   when: manual
   script:
     - npm ci
-    - npx relizy release --major --yes
+    - relizy release --major --yes
   only:
     - main
 ```
@@ -72,7 +72,7 @@ release:
     - npm ci
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy release --yes
+    - relizy release --yes
   only:
     - main
   except:
@@ -91,8 +91,8 @@ publish:
   stage: deploy
   script:
     - npm ci
-    - npx relizy publish --yes
-    - npx relizy provider-release --yes
+    - relizy publish --yes
+    - relizy provider-release --yes
   only:
     - tags
   except:
@@ -109,7 +109,7 @@ scheduled_release:
   stage: deploy
   script:
     - npm ci
-    - npx relizy release --yes
+    - relizy release --yes
   only:
     - schedules
 ```
@@ -199,7 +199,7 @@ release:
   script:
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy release --$RELEASE_TYPE --yes --publish --provider-release
+    - relizy release --$RELEASE_TYPE --yes
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
     NPM_TOKEN: $NPM_TOKEN
@@ -253,7 +253,7 @@ release:selective:
   script:
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy release --selective --$RELEASE_TYPE --yes --publish
+    - relizy release --selective --$RELEASE_TYPE --yes
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
     NPM_TOKEN: $NPM_TOKEN
@@ -277,8 +277,8 @@ bump_version:
     - npm ci
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy bump --$RELEASE_TYPE --yes
-    - npx relizy changelog
+    - relizy bump --$RELEASE_TYPE --yes
+    - relizy changelog
     - git add .
     - git commit -m "chore(release):$(node -p "require('./package.json').version")"
     - git tag "v$(node -p "require('./package.json').version")"
@@ -299,7 +299,7 @@ publish_npm:
   script:
     - npm ci
     - npm run build
-    - npx relizy publish --yes
+    - relizy publish --yes
   variables:
     NPM_TOKEN: $NPM_TOKEN
   only:
@@ -311,7 +311,7 @@ create_release:
   dependencies:
     - publish_npm
   script:
-    - npx relizy provider-release --yes
+    - relizy provider-release --yes
   variables:
     GITLAB_TOKEN: $GITLAB_PROJECT_TOKEN
   only:
@@ -329,7 +329,7 @@ release:
   when: manual
   script:
     - npm ci
-    - npx relizy release --${RELEASE_TYPE:-patch} --yes
+    - relizy release --${RELEASE_TYPE:-patch} --yes
   variables:
     RELEASE_TYPE: patch # Default value
   only:
@@ -353,7 +353,7 @@ release_on_merge:
   stage: deploy
   script:
     - npm ci
-    - npx relizy release --yes
+    - relizy release --yes
   only:
     - merge_requests
   when: on_success
@@ -372,26 +372,11 @@ For monorepos, publish packages in parallel:
   script:
     - npm ci
     - npm run build
-    - npx relizy publish --packages $PACKAGE_NAME --yes
+    - relizy publish --yes
   variables:
     NPM_TOKEN: $NPM_TOKEN
   only:
     - tags
-
-publish:core:
-  extends: .publish_base
-  variables:
-    PACKAGE_NAME: core
-
-publish:utils:
-  extends: .publish_base
-  variables:
-    PACKAGE_NAME: utils
-
-publish:ui:
-  extends: .publish_base
-  variables:
-    PACKAGE_NAME: ui
 ```
 
 ## Environments
@@ -405,7 +390,7 @@ release:production:
   when: manual
   script:
     - npm ci
-    - npx relizy release --$RELEASE_TYPE --yes --publish
+    - relizy release --$RELEASE_TYPE --yes
   environment:
     name: production
     url: https://www.npmjs.com/package/my-package
@@ -418,7 +403,7 @@ release:staging:
   when: manual
   script:
     - npm ci
-    - npx relizy release --$RELEASE_TYPE --yes --tag beta
+    - relizy release --$RELEASE_TYPE --yes --tag beta
   environment:
     name: staging
     url: https://www.npmjs.com/package/my-package?activeTab=versions
@@ -451,7 +436,7 @@ release:
   image: node:20
   stage: deploy
   script:
-    - npx relizy release --yes
+    - relizy release --yes
   after_script:
     - echo "Release completed" | mail -s "Release Notification" team@example.com
   only:
@@ -502,7 +487,7 @@ Prevent concurrent releases:
 release:
   resource_group: release
   script:
-    - npx relizy release --yes
+    - relizy release --yes
 ```
 
 ### 5. Use Interruptible Jobs
@@ -625,25 +610,25 @@ release:patch:
   extends: .release_base
   when: manual
   script:
-    - npx relizy release --patch --yes --publish --provider-release
+    - relizy release --patch --yes
 
 release:minor:
   extends: .release_base
   when: manual
   script:
-    - npx relizy release --minor --yes --publish --provider-release
+    - relizy release --minor --yes
 
 release:major:
   extends: .release_base
   when: manual
   script:
-    - npx relizy release --major --yes --publish --provider-release
+    - relizy release --major --yes
   environment:
     name: production
 ```
 
 ## Next Steps
 
-- [GitHub Actions](/guide/github-actions) - GitHub Actions integration
-- [CI/CD Setup](/guide/ci-cd) - General CI/CD best practices
-- [CLI Reference](/cli/release) - Full command reference
+- [GitHub Actions](github-actions.md) - GitHub Actions integration
+- [CI/CD Setup](ci-cd.md) - General CI/CD best practices
+- [CLI Reference](../cli/release.md) - Full command reference

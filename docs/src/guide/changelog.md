@@ -11,7 +11,7 @@ Changelogs are generated based on [Conventional Commits](https://www.conventiona
 Changelogs are created automatically when you run a release:
 
 ```bash
-npx relizy release --minor
+relizy release --minor
 ```
 
 This generates or updates `CHANGELOG.md` in your package directory.
@@ -23,25 +23,19 @@ A typical generated changelog looks like this:
 ```md
 # Changelog
 
-## v1.2.0 (2024-03-15)
+## v0.0.0...v0.1.0
 
 ### 🚀 Features
 
-- Add user authentication ([a1b2c3d](https://github.com/user/repo/commit/a1b2c3d))
-- Implement dark mode toggle ([e4f5g6h](https://github.com/user/repo/commit/e4f5g6h))
+- Relizy - release manager ([5c41ba1](https://github.com/LouisMazel/relizy/commit/5c41ba1))
 
-### 🐛 Bug Fixes
+### 📖 Documentation
 
-- Fix memory leak in event handlers ([i7j8k9l](https://github.com/user/repo/commit/i7j8k9l))
-- Resolve navigation issue on mobile ([m1n2o3p](https://github.com/user/repo/commit/m1n2o3p))
+- Add documentation website of Relizy ([ec156b0](https://github.com/LouisMazel/relizy/commit/ec156b0))
 
-### 📚 Documentation
+### ❤️ Contributors
 
-- Update API documentation ([q4r5s6t](https://github.com/user/repo/commit/q4r5s6t))
-
-### 🏠 Chores
-
-- Update dependencies ([u7v8w9x](https://github.com/user/repo/commit/u7v8w9x))
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
 ```
 
 ## Commit Types
@@ -140,7 +134,7 @@ export default {
 
 For single packages, the changelog is created at the root:
 
-```
+```text
 my-package/
 ├── package.json
 ├── CHANGELOG.md  ← Generated here
@@ -151,22 +145,30 @@ my-package/
 
 In unified mode, a single changelog is created at the root:
 
-```
+```text
 my-monorepo/
 ├── package.json
-├── CHANGELOG.md  ← Single changelog
+├── CHANGELOG.md (all changes)
 └── packages/
     ├── core/
+    │   ├── package.json
+    │   └── CHANGELOG.md ← Package-specific
     ├── utils/
+    │   ├── package.json
+    │   └── CHANGELOG.md ← Package-specific
     └── ui/
+        ├── package.json
+        └── CHANGELOG.md ← Package-specific
 ```
 
 ### Monorepo - Selective/Independent Mode
 
 In selective or independent modes, each package gets its own changelog:
 
-```
+```text
 my-monorepo/
+├── package.json
+├── CHANGELOG.md (all changes)
 └── packages/
     ├── core/
     │   ├── package.json
@@ -184,7 +186,7 @@ my-monorepo/
 You can generate a changelog without bumping versions:
 
 ```bash
-npx relizy changelog
+relizy changelog
 ```
 
 This is useful for:
@@ -199,10 +201,10 @@ By default, Relizy generates the changelog from the last tag to HEAD. You can cu
 
 ```bash
 # From specific version to HEAD
-npx relizy changelog --from v1.0.0
+relizy changelog --from v1.0.0
 
 # Between two versions
-npx relizy changelog --from v1.0.0 --to v1.2.0
+relizy changelog --from v1.0.0 --to v1.2.0
 ```
 
 ## Excluding Commits
@@ -251,14 +253,14 @@ The git remote is auto-detected from your repository.
 
 ### Markdown Files
 
-By default, changelogs are written to `CHANGELOG.md`:
+Changelogs are written to `CHANGELOG.md`:
 
 ```md
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## v1.1.0...v1.2.0
 
-## v1.2.0 (2024-03-15)
+[compare](https://github.com/user/repo/compare/v1.1.0...v1.2.0)
 
 ...
 ```
@@ -268,7 +270,7 @@ All notable changes to this project will be documented in this file.
 You can also output changelogs as JSON:
 
 ```bash
-npx relizy changelog --output json
+relizy changelog
 ```
 
 ```json
@@ -363,30 +365,27 @@ export default {
 
 ```bash
 # Generate changelog as part of release
-npx relizy release --minor
+relizy release --minor
 
 # Generate changelog without version bump
-npx relizy changelog
+relizy changelog
 ```
 
 ### Custom Range
 
 ```bash
 # Changelog from v1.0.0 to v2.0.0
-npx relizy changelog --from v1.0.0 --to v2.0.0
+relizy changelog --from v1.0.0 --to v2.0.0
 
 # Changelog for last 10 commits
-npx relizy changelog --from HEAD~10
+relizy changelog --from HEAD~10
 ```
 
 ### Monorepo
 
 ```bash
 # Generate changelogs for all packages
-npx relizy changelog
-
-# Generate changelog for specific package
-npx relizy changelog --packages core
+relizy changelog
 ```
 
 ## Configuration

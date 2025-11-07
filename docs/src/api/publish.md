@@ -12,12 +12,26 @@ function publish(options?: PublishOptions): Promise<void>
 
 ```ts
 interface PublishOptions {
-  packages?: string[]
+  registry?: string
   tag?: string
   access?: 'public' | 'restricted'
+  otp?: string
+  /**
+   * Glob pattern matching for packages to publish.
+   * @default undefined
+   */
+  packages?: string[]
+  /**
+   * Command to build your packages before publishing.
+   * @default undefined
+   */
+  buildCmd?: string
+
   dryRun?: boolean
-  yes?: boolean
-  config?: string
+  config?: ResolvedRelizyConfig
+  bumpedPackages?: PackageInfo[]
+  logLevel?: LogLevel
+  configName?: string
 }
 ```
 
@@ -27,13 +41,14 @@ interface PublishOptions {
 import { publish } from 'relizy'
 
 await publish({
-  packages: ['core', 'utils'],
   tag: 'latest',
   access: 'public',
+  dryRun: false,
+  buildCmd: 'pnpm build',
 })
 ```
 
 ## See Also
 
-- [CLI reference](/cli/publish)
-- [API usage](/api/usage)
+- [CLI reference](../cli/publish.md)
+- [API usage](usage.md)

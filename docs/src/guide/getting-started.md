@@ -11,8 +11,8 @@ After [installing Relizy](/guide/installation), you're ready to create your firs
 First, make sure you have some commits following the [Conventional Commits](https://www.conventionalcommits.org/) format:
 
 ```bash
-git commit -m "feat: add new feature"
-git commit -m "fix: resolve bug in login"
+git commit -m "feat(package-a): add new feature"
+git commit -m "fix(package-b): resolve bug in login"
 git commit -m "docs: update README"
 ```
 
@@ -22,14 +22,16 @@ Relizy uses commit messages to determine version bumps:
 - `feat:` → minor version bump (0.1.0 → 0.2.0)
 - `fix:` → patch version bump (0.1.0 → 0.1.1)
 - `feat!:` or `BREAKING CHANGE:` → major version bump (0.1.0 → 1.0.0)
-  :::
+
+This is the default behavior of Relizy. You can customize it by using the `types` option in the [config](../config/overview.md).
+:::
 
 ### 2. Run the Release Command
 
 Create a patch release:
 
 ```bash
-npx relizy release --patch
+relizy release --patch
 ```
 
 Relizy will:
@@ -41,7 +43,7 @@ Relizy will:
 5. ✅ Push changes to the remote repository
 
 ::: info
-The first time you run Relizy, it will interactively ask for confirmation before making changes. Use `--yes` to skip confirmations in CI/CD.
+When you run Relizy, it will interactively ask for confirmation before bumping the versions. Use `--yes` to skip confirmations in CI/CD.
 :::
 
 ### 3. View the Results
@@ -60,7 +62,7 @@ And your new `CHANGELOG.md`:
 ```md
 # Changelog
 
-## v1.0.1
+## v1.0.0...v1.0.1
 
 ### 🚀 Features
 
@@ -79,31 +81,63 @@ And your new `CHANGELOG.md`:
 
 Relizy supports different release types:
 
-### Patch Release
+### Stable Release
+
+#### Patch Release
 
 For bug fixes and small changes:
 
 ```bash
-npx relizy release --patch
+relizy release --patch
 # 1.0.0 → 1.0.1
 ```
 
-### Minor Release
+#### Minor Release
 
 For new features:
 
 ```bash
-npx relizy release --minor
+relizy release --minor
 # 1.0.0 → 1.1.0
 ```
 
-### Major Release
+#### Major Release
 
 For breaking changes:
 
 ```bash
-npx relizy release --major
+relizy release --major
 # 1.0.0 → 2.0.0
+```
+
+### Pre-release
+
+#### Pre-release
+
+```bash
+relizy release --prerelease --preid alpha --tag alpha
+# 1.0.0 → 1.0.0-alpha.0
+```
+
+#### Premajor pre-release
+
+```bash
+relizy release --premajor --preid alpha --tag alpha
+# 1.0.0 → 2.0.0-alpha.0
+```
+
+#### Preminor pre-release
+
+```bash
+relizy release --preminor --preid alpha --tag alpha
+# 1.0.0 → 1.1.0-alpha.0
+```
+
+#### Prepatch pre-release
+
+```bash
+relizy release --prepatch --preid alpha --tag alpha
+# 1.0.0 → 1.0.1-alpha.0
 ```
 
 ### Automatic Detection
@@ -111,7 +145,7 @@ npx relizy release --major
 Let Relizy determine the version bump from your commits:
 
 ```bash
-npx relizy release
+relizy release
 ```
 
 ::: tip
@@ -125,17 +159,17 @@ Without a release type flag, Relizy analyzes your commits and automatically choo
 Preview changes without actually making them:
 
 ```bash
-npx relizy release --patch --dry-run
+relizy release --patch --dry-run
 ```
 
 This shows you what would happen without modifying any files.
 
 ### Skip Git Operations
 
-Bump version and generate changelog without git commit/tag:
+Bump version and generate changelog without git commit:
 
 ```bash
-npx relizy release --patch --no-commit --no-tag
+relizy release --patch --no-commit
 ```
 
 ### Publish to npm
@@ -143,7 +177,7 @@ npx relizy release --patch --no-commit --no-tag
 Include publishing to npm in the release:
 
 ```bash
-npx relizy release --patch --publish
+relizy release --patch
 ```
 
 ::: warning
@@ -155,7 +189,7 @@ Make sure you're logged in to npm (`npm login`) before publishing.
 Create a GitHub or GitLab release:
 
 ```bash
-npx relizy release --patch --provider-release
+relizy release --patch
 ```
 
 You'll need a GitHub/GitLab token set in your environment.
@@ -165,7 +199,7 @@ You'll need a GitHub/GitLab token set in your environment.
 Auto-accept all prompts (useful for CI/CD):
 
 ```bash
-npx relizy release --patch --yes
+relizy release --patch --yes
 ```
 
 ## Monorepo Usage
@@ -174,10 +208,7 @@ For monorepos, Relizy automatically detects and manages multiple packages:
 
 ```bash
 # Release all changed packages
-npx relizy release --patch
-
-# Release specific packages only
-npx relizy release --patch --packages package-a,package-b
+relizy release --patch
 ```
 
 Relizy will:
@@ -213,27 +244,27 @@ git merge feature/awesome-feature
 
 ```bash
 # Preview the release
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 
 # Create the release
-npx relizy release --minor
+relizy release --minor
 ```
 
 ### 3. Publish (Optional)
 
 ```bash
 # Publish to npm
-npx relizy publish
+relizy publish
 
 # Or combine release + publish
-npx relizy release --minor --publish
+relizy release --minor
 ```
 
 ### 4. Create Provider Release (Optional)
 
 ```bash
 # Create GitHub/GitLab release
-npx relizy provider-release
+relizy provider-release
 ```
 
 ## Individual Commands
@@ -243,7 +274,7 @@ Relizy's `release` command is actually a combination of multiple commands. You c
 ### Bump Version Only
 
 ```bash
-npx relizy bump --patch
+relizy bump --patch
 ```
 
 Updates version in `package.json` without creating commits or tags.
@@ -251,7 +282,7 @@ Updates version in `package.json` without creating commits or tags.
 ### Generate Changelog Only
 
 ```bash
-npx relizy changelog
+relizy changelog
 ```
 
 Generates or updates `CHANGELOG.md` without changing version.
@@ -259,7 +290,7 @@ Generates or updates `CHANGELOG.md` without changing version.
 ### Publish Only
 
 ```bash
-npx relizy publish
+relizy publish
 ```
 
 Publishes current version to npm without bumping.
@@ -267,7 +298,7 @@ Publishes current version to npm without bumping.
 ### Provider Release Only
 
 ```bash
-npx relizy provider-release
+relizy provider-release
 ```
 
 Creates a GitHub/GitLab release for the current version.
@@ -294,7 +325,7 @@ git commit -m "fixes"
 Before releasing, preview changes with `--dry-run`:
 
 ```bash
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 ```
 
 ### 3. Add to Package Scripts
@@ -320,7 +351,7 @@ Always commit and push your code before releasing:
 git add .
 git commit -m "feat: awesome feature"
 git push
-npx relizy release --minor
+relizy release --minor
 ```
 
 ## Next Steps

@@ -35,6 +35,42 @@ interface ReleaseOptions {
 
   // Configuration
   config?: string
+
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * @default undefined
+   */
+  from?: string
+  /**
+   * @default undefined
+   */
+  to?: string
+  /**
+   * @default undefined
+   */
+  token?: string
+  /**
+   * @default undefined
+   */
+  logLevel?: LogLevel
+  /**
+   * @default 'relizy'
+   */
+  configName?: string
+  /**
+   * Bump even if there are no commits
+   * @default false
+   */
+  force?: boolean
+  /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   * @default undefined
+   */
+  suffix?: string
 }
 ```
 
@@ -44,7 +80,7 @@ interface ReleaseOptions {
 import { release } from 'relizy'
 
 await release({
-  releaseType: 'minor',
+  type: 'minor',
   commit: true,
   tag: true,
   push: true,
@@ -55,5 +91,5 @@ await release({
 
 ## See Also
 
-- [CLI reference](/cli/release)
-- [API usage](/api/usage)
+- [CLI reference](../cli/release.md)
+- [API usage](usage.md)

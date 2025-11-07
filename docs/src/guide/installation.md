@@ -4,8 +4,8 @@ Get Relizy up and running in your project in seconds.
 
 ## Prerequisites
 
-- **Node.js** 18.x or higher
-- **npm**, **pnpm**, or **yarn** package manager
+- **Node.js** 20.x or higher
+- **npm**, **pnpm**, **bun** or **yarn** package manager
 - **Git** initialized in your project
 
 ## Install Relizy
@@ -24,6 +24,10 @@ pnpm add -D relizy
 
 ```bash [yarn]
 yarn add -D relizy
+```
+
+```bash [bun]
+bun add -D relizy
 ```
 
 :::
@@ -57,7 +61,7 @@ For most projects, we recommend installing as a dev dependency rather than globa
 Check that Relizy is installed correctly:
 
 ```bash
-npx relizy --version
+relizy --version
 ```
 
 You should see the version number printed in the console.
@@ -151,6 +155,12 @@ Or set an NPM token in your environment:
 export NPM_TOKEN=your_token_here
 ```
 
+Or use `.env` file
+
+```bash
+NPM_TOKEN=your_token_here
+```
+
 ### GitHub Releases
 
 For GitHub releases, create a personal access token:
@@ -160,7 +170,13 @@ For GitHub releases, create a personal access token:
 3. Set the token in your environment:
 
 ```bash
-export GITHUB_TOKEN=your_github_token
+export RELIZY_GITHUB_TOKEN=your_github_token
+```
+
+Or use `.env` file
+
+```bash
+RELIZY_GITHUB_TOKEN=your_github_token
 ```
 
 ### GitLab Releases
@@ -172,7 +188,13 @@ For GitLab releases, create a project access token:
 3. Set the token in your environment:
 
 ```bash
-export GITLAB_TOKEN=your_gitlab_token
+export RELIZY_GITLAB_TOKEN=your_gitlab_token
+```
+
+Or use `.env` file
+
+```bash
+RELIZY_GITLAB_TOKEN=your_gitlab_token
 ```
 
 ::: info
@@ -183,6 +205,6 @@ These environment variables are only needed if you want to publish packages or c
 
 Now that Relizy is installed, learn how to use it:
 
-- [Getting Started](/guide/getting-started) - Run your first release
-- [CLI Commands](/cli/commands) - Learn about available commands
-- [Configuration](/config/overview) - Customize Relizy's behavior
+- [Getting Started](getting-started.md) - Run your first release
+- [CLI Commands](../cli/commands.md) - Learn about available commands
+- [Configuration](../config/overview.md) - Customize Relizy's behavior

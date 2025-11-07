@@ -7,58 +7,99 @@ Configure release workflow behavior.
 Enable/disable git commits:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   release: {
     commit: true,
   },
-}
-```
-
-## tag
-
-Enable/disable git tags:
-
-```ts
-export default {
-  release: {
-    tag: true,
-  },
-}
+})
 ```
 
 ## push
 
-Enable/disable git push:
+Enable/disable git push of commit and tags:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   release: {
     push: true,
   },
-}
+})
 ```
 
-## commitMessage
+## changelog
 
-Customize commit message:
+Enable/disable changelog generation:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   release: {
-    commitMessage: 'chore(release): v{version}',
+    changelog: true,
   },
-}
+})
+```
+
+## clean
+
+Enable/disable git clean:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    clean: true,
+  },
+})
+```
+
+## noVerify
+
+Enable/disable git --no-verify flag:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    noVerify: true,
+  },
+})
+```
+
+## publish
+
+Enable/disable npm publish:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    publish: true,
+  },
+})
 ```
 
 ## Complete Example
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   release: {
     commit: true,
-    tag: true,
+    changelog: true,
+    clean: true,
+    noVerify: false,
+    publish: true,
+    release: true,
     push: true,
-    commitMessage: 'chore(release): v{version}',
   },
-}
+})
 ```

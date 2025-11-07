@@ -5,7 +5,7 @@ Create releases on GitHub or GitLab.
 ## Usage
 
 ```bash
-npx relizy provider-release [options]
+relizy provider-release [options]
 ```
 
 ## What It Does
@@ -20,45 +20,39 @@ The `provider-release` command:
 
 ## Options
 
-### --packages
+### --from
 
-Create releases for specific packages:
-
-```bash
-npx relizy provider-release --packages core
-```
-
-### --draft
-
-Create as draft release:
+Start release from specific tag:
 
 ```bash
-npx relizy provider-release --draft
+relizy provider-release --from v1.0.0
 ```
 
-### --prerelease
+### --to
 
-Mark as pre-release:
+End release at specific tag:
 
 ```bash
-npx relizy provider-release --prerelease
+relizy provider-release --to v2.0.0
 ```
 
-### --yes
-
-Skip confirmations:
+### --token
 
 ```bash
-npx relizy provider-release --yes
+relizy provider-release --token your_token
 ```
 
-## Examples
+### --provider
+
+```bash
+relizy provider-release --provider github
+```
 
 ### GitHub Release
 
 ```bash
-export GITHUB_TOKEN=your_token
-npx relizy provider-release
+export RELIZY_GITHUB_TOKEN=your_token
+relizy provider-release
 
 # Creates release at:
 # https://github.com/user/repo/releases/tag/v1.0.0
@@ -68,7 +62,7 @@ npx relizy provider-release
 
 ```bash
 export GITLAB_TOKEN=your_token
-npx relizy provider-release
+relizy provider-release
 
 # Creates release at:
 # https://gitlab.com/user/repo/-/releases/v1.0.0
@@ -77,7 +71,7 @@ npx relizy provider-release
 ### Draft Release
 
 ```bash
-npx relizy provider-release --draft
+relizy provider-release --draft
 
 # Create release as draft for review
 ```
@@ -85,7 +79,7 @@ npx relizy provider-release --draft
 ### Pre-release
 
 ```bash
-npx relizy provider-release --prerelease
+relizy provider-release --prerelease
 
 # Mark as pre-release (beta, alpha, rc)
 ```
@@ -95,7 +89,7 @@ npx relizy provider-release --prerelease
 ### GitHub
 
 ```bash
-export GITHUB_TOKEN=ghp_xxxxx
+export GITHURELIZY_GITHUB_TOKENB_TOKEN=ghp_xxxxx
 ```
 
 Create token at: Settings → Developer settings → Personal access tokens

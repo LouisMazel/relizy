@@ -20,7 +20,7 @@ When you release a package:
 
 Imagine this dependency graph:
 
-```
+```text
 packages/ui
   └── depends on @myorg/core
 
@@ -30,12 +30,14 @@ packages/core
 
 When `core` is updated:
 
+<!-- TODO: Check dependency updates (est-ce que si un package est update, on update la version dans les autres (si on utilise pas workspace:*)) -->
+
 ```bash
-npx relizy release --minor
+relizy release --minor
 
 # What happens:
 # 1. core: 1.0.0 → 1.1.0 (has commits)
-# 2. ui: 1.0.0 → 1.1.0 (depends on core)
+# 2. ui: 1.0.0 → 1.0.1 (depends on core - patched)
 # 3. ui's package.json updated:
 #    "@myorg/core": "^1.1.0"
 ```
@@ -46,7 +48,7 @@ Relizy handles multi-level dependency chains automatically.
 
 ### Example
 
-```
+```text
 packages/app
   └── depends on @myorg/ui
 
@@ -60,12 +62,12 @@ packages/core
 When `core` changes:
 
 ```bash
-npx relizy release --minor
+relizy release --minor
 
 # What happens:
 # 1. core: 1.0.0 → 1.1.0 (has commits)
-# 2. ui: 1.0.0 → 1.1.0 (depends on core)
-# 3. app: 1.0.0 → 1.1.0 (depends on ui)
+# 2. ui: 1.0.0 → 1.0.1 (depends on core - patched)
+# 3. app: 1.0.0 → 1.0.1 (depends on ui - patched)
 ```
 
 All three packages are bumped and their dependencies are updated!
@@ -76,7 +78,7 @@ You can configure which dependency fields trigger updates:
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   monorepo: {
     dependencyTypes: [
       'dependencies', // Production dependencies
@@ -84,7 +86,7 @@ export default {
       'peerDependencies', // Peer dependencies
     ],
   },
-}
+})
 ```
 
 ### Production Dependencies
@@ -116,11 +118,11 @@ Used only during development:
 By default, changes to dev dependencies also trigger bumps. Disable if you want:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     dependencyTypes: ['dependencies'], // Only production deps
   },
-}
+})
 ```
 
 ### Peer Dependencies
@@ -145,7 +147,7 @@ How dependencies are handled varies by version mode:
 
 All packages get the same version:
 
-```
+```text
 core: 1.0.0 → 1.1.0
 ui: 1.0.0 → 1.1.0 (depends on core)
 app: 1.0.0 → 1.1.0 (depends on ui)
@@ -165,9 +167,9 @@ Dependencies in `package.json` are updated to match:
 
 Only changed packages (and dependents) are bumped, but they share versions:
 
-```
+```text
 core: 1.0.0 → 1.1.0 (has commits)
-ui: 1.0.0 → 1.1.0 (depends on core)
+ui: 1.0.0 → 1.0.1 (depends on core - patched)
 app: 1.2.0 → 1.2.0 (no changes, doesn't depend on core)
 ```
 
@@ -175,14 +177,14 @@ app: 1.2.0 → 1.2.0 (no changes, doesn't depend on core)
 
 Each package has its own version. Dependents get minimum patch bump:
 
-```
+```text
 core: 2.0.0 → 2.1.0 (has feature commits)
 ui: 1.5.0 → 1.5.1 (depends on core, gets patch bump)
 ```
 
 If a dependent also has commits, it gets the appropriate bump:
 
-```
+```text
 core: 2.0.0 → 2.1.0 (has feature commits)
 ui: 1.5.0 → 1.6.0 (has its own feature commits)
 ```
@@ -249,7 +251,7 @@ Relizy handles complex scenarios automatically:
 
 ### Diamond Dependencies
 
-```
+```text
        app
       /   \
     ui     admin
@@ -264,7 +266,7 @@ When `core` changes, all packages are updated in the correct order.
 ::: warning
 Circular dependencies are detected and will cause an error. Refactor your packages to remove cycles:
 
-```
+```text
 ui → core → ui  // ❌ Not allowed
 ```
 
@@ -276,14 +278,16 @@ You can exclude packages from dependency tracking:
 
 ```ts
 // relizy.config.ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   monorepo: {
     ignorePackageNames: [
       'example-*', // Ignore example packages
       'docs', // Ignore docs package
     ],
   },
-}
+})
 ```
 
 Ignored packages:
@@ -297,12 +301,12 @@ Ignored packages:
 Use dry run to preview dependency updates:
 
 ```bash
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 ```
 
 Output shows the full dependency tree:
 
-```
+```text
 Packages to bump:
 ✓ @myorg/core: 1.0.0 → 1.1.0 (has commits)
 ✓ @myorg/ui: 1.0.0 → 1.1.0 (depends on core)
@@ -314,13 +318,12 @@ Packages to bump:
 Override automatic dependency detection:
 
 ```bash
-# Only release specific packages
-npx relizy release --minor --packages core,ui
+relizy release --minor
 
 # Relizy will still bump dependents:
 # ✓ core: 1.0.0 → 1.1.0
-# ✓ ui: 1.0.0 → 1.1.0
-# ✓ app: 1.0.0 → 1.1.0 (depends on ui)
+# ✓ ui: 1.0.0 → 1.0.1
+# ✓ app: 1.0.0 → 1.0.1 (depends on ui)
 ```
 
 ## Best Practices
@@ -344,12 +347,12 @@ This ensures packages always reference workspace versions during development.
 Only track the dependency types that matter:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     // Don't bump for devDependency changes
     dependencyTypes: ['dependencies', 'peerDependencies'],
   },
-}
+})
 ```
 
 ### 3. Review Dry Run Output
@@ -357,7 +360,7 @@ export default {
 Always check dependency updates before releasing:
 
 ```bash
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 ```
 
 ### 4. Keep Dependency Graphs Simple
@@ -397,14 +400,14 @@ Stick to one range style across your monorepo:
 Check your `dependencyTypes` configuration:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     dependencyTypes: [
       'dependencies', // Add missing types
       'devDependencies',
     ],
   },
-}
+})
 ```
 
 ### Wrong Version in Dependencies
@@ -424,7 +427,7 @@ Ensure you're using the correct version range format:
 
 Refactor packages to break the cycle:
 
-```
+```text
 Before (circular):
 ui → core → ui
 
@@ -444,7 +447,7 @@ utils → core
 # - packages/ui (depends on utils)
 # - packages/app (depends on ui)
 
-npx relizy release --minor
+relizy release --minor
 
 # Output:
 # ✓ @myorg/core: 1.0.0 → 1.1.0
@@ -458,17 +461,17 @@ npx relizy release --minor
 ```bash
 # Only bump packages/core and its dependents
 
-npx relizy release --minor --packages core
+relizy release --minor
 
 # Output:
 # ✓ @myorg/core: 1.0.0 → 1.1.0
-# ✓ @myorg/utils: 1.0.0 → 1.1.0 (depends on core)
-# ✓ @myorg/ui: 1.0.0 → 1.1.0 (depends on utils)
+# ✓ @myorg/utils: 1.0.0 → 1.0.1 (depends on core)
+# ✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on utils)
 # ○ @myorg/unrelated: 1.0.0 (no dependency)
 ```
 
 ## Next Steps
 
-- [Version Modes](/guide/version-modes) - Understand versioning strategies
-- [Configuration](/config/monorepo) - Configure dependency behavior
-- [CLI Commands](/cli/release) - Learn about release options
+- [Version Modes](version-modes.md) - Understand versioning strategies
+- [Configuration](../config/monorepo.md) - Configure dependency behavior
+- [CLI Commands](../cli/release.md) - Learn about release options

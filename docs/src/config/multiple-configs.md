@@ -15,12 +15,12 @@ Different release strategies for:
 
 Create config files with different names:
 
-```
+```text
 .
 ├── relizy.config.ts          # Default
-├── changelog.production.config.ts
-├── changelog.staging.config.ts
-└── changelog.standalone.config.ts
+├── relizy.production.config.ts
+├── relizy.staging.config.ts
+└── relizy.standalone.config.ts
 ```
 
 ## Usage
@@ -29,13 +29,13 @@ Create config files with different names:
 
 ```bash
 # Use default config
-npx relizy release
+relizy release
 
 # Use production config
-npx relizy release --config production
+relizy release --config production
 
 # Use staging config
-npx relizy release --config staging
+relizy release --config staging
 ```
 
 ### API
@@ -46,7 +46,7 @@ import { release } from 'relizy'
 // Use custom config
 await release({
   config: 'production',
-  releaseType: 'minor',
+  type: 'minor',
 })
 ```
 
@@ -85,7 +85,7 @@ export default {
 ### Standalone Package Config
 
 ```ts
-// changelog.standalone.config.ts
+// relizy.standalone.config.ts
 export default {
   // No monorepo settings
   publish: {

@@ -3,7 +3,7 @@ layout: home
 
 hero:
   name: Relizy
-  text: Seamless and automated release management
+  text: Seamless and automated release manager
   tagline: Automated version bumping, changelog generation, and publishing for monorepos and single packages
   actions:
     - theme: brand
@@ -20,12 +20,15 @@ features:
   - icon: 🚀
     title: Zero Configuration
     details: Works out of the box with sensible defaults. Get started in seconds with a single command, no complex setup required.
+    link: /guide/getting-started
   - icon: 📦
-    title: Monorepo First
+    title: Monorepo Support
     details: Built-in support for monorepos with three versioning strategies (unified, selective, independent) and smart dependency management.
-  - icon: ��
+    link: /config/overview
+  - icon: 📝
     title: Beautiful Changelogs
     details: Automatically generates elegant changelogs from Conventional Commits using changelogen. Markdown formatted and SEO-friendly.
+    link: /guide/changelog
   - icon: 🔄
     title: Smart Version Bumping
     details: Intelligent semantic versioning based on commit types. Automatically bumps dependent packages in monorepos to keep everything in sync.
@@ -50,18 +53,30 @@ features:
 
 Install Relizy in your project:
 
-```bash
+::: code-group
+
+```bash [npm]
 npm install -D relizy
-# or
+```
+
+```bash [pnpm]
 pnpm add -D relizy
-# or
+```
+
+```bash [yarn]
 yarn add -D relizy
 ```
+
+```bash [bun]
+bun add -D relizy
+```
+
+:::
 
 Run your first release:
 
 ```bash
-npx relizy release --patch
+relizy release
 ```
 
 That's it! Relizy will:

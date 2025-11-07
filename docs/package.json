@@ -10,12 +10,16 @@
     "build": "vitepress build",
     "dev": "vitepress dev",
     "ftp-deploy": "ftp-deploy --config ftp.json",
-    "preview": "vitepress preview"
+    "preview": "vitepress preview",
+    "predocs": "typedoc"
   },
   "dependencies": {
     "vue": "^3.5.23"
   },
   "devDependencies": {
+    "typedoc": "^0.28.14",
+    "typedoc-plugin-markdown": "^4.9.0",
+    "typedoc-vitepress-theme": "^1.1.2",
     "vitepress": "2.0.0-alpha.12"
   }
 }

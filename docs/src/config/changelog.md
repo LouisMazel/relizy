@@ -7,7 +7,9 @@ Customize changelog generation.
 Customize how commit types appear in changelogs:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   types: {
     feat: { title: '🎉 New Features', semver: 'minor' },
     fix: { title: '🔧 Bug Fixes', semver: 'patch' },
@@ -15,12 +17,12 @@ export default {
     docs: { title: '📖 Documentation', semver: 'patch' },
     style: { title: '💄 Styling', semver: 'patch' },
     refactor: { title: '🔨 Refactors', semver: 'patch' },
-    test: { title: '🧪 Tests', semver: 'patch' },
-    build: { title: '📦 Build', semver: 'patch' },
-    ci: { title: '🤖 CI/CD', semver: 'patch' },
-    chore: { title: '🧹 Chores', semver: 'patch' },
+    test: { title: '🧪 Tests' },
+    ci: { title: '🤖 CI/CD' },
+    chore: { title: '🧹 Chores' },
+    build: false,
   },
-}
+})
 ```
 
 ## Exclude Authors
@@ -28,13 +30,15 @@ export default {
 Filter out commits from specific authors:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   excludeAuthors: [
     'dependabot[bot]',
     'renovate[bot]',
     'github-actions[bot]',
   ],
-}
+})
 ```
 
 ## Repository URLs
@@ -42,25 +46,21 @@ export default {
 Set custom GitHub/GitLab URLs:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   github: 'user/repo',
   // or
   gitlab: 'user/repo',
-}
-```
-
-## Output Format
-
-```ts
-export default {
-  output: 'CHANGELOG.md', // or 'json'
-}
+})
 ```
 
 ## Complete Example
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   types: {
     feat: { title: '✨ Features', semver: 'minor' },
     fix: { title: '🐛 Fixes', semver: 'patch' },
@@ -68,5 +68,5 @@ export default {
   excludeAuthors: ['dependabot[bot]'],
   github: 'myorg/myrepo',
   output: 'CHANGELOG.md',
-}
+})
 ```

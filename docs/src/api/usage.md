@@ -4,9 +4,25 @@ Use Relizy programmatically in your Node.js scripts and tools.
 
 ## Installation
 
-```bash
-npm install relizy
+::: code-group
+
+```bash [npm]
+npm install -D relizy
 ```
+
+```bash [pnpm]
+pnpm add -D relizy
+```
+
+```bash [yarn]
+yarn add -D relizy
+```
+
+```bash [bun]
+bun add -D relizy
+```
+
+:::
 
 ## Import
 
@@ -21,7 +37,7 @@ import { release } from 'relizy'
 
 // Perform a minor release
 await release({
-  releaseType: 'minor',
+  type: 'minor',
   publish: true,
   providerRelease: true,
 })
@@ -39,13 +55,13 @@ The programmatic API is useful for:
 
 ## Available Functions
 
-| Function                                     | Description                   |
-| -------------------------------------------- | ----------------------------- |
-| [`release()`](/api/release)                  | Complete release workflow     |
-| [`bump()`](/api/bump)                        | Bump package versions         |
-| [`changelog()`](/api/changelog)              | Generate changelogs           |
-| [`publish()`](/api/publish)                  | Publish to npm                |
-| [`providerRelease()`](/api/provider-release) | Create GitHub/GitLab releases |
+| Function                                   | Description                   |
+| ------------------------------------------ | ----------------------------- |
+| [`release()`](release.md)                  | Complete release workflow     |
+| [`bump()`](bump.md)                        | Bump package versions         |
+| [`changelog()`](changelog.md)              | Generate changelogs           |
+| [`publish()`](publish.md)                  | Publish to npm                |
+| [`providerRelease()`](provider-release.md) | Create GitHub/GitLab releases |
 
 ## Basic Usage
 
@@ -55,7 +71,7 @@ The programmatic API is useful for:
 import { release } from 'relizy'
 
 await release({
-  releaseType: 'patch',
+  type: 'patch',
   commit: true,
   tag: true,
   push: true,
@@ -69,7 +85,7 @@ await release({
 import { bump } from 'relizy'
 
 const result = await bump({
-  releaseType: 'minor',
+  type: 'minor',
 })
 
 console.log(`New version: ${result.newVersion}`)
@@ -120,7 +136,7 @@ const config = await loadConfig()
 
 await release({
   ...config,
-  releaseType: 'minor',
+  type: 'minor',
 })
 ```
 
@@ -128,7 +144,7 @@ Or define inline:
 
 ```ts
 await release({
-  releaseType: 'minor',
+  type: 'minor',
   monorepo: {
     versionMode: 'selective',
     packageGlobs: ['packages/*'],
@@ -144,7 +160,7 @@ import { release } from 'relizy'
 
 try {
   await release({
-    releaseType: 'minor',
+    type: 'minor',
   })
   console.log('Release successful!')
 }
@@ -162,7 +178,7 @@ Relizy is written in TypeScript and provides full type definitions:
 import type { BumpOptions, ReleaseOptions } from 'relizy'
 
 const options: ReleaseOptions = {
-  releaseType: 'minor',
+  type: 'minor',
   publish: true,
   providerRelease: false,
 }
@@ -178,7 +194,7 @@ import { release } from 'relizy'
 const isProduction = process.env.NODE_ENV === 'production'
 
 await release({
-  releaseType: 'minor',
+  type: 'minor',
   publish: isProduction, // Only publish in production
   providerRelease: isProduction,
 })
@@ -190,7 +206,7 @@ await release({
 import { bump, changelog, providerRelease, publish } from 'relizy'
 
 // Stage 1: Bump version
-const { newVersion } = await bump({ releaseType: 'minor' })
+const { newVersion } = await bump({ type: 'minor' })
 
 // Stage 2: Generate changelog
 await changelog()
@@ -212,7 +228,7 @@ import { bump } from 'relizy'
 
 // Get changed packages
 const { packages } = await bump({
-  releaseType: 'minor',
+  type: 'minor',
   dryRun: true,
 })
 
@@ -227,7 +243,7 @@ for (const pkg of packages) {
 }
 
 // Perform actual bump
-await bump({ releaseType: 'minor' })
+await bump({ type: 'minor' })
 ```
 
 ## Examples
@@ -268,7 +284,7 @@ import { release } from 'relizy'
 const isCI = process.env.CI === 'true'
 
 await release({
-  releaseType: 'minor',
+  type: 'minor',
   yes: isCI, // Auto-confirm in CI
   noGitChecks: isCI, // Skip git checks in CI
   publish: isCI,
@@ -280,8 +296,10 @@ await release({
 
 Explore individual API functions:
 
-- [release()](/api/release) - Complete release workflow
-- [bump()](/api/bump) - Version bumping
-- [changelog()](/api/changelog) - Changelog generation
-- [publish()](/api/publish) - NPM publishing
-- [providerRelease()](/api/provider-release) - Provider releases
+- [release()](release.md) - Complete release workflow
+- [bump()](bump.md) - Version bumping
+- [changelog()](changelog.md) - Changelog generation
+- [publish()](publish.md) - NPM publishing
+- [providerRelease()](provider-release.md) - Provider releases
+- [createCommitAndTags()](create-commit-and-tags.md) - Create commit and tags
+- [loadRelizyConfig()](load-relizy-config.md) - Load Relizy config

@@ -45,7 +45,7 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Release
-        run: npx relizy release --${{ inputs.release_type }} --yes --publish --provider-release
+        run: relizy release --${{ inputs.release_type }} --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -80,7 +80,7 @@ Usage in workflow:
 
 ```yaml
 - name: Release
-  run: npx relizy release --${{ inputs.release_type }} --yes ${{ inputs.dry_run && '--dry-run' || '' }}
+  run: relizy release --${{ inputs.release_type }} --yes ${{ inputs.dry_run && '--dry-run' || '' }}
 ```
 
 ### On Push to Main
@@ -115,7 +115,7 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'release:patch')
 
     steps:
-      - run: npx relizy release --patch --yes
+      - run: relizy release --patch --yes
 ```
 
 ### On Schedule
@@ -130,7 +130,7 @@ on:
 jobs:
   release:
     steps:
-      - run: npx relizy release --yes
+      - run: relizy release --yes
 ```
 
 ## Authentication
@@ -237,9 +237,7 @@ jobs:
 
       - name: Release
         run: |
-          PUBLISH_FLAG=${{ inputs.publish_npm && '--publish' || '' }}
-          PROVIDER_FLAG=${{ inputs.create_github_release && '--provider-release' || '' }}
-          npx relizy release --${{ inputs.release_type }} --yes $PUBLISH_FLAG $PROVIDER_FLAG
+          relizy release --${{ inputs.release_type }} --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -247,9 +245,7 @@ jobs:
       - name: Create release summary
         run: |
           echo "## Release Summary" >> $GITHUB_STEP_SUMMARY
-          echo "Release type: ${{ inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
-          echo "NPM publish: ${{ inputs.publish_npm }}" >> $GITHUB_STEP_SUMMARY
-          echo "GitHub release: ${{ inputs.create_github_release }}" >> $GITHUB_STEP_SUMMARY
+          echo "Release type: ${{ inputs.release_type }}" >> $GITHUB_STEP_SUMMARYw
 ```
 
 ### Monorepo Release Workflow
@@ -306,8 +302,7 @@ jobs:
 
       - name: Release
         run: |
-          PACKAGES_FLAG=${{ inputs.packages && format('--packages {0}', inputs.packages) || '' }}
-          npx relizy release --${{ inputs.release_type }} --yes --publish --provider-release $PACKAGES_FLAG
+          relizy release --${{ inputs.release_type }} --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
@@ -355,12 +350,12 @@ jobs:
       - name: Bump version
         id: bump
         run: |
-          npx relizy bump --${{ inputs.release_type }} --yes
+          relizy bump --${{ inputs.release_type }} --yes
           VERSION=$(node -p "require('./package.json').version")
           echo "version=$VERSION" >> $GITHUB_OUTPUT
 
       - name: Create changelog
-        run: npx relizy changelog
+        run: relizy changelog
 
       - name: Commit and tag
         run: |
@@ -387,7 +382,7 @@ jobs:
 
       - run: npm ci
       - run: npm run build
-      - run: npx relizy publish --yes
+      - run: relizy publish --yes
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
@@ -403,42 +398,9 @@ jobs:
           ref: v${{ needs.bump.outputs.version }}
 
       - name: Create GitHub Release
-        run: npx relizy provider-release --yes
+        run: relizy provider-release --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-## Matrix Strategy for Monorepos
-
-Test and publish multiple packages in parallel:
-
-```yaml
-jobs:
-  detect-packages:
-    runs-on: ubuntu-latest
-    outputs:
-      packages: ${{ steps.packages.outputs.list }}
-    steps:
-      - uses: actions/checkout@v4
-      - id: packages
-        run: |
-          PACKAGES=$(ls -d packages/* | jq -R -s -c 'split("\n")[:-1]')
-          echo "list=$PACKAGES" >> $GITHUB_OUTPUT
-
-  publish:
-    needs: detect-packages
-    runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        package: ${{ fromJson(needs.detect-packages.outputs.packages) }}
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-      - run: npm ci
-      - name: Publish ${{ matrix.package }}
-        run: npx relizy publish --packages $(basename ${{ matrix.package }})
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
 ## Conditional Publishing
@@ -459,7 +421,7 @@ jobs:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - run: npx relizy release --yes --publish
+      - run: relizy release --yes
 ```
 
 ## Notifications
@@ -518,7 +480,7 @@ jobs:
     needs: approve
     runs-on: ubuntu-latest
     steps:
-      - run: npx relizy release --yes
+      - run: relizy release --yes
 ```
 
 ### 3. Cache Dependencies
@@ -551,7 +513,7 @@ Add release summaries:
 - run: |
     echo "## Release v$VERSION" >> $GITHUB_STEP_SUMMARY
     echo "Type: ${{ inputs.release_type }}" >> $GITHUB_STEP_SUMMARY
-    npx relizy changelog >> $GITHUB_STEP_SUMMARY
+    relizy changelog >> $GITHUB_STEP_SUMMARY
 ```
 
 ## Troubleshooting
@@ -582,7 +544,7 @@ Ensure artifacts are built before releasing:
 
 ```yaml
 - run: npm run build
-- run: npx relizy release --yes
+- run: relizy release --yes
 ```
 
 ## Next Steps

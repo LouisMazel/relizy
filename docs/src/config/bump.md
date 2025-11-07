@@ -7,26 +7,30 @@ Configure version bumping behavior.
 Set prerelease identifier:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   bump: {
     preid: 'beta', // For pre-releases like 1.0.0-beta.1
   },
-}
+})
 ```
 
 ## Complete Example
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   bump: {
     preid: 'beta',
   },
-}
+})
 ```
 
 Usage:
 
 ```bash
-npx relizy bump --prerelease
+relizy bump --prerelease
 # Results in: 1.0.0 → 1.0.0-beta.0
 ```

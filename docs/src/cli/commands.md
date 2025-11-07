@@ -23,8 +23,8 @@ These options work with all commands:
 Specify which config file to use:
 
 ```bash
-relizy release --config standalone
-# Uses changelog.standalone.config.ts
+relizy release --config relizy.standalone
+# Uses relizy.standalone.config.ts
 ```
 
 ### --log-level
@@ -58,64 +58,53 @@ relizy release --patch --yes
 
 ```bash
 # Interactive - asks for confirmation
-npx relizy release --minor
+relizy release --minor
 
 # Automatic - no prompts
-npx relizy release --minor --yes
-
-# With publishing
-npx relizy release --minor --publish --provider-release
+relizy release --minor --yes
 ```
 
 ### Version Bump Only
 
 ```bash
 # Bump patch version
-npx relizy bump --patch
+relizy bump --patch
 
 # Bump minor version
-npx relizy bump --minor
+relizy bump --minor
 
 # Bump major version
-npx relizy bump --major
+relizy bump --major
 ```
 
 ### Changelog Only
 
 ```bash
 # Generate changelog
-npx relizy changelog
+relizy changelog
 
 # From specific version
-npx relizy changelog --from v1.0.0
+relizy changelog --from v1.0.0
 ```
 
 ### Publish Only
 
 ```bash
 # Publish all packages
-npx relizy publish
+relizy publish
 
 # Publish specific packages
-npx relizy publish --packages core,utils
+relizy publish
 ```
 
 ### Provider Release Only
 
 ```bash
 # Create GitHub/GitLab release
-npx relizy provider-release
+relizy provider-release
 ```
 
 ## Monorepo-Specific Options
-
-### --packages
-
-Select specific packages:
-
-```bash
-relizy release --minor --packages core,utils
-```
 
 ### Version Modes
 
@@ -123,11 +112,13 @@ Set in config file:
 
 ```ts
 // relizy.config.ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   monorepo: {
     versionMode: 'selective', // 'unified' | 'selective' | 'independent'
   },
-}
+})
 ```
 
 ## Common Workflows
@@ -140,7 +131,7 @@ git add .
 git commit -m "feat: new feature"
 
 # 2. Release
-npx relizy release --minor
+relizy release --minor
 
 # Done! Version bumped, changelog updated, committed, and tagged
 ```
@@ -149,34 +140,34 @@ npx relizy release --minor
 
 ```bash
 # Complete release + npm publish + GitHub release
-npx relizy release --minor --publish --provider-release
+relizy release --minor
 ```
 
 ### Preview Before Release
 
 ```bash
 # See what would happen
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 
 # If satisfied, run for real
-npx relizy release --minor
+relizy release --minor
 ```
 
 ### Monorepo Selective Release
 
 ```bash
 # Only release changed packages
-npx relizy release --selective --minor
+relizy release --selective --minor
 ```
 
 ### Manual Control
 
 ```bash
 # Step 1: Bump version
-npx relizy bump --minor
+relizy bump --minor
 
 # Step 2: Generate changelog
-npx relizy changelog
+relizy changelog
 
 # Step 3: Commit and tag manually
 git add .
@@ -184,10 +175,10 @@ git commit -m "chore(release): v1.2.0"
 git tag v1.2.0
 
 # Step 4: Publish
-npx relizy publish
+relizy publish
 
 # Step 5: Create provider release
-npx relizy provider-release
+relizy provider-release
 ```
 
 ## Command Chaining
@@ -196,14 +187,14 @@ While Relizy doesn't support chaining directly, you can use shell operators:
 
 ```bash
 # Run multiple commands
-npx relizy bump --patch && \
-npx relizy changelog && \
-npx relizy publish
+relizy bump --patch && \
+relizy changelog && \
+relizy publish
 
 # With error handling
-npx relizy bump --patch || exit 1
-npx relizy changelog || exit 1
-npx relizy publish || exit 1
+relizy bump --patch || exit 1
+relizy changelog || exit 1
+relizy publish || exit 1
 ```
 
 ## Exit Codes
@@ -217,7 +208,7 @@ Relizy uses standard exit codes:
 Use in scripts:
 
 ```bash
-if npx relizy release --patch; then
+if relizy release --patch; then
   echo "Release successful"
 else
   echo "Release failed"
@@ -230,7 +221,7 @@ fi
 Get detailed output for troubleshooting:
 
 ```bash
-npx relizy release --minor --log-level debug
+relizy release --minor --log-level debug
 ```
 
 This shows:
@@ -247,22 +238,22 @@ Get help for any command:
 
 ```bash
 # General help
-npx relizy --help
+relizy --help
 
 # Command-specific help
-npx relizy release --help
-npx relizy bump --help
-npx relizy changelog --help
-npx relizy publish --help
-npx relizy provider-release --help
+relizy release --help
+relizy bump --help
+relizy changelog --help
+relizy publish --help
+relizy provider-release --help
 ```
 
 ## Next Steps
 
 Dive deeper into each command:
 
-- [release](/cli/release) - Full release workflow
-- [bump](/cli/bump) - Version bumping
-- [changelog](/cli/changelog) - Changelog generation
-- [publish](/cli/publish) - NPM publishing
-- [provider-release](/cli/provider-release) - GitHub/GitLab releases
+- [release](release.md) - Full release workflow
+- [bump](bump.md) - Version bumping
+- [changelog](changelog.md) - Changelog generation
+- [publish](publish.md) - NPM publishing
+- [provider-release](provider-release.md) - GitHub/GitLab releases

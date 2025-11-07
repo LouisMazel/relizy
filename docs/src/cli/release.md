@@ -5,7 +5,7 @@ Execute the complete release workflow in a single command.
 ## Usage
 
 ```bash
-npx relizy release [options]
+relizy release [options]
 ```
 
 ## What It Does
@@ -16,8 +16,8 @@ The `release` command combines multiple operations:
 2. ✅ Generates/updates CHANGELOG.md
 3. ✅ Creates a git commit
 4. ✅ Creates a git tag
-5. ✅ Publishes to npm (if `--publish` flag used)
-6. ✅ Creates GitHub/GitLab release (if `--provider-release` flag used)
+5. ✅ Publishes to npm
+6. ✅ Creates GitHub/GitLab release
 
 ## Options
 
@@ -27,55 +27,23 @@ Specify the version bump type:
 
 ```bash
 # Patch release (1.0.0 → 1.0.1)
-npx relizy release --patch
+relizy release --patch
 
 # Minor release (1.0.0 → 1.1.0)
-npx relizy release --minor
+relizy release --minor
 
 # Major release (1.0.0 → 2.0.0)
-npx relizy release --major
+relizy release --major
 ```
 
 If no type is specified, Relizy automatically detects it from commits.
-
-### --publish
-
-Publish to npm after releasing:
-
-```bash
-npx relizy release --minor --publish
-```
-
-### --provider-release
-
-Create GitHub or GitLab release:
-
-```bash
-npx relizy release --minor --provider-release
-```
-
-### --packages
-
-Release specific packages (monorepo):
-
-```bash
-npx relizy release --minor --packages core,utils
-```
 
 ### --no-commit
 
 Skip creating git commit:
 
 ```bash
-npx relizy release --minor --no-commit
-```
-
-### --no-tag
-
-Skip creating git tag:
-
-```bash
-npx relizy release --minor --no-tag
+relizy release --minor --no-commit
 ```
 
 ### --no-push
@@ -83,7 +51,7 @@ npx relizy release --minor --no-tag
 Skip pushing to remote:
 
 ```bash
-npx relizy release --minor --no-push
+relizy release --minor --no-push
 ```
 
 ### --dry-run
@@ -91,7 +59,7 @@ npx relizy release --minor --no-push
 Preview changes without executing:
 
 ```bash
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 ```
 
 ### --yes
@@ -99,7 +67,7 @@ npx relizy release --minor --dry-run
 Skip all confirmations:
 
 ```bash
-npx relizy release --minor --yes
+relizy release --minor --yes
 ```
 
 ## Examples
@@ -108,7 +76,7 @@ npx relizy release --minor --yes
 
 ```bash
 # Interactive release
-npx relizy release --patch
+relizy release --patch
 
 # Output:
 # → Bumping version to 1.0.1
@@ -122,7 +90,7 @@ npx relizy release --patch
 ### Complete Release with Publishing
 
 ```bash
-npx relizy release --minor --publish --provider-release
+relizy release --minor
 
 # This will:
 # 1. Bump to 1.1.0
@@ -135,7 +103,7 @@ npx relizy release --minor --publish --provider-release
 ### Monorepo Selective Release
 
 ```bash
-npx relizy release --selective --minor
+relizy release --selective --minor
 
 # Only packages with changes are bumped
 ```
@@ -144,7 +112,7 @@ npx relizy release --selective --minor
 
 ```bash
 # Automated release in CI
-npx relizy release --patch --yes --no-git-checks
+relizy release --patch --yes --no-clean
 ```
 
 ## See Also

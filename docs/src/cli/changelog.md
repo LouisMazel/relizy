@@ -5,7 +5,7 @@ Generate or update CHANGELOG.md files.
 ## Usage
 
 ```bash
-npx relizy changelog [options]
+relizy changelog [options]
 ```
 
 ## What It Does
@@ -26,7 +26,7 @@ The `changelog` command:
 Start changelog from specific version:
 
 ```bash
-npx relizy changelog --from v1.0.0
+relizy changelog --from v1.0.0
 ```
 
 ### --to
@@ -34,27 +34,7 @@ npx relizy changelog --from v1.0.0
 End changelog at specific version:
 
 ```bash
-npx relizy changelog --to v2.0.0
-```
-
-### --packages
-
-Generate for specific packages:
-
-```bash
-npx relizy changelog --packages core
-```
-
-### --output
-
-Specify output format:
-
-```bash
-# Markdown (default)
-npx relizy changelog --output markdown
-
-# JSON
-npx relizy changelog --output json
+relizy changelog --to v2.0.0
 ```
 
 ## Examples
@@ -62,7 +42,7 @@ npx relizy changelog --output json
 ### Basic Usage
 
 ```bash
-npx relizy changelog
+relizy changelog
 
 # Generates changelog from last tag to HEAD
 ```
@@ -70,7 +50,7 @@ npx relizy changelog
 ### Custom Range
 
 ```bash
-npx relizy changelog --from v1.0.0 --to v2.0.0
+relizy changelog --from v1.0.0 --to v2.0.0
 
 # Generates changelog for specific version range
 ```
@@ -78,7 +58,7 @@ npx relizy changelog --from v1.0.0 --to v2.0.0
 ### Monorepo
 
 ```bash
-npx relizy changelog
+relizy changelog
 
 # Generates changelogs for all packages
 ```
@@ -88,7 +68,7 @@ npx relizy changelog
 ```md
 # Changelog
 
-## v1.2.0 (2024-03-15)
+## v1.2.0
 
 ### 🚀 Features
 
@@ -101,5 +81,5 @@ npx relizy changelog
 
 ## See Also
 
-- [release](/cli/release) - Full release workflow
-- [Changelog Guide](/guide/changelog) - Detailed changelog documentation
+- [release](release.md) - Full release workflow
+- [Changelog Guide](../guide/changelog.md) - Detailed changelog documentation

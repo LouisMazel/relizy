@@ -7,11 +7,13 @@ Configure NPM publishing.
 Set package access level:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   publish: {
     access: 'public', // or 'restricted'
   },
-}
+})
 ```
 
 ## tag
@@ -19,11 +21,13 @@ export default {
 Set npm dist-tag:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   publish: {
     tag: 'latest', // or 'beta', 'next', etc.
   },
-}
+})
 ```
 
 ## registry
@@ -31,21 +35,25 @@ export default {
 Use custom npm registry:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   publish: {
     registry: 'https://registry.npmjs.org',
   },
-}
+})
 ```
 
 ## Complete Example
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   publish: {
     access: 'public',
     tag: 'latest',
     registry: 'https://registry.npmjs.org',
   },
-}
+})
 ```

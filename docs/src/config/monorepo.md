@@ -7,11 +7,13 @@ Configure monorepo-specific behavior.
 Choose how versions are managed:
 
 ```ts
-export default {
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
   monorepo: {
     versionMode: 'selective', // 'unified' | 'selective' | 'independent'
   },
-}
+})
 ```
 
 - **unified**: All packages share the same version
@@ -20,20 +22,20 @@ export default {
 
 Learn more: [Version Modes](/guide/version-modes)
 
-## packageGlobs
+## packages
 
 Specify where packages are located:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
-    packageGlobs: [
+    packages: [
       'packages/*',
       'apps/*',
       'libs/*',
     ],
   },
-}
+})
 ```
 
 ## dependencyTypes
@@ -41,7 +43,7 @@ export default {
 Which dependency types trigger bumps:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     dependencyTypes: [
       'dependencies', // Production deps
@@ -49,7 +51,7 @@ export default {
       'peerDependencies', // Peer deps
     ],
   },
-}
+})
 ```
 
 ## ignorePackageNames
@@ -57,26 +59,26 @@ export default {
 Exclude specific packages:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     ignorePackageNames: [
-      'example-*', // Glob patterns supported
+      'example-a',
       'docs',
       '@myorg/private',
     ],
   },
-}
+})
 ```
 
 ## Complete Example
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*', 'apps/*'],
+    packages: ['packages/*', 'apps/*'],
     dependencyTypes: ['dependencies', 'peerDependencies'],
-    ignorePackageNames: ['example-*', 'docs'],
+    ignorePackageNames: ['example-a', 'docs'],
   },
-}
+})
 ```

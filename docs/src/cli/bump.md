@@ -5,7 +5,7 @@ Update version numbers in package.json files.
 ## Usage
 
 ```bash
-npx relizy bump [options]
+relizy bump [options]
 ```
 
 ## What It Does
@@ -24,21 +24,13 @@ The `bump` command:
 
 ```bash
 # Patch (1.0.0 → 1.0.1)
-npx relizy bump --patch
+relizy bump --patch
 
 # Minor (1.0.0 → 1.1.0)
-npx relizy bump --minor
+relizy bump --minor
 
 # Major (1.0.0 → 2.0.0)
-npx relizy bump --major
-```
-
-### --packages
-
-Bump specific packages:
-
-```bash
-npx relizy bump --minor --packages core,utils
+relizy bump --major
 ```
 
 ### --dry-run
@@ -46,7 +38,7 @@ npx relizy bump --minor --packages core,utils
 Preview version changes:
 
 ```bash
-npx relizy bump --minor --dry-run
+relizy bump --minor --dry-run
 ```
 
 ### --yes
@@ -54,7 +46,7 @@ npx relizy bump --minor --dry-run
 Skip confirmations:
 
 ```bash
-npx relizy bump --minor --yes
+relizy bump --minor --yes
 ```
 
 ## Examples
@@ -62,7 +54,7 @@ npx relizy bump --minor --yes
 ### Single Package
 
 ```bash
-npx relizy bump --patch
+relizy bump --patch
 
 # Before: "version": "1.0.0"
 # After:  "version": "1.0.1"
@@ -71,7 +63,7 @@ npx relizy bump --patch
 ### Monorepo
 
 ```bash
-npx relizy bump --minor
+relizy bump --minor
 
 # packages/core: 1.0.0 → 1.1.0
 # packages/ui: 1.0.0 → 1.1.0 (depends on core)
@@ -80,7 +72,7 @@ npx relizy bump --minor
 ### Preview Changes
 
 ```bash
-npx relizy bump --major --dry-run
+relizy bump --major --dry-run
 
 # Output:
 # Packages to bump:
@@ -90,5 +82,4 @@ npx relizy bump --major --dry-run
 
 ## See Also
 
-- [release](/cli/release) - Full release workflow
-- [Version Modes](/guide/version-modes) - Versioning strategies
+- [release](release.md) - Full release workflow

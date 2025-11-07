@@ -14,9 +14,18 @@ function changelog(options?: ChangelogOptions): Promise<void>
 interface ChangelogOptions {
   from?: string
   to?: string
-  packages?: string[]
-  output?: 'markdown' | 'json'
-  config?: string
+  dryRun?: boolean
+  bumpedPackages?: PackageInfo[]
+  config?: ResolvedRelizyConfig
+  logLevel?: LogLevel
+  configName?: string
+  formatCmd?: string
+  rootChangelog?: boolean
+  /**
+   * Include commit body in the changelog.
+   * @default true
+   */
+  includeCommitBody?: boolean
 }
 ```
 
@@ -33,5 +42,5 @@ await changelog({
 
 ## See Also
 
-- [CLI reference](/cli/changelog)
-- [API usage](/api/usage)
+- [CLI reference](../cli/changelog.md)
+- [API usage](usage.md)

@@ -11,12 +11,16 @@ function providerRelease(options?: ProviderReleaseOptions): Promise<void>
 ## Options
 
 ```ts
-interface ProviderReleaseOptions {
-  packages?: string[]
-  draft?: boolean
-  prerelease?: boolean
-  yes?: boolean
-  config?: string
+export interface ProviderReleaseOptions {
+  from?: string
+  to?: string
+  token?: string
+  config?: ResolvedRelizyConfig
+  configName?: string
+  provider?: GitProvider
+  bumpResult?: BumpResult
+  logLevel?: LogLevel
+  dryRun?: boolean
 }
 ```
 
@@ -33,5 +37,5 @@ await providerRelease({
 
 ## See Also
 
-- [CLI reference](/cli/provider-release)
-- [API usage](/api/usage)
+- [CLI reference](../cli/provider-release.md)
+- [API usage](usage.md)

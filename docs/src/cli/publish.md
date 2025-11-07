@@ -5,7 +5,7 @@ Publish packages to npm registry.
 ## Usage
 
 ```bash
-npx relizy publish [options]
+relizy publish [options]
 ```
 
 ## What It Does
@@ -20,20 +20,12 @@ The `publish` command:
 
 ## Options
 
-### --packages
-
-Publish specific packages:
-
-```bash
-npx relizy publish --packages core,utils
-```
-
 ### --tag
 
 Publish with npm dist-tag:
 
 ```bash
-npx relizy publish --tag beta
+relizy publish --tag beta
 ```
 
 ### --access
@@ -42,10 +34,34 @@ Set package access:
 
 ```bash
 # Public package
-npx relizy publish --access public
+relizy publish --access public
 
 # Private package
-npx relizy publish --access restricted
+relizy publish --access restricted
+```
+
+### --otp
+
+Provide one-time password for 2FA:
+
+```bash
+relizy publish --otp 123456
+```
+
+### --build-cmd
+
+Provide build command:
+
+```bash
+relizy publish --build-cmd pnpm build
+```
+
+### --registry
+
+Provide custom registry URL:
+
+```bash
+relizy publish --registry https://my-registry.com
 ```
 
 ### --dry-run
@@ -53,15 +69,7 @@ npx relizy publish --access restricted
 Test publish without actually publishing:
 
 ```bash
-npx relizy publish --dry-run
-```
-
-### --yes
-
-Skip confirmations:
-
-```bash
-npx relizy publish --yes
+relizy publish --dry-run
 ```
 
 ## Examples
@@ -69,7 +77,7 @@ npx relizy publish --yes
 ### Basic Publish
 
 ```bash
-npx relizy publish
+relizy publish
 
 # Publishes current version to npm
 ```
@@ -77,7 +85,7 @@ npx relizy publish
 ### Beta Release
 
 ```bash
-npx relizy publish --tag beta
+relizy publish --tag beta
 
 # Publish as beta version
 # npm install my-package@beta
@@ -86,17 +94,9 @@ npx relizy publish --tag beta
 ### Monorepo
 
 ```bash
-npx relizy publish
+relizy publish
 
 # Publishes all packages in monorepo
-```
-
-### Specific Packages
-
-```bash
-npx relizy publish --packages core
-
-# Only publish @myorg/core
 ```
 
 ## Authentication
@@ -105,7 +105,7 @@ npx relizy publish --packages core
 
 ```bash
 export NPM_TOKEN=your_token_here
-npx relizy publish
+relizy publish
 ```
 
 ### .npmrc

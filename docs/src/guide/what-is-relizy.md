@@ -1,6 +1,6 @@
 # What is Relizy?
 
-Relizy is a powerful, automated release management tool designed for modern JavaScript projects. It handles the entire release workflow from version bumping to publishing, with first-class support for both monorepos and single packages.
+Relizy is a powerful, automated release management tool designed for modern projects (monorepos or single packages). It handles the entire release workflow from version bumping to publishing, with first-class support for both monorepos and single packages.
 
 ## The Problem
 
@@ -20,7 +20,7 @@ Doing all this manually is tedious, error-prone, and time-consuming.
 Relizy automates the entire release workflow with a single command:
 
 ```bash
-npx relizy release --patch
+relizy release
 ```
 
 This one command will:
@@ -38,15 +38,19 @@ This one command will:
 
 ### 🎯 Zero Configuration
 
+No configuration needed for standalone / single packages.
+
 Relizy works out of the box with sensible defaults. No complex configuration files or steep learning curve.
+
+For monorepos, you must use the `monorepo` configuration option.
 
 ### 📦 Monorepo First
 
 Built specifically to handle the complexity of monorepos:
 
 - **Unified versioning** - All packages share the same version
-- **Selective versioning** - Only bump packages with changes
-- **Independent versioning** - Each package has its own version
+- **Selective versioning** - Only bump packages with changes and packages that depend on them
+- **Independent versioning** - Each package has its own version and tags
 
 ### 🤖 Smart Automation
 
@@ -55,6 +59,7 @@ Automatically detects:
 - Which packages need version bumps based on commits
 - Dependent packages that need updates
 - The appropriate semantic version bump (major/minor/patch)
+- Auto detect your git provider (GitHub or GitLab)
 
 ### 🔄 Based on Standards
 
@@ -70,12 +75,14 @@ Built on top of proven tools and standards:
 
 Perfect for monorepos with multiple interconnected packages:
 
-```
+```text
 my-project/
 ├── packages/
 │   ├── core/
 │   ├── utils/
 │   └── ui/
+├── relizy.config.ts
+└── package.json
 ```
 
 Relizy automatically handles dependency updates when one package depends on another.
@@ -84,11 +91,12 @@ Relizy automatically handles dependency updates when one package depends on anot
 
 Works just as well for simple single-package projects:
 
-```
+```text
 my-library/
 ├── package.json
 ├── src/
-└── CHANGELOG.md
+├── CHANGELOG.md
+└── relizy.config.ts (optional)
 ```
 
 ### CI/CD Pipelines
@@ -98,7 +106,7 @@ Integrate seamlessly into your automation:
 ```yaml
 # GitHub Actions example
 - name: Release
-  run: npx relizy release --patch --no-git-checks
+  run: relizy release --yes
 ```
 
 ## How It Works
@@ -107,7 +115,10 @@ Integrate seamlessly into your automation:
 2. **Calculate Versions** - Determines the new version based on commit types
 3. **Update Files** - Updates package.json and generates CHANGELOG.md
 4. **Git Operations** - Creates commits and tags
-5. **Publish** - Optionally publishes to npm and creates provider releases
+5. **Publish** - Publishes to npm
+6. **Provider Release** - Creates releases on GitHub/GitLab
+
+> Each step is optional and can be disabled using the corresponding configuration option.
 
 ## Who Is It For?
 
@@ -123,6 +134,6 @@ Relizy is perfect for:
 
 Ready to get started? Check out:
 
-- [Installation](/guide/installation) - Install Relizy in your project
-- [Getting Started](/guide/getting-started) - Your first release
-- [Version Modes](/guide/version-modes) - Choose the right versioning strategy
+- [Installation](installation.md) - Install Relizy in your project
+- [Getting Started](getting-started.md) - Your first release
+- [Version Modes](version-modes.md) - Choose the right versioning strategy

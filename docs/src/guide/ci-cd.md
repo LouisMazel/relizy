@@ -17,14 +17,10 @@ Set these in your CI/CD environment:
 NPM_TOKEN=your_npm_token
 
 # Required for GitHub releases
-GITHUB_TOKEN=your_github_token
+RELIZY_GITHUB_TOKEN=your_github_token
 
 # Required for GitLab releases
-GITLAB_TOKEN=your_gitlab_token
-
-# Optional: Set git user for commits
-GIT_USER_NAME="Release Bot"
-GIT_USER_EMAIL="bot@example.com"
+RELIZY_GITLAB_TOKEN=your_gitlab_token
 ```
 
 ### Git Configuration
@@ -32,8 +28,8 @@ GIT_USER_EMAIL="bot@example.com"
 Configure git in your CI environment:
 
 ```bash
-git config --global user.name "$GIT_USER_NAME"
-git config --global user.email "$GIT_USER_EMAIL"
+git config --global user.name "github-actions[bot]"
+git config --global user.email "github-actions[bot]@users.noreply.github.com"
 ```
 
 ### SSH Keys
@@ -72,7 +68,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
       - run: npm install
-      - run: npx relizy release --${{ inputs.release_type }} --yes
+      - run: relizy release --${{ inputs.release_type }} --yes
 ```
 
 ### On Tag Push
@@ -94,8 +90,8 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
       - run: npm install
-      - run: npx relizy publish
-      - run: npx relizy provider-release
+      - run: relizy publish
+      - run: relizy provider-release
 ```
 
 ### On Main Branch Push
@@ -119,7 +115,7 @@ jobs:
           fetch-depth: 0 # Fetch all history
       - uses: actions/setup-node@v4
       - run: npm install
-      - run: npx relizy release --yes
+      - run: relizy release --yes
 ```
 
 ### On PR Merge with Label
@@ -141,7 +137,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
       - run: npm install
-      - run: npx relizy release --yes
+      - run: relizy release --yes
 ```
 
 ## Important Flags for CI
@@ -151,15 +147,15 @@ jobs:
 Skip all interactive prompts:
 
 ```bash
-npx relizy release --minor --yes
+relizy release --minor --yes
 ```
 
-### --no-git-checks
+### --no-clean
 
 Skip git status checks (useful in CI where working directory may have artifacts):
 
 ```bash
-npx relizy release --minor --no-git-checks
+relizy release --minor --no-clean
 ```
 
 ### --dry-run
@@ -167,7 +163,7 @@ npx relizy release --minor --no-git-checks
 Test the release process without making changes:
 
 ```bash
-npx relizy release --minor --dry-run
+relizy release --minor --dry-run
 ```
 
 ### --log-level
@@ -175,7 +171,7 @@ npx relizy release --minor --dry-run
 Control logging verbosity:
 
 ```bash
-npx relizy release --minor --log-level debug
+relizy release --minor --log-level debug
 ```
 
 ## Complete Examples
@@ -205,7 +201,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0 # Fetch all history for changelog
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.RELIZY_GITHUB_TOKEN }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -222,9 +218,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Release
-        run: npx relizy release --${{ inputs.release_type }} --yes --publish --provider-release
+        run: relizy release --${{ inputs.release_type }} --yes
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELIZY_GITHUB_TOKEN: ${{ secrets.RELIZY_GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
@@ -241,9 +237,9 @@ release:
     - npm ci
     - git config user.name "GitLab CI"
     - git config user.email "ci@gitlab.com"
-    - npx relizy release --yes --publish --provider-release
+    - relizy release --yes
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
+    RELIZY_GITLAB_TOKEN: $CI_JOB_TOKEN
     NPM_TOKEN: $NPM_TOKEN
 ```
 
@@ -271,7 +267,7 @@ jobs:
             git config user.email "ci@circleci.com"
       - run:
           name: Release
-          command: npx relizy release --yes --publish
+          command: relizy release --yes
       - save_cache:
           paths:
             - node_modules
@@ -294,26 +290,7 @@ Only publish packages that changed:
 
 ```yaml
 - name: Release
-  run: npx relizy release --selective --yes --publish
-```
-
-### Parallel Publishing
-
-For independent mode, publish packages in parallel:
-
-```yaml
-- name: Get changed packages
-  id: packages
-  run: |
-    PACKAGES=$(npx relizy bump --independent --dry-run --json | jq -r '.packages | join(",")')
-    echo "packages=$PACKAGES" >> $GITHUB_OUTPUT
-
-- name: Publish packages
-  run: |
-    for pkg in $(echo "${{ steps.packages.outputs.packages }}" | tr ',' ' '); do
-      npx relizy publish --packages $pkg &
-    done
-    wait
+  run: relizy release --yes
 ```
 
 ## Security Best Practices
@@ -356,7 +333,7 @@ Log all releases for audit trails:
 
 ```yaml
 - name: Release
-  run: npx relizy release --yes | tee release.log
+  run: relizy release --yes | tee release.log
 
 - name: Upload logs
   uses: actions/upload-artifact@v4
@@ -374,7 +351,7 @@ Ensure you have proper permissions:
 ```yaml
 - uses: actions/checkout@v4
   with:
-    token: ${{ secrets.GITHUB_TOKEN }}
+    token: ${{ secrets.RELIZY_GITHUB_TOKEN }}
     # or use a PAT with wider permissions
     # token: ${{ secrets.PAT_TOKEN }}
 ```
@@ -407,14 +384,14 @@ Ensure you fetch all git history:
 
 ### Dirty Working Directory
 
-Use `--no-git-checks` in CI:
+Use `--no-clean` in CI:
 
 ```bash
-npx relizy release --yes --no-git-checks
+relizy release --yes --no-clean
 ```
 
 ## Next Steps
 
-- [GitHub Actions](/guide/github-actions) - Detailed GitHub Actions setup
-- [GitLab CI](/guide/gitlab-ci) - Detailed GitLab CI setup
-- [CLI Reference](/cli/release) - Learn about all CLI options
+- [GitHub Actions](github-actions.md) - Detailed GitHub Actions setup
+- [GitLab CI](gitlab-ci.md) - Detailed GitLab CI setup
+- [CLI Reference](../cli/release.md) - Learn about all CLI options
