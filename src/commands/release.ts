@@ -1,13 +1,15 @@
-import type { PostedRelease, PublishResponse, ReleaseOptions } from '../types'
+import type { ResolvedRelizyConfig } from '../core'
+import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, getRootPackage, loadMonorepoConfig, pushCommitAndTags } from '../core'
+import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags } from '../core'
+import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
-import { providerRelease } from './provider-release'
+import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish } from './publish'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
-  return loadMonorepoConfig({
+  return loadRelizyConfig({
     configName: options.configName,
     overrides: {
       logLevel: options.logLevel,
@@ -40,11 +42,26 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         push: options.push,
         publish: options.publish,
         noVerify: options.noVerify,
-        release: options.release,
+        providerRelease: options.providerRelease,
         clean: options.clean,
       },
+      safetyCheck: options.safetyCheck,
     },
   })
+}
+
+function releaseSafetyCheck({
+  config,
+  provider,
+}: {
+  config: ResolvedRelizyConfig
+  provider?: GitProvider
+}) {
+  if (!config.safetyCheck) {
+    return
+  }
+
+  providerReleaseSafetyCheck({ config, provider })
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -58,8 +75,10 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     const config = await getReleaseConfig(options)
 
+    releaseSafetyCheck({ config, provider: options.provider })
+
     logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-    logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Release: ${config.release.release}`)
+    logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
     logger.box('Step 1/6: Bump versions')
 
@@ -115,7 +134,16 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     logger.box('Step 4/6: Push changes and tags')
     if (config.release.push && config.release.commit) {
-      await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
+      await executeHook('before:push', config)
+      try {
+        await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
+
+        await executeHook('after:push', config)
+      }
+      catch (error) {
+        await executeHook('error:push', config)
+        throw error
+      }
     }
     else {
       logger.info('Skipping push (--no-push or --no-commit)')
@@ -144,7 +172,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     let postedReleases: PostedRelease[] = []
 
     logger.box('Step 6/6: Publish Git release')
-    if (config.release.release) {
+    if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
 
       try {
@@ -164,7 +192,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       }
     }
     else {
-      logger.info('Skipping release (--no-release)')
+      logger.info('Skipping release (--no-provider-release)')
     }
 
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
@@ -177,7 +205,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Tag(s): ${createdTags.length ? createdTags.join(', ') : 'No'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
-      + `Published release: ${config.release.release ? postedReleases.length : 'Disabled'}\n`
+      + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
       + `Git provider: ${provider}`)
   }
   catch (error) {

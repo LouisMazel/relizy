@@ -1,11 +1,12 @@
-import type { ResolvedChangelogMonorepoConfig } from '../core'
-import type { BumpConfig, BumpOptions, BumpResult, PackageInfo } from '../types'
+import type { ResolvedRelizyConfig } from '../core'
+import type { BumpOptions, BumpResult, PackageInfo } from '../types'
 import { logger } from '@maz-ui/node'
 
-import { bumpIndependentPackages, bumpPackageVersion, checkGitStatusIfDirty, confirmBump, determineReleaseType, fetchGitTags, findPackagesWithCommitsAndCalculateVersions, getPackageCommits, getPackages, getPackageToBump, getRootPackage, loadMonorepoConfig, resolveTags, updateLernaVersion, writeVersion } from '../core'
+import { bumpIndependentPackages, bumpPackageVersion, checkGitStatusIfDirty, confirmBump, determineReleaseType, fetchGitTags, findPackagesWithCommitsAndCalculateVersions, getPackageCommits, getPackages, getPackageToBump, getRootPackage, loadRelizyConfig, resolveTags, updateLernaVersion, writeVersion } from '../core'
+import { executeHook } from '../core/utils'
 
 interface BumpStrategyInput {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   packages: PackageInfo[]
   dryRun: boolean
   force: boolean
@@ -310,7 +311,23 @@ async function bumpSelectiveMode({
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
+  const config = await loadRelizyConfig({
+    configName: options.configName,
+    baseConfig: options.config,
+    overrides: {
+      bump: {
+        yes: options.yes,
+        type: options.type,
+        clean: options.clean,
+        preid: options.preid,
+      },
+      logLevel: options.logLevel,
+    },
+  })
+
   try {
+    await executeHook('before:bump', config)
+
     logger.start('Start bumping versions')
 
     const dryRun = options.dryRun ?? false
@@ -318,20 +335,6 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     const force = options.force ?? false
     logger.debug(`Bump forced: ${force}`)
-
-    const config = await loadMonorepoConfig({
-      configName: options.configName,
-      baseConfig: options.config,
-      overrides: {
-        bump: {
-          yes: options.yes,
-          type: options.type,
-          clean: options.clean,
-          preid: options.preid,
-        } satisfies BumpConfig,
-        logLevel: options.logLevel,
-      },
-    })
 
     if (config.bump.clean && config.release.clean) {
       try {
@@ -383,10 +386,15 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       logger.fail('No packages to bump, no commits found')
     }
 
+    await executeHook('after:bump', config)
+
     return result
   }
   catch (error) {
     logger.error('Error bumping versions:', error)
+
+    await executeHook('error:bump', config)
+
     throw error
   }
 }

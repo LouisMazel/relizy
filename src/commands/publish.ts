@@ -1,10 +1,28 @@
 import type { PackageInfo, PublishOptions, PublishResponse } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectPackageManager, executeBuildCmd, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, getPackagesWithDependencies, getRootPackage, loadMonorepoConfig, publishPackage, topologicalSort } from '../core'
+import { detectPackageManager, executeBuildCmd, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, getPackagesWithDependencies, getRootPackage, loadRelizyConfig, publishPackage, topologicalSort } from '../core'
+import { executeHook } from '../core/utils'
 
 // eslint-disable-next-line complexity
 export async function publish(options: Partial<PublishOptions> = {}) {
+  const config = await loadRelizyConfig({
+    configName: options.configName,
+    baseConfig: options.config,
+    overrides: {
+      publish: {
+        access: options.access,
+        otp: options.otp,
+        registry: options.registry,
+        tag: options.tag,
+        buildCmd: options.buildCmd,
+      },
+      logLevel: options.logLevel,
+    },
+  })
+
   try {
+    await executeHook('before:publish', config)
+
     logger.start('Start publishing packages')
 
     const dryRun = options.dryRun ?? false
@@ -12,21 +30,6 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     const packageManager = detectPackageManager(process.cwd())
     logger.debug(`Package manager: ${packageManager}`)
-
-    const config = await loadMonorepoConfig({
-      configName: options.configName,
-      baseConfig: options.config,
-      overrides: {
-        publish: {
-          access: options.access,
-          otp: options.otp,
-          registry: options.registry,
-          tag: options.tag,
-          buildCmd: options.buildCmd,
-        },
-        logLevel: options.logLevel,
-      },
-    })
 
     logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -98,12 +101,17 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.success('Publishing completed!')
 
+    await executeHook('after:publish', config)
+
     return {
       publishedPackages,
     } satisfies PublishResponse
   }
   catch (error) {
     logger.error('Error publishing packages:', error)
+
+    await executeHook('error:publish', config)
+
     throw error
   }
 }

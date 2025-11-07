@@ -1,13 +1,14 @@
-import type { ResolvedChangelogMonorepoConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core'
 import type { ChangelogConfig, ChangelogOptions, PackageInfo } from '../types'
 import { logger } from '@maz-ui/node'
-import { executeFormatCmd, generateChangelog, getPackageCommits, getPackages, getRootPackage, loadMonorepoConfig, resolveTags, writeChangelogToFile } from '../core'
+import { executeFormatCmd, generateChangelog, getPackageCommits, getPackages, getRootPackage, loadRelizyConfig, resolveTags, writeChangelogToFile } from '../core'
+import { executeHook } from '../core/utils'
 
 function getPackagesToGenerateChangelogFor({
   config,
   bumpedPackages,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   bumpedPackages: PackageInfo[] | undefined
 }) {
   if (bumpedPackages && bumpedPackages.length > 0) {
@@ -27,7 +28,7 @@ async function generateIndependentRootChangelog({
   dryRun,
 }: {
   packages: PackageInfo[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
 }) {
   if (!config.changelog?.rootChangelog) {
@@ -100,7 +101,7 @@ async function generateSimpleRootChangelog({
   config,
   dryRun,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
 }) {
   if (!config.changelog?.rootChangelog) {
@@ -155,25 +156,27 @@ async function generateSimpleRootChangelog({
 }
 
 export async function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
+  const config = await loadRelizyConfig({
+    configName: options.configName,
+    baseConfig: options.config,
+    overrides: {
+      from: options.from,
+      to: options.to,
+      logLevel: options.logLevel,
+      changelog: {
+        rootChangelog: options.rootChangelog,
+        formatCmd: options.formatCmd,
+      } satisfies ChangelogConfig,
+    },
+  })
+
   try {
+    await executeHook('before:changelog', config)
+
     logger.start('Start generating changelogs')
 
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
-
-    const config = await loadMonorepoConfig({
-      configName: options.configName,
-      baseConfig: options.config,
-      overrides: {
-        from: options.from,
-        to: options.to,
-        logLevel: options.logLevel,
-        changelog: {
-          rootChangelog: options.rootChangelog,
-          formatCmd: options.formatCmd,
-        } satisfies ChangelogConfig,
-      },
-    })
 
     logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -257,9 +260,14 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
     })
 
     logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
+
+    await executeHook('after:changelog', config)
   }
   catch (error) {
     logger.error('Error generating changelogs:', error)
+
+    await executeHook('error:changelog', config)
+
     throw error
   }
 }

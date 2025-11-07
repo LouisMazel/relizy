@@ -1,21 +1,39 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { ResolvedChangelogMonorepoConfig } from './core'
+import type { ResolvedRelizyConfig } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
-
 export type GitProvider = 'github' | 'gitlab'
+export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
+
 export interface PackageInfo {
+  /**
+   * Package name
+   */
   name: string
+  /**
+   * Package path
+   */
   path: string
+  /**
+   * Current version
+   */
   currentVersion: string
+  /**
+   * New version
+   */
   version: string
+  /**
+   * Tag name
+   */
   fromTag?: string
 }
 export interface PackageWithCommits extends PackageInfo {
+  /**
+   * Commits
+   */
   commits: GitCommit[]
-  // graduating: boolean
 }
 
 export interface PublishResponse {
@@ -23,31 +41,59 @@ export interface PublishResponse {
 }
 
 export type BumpResult = {
+  /**
+   * Old version
+   */
   oldVersion?: string
+  /**
+   * New version
+   */
   newVersion?: string
+  /**
+   * Tag name
+   */
   fromTag?: string
+  /**
+   * Bumped packages
+   */
   bumpedPackages: PackageInfo[]
+  /**
+   * Bumped
+   */
   bumped: true
 } | {
+  /**
+   * Bumped
+   */
   bumped: false
 }
 
 export interface PostedRelease {
+  /**
+   * Release name
+   */
   name: string
+  /**
+   * Release tag
+   */
   tag: string
+  /**
+   * Is prerelease
+   */
   prerelease: boolean
+  /**
+   * Release version
+   */
   version: string
 }
 
 export interface MonorepoConfig {
   /**
    * Version mode for the monorepo.
-   * @required
    */
   versionMode: VersionMode
   /**
    * Glob pattern matching for packages to bump.
-   * @required
    */
   packages: string[]
   /**
@@ -58,17 +104,24 @@ export interface MonorepoConfig {
 }
 
 export type ConfigType = {
+  /**
+   * Title
+   */
   title: string
+  /**
+   * Semver bump type
+   */
   semver?: SemverBumpType
 } | boolean
 
 export interface BumpConfig {
   /**
+   * Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
    * @default 'release'
    */
   type?: ReleaseType
   /**
-   * @default undefined
+   * Prerelease identifier (e.g. 'beta', 'alpha')
    */
   preid?: string
   /**
@@ -77,7 +130,7 @@ export interface BumpConfig {
    */
   clean?: boolean
   /**
-   * Include dev dependencies when bumping.
+   * Include dependencies when bumping.
    * @default ['dependencies']
    */
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
@@ -90,85 +143,179 @@ export interface BumpConfig {
 
 export interface BumpOptions extends BumpConfig {
   /**
+   * Run without side effects
    * @default false
    */
   dryRun?: boolean
   /**
-   * @default undefined
+   * Use custom config
    */
-  config?: ResolvedChangelogMonorepoConfig
+  config?: ResolvedRelizyConfig
   /**
-   * @default undefined
+   * Set log level
    */
   logLevel?: LogLevel
   /**
+   * Bump all packages even if there are no commits
    * @default false
    */
   force?: boolean
   /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
    * @default 'relizy'
    */
   configName?: string
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
-   * @default undefined
    */
   suffix?: string
 }
 
 export interface ChangelogConfig {
+  /**
+   * Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
+   */
   formatCmd?: string
+  /**
+   * Generate changelog at root level with all changes
+   * @default true
+   */
   rootChangelog?: boolean
   /**
    * Include commit body in the changelog.
-   * @default false
+   * @default true
    */
   includeCommitBody?: boolean
 }
 export interface ChangelogOptions extends ChangelogConfig {
+  /**
+   * Start tag
+   */
   from?: string
+  /**
+   * End tag
+   */
   to?: string
+  /**
+   * Run without side effects
+   * @default false
+   */
   dryRun?: boolean
+  /**
+   * Bumped packages
+   */
   bumpedPackages?: PackageInfo[]
-  config?: ResolvedChangelogMonorepoConfig
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Set log level
+   */
   logLevel?: LogLevel
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
   configName?: string
 }
 
-export interface GitProviderOptions {
+export interface ProviderReleaseOptions {
+  /**
+   * Start tag
+   */
   from?: string
+  /**
+   * End tag
+   */
   to?: string
+  /**
+   * GitHub/GitLab token
+   */
   token?: string
-  config?: ResolvedChangelogMonorepoConfig
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
   configName?: string
+  /**
+   * Git provider
+   * @default 'github'
+   */
   provider?: GitProvider
+  /**
+   * Bump result
+   */
   bumpResult?: BumpResult
+  /**
+   * Set log level
+   */
   logLevel?: LogLevel
+  /**
+   * Run without side effects
+   * @default false
+   */
   dryRun?: boolean
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {
+  /**
+   * NPM registry URL (e.g. `https://registry.npmjs.org/`)
+   */
   registry?: string
+  /**
+   * NPM tag (e.g. `latest`)
+   */
   tag?: string
+  /**
+   * NPM access level (e.g. `public` or `restricted`)
+   */
   access?: 'public' | 'restricted'
+  /**
+   * NPM OTP (e.g. `123456`)
+   */
   otp?: string
   /**
-   * Glob pattern matching for packages to publish.
-   * @default undefined
+   * Glob pattern matching for packages to publish
    */
   packages?: string[]
   /**
-   * Command to build your packages before publishing.
-   * @default undefined
+   * Command to build your packages before publishing (e.g. `pnpm build`)
    */
   buildCmd?: string
 }
 
 export interface PublishOptions extends PublishConfig {
+  /**
+   * Run without side effects
+   * @default false
+   */
   dryRun?: boolean
-  config?: ResolvedChangelogMonorepoConfig
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Bumped packages
+   */
   bumpedPackages?: PackageInfo[]
+  /**
+   * Set log level
+   */
   logLevel?: LogLevel
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
   configName?: string
 }
 
@@ -192,7 +339,7 @@ export interface ReleaseConfig {
    * Publish release to your repository (github or gitlab)
    * @default true
    */
-  release?: boolean
+  providerRelease?: boolean
   /**
    * Publish release to your registry
    * @default true
@@ -217,19 +364,15 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   dryRun?: boolean
   /**
-   * @default undefined
    */
   from?: string
   /**
-   * @default undefined
    */
   to?: string
   /**
-   * @default undefined
    */
   token?: string
   /**
-   * @default undefined
    */
   logLevel?: LogLevel
   /**
@@ -243,50 +386,132 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   force?: boolean
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
-   * @default undefined
    */
   suffix?: string
+  /**
+   * Git provider (e.g. `github` or `gitlab`)
+   * @default 'github'
+   */
+  provider?: GitProvider
+  /**
+   * Skip safety check
+   * @default true
+   */
+  safetyCheck?: boolean
 }
 
 export interface TemplatesConfig {
+  /**
+   * Commit message template
+   */
   commitMessage?: string
+  /**
+   * Tag message template
+   */
   tagMessage?: string
   /**
    * Not used with "independent" version mode
    */
   tagBody?: string
+  /**
+   * Empty changelog content
+   */
   emptyChangelogContent?: string
 }
 
 export interface RepoConfig {
+  /**
+   * Git domain (e.g. `github.com`)
+   */
   domain?: string
+  /**
+   * Git repository (e.g. `user/repo`)
+   */
   repo?: string
+  /**
+   * Git token
+   */
   token?: string
+  /**
+   * Git provider (e.g. `github` or `gitlab`)
+   * @default 'github'
+   */
   provider?: GitProvider
 }
 
-export interface ChangelogMonorepoConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish'>> {
-  cwd?: string
-  from?: string
-  to?: string
-  /**
-   * @default `{
-    versionMode: 'selective',
-    packages: ['packages/*'],
-    ignorePackageNames: [],
-  }`
-   */
-  monorepo?: MonorepoConfig
+type HookType = 'before' | 'after' | 'error'
+type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push'
 
-  repo?: RepoConfig
-
-  templates?: TemplatesConfig
-
-  bump?: BumpConfig
-  publish?: PublishConfig
-  changelog?: ChangelogConfig
-  release?: ReleaseConfig
-  logLevel?: LogLevel
+/**
+ * Hooks configuration
+ * Useful to run custom scripts before, after a step or on error
+ */
+export type HookConfig = {
+  [K in `${HookType}:${HookStep}`]?: string | (() => any)
+} & {
+  'generate:changelog'?: ({
+    commits,
+    config,
+  }: {
+    commits: GitCommit[]
+    config: ResolvedRelizyConfig
+  }) => string
 }
 
-export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
+export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish'>> {
+  /**
+   * Current working directory
+   * @default process.cwd()
+   */
+  cwd?: string
+  /**
+   * Start tag
+   */
+  from?: string
+  /**
+   * End tag
+   */
+  to?: string
+  /**
+   * Monorepo options
+   */
+  monorepo?: MonorepoConfig
+  /**
+   * Repo options
+   */
+  repo?: RepoConfig
+  /**
+   * Templates options
+   */
+  templates?: TemplatesConfig
+  /**
+   * Bump options
+   */
+  bump?: BumpConfig
+  /**
+   * Publish options
+   */
+  publish?: PublishConfig
+  /**
+   * Changelog options
+   */
+  changelog?: ChangelogConfig
+  /**
+   * Release options
+   */
+  release?: ReleaseConfig
+  /**
+   * Hooks options
+   */
+  hooks?: HookConfig
+  /**
+   * Set log level
+   * @default 'default'
+   */
+  logLevel?: LogLevel
+  /**
+   * The safety check will verify if tokens or others required for release are set (depends on the release options)
+   * @default true
+   */
+  safetyCheck?: boolean
+}

@@ -1,12 +1,13 @@
 import type { LogLevel } from '@maz-ui/node'
 
-import type { ResolvedChangelogMonorepoConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PackageInfo } from '../types'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
-import { getRootPackage, hasLernaJson } from '../core'
+import { getRootPackage, hasLernaJson, loadRelizyConfig } from '../core'
+import { executeHook } from './utils'
 
 export function getGitStatus(cwd?: string) {
   return execSync('git status --porcelain', {
@@ -90,85 +91,124 @@ export async function createCommitAndTags({
   dryRun,
   logLevel,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config?: ResolvedRelizyConfig
   noVerify?: boolean
   bumpedPackages?: PackageInfo[]
   newVersion?: string
-  dryRun: boolean
+  dryRun?: boolean
   logLevel?: LogLevel
-}): Promise<string[]> {
-  const filePatternsToAdd = [
-    'package.json',
-    'lerna.json',
-    'CHANGELOG.md',
-    '**/CHANGELOG.md',
-    '**/package.json',
-  ]
+} = {}): Promise<string[]> {
+  const internalConfig = config || await loadRelizyConfig()
 
-  logger.start('Start commit and tag')
+  try {
+    await executeHook('before:commit-and-tag', internalConfig)
 
-  logger.debug('Adding files to git staging area...')
-  for (const pattern of filePatternsToAdd) {
-    if (pattern === 'lerna.json' && !hasLernaJson(config.cwd)) {
-      logger.verbose(`Skipping lerna.json as it doesn't exist`)
-      continue
+    const filePatternsToAdd = [
+      'package.json',
+      'lerna.json',
+      'CHANGELOG.md',
+      '**/CHANGELOG.md',
+      '**/package.json',
+    ]
+
+    logger.start('Start commit and tag')
+
+    logger.debug('Adding files to git staging area...')
+    for (const pattern of filePatternsToAdd) {
+      if (pattern === 'lerna.json' && !hasLernaJson(internalConfig.cwd)) {
+        logger.verbose(`Skipping lerna.json as it doesn't exist`)
+        continue
+      }
+
+      if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(internalConfig.cwd, pattern))) {
+        logger.verbose(`Skipping ${pattern} as it doesn't exist`)
+        continue
+      }
+
+      if (dryRun) {
+        logger.info(`[dry-run] git add ${pattern}`)
+        continue
+      }
+
+      try {
+        logger.debug(`git add ${pattern}`)
+        execSync(`git add ${pattern}`)
+      }
+      catch {
+      // Ignore errors if pattern doesn't match any files
+      }
     }
 
-    if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(config.cwd, pattern))) {
-      logger.verbose(`Skipping ${pattern} as it doesn't exist`)
-      continue
-    }
+    const rootPackage = getRootPackage(internalConfig.cwd)
+    newVersion = newVersion || rootPackage.version
+
+    const versionForMessage = internalConfig.monorepo?.versionMode === 'independent' ? bumpedPackages?.map(pkg => `${pkg.name}@${pkg.version}`).join(', ') || 'unknown' : newVersion || 'unknown'
+
+    const commitMessage = internalConfig.templates.commitMessage
+      ?.replaceAll('{{newVersion}}', versionForMessage)
+      || `chore(release): bump version to ${versionForMessage}`
+
+    const noVerifyFlag = (noVerify) ? '--no-verify ' : ''
+    logger.debug(`No verify: ${noVerify}`)
 
     if (dryRun) {
-      logger.info(`[dry-run] git add ${pattern}`)
-      continue
+      logger.info(`[dry-run] git commit ${noVerifyFlag}-m "${commitMessage}"`)
+    }
+    else {
+      logger.debug(`Executing: git commit ${noVerifyFlag}-m "${commitMessage}"`)
+      await execPromise(`git commit ${noVerifyFlag}-m "${commitMessage}"`, {
+        logLevel,
+        noStderr: true,
+        noStdout: true,
+        cwd: internalConfig.cwd,
+      })
+      logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
     }
 
-    try {
-      logger.debug(`git add ${pattern}`)
-      execSync(`git add ${pattern}`)
+    const signTags = internalConfig.signTags ? '-s' : ''
+    logger.debug(`Sign tags: ${internalConfig.signTags}`)
+    const createdTags: string[] = []
+
+    if (internalConfig.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0) {
+      logger.debug(`Creating ${bumpedPackages.length} independent package tags`)
+      for (const pkg of bumpedPackages) {
+        const tagName = `${pkg.name}@${pkg.version}`
+        const tagMessage = internalConfig.templates?.tagMessage
+          ?.replaceAll('{{newVersion}}', pkg.version || '')
+          || tagName
+
+        if (dryRun) {
+          logger.info(`[dry-run] git tag ${signTags} -a ${tagName} -m "${tagMessage}"`)
+        }
+        else {
+          const cmd = `git tag ${signTags} -a ${tagName} -m "${tagMessage}"`
+          logger.debug(`Executing: ${cmd}`)
+          // eslint-disable-next-line max-depth
+          try {
+            await execPromise(cmd, {
+              logLevel,
+              noStderr: true,
+              noStdout: true,
+              cwd: internalConfig.cwd,
+            })
+            logger.debug(`Tag created: ${tagName}`)
+          }
+          catch (error) {
+            logger.error(`Failed to create tag ${tagName}:`, error)
+            throw error
+          }
+        }
+        createdTags.push(tagName)
+      }
+
+      logger.success(`Created ${createdTags.length} tags for independent packages, ${createdTags.join(', ')}`)
     }
-    catch {
-      // Ignore errors if pattern doesn't match any files
-    }
-  }
+    else {
+      const tagName = internalConfig.templates.tagBody
+        ?.replaceAll('{{newVersion}}', newVersion)
 
-  const rootPackage = getRootPackage(config.cwd)
-  newVersion = newVersion || rootPackage.version
-
-  const versionForMessage = config.monorepo?.versionMode === 'independent' ? bumpedPackages?.map(pkg => `${pkg.name}@${pkg.version}`).join(', ') || 'unknown' : newVersion || 'unknown'
-
-  const commitMessage = config.templates.commitMessage
-    ?.replaceAll('{{newVersion}}', versionForMessage)
-    || `chore(release): bump version to ${versionForMessage}`
-
-  const noVerifyFlag = (noVerify) ? '--no-verify ' : ''
-  logger.debug(`No verify: ${noVerify}`)
-
-  if (dryRun) {
-    logger.info(`[dry-run] git commit ${noVerifyFlag}-m "${commitMessage}"`)
-  }
-  else {
-    logger.debug(`Executing: git commit ${noVerifyFlag}-m "${commitMessage}"`)
-    await execPromise(`git commit ${noVerifyFlag}-m "${commitMessage}"`, {
-      logLevel,
-      noStderr: true,
-      noStdout: true,
-      cwd: config.cwd,
-    })
-    logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
-  }
-
-  const signTags = config.signTags ? '-s' : ''
-  logger.debug(`Sign tags: ${config.signTags}`)
-  const createdTags: string[] = []
-
-  if (config.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0) {
-    logger.debug(`Creating ${bumpedPackages.length} independent package tags`)
-    for (const pkg of bumpedPackages) {
-      const tagName = `${pkg.name}@${pkg.version}`
-      const tagMessage = config.templates?.tagMessage
-        ?.replaceAll('{{newVersion}}', pkg.version || '')
+      const tagMessage = internalConfig.templates?.tagMessage
+        ?.replaceAll('{{newVersion}}', newVersion)
         || tagName
 
       if (dryRun) {
@@ -182,7 +222,7 @@ export async function createCommitAndTags({
             logLevel,
             noStderr: true,
             noStdout: true,
-            cwd: config.cwd,
+            cwd: internalConfig.cwd,
           })
           logger.debug(`Tag created: ${tagName}`)
         }
@@ -191,48 +231,25 @@ export async function createCommitAndTags({
           throw error
         }
       }
+
       createdTags.push(tagName)
     }
 
-    logger.success(`Created ${createdTags.length} tags for independent packages, ${createdTags.join(', ')}`)
+    logger.debug('Created Tags:', createdTags.join(', '))
+
+    logger.success('Commit and tag completed!')
+
+    await executeHook('after:commit-and-tag', internalConfig)
+
+    return createdTags
   }
-  else {
-    const tagName = config.templates.tagBody
-      ?.replaceAll('{{newVersion}}', newVersion)
+  catch (error) {
+    logger.error('Error committing and tagging:', error)
 
-    const tagMessage = config.templates?.tagMessage
-      ?.replaceAll('{{newVersion}}', newVersion)
-      || tagName
+    await executeHook('error:commit-and-tag', internalConfig)
 
-    if (dryRun) {
-      logger.info(`[dry-run] git tag ${signTags} -a ${tagName} -m "${tagMessage}"`)
-    }
-    else {
-      const cmd = `git tag ${signTags} -a ${tagName} -m "${tagMessage}"`
-      logger.debug(`Executing: ${cmd}`)
-      try {
-        await execPromise(cmd, {
-          logLevel,
-          noStderr: true,
-          noStdout: true,
-          cwd: config.cwd,
-        })
-        logger.debug(`Tag created: ${tagName}`)
-      }
-      catch (error) {
-        logger.error(`Failed to create tag ${tagName}:`, error)
-        throw error
-      }
-    }
-
-    createdTags.push(tagName)
+    throw error
   }
-
-  logger.debug('Created Tags:', createdTags.join(', '))
-
-  logger.success('Commit and tag completed!')
-
-  return createdTags
 }
 
 export async function pushCommitAndTags({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: LogLevel, cwd: string }) {
