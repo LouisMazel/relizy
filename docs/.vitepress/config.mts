@@ -5,6 +5,8 @@ export default defineConfig({
   srcDir: 'src',
   lang: 'en-US',
 
+  base: '/relizy/',
+
   title: 'Relizy',
   titleTemplate: ':title | Relizy',
   description: 'Seamless and automated release management with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.',
