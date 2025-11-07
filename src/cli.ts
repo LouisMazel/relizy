@@ -65,7 +65,8 @@ program
   .name('relizy')
   .description('Release management tool for monorepos and standalone packages')
   .version(version)
-  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)', 'relizy')
+  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
+  .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
 
@@ -146,6 +147,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+
       })
     }
     catch {
@@ -170,6 +172,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
     catch {
@@ -192,7 +195,7 @@ program
   .option('--from <ref>', 'Start commit reference')
   .option('--to <ref>', 'End commit reference')
   .option('--no-push', 'Skip push changes and tags to remote')
-  .option('--no-release', 'Skip release creation (GitHub/GitLab)')
+  .option('--no-provider-release', 'Skip release creation (GitHub/GitLab)')
   .option('--no-publish', 'Skip npm publish')
   .option('--registry <url>', 'Custom npm registry URL')
   .option('--tag <tag>', 'Publish with specific tag (default: latest for stable, next for prerelease)')
@@ -207,6 +210,7 @@ program
   .option('--no-clean', 'Skip check if the working directory is clean')
   .option('--no-commit', 'Skip commit and tag')
   .option('--no-changelog', 'Skip changelog generation files')
+  .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .action(async (options) => {
     try {
@@ -220,7 +224,7 @@ program
         commit: hasCliFlag('--no-commit') ? false : undefined,
         push: hasCliFlag('--no-push') || hasCliFlag('--no-commit') ? false : undefined,
         publish: hasCliFlag('--no-publish') ? false : undefined,
-        release: hasCliFlag('--no-release') ? false : undefined,
+        providerRelease: hasCliFlag('--no-provider-release') ? false : undefined,
         noVerify: hasCliFlag('--no-verify') ? true : undefined,
         clean: hasCliFlag('--no-clean') ? false : undefined,
         registry: options.registry,
@@ -236,6 +240,7 @@ program
         force: options.force,
         yes: options.yes,
         configName: program.opts().config,
+        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
     catch {

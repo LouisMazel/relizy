@@ -1,6 +1,6 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
-import type { BumpConfig, ChangelogConfig, ChangelogMonorepoConfig, GitProvider, ReleaseConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -25,7 +25,7 @@ export function getDefaultConfig() {
       test: { title: '✅ Tests' },
       style: { title: '🎨 Styles' },
       ci: { title: '🤖 CI' },
-    } as NonNullable<ChangelogMonorepoConfig['types']>,
+    } as NonNullable<RelizyConfig['types']>,
     templates: {
       commitMessage: 'chore(release): bump version to {{newVersion}}',
       tagMessage: 'Bump version to v{{newVersion}}',
@@ -50,12 +50,12 @@ export function getDefaultConfig() {
     },
     tokens: {
       gitlab:
-        process.env.RELIZY_TOKENS_GITLAB
+        process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN
         || process.env.GITLAB_API_TOKEN
         || process.env.CI_JOB_TOKEN,
       github:
-        process.env.RELIZY_TOKENS_GITHUB
+        process.env.RELIZY_GITHUB_TOKEN
         || process.env.GITHUB_TOKEN
         || process.env.GH_TOKEN,
     },
@@ -66,10 +66,11 @@ export function getDefaultConfig() {
       changelog: true,
       push: true,
       clean: true,
-      release: true,
+      providerRelease: true,
       noVerify: false,
     } as Required<ReleaseConfig>,
     logLevel: 'default' as LogLevel,
+    safetyCheck: true,
   }
 }
 
@@ -103,20 +104,20 @@ async function resolveConfig(
   return config
 }
 
-export async function loadMonorepoConfig({ baseConfig, overrides, configName = 'relizy' }: {
-  baseConfig?: ResolvedChangelogMonorepoConfig
-  overrides?: DeepPartial<ChangelogMonorepoConfig>
+export async function loadRelizyConfig(options?: {
+  baseConfig?: ResolvedRelizyConfig
+  overrides?: DeepPartial<RelizyConfig>
   configName?: string
 }) {
-  const cwd = overrides?.cwd ?? process.cwd()
+  const cwd = options?.overrides?.cwd ?? process.cwd()
 
-  configName ??= 'relizy'
+  const configName = options?.configName ?? 'relizy'
 
   await setupDotenv({ cwd })
 
   const defaultConfig = getDefaultConfig()
 
-  const overridesConfig = defu(overrides, baseConfig)
+  const overridesConfig = defu(options?.overrides, options?.baseConfig)
 
   const results = await loadConfig<ResolvedConfig>({
     cwd,
@@ -127,11 +128,15 @@ export async function loadMonorepoConfig({ baseConfig, overrides, configName = '
   })
 
   if (!results._configFile) {
-    logger.error(`No config file found with name "${configName}"`)
-    process.exit(1)
+    logger.debug(`No config file found with name "${configName}" - using standalone mode`)
+
+    if (options?.configName) {
+      logger.error(`No config file found with name "${configName}"`)
+      process.exit(1)
+    }
   }
 
-  setupLogger(overrides?.logLevel || results.config.logLevel)
+  setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
   logger.verbose('User config:', formatJson(results.config.changelog))
 
@@ -139,14 +144,14 @@ export async function loadMonorepoConfig({ baseConfig, overrides, configName = '
 
   logger.debug('Resolved config:', formatJson(resolvedConfig))
 
-  return resolvedConfig as ResolvedChangelogMonorepoConfig
+  return resolvedConfig as ResolvedRelizyConfig
 }
 
-type ResolvedConfig = ChangelogMonorepoConfig & ReturnType<typeof getDefaultConfig>
-export type ResolvedChangelogMonorepoConfig = ResolvedConfig & {
+type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig>
+export type ResolvedRelizyConfig = ResolvedConfig & {
   output: string
 }
 
-export function defineConfig(config: ChangelogMonorepoConfig) {
+export function defineConfig(config: RelizyConfig) {
   return config
 }
