@@ -1,6 +1,6 @@
 import type { ChangelogConfig, GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { PackageToBump, ResolvedChangelogMonorepoConfig } from '../core'
+import type { PackageToBump, ResolvedRelizyConfig } from '../core'
 import type { BumpOptions, PackageInfo, PackageWithCommits, VersionMode } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -14,7 +14,7 @@ import { getPackageCommits, hasLernaJson } from './monorepo'
 
 function detectReleaseTypeFromCommits(
   commits: GitCommit[],
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
 ): 'major' | 'minor' | 'patch' | null {
   return determineSemverChange(commits, config as ChangelogConfig) as 'major' | 'minor' | 'patch' | null
 }
@@ -36,7 +36,7 @@ function validatePrereleaseDowngrade(
 
 function handleStableVersionWithReleaseType(
   commits: GitCommit[] | undefined,
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
   force: boolean,
 ): BumpOptions['type'] | null {
   if (!commits?.length && !force) {
@@ -59,7 +59,7 @@ function handleStableVersionWithReleaseType(
 
 function handleStableVersionWithPrereleaseType(
   commits: GitCommit[] | undefined,
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
   force: boolean,
 ): BumpOptions['type'] | null {
   if (!commits?.length && !force) {
@@ -92,7 +92,7 @@ function handlePrereleaseVersionWithPrereleaseType(
   currentVersion: string,
   targetPreid: string | undefined,
   commits: GitCommit[] | undefined,
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
   force: boolean,
 ): BumpOptions['type'] | null {
   const currentPreid = getPreid(currentVersion)
@@ -158,7 +158,7 @@ export function determineReleaseType({
   from: string
   to: string
   commits?: GitCommit[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   force: boolean
 }): BumpOptions['type'] | null {
   const configWithRange = {
@@ -532,7 +532,7 @@ export async function confirmBump({
   dryRun,
 }: {
   versionMode: VersionMode
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   packages: PackageInfo[]
   force: boolean
   currentVersion?: string
@@ -587,7 +587,7 @@ async function findPackagesWithCommits({
   force,
 }: {
   packages: PackageInfo[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   force: boolean
 }): Promise<PackageWithCommits[]> {
   const packagesWithCommits: PackageWithCommits[] = []
@@ -632,7 +632,7 @@ async function calculatePackageNewVersion({
   suffix,
 }: {
   pkg: PackageToBump
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   force: boolean
   suffix: string | undefined
 }): Promise<(PackageInfo & PackageToBump) | null> {
@@ -712,7 +712,7 @@ async function calculateNewVersionsForPackages({
   suffix,
 }: {
   allPackagesToBump: PackageToBump[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   force: boolean
   suffix: string | undefined
 }): Promise<(PackageInfo & PackageToBump)[]> {
@@ -741,7 +741,7 @@ export async function findPackagesWithCommitsAndCalculateVersions({
   suffix,
 }: {
   packages: PackageInfo[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   force: boolean
   suffix: string | undefined
 }): Promise<(PackageInfo & PackageToBump)[]> {

@@ -1,6 +1,6 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { PackageInfo, VersionMode } from '../types'
-import type { ResolvedChangelogMonorepoConfig } from './config'
+import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { isGraduating } from './version'
@@ -142,7 +142,7 @@ async function resolveTagsUnified({
   step,
   logLevel,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   newVersion?: string
   graduating: boolean
   step: Step
@@ -169,7 +169,7 @@ interface ResolveTagsOptions<
   NewVersion = S extends 'bump' | 'changelog' ? undefined : string,
   CurrentVersion = S extends 'bump' | 'changelog' ? string : undefined,
 > {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   versionMode: VM
   step: S
   pkg: Package

@@ -1,11 +1,12 @@
 import type { GitCommit } from 'changelogen'
-import type { ResolvedChangelogMonorepoConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core'
 import type { PackageInfo } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { getFirstCommit } from '../core'
 import { generateMarkDown } from './markdown'
+import { executeHook } from './utils'
 
 function fromTagIsFirstCommit(fromTag: string, cwd: string) {
   return fromTag === getFirstCommit(cwd)
@@ -21,7 +22,7 @@ export async function generateChangelog(
   }: {
     pkg: PackageInfo
     commits: GitCommit[]
-    config: ResolvedChangelogMonorepoConfig
+    config: ResolvedRelizyConfig
     from: string
     dryRun: boolean
   },
@@ -46,6 +47,11 @@ export async function generateChangelog(
       from: fromTag,
       to: toTag,
     }
+
+    await executeHook('generate:changelog', config, {
+      commits,
+      config,
+    })
 
     let changelog = await generateMarkDown(commits, config)
 
@@ -114,7 +120,7 @@ export async function executeFormatCmd({
   config,
   dryRun,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
 }) {
   if (config.changelog?.formatCmd) {
@@ -149,7 +155,7 @@ export async function executeBuildCmd({
   config,
   dryRun,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
 }) {
   if (config.publish?.buildCmd) {

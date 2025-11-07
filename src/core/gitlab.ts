@@ -1,8 +1,8 @@
-import type { ResolvedChangelogMonorepoConfig } from '../core'
-import type { BumpResult, GitProviderOptions, PackageInfo, PostedRelease } from '../types'
+import type { ResolvedRelizyConfig } from '../core'
+import type { BumpResult, PackageInfo, PostedRelease, ProviderReleaseOptions } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadMonorepoConfig } from '../core'
+import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
 
 export interface GitlabRelease {
   tag_name: string
@@ -35,11 +35,11 @@ export async function createGitlabRelease({
   release,
   dryRun,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   release: GitlabRelease
   dryRun?: boolean
 }): Promise<GitlabReleaseResponse> {
-  const token = config.tokens.gitlab || process.env.GITLAB_TOKEN || process.env.CI_JOB_TOKEN
+  const token = config.tokens.gitlab
 
   if (!token && !dryRun) {
     throw new Error(
@@ -117,7 +117,7 @@ async function gitlabIndependentMode({
   dryRun,
   bumpedPackages,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
   bumpedPackages?: PackageInfo[]
 }): Promise<PostedRelease[]> {
@@ -220,7 +220,7 @@ async function gitlabUnified({
   fromTag,
   oldVersion,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
   rootPackage: PackageInfo
   fromTag: string | undefined
@@ -293,14 +293,14 @@ async function gitlabUnified({
   }] satisfies PostedRelease[]
 }
 
-export async function gitlab(options: Partial<GitProviderOptions> & { bumpResult?: BumpResult } = {}): Promise<PostedRelease[]> {
+export async function gitlab(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}): Promise<PostedRelease[]> {
   try {
     logger.start('Start publishing GitLab release')
 
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
 
-    const config = await loadMonorepoConfig({
+    const config = await loadRelizyConfig({
       configName: options.configName,
       baseConfig: options.config,
       overrides: {
@@ -308,7 +308,7 @@ export async function gitlab(options: Partial<GitProviderOptions> & { bumpResult
         to: options.to,
         logLevel: options.logLevel,
         tokens: {
-          gitlab: options.token || process.env.CHANGELOGEN_TOKENS_GITLAB || process.env.GITLAB_TOKEN || process.env.GITLAB_API_TOKEN || process.env.CI_JOB_TOKEN,
+          gitlab: options.token,
         },
       },
     })

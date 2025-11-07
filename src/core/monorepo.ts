@@ -1,5 +1,5 @@
 import type { GitCommit } from 'changelogen'
-import type { ResolvedChangelogMonorepoConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core'
 import type { ConfigType, PackageInfo, PackageWithCommits } from '../types'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join } from 'node:path'
@@ -11,7 +11,7 @@ import { expandPackagesToBumpWithDependents } from './dependencies'
 
 function getPackageInfo(
   packagePath: string,
-  ignorePackageNames: NonNullable<ResolvedChangelogMonorepoConfig['monorepo']>['ignorePackageNames'],
+  ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames'],
 ): PackageInfo | null {
   const packageJsonPath = join(packagePath, 'package.json')
 
@@ -57,7 +57,7 @@ export function getPackages({
 }: {
   cwd: string
   patterns?: string[]
-  ignorePackageNames: NonNullable<ResolvedChangelogMonorepoConfig['monorepo']>['ignorePackageNames']
+  ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
 }): PackageInfo[] {
   const packages: PackageInfo[] = []
   const foundPaths = new Set<string>()
@@ -133,7 +133,7 @@ export async function getPackageCommits({
   pkg: PackageInfo
   from: string
   to: string
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   changelog: boolean
 }): Promise<GitCommit[]> {
   logger.debug(`Analyzing commits for ${pkg.name} since ${from} to ${to}`)
@@ -217,7 +217,7 @@ export async function getPackageToBump({
   to,
 }: {
   packages: PackageInfo[]
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   from: string
   to: string
 }) {

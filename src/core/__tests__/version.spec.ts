@@ -1,7 +1,7 @@
 import type { GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { BumpConfig } from '../../types'
-import type { ResolvedChangelogMonorepoConfig } from '../config'
+import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
 import { getDefaultConfig } from '../config'
 import { bumpPackageVersion, determineReleaseType } from '../version'
@@ -24,7 +24,7 @@ function createMockConfig(bump: Partial<BumpConfig> & { type: ReleaseType }) {
       ...defaultConfig.bump,
       ...bump,
     },
-  } as ResolvedChangelogMonorepoConfig
+  } as ResolvedRelizyConfig
 }
 
 function createMockCommit(type: string, message: string): GitCommit {

@@ -1,11 +1,15 @@
-import type { ResolvedChangelogMonorepoConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core'
 import type { PackageInfo, PackageManager } from '../types'
 import type { PackageWithDeps } from './dependencies'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
+import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { getPackageCommits, isPrerelease } from '../core'
 import { resolveTags } from './tags'
+
+// Store OTP for the session to avoid re-prompting for each package
+let sessionOtp: string | undefined
 
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
   try {
@@ -99,7 +103,7 @@ export function getPackagesToPublishInSelectiveMode(
 
 export async function getPackagesToPublishInIndependentMode(
   sortedPackages: PackageWithDeps[],
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
 ): Promise<PackageInfo[]> {
   const packagesToPublish: PackageInfo[] = []
 
@@ -139,10 +143,12 @@ function getCommandArgs({
   packageManager,
   tag,
   config,
+  otp,
 }: {
   packageManager: PackageManager
   tag: string
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
+  otp?: string
 }) {
   const args = ['publish', '--tag', tag]
 
@@ -170,12 +176,98 @@ function getCommandArgs({
     args.push('--access', access)
   }
 
-  const otp = config.publish.otp
-  if (otp) {
-    args.push('--otp', otp)
+  // Priority: dynamic OTP > session OTP > config OTP
+  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
+  if (finalOtp) {
+    args.push('--otp', finalOtp)
   }
 
   return args
+}
+
+function isOtpError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null)
+    return false
+
+  const errorMessage = 'message' in error && typeof error.message === 'string'
+    ? error.message.toLowerCase()
+    : ''
+
+  return errorMessage.includes('otp') || errorMessage.includes('one-time password') || errorMessage.includes('eotp')
+}
+
+function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error('OTP input timeout'))
+    }, timeout)
+
+    input({
+      message: 'This operation requires a one-time password (OTP). Please enter your OTP:',
+    })
+      .then((otp) => {
+        clearTimeout(timer)
+        resolve(otp)
+      })
+      .catch((error) => {
+        clearTimeout(timer)
+        reject(error)
+      })
+  })
+}
+
+async function handleOtpError(): Promise<string> {
+  // In CI environment, fail immediately without prompting
+  if (process.env.CI) {
+    logger.error('OTP required but running in CI environment. Please provide OTP via config.')
+    throw new Error('OTP required in CI environment')
+  }
+
+  logger.warn('Publish failed: OTP required')
+
+  try {
+    const otp = await promptOtpWithTimeout()
+    logger.debug('OTP received, retrying publish...')
+    return otp
+  }
+  catch (promptError) {
+    logger.error('Failed to get OTP:', promptError)
+    throw promptError
+  }
+}
+
+async function executePublishCommand({
+  command,
+  packageNameAndVersion,
+  pkg,
+  config,
+  dryRun,
+}: {
+  command: string
+  packageNameAndVersion: string
+  pkg: PackageInfo
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+}): Promise<void> {
+  logger.debug(`Executing publish command (${command}) in ${pkg.path}`)
+
+  if (dryRun) {
+    logger.info(`[dry-run] ${packageNameAndVersion}: Run ${command}`)
+    return
+  }
+
+  const { stdout } = await execPromise(command, {
+    noStderr: true,
+    noStdout: true,
+    logLevel: config.logLevel,
+    cwd: pkg.path,
+  })
+
+  if (stdout) {
+    logger.debug(stdout)
+  }
+
+  logger.info(`Published ${packageNameAndVersion}`)
 }
 
 export async function publishPackage({
@@ -185,56 +277,62 @@ export async function publishPackage({
   dryRun,
 }: {
   pkg: PackageInfo
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   packageManager: PackageManager
   dryRun: boolean
 }): Promise<void> {
   const tag = determinePublishTag(pkg.version, config.publish.tag)
+  const packageNameAndVersion = `${pkg.name}@${pkg.version}`
+  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 
   logger.debug(`Building publish command for ${pkg.name}`)
 
-  const args = getCommandArgs({
-    packageManager,
-    tag,
-    config,
-  })
+  let dynamicOtp: string | undefined
+  const maxAttempts = 2
 
-  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
-  const command = `${baseCommand} ${args.join(' ')}`
-
-  const packageNameAndVersion = `${pkg.name}@${pkg.version}`
-
-  logger.debug(`Publishing ${packageNameAndVersion} with tag '${tag}' with command: ${command}`)
-
-  try {
-    process.chdir(pkg.path)
-
-    logger.debug(`Executing publish command (${command}) in ${pkg.path}`)
-
-    if (dryRun) {
-      logger.info(`[dry-run] ${packageNameAndVersion}: Run ${command}`)
-    }
-    else {
-      const { stdout } = await execPromise(command, {
-        noStderr: true,
-        noStdout: true,
-        logLevel: config.logLevel,
-        cwd: pkg.path,
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const args = getCommandArgs({
+        packageManager,
+        tag,
+        config,
+        otp: dynamicOtp,
       })
-      if (stdout) {
-        logger.debug(stdout)
+
+      const command = `${baseCommand} ${args.join(' ')}`
+
+      logger.debug(`Publishing ${packageNameAndVersion} with tag '${tag}' with command: ${command}`)
+
+      process.chdir(pkg.path)
+
+      await executePublishCommand({
+        command,
+        packageNameAndVersion,
+        pkg,
+        config,
+        dryRun,
+      })
+
+      // Success - store OTP for next packages if it was prompted
+      if (dynamicOtp && !sessionOtp) {
+        sessionOtp = dynamicOtp
+        logger.debug('OTP stored for session')
+      }
+
+      return
+    }
+    catch (error) {
+      // Check if it's an OTP error and we haven't exhausted retries
+      if (isOtpError(error) && attempt < maxAttempts - 1) {
+        dynamicOtp = await handleOtpError()
+      }
+      else {
+        logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
+        throw error
       }
     }
-
-    if (!dryRun) {
-      logger.info(`Published ${packageNameAndVersion}`)
+    finally {
+      process.chdir(config.cwd)
     }
-  }
-  catch (error) {
-    logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
-    throw error
-  }
-  finally {
-    process.chdir(config.cwd)
   }
 }

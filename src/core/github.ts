@@ -1,16 +1,16 @@
-import type { ResolvedChangelogMonorepoConfig } from '../core'
-import type { BumpResult, GitProviderOptions, PackageInfo, PostedRelease } from '../types'
+import type { ResolvedRelizyConfig } from '../core'
+import type { BumpResult, PackageInfo, PostedRelease, ProviderReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
-import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadMonorepoConfig } from '../core'
+import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
 
 async function githubIndependentMode({
   config,
   dryRun,
   bumpedPackages,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
   bumpedPackages?: PackageInfo[]
 }): Promise<PostedRelease[]> {
@@ -121,7 +121,7 @@ async function githubUnified({
   fromTag,
   oldVersion,
 }: {
-  config: ResolvedChangelogMonorepoConfig
+  config: ResolvedRelizyConfig
   dryRun: boolean
   rootPackage: PackageInfo
   fromTag: string | undefined
@@ -199,14 +199,14 @@ async function githubUnified({
   }] satisfies PostedRelease[]
 }
 
-export async function github(options: Partial<GitProviderOptions> & { bumpResult?: BumpResult } = {}) {
+export async function github(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}) {
   try {
     logger.start('Start publishing GitHub release')
 
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
 
-    const config = await loadMonorepoConfig({
+    const config = await loadRelizyConfig({
       configName: options.configName,
       baseConfig: options.config,
       overrides: {
@@ -214,7 +214,7 @@ export async function github(options: Partial<GitProviderOptions> & { bumpResult
         to: options.to,
         logLevel: options.logLevel,
         tokens: {
-          github: options.token || process.env.CHANGELOGEN_TOKENS_GITHUB || process.env.GITHUB_TOKEN || process.env.GH_TOKEN,
+          github: options.token,
         },
       },
     })

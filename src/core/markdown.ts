@@ -1,5 +1,5 @@
 import type { GitCommit, ResolvedChangelogConfig } from 'changelogen'
-import type { ResolvedChangelogMonorepoConfig } from './config'
+import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
@@ -19,7 +19,7 @@ const VERSION_RE = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function generateMarkDown(
   commits: GitCommit[],
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
 ) {
   const typeGroups = groupBy(commits, 'type')
 
@@ -199,7 +199,7 @@ function getCommitBody(commit: GitCommit) {
   return `\n\n${indentedBody}\n`
 }
 
-function formatCommit(commit: GitCommit, config: ResolvedChangelogMonorepoConfig) {
+function formatCommit(commit: GitCommit, config: ResolvedRelizyConfig) {
   const body = config.changelog.includeCommitBody ? getCommitBody(commit) : ''
 
   return (
@@ -213,7 +213,7 @@ function formatCommit(commit: GitCommit, config: ResolvedChangelogMonorepoConfig
 
 function formatReferences(
   references: Reference[],
-  config: ResolvedChangelogMonorepoConfig,
+  config: ResolvedRelizyConfig,
 ) {
   const pr = references.filter(ref => ref.type === 'pull-request')
   const issue = references.filter(ref => ref.type === 'issue')
