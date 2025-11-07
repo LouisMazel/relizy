@@ -1,0 +1,188 @@
+# Installation
+
+Get Relizy up and running in your project in seconds.
+
+## Prerequisites
+
+- **Node.js** 18.x or higher
+- **npm**, **pnpm**, or **yarn** package manager
+- **Git** initialized in your project
+
+## Install Relizy
+
+Install Relizy as a development dependency:
+
+::: code-group
+
+```bash [npm]
+npm install -D relizy
+```
+
+```bash [pnpm]
+pnpm add -D relizy
+```
+
+```bash [yarn]
+yarn add -D relizy
+```
+
+:::
+
+## Global Installation (Optional)
+
+You can also install Relizy globally to use it across multiple projects:
+
+::: code-group
+
+```bash [npm]
+npm install -g relizy
+```
+
+```bash [pnpm]
+pnpm add -g relizy
+```
+
+```bash [yarn]
+yarn global add relizy
+```
+
+:::
+
+::: tip
+For most projects, we recommend installing as a dev dependency rather than globally. This ensures everyone on your team uses the same version.
+:::
+
+## Verify Installation
+
+Check that Relizy is installed correctly:
+
+```bash
+npx relizy --version
+```
+
+You should see the version number printed in the console.
+
+## Add to Package Scripts (Recommended)
+
+Add Relizy commands to your `package.json` scripts for convenience:
+
+```json
+{
+  "scripts": {
+    "release": "relizy release",
+    "release:patch": "relizy release --patch",
+    "release:minor": "relizy release --minor",
+    "release:major": "relizy release --major"
+  }
+}
+```
+
+Now you can run releases with simple npm commands:
+
+```bash
+npm run release:patch
+```
+
+## Monorepo Setup
+
+For monorepos, install Relizy in your root `package.json`:
+
+```bash
+# In the root of your monorepo
+pnpm add -D relizy
+```
+
+Relizy will automatically detect packages based on your workspace configuration:
+
+::: code-group
+
+```yml [pnpm-workspace.yaml]
+packages:
+  - 'packages/*'
+```
+
+```json [package.json]
+{
+  "workspaces": [
+    "packages/*"
+  ]
+}
+```
+
+:::
+
+## Configuration File (Optional)
+
+While Relizy works with zero configuration, you can create a config file for customization:
+
+```bash
+touch relizy.config.ts
+```
+
+```ts
+// relizy.config.ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    versionMode: 'selective',
+    packageGlobs: ['packages/*'],
+  },
+})
+```
+
+::: tip
+Configuration is completely optional. Start without a config file and add one only if you need custom behavior.
+:::
+
+## Environment Setup
+
+### NPM Publishing
+
+To publish to npm, ensure you're logged in:
+
+```bash
+npm login
+```
+
+Or set an NPM token in your environment:
+
+```bash
+export NPM_TOKEN=your_token_here
+```
+
+### GitHub Releases
+
+For GitHub releases, create a personal access token:
+
+1. Go to GitHub Settings → Developer settings → Personal access tokens
+2. Create a token with `repo` scope
+3. Set the token in your environment:
+
+```bash
+export GITHUB_TOKEN=your_github_token
+```
+
+### GitLab Releases
+
+For GitLab releases, create a project access token:
+
+1. Go to your GitLab project → Settings → Access Tokens
+2. Create a token with `api` scope
+3. Set the token in your environment:
+
+```bash
+export GITLAB_TOKEN=your_gitlab_token
+```
+
+::: info
+These environment variables are only needed if you want to publish packages or create provider releases. They're not required for basic version bumping and changelog generation.
+:::
+
+## Next Steps
+
+Now that Relizy is installed, learn how to use it:
+
+- [Getting Started](/guide/getting-started) - Run your first release
+- [CLI Commands](/cli/commands) - Learn about available commands
+- [Configuration](/config/overview) - Customize Relizy's behavior

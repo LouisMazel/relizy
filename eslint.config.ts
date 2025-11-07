@@ -15,4 +15,9 @@ export default defineConfig({
   rules: {
     'sonarjs/no-commented-code': 'off',
   },
+}, {
+  files: ['**/*.md/**'],
+  rules: {
+    'sonarjs/no-commented-code': 'off',
+  },
 })
