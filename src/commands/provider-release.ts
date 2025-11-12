@@ -4,26 +4,28 @@ import { logger } from '@maz-ui/node'
 import { detectGitProvider, github, gitlab, loadRelizyConfig } from '../core'
 import { executeHook } from '../core/utils'
 
-export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider }) {
+export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
   if (!config.safetyCheck || !config.release.providerRelease) {
     return
   }
 
+  const internalProvider = provider || config.repo?.provider || detectGitProvider()
+
   let token: string | undefined
 
-  if (provider === 'github') {
-    token = config.tokens?.github
+  if (internalProvider === 'github') {
+    token = config.tokens?.github || config.repo?.token
   }
-  else if (provider === 'gitlab') {
-    token = config.tokens?.gitlab
+  else if (internalProvider === 'gitlab') {
+    token = config.tokens?.gitlab || config.repo?.token
   }
   else {
-    logger.error('Unsupported Git provider')
+    logger.error(`Unsupported Git provider: ${internalProvider || 'unknown'}`)
     process.exit(1)
   }
 
   if (!token) {
-    logger.error('No token provided')
+    logger.error(`No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
     process.exit(1)
   }
 }
@@ -46,17 +48,19 @@ export async function providerRelease(
     },
   })
 
+  const dryRun = options.dryRun ?? false
+  logger.debug(`Dry run: ${dryRun}`)
+
+  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
   try {
-    await executeHook('before:provider-release', config)
-
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    providerReleaseSafetyCheck({ config, provider: options.provider })
-
-    logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+    await executeHook('before:provider-release', config, dryRun)
 
     const detectedProvider = options.provider || detectGitProvider()
+
+    providerReleaseSafetyCheck({ config, provider: detectedProvider })
+
+    logger.start('Start provider release')
 
     if (!detectedProvider) {
       logger.warn('Unable to detect Git provider. Skipping release publication.')
@@ -88,7 +92,7 @@ export async function providerRelease(
       logger.warn(`Unsupported Git provider: ${detectedProvider}`)
     }
 
-    await executeHook('after:provider-release', config)
+    await executeHook('after:provider-release', config, dryRun)
 
     return {
       detectedProvider,
@@ -98,7 +102,7 @@ export async function providerRelease(
   catch (error) {
     logger.error('Error publishing releases:', error)
 
-    await executeHook('error:provider-release', config)
+    await executeHook('error:provider-release', config, dryRun)
 
     throw error
   }

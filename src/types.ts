@@ -230,7 +230,7 @@ export interface ProviderReleaseOptions {
    */
   to?: string
   /**
-   * GitHub/GitLab token
+   * Git token (GitHub or GitLab)
    */
   token?: string
   /**
@@ -439,23 +439,20 @@ export interface RepoConfig {
   provider?: GitProvider
 }
 
-type HookType = 'before' | 'after' | 'error'
-type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push'
+export type HookType = 'before' | 'after' | 'error'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
 
 /**
  * Hooks configuration
  * Useful to run custom scripts before, after a step or on error
  */
 export type HookConfig = {
-  [K in `${HookType}:${HookStep}`]?: string | (() => any)
+  [K in `${HookType}:${HookStep}`]?: string | ((config: ResolvedRelizyConfig, dryRun: boolean) => any)
 } & {
-  'generate:changelog'?: ({
-    commits,
-    config,
-  }: {
+  'generate:changelog'?: (config: ResolvedRelizyConfig, dryRun: boolean, params: {
     commits: GitCommit[]
-    config: ResolvedRelizyConfig
-  }) => string
+    changelog: string
+  }) => string | void | null | undefined | Promise<string | void | null | undefined>
 }
 
 export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish'>> {
@@ -473,35 +470,35 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    */
   to?: string
   /**
-   * Monorepo options
+   * Monorepo config
    */
   monorepo?: MonorepoConfig
   /**
-   * Repo options
+   * Repo config
    */
   repo?: RepoConfig
   /**
-   * Templates options
+   * Templates config
    */
   templates?: TemplatesConfig
   /**
-   * Bump options
+   * Bump config
    */
   bump?: BumpConfig
   /**
-   * Publish options
+   * Publish config
    */
   publish?: PublishConfig
   /**
-   * Changelog options
+   * Changelog config
    */
   changelog?: ChangelogConfig
   /**
-   * Release options
+   * Release config
    */
   release?: ReleaseConfig
   /**
-   * Hooks options
+   * Hooks config
    */
   hooks?: HookConfig
   /**

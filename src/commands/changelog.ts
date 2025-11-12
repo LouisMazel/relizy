@@ -1,8 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { ChangelogConfig, ChangelogOptions, PackageInfo } from '../types'
 import { logger } from '@maz-ui/node'
-import { executeFormatCmd, generateChangelog, getPackageCommits, getPackages, getRootPackage, loadRelizyConfig, resolveTags, writeChangelogToFile } from '../core'
-import { executeHook } from '../core/utils'
+import { executeFormatCmd, executeHook, generateChangelog, getPackageCommits, getPackages, getRootPackage, loadRelizyConfig, resolveTags, writeChangelogToFile } from '../core'
 
 function getPackagesToGenerateChangelogFor({
   config,
@@ -170,15 +169,15 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
     },
   })
 
+  const dryRun = options.dryRun ?? false
+  logger.debug(`Dry run: ${dryRun}`)
+
+  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
   try {
-    await executeHook('before:changelog', config)
+    await executeHook('before:changelog', config, dryRun)
 
     logger.start('Start generating changelogs')
-
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
     const packages = getPackagesToGenerateChangelogFor({
       config,
@@ -261,12 +260,12 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
 
-    await executeHook('after:changelog', config)
+    await executeHook('after:changelog', config, dryRun)
   }
   catch (error) {
     logger.error('Error generating changelogs:', error)
 
-    await executeHook('error:changelog', config)
+    await executeHook('error:changelog', config, dryRun)
 
     throw error
   }

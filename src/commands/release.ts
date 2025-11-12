@@ -66,19 +66,21 @@ function releaseSafetyCheck({
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
 export async function release(options: Partial<ReleaseOptions> = {}): Promise<void> {
+  const dryRun = options.dryRun ?? false
+  logger.debug(`Dry run: ${dryRun}`)
+
+  const force = options.force ?? false
+  logger.debug(`Force bump: ${force}`)
+
+  const config = await getReleaseConfig(options)
+
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+  logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
+
+  releaseSafetyCheck({ config, provider: options.provider })
+
   try {
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    const force = options.force ?? false
-    logger.debug(`Force bump: ${force}`)
-
-    const config = await getReleaseConfig(options)
-
-    releaseSafetyCheck({ config, provider: options.provider })
-
-    logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-    logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
+    await executeHook('before:release', config, dryRun)
 
     logger.box('Step 1/6: Bump versions')
 
@@ -134,14 +136,15 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     logger.box('Step 4/6: Push changes and tags')
     if (config.release.push && config.release.commit) {
-      await executeHook('before:push', config)
+      await executeHook('before:push', config, dryRun)
+
       try {
         await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
-        await executeHook('after:push', config)
+        await executeHook('after:push', config, dryRun)
       }
       catch (error) {
-        await executeHook('error:push', config)
+        await executeHook('error:push', config, dryRun)
         throw error
       }
     }
@@ -207,8 +210,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
       + `Git provider: ${provider}`)
+
+    await executeHook('after:release', config, dryRun)
   }
   catch (error) {
+    await executeHook('error:release', config, dryRun)
     logger.error('Error during release workflow:', error)
     throw error
   }
