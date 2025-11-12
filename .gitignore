@@ -4,3 +4,5 @@ node_modules
 docs/.vitepress/cache
 docs/.vitepress/.temp
 .DS_Store
+.claude
+coverage

@@ -5,6 +5,7 @@ export default defineConfig({
   typescript: true,
   sonarjs: true,
   vue: false,
+  ignores: ['./docs/**'],
 }, {
   rules: {
     'sonarjs/no-os-command-from-path': 'off',

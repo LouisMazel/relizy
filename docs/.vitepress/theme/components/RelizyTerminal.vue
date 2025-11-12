@@ -1,5 +1,5 @@
 <script lang="ts" setup>
-import { VTermynal } from '@lehoczky/vue-termynal';
+import { VTermynal } from '@lehoczky/vue-termynal'
 
 const terminalOptions = {
   startDelay: 400,

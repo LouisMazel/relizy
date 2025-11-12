@@ -21,7 +21,8 @@ export function checkGitStatusIfDirty() {
   const dirty = getGitStatus()
   if (dirty) {
     logger.debug('git status:', `\n${dirty.trim().split('\n').map(line => line.trim()).join('\n')}`)
-    throw new Error('Working directory is not clean')
+
+    throw new Error(dirty)
   }
 }
 

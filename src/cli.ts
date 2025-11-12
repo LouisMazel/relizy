@@ -5,9 +5,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { printBanner } from '@maz-ui/node'
+import { logger, printBanner } from '@maz-ui/node'
 import { Command } from 'commander'
 import { bump, changelog, providerRelease, publish, release } from './commands'
+import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
 
@@ -32,6 +33,13 @@ if (!hasSilentFlag) {
       clear: false,
     },
   })
+}
+
+if (isInCI()) {
+  logger.debug(`Running in CI: ${getCIName()}`)
+}
+else {
+  logger.debug('Running locally')
 }
 
 const program = new Command()

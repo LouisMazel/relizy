@@ -14,5 +14,10 @@ jobs:
       - name: Setup Node.js, pnpm and Nx cache
         uses: ./.github/actions/setup
 
+      - name: Build
+        run: pnpm build
+
       - name: Dry run release
-        run: pnpm relizy release --dry-run
+        env:
+          RELIZY_GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: pnpm relizy release --yes --dry-run

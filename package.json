@@ -42,8 +42,8 @@
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
-    "rly": "./bin/relizy.mjs",
-    "relizy": "./bin/relizy.mjs"
+    "relizy": "./bin/relizy.mjs",
+    "rly": "./bin/relizy.mjs"
   },
   "files": [
     "LICENSE",

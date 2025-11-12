@@ -340,8 +340,8 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       try {
         checkGitStatusIfDirty()
       }
-      catch {
-        logger.error('Git status is dirty, please commit or stash your changes before bumping or use --no-clean flag')
+      catch (error) {
+        logger.error('Git status is dirty, please commit or stash your changes before bumping or use --no-clean flag', error)
         process.exit(1)
       }
     }
