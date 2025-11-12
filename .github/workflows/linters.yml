@@ -16,3 +16,6 @@ jobs:
 
       - name: Run linters
         run: pnpm lint
+
+      - name: Run docs linters
+        run: pnpm -F docs lint
