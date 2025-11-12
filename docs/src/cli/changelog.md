@@ -1,6 +1,14 @@
-# changelog
+---
+title: changelog
+description: Generate or update CHANGELOG.md files.
+keywords: relizy changelog, changelog generation, CHANGELOG.md, git commits, conventional commits
+category: CLI Reference
+tags: [cli, changelog, documentation, git, commits]
+---
 
-Generate or update CHANGELOG.md files.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Usage
 

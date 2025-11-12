@@ -1,6 +1,14 @@
-# Dependency Management
+---
+title: Dependency Management
+description: Learn how Relizy handles dependencies between packages in monorepos.
+keywords: dependency management, monorepo dependencies, workspace dependencies, transitive dependencies, package dependencies
+category: Guide
+tags: [guide, dependencies, monorepo, workspace]
+---
 
-Learn how Relizy handles dependencies between packages in monorepos.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Overview
 
@@ -22,7 +30,7 @@ Imagine this dependency graph:
 
 ```text
 packages/ui
-  └── depends on @myorg/core
+  └── depends on @myorg/core (workspace:*)
 
 packages/core
   └── no dependencies
@@ -38,8 +46,6 @@ relizy release --minor
 # What happens:
 # 1. core: 1.0.0 → 1.1.0 (has commits)
 # 2. ui: 1.0.0 → 1.0.1 (depends on core - patched)
-# 3. ui's package.json updated:
-#    "@myorg/core": "^1.1.0"
 ```
 
 ## Transitive Dependencies
@@ -79,7 +85,7 @@ You can configure which dependency fields trigger updates:
 ```ts
 // relizy.config.ts
 export default defineConfig({
-  monorepo: {
+  bump: {
     dependencyTypes: [
       'dependencies', // Production dependencies
       'devDependencies', // Development dependencies
@@ -119,7 +125,7 @@ By default, changes to dev dependencies also trigger bumps. Disable if you want:
 
 ```ts
 export default defineConfig({
-  monorepo: {
+  bump: {
     dependencyTypes: ['dependencies'], // Only production deps
   },
 })
@@ -191,56 +197,12 @@ ui: 1.5.0 → 1.6.0 (has its own feature commits)
 
 ## Workspace Protocol
 
-Relizy supports the workspace protocol used by pnpm and yarn:
+Relizy supports the workspace protocol used by pnpm, bun and yarn:
 
 ```json
 {
   "dependencies": {
     "@myorg/core": "workspace:*"
-  }
-}
-```
-
-After a release, this is updated to:
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "workspace:^1.1.0"
-  }
-}
-```
-
-## Version Ranges
-
-Relizy respects and updates version ranges:
-
-### Caret (^) - Default
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.0.0" // → "^1.1.0"
-  }
-}
-```
-
-### Tilde (~)
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "~1.0.0" // → "~1.1.0"
-  }
-}
-```
-
-### Exact
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "1.0.0" // → "1.1.0"
   }
 }
 ```
@@ -309,8 +271,8 @@ Output shows the full dependency tree:
 ```text
 Packages to bump:
 ✓ @myorg/core: 1.0.0 → 1.1.0 (has commits)
-✓ @myorg/ui: 1.0.0 → 1.1.0 (depends on core)
-✓ @myorg/app: 1.0.0 → 1.1.0 (depends on ui)
+✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on core)
+✓ @myorg/app: 1.0.0 → 1.0.1 (depends on ui)
 ```
 
 ## Manual Package Selection
@@ -330,12 +292,12 @@ relizy release --minor
 
 ### 1. Use Workspace Protocol
 
-For monorepos with pnpm or yarn:
+For monorepos with pnpm, bun or yarn:
 
 ```json
 {
   "dependencies": {
-    "@myorg/core": "workspace:^"
+    "@myorg/core": "workspace:*" // ("*" for npm)
   }
 }
 ```
@@ -348,7 +310,7 @@ Only track the dependency types that matter:
 
 ```ts
 export default defineConfig({
-  monorepo: {
+  bump: {
     // Don't bump for devDependency changes
     dependencyTypes: ['dependencies', 'peerDependencies'],
   },
@@ -401,7 +363,7 @@ Check your `dependencyTypes` configuration:
 
 ```ts
 export default defineConfig({
-  monorepo: {
+  bump: {
     dependencyTypes: [
       'dependencies', // Add missing types
       'devDependencies',
@@ -451,9 +413,9 @@ relizy release --minor
 
 # Output:
 # ✓ @myorg/core: 1.0.0 → 1.1.0
-# ✓ @myorg/utils: 1.0.0 → 1.1.0 (depends on core)
-# ✓ @myorg/ui: 1.0.0 → 1.1.0 (depends on utils)
-# ✓ @myorg/app: 1.0.0 → 1.1.0 (depends on ui)
+# ✓ @myorg/utils: 1.0.0 → 1.0.1 (depends on core)
+# ✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on utils)
+# ✓ @myorg/app: 1.0.0 → 1.0.1 (depends on ui)
 ```
 
 ### Selective Release

@@ -1,6 +1,14 @@
-# bump
+---
+title: bump
+description: Update version numbers in package.json files according to the release type and commits.
+keywords: relizy bump, version bump, semver, package version, monorepo versioning, npm version
+category: CLI Reference
+tags: [cli, bump, versioning, semver, monorepo]
+---
 
-Update version numbers in package.json files.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Usage
 

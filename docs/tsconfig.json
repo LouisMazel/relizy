@@ -1,0 +1,7 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "types": ["node", "vue", "vitest/globals"]
+  },
+  "exclude": ["*.spec.ts", "*.test.ts"]
+}

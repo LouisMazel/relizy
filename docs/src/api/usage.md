@@ -1,17 +1,25 @@
-# Programmatic API
+---
+title: Programmatic API
+description: Use Relizy programmatically in your Node.js scripts and tools.
+keywords: [relizy api, programmatic api, node.js api, monorepo api, version management api, release automation api, typescript api]
+category: API Reference
+tags: [api, programmatic, node.js, typescript, integration]
+---
 
-Use Relizy programmatically in your Node.js scripts and tools.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Installation
 
 ::: code-group
 
-```bash [npm]
-npm install -D relizy
-```
-
 ```bash [pnpm]
 pnpm add -D relizy
+```
+
+```bash [npm]
+npm install -D relizy
 ```
 
 ```bash [yarn]
@@ -55,13 +63,13 @@ The programmatic API is useful for:
 
 ## Available Functions
 
-| Function                                   | Description                   |
-| ------------------------------------------ | ----------------------------- |
-| [`release()`](release.md)                  | Complete release workflow     |
-| [`bump()`](bump.md)                        | Bump package versions         |
-| [`changelog()`](changelog.md)              | Generate changelogs           |
-| [`publish()`](publish.md)                  | Publish to npm                |
-| [`providerRelease()`](provider-release.md) | Create GitHub/GitLab releases |
+| Function                                   | Description                      |
+| ------------------------------------------ | -------------------------------- |
+| [`release()`](release.md)                  | Complete release workflow        |
+| [`bump()`](bump.md)                        | Bump package versions            |
+| [`changelog()`](changelog.md)              | Generate changelogs              |
+| [`publish()`](publish.md)                  | Publish to npm                   |
+| [`providerRelease()`](provider-release.md) | Create GitHub or GitLab releases |
 
 ## Basic Usage
 

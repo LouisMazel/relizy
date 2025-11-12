@@ -1,6 +1,16 @@
-# Version Modes
+---
+title: Version Modes
+description: Relizy supports three different versioning strategies for monorepos, each designed for different use cases.
+keywords: version modes, monorepo versioning, unified mode, selective mode, independent mode, versioning strategies
+category: Guide
+tags: [guide, versioning, monorepo, strategies]
+---
 
-Relizy supports three different versioning strategies for monorepos, each designed for different use cases.
+# {{ $frontmatter.title }}
+
+> Only for monorepo with multiple packages
+
+{{ $frontmatter.description }}
 
 ## Overview
 
@@ -304,12 +314,14 @@ Control which dependency types trigger bumps:
 export default {
   monorepo: {
     versionMode: 'selective',
+  },
+  bump: {
     dependencyTypes: [
       'dependencies', // Bump when production deps change
       'devDependencies', // Bump when dev deps change
       'peerDependencies', // Bump when peer deps change
     ],
-  },
+  }
 }
 ```
 

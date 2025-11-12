@@ -1,6 +1,14 @@
-# Installation
+---
+title: Installation
+description: Get Relizy up and running in your project in seconds.
+keywords: relizy installation, install relizy, npm install, pnpm install, setup relizy, relizy config
+category: Guide
+tags: [guide, installation, setup, configuration]
+---
 
-Get Relizy up and running in your project in seconds.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Prerequisites
 
@@ -14,12 +22,12 @@ Install Relizy as a development dependency:
 
 ::: code-group
 
-```bash [npm]
-npm install -D relizy
-```
-
 ```bash [pnpm]
 pnpm add -D relizy
+```
+
+```bash [npm]
+npm install -D relizy
 ```
 
 ```bash [yarn]
@@ -38,12 +46,12 @@ You can also install Relizy globally to use it across multiple projects:
 
 ::: code-group
 
-```bash [npm]
-npm install -g relizy
-```
-
 ```bash [pnpm]
 pnpm add -g relizy
+```
+
+```bash [npm]
+npm install -g relizy
 ```
 
 ```bash [yarn]

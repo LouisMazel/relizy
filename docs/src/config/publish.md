@@ -1,6 +1,14 @@
-# Publish Configuration
+---
+title: Publish Configuration
+description: Configure NPM publishing.
+keywords: publish config, npm config, registry config, package access, npm publishing
+category: Configuration
+tags: [config, publish, npm, registry]
+---
 
-Configure NPM publishing.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## access
 

@@ -1,5 +1,6 @@
 {
   "name": "docs",
+  "type": "module",
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@10.20.0pn",
@@ -7,19 +8,24 @@
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
   "scripts": {
-    "build": "vitepress build",
-    "dev": "vitepress dev",
+    "build": "pnpm predocs && vitepress build",
+    "dev": "pnpm predocs && vitepress dev",
     "ftp-deploy": "ftp-deploy --config ftp.json",
     "preview": "vitepress preview",
-    "predocs": "typedoc"
+    "predocs": "typedoc",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
     "vue": "^3.5.23"
   },
   "devDependencies": {
+    "@lehoczky/vue-termynal": "^1.3.0",
     "typedoc": "^0.28.14",
     "typedoc-plugin-markdown": "^4.9.0",
     "typedoc-vitepress-theme": "^1.1.2",
-    "vitepress": "2.0.0-alpha.12"
+    "vitepress": "2.0.0-alpha.12",
+    "vue-tsc": "^3.1.3"
   }
 }

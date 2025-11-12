@@ -1,6 +1,14 @@
-# release()
+---
+title: release()
+description: Execute a complete release workflow programmatically.
+keywords: relizy release api, programmatic release, automated release api, release workflow api
+category: API Reference
+tags: [api, release, workflow, automation, typescript]
+---
 
-Execute a complete release workflow programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

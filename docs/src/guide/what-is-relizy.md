@@ -1,6 +1,14 @@
-# What is Relizy?
+---
+title: What is Relizy?
+description: Relizy is a powerful, automated release management tool designed for modern projects (monorepos or single packages).
+keywords: relizy, release management, monorepo tool, version management, automated releases, npm publishing, changelog generator
+category: Guide
+tags: [guide, introduction, overview, features]
+---
 
-Relizy is a powerful, automated release management tool designed for modern projects (monorepos or single packages). It handles the entire release workflow from version bumping to publishing, with first-class support for both monorepos and single packages.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }} It handles the entire release workflow from version bumping to publishing, with first-class support for both monorepos and single packages.
 
 ## The Problem
 

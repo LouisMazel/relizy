@@ -1,6 +1,14 @@
-# provider-release
+---
+title: provider-release
+description: Create releases on GitHub or GitLab.
+keywords: relizy provider release, github release, gitlab release, git release, release notes
+category: CLI Reference
+tags: [cli, provider-release, github, gitlab, releases]
+---
 
-Create releases on GitHub or GitLab.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Usage
 
@@ -68,14 +76,6 @@ relizy provider-release
 # https://gitlab.com/user/repo/-/releases/v1.0.0
 ```
 
-### Draft Release
-
-```bash
-relizy provider-release --draft
-
-# Create release as draft for review
-```
-
 ### Pre-release
 
 ```bash
@@ -89,7 +89,7 @@ relizy provider-release --prerelease
 ### GitHub
 
 ```bash
-export GITHURELIZY_GITHUB_TOKENB_TOKEN=ghp_xxxxx
+export GITHUB_TOKEN=ghp_xxxxx
 ```
 
 Create token at: Settings → Developer settings → Personal access tokens

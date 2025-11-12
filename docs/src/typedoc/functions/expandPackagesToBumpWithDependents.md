@@ -4,7 +4,7 @@
 
 > **expandPackagesToBumpWithDependents**(`__namedParameters`): [`PackageToBump`](../interfaces/PackageToBump.md)[]
 
-Defined in: [src/core/dependencies.ts:70](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/core/dependencies.ts#L70)
+Defined in: [src/core/dependencies.ts:70](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/core/dependencies.ts#L70)
 
 Recursively expand packages to bump with all their dependents (transitive)
 Returns packages with reason for bumping and dependency chain for traceability

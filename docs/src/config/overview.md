@@ -1,6 +1,14 @@
-# Configuration
+---
+title: Configuration
+description: Complete guide to configuring Relizy.
+keywords: relizy config, configuration guide, relizy.config.ts, configuration options, relizy setup
+category: Configuration
+tags: [config, configuration, setup, guide]
+---
 
-Complete guide to configuring Relizy.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Configuration File
 
@@ -106,24 +114,26 @@ relizy release --minor
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'selective',
     packageGlobs: ['packages/*'],
   },
-}
+})
 ```
 
 ### Monorepo - Advanced
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'selective',
     packageGlobs: ['packages/*'],
-    dependencyTypes: ['dependencies', 'devDependencies'],
     ignorePackageNames: ['pacakge-a'],
+  },
+  bump: {
+    dependencyTypes: ['dependencies', 'devDependencies'],
   },
   types: {
     feat: { title: '🎉 Features', semver: 'minor' },
@@ -133,7 +143,7 @@ export default {
     access: 'public',
     tag: 'latest',
   },
-}
+})
 ```
 
 ## Configuration Sections
@@ -264,9 +274,10 @@ const defaultConfig = {
 
 Explore specific configuration sections:
 
-- [Monorepo Options](/config/monorepo)
-- [Changelog Options](/config/changelog)
-- [Bump Options](/config/bump)
-- [Publish Options](/config/publish)
-- [Release Options](/config/release)
-- [Multiple Configs](/config/multiple-configs)
+- [Monorepo Config](monorepo.md)
+- [Changelog Config](changelog.md)
+- [Bump Config](bump.md)
+- [Publish Config](publish.md)
+- [Release Config](release.md)
+- [Hooks Config](hooks.md)
+- [Multiple Configs](multiple-configs.md)

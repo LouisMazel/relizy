@@ -1,3 +1,4 @@
+import type { HeadConfig } from 'vitepress'
 import { defineConfig } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
@@ -36,11 +37,82 @@ export default defineConfig({
       light: 'github-light',
       dark: 'github-dark',
     },
-    lineNumbers: true,
+    lineNumbers: false,
   },
 
   sitemap: {
-    hostname: 'https://relizy.loicmazuel.com',
+    hostname: 'https://louismazel.github.io/relizy',
+    transformItems: (items) => {
+      // add new items or modify/filter existing items
+      const modifyItems: typeof items = []
+
+      for (const item of items) {
+        if (item.url.includes('404')) {
+          continue
+        }
+
+        const url = `relizy/${item.url}`
+
+        modifyItems.push({
+          ...item,
+          url,
+          changefreq: 'daily',
+          priority: 1,
+        })
+      }
+
+      return modifyItems
+    },
+  },
+
+  transformHead: ({ siteData, pageData, title, description, head }) => {
+    const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
+    const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
+
+    const currentUrl = `https://louismazel.github.io/relizy/${pageData.relativePath.replace('.md', '') === 'index' ? '' : pageData.relativePath.replace('.md', '')}`
+
+    const pageHead: HeadConfig[] = [
+      ['meta', { name: 'og:site_name', content: 'Relizy' }],
+      ['meta', { name: 'og:title', content: currentTitle }],
+      ['link', { rel: 'canonical', href: currentUrl }],
+      ['meta', { name: 'og:url', content: currentUrl }],
+      ['meta', { name: 'og:type', content: pageData.relativePath === 'index.md' ? 'website' : 'article' }],
+      ['meta', { name: 'description', content: currentDescription }],
+      ['meta', { name: 'og:description', content: currentDescription }],
+      ['meta', { name: 'twitter:title', content: currentTitle }],
+      ['meta', { name: 'twitter:description', content: currentDescription }],
+      ['meta', { name: 'twitter:image:alt', content: currentDescription }],
+      ['meta', { name: 'og:image:alt', content: currentDescription }],
+      ['meta', { name: 'og:updated_time', content: pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString() }],
+      ['meta', { name: 'article:modified_time', content: pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString() }],
+    ]
+
+    // Add keywords from frontmatter
+    if (pageData.frontmatter.keywords) {
+      const keywords = typeof pageData.frontmatter.keywords === 'string'
+        ? pageData.frontmatter.keywords
+        // eslint-disable-next-line sonarjs/no-nested-conditional
+        : Array.isArray(pageData.frontmatter.keywords)
+          ? pageData.frontmatter.keywords.join(', ')
+          : ''
+      if (keywords) {
+        pageHead.push(['meta', { name: 'keywords', content: keywords }])
+      }
+    }
+
+    // Add article category
+    if (pageData.frontmatter.category) {
+      pageHead.push(['meta', { name: 'article:section', content: pageData.frontmatter.category }])
+    }
+
+    // Add article tags
+    if (pageData.frontmatter.tags && Array.isArray(pageData.frontmatter.tags)) {
+      for (const tag of pageData.frontmatter.tags) {
+        pageHead.push(['meta', { property: 'article:tag', content: tag }])
+      }
+    }
+
+    return [...head, ...pageHead]
   },
 
   themeConfig: {
@@ -105,11 +177,12 @@ export default defineConfig({
         text: 'Config',
         items: [
           { text: 'Overview', link: '/config/overview' },
-          { text: 'Monorepo Options', link: '/config/monorepo' },
-          { text: 'Changelog Options', link: '/config/changelog' },
-          { text: 'Bump Options', link: '/config/bump' },
-          { text: 'Publish Options', link: '/config/publish' },
-          { text: 'Release Options', link: '/config/release' },
+          { text: 'Monorepo Config', link: '/config/monorepo' },
+          { text: 'Changelog Config', link: '/config/changelog' },
+          { text: 'Bump Config', link: '/config/bump' },
+          { text: 'Publish Config', link: '/config/publish' },
+          { text: 'Release Config', link: '/config/release' },
+          { text: 'Hooks Config', link: '/config/hooks' },
           { text: 'Multiple Configs', link: '/config/multiple-configs' },
         ],
       },
@@ -118,7 +191,7 @@ export default defineConfig({
         items: [
           {
             text: 'Changelog',
-            link: 'https://github.com/LouisMazel/relizy/releases',
+            link: '/changelog',
           },
           {
             text: 'Migration from @maz-ui/changelogen-monorepo',
@@ -126,7 +199,7 @@ export default defineConfig({
           },
           {
             text: 'Contributing',
-            link: 'https://github.com/LouisMazel/relizy/blob/master/CONTRIBUTING.md',
+            link: 'https://github.com/LouisMazel/relizy/blob/main/CONTRIBUTING.md',
           },
         ],
       },
@@ -202,11 +275,12 @@ export default defineConfig({
           text: 'Configuration',
           items: [
             { text: 'Overview', link: '/config/overview' },
-            { text: 'Monorepo Options', link: '/config/monorepo' },
-            { text: 'Changelog Options', link: '/config/changelog' },
-            { text: 'Bump Options', link: '/config/bump' },
-            { text: 'Publish Options', link: '/config/publish' },
-            { text: 'Release Options', link: '/config/release' },
+            { text: 'Monorepo Config', link: '/config/monorepo' },
+            { text: 'Changelog Config', link: '/config/changelog' },
+            { text: 'Bump Config', link: '/config/bump' },
+            { text: 'Publish Config', link: '/config/publish' },
+            { text: 'Release Config', link: '/config/release' },
+            { text: 'Hooks Config', link: '/config/hooks' },
             { text: 'Multiple Configs', link: '/config/multiple-configs' },
           ],
         },

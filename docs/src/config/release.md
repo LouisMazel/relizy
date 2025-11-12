@@ -1,6 +1,14 @@
-# Release Configuration
+---
+title: Release Configuration
+description: Configure release workflow behavior.
+keywords: release config, workflow config, git commit config, release automation, release settings
+category: Configuration
+tags: [config, release, workflow, automation]
+---
 
-Configure release workflow behavior.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## commit
 

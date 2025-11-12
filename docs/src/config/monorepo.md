@@ -1,6 +1,16 @@
-# Monorepo Configuration
+---
+title: Monorepo Configuration
+description: Configure monorepo-specific behavior.
+keywords: monorepo config, version mode, workspace packages, monorepo versioning, package management
+category: Configuration
+tags: [config, monorepo, versioning, workspace]
+---
 
-Configure monorepo-specific behavior.
+# {{ $frontmatter.title }}
+
+> Optional for standalone package
+
+{{ $frontmatter.description }}
 
 ## versionMode
 
@@ -20,7 +30,7 @@ export default defineConfig({
 - **selective**: Only changed packages bumped (recommended)
 - **independent**: Each package has its own version
 
-Learn more: [Version Modes](/guide/version-modes)
+Learn more: [Version Modes](../guide/version-modes.md)
 
 ## packages
 
@@ -33,22 +43,6 @@ export default defineConfig({
       'packages/*',
       'apps/*',
       'libs/*',
-    ],
-  },
-})
-```
-
-## dependencyTypes
-
-Which dependency types trigger bumps:
-
-```ts
-export default defineConfig({
-  monorepo: {
-    dependencyTypes: [
-      'dependencies', // Production deps
-      'devDependencies', // Dev deps
-      'peerDependencies', // Peer deps
     ],
   },
 })
@@ -77,7 +71,6 @@ export default defineConfig({
   monorepo: {
     versionMode: 'selective',
     packages: ['packages/*', 'apps/*'],
-    dependencyTypes: ['dependencies', 'peerDependencies'],
     ignorePackageNames: ['example-a', 'docs'],
   },
 })

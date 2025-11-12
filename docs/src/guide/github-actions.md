@@ -1,6 +1,14 @@
-# GitHub Actions
+---
+title: GitHub Actions
+description: Complete guide to using Relizy with GitHub Actions.
+keywords: github actions, github workflow, github ci cd, automated releases github, github automation
+category: Guide
+tags: [guide, github, ci-cd, automation, workflow]
+---
 
-Complete guide to using Relizy with GitHub Actions.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Quick Start
 

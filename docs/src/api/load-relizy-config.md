@@ -1,6 +1,14 @@
-# loadRelizyConfig()
+---
+title: loadRelizyConfig()
+description: Load Relizy configuration programmatically.
+keywords: relizy config, load config, programmatic config, configuration api, relizy api
+category: API Reference
+tags: [api, config, configuration, typescript]
+---
 
-Load Relizy configuration programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

@@ -1,6 +1,14 @@
-# changelog()
+---
+title: changelog()
+description: Generate changelogs programmatically.
+keywords: relizy changelog api, programmatic changelog, changelog generation api, git commits api
+category: API Reference
+tags: [api, changelog, documentation, typescript]
+---
 
-Generate changelogs programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

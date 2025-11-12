@@ -134,7 +134,7 @@ Executes the entire release workflow in one command:
 4. Create git tag
 5. Push to remote
 6. Publish to npm
-7. Create GitHub/GitLab release
+7. Create GitHub or GitLab release
 
 ```bash
 # Complete release

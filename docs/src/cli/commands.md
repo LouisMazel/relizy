@@ -1,6 +1,14 @@
-# CLI Commands
+---
+title: CLI commands
+description: Complete reference for all Relizy CLI commands.
+keywords: relizy cli, cli commands, command line, terminal commands, relizy reference
+category: CLI Reference
+tags: [cli, commands, reference, documentation]
+---
 
-Complete reference for all Relizy CLI commands.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Overview
 
@@ -12,7 +20,7 @@ Relizy provides five main commands:
 | [`bump`](/cli/bump)                         | Update version in package.json                                                           |
 | [`changelog`](/cli/changelog)               | Generate or update CHANGELOG.md                                                          |
 | [`publish`](/cli/publish)                   | Publish packages to npm                                                                  |
-| [`provider-release`](/cli/provider-release) | Create GitHub/GitLab releases                                                            |
+| [`provider-release`](/cli/provider-release) | Create GitHub or GitLab releases                                                         |
 
 ## Global Options
 
@@ -100,7 +108,7 @@ relizy publish
 ### Provider Release Only
 
 ```bash
-# Create GitHub/GitLab release
+# Create GitHub or GitLab release
 relizy provider-release
 ```
 

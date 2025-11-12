@@ -2,7 +2,7 @@
 
 # Interface: RepoConfig
 
-Defined in: [src/types.ts:437](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L437)
+Defined in: [src/types.ts:422](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L422)
 
 ## Properties
 
@@ -10,23 +10,17 @@ Defined in: [src/types.ts:437](https://github.com/LouisMazel/relizy/blob/6094991
 
 > `optional` **domain**: `string`
 
-Defined in: [src/types.ts:442](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L442)
+Defined in: [src/types.ts:426](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L426)
 
 Git domain (e.g. `github.com`)
 
-#### Default
-
-```ts
-undefined
-```
-
----
+***
 
 ### provider?
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:457](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L457)
+Defined in: [src/types.ts:439](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L439)
 
 Git provider (e.g. `github` or `gitlab`)
 
@@ -36,34 +30,22 @@ Git provider (e.g. `github` or `gitlab`)
 'github'
 ```
 
----
+***
 
 ### repo?
 
 > `optional` **repo**: `string`
 
-Defined in: [src/types.ts:447](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L447)
+Defined in: [src/types.ts:430](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L430)
 
 Git repository (e.g. `user/repo`)
 
-#### Default
-
-```ts
-undefined
-```
-
----
+***
 
 ### token?
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:452](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L452)
+Defined in: [src/types.ts:434](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L434)
 
 Git token
-
-#### Default
-
-```ts
-undefined
-```

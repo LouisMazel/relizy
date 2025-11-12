@@ -1,6 +1,14 @@
-# Multiple Configurations
+---
+title: Multiple Configurations
+description: Use different configs for different workflows.
+keywords: multiple configs, config management, environment configs, workflow configs, config file naming
+category: Configuration
+tags: [config, multiple-configs, environments, workflow]
+---
 
-Use different configs for different workflows.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Why Multiple Configs?
 

@@ -1,6 +1,14 @@
-# GitLab CI
+---
+title: GitLab CI
+description: Complete guide to using Relizy with GitLab CI/CD.
+keywords: gitlab ci, gitlab pipeline, gitlab ci cd, automated releases gitlab, gitlab automation
+category: Guide
+tags: [guide, gitlab, ci-cd, automation, pipeline]
+---
 
-Complete guide to using Relizy with GitLab CI/CD.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Quick Start
 

@@ -1,6 +1,14 @@
-# publish()
+---
+title: publish()
+description: Publish packages to npm programmatically.
+keywords: relizy publish api, npm publish api, programmatic publishing, package publishing api
+category: API Reference
+tags: [api, publish, npm, registry, typescript]
+---
 
-Publish packages to npm programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

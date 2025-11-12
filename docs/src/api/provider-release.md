@@ -1,6 +1,14 @@
-# providerRelease()
+---
+title: providerRelease()
+description: Create GitHub or GitLab releases programmatically.
+keywords: relizy provider release api, github release api, gitlab release api, programmatic release
+category: API Reference
+tags: [api, provider-release, github, gitlab, typescript]
+---
 
-Create GitHub/GitLab releases programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

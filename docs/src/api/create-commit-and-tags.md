@@ -1,6 +1,14 @@
-# createCommitAndTags()
+---
+title: createCommitAndTags()
+description: Create a commit and tags programmatically.
+keywords: relizy commit api, git tag api, programmatic commit, git automation api
+category: API Reference
+tags: [api, git, commit, tags, typescript]
+---
 
-Create a commit and tags programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

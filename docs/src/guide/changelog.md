@@ -1,6 +1,14 @@
-# Changelog Generation
+---
+title: Changelog Generation
+description: Relizy automatically generates beautiful, SEO-friendly changelogs from your git commits.
+keywords: changelog generation, automatic changelog, conventional commits, git changelog, changelog format
+category: Guide
+tags: [guide, changelog, documentation, commits]
+---
 
-Relizy automatically generates beautiful, SEO-friendly changelogs from your git commits.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Overview
 

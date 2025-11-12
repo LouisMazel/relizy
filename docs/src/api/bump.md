@@ -1,6 +1,14 @@
-# bump()
+---
+title: bump()
+description: Bump package versions programmatically.
+keywords: relizy bump api, version bump api, programmatic bump, semver api, monorepo versioning api
+category: API Reference
+tags: [api, bump, versioning, semver, typescript]
+---
 
-Bump package versions programmatically.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Signature
 

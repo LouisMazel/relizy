@@ -1,6 +1,14 @@
-# Changelog Configuration
+---
+title: Changelog Configuration
+description: Customize changelog generation.
+keywords: changelog config, commit types, changelog customization, conventional commits, changelog format
+category: Configuration
+tags: [config, changelog, commits, documentation]
+---
 
-Customize changelog generation.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Commit Types
 
@@ -49,9 +57,12 @@ Set custom GitHub/GitLab URLs:
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
-  github: 'user/repo',
-  // or
-  gitlab: 'user/repo',
+  repo: {
+    domain: 'github.com',
+    repo: 'user/repo',
+    provider: 'github',
+    token: process.env.GITHUB_TOKEN,
+  },
 })
 ```
 
@@ -66,7 +77,12 @@ export default defineConfig({
     fix: { title: '🐛 Fixes', semver: 'patch' },
   },
   excludeAuthors: ['dependabot[bot]'],
-  github: 'myorg/myrepo',
+  repo: {
+    domain: 'github.com',
+    repo: 'user/repo',
+    provider: 'github',
+    token: process.env.GITHUB_TOKEN,
+  },
   output: 'CHANGELOG.md',
 })
 ```

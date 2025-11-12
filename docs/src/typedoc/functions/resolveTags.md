@@ -2,26 +2,26 @@
 
 # Function: resolveTags()
 
-> **resolveTags**\<`T`, `S`\>(`__namedParameters`): `Promise`\<`ResolvedTags`\>
+> **resolveTags**\<`T`, `S`\>(`__namedParameters`): `Promise`\<[`ResolvedTags`](../interfaces/ResolvedTags.md)\>
 
-Defined in: [src/core/tags.ts:181](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/core/tags.ts#L181)
+Defined in: [src/core/tags.ts:181](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/core/tags.ts#L181)
 
 ## Type Parameters
 
 ### T
 
-`T` _extends_ [`VersionMode`](../type-aliases/VersionMode.md)
+`T` *extends* [`VersionMode`](../type-aliases/VersionMode.md)
 
 ### S
 
-`S` _extends_ `Step`
+`S` *extends* [`Step`](../type-aliases/Step.md)
 
 ## Parameters
 
 ### \_\_namedParameters
 
-`ResolveTagsOptions`\<`T`, `S`\>
+[`ResolveTagsOptions`](../interfaces/ResolveTagsOptions.md)\<`T`, `S`\>
 
 ## Returns
 
-`Promise`\<`ResolvedTags`\>
+`Promise`\<[`ResolvedTags`](../interfaces/ResolvedTags.md)\>

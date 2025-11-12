@@ -1,6 +1,14 @@
-# publish
+---
+title: publish
+description: Publish packages to npm registry.
+keywords: relizy publish, npm publish, package publishing, npm registry, monorepo publish
+category: CLI Reference
+tags: [cli, publish, npm, registry, monorepo]
+---
 
-Publish packages to npm registry.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Usage
 

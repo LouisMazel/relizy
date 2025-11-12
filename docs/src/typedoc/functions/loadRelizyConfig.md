@@ -4,7 +4,7 @@
 
 > **loadRelizyConfig**(`options?`): `Promise`\<[`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)\>
 
-Defined in: [src/core/config.ts:106](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/core/config.ts#L106)
+Defined in: [src/core/config.ts:107](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/core/config.ts#L107)
 
 ## Parameters
 
@@ -20,17 +20,13 @@ Defined in: [src/core/config.ts:106](https://github.com/LouisMazel/relizy/blob/6
 
 #### overrides?
 
-\{ `bump?`: \{ `clean?`: `boolean`; `dependencyTypes?`: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"` \| `undefined`)[]; `preid?`: `string`; `type?`: `ReleaseType`; `yes?`: `boolean`; \}; `changelog?`: \{ `formatCmd?`: `string`; `includeCommitBody?`: `boolean`; `rootChangelog?`: `boolean`; \}; `cwd?`: `string`; `excludeAuthors?`: (`string` \| `undefined`)[]; `from?`: `string`; `hideAuthorEmail?`: `boolean`; `logLevel?`: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`; `monorepo?`: \{ `ignorePackageNames?`: (`string` \| `undefined`)[]; `packages?`: (`string` \| `undefined`)[]; `versionMode?`: [`VersionMode`](../type-aliases/VersionMode.md); \}; `newVersion?`: `string`; `noAuthors?`: `boolean`; `publish?`: \{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `tag?`: `string`; \}; `release?`: \{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; \}; `repo?`: \{ `domain?`: `string`; `provider?`: [`GitProvider`](../type-aliases/GitProvider.md); `repo?`: `string`; `token?`: `string`; \}; `scopeMap?`: \{\[`key`: `string`\]: `string` \| `undefined`; \}; `signTags?`: `boolean`; `templates?`: \{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; \}; `to?`: `string`; `tokens?`: \{ `bitbucket?`: `string`; `github?`: `string`; `gitlab?`: `string`; \}; `types?`: \{\[`key`: `string`\]: `boolean` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}; \}
+\{ `bump?`: \{ `clean?`: `boolean`; `dependencyTypes?`: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"` \| `undefined`)[]; `preid?`: `string`; `type?`: `ReleaseType`; `yes?`: `boolean`; \}; `changelog?`: \{ `formatCmd?`: `string`; `includeCommitBody?`: `boolean`; `rootChangelog?`: `boolean`; \}; `cwd?`: `string`; `excludeAuthors?`: (`string` \| `undefined`)[]; `from?`: `string`; `hideAuthorEmail?`: `boolean`; `hooks?`: \{ `after:bump?`: `string` \| \{ \}; `after:changelog?`: `string` \| \{ \}; `after:commit-and-tag?`: `string` \| \{ \}; `after:provider-release?`: `string` \| \{ \}; `after:publish?`: `string` \| \{ \}; `after:push?`: `string` \| \{ \}; `after:release?`: `string` \| \{ \}; `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; \}; `logLevel?`: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`; `monorepo?`: \{ `ignorePackageNames?`: (`string` \| `undefined`)[]; `packages?`: (`string` \| `undefined`)[]; `versionMode?`: [`VersionMode`](../type-aliases/VersionMode.md); \}; `newVersion?`: `string`; `noAuthors?`: `boolean`; `publish?`: \{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `tag?`: `string`; \}; `release?`: \{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; \}; `repo?`: \{ `domain?`: `string`; `provider?`: [`GitProvider`](../type-aliases/GitProvider.md); `repo?`: `string`; `token?`: `string`; \}; `safetyCheck?`: `boolean`; `scopeMap?`: \{\[`key`: `string`\]: `string` \| `undefined`; \}; `signTags?`: `boolean`; `templates?`: \{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; \}; `to?`: `string`; `tokens?`: \{ `bitbucket?`: `string`; `github?`: `string`; `gitlab?`: `string`; \}; `types?`: \{\[`key`: `string`\]: `boolean` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}; \}
 
 #### overrides.bump?
 
 \{ `clean?`: `boolean`; `dependencyTypes?`: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"` \| `undefined`)[]; `preid?`: `string`; `type?`: `ReleaseType`; `yes?`: `boolean`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Bump config
 
 #### overrides.bump.clean?
 
@@ -62,12 +58,6 @@ Include dependencies when bumping.
 
 Prerelease identifier (e.g. 'beta', 'alpha')
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.bump.type?
 
 `ReleaseType`
@@ -96,23 +86,13 @@ true
 
 \{ `formatCmd?`: `string`; `includeCommitBody?`: `boolean`; `rootChangelog?`: `boolean`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Changelog config
 
 #### overrides.changelog.formatCmd?
 
 `string`
 
 Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
-
-**Default**
-
-```ts
-undefined
-```
 
 #### overrides.changelog.includeCommitBody?
 
@@ -160,35 +140,121 @@ process.cwd()
 
 Start tag
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.hideAuthorEmail?
 
 `boolean`
+
+#### overrides.hooks?
+
+\{ `after:bump?`: `string` \| \{ \}; `after:changelog?`: `string` \| \{ \}; `after:commit-and-tag?`: `string` \| \{ \}; `after:provider-release?`: `string` \| \{ \}; `after:publish?`: `string` \| \{ \}; `after:push?`: `string` \| \{ \}; `after:release?`: `string` \| \{ \}; `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; \}
+
+Hooks config
+
+#### overrides.hooks.after:bump?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:changelog?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:commit-and-tag?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:provider-release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:publish?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:push?
+
+`string` \| \{ \}
+
+#### overrides.hooks.after:release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:bump?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:changelog?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:commit-and-tag?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:provider-release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:publish?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:push?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:bump?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:changelog?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:commit-and-tag?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:provider-release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:publish?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:push?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.generate:changelog?
+
+\{ \}
 
 #### overrides.logLevel?
 
 `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
+Set log level
+
 **Default**
 
 ```ts
-undefined
+'default'
 ```
 
 #### overrides.monorepo?
 
 \{ `ignorePackageNames?`: (`string` \| `undefined`)[]; `packages?`: (`string` \| `undefined`)[]; `versionMode?`: [`VersionMode`](../type-aliases/VersionMode.md); \}
 
-**Default**
-
-```ts
-undefined
-```
+Monorepo config
 
 #### overrides.monorepo.ignorePackageNames?
 
@@ -226,23 +292,13 @@ Version mode for the monorepo.
 
 \{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `tag?`: `string`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Publish config
 
 #### overrides.publish.access?
 
 `"public"` \| `"restricted"`
 
 NPM access level (e.g. `public` or `restricted`)
-
-**Default**
-
-```ts
-undefined
-```
 
 #### overrides.publish.args?
 
@@ -254,35 +310,17 @@ undefined
 
 Command to build your packages before publishing (e.g. `pnpm build`)
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.publish.otp?
 
 `string`
 
 NPM OTP (e.g. `123456`)
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.publish.packages?
 
 (`string` \| `undefined`)[]
 
 Glob pattern matching for packages to publish
-
-**Default**
-
-```ts
-undefined
-```
 
 #### overrides.publish.private?
 
@@ -294,33 +332,17 @@ undefined
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.publish.tag?
 
 `string`
 
 NPM tag (e.g. `latest`)
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.release?
 
 \{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Release config
 
 #### overrides.release.changelog?
 
@@ -410,23 +432,13 @@ true
 
 \{ `domain?`: `string`; `provider?`: [`GitProvider`](../type-aliases/GitProvider.md); `repo?`: `string`; `token?`: `string`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Repo config
 
 #### overrides.repo.domain?
 
 `string`
 
 Git domain (e.g. `github.com`)
-
-**Default**
-
-```ts
-undefined
-```
 
 #### overrides.repo.provider?
 
@@ -446,22 +458,22 @@ Git provider (e.g. `github` or `gitlab`)
 
 Git repository (e.g. `user/repo`)
 
-**Default**
-
-```ts
-undefined
-```
-
 #### overrides.repo.token?
 
 `string`
 
 Git token
 
+#### overrides.safetyCheck?
+
+`boolean`
+
+The safety check will verify if tokens or others required for release are set (depends on the release options)
+
 **Default**
 
 ```ts
-undefined
+true
 ```
 
 #### overrides.scopeMap?
@@ -476,11 +488,7 @@ undefined
 
 \{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; \}
 
-**Default**
-
-```ts
-undefined
-```
+Templates config
 
 #### overrides.templates.commitMessage?
 
@@ -511,12 +519,6 @@ Tag message template
 `string`
 
 End tag
-
-**Default**
-
-```ts
-undefined
-```
 
 #### overrides.tokens?
 

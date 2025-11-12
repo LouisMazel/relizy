@@ -2,7 +2,7 @@
 
 # Interface: PackageWithCommits
 
-Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L32)
+Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L32)
 
 ## Extends
 
@@ -14,17 +14,17 @@ Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/6094991a
 
 > **commits**: `GitCommit`[]
 
-Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L36)
+Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L36)
 
 Commits
 
----
+***
 
 ### currentVersion
 
 > **currentVersion**: `string`
 
-Defined in: [src/types.ts:22](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L22)
+Defined in: [src/types.ts:22](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L22)
 
 Current version
 
@@ -32,13 +32,13 @@ Current version
 
 [`PackageInfo`](PackageInfo.md).[`currentVersion`](PackageInfo.md#currentversion)
 
----
+***
 
 ### fromTag?
 
 > `optional` **fromTag**: `string`
 
-Defined in: [src/types.ts:30](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L30)
+Defined in: [src/types.ts:30](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L30)
 
 Tag name
 
@@ -46,13 +46,13 @@ Tag name
 
 [`PackageInfo`](PackageInfo.md).[`fromTag`](PackageInfo.md#fromtag)
 
----
+***
 
 ### name
 
 > **name**: `string`
 
-Defined in: [src/types.ts:14](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L14)
+Defined in: [src/types.ts:14](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L14)
 
 Package name
 
@@ -60,13 +60,13 @@ Package name
 
 [`PackageInfo`](PackageInfo.md).[`name`](PackageInfo.md#name)
 
----
+***
 
 ### path
 
 > **path**: `string`
 
-Defined in: [src/types.ts:18](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L18)
+Defined in: [src/types.ts:18](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L18)
 
 Package path
 
@@ -74,13 +74,13 @@ Package path
 
 [`PackageInfo`](PackageInfo.md).[`path`](PackageInfo.md#path)
 
----
+***
 
 ### version
 
 > **version**: `string`
 
-Defined in: [src/types.ts:26](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L26)
+Defined in: [src/types.ts:26](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L26)
 
 New version
 

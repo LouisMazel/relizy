@@ -1,6 +1,14 @@
-# CI/CD Integration
+---
+title: CI/CD Integration
+description: Automate your releases with continuous integration and deployment pipelines.
+keywords: ci cd integration, continuous integration, continuous deployment, automated releases, pipeline automation
+category: Guide
+tags: [guide, ci-cd, automation, deployment, integration]
+---
 
-Automate your releases with continuous integration and deployment pipelines.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Overview
 
@@ -31,14 +39,6 @@ Configure git in your CI environment:
 git config --global user.name "github-actions[bot]"
 git config --global user.email "github-actions[bot]@users.noreply.github.com"
 ```
-
-### SSH Keys
-
-For pushing to repositories, add your CI's SSH key to your git provider:
-
-1. Generate an SSH key in your CI
-2. Add the public key to GitHub/GitLab
-3. Add the private key to your CI secrets
 
 ## Common Patterns
 

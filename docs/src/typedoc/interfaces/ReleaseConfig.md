@@ -2,7 +2,7 @@
 
 # Interface: ReleaseConfig
 
-Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L342)
+Defined in: [src/types.ts:322](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L322)
 
 ## Extended by
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/6094991
 
 > `optional` **changelog**: `boolean`
 
-Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L357)
+Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L337)
 
 Generate changelog files (CHANGELOG.md)
 
@@ -24,13 +24,13 @@ Generate changelog files (CHANGELOG.md)
 true
 ```
 
----
+***
 
 ### clean?
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L377)
+Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L357)
 
 Determine if the working directory is clean and if it is not clean, exit
 
@@ -40,13 +40,13 @@ Determine if the working directory is clean and if it is not clean, exit
 false
 ```
 
----
+***
 
 ### commit?
 
 > `optional` **commit**: `boolean`
 
-Defined in: [src/types.ts:347](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L347)
+Defined in: [src/types.ts:327](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L327)
 
 Commit changes and create tag
 
@@ -56,13 +56,13 @@ Commit changes and create tag
 true
 ```
 
----
+***
 
 ### noVerify?
 
 > `optional` **noVerify**: `boolean`
 
-Defined in: [src/types.ts:372](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L372)
+Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L352)
 
 Skip git verification while committing by using --no-verify flag
 
@@ -72,13 +72,13 @@ Skip git verification while committing by using --no-verify flag
 true
 ```
 
----
+***
 
 ### providerRelease?
 
 > `optional` **providerRelease**: `boolean`
 
-Defined in: [src/types.ts:362](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L362)
+Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L342)
 
 Publish release to your repository (github or gitlab)
 
@@ -88,13 +88,13 @@ Publish release to your repository (github or gitlab)
 true
 ```
 
----
+***
 
 ### publish?
 
 > `optional` **publish**: `boolean`
 
-Defined in: [src/types.ts:367](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L367)
+Defined in: [src/types.ts:347](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L347)
 
 Publish release to your registry
 
@@ -104,13 +104,13 @@ Publish release to your registry
 true
 ```
 
----
+***
 
 ### push?
 
 > `optional` **push**: `boolean`
 
-Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L352)
+Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L332)
 
 Push changes to your repository (commit and tag(s))
 

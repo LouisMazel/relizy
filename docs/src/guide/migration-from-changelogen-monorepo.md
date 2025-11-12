@@ -1,6 +1,14 @@
-# Migration guide
+---
+title: Migration guide
+description: From @maz-ui/changelogen-monorepo 4.3.1 to relizy
+keywords: migration guide, changelogen migration, upgrade to relizy, migration from changelogen, relizy migration
+category: Guide
+tags: [guide, migration, upgrade, changelogen]
+---
 
-From @maz-ui/changelogen-monorepo 4.3.1 to relizy
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Environment variables
 

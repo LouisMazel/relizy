@@ -1,6 +1,14 @@
-# release
+---
+title: release
+description: Execute the complete release workflow in a single command.
+keywords: relizy release, automated release, release workflow, npm publish, git tag, changelog generation
+category: CLI Reference
+tags: [cli, release, workflow, automation, publish]
+---
 
-Execute the complete release workflow in a single command.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Usage
 
@@ -17,7 +25,7 @@ The `release` command combines multiple operations:
 3. ✅ Creates a git commit
 4. ✅ Creates a git tag
 5. ✅ Publishes to npm
-6. ✅ Creates GitHub/GitLab release
+6. ✅ Creates GitHub or GitLab release
 
 ## Options
 

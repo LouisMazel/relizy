@@ -4,7 +4,7 @@
 
 > **PublishConfig** = `IChangelogConfig`\[`"publish"`\] & `object`
 
-Defined in: [src/types.ts:281](https://github.com/LouisMazel/relizy/blob/6094991aea4ffff9cbc685f08c1d8aa7cd9db591/src/types.ts#L281)
+Defined in: [src/types.ts:270](https://github.com/LouisMazel/relizy/blob/00a8c3756a8e1c3653bf15cc6263696f62d24f68/src/types.ts#L270)
 
 ## Type Declaration
 
@@ -14,23 +14,11 @@ Defined in: [src/types.ts:281](https://github.com/LouisMazel/relizy/blob/6094991
 
 NPM access level (e.g. `public` or `restricted`)
 
-#### Default
-
-```ts
-undefined
-```
-
 ### buildCmd?
 
 > `optional` **buildCmd**: `string`
 
 Command to build your packages before publishing (e.g. `pnpm build`)
-
-#### Default
-
-```ts
-undefined
-```
 
 ### otp?
 
@@ -38,23 +26,11 @@ undefined
 
 NPM OTP (e.g. `123456`)
 
-#### Default
-
-```ts
-undefined
-```
-
 ### packages?
 
 > `optional` **packages**: `string`[]
 
 Glob pattern matching for packages to publish
-
-#### Default
-
-```ts
-undefined
-```
 
 ### registry?
 
@@ -62,20 +38,8 @@ undefined
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
-#### Default
-
-```ts
-undefined
-```
-
 ### tag?
 
 > `optional` **tag**: `string`
 
 NPM tag (e.g. `latest`)
-
-#### Default
-
-```ts
-undefined
-```

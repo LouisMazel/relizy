@@ -1,6 +1,14 @@
-# Getting Started
+---
+title: Getting Started
+description: Learn the basics of using Relizy to manage your releases.
+keywords: relizy getting started, first release, quick start, conventional commits, relizy tutorial
+category: Guide
+tags: [guide, getting-started, tutorial, quickstart]
+---
 
-Learn the basics of using Relizy to manage your releases.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
 
 ## Your First Release
 

@@ -1,6 +1,28 @@
-# Bump Configuration
+---
+title: Bump Configuration
+description: Configure version bumping behavior.
+keywords: bump config, version bump settings, semver config, prerelease config, dependency bumping
+category: Configuration
+tags: [config, bump, versioning, semver]
+---
 
-Configure version bumping behavior.
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
+
+## type
+
+Set version type:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    type: 'minor', // 'major' | 'minor' | 'patch' | 'prerelease' | 'release' | 'prepatch' | 'preminor' | 'premajor'
+  },
+})
+```
 
 ## preid
 
@@ -16,6 +38,34 @@ export default defineConfig({
 })
 ```
 
+## dependencyTypes
+
+Set dependency types to consider for version bumping:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    dependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies'],
+  },
+})
+```
+
+## yes
+
+Set to `true` to skip the confirmation prompt:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    yes: true,
+  },
+})
+```
+
 ## Complete Example
 
 ```ts
@@ -23,7 +73,10 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   bump: {
+    type: 'prerelease',
     preid: 'beta',
+    dependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies'],
+    yes: true,
   },
 })
 ```
@@ -31,6 +84,6 @@ export default defineConfig({
 Usage:
 
 ```bash
-relizy bump --prerelease
+relizy bump
 # Results in: 1.0.0 → 1.0.0-beta.0
 ```
