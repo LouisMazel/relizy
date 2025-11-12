@@ -87,9 +87,9 @@ export async function getLastPackageTag({
   }
 }
 
-type Step = 'bump' | 'changelog' | 'publish' | 'provider-release'
+export type Step = 'bump' | 'changelog' | 'publish' | 'provider-release'
 
-interface ResolvedTags {
+export interface ResolvedTags {
   from: string
   to: string
 }
@@ -162,7 +162,7 @@ async function resolveTagsUnified({
   return { from, to }
 }
 
-interface ResolveTagsOptions<
+export interface ResolveTagsOptions<
   VM extends VersionMode,
   S extends Step,
   Package = VM extends 'independent' ? PackageInfo : undefined,

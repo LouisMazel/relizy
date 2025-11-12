@@ -101,7 +101,7 @@ export async function createCommitAndTags({
   const internalConfig = config || await loadRelizyConfig()
 
   try {
-    await executeHook('before:commit-and-tag', internalConfig)
+    await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false)
 
     const filePatternsToAdd = [
       'package.json',
@@ -239,14 +239,14 @@ export async function createCommitAndTags({
 
     logger.success('Commit and tag completed!')
 
-    await executeHook('after:commit-and-tag', internalConfig)
+    await executeHook('after:commit-and-tag', internalConfig, dryRun ?? false)
 
     return createdTags
   }
   catch (error) {
     logger.error('Error committing and tagging:', error)
 
-    await executeHook('error:commit-and-tag', internalConfig)
+    await executeHook('error:commit-and-tag', internalConfig, dryRun ?? false)
 
     throw error
   }
@@ -264,7 +264,7 @@ export async function pushCommitAndTags({ dryRun, logLevel, cwd }: { dryRun: boo
     await execPromise('git push --follow-tags', { noStderr: true, noStdout: true, logLevel, cwd })
   }
 
-  logger.success('End push changes and tags')
+  logger.success('Pushing changes and tags completed!')
 }
 
 export function getFirstCommit(cwd: string): string {

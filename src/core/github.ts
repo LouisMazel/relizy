@@ -5,6 +5,7 @@ import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
 import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 async function githubIndependentMode({
   config,
   dryRun,
@@ -20,9 +21,9 @@ async function githubIndependentMode({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  if (!config.tokens.github) {
+  if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
@@ -133,9 +134,9 @@ async function githubUnified({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  if (!config.tokens.github) {
+  if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
@@ -201,8 +202,6 @@ async function githubUnified({
 
 export async function github(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}) {
   try {
-    logger.start('Start publishing GitHub release')
-
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
 

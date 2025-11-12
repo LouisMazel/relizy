@@ -39,7 +39,7 @@ export async function createGitlabRelease({
   release: GitlabRelease
   dryRun?: boolean
 }): Promise<GitlabReleaseResponse> {
-  const token = config.tokens.gitlab
+  const token = config.tokens.gitlab || config.repo?.token
 
   if (!token && !dryRun) {
     throw new Error(
@@ -121,7 +121,7 @@ async function gitlabIndependentMode({
   dryRun: boolean
   bumpedPackages?: PackageInfo[]
 }): Promise<PostedRelease[]> {
-  logger.debug(`GitLab token: ${config.tokens.gitlab ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
   const packages = bumpedPackages || getPackages({
     cwd: config.cwd,
@@ -226,7 +226,7 @@ async function gitlabUnified({
   fromTag: string | undefined
   oldVersion: string | undefined
 }) {
-  logger.debug(`GitLab token: ${config.tokens.gitlab ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
   const to = config.templates.tagBody.replace('{{newVersion}}', rootPackage.version)
 
@@ -295,8 +295,6 @@ async function gitlabUnified({
 
 export async function gitlab(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}): Promise<PostedRelease[]> {
   try {
-    logger.start('Start publishing GitLab release')
-
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
 

@@ -147,7 +147,7 @@ export async function loadRelizyConfig(options?: {
   return resolvedConfig as ResolvedRelizyConfig
 }
 
-type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig>
+export type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig>
 export type ResolvedRelizyConfig = ResolvedConfig & {
   output: string
 }
