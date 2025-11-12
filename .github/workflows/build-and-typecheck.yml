@@ -19,7 +19,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Build packages
-        run: pnpm build
+        run: pnpm typecheck && pnpm build
 
       - name: Build docs
-        run: pnpm -F docs build
+        run: pnpm -F docs typecheck && pnpm -F docs build
