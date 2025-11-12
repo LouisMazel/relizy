@@ -2,7 +2,7 @@
 
 # Interface: ChangelogConfig
 
-Defined in: [src/types.ts:174](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L174)
+Defined in: [src/types.ts:174](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L174)
 
 ## Extended by
 
@@ -15,7 +15,7 @@ Defined in: [src/types.ts:174](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **formatCmd**: `string`
 
-Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L178)
+Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L178)
 
 Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
@@ -25,7 +25,7 @@ Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
 > `optional` **includeCommitBody**: `boolean`
 
-Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L188)
+Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L188)
 
 Include commit body in the changelog.
 
@@ -41,7 +41,7 @@ true
 
 > `optional` **rootChangelog**: `boolean`
 
-Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L183)
+Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L183)
 
 Generate changelog at root level with all changes
 

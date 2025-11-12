@@ -2,7 +2,7 @@
 
 # Interface: PublishOptions
 
-Defined in: [src/types.ts:297](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L297)
+Defined in: [src/types.ts:297](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L297)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:297](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **access**: `"public"` \| `"restricted"`
 
-Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L282)
+Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L282)
 
 NPM access level (e.g. `public` or `restricted`)
 
@@ -40,7 +40,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **buildCmd**: `string`
 
-Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L294)
+Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L294)
 
 Command to build your packages before publishing (e.g. `pnpm build`)
 
@@ -54,7 +54,7 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 > `optional` **bumpedPackages**: [`PackageInfo`](PackageInfo.md)[]
 
-Defined in: [src/types.ts:310](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L310)
+Defined in: [src/types.ts:310](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L310)
 
 Bumped packages
 
@@ -64,7 +64,7 @@ Bumped packages
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:306](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L306)
+Defined in: [src/types.ts:306](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L306)
 
 Use custom config
 
@@ -74,7 +74,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:319](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L319)
+Defined in: [src/types.ts:319](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L319)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -90,7 +90,7 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:302](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L302)
+Defined in: [src/types.ts:302](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L302)
 
 Run without side effects
 
@@ -106,7 +106,7 @@ false
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:314](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L314)
+Defined in: [src/types.ts:314](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L314)
 
 Set log level
 
@@ -116,7 +116,7 @@ Set log level
 
 > `optional` **otp**: `string`
 
-Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L286)
+Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L286)
 
 NPM OTP (e.g. `123456`)
 
@@ -130,7 +130,7 @@ NPM OTP (e.g. `123456`)
 
 > `optional` **packages**: `string`[]
 
-Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L290)
+Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L290)
 
 Glob pattern matching for packages to publish
 
@@ -156,7 +156,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **registry**: `string`
 
-Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L274)
+Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L274)
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 

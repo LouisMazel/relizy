@@ -2,7 +2,7 @@
 
 # Interface: ProviderReleaseOptions
 
-Defined in: [src/types.ts:223](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L223)
+Defined in: [src/types.ts:223](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L223)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:223](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **bumpResult**: [`BumpResult`](../type-aliases/BumpResult.md)
 
-Defined in: [src/types.ts:253](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L253)
+Defined in: [src/types.ts:253](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L253)
 
 Bump result
 
@@ -20,7 +20,7 @@ Bump result
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:239](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L239)
+Defined in: [src/types.ts:239](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L239)
 
 Use custom config
 
@@ -30,7 +30,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:244](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L244)
+Defined in: [src/types.ts:244](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L244)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -46,7 +46,7 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:262](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L262)
+Defined in: [src/types.ts:262](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L262)
 
 Run without side effects
 
@@ -62,7 +62,7 @@ false
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:227](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L227)
+Defined in: [src/types.ts:227](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L227)
 
 Start tag
 
@@ -72,7 +72,7 @@ Start tag
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:257](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L257)
+Defined in: [src/types.ts:257](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L257)
 
 Set log level
 
@@ -82,7 +82,7 @@ Set log level
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:249](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L249)
+Defined in: [src/types.ts:249](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L249)
 
 Git provider
 
@@ -98,7 +98,7 @@ Git provider
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:267](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L267)
+Defined in: [src/types.ts:267](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L267)
 
 Skip safety check
 
@@ -114,7 +114,7 @@ false
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:231](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L231)
+Defined in: [src/types.ts:231](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L231)
 
 End tag
 
@@ -124,6 +124,6 @@ End tag
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:235](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L235)
+Defined in: [src/types.ts:235](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L235)
 
 Git token (GitHub or GitLab)

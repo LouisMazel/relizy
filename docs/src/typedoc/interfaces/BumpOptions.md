@@ -2,7 +2,7 @@
 
 # Interface: BumpOptions
 
-Defined in: [src/types.ts:144](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L144)
+Defined in: [src/types.ts:144](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L144)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:144](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:131](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L131)
+Defined in: [src/types.ts:131](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L131)
 
 Check if there are any changes to commit before bumping.
 
@@ -34,7 +34,7 @@ true
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:153](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L153)
+Defined in: [src/types.ts:153](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L153)
 
 Use custom config
 
@@ -44,7 +44,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:167](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L167)
+Defined in: [src/types.ts:167](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L167)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -60,7 +60,7 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dependencyTypes**: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[]
 
-Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L136)
+Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L136)
 
 Include dependencies when bumping.
 
@@ -80,7 +80,7 @@ Include dependencies when bumping.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:149](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L149)
+Defined in: [src/types.ts:149](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L149)
 
 Run without side effects
 
@@ -96,7 +96,7 @@ false
 
 > `optional` **force**: `boolean`
 
-Defined in: [src/types.ts:162](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L162)
+Defined in: [src/types.ts:162](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L162)
 
 Bump all packages even if there are no commits
 
@@ -112,7 +112,7 @@ false
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:157](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L157)
+Defined in: [src/types.ts:157](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L157)
 
 Set log level
 
@@ -122,7 +122,7 @@ Set log level
 
 > `optional` **preid**: `string`
 
-Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L126)
+Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L126)
 
 Prerelease identifier (e.g. 'beta', 'alpha')
 
@@ -136,7 +136,7 @@ Prerelease identifier (e.g. 'beta', 'alpha')
 
 > `optional` **suffix**: `string`
 
-Defined in: [src/types.ts:171](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L171)
+Defined in: [src/types.ts:171](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L171)
 
 Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
 
@@ -146,7 +146,7 @@ Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1
 
 > `optional` **type**: `ReleaseType`
 
-Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L122)
+Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L122)
 
 Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
 
@@ -166,7 +166,7 @@ Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'premino
 
 > `optional` **yes**: `boolean`
 
-Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L141)
+Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L141)
 
 Skip confirmation prompt about bumping packages
 

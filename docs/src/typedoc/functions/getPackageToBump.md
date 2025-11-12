@@ -4,7 +4,7 @@
 
 > **getPackageToBump**(`__namedParameters`): `Promise`\<[`PackageToBump`](../interfaces/PackageToBump.md)[]\>
 
-Defined in: [src/core/monorepo.ts:213](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/monorepo.ts#L213)
+Defined in: [src/core/monorepo.ts:213](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/monorepo.ts#L213)
 
 ## Parameters
 

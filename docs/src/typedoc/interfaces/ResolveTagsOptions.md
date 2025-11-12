@@ -2,7 +2,7 @@
 
 # Interface: ResolveTagsOptions\<VM, S, Package, NewVersion, CurrentVersion\>
 
-Defined in: [src/core/tags.ts:165](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L165)
+Defined in: [src/core/tags.ts:165](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L165)
 
 ## Type Parameters
 
@@ -32,7 +32,7 @@ Defined in: [src/core/tags.ts:165](https://github.com/LouisMazel/relizy/blob/190
 
 > **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/core/tags.ts:172](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L172)
+Defined in: [src/core/tags.ts:172](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L172)
 
 ***
 
@@ -40,7 +40,7 @@ Defined in: [src/core/tags.ts:172](https://github.com/LouisMazel/relizy/blob/190
 
 > **currentVersion**: `CurrentVersion`
 
-Defined in: [src/core/tags.ts:176](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L176)
+Defined in: [src/core/tags.ts:176](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L176)
 
 ***
 
@@ -48,7 +48,7 @@ Defined in: [src/core/tags.ts:176](https://github.com/LouisMazel/relizy/blob/190
 
 > **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/core/tags.ts:178](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L178)
+Defined in: [src/core/tags.ts:178](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L178)
 
 ***
 
@@ -56,7 +56,7 @@ Defined in: [src/core/tags.ts:178](https://github.com/LouisMazel/relizy/blob/190
 
 > **newVersion**: `NewVersion`
 
-Defined in: [src/core/tags.ts:177](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L177)
+Defined in: [src/core/tags.ts:177](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L177)
 
 ***
 
@@ -64,7 +64,7 @@ Defined in: [src/core/tags.ts:177](https://github.com/LouisMazel/relizy/blob/190
 
 > **pkg**: `Package`
 
-Defined in: [src/core/tags.ts:175](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L175)
+Defined in: [src/core/tags.ts:175](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L175)
 
 ***
 
@@ -72,7 +72,7 @@ Defined in: [src/core/tags.ts:175](https://github.com/LouisMazel/relizy/blob/190
 
 > **step**: `S`
 
-Defined in: [src/core/tags.ts:174](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L174)
+Defined in: [src/core/tags.ts:174](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L174)
 
 ***
 
@@ -80,4 +80,4 @@ Defined in: [src/core/tags.ts:174](https://github.com/LouisMazel/relizy/blob/190
 
 > **versionMode**: `VM`
 
-Defined in: [src/core/tags.ts:173](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/tags.ts#L173)
+Defined in: [src/core/tags.ts:173](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L173)

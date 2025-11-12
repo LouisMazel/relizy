@@ -4,7 +4,7 @@
 
 > **release**(`options`): `Promise`\<`void`\>
 
-Defined in: [src/commands/release.ts:68](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/commands/release.ts#L68)
+Defined in: [src/commands/release.ts:68](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/commands/release.ts#L68)
 
 ## Parameters
 
