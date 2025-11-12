@@ -2,7 +2,7 @@
 
 # Interface: PackageWithCommits
 
-Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L32)
+Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L32)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/190a7230
 
 > **commits**: `GitCommit`[]
 
-Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L36)
+Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L36)
 
 Commits
 
@@ -24,7 +24,7 @@ Commits
 
 > **currentVersion**: `string`
 
-Defined in: [src/types.ts:22](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L22)
+Defined in: [src/types.ts:22](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L22)
 
 Current version
 
@@ -38,7 +38,7 @@ Current version
 
 > `optional` **fromTag**: `string`
 
-Defined in: [src/types.ts:30](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L30)
+Defined in: [src/types.ts:30](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L30)
 
 Tag name
 
@@ -52,7 +52,7 @@ Tag name
 
 > **name**: `string`
 
-Defined in: [src/types.ts:14](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L14)
+Defined in: [src/types.ts:14](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L14)
 
 Package name
 
@@ -66,7 +66,7 @@ Package name
 
 > **path**: `string`
 
-Defined in: [src/types.ts:18](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L18)
+Defined in: [src/types.ts:18](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L18)
 
 Package path
 
@@ -80,7 +80,7 @@ Package path
 
 > **version**: `string`
 
-Defined in: [src/types.ts:26](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L26)
+Defined in: [src/types.ts:26](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L26)
 
 New version
 

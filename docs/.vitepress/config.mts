@@ -145,6 +145,19 @@ export default defineConfig({
         ],
       },
       {
+        text: 'Config',
+        items: [
+          { text: 'Overview', link: '/config/overview' },
+          { text: 'Monorepo Config', link: '/config/monorepo' },
+          { text: 'Changelog Config', link: '/config/changelog' },
+          { text: 'Bump Config', link: '/config/bump' },
+          { text: 'Publish Config', link: '/config/publish' },
+          { text: 'Release Config', link: '/config/release' },
+          { text: 'Hooks Config', link: '/config/hooks' },
+          { text: 'Multiple Configs', link: '/config/multiple-configs' },
+        ],
+      },
+      {
         text: 'CLI',
         items: [
           { text: 'Overview', link: '/cli/commands' },
@@ -166,19 +179,6 @@ export default defineConfig({
           { text: 'providerRelease()', link: '/api/provider-release' },
           { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
           { text: 'release()', link: '/api/release' },
-        ],
-      },
-      {
-        text: 'Config',
-        items: [
-          { text: 'Overview', link: '/config/overview' },
-          { text: 'Monorepo Config', link: '/config/monorepo' },
-          { text: 'Changelog Config', link: '/config/changelog' },
-          { text: 'Bump Config', link: '/config/bump' },
-          { text: 'Publish Config', link: '/config/publish' },
-          { text: 'Release Config', link: '/config/release' },
-          { text: 'Hooks Config', link: '/config/hooks' },
-          { text: 'Multiple Configs', link: '/config/multiple-configs' },
         ],
       },
       {

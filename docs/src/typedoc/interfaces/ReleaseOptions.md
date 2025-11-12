@@ -2,7 +2,7 @@
 
 # Interface: ReleaseOptions
 
-Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L360)
+Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L360)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **access**: `"public"` \| `"restricted"`
 
-Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L282)
+Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L282)
 
 NPM access level (e.g. `public` or `restricted`)
 
@@ -40,7 +40,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **buildCmd**: `string`
 
-Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L294)
+Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L294)
 
 Command to build your packages before publishing (e.g. `pnpm build`)
 
@@ -54,7 +54,7 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 > `optional` **changelog**: `boolean`
 
-Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L337)
+Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L337)
 
 Generate changelog files (CHANGELOG.md)
 
@@ -74,7 +74,7 @@ true
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L357)
+Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L357)
 
 Determine if the working directory is clean and if it is not clean, exit
 
@@ -94,7 +94,7 @@ false
 
 > `optional` **commit**: `boolean`
 
-Defined in: [src/types.ts:327](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L327)
+Defined in: [src/types.ts:327](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L327)
 
 Commit changes and create tag
 
@@ -114,7 +114,7 @@ true
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:381](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L381)
+Defined in: [src/types.ts:381](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L381)
 
 #### Default
 
@@ -128,7 +128,7 @@ Defined in: [src/types.ts:381](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **dependencyTypes**: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[]
 
-Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L136)
+Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L136)
 
 Include dependencies when bumping.
 
@@ -148,7 +148,7 @@ Include dependencies when bumping.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:365](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L365)
+Defined in: [src/types.ts:365](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L365)
 
 Run without side effects
 
@@ -164,7 +164,7 @@ false
 
 > `optional` **force**: `boolean`
 
-Defined in: [src/types.ts:386](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L386)
+Defined in: [src/types.ts:386](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L386)
 
 Bump even if there are no commits
 
@@ -180,7 +180,7 @@ false
 
 > `optional` **formatCmd**: `string`
 
-Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L178)
+Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L178)
 
 Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
@@ -194,7 +194,7 @@ Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:368](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L368)
+Defined in: [src/types.ts:368](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L368)
 
 ***
 
@@ -202,7 +202,7 @@ Defined in: [src/types.ts:368](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **includeCommitBody**: `boolean`
 
-Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L188)
+Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L188)
 
 Include commit body in the changelog.
 
@@ -222,7 +222,7 @@ true
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L377)
+Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L377)
 
 ***
 
@@ -230,7 +230,7 @@ Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **noVerify**: `boolean`
 
-Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L352)
+Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L352)
 
 Skip git verification while committing by using --no-verify flag
 
@@ -250,7 +250,7 @@ true
 
 > `optional` **otp**: `string`
 
-Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L286)
+Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L286)
 
 NPM OTP (e.g. `123456`)
 
@@ -264,7 +264,7 @@ NPM OTP (e.g. `123456`)
 
 > `optional` **packages**: `string`[]
 
-Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L290)
+Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L290)
 
 Glob pattern matching for packages to publish
 
@@ -278,7 +278,7 @@ Glob pattern matching for packages to publish
 
 > `optional` **preid**: `string`
 
-Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L126)
+Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L126)
 
 Prerelease identifier (e.g. 'beta', 'alpha')
 
@@ -304,7 +304,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:395](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L395)
+Defined in: [src/types.ts:395](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L395)
 
 Git provider (e.g. `github` or `gitlab`)
 
@@ -320,7 +320,7 @@ Git provider (e.g. `github` or `gitlab`)
 
 > `optional` **providerRelease**: `boolean`
 
-Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L342)
+Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L342)
 
 Publish release to your repository (github or gitlab)
 
@@ -340,7 +340,7 @@ true
 
 > `optional` **publish**: `boolean`
 
-Defined in: [src/types.ts:347](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L347)
+Defined in: [src/types.ts:347](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L347)
 
 Publish release to your registry
 
@@ -360,7 +360,7 @@ true
 
 > `optional` **push**: `boolean`
 
-Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L332)
+Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L332)
 
 Push changes to your repository (commit and tag(s))
 
@@ -380,7 +380,7 @@ true
 
 > `optional` **registry**: `string`
 
-Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L274)
+Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L274)
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
@@ -394,7 +394,7 @@ NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
 > `optional` **rootChangelog**: `boolean`
 
-Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L183)
+Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L183)
 
 Generate changelog at root level with all changes
 
@@ -414,7 +414,7 @@ true
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:400](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L400)
+Defined in: [src/types.ts:400](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L400)
 
 Skip safety check
 
@@ -430,7 +430,7 @@ true
 
 > `optional` **suffix**: `string`
 
-Defined in: [src/types.ts:390](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L390)
+Defined in: [src/types.ts:390](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L390)
 
 Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
 
@@ -454,7 +454,7 @@ NPM tag (e.g. `latest`)
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:371](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L371)
+Defined in: [src/types.ts:371](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L371)
 
 ***
 
@@ -462,7 +462,7 @@ Defined in: [src/types.ts:371](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:374](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L374)
+Defined in: [src/types.ts:374](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L374)
 
 ***
 
@@ -470,7 +470,7 @@ Defined in: [src/types.ts:374](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **type**: `ReleaseType`
 
-Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L122)
+Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L122)
 
 Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
 
@@ -490,7 +490,7 @@ Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'premino
 
 > `optional` **yes**: `boolean`
 
-Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L141)
+Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L141)
 
 Skip confirmation prompt about bumping packages
 

@@ -2,7 +2,7 @@
 
 # Interface: GitlabRelease
 
-Defined in: [src/core/gitlab.ts:7](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L7)
+Defined in: [src/core/gitlab.ts:7](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L7)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/core/gitlab.ts:7](https://github.com/LouisMazel/relizy/blob/190
 
 > `optional` **assets**: `object`
 
-Defined in: [src/core/gitlab.ts:13](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L13)
+Defined in: [src/core/gitlab.ts:13](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L13)
 
 #### links?
 
@@ -22,7 +22,7 @@ Defined in: [src/core/gitlab.ts:13](https://github.com/LouisMazel/relizy/blob/19
 
 > `optional` **description**: `string`
 
-Defined in: [src/core/gitlab.ts:10](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L10)
+Defined in: [src/core/gitlab.ts:10](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L10)
 
 ***
 
@@ -30,7 +30,7 @@ Defined in: [src/core/gitlab.ts:10](https://github.com/LouisMazel/relizy/blob/19
 
 > `optional` **milestones**: `string`[]
 
-Defined in: [src/core/gitlab.ts:12](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L12)
+Defined in: [src/core/gitlab.ts:12](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L12)
 
 ***
 
@@ -38,7 +38,7 @@ Defined in: [src/core/gitlab.ts:12](https://github.com/LouisMazel/relizy/blob/19
 
 > `optional` **name**: `string`
 
-Defined in: [src/core/gitlab.ts:9](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L9)
+Defined in: [src/core/gitlab.ts:9](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L9)
 
 ***
 
@@ -46,7 +46,7 @@ Defined in: [src/core/gitlab.ts:9](https://github.com/LouisMazel/relizy/blob/190
 
 > `optional` **ref**: `string`
 
-Defined in: [src/core/gitlab.ts:11](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L11)
+Defined in: [src/core/gitlab.ts:11](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L11)
 
 ***
 
@@ -54,7 +54,7 @@ Defined in: [src/core/gitlab.ts:11](https://github.com/LouisMazel/relizy/blob/19
 
 > `optional` **released\_at**: `string`
 
-Defined in: [src/core/gitlab.ts:19](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L19)
+Defined in: [src/core/gitlab.ts:19](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L19)
 
 ***
 
@@ -62,4 +62,4 @@ Defined in: [src/core/gitlab.ts:19](https://github.com/LouisMazel/relizy/blob/19
 
 > **tag\_name**: `string`
 
-Defined in: [src/core/gitlab.ts:8](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/gitlab.ts#L8)
+Defined in: [src/core/gitlab.ts:8](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/gitlab.ts#L8)

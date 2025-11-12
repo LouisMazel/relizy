@@ -169,7 +169,17 @@ Or use `.env` file
 NPM_TOKEN=your_token_here
 ```
 
-### GitHub Releases
+### GitHub and GitLab Releases
+
+Multiple ways to provide the token:
+
+- Command line option (`--token`)
+- Configuration file (see [tokens](../../../README.md#tokens) section)
+- Environment variables (checked in order):
+  - **GitHub:** `RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`
+  - **GitLab:** `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`, `CI_JOB_TOKEN`
+
+### CI/CD Integration
 
 For GitHub releases, create a personal access token:
 

@@ -4,7 +4,7 @@
 
 > **findPackagesWithCommitsAndCalculateVersions**(`__namedParameters`): `Promise`\<[`PackageInfo`](../interfaces/PackageInfo.md) & [`PackageToBump`](../interfaces/PackageToBump.md)[]\>
 
-Defined in: [src/core/version.ts:737](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/core/version.ts#L737)
+Defined in: [src/core/version.ts:737](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/version.ts#L737)
 
 ## Parameters
 

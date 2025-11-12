@@ -2,7 +2,7 @@
 
 # Interface: ChangelogOptions
 
-Defined in: [src/types.ts:190](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L190)
+Defined in: [src/types.ts:190](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L190)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:190](https://github.com/LouisMazel/relizy/blob/190a723
 
 > `optional` **bumpedPackages**: [`PackageInfo`](PackageInfo.md)[]
 
-Defined in: [src/types.ts:207](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L207)
+Defined in: [src/types.ts:207](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L207)
 
 Bumped packages
 
@@ -24,7 +24,7 @@ Bumped packages
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:211](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L211)
+Defined in: [src/types.ts:211](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L211)
 
 Use custom config
 
@@ -34,7 +34,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:220](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L220)
+Defined in: [src/types.ts:220](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L220)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -50,7 +50,7 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:203](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L203)
+Defined in: [src/types.ts:203](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L203)
 
 Run without side effects
 
@@ -66,7 +66,7 @@ false
 
 > `optional` **formatCmd**: `string`
 
-Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L178)
+Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L178)
 
 Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
@@ -80,7 +80,7 @@ Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:194](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L194)
+Defined in: [src/types.ts:194](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L194)
 
 Start tag
 
@@ -90,7 +90,7 @@ Start tag
 
 > `optional` **includeCommitBody**: `boolean`
 
-Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L188)
+Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L188)
 
 Include commit body in the changelog.
 
@@ -110,7 +110,7 @@ true
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:215](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L215)
+Defined in: [src/types.ts:215](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L215)
 
 Set log level
 
@@ -120,7 +120,7 @@ Set log level
 
 > `optional` **rootChangelog**: `boolean`
 
-Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L183)
+Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L183)
 
 Generate changelog at root level with all changes
 
@@ -140,6 +140,6 @@ true
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:198](https://github.com/LouisMazel/relizy/blob/190a723062a3fdb8a34b2254faf889a750c01d70/src/types.ts#L198)
+Defined in: [src/types.ts:198](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L198)
 
 End tag
