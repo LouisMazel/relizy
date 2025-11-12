@@ -20,25 +20,25 @@ export async function publish(options: Partial<PublishOptions> = {}) {
     },
   })
 
+  const dryRun = options.dryRun ?? false
+  logger.debug(`Dry run: ${dryRun}`)
+
+  const packageManager = detectPackageManager(process.cwd())
+  logger.debug(`Package manager: ${packageManager}`)
+
+  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
+  if (config.publish.registry) {
+    logger.debug(`Registry: ${config.publish.registry}`)
+  }
+  if (config.publish.tag) {
+    logger.debug(`Tag: ${config.publish.tag}`)
+  }
+
   try {
-    await executeHook('before:publish', config)
+    await executeHook('before:publish', config, dryRun)
 
     logger.start('Start publishing packages')
-
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    const packageManager = detectPackageManager(process.cwd())
-    logger.debug(`Package manager: ${packageManager}`)
-
-    logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
-    if (config.publish.registry) {
-      logger.debug(`Registry: ${config.publish.registry}`)
-    }
-    if (config.publish.tag) {
-      logger.debug(`Tag: ${config.publish.tag}`)
-    }
 
     const packages = options.bumpedPackages || getPackages({
       cwd: config.cwd,
@@ -99,9 +99,9 @@ export async function publish(options: Partial<PublishOptions> = {}) {
       logger.info('Package(s) have been published to npm registry')
     }
 
-    logger.success('Publishing completed!')
+    logger.success('Publishing packages completed!')
 
-    await executeHook('after:publish', config)
+    await executeHook('after:publish', config, dryRun)
 
     return {
       publishedPackages,
@@ -110,7 +110,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   catch (error) {
     logger.error('Error publishing packages:', error)
 
-    await executeHook('error:publish', config)
+    await executeHook('error:publish', config, dryRun)
 
     throw error
   }

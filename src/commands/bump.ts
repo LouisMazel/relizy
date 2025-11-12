@@ -325,16 +325,16 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     },
   })
 
+  const dryRun = options.dryRun ?? false
+  logger.debug(`Dry run: ${dryRun}`)
+
+  const force = options.force ?? false
+  logger.debug(`Bump forced: ${force}`)
+
   try {
-    await executeHook('before:bump', config)
+    await executeHook('before:bump', config, dryRun)
 
     logger.start('Start bumping versions')
-
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    const force = options.force ?? false
-    logger.debug(`Bump forced: ${force}`)
 
     if (config.bump.clean && config.release.clean) {
       try {
@@ -386,14 +386,14 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       logger.fail('No packages to bump, no commits found')
     }
 
-    await executeHook('after:bump', config)
+    await executeHook('after:bump', config, dryRun)
 
     return result
   }
   catch (error) {
     logger.error('Error bumping versions:', error)
 
-    await executeHook('error:bump', config)
+    await executeHook('error:bump', config, dryRun)
 
     throw error
   }

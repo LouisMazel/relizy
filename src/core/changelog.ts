@@ -3,15 +3,21 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { PackageInfo } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { getFirstCommit } from '../core'
 import { generateMarkDown } from './markdown'
 import { executeHook } from './utils'
 
+/**
+ * Check if a tag is the first commit in the repository
+ */
 function fromTagIsFirstCommit(fromTag: string, cwd: string) {
   return fromTag === getFirstCommit(cwd)
 }
 
+/**
+ * Generate changelog for a specific package
+ */
 export async function generateChangelog(
   {
     pkg,
@@ -39,27 +45,31 @@ export async function generateChangelog(
     = config.to
       || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.version}` : config.templates.tagBody.replace('{{newVersion}}', pkg.version))
 
-  try {
-    logger.debug(`Generating changelog for ${pkg.name} - from ${fromTag} to ${toTag}`)
+  logger.debug(`Generating changelog for ${pkg.name} - from ${fromTag} to ${toTag}`)
 
+  try {
     config = {
       ...config,
       from: fromTag,
       to: toTag,
     }
 
-    await executeHook('generate:changelog', config, {
-      commits,
-      config,
-    })
+    const generatedChangelog = await generateMarkDown(commits, config)
 
-    let changelog = await generateMarkDown(commits, config)
-
-    logger.verbose(`Output changelog for ${pkg.name}:\n${changelog}`)
+    let changelog = generatedChangelog
 
     if (commits.length === 0) {
       changelog = `${changelog}\n\n${config.templates.emptyChangelogContent}`
     }
+
+    const changelogResult = await executeHook('generate:changelog', config, dryRun, {
+      commits,
+      changelog,
+    })
+
+    changelog = changelogResult || changelog
+
+    logger.verbose(`Output changelog for ${pkg.name}:\n${changelog}`)
 
     logger.debug(`Changelog generated for ${pkg.name} (${commits.length} commits)`)
 
@@ -76,6 +86,9 @@ export async function generateChangelog(
   }
 }
 
+/**
+ * Write changelog to file
+ */
 export function writeChangelogToFile({
   pkg,
   changelog,
@@ -113,69 +126,5 @@ export function writeChangelogToFile({
     logger.debug(`Writing changelog to ${changelogPath}`)
     writeFileSync(changelogPath, updatedChangelog, 'utf8')
     logger.info(`Changelog updated for ${pkg.name}`)
-  }
-}
-
-export async function executeFormatCmd({
-  config,
-  dryRun,
-}: {
-  config: ResolvedRelizyConfig
-  dryRun: boolean
-}) {
-  if (config.changelog?.formatCmd) {
-    logger.info('Running format command')
-
-    logger.debug(`Running format command: ${config.changelog.formatCmd}`)
-    try {
-      if (!dryRun) {
-        await execPromise(config.changelog.formatCmd, {
-          noStderr: true,
-          noStdout: true,
-          logLevel: config.logLevel,
-          cwd: config.cwd,
-        })
-        logger.info('Format completed')
-      }
-      else {
-        logger.log('[dry-run] exec format command: ', config.changelog.formatCmd)
-      }
-    }
-    catch (error) {
-      logger.error('Format command failed:', error)
-      process.exit(1)
-    }
-  }
-  else {
-    logger.debug('No format command specified')
-  }
-}
-
-export async function executeBuildCmd({
-  config,
-  dryRun,
-}: {
-  config: ResolvedRelizyConfig
-  dryRun: boolean
-}) {
-  if (config.publish?.buildCmd) {
-    logger.info('Running build command')
-
-    logger.debug(`Running build command: ${config.publish.buildCmd}`)
-    if (!dryRun) {
-      await execPromise(config.publish.buildCmd, {
-        noStderr: true,
-        noStdout: true,
-        logLevel: config.logLevel,
-        cwd: config.cwd,
-      })
-      logger.info('Build completed')
-    }
-    else {
-      logger.log('[dry-run] exec build command: ', config.publish.buildCmd)
-    }
-  }
-  else {
-    logger.debug('No build command specified')
   }
 }
