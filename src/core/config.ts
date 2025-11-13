@@ -27,7 +27,7 @@ export function getDefaultConfig() {
       ci: { title: '🤖 CI' },
     } as NonNullable<RelizyConfig['types']>,
     templates: {
-      commitMessage: 'chore(release): bump version to {{newVersion}}',
+      commitMessage: 'chore(release): bump version to v{{newVersion}}',
       tagMessage: 'Bump version to v{{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
