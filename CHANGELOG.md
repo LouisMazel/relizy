@@ -1,5 +1,104 @@
 # Changelog
 
+## v0.1.0...v0.2.0-beta.0
+
+### 🚀 Features
+
+- **relizy:** Add lifecycle hooks system ([20633be](https://github.com/LouisMazel/relizy/commit/20633be))
+
+  Implement comprehensive lifecycle hooks system allowing users to execute
+  custom scripts at specific stages of the release workflow.
+  Hooks support:
+  - String commands (shell scripts)
+  - JavaScript/TypeScript functions
+  - Three hook types: before, after, error
+  - Six lifecycle steps: bump, changelog, commit-and-tag, push, publish, provider-release
+  - Special hook: generate:changelog for customizing changelog generation
+    Add CI environment detection utilities (isInCI, getCIName) to support
+    conditional hook execution in CI/CD pipelines.
+
+### 🩹 Fixes
+
+- Exclude resources files (svg, png, etc) from commit body in generated changelog ([6094991](https://github.com/LouisMazel/relizy/commit/6094991))
+
+### 💅 Refactors
+
+- **relizy:** Add lifecycle hooks system ([5b090f6](https://github.com/LouisMazel/relizy/commit/5b090f6))
+
+  Add comprehensive hook system for all release lifecycle events:
+  - New hooks: before/after/error for bump, changelog, commit-and-tag, push, publish, provider-release
+  - Support both function and shell command hooks
+  - Hooks configurable in relizy.config.ts under `hooks` property
+  - Automatic hook execution at each lifecycle step
+
+- **relizy:** Add safety checks for provider releases ([c7c37b5](https://github.com/LouisMazel/relizy/commit/c7c37b5))
+
+  Add safety validation before executing provider releases:
+  - Check Git provider token availability before release
+  - Validate provider type (github/gitlab)
+  - New CLI flag: --no-safety-check to disable checks
+  - Safety checks configurable via safetyCheck option in config
+  - Fail fast with clear error messages when tokens missing
+
+- **relizy:** Make monorepo config optional for standalone packages ([6b3f7ef](https://github.com/LouisMazel/relizy/commit/6b3f7ef))
+
+  Allow relizy to work without monorepo configuration for standalone packages:
+  - Config file now optional - falls back to standalone mode
+  - loadRelizyConfig renamed from loadMonorepoConfig
+  - No error when config file missing (unless --config explicitly provided)
+  - Display "standalone" when no versionMode defined
+  - Update all imports and type references across codebase
+
+- **relizy:** Improve CLI options and naming consistency ([2473280](https://github.com/LouisMazel/relizy/commit/2473280))
+
+  Improve CLI interface with better naming and new options:
+  - Rename --no-release to --no-provider-release for clarity
+  - Add --provider flag to manually specify git provider (github/gitlab)
+  - Make --config flag optional (defaults to standalone mode)
+  - Update all related config properties: release.release → release.providerRelease
+  - Consistent option naming across all commands
+
+- **relizy:** Add interactive OTP prompt for npm publish ([cc8233a](https://github.com/LouisMazel/relizy/commit/cc8233a))
+
+  Add automatic OTP handling for npm packages requiring 2FA:
+  - Prompt user for OTP when npm returns OTP error
+  - Store OTP in session to reuse across multiple package publishes
+  - 90-second timeout on OTP input prompt
+  - Detect CI environment and fail gracefully without prompting
+  - Retry publish with --otp flag after receiving code
+  - Support OTP priority: dynamic > session > config
+
+- **relizy:** Extract OTP logic into focused functions ([73eae0b](https://github.com/LouisMazel/relizy/commit/73eae0b))
+
+  Improve code maintainability by breaking down publishPackage:
+  - Extract isOtpError(): detect OTP-related errors
+  - Extract promptOtpWithTimeout(): handle OTP input with timeout
+  - Extract handleOtpError(): manage CI detection and OTP prompting
+  - Extract executePublishCommand(): execute npm publish command
+  - Reduce complexity of main publishPackage function
+
+- **relizy:** Improve type definitions and documentation ([ddd2d82](https://github.com/LouisMazel/relizy/commit/ddd2d82))
+
+  Improve TypeScript type definitions and JSDoc documentation across core modules.
+  Export utility types (HookType, HookStep) for external use.
+  Clarify configuration interfaces with better naming and comments.
+
+### 📖 Documentation
+
+- **docs:** Global documentation improvements ([d8572dd](https://github.com/LouisMazel/relizy/commit/d8572dd))
+- Update configuration examples and references ([748140a](https://github.com/LouisMazel/relizy/commit/748140a))
+
+  Update documentation to reflect new naming conventions:
+  - Replace changelog.config.ts references with relizy.config.ts
+  - Update CLAUDE.md config references
+
+- **docs:** Update and improve documentation ([e1eb533](https://github.com/LouisMazel/relizy/commit/e1eb533))
+- Add CONTRIBUTING.md doc ([1ec1bea](https://github.com/LouisMazel/relizy/commit/1ec1bea))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.0.0...v0.1.0
 
 ### 🚀 Features
