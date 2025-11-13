@@ -4,18 +4,9 @@ on:
   push:
     branches:
       - main
-    paths:
-      - .github/workflows/test-unit.yml
-      - 'packages/**/*'
-      - '!packages/*/CHANGELOG.md'
-      - '!packages/*/package.json'
   pull_request:
     branches-ignore:
       - dependabot/**
-    paths:
-      - .github/workflows/test-unit.yml
-      - 'packages/**'
-      - pnpm-lock.yaml
 
 jobs:
   test-unit:
