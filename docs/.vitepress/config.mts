@@ -16,9 +16,11 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'author', content: 'Louis Mazel' }],
-    ['meta', { property: 'og:image', content: '/relizy/social.jpg' }],
+    ['meta', { property: 'og:image', content: 'https://louismazel.github.io/relizy/social.jpg' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: '/relizy/logo.svg' }],
+    ['meta', { name: 'twitter:image', content: 'https://louismazel.github.io/relizy/social.jpg' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: 'https://louismazel.github.io/relizy/logo.svg' }],
+    ['meta', { name: 'twitter:creator', content: '@mazeel' }],
   ],
 
   appearance: true,
