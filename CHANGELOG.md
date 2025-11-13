@@ -1,5 +1,11 @@
 # Changelog
 
+## v0.2.2-beta.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.1-alpha.0...v0.2.2-beta.0)
+
+No relevant changes since last release
+
 ## v0.2.1-alpha.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.0...v0.2.1-alpha.0)
