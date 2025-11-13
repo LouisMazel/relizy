@@ -1024,7 +1024,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toBe('preminor')
+      expect(result).toBe('prerelease')
     })
 
     it('Then returns prepatch when changing from alpha to beta with fix', () => {
@@ -1038,7 +1038,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toBe('prepatch')
+      expect(result).toBe('prerelease')
     })
 
     it('Then returns prepatch when changing from beta to rc with no commits detected', () => {
@@ -1052,7 +1052,21 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toBe('prepatch')
+      expect(result).toBe('prerelease')
+    })
+
+    it('Then returns prepatch when changing from beta to beta with no commits detected', () => {
+      const config = createMockConfig({ type: 'prerelease', preid: 'beta' })
+      const result = determineReleaseType({
+        currentVersion: '1.0.0-alpha.5',
+        from: 'v1.0.0',
+        to: 'HEAD',
+        commits: [],
+        config,
+        force: false,
+      })
+
+      expect(result).toBe('prerelease')
     })
 
     it('Then returns prerelease when changing preid with force', () => {
