@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.4
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.3...v0.2.4)
+
+### 💅 Refactors
+
+- Add missing 'v' charac before version in default commit message template ([57f5376](https://github.com/LouisMazel/relizy/commit/57f5376))
+
+### 📖 Documentation
+
+- Update README with documentation links ([458ab03](https://github.com/LouisMazel/relizy/commit/458ab03))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.3
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.3-alpha.0...v0.2.3)
