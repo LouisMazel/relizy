@@ -254,28 +254,33 @@ export function bumpPackageVersion({
   preid: string | undefined
   suffix: string | undefined
 }): string {
-  let newVersion = semver.inc(currentVersion, releaseType, preid as string)
+  try {
+    let newVersion = semver.inc(currentVersion, releaseType, preid as string)
 
-  if (!newVersion) {
-    throw new Error(`Unable to bump version "${currentVersion}" with release type "${releaseType}"`)
+    if (!newVersion) {
+      throw new Error(`Unable to bump version "${currentVersion}" with release type "${releaseType}"\n\nYou should use an explicit release type (use flag: --major, --minor, --patch, --premajor, --preminor, --prepatch, --prerelease)`)
+    }
+
+    if (isPrereleaseReleaseType(releaseType) && suffix) {
+      // Remplace le dernier .X par .suffix
+      newVersion = newVersion.replace(/\.(\d+)$/, `.${suffix}`)
+    }
+
+    const isValidVersion = semver.gt(newVersion, currentVersion)
+
+    if (!isValidVersion) {
+      throw new Error(`Unable to bump version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
+    }
+
+    if (isGraduating(currentVersion, releaseType)) {
+      logger.info(`Graduating from prerelease ${currentVersion} to stable ${newVersion}`)
+    }
+
+    return newVersion
   }
-
-  if (isPrereleaseReleaseType(releaseType) && suffix) {
-    // Remplace le dernier .X par .suffix
-    newVersion = newVersion.replace(/\.(\d+)$/, `.${suffix}`)
+  catch (error) {
+    throw new Error(`Unable to bump version: ${error}`)
   }
-
-  const isValidVersion = semver.gt(newVersion, currentVersion)
-
-  if (!isValidVersion) {
-    throw new Error(`Unable to bump version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
-  }
-
-  if (isGraduating(currentVersion, releaseType)) {
-    logger.info(`Graduating from prerelease ${currentVersion} to stable ${newVersion}`)
-  }
-
-  return newVersion
 }
 
 export function updateLernaVersion({

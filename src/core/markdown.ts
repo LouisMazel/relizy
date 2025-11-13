@@ -17,39 +17,51 @@ const CHANGELOG_RELEASE_HEAD_RE
 const VERSION_RE = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-export async function generateMarkDown(
-  commits: GitCommit[],
-  config: ResolvedRelizyConfig,
-) {
+export async function generateMarkDown({
+  commits,
+  config,
+  from,
+  to,
+}: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
+  from: string
+  to: string
+}) {
   const typeGroups = groupBy(commits, 'type')
 
   const markdown: string[] = []
   const breakingChanges = []
 
-  // Version Title
-  const v
-    = config.newVersion
-      && config.templates.tagBody.replaceAll('{{newVersion}}', config.newVersion)
-  // eslint-disable-next-line sonarjs/no-nested-template-literals
-  markdown.push('', `## ${v || `${config.from || ''}...${config.to}`}`, '')
-
-  if (config.repo && config.from && v) {
-    markdown.push(formatCompareChanges(v, config as ResolvedChangelogConfig))
+  const updatedConfig = {
+    ...config,
+    from,
+    to,
   }
 
-  for (const type in config.types) {
+  // Version Title
+  const versionTitle = updatedConfig.to
+  // eslint-disable-next-line sonarjs/no-nested-template-literals
+  markdown.push('', `## ${versionTitle || `${updatedConfig.from || ''}...${updatedConfig.to}`}`, '')
+
+  if (updatedConfig.repo && updatedConfig.from && versionTitle) {
+    const formattedCompareLink = formatCompareChanges(versionTitle, updatedConfig as ResolvedChangelogConfig)
+    markdown.push(formattedCompareLink)
+  }
+
+  for (const type in updatedConfig.types) {
     const group = typeGroups[type]
     if (!group || group.length === 0) {
       continue
     }
 
-    if (typeof config.types[type] === 'boolean') {
+    if (typeof updatedConfig.types[type] === 'boolean') {
       continue
     }
 
-    markdown.push('', `### ${config.types[type]?.title}`, '')
+    markdown.push('', `### ${updatedConfig.types[type]?.title}`, '')
     for (const commit of group.reverse()) {
-      const line = formatCommit(commit, config)
+      const line = formatCommit(commit, updatedConfig)
       markdown.push(line)
       if (commit.isBreaking) {
         breakingChanges.push(line)
@@ -74,8 +86,8 @@ export async function generateMarkDown(
     }
 
     if (
-      config.excludeAuthors
-      && config.excludeAuthors.some(
+      updatedConfig.excludeAuthors
+      && updatedConfig.excludeAuthors.some(
         v => name.includes(v) || commit.author.email?.includes(v),
       )
     ) {
@@ -118,7 +130,7 @@ export async function generateMarkDown(
     ...e[1],
   }))
 
-  if (authors.length > 0 && !config.noAuthors) {
+  if (authors.length > 0 && !updatedConfig.noAuthors) {
     markdown.push(
       '',
       '### ' + '❤️ Contributors',
@@ -128,7 +140,7 @@ export async function generateMarkDown(
           e => !e.includes('noreply.github.com'),
         )
         const email
-          = config.hideAuthorEmail !== true && _email ? ` <${_email}>` : ''
+          = updatedConfig.hideAuthorEmail !== true && _email ? ` <${_email}>` : ''
         const github = i.github
           ? ` ([@${i.github}](https://github.com/${i.github}))`
           : ''
@@ -137,7 +149,9 @@ export async function generateMarkDown(
     )
   }
 
-  return convert(markdown.join('\n').trim(), true)
+  const result = convert(markdown.join('\n').trim(), true)
+
+  return result
 }
 
 export function parseChangelogMarkdown(contents: string) {

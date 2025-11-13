@@ -165,8 +165,7 @@ export async function executeFormatCmd({
       }
     }
     catch (error) {
-      logger.error('Format command failed:', error)
-      process.exit(1)
+      throw new Error(`Format command failed: ${error}`)
     }
   }
   else {

@@ -33,7 +33,7 @@ export async function generateChangelog(
     dryRun: boolean
   },
 ) {
-  let fromTag = config.from || config.templates.tagBody.replace('{{newVersion}}', pkg.currentVersion) || from
+  let fromTag = config.from || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.currentVersion}` : config.templates.tagBody.replace('{{newVersion}}', pkg.currentVersion)) || from
 
   const isFirstCommit = fromTagIsFirstCommit(fromTag, config.cwd)
 
@@ -41,9 +41,7 @@ export async function generateChangelog(
     fromTag = config.monorepo?.versionMode === 'independent' ? `${pkg.name}@0.0.0` : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
   }
 
-  const toTag
-    = config.to
-      || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.version}` : config.templates.tagBody.replace('{{newVersion}}', pkg.version))
+  const toTag = config.to || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.version}` : config.templates.tagBody.replace('{{newVersion}}', pkg.version))
 
   logger.debug(`Generating changelog for ${pkg.name} - from ${fromTag} to ${toTag}`)
 
@@ -54,7 +52,12 @@ export async function generateChangelog(
       to: toTag,
     }
 
-    const generatedChangelog = await generateMarkDown(commits, config)
+    const generatedChangelog = await generateMarkDown({
+      commits,
+      config,
+      from: fromTag,
+      to: toTag,
+    })
 
     let changelog = generatedChangelog
 
