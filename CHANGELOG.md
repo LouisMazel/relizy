@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.3-alpha.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.2...v0.2.3-alpha.0)
+
+### 💅 Refactors
+
+- Use isInCI utility method to disable OTP prompt (npm) ([171f957](https://github.com/LouisMazel/relizy/commit/171f957))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.2
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.2-beta.1...v0.2.2)
