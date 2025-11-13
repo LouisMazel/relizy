@@ -40,7 +40,7 @@ export interface PublishResponse {
   publishedPackages: PackageInfo[]
 }
 
-export type BumpResult = {
+export interface BumpResultTruthy {
   /**
    * Old version
    */
@@ -61,12 +61,14 @@ export type BumpResult = {
    * Bumped
    */
   bumped: true
-} | {
+}
+export interface BumpResultFalsy {
   /**
    * Bumped
    */
   bumped: false
 }
+export type BumpResult = BumpResultTruthy | BumpResultFalsy
 
 export interface PostedRelease {
   /**
@@ -439,7 +441,7 @@ export interface RepoConfig {
   provider?: GitProvider
 }
 
-export type HookType = 'before' | 'after' | 'error'
+export type HookType = 'before' | 'success' | 'error'
 export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
 
 /**

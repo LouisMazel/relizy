@@ -18,11 +18,15 @@ export function getGitStatus(cwd?: string) {
 
 export function checkGitStatusIfDirty() {
   logger.debug('Checking git status')
+
   const dirty = getGitStatus()
+
   if (dirty) {
     logger.debug('git status:', `\n${dirty.trim().split('\n').map(line => line.trim()).join('\n')}`)
 
-    throw new Error(dirty)
+    const error = `Git status is dirty!\n\nPlease commit or stash your changes before bumping or use --no-clean flag. \n\nUnstaged files:\n\n ${dirty.trim()}`
+
+    throw new Error(error)
   }
 }
 
@@ -240,7 +244,7 @@ export async function createCommitAndTags({
 
     logger.success('Commit and tag completed!')
 
-    await executeHook('after:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('success:commit-and-tag', internalConfig, dryRun ?? false)
 
     return createdTags
   }

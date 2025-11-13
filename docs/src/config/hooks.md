@@ -15,7 +15,7 @@ tags: [config, hooks, lifecycle, automation, workflow]
 Relizy provides three types of hooks for each step:
 
 - **`before:<step>`** - Executed before the step starts
-- **`after:<step>`** - Executed after the step completes successfully
+- **`success:<step>`** - Executed after the step completes successfully
 - **`error:<step>`** - Executed when an error occurs during the step
 
 ## Available Steps
@@ -97,7 +97,7 @@ import { defineConfig } from 'relizy'
 export default defineConfig({
   hooks: {
     'before:bump': 'echo "Starting version bump"',
-    'after:bump': 'npm run build',
+    'success:bump': 'npm run build',
     'error:bump': 'echo "Version bump failed" && exit 1'
   }
 })
@@ -116,7 +116,7 @@ export default defineConfig({
       console.log('Starting bump with config:', config.monorepo?.versionMode)
       console.log('Dry run mode:', dryRun)
     },
-    'after:bump': async (config, dryRun) => {
+    'success:bump': async (config, dryRun) => {
       // Async operations are supported
       await sendNotification('Version bumped successfully')
     },
@@ -145,7 +145,7 @@ When a command is executed with `--dry-run`, hooks are still executed but you sh
 ```ts
 export default defineConfig({
   hooks: {
-    'after:publish': (config, dryRun) => {
+    'success:publish': (config, dryRun) => {
       if (dryRun) {
         console.log('[dry-run] Would send notification')
         return
@@ -163,36 +163,36 @@ Different commands execute different hooks based on their workflow:
 ### `relizy bump`
 
 - `before:bump`
-- `after:bump` | `error:bump`
+- `success:bump` | `error:bump`
 
 ### `relizy changelog`
 
 - `before:changelog`
 - `generate:changelog` (for each package and root changelog)
-- `after:changelog` | `error:changelog`
+- `success:changelog` | `error:changelog`
 
 ### `relizy publish`
 
 - `before:publish`
-- `after:publish` | `error:publish`
+- `success:publish` | `error:publish`
 
 ### `relizy provider-release`
 
 - `before:provider-release`
-- `after:provider-release` | `error:provider-release`
+- `success:provider-release` | `error:provider-release`
 
 ### `relizy release`
 
 The `release` command orchestrates multiple steps and executes hooks for each:
 
 1. `before:release`
-2. **Bump** → `before:bump`, (`after:bump` | `error:bump`)
-3. **Changelog** → `before:changelog`, `generate:changelog`, (`after:changelog` | `error:changelog`)
-4. **Commit and Tag** → `before:commit-and-tag`, (`after:commit-and-tag` | `error:commit-and-tag`)
-5. **Push** → `before:push`, (`after:push` | `error:push`)
-6. **Publish** → `before:publish`, (`after:publish` | `error:publish`)
-7. **Provider Release** → `before:provider-release`, (`after:provider-release` | `error:provider-release`)
-8. `after:release` | `error:release`
+2. **Bump** → `before:bump`, (`success:bump` | `error:bump`)
+3. **Changelog** → `before:changelog`, `generate:changelog`, (`success:changelog` | `error:changelog`)
+4. **Commit and Tag** → `before:commit-and-tag`, (`success:commit-and-tag` | `error:commit-and-tag`)
+5. **Push** → `before:push`, (`success:push` | `error:push`)
+6. **Publish** → `before:publish`, (`success:publish` | `error:publish`)
+7. **Provider Release** → `before:provider-release`, (`success:provider-release` | `error:provider-release`)
+8. `success:release` | `error:release`
 
 ::: tip
 You can disable specific steps with flags like `--no-changelog`, `--no-push`, or `--no-publish`. Hooks for disabled steps won't be executed.
@@ -207,7 +207,7 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   hooks: {
-    'after:release': async (config, dryRun) => {
+    'success:release': async (config, dryRun) => {
       if (dryRun)
         return
 
@@ -246,8 +246,8 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   hooks: {
-    'after:bump': 'npm run docs:generate',
-    'after:changelog': 'npm run docs:build'
+    'success:bump': 'npm run docs:generate',
+    'success:changelog': 'npm run docs:build'
   }
 })
 ```
@@ -292,7 +292,7 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   hooks: {
-    'after:provider-release': async (config, dryRun) => {
+    'success:provider-release': async (config, dryRun) => {
       if (dryRun) {
         console.log('[dry-run] Would trigger deployment')
         return
@@ -336,7 +336,7 @@ export default defineConfig({
 ## TypeScript Types
 
 ```ts
-type HookType = 'before' | 'after' | 'error'
+type HookType = 'before' | 'success' | 'error'
 type HookStep
   = | 'bump'
     | 'changelog'

@@ -37,7 +37,7 @@ export async function providerRelease(
     configName: options.configName,
     baseConfig: options.config,
     overrides: {
-      from: options.from,
+      from: options.from || (options.bumpResult?.bumped === true ? options.bumpResult.fromTag : undefined),
       to: options.to,
       tokens: {
         github: options.token,
@@ -76,6 +76,7 @@ export async function providerRelease(
 
     const payload = {
       from: config.from,
+      to: config.to,
       dryRun,
       config,
       logLevel: config.logLevel,
@@ -92,7 +93,7 @@ export async function providerRelease(
       logger.warn(`Unsupported Git provider: ${detectedProvider}`)
     }
 
-    await executeHook('after:provider-release', config, dryRun)
+    await executeHook('success:provider-release', config, dryRun)
 
     return {
       detectedProvider,
@@ -100,7 +101,9 @@ export async function providerRelease(
     }
   }
   catch (error) {
-    logger.error('Error publishing releases:', error)
+    if (!options.config) {
+      logger.error('Error publishing releases!\n\n', error)
+    }
 
     await executeHook('error:provider-release', config, dryRun)
 
