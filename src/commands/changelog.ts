@@ -230,8 +230,6 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
         changelog: true,
       })
 
-      logger.debug(`${pkg.name}: ${commits.length} commit(s)`)
-
       const changelog = await generateChangelog({
         pkg,
         commits,
@@ -260,10 +258,12 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
 
-    await executeHook('after:changelog', config, dryRun)
+    await executeHook('success:changelog', config, dryRun)
   }
   catch (error) {
-    logger.error('Error generating changelogs:', error)
+    if (!options.config) {
+      logger.error('Error generating changelogs!\n\n', error)
+    }
 
     await executeHook('error:changelog', config, dryRun)
 

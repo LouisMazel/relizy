@@ -101,14 +101,16 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.success('Publishing packages completed!')
 
-    await executeHook('after:publish', config, dryRun)
+    await executeHook('success:publish', config, dryRun)
 
     return {
       publishedPackages,
     } satisfies PublishResponse
   }
   catch (error) {
-    logger.error('Error publishing packages:', error)
+    if (!options.config) {
+      logger.error('Error during publishing packages!\n\n', error)
+    }
 
     await executeHook('error:publish', config, dryRun)
 

@@ -141,7 +141,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       try {
         await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
-        await executeHook('after:push', config, dryRun)
+        await executeHook('success:push', config, dryRun)
       }
       catch (error) {
         await executeHook('error:push', config, dryRun)
@@ -180,6 +180,9 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
       try {
         const response = await providerRelease({
+          from: config.from,
+          to: config.to,
+          token: options.token,
           provider,
           dryRun,
           config,
@@ -211,11 +214,13 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
       + `Git provider: ${provider}`)
 
-    await executeHook('after:release', config, dryRun)
+    await executeHook('success:release', config, dryRun)
   }
   catch (error) {
+    logger.error('Error during release workflow!\n\n', error)
+
     await executeHook('error:release', config, dryRun)
-    logger.error('Error during release workflow:', error)
+
     throw error
   }
 }

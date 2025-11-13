@@ -114,6 +114,7 @@ async function bumpUnifiedMode({
   return {
     bumped: true,
     oldVersion: currentVersion,
+    fromTag: from,
     newVersion,
     bumpedPackages: packages.map(pkg => ({
       ...pkg,
@@ -337,13 +338,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     logger.start('Start bumping versions')
 
     if (config.bump.clean && config.release.clean) {
-      try {
-        checkGitStatusIfDirty()
-      }
-      catch (error) {
-        logger.error('Git status is dirty, please commit or stash your changes before bumping or use --no-clean flag', error)
-        process.exit(1)
-      }
+      checkGitStatusIfDirty()
     }
 
     await fetchGitTags(config.cwd)
@@ -386,12 +381,14 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       logger.fail('No packages to bump, no commits found')
     }
 
-    await executeHook('after:bump', config, dryRun)
+    await executeHook('success:bump', config, dryRun)
 
     return result
   }
   catch (error) {
-    logger.error('Error bumping versions:', error)
+    if (!options.config) {
+      logger.error('Error while bumping version(s)!\n\n', error)
+    }
 
     await executeHook('error:bump', config, dryRun)
 
