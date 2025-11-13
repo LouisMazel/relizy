@@ -111,13 +111,7 @@ function handlePrereleaseVersionWithPrereleaseType(
       throw new Error(`Unable to change preid from ${currentVersion} to ${testVersion}, it's not a valid upgrade (cannot downgrade from ${currentPreid} to ${targetPreid})`)
     }
 
-    const detectedType = commits?.length
-      ? detectReleaseTypeFromCommits(commits, config)
-      : null
-
-    const prereleaseType = detectedType ? `pre${detectedType}` as BumpOptions['type'] : 'prepatch'
-    logger.debug(`Changing preid from ${currentPreid} to ${targetPreid} with release type: ${prereleaseType}`)
-    return prereleaseType
+    return 'prerelease'
   }
 
   if (!commits?.length && !force) {
