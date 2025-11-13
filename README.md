@@ -7,7 +7,10 @@
       A tool to manage releases for monorepos and single packages.
     </strong>
   </p>
+  <a href="https://louismazel.github.io/relizy/">Documentation</a>
 </div>
+
+---
 
 Seamless and automated release manager with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.
 
@@ -34,6 +37,10 @@ Imagine you have multiple packages in your project (like a box with several toys
 - 🎛️ Custom registry support (private registries, GitHub Packages, etc.)
 - ⚙️ Multiple configuration files support for different release workflows
 - 🔧 Support for npm, yarn, pnpm, and bun (auto-detected)
+
+## 📚 Documentation
+
+You can [find the documentation here](https://louismazel.github.io/relizy/).
 
 ## 📦 Installation
 
