@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.2.1-alpha.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.0...v0.2.1-alpha.0)
+
+### 🩹 Fixes
+
+- Changelog title and compare link generation ([690dcaf](https://github.com/LouisMazel/relizy/commit/690dcaf))
+
+### 💅 Refactors
+
+- Rename 'after' hook to 'success' ([a0fe54c](https://github.com/LouisMazel/relizy/commit/a0fe54c))
+
+  The 'after' prefix was ambiguous and could be confused with timing.
+  'success' is more explicit and clearly indicates that the hook is
+  executed when a step completes successfully. This aligns with the
+  existing 'error' hook for failed steps.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.0-beta.0...v0.2.0
 
 ### 🚀 Features
