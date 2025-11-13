@@ -36,7 +36,7 @@ if (!hasSilentFlag) {
 }
 
 if (isInCI()) {
-  logger.debug(`Running in CI: ${getCIName()}`)
+  logger.log(`Running in CI: ${getCIName()}`)
 }
 else {
   logger.debug('Running locally')

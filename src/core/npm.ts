@@ -5,7 +5,7 @@ import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
-import { getPackageCommits, isPrerelease } from '../core'
+import { getPackageCommits, isInCI, isPrerelease } from '../core'
 import { resolveTags } from './tags'
 
 // Store OTP for the session to avoid re-prompting for each package
@@ -217,9 +217,8 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
 }
 
 async function handleOtpError(): Promise<string> {
-  // In CI environment, fail immediately without prompting
-  if (process.env.CI) {
-    logger.error('OTP required but running in CI environment. Please provide OTP via config.')
+  if (isInCI()) {
+    logger.error('OTP required but running in CI environment. Please provide OTP via config or `--otp` flag')
     throw new Error('OTP required in CI environment')
   }
 
