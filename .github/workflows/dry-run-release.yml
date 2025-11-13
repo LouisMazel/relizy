@@ -20,4 +20,4 @@ jobs:
       - name: Dry run release
         env:
           RELIZY_GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
-        run: pnpm relizy release --yes --dry-run
+        run: pnpm relizy release --yes --dry-run --log-level debug

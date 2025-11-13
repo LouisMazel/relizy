@@ -59,8 +59,7 @@ relizy provider-release --provider github
 ### GitHub Release
 
 ```bash
-export RELIZY_GITHUB_TOKEN=your_token
-relizy provider-release
+relizy provider-release --provider github --token your_token
 
 # Creates release at:
 # https://github.com/user/repo/releases/tag/v1.0.0
@@ -69,8 +68,7 @@ relizy provider-release
 ### GitLab Release
 
 ```bash
-export GITLAB_TOKEN=your_token
-relizy provider-release
+relizy provider-release --provider gitlab --token your_token
 
 # Creates release at:
 # https://gitlab.com/user/repo/-/releases/v1.0.0
@@ -89,7 +87,7 @@ relizy provider-release --prerelease
 ### GitHub
 
 ```bash
-export GITHUB_TOKEN=ghp_xxxxx
+relizy provider-release --provider github --token ghp_xxxxx --prerelease
 ```
 
 Create token at: Settings → Developer settings → Personal access tokens
@@ -97,7 +95,7 @@ Create token at: Settings → Developer settings → Personal access tokens
 ### GitLab
 
 ```bash
-export GITLAB_TOKEN=glpat-xxxxx
+relizy provider-release --provider gitlab --token glpat-xxxxx
 ```
 
 Create token at: Settings → Access Tokens

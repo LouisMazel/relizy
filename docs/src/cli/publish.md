@@ -112,14 +112,20 @@ relizy publish
 ### NPM Token
 
 ```bash
-export NPM_TOKEN=your_token_here
+export NODE_AUTH_TOKEN=your_npm_token_here
 relizy publish
+```
+
+### .env
+
+```ini
+NODE_AUTH_TOKEN=your_npm_token_here
 ```
 
 ### .npmrc
 
 ```ini
-//registry.npmjs.org/:_authToken=${NPM_TOKEN}
+//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
 ```
 
 ## See Also

@@ -83,6 +83,5 @@ export default defineConfig({
     provider: 'github',
     token: process.env.GITHUB_TOKEN,
   },
-  output: 'CHANGELOG.md',
 })
 ```

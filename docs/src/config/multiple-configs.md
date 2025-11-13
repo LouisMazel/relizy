@@ -40,10 +40,10 @@ Create config files with different names:
 relizy release
 
 # Use production config
-relizy release --config production
+relizy release --config relizy.production
 
 # Use staging config
-relizy release --config staging
+relizy release --config relizy.staging
 ```
 
 ### API
@@ -53,7 +53,7 @@ import { release } from 'relizy'
 
 // Use custom config
 await release({
-  config: 'production',
+  configName: 'relizy.staging',
   type: 'minor',
 })
 ```
@@ -64,7 +64,7 @@ await release({
 
 ```ts
 // changelog.production.config.ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'unified',
   },
@@ -72,14 +72,14 @@ export default {
     access: 'public',
     tag: 'latest',
   },
-}
+})
 ```
 
 ### Staging Config
 
 ```ts
 // changelog.staging.config.ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'independent',
   },
@@ -87,19 +87,19 @@ export default {
     access: 'public',
     tag: 'beta',
   },
-}
+})
 ```
 
 ### Standalone Package Config
 
 ```ts
 // relizy.standalone.config.ts
-export default {
+export default defineConfig({
   // No monorepo settings
   publish: {
     access: 'public',
   },
-}
+})
 ```
 
 ## Best Practices
@@ -115,34 +115,34 @@ Extract common settings:
 
 ```ts
 // shared.config.ts
-export const commonConfig = {
+export const commonConfig = defineConfig({
   types: {
     feat: { title: '🚀 Features', semver: 'minor' },
     fix: { title: '🐛 Fixes', semver: 'patch' },
   },
-}
+})
 ```
 
 ```ts
 // changelog.production.config.ts
 import { commonConfig } from './shared.config'
 
-export default {
+export default defineConfig({
   ...commonConfig,
   publish: {
     tag: 'latest',
   },
-}
+})
 ```
 
 ```ts
 // changelog.staging.config.ts
 import { commonConfig } from './shared.config'
 
-export default {
+export default defineConfig({
   ...commonConfig,
   publish: {
     tag: 'beta',
   },
-}
+})
 ```

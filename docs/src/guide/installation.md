@@ -160,13 +160,13 @@ npm login
 Or set an NPM token in your environment:
 
 ```bash
-export NPM_TOKEN=your_token_here
+export NODE_AUTH_TOKEN=your_token_here
 ```
 
 Or use `.env` file
 
 ```bash
-NPM_TOKEN=your_token_here
+NODE_AUTH_TOKEN=your_token_here
 ```
 
 ### GitHub and GitLab Releases

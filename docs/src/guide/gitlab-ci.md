@@ -155,8 +155,8 @@ Add your NPM token as a protected variable:
 3. Mark as Protected and Masked
 
 ```yaml
-variables:
-  NPM_TOKEN: $NPM_TOKEN
+env:
+  NODE_AUTH_TOKEN: $NPM_TOKEN
 ```
 
 ## Complete Pipelines
@@ -210,7 +210,7 @@ release:
     - relizy release --$RELEASE_TYPE --yes
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main
   environment:
@@ -264,7 +264,7 @@ release:selective:
     - relizy release --selective --$RELEASE_TYPE --yes
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main
 ```
@@ -309,7 +309,7 @@ publish_npm:
     - npm run build
     - relizy publish --yes
   variables:
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - tags
 
@@ -382,7 +382,7 @@ For monorepos, publish packages in parallel:
     - npm run build
     - relizy publish --yes
   variables:
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - tags
 ```
@@ -609,7 +609,7 @@ build:
     - git config user.email "ci@gitlab.com"
   variables:
     GITLAB_TOKEN: $CI_JOB_TOKEN
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main
   resource_group: release

@@ -311,7 +311,7 @@ Use **unified mode** - it keeps everything in sync and is the simplest to manage
 Control which dependency types trigger bumps:
 
 ```ts
-export default {
+export default defineConfig({
   monorepo: {
     versionMode: 'selective',
   },
@@ -322,7 +322,7 @@ export default {
       'peerDependencies', // Bump when peer deps change
     ],
   }
-}
+})
 ```
 
 ## Next Steps

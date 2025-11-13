@@ -1017,15 +1017,15 @@ export default defineConfig({
 # Release core UI packages together (selective mode)
 pnpm relizy release --patch
 # or explicitly
-pnpm relizy release --config changelog --patch
+pnpm relizy release --config relizy --patch
 
 # Release standalone utilities independently
-pnpm relizy release --config changelog.standalone --patch
+pnpm relizy release --config relizy.standalone --patch
 
 # You can also use different configs for different commands
-pnpm relizy bump --config changelog.standalone --minor
-pnpm relizy changelog --config changelog.standalone
-pnpm relizy publish --config changelog.standalone
+pnpm relizy bump --config relizy.standalone --minor
+pnpm relizy changelog --config relizy.standalone
+pnpm relizy publish --config relizy.standalone
 ```
 
 ### Example: Different Registries

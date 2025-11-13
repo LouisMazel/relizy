@@ -171,21 +171,6 @@ export default defineConfig({
 })
 ```
 
-## Environment Variables
-
-Override configuration with environment variables:
-
-```bash
-# Set version mode
-export RELIZY_GITHUB_TOKEN=your-github-token
-
-# Set log level
-export RELIZY_LOG_LEVEL=debug
-
-# Run release
-relizy release
-```
-
 ## Multiple Configurations
 
 Use different configs for different workflows:
@@ -195,9 +180,9 @@ Use different configs for different workflows:
 relizy release
 
 # Use staging config
-relizy release --config staging
+relizy release --config relizy.staging
 
-# Uses changelog.staging.config.ts
+# Uses relizy.staging.config.ts
 ```
 
 Learn more in [Multiple Configs](/config/multiple-configs).

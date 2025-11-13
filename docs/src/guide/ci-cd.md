@@ -22,7 +22,7 @@ Set these in your CI/CD environment:
 
 ```bash
 # Required for npm publishing
-NPM_TOKEN=your_npm_token
+NODE_AUTH_TOKEN=your_npm_token
 
 # Required for GitHub releases
 RELIZY_GITHUB_TOKEN=your_github_token
@@ -221,7 +221,7 @@ jobs:
         run: relizy release --${{ inputs.release_type }} --yes
         env:
           RELIZY_GITHUB_TOKEN: ${{ secrets.RELIZY_GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
 ### GitLab CI - Full Release
@@ -240,7 +240,7 @@ release:
     - relizy release --yes
   variables:
     RELIZY_GITLAB_TOKEN: $CI_JOB_TOKEN
-    NPM_TOKEN: $NPM_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
 ```
 
 ### CircleCI - Automated Release
@@ -301,7 +301,7 @@ Always use tokens for authentication:
 
 ```bash
 # Good ✅
-NPM_TOKEN=npm_xxx...
+NODE_AUTH_TOKEN=npm_xxx...
 
 # Bad ❌
 NPM_PASSWORD=my_password

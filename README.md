@@ -944,7 +944,7 @@ Create multiple configuration files following this naming pattern: `<name>.confi
 
 **Example file structure:**
 
-```
+```text
 /
 ├── relizy.config.ts              # Main config (core packages)
 ├── relizy.standalone.config.ts   # Standalone utilities config
@@ -1017,15 +1017,15 @@ export default defineConfig({
 # Release core UI packages together (selective mode)
 pnpm relizy release --patch
 # or explicitly
-pnpm relizy release --config changelog --patch
+pnpm relizy release --config relizy --patch
 
 # Release standalone utilities independently
-pnpm relizy release --config changelog.standalone --patch
+pnpm relizy release --config relizy.standalone --patch
 
 # You can also use different configs for different commands
-pnpm relizy bump --config changelog.standalone --minor
-pnpm relizy changelog --config changelog.standalone
-pnpm relizy publish --config changelog.standalone
+pnpm relizy bump --config relizy.standalone --minor
+pnpm relizy changelog --config relizy.standalone
+pnpm relizy publish --config relizy.standalone
 ```
 
 ### Example: Different Registries
@@ -1047,7 +1047,7 @@ export default defineConfig({
 })
 ```
 
-**`changelog.private.config.ts`** - Private packages (GitHub Packages):
+**`relizy.private.config.ts`** - Private packages (GitHub Packages):
 
 ```typescript
 import { defineConfig } from 'relizy'
@@ -1069,7 +1069,7 @@ export default defineConfig({
 pnpm relizy publish
 
 # Publish private packages to GitHub Packages
-pnpm relizy publish --config changelog.private
+pnpm relizy publish --config relizy.private
 ```
 
 ### Best Practices
@@ -1159,7 +1159,7 @@ If a `lerna.json` file exists at the root, the tool automatically updates its `v
 3. Set the environment variable:
 
 ```bash
-GITLAB_TOKEN="your-token-here"
+RELIZY_GITLAB_TOKEN="your-token-here"
 ```
 
 ### CI/CD Pipeline

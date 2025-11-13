@@ -56,7 +56,7 @@ jobs:
         run: relizy release --${{ inputs.release_type }} --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
 ## Workflow Triggers
@@ -178,7 +178,7 @@ Use in workflow:
 
 ```yaml
 env:
-  NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
 ## Complete Workflows
@@ -313,7 +313,7 @@ jobs:
           relizy release --${{ inputs.release_type }} --yes
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
 ### Separate Bump and Publish

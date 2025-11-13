@@ -120,7 +120,7 @@ You can customize which commit types appear in changelogs and how they're labele
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   types: {
     feat: { title: '🎉 New Features', semver: 'minor' },
     fix: { title: '🔧 Bug Fixes', semver: 'patch' },
@@ -133,7 +133,7 @@ export default {
     ci: { title: '🤖 CI/CD', semver: 'patch' },
     chore: { title: '🧹 Chores', semver: 'patch' },
   },
-}
+})
 ```
 
 ## Changelog Locations
@@ -223,12 +223,12 @@ Exclude specific commit types from changelogs:
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   types: {
     chore: false, // Don't include chores in changelog
     ci: false, // Don't include CI commits
   },
-}
+})
 ```
 
 ### By Pattern
@@ -237,12 +237,12 @@ Exclude commits matching patterns:
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   excludeAuthors: [
     'dependabot[bot]',
     'renovate[bot]',
   ],
-}
+})
 ```
 
 ## GitHub/GitLab Integration
@@ -356,7 +356,7 @@ Exclude noise from changelogs:
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   types: {
     ci: false, // Skip CI commits
     chore: false, // Skip chores
@@ -364,7 +364,7 @@ export default {
   excludeAuthors: [
     'dependabot[bot]',
   ],
-}
+})
 ```
 
 ## Examples
@@ -402,7 +402,7 @@ Full changelog configuration options:
 
 ```ts
 // relizy.config.ts
-export default {
+export default defineConfig({
   // Commit types
   types: {
     feat: { title: '🚀 Features', semver: 'minor' },
@@ -417,13 +417,10 @@ export default {
   // or
   gitlab: 'user/repo',
 
-  // Output format
-  output: 'CHANGELOG.md',
-
   // Version range
   from: 'v1.0.0',
   to: 'HEAD',
-}
+})
 ```
 
 ## Next Steps
