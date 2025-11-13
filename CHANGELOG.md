@@ -21,7 +21,7 @@
 
 - LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
 
-## v0.2.0-beta.0...v0.2.0
+## v0.1.0...v0.2.0
 
 ### 🚀 Features
 
