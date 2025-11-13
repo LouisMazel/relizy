@@ -4,6 +4,11 @@ on:
   push:
     branches:
       - main
+    paths:
+      - 'docs/**'
+      - 'src/**'
+      - package.json
+      - pnpm-lock.yaml
 
   # Allows you to run this workflow manually from the Actions tab
   workflow_dispatch:
