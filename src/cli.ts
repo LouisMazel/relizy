@@ -226,6 +226,7 @@ program
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--twitter', 'Post release announcement to Twitter')
+  .option('--no-twitter-only-stable', 'Allow Twitter posts for prerelease versions (default: only stable versions)')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
@@ -260,6 +261,7 @@ program
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         twitter: hasCliFlag('--twitter') ? true : undefined,
+        twitterOnlyStable: hasCliFlag('--no-twitter-only-stable') ? false : undefined,
       })
     }
     catch (error) {
