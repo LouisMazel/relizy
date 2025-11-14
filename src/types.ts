@@ -433,16 +433,10 @@ export interface ReleaseConfig {
    */
   gitTag?: boolean
   /**
-   * Post release announcement to Twitter
+   * Post release announcements to social media platforms
    * @default false
    */
-  twitter?: boolean
-  /**
-   * Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
-   * Only stable versions will be posted to Twitter
-   * @default true
-   */
-  twitterOnlyStable?: boolean
+  social?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -496,19 +490,53 @@ export interface TwitterCredentials {
   /**
    * Twitter API Key (Consumer Key)
    */
-  apiKey: string
+  apiKey?: string
   /**
    * Twitter API Secret (Consumer Secret)
    */
-  apiSecret: string
+  apiSecret?: string
   /**
    * Twitter Access Token
    */
-  accessToken: string
+  accessToken?: string
   /**
    * Twitter Access Token Secret
    */
-  accessTokenSecret: string
+  accessTokenSecret?: string
+}
+
+export interface TwitterSocialConfig {
+  /**
+   * Enable Twitter posting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Twitter
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * Custom message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   */
+  messageTemplate?: string
+  /**
+   * Twitter credentials (optional - falls back to environment variables)
+   */
+  credentials?: TwitterCredentials
+}
+
+export interface SocialConfig {
+  /**
+   * Twitter configuration
+   */
+  twitter?: TwitterSocialConfig
+  // Future social platforms can be added here:
+  // linkedin?: LinkedInSocialConfig
+  // slack?: SlackSocialConfig
+  // discord?: DiscordSocialConfig
 }
 
 export interface TwitterOptions {
@@ -529,9 +557,14 @@ export interface TwitterOptions {
    */
   releaseUrl?: string
   /**
-   * Twitter credentials
+   * Twitter credentials (all fields required)
    */
-  credentials: TwitterCredentials
+  credentials: {
+    apiKey: string
+    apiSecret: string
+    accessToken: string
+    accessTokenSecret: string
+  }
   /**
    * Custom message template
    */
@@ -668,6 +701,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Tokens config
    */
   tokens?: TokensConfig
+  /**
+   * Social media configuration
+   */
+  social?: SocialConfig
   /**
    * Hooks config
    */
