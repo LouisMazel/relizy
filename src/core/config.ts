@@ -76,6 +76,7 @@ export function getDefaultConfig() {
       noVerify: false,
       gitTag: true,
       twitter: false,
+      twitterOnlyStable: true,
     } as Required<ReleaseConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,

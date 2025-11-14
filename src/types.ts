@@ -437,6 +437,12 @@ export interface ReleaseConfig {
    * @default false
    */
   twitter?: boolean
+  /**
+   * Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Twitter
+   * @default true
+   */
+  twitterOnlyStable?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
