@@ -75,9 +75,14 @@ export function getDefaultConfig() {
       providerRelease: true,
       noVerify: false,
       gitTag: true,
-      twitter: false,
-      twitterOnlyStable: true,
+      social: false,
     } as Required<ReleaseConfig>,
+    social: {
+      twitter: {
+        enabled: false,
+        onlyStable: true,
+      },
+    },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   } satisfies RelizyConfig
