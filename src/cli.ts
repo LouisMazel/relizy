@@ -219,6 +219,7 @@ program
   .option('--no-commit', 'Skip commit and tag')
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
+  .option('--twitter', 'Post release announcement to Twitter')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .action(async (options) => {
     try {
@@ -249,6 +250,7 @@ program
         yes: options.yes,
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
+        twitter: hasCliFlag('--twitter') ? true : undefined,
       })
     }
     catch {

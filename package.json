@@ -81,7 +81,8 @@
     "defu": "^6.1.4",
     "fast-glob": "^3.3.2",
     "node-fetch-native": "^1.6.7",
-    "semver": "^7.7.2"
+    "semver": "^7.7.2",
+    "twitter-api-v2": "^1.27.0"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.1.0",
