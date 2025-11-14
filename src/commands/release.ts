@@ -1,7 +1,8 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
+import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
+import { extractChangelogSummary, getReleaseUrl, getTwitterCredentials, postReleaseToTwitter } from '../core/twitter'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
@@ -46,6 +47,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         providerRelease: options.providerRelease,
         clean: options.clean,
         gitTag: options.gitTag,
+        twitter: options.twitter,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -66,6 +68,75 @@ async function releaseSafetyCheck({
   providerReleaseSafetyCheck({ config, provider })
 
   await publishSafetyCheck({ config })
+}
+
+async function handleTwitterPost({
+  config,
+  postedReleases,
+  bumpResult,
+  dryRun,
+}: {
+  config: ResolvedRelizyConfig
+  postedReleases: PostedRelease[]
+  bumpResult: any
+  dryRun: boolean
+}) {
+  if (!config.release.twitter) {
+    logger.info('Skipping Twitter post (--no-twitter)')
+    return
+  }
+
+  try {
+    const credentials = getTwitterCredentials()
+
+    if (!credentials) {
+      logger.warn('Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables.')
+      logger.info('Skipping Twitter post')
+      return
+    }
+
+    const mainRelease = postedReleases[0]
+
+    if (!mainRelease) {
+      logger.warn('No release found to tweet about')
+      return
+    }
+
+    await executeHook('before:twitter', config, dryRun)
+
+    try {
+      const rootPackage = getRootPackage(config.cwd)
+      const releaseUrl = getReleaseUrl(config, mainRelease.tag)
+
+      // Generate a summary from the latest changelog
+      // In production, you might want to read the actual changelog file
+      const changelogSummary = extractChangelogSummary(
+        `Version ${mainRelease.version} includes ${bumpResult.bumpedPackages.length} updated package(s).`,
+        150,
+      )
+
+      await postReleaseToTwitter({
+        release: mainRelease,
+        projectName: rootPackage.name,
+        changelog: changelogSummary,
+        releaseUrl,
+        credentials,
+        messageTemplate: config.templates.twitterMessage,
+        dryRun,
+      })
+
+      await executeHook('success:twitter', config, dryRun)
+    }
+    catch (error) {
+      await executeHook('error:twitter', config, dryRun)
+      logger.error('Error posting to Twitter:', error)
+      // Don't throw - Twitter posting failure shouldn't fail the release
+    }
+  }
+  catch (error) {
+    logger.error('Error during Twitter posting:', error)
+    // Don't throw - Twitter posting failure shouldn't fail the release
+  }
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -195,7 +266,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     let provider = config.repo?.provider
     let postedReleases: PostedRelease[] = []
 
-    logger.box('Step 6/6: Publish Git release')
+    logger.box('Step 6/7: Publish Git release')
     if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
 
@@ -224,6 +295,14 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping release (--no-provider-release)')
     }
 
+    logger.box('Step 7/7: Post release to Twitter')
+    await handleTwitterPost({
+      config,
+      postedReleases,
+      bumpResult,
+      dryRun,
+    })
+
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
@@ -235,6 +314,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
+      + `Twitter post: ${config.release.twitter ? 'Yes' : 'Disabled'}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)
