@@ -70,6 +70,7 @@ export function getDefaultConfig() {
       providerRelease: true,
       noVerify: false,
       twitter: false,
+      twitterOnlyStable: true,
     } as Required<ReleaseConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,

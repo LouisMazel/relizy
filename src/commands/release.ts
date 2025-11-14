@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags } from '../core'
+import { createCommitAndTags, getRootPackage, isPrerelease, loadRelizyConfig, pushCommitAndTags } from '../core'
 import { extractChangelogSummary, getReleaseUrl, getTwitterCredentials, postReleaseToTwitter } from '../core/twitter'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
@@ -46,6 +46,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         providerRelease: options.providerRelease,
         clean: options.clean,
         twitter: options.twitter,
+        twitterOnlyStable: options.twitterOnlyStable,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -95,6 +96,12 @@ async function handleTwitterPost({
 
     if (!mainRelease) {
       logger.warn('No release found to tweet about')
+      return
+    }
+
+    // Check if this is a prerelease and if we should skip it
+    if (config.release.twitterOnlyStable && isPrerelease(mainRelease.version)) {
+      logger.info(`Skipping Twitter post for prerelease version ${mainRelease.version} (twitterOnlyStable is enabled)`)
       return
     }
 
