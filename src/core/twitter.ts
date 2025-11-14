@@ -3,14 +3,33 @@ import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 
+export interface ResolvedTwitterCredentials {
+  apiKey: string
+  apiSecret: string
+  accessToken: string
+  accessTokenSecret: string
+}
+
 /**
- * Get Twitter credentials from environment variables
+ * Get Twitter credentials from config or environment variables
  */
-export function getTwitterCredentials(): TwitterCredentials | null {
-  const apiKey = process.env.RELIZY_TWITTER_API_KEY || process.env.TWITTER_API_KEY
-  const apiSecret = process.env.RELIZY_TWITTER_API_SECRET || process.env.TWITTER_API_SECRET
-  const accessToken = process.env.RELIZY_TWITTER_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN
-  const accessTokenSecret = process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET || process.env.TWITTER_ACCESS_TOKEN_SECRET
+export function getTwitterCredentials(configCredentials?: TwitterCredentials): ResolvedTwitterCredentials | null {
+  // Try config credentials first, then fall back to environment variables
+  const apiKey = configCredentials?.apiKey
+    || process.env.RELIZY_TWITTER_API_KEY
+    || process.env.TWITTER_API_KEY
+
+  const apiSecret = configCredentials?.apiSecret
+    || process.env.RELIZY_TWITTER_API_SECRET
+    || process.env.TWITTER_API_SECRET
+
+  const accessToken = configCredentials?.accessToken
+    || process.env.RELIZY_TWITTER_ACCESS_TOKEN
+    || process.env.TWITTER_ACCESS_TOKEN
+
+  const accessTokenSecret = configCredentials?.accessTokenSecret
+    || process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+    || process.env.TWITTER_ACCESS_TOKEN_SECRET
 
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
     return null
