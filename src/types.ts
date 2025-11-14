@@ -433,6 +433,11 @@ export interface ReleaseConfig {
    * @default true
    */
   gitTag?: boolean
+  /**
+   * Post release announcement to Twitter
+   * @default false
+   */
+  twitter?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -482,6 +487,57 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   publishToken?: string
 }
 
+export interface TwitterCredentials {
+  /**
+   * Twitter API Key (Consumer Key)
+   */
+  apiKey: string
+  /**
+   * Twitter API Secret (Consumer Secret)
+   */
+  apiSecret: string
+  /**
+   * Twitter Access Token
+   */
+  accessToken: string
+  /**
+   * Twitter Access Token Secret
+   */
+  accessTokenSecret: string
+}
+
+export interface TwitterOptions {
+  /**
+   * Release information
+   */
+  release: PostedRelease
+  /**
+   * Project name
+   */
+  projectName: string
+  /**
+   * Changelog content
+   */
+  changelog: string
+  /**
+   * Release URL (GitHub/GitLab)
+   */
+  releaseUrl?: string
+  /**
+   * Twitter credentials
+   */
+  credentials: TwitterCredentials
+  /**
+   * Custom message template
+   */
+  messageTemplate?: string
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+}
+
 export interface TemplatesConfig {
   /**
    * Commit message template
@@ -499,6 +555,11 @@ export interface TemplatesConfig {
    * Empty changelog content
    */
   emptyChangelogContent?: string
+  /**
+   * Twitter message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   */
+  twitterMessage?: string
 }
 
 export interface RepoConfig {
@@ -522,7 +583,7 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'twitter'
 
 /**
  * Hooks configuration
