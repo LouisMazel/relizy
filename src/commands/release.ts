@@ -47,8 +47,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         providerRelease: options.providerRelease,
         clean: options.clean,
         gitTag: options.gitTag,
-        twitter: options.twitter,
-        twitterOnlyStable: options.twitterOnlyStable,
+        social: options.social,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -82,16 +81,24 @@ async function handleTwitterPost({
   bumpResult: any
   dryRun: boolean
 }) {
-  if (!config.release.twitter) {
-    logger.info('Skipping Twitter post (--no-twitter)')
+  // Check if social posting is enabled globally
+  if (!config.release.social) {
+    logger.info('Skipping social media posts (--no-social)')
+    return
+  }
+
+  // Check if Twitter is enabled specifically
+  const twitterConfig = config.social?.twitter
+  if (!twitterConfig?.enabled) {
+    logger.debug('Twitter posting is disabled in configuration')
     return
   }
 
   try {
-    const credentials = getTwitterCredentials()
+    const credentials = getTwitterCredentials(twitterConfig.credentials)
 
     if (!credentials) {
-      logger.warn('Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables.')
+      logger.warn('Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables or configure them in social.twitter.credentials.')
       logger.info('Skipping Twitter post')
       return
     }
@@ -104,8 +111,9 @@ async function handleTwitterPost({
     }
 
     // Check if this is a prerelease and if we should skip it
-    if (config.release.twitterOnlyStable && isPrerelease(mainRelease.version)) {
-      logger.info(`Skipping Twitter post for prerelease version ${mainRelease.version} (twitterOnlyStable is enabled)`)
+    const onlyStable = twitterConfig.onlyStable ?? true
+    if (onlyStable && isPrerelease(mainRelease.version)) {
+      logger.info(`Skipping Twitter post for prerelease version ${mainRelease.version} (social.twitter.onlyStable is enabled)`)
       return
     }
 
@@ -122,13 +130,15 @@ async function handleTwitterPost({
         150,
       )
 
+      const messageTemplate = twitterConfig.messageTemplate || config.templates.twitterMessage
+
       await postReleaseToTwitter({
         release: mainRelease,
         projectName: rootPackage.name,
         changelog: changelogSummary,
         releaseUrl,
         credentials,
-        messageTemplate: config.templates.twitterMessage,
+        messageTemplate,
         dryRun,
       })
 
@@ -302,7 +312,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping release (--no-provider-release)')
     }
 
-    logger.box('Step 7/7: Post release to Twitter')
+    logger.box('Step 7/7: Post release to social media')
     await handleTwitterPost({
       config,
       postedReleases,
@@ -321,7 +331,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
-      + `Twitter post: ${config.release.twitter ? 'Yes' : 'Disabled'}\n`
+      + `Social media: ${config.release.social && config.social?.twitter?.enabled ? 'Yes' : 'Disabled'}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)
