@@ -7,7 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command } from 'commander'
-import { bump, changelog, providerRelease, publish, release } from './commands'
+import { bump, changelog, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
@@ -194,6 +194,27 @@ program
   })
 
 program
+  .command('social')
+  .description('Post release announcements to social media platforms')
+  .option('--from <ref>', 'Start commit reference')
+  .option('--to <ref>', 'End commit reference')
+  .action(async (options) => {
+    try {
+      await social({
+        from: options.from,
+        to: options.to,
+        dryRun: program.opts().dryRun,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
+      })
+    }
+    catch {
+      process.exit(1)
+    }
+  })
+
+program
   .command('release')
   .description('Complete release workflow (bump + changelog + commit + tag + push to remote + publish release)')
   .option('--major', 'Bump major version')
@@ -225,7 +246,7 @@ program
   .option('--no-git-tag', 'Skip tag creation')
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
-  .option('--social', 'Post release announcements to social media platforms')
+  .option('--no-social', 'Skip social media posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
@@ -259,7 +280,7 @@ program
         yes: options.yes,
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
-        social: hasCliFlag('--social') ? true : undefined,
+        social: hasCliFlag('--no-social') ? false : undefined,
       })
     }
     catch (error) {
