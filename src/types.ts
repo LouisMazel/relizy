@@ -269,6 +269,48 @@ export interface ProviderReleaseOptions {
   safetyCheck?: boolean
 }
 
+export interface SocialOptions {
+  /**
+   * Start tag
+   */
+  from?: string
+  /**
+   * End tag
+   */
+  to?: string
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
+  configName?: string
+  /**
+   * Bump result (contains release information)
+   */
+  bumpResult?: BumpResult
+  /**
+   * Posted releases (from provider-release step)
+   */
+  postedReleases?: PostedRelease[]
+  /**
+   * Set log level
+   */
+  logLevel?: LogLevel
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
+}
+
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
    * NPM registry URL (e.g. `https://registry.npmjs.org/`)
@@ -357,6 +399,11 @@ export interface ReleaseConfig {
    * @default false
    */
   clean?: boolean
+  /**
+   * Post release announcements to social media platforms
+   * @default false
+   */
+  social?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -402,6 +449,96 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   safetyCheck?: boolean
 }
 
+export interface TwitterCredentials {
+  /**
+   * Twitter API Key (Consumer Key)
+   */
+  apiKey?: string
+  /**
+   * Twitter API Secret (Consumer Secret)
+   */
+  apiSecret?: string
+  /**
+   * Twitter Access Token
+   */
+  accessToken?: string
+  /**
+   * Twitter Access Token Secret
+   */
+  accessTokenSecret?: string
+}
+
+export interface TwitterSocialConfig {
+  /**
+   * Enable Twitter posting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Twitter
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * Custom message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   */
+  messageTemplate?: string
+  /**
+   * Twitter credentials (optional - falls back to environment variables)
+   */
+  credentials?: TwitterCredentials
+}
+
+export interface SocialConfig {
+  /**
+   * Twitter configuration
+   */
+  twitter?: TwitterSocialConfig
+  // Future social platforms can be added here:
+  // linkedin?: LinkedInSocialConfig
+  // slack?: SlackSocialConfig
+  // discord?: DiscordSocialConfig
+}
+
+export interface TwitterOptions {
+  /**
+   * Release information
+   */
+  release: PostedRelease
+  /**
+   * Project name
+   */
+  projectName: string
+  /**
+   * Changelog content
+   */
+  changelog: string
+  /**
+   * Release URL (GitHub/GitLab)
+   */
+  releaseUrl?: string
+  /**
+   * Twitter credentials (all fields required)
+   */
+  credentials: {
+    apiKey: string
+    apiSecret: string
+    accessToken: string
+    accessTokenSecret: string
+  }
+  /**
+   * Custom message template
+   */
+  messageTemplate?: string
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+}
+
 export interface TemplatesConfig {
   /**
    * Commit message template
@@ -419,6 +556,11 @@ export interface TemplatesConfig {
    * Empty changelog content
    */
   emptyChangelogContent?: string
+  /**
+   * Twitter message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   */
+  twitterMessage?: string
 }
 
 export interface RepoConfig {
@@ -442,7 +584,7 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter'
 
 /**
  * Hooks configuration
@@ -499,6 +641,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Release config
    */
   release?: ReleaseConfig
+  /**
+   * Social media configuration
+   */
+  social?: SocialConfig
   /**
    * Hooks config
    */

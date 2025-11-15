@@ -31,6 +31,7 @@ export function getDefaultConfig() {
       tagMessage: 'Bump version to v{{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
+      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
     },
     excludeAuthors: [],
     noAuthors: false,
@@ -68,7 +69,14 @@ export function getDefaultConfig() {
       clean: true,
       providerRelease: true,
       noVerify: false,
+      social: true,
     } as Required<ReleaseConfig>,
+    social: {
+      twitter: {
+        enabled: false,
+        onlyStable: true,
+      },
+    },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }

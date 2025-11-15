@@ -41,6 +41,9 @@ importers:
       semver:
         specifier: ^7.7.2
         version: 7.7.3
+      twitter-api-v2:
+        specifier: ^1.27.0
+        version: 1.27.0
     devDependencies:
       '@commitlint/cli':
         specifier: ^20.1.0
@@ -3835,6 +3838,9 @@ packages:
 
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
+
+  twitter-api-v2@1.27.0:
+    resolution: {integrity: sha512-hbIFwzg0NeOcFOdmJqtKMCXjLjc0INff/7NwhnZ2zpnw65oku8i+0eMxo5M0iTc1hs+inD/IpDw3S0Xh2c45QQ==}
 
   type-check@0.4.0:
     resolution: {integrity: sha512-XleUoc9uwGXqjWwXaUTZAmzMcFZ5858QA2vvx1Ur5xIcixXIP+8LnFDgRplU30us6teqdlskFfu+ae4K79Ooew==}
@@ -8142,6 +8148,8 @@ snapshots:
   ts-interface-checker@0.1.13: {}
 
   tslib@2.8.1: {}
+
+  twitter-api-v2@1.27.0: {}
 
   type-check@0.4.0:
     dependencies:
