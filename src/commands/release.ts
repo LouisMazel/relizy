@@ -1,13 +1,13 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, getRootPackage, isPrerelease, loadRelizyConfig, pushCommitAndTags } from '../core'
-import { extractChangelogSummary, getReleaseUrl, getTwitterCredentials, postReleaseToTwitter } from '../core/twitter'
+import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags } from '../core'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish } from './publish'
+import { social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
@@ -64,92 +64,7 @@ function releaseSafetyCheck({
   }
 
   providerReleaseSafetyCheck({ config, provider })
-}
-
-async function handleTwitterPost({
-  config,
-  postedReleases,
-  bumpResult,
-  dryRun,
-}: {
-  config: ResolvedRelizyConfig
-  postedReleases: PostedRelease[]
-  bumpResult: any
-  dryRun: boolean
-}) {
-  // Check if social posting is enabled globally
-  if (!config.release.social) {
-    logger.info('Skipping social media posts (--no-social)')
-    return
-  }
-
-  // Check if Twitter is enabled specifically
-  const twitterConfig = config.social?.twitter
-  if (!twitterConfig?.enabled) {
-    logger.debug('Twitter posting is disabled in configuration')
-    return
-  }
-
-  try {
-    const credentials = getTwitterCredentials(twitterConfig.credentials)
-
-    if (!credentials) {
-      logger.warn('Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables or configure them in social.twitter.credentials.')
-      logger.info('Skipping Twitter post')
-      return
-    }
-
-    const mainRelease = postedReleases[0]
-
-    if (!mainRelease) {
-      logger.warn('No release found to tweet about')
-      return
-    }
-
-    // Check if this is a prerelease and if we should skip it
-    const onlyStable = twitterConfig.onlyStable ?? true
-    if (onlyStable && isPrerelease(mainRelease.version)) {
-      logger.info(`Skipping Twitter post for prerelease version ${mainRelease.version} (social.twitter.onlyStable is enabled)`)
-      return
-    }
-
-    await executeHook('before:twitter', config, dryRun)
-
-    try {
-      const rootPackage = getRootPackage(config.cwd)
-      const releaseUrl = getReleaseUrl(config, mainRelease.tag)
-
-      // Generate a summary from the latest changelog
-      // In production, you might want to read the actual changelog file
-      const changelogSummary = extractChangelogSummary(
-        `Version ${mainRelease.version} includes ${bumpResult.bumpedPackages.length} updated package(s).`,
-        150,
-      )
-
-      const messageTemplate = twitterConfig.messageTemplate || config.templates.twitterMessage
-
-      await postReleaseToTwitter({
-        release: mainRelease,
-        projectName: rootPackage.name,
-        changelog: changelogSummary,
-        releaseUrl,
-        credentials,
-        messageTemplate,
-        dryRun,
-      })
-
-      await executeHook('success:twitter', config, dryRun)
-    }
-    catch (error) {
-      await executeHook('error:twitter', config, dryRun)
-      logger.error('Error posting to Twitter:', error)
-      // Don't throw - Twitter posting failure shouldn't fail the release
-    }
-  }
-  catch (error) {
-    logger.error('Error during Twitter posting:', error)
-    // Don't throw - Twitter posting failure shouldn't fail the release
-  }
+  socialSafetyCheck({ config })
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -290,12 +205,28 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     }
 
     logger.box('Step 7/7: Post release to social media')
-    await handleTwitterPost({
-      config,
-      postedReleases,
-      bumpResult,
-      dryRun,
-    })
+    if (config.release.social) {
+      try {
+        await social({
+          from: config.from,
+          to: config.to,
+          config,
+          configName: options.configName,
+          bumpResult,
+          postedReleases,
+          dryRun,
+          logLevel: config.logLevel,
+          safetyCheck: false, // Already checked in releaseSafetyCheck
+        })
+      }
+      catch (error) {
+        logger.error('Error during social media posting:', error)
+        // Don't throw - social media posting failure shouldn't fail the release
+      }
+    }
+    else {
+      logger.info('Skipping social media posts (--no-social)')
+    }
 
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'

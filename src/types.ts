@@ -269,6 +269,48 @@ export interface ProviderReleaseOptions {
   safetyCheck?: boolean
 }
 
+export interface SocialOptions {
+  /**
+   * Start tag
+   */
+  from?: string
+  /**
+   * End tag
+   */
+  to?: string
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
+  configName?: string
+  /**
+   * Bump result (contains release information)
+   */
+  bumpResult?: BumpResult
+  /**
+   * Posted releases (from provider-release step)
+   */
+  postedReleases?: PostedRelease[]
+  /**
+   * Set log level
+   */
+  logLevel?: LogLevel
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
+}
+
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
    * NPM registry URL (e.g. `https://registry.npmjs.org/`)
@@ -542,7 +584,7 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'twitter'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter'
 
 /**
  * Hooks configuration

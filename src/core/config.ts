@@ -69,7 +69,7 @@ export function getDefaultConfig() {
       clean: true,
       providerRelease: true,
       noVerify: false,
-      social: false,
+      social: true,
     } as Required<ReleaseConfig>,
     social: {
       twitter: {
