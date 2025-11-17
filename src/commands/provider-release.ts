@@ -37,7 +37,7 @@ export async function providerRelease(
     configName: options.configName,
     baseConfig: options.config,
     overrides: {
-      from: options.from || (options.bumpResult?.bumped === true ? options.bumpResult.fromTag : undefined),
+      from: options.from,
       to: options.to,
       tokens: {
         github: options.token,
@@ -54,16 +54,15 @@ export async function providerRelease(
   logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   try {
-    await executeHook('before:provider-release', config, dryRun)
-
     const detectedProvider = options.provider || detectGitProvider()
-
     providerReleaseSafetyCheck({ config, provider: detectedProvider })
+
+    await executeHook('before:provider-release', config, dryRun)
 
     logger.start('Start provider release')
 
     if (!detectedProvider) {
-      logger.warn('Unable to detect Git provider. Skipping release publication.')
+      logger.fail('Unable to detect Git provider. Skipping release publication.')
       throw new Error('Unable to detect Git provider')
     }
     else {
@@ -75,12 +74,14 @@ export async function providerRelease(
     let postedReleases: PostedRelease[] = []
 
     const payload = {
-      from: config.from,
+      from: config.from || options.bumpResult?.fromTag,
       to: config.to,
       dryRun,
       config,
       logLevel: config.logLevel,
       bumpResult: options.bumpResult,
+      force: options.force ?? false,
+      suffix: options.suffix,
     }
 
     if (detectedProvider === 'github') {
@@ -90,7 +91,7 @@ export async function providerRelease(
       postedReleases = await gitlab(payload)
     }
     else {
-      logger.warn(`Unsupported Git provider: ${detectedProvider}`)
+      logger.error(`Unsupported Git provider: ${detectedProvider}`)
     }
 
     await executeHook('success:provider-release', config, dryRun)

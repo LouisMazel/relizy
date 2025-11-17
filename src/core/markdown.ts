@@ -4,6 +4,7 @@ import { upperFirst } from '@maz-ui/utils'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
+import { getFirstCommit } from './git'
 
 export interface Reference {
   type: 'hash' | 'issue' | 'pull-request'
@@ -22,11 +23,13 @@ export async function generateMarkDown({
   config,
   from,
   to,
+  isFirstCommit,
 }: {
   commits: GitCommit[]
   config: ResolvedRelizyConfig
   from: string
   to: string
+  isFirstCommit: boolean
 }) {
   const typeGroups = groupBy(commits, 'type')
 
@@ -41,11 +44,15 @@ export async function generateMarkDown({
 
   // Version Title
   const versionTitle = updatedConfig.to
-  // eslint-disable-next-line sonarjs/no-nested-template-literals
-  markdown.push('', `## ${versionTitle || `${updatedConfig.from || ''}...${updatedConfig.to}`}`, '')
+
+  const changelogTitle = `${updatedConfig.from}...${updatedConfig.to}`
+  markdown.push('', `## ${changelogTitle}`, '')
 
   if (updatedConfig.repo && updatedConfig.from && versionTitle) {
-    const formattedCompareLink = formatCompareChanges(versionTitle, updatedConfig as ResolvedChangelogConfig)
+    const formattedCompareLink = formatCompareChanges(versionTitle, {
+      ...updatedConfig,
+      from: isFirstCommit ? getFirstCommit(updatedConfig.cwd) : updatedConfig.from,
+    } as ResolvedChangelogConfig)
     markdown.push(formattedCompareLink)
   }
 

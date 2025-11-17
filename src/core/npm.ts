@@ -1,16 +1,16 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { PackageInfo, PackageManager } from '../types'
-import type { PackageWithDeps } from './dependencies'
+import type { PackageBase, PackageManager } from '../types'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
-import { getPackageCommits, isInCI, isPrerelease } from '../core'
-import { resolveTags } from './tags'
+import { isInCI, isPrerelease } from '../core'
+import { getIndependentTag, resolveTags } from './tags'
 
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
   try {
     const packageJsonPath = join(cwd, 'package.json')
@@ -28,7 +28,8 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
         }
       }
       catch (e) {
-        logger.warn(`Failed to parse package.json: ${(e as Error).message}`)
+        const errorString = e instanceof Error ? e.message : String(e)
+        logger.debug(`Failed to parse package.json: ${errorString}`)
       }
     }
 
@@ -59,7 +60,7 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
     return 'npm'
   }
   catch (error) {
-    logger.warn(`Error detecting package manager: ${error}, defaulting to npm`)
+    logger.fail(`Error detecting package manager: ${error}, defaulting to npm`)
     return 'npm'
   }
 }
@@ -84,10 +85,10 @@ export function determinePublishTag(version: string | undefined, configTag?: str
 }
 
 export function getPackagesToPublishInSelectiveMode(
-  sortedPackages: PackageWithDeps[],
+  sortedPackages: PackageBase[],
   rootVersion: string | undefined,
-): PackageInfo[] {
-  const packagesToPublish: PackageInfo[] = []
+): PackageBase[] {
+  const packagesToPublish: PackageBase[] = []
 
   for (const pkg of sortedPackages) {
     const pkgJsonPath = join(pkg.path, 'package.json')
@@ -102,33 +103,22 @@ export function getPackagesToPublishInSelectiveMode(
 }
 
 export async function getPackagesToPublishInIndependentMode(
-  sortedPackages: PackageWithDeps[],
+  sortedPackages: PackageBase[],
   config: ResolvedRelizyConfig,
-): Promise<PackageInfo[]> {
-  const packagesToPublish: PackageInfo[] = []
+): Promise<PackageBase[]> {
+  const packagesToPublish: PackageBase[] = []
 
   for (const pkg of sortedPackages) {
-    const { from, to } = await resolveTags<'independent', 'publish'>({
+    const { from, to } = await resolveTags<'publish'>({
       config,
-      versionMode: 'independent',
       step: 'publish',
       pkg,
       newVersion: pkg.version,
-      currentVersion: undefined,
-      logLevel: config.logLevel,
     })
 
-    const commits = await getPackageCommits({
-      pkg,
-      from,
-      to,
-      config,
-      changelog: false,
-    })
-
-    if (commits.length > 0) {
+    if (pkg.commits.length > 0) {
       packagesToPublish.push(pkg)
-      logger.debug(`${pkg.name}: ${commits.length} commit(s) since ${from} → ${to}`)
+      logger.debug(`${pkg.name}: ${pkg.commits.length} commit(s) since ${from} → ${to}`)
     }
   }
 
@@ -244,7 +234,7 @@ async function executePublishCommand({
 }: {
   command: string
   packageNameAndVersion: string
-  pkg: PackageInfo
+  pkg: PackageBase
   config: ResolvedRelizyConfig
   dryRun: boolean
 }): Promise<void> {
@@ -275,13 +265,13 @@ export async function publishPackage({
   packageManager,
   dryRun,
 }: {
-  pkg: PackageInfo
+  pkg: PackageBase
   config: ResolvedRelizyConfig
   packageManager: PackageManager
   dryRun: boolean
 }): Promise<void> {
   const tag = determinePublishTag(pkg.version, config.publish.tag)
-  const packageNameAndVersion = `${pkg.name}@${pkg.version}`
+  const packageNameAndVersion = getIndependentTag(pkg)
   const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 
   logger.debug(`Building publish command for ${pkg.name}`)

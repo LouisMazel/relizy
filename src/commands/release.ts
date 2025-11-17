@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags } from '../core'
+import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson } from '../core'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
@@ -92,6 +92,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       force,
       clean: config.release.clean,
       configName: options.configName,
+      suffix: options.suffix,
     })
 
     if (!bumpResult.bumped) {
@@ -107,10 +108,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         dryRun,
         formatCmd: config.changelog.formatCmd,
         rootChangelog: config.changelog.rootChangelog,
-        bumpedPackages: bumpResult.bumpedPackages,
+        bumpResult,
         config,
         logLevel: config.logLevel,
         configName: options.configName,
+        force,
+        suffix: options.suffix,
       })
     }
     else {
@@ -165,6 +168,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         dryRun,
         config,
         configName: options.configName,
+        suffix: options.suffix,
+        force,
       })
     }
     else {
@@ -189,6 +194,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           logLevel: config.logLevel,
           bumpResult,
           configName: options.configName,
+          force,
+          suffix: options.suffix,
         })
         provider = response.detectedProvider
         postedReleases = response.postedReleases
@@ -204,7 +211,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-      : bumpResult.newVersion || getRootPackage(config.cwd).version
+      : bumpResult.newVersion || readPackageJson(config.cwd).version
 
     logger.box('Release workflow completed!\n\n'
       + `Version: ${versionDisplay}\n`

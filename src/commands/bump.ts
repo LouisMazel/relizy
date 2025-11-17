@@ -1,13 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { BumpOptions, BumpResult, PackageInfo } from '../types'
+import type { BumpOptions, BumpResult } from '../types'
 import { logger } from '@maz-ui/node'
 
-import { bumpIndependentPackages, bumpPackageVersion, checkGitStatusIfDirty, confirmBump, determineReleaseType, fetchGitTags, findPackagesWithCommitsAndCalculateVersions, getPackageCommits, getPackages, getPackageToBump, getRootPackage, loadRelizyConfig, resolveTags, updateLernaVersion, writeVersion } from '../core'
+import { checkGitStatusIfDirty, confirmBump, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
 import { executeHook } from '../core/utils'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
-  packages: PackageInfo[]
   dryRun: boolean
   force: boolean
   suffix: string | undefined
@@ -15,73 +14,141 @@ interface BumpStrategyInput {
 
 async function bumpUnifiedMode({
   config,
-  packages,
   dryRun,
   force,
   suffix,
 }: BumpStrategyInput): Promise<BumpResult> {
   logger.debug('Starting bump in unified mode')
 
-  const rootPackage = getRootPackage(config.cwd)
-  const currentVersion = rootPackage.version
+  const rootPackageBase = readPackageJson(config.cwd)
 
-  const { from, to } = await resolveTags<'unified', 'bump'>({
+  const { from, to } = await resolveTags<'bump'>({
     config,
-    versionMode: 'unified',
     step: 'bump',
     newVersion: undefined,
-    pkg: undefined,
-    currentVersion,
-    logLevel: config.logLevel,
+    pkg: rootPackageBase,
   })
 
-  logger.debug(`Bump from ${from} to ${to}`)
-
-  const commits = await getPackageCommits({
-    pkg: rootPackage,
+  const rootPackage = await getRootPackage({
+    config,
+    force,
     from,
     to,
-    config,
+    suffix,
     changelog: false,
   })
 
-  logger.debug(`Found ${commits.length} commits since ${from}`)
+  const currentVersion = rootPackage.version
+  const newVersion = rootPackage.newVersion
 
-  const releaseType = determineReleaseType({
-    from,
-    to,
-    currentVersion,
-    commits,
+  if (!newVersion) {
+    throw new Error(`Could not determine a new version for ${rootPackage.name} (root)`)
+  }
+
+  logger.debug(`Bump from ${from} to ${to}`)
+
+  logger.debug(`${currentVersion} → ${newVersion} (${config.monorepo?.versionMode || 'standalone'} mode)`)
+
+  const packages = await getPackages({
     config,
+    patterns: config.monorepo?.packages,
+    suffix,
     force,
   })
-
-  if (!releaseType) {
-    logger.debug('No commits require a version bump')
-    return { bumped: false }
-  }
-
-  if (config.bump.type && force) {
-    logger.debug(`Using specified release type: ${releaseType}`)
-  }
-  else {
-    logger.debug(`Detected release type from commits: ${releaseType}`)
-  }
-
-  const newVersion = bumpPackageVersion({
-    currentVersion,
-    releaseType,
-    preid: config.bump.preid,
-    suffix,
-  })
-
-  logger.debug(`${currentVersion} → ${newVersion} (unified mode)`)
-
-  const allPackages = [rootPackage, ...packages]
 
   if (!config.bump.yes) {
     await confirmBump({
       versionMode: 'unified',
+      packages,
+      config,
+      force,
+      currentVersion,
+      newVersion,
+      dryRun,
+    })
+  }
+  else {
+    logger.info(`${packages.length === 1 ? packages[0].name : packages.length} package(s) bumped from ${currentVersion} to ${newVersion} (${config.monorepo?.versionMode || 'standalone'} mode)`)
+  }
+
+  for (const pkg of [rootPackage, ...packages]) {
+    writeVersion(pkg.path, newVersion, dryRun)
+  }
+
+  updateLernaVersion({
+    rootDir: config.cwd,
+    versionMode: config.monorepo?.versionMode,
+    version: newVersion,
+    dryRun,
+  })
+
+  if (!dryRun) {
+    logger.info(`All ${packages.length} package(s) bumped to ${newVersion}`)
+  }
+
+  return {
+    bumped: true,
+    oldVersion: currentVersion,
+    fromTag: from,
+    newVersion,
+    rootPackage,
+    bumpedPackages: packages.map(pkg => ({
+      ...pkg,
+      oldVersion: pkg.version,
+      newVersion,
+      fromTag: from,
+      reason: 'commits',
+    })),
+  }
+}
+
+async function bumpSelectiveMode({
+  config,
+  dryRun,
+  force,
+  suffix,
+}: BumpStrategyInput): Promise<BumpResult> {
+  logger.debug('Starting bump in selective mode')
+
+  const rootPackageBase = readPackageJson(config.cwd)
+
+  const { from, to } = await resolveTags<'bump'>({
+    config,
+    step: 'bump',
+    pkg: rootPackageBase,
+    newVersion: undefined,
+  })
+
+  const rootPackage = await getRootPackage({
+    config,
+    force,
+    from,
+    to,
+    suffix,
+    changelog: false,
+  })
+
+  const currentVersion = rootPackage.version
+  const newVersion = rootPackage.newVersion
+
+  logger.debug(`Bump from ${currentVersion} to ${newVersion}`)
+
+  logger.debug('Determining packages to bump...')
+  const packages = await getPackages({
+    config,
+    patterns: config.monorepo?.packages,
+    suffix,
+    force,
+  })
+
+  if (packages.length === 0) {
+    logger.debug('No packages have commits, skipping bump')
+    return { bumped: false }
+  }
+
+  if (!config.bump.yes) {
+    await confirmBump({
+      versionMode: 'selective',
       config,
       packages,
       force,
@@ -91,57 +158,70 @@ async function bumpUnifiedMode({
     })
   }
   else {
-    logger.info(`${allPackages.length === 1 ? allPackages[0].name : allPackages.length} package(s) bumped from ${currentVersion} to ${newVersion} (unified mode)`)
+    if (force) {
+      logger.info(`${packages.length} package(s) bumped to ${newVersion} (force)`)
+    }
+    else {
+      const bumpedByCommits = packages.filter(p => 'reason' in p && p.reason === 'commits').length
+      const bumpedByDependency = packages.filter(p => 'reason' in p && p.reason === 'dependency').length
+      const bumpedByGraduation = packages.filter(p => 'reason' in p && p.reason === 'graduation').length
+
+      logger.info(
+        `${currentVersion} → ${newVersion} (selective mode: ${bumpedByCommits} with commits, ${bumpedByDependency} as dependents, ${bumpedByGraduation} from graduation)`,
+      )
+    }
   }
 
-  for (const pkg of allPackages) {
+  logger.debug(`Writing version to ${packages.length} package(s)`)
+
+  for (const pkg of [rootPackage, ...packages]) {
     writeVersion(pkg.path, newVersion, dryRun)
   }
 
-  if (newVersion) {
-    updateLernaVersion({
-      rootDir: config.cwd,
-      versionMode: config.monorepo?.versionMode,
-      version: newVersion,
-      dryRun,
-    })
-  }
+  updateLernaVersion({
+    rootDir: config.cwd,
+    versionMode: config.monorepo?.versionMode,
+    version: newVersion,
+    dryRun,
+  })
 
   if (!dryRun) {
-    logger.info(`All ${allPackages.length} package(s) bumped to ${newVersion}`)
+    logger.info(
+      `${packages.length} package(s) bumped to ${newVersion}`,
+    )
   }
 
   return {
     bumped: true,
     oldVersion: currentVersion,
+    rootPackage,
     fromTag: from,
     newVersion,
     bumpedPackages: packages.map(pkg => ({
       ...pkg,
-      currentVersion: pkg.version,
-      version: newVersion,
+      oldVersion: pkg.version,
       fromTag: from,
+      newVersion,
     })),
   }
 }
 
 async function bumpIndependentMode({
   config,
-  packages,
   dryRun,
-  force,
   suffix,
+  force,
 }: BumpStrategyInput): Promise<BumpResult> {
   logger.debug('Starting bump in independent mode')
 
-  const packagesWithNewVersions = await findPackagesWithCommitsAndCalculateVersions({
-    packages,
+  const packagesToBump = await getPackages({
     config,
-    force,
+    patterns: config.monorepo?.packages,
     suffix,
+    force,
   })
 
-  if (packagesWithNewVersions.length === 0) {
+  if (packagesToBump.length === 0) {
     logger.debug('No packages have commits')
     return { bumped: false }
   }
@@ -150,27 +230,28 @@ async function bumpIndependentMode({
     await confirmBump({
       versionMode: 'independent',
       config,
-      packages: packagesWithNewVersions,
+      packages: packagesToBump,
       force,
       dryRun,
     })
   }
   else {
-    const bumpedByCommits = packagesWithNewVersions.filter(p => p.reason === 'commits').length
-    const bumpedByDependency = packagesWithNewVersions.length - bumpedByCommits
+    const bumpedByCommits = packagesToBump.filter(p => p.reason === 'commits').length
+    const bumpedByDependency = packagesToBump.filter(p => p.reason === 'dependency').length
+    const bumpedByGraduation = packagesToBump.filter(p => p.reason === 'graduation').length
 
     logger.info(
-      `${bumpedByCommits + bumpedByDependency} package(s) will be bumped independently (${bumpedByCommits} from commits, ${bumpedByDependency} from dependencies)`,
+      `${bumpedByCommits + bumpedByDependency + bumpedByGraduation} package(s) will be bumped independently (${bumpedByCommits} from commits, ${bumpedByDependency} from dependencies, ${bumpedByGraduation} from graduation)`,
     )
   }
 
-  const bumpedPackages = bumpIndependentPackages({
-    packages: packagesWithNewVersions,
+  const bumpedPackages = getBumpedIndependentPackages({
+    packages: packagesToBump,
     dryRun,
   })
 
   const bumpedByCommits = bumpedPackages.filter(p =>
-    packagesWithNewVersions.find(pkg => pkg.name === p.name)?.reason === 'commits',
+    packagesToBump.find(pkg => pkg.name === p.name)?.reason === 'commits',
   ).length
   const bumpedByDependency = bumpedPackages.length - bumpedByCommits
 
@@ -185,127 +266,9 @@ async function bumpIndependentMode({
 
   return {
     bumped: bumpedPackages.length > 0,
-    bumpedPackages,
-  }
-}
-
-async function bumpSelectiveMode({
-  config,
-  packages,
-  dryRun,
-  force,
-  suffix,
-}: BumpStrategyInput): Promise<BumpResult> {
-  logger.debug('Starting bump in selective mode')
-
-  const rootPackage = getRootPackage(config.cwd)
-  const currentVersion = rootPackage.version
-
-  const { from, to } = await resolveTags<'selective', 'bump'>({
-    config,
-    versionMode: 'selective',
-    step: 'bump',
-    currentVersion,
-    newVersion: undefined,
-    pkg: undefined,
-    logLevel: config.logLevel,
-  })
-
-  logger.debug(`Bump from ${from} to ${to}`)
-
-  const commits = await getPackageCommits({
-    pkg: rootPackage,
-    from,
-    to,
-    config,
-    changelog: false,
-  })
-
-  const releaseType = determineReleaseType({ from, to, commits, config, force, currentVersion })
-
-  if (!releaseType) {
-    logger.debug('No commits require a version bump')
-    return { bumped: false }
-  }
-
-  const newVersion = bumpPackageVersion({
-    currentVersion,
-    releaseType,
-    preid: config.bump.preid,
-    suffix,
-  })
-
-  logger.debug('Determining packages to bump...')
-  const packagesToBump = force
-    ? packages
-    : await getPackageToBump({
-        packages,
-        from,
-        to,
-        config,
-      })
-
-  if (packagesToBump.length === 0) {
-    logger.debug('No packages have commits, skipping bump')
-    return { bumped: false }
-  }
-
-  if (!config.bump.yes) {
-    await confirmBump({
-      versionMode: 'selective',
-      config,
-      packages: packagesToBump,
-      force,
-      currentVersion,
-      newVersion,
-      dryRun,
-    })
-  }
-  else {
-    if (force) {
-      logger.info(`${packagesToBump.length} package(s) bumped to ${newVersion} (force)`)
-    }
-    else {
-      const bumpedByCommits = packagesToBump.filter(p => 'reason' in p && p.reason === 'commits').length
-      const bumpedByDependency = packagesToBump.filter(p => 'reason' in p && p.reason === 'dependency').length
-
-      logger.info(
-        `${currentVersion} → ${newVersion} (selective mode: ${bumpedByCommits} with commits, ${bumpedByDependency} as dependents)`,
-      )
-    }
-  }
-
-  logger.debug(`Writing version to ${packagesToBump.length} package(s)`)
-
-  writeVersion(rootPackage.path, newVersion, dryRun)
-
-  for (const pkg of packagesToBump) {
-    writeVersion(pkg.path, newVersion, dryRun)
-  }
-
-  updateLernaVersion({
-    rootDir: config.cwd,
-    versionMode: config.monorepo?.versionMode,
-    version: newVersion,
-    dryRun,
-  })
-
-  if (!dryRun) {
-    logger.info(
-      `${packagesToBump.length} package(s) bumped to ${newVersion} (${packages.length - packagesToBump.length} skipped)`,
-    )
-  }
-
-  return {
-    bumped: true,
-    oldVersion: currentVersion,
-    fromTag: from,
-    newVersion,
-    bumpedPackages: packagesToBump.map(pkg => ({
+    bumpedPackages: bumpedPackages.map(pkg => ({
       ...pkg,
-      currentVersion: pkg.version,
-      version: newVersion,
-      fromTag: from,
+      oldVersion: pkg.version,
     })),
   }
 }
@@ -345,7 +308,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
-    const packages = getPackages({
+    const packages = readPackages({
       cwd: config.cwd,
       patterns: config.monorepo?.packages,
       ignorePackageNames: config.monorepo?.ignorePackageNames,
@@ -357,7 +320,6 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     const payload = {
       config,
-      packages,
       dryRun,
       force,
       suffix: options.suffix,
