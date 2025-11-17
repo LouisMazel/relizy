@@ -1,49 +1,59 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { PackageInfo, VersionMode } from '../types'
+import type { ReadPackage, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { isGraduating } from './version'
 
-export async function getLastRepoTag(options?: {
-  onlyStable?: boolean
-  logLevel?: LogLevel
-  cwd?: string
-}): Promise<string | null> {
-  let lastTag: string | null = null
+export function getIndependentTag({ version, name }: { version: string, name: string }) {
+  return `${name}@${version}`
+}
 
-  if (options?.onlyStable) {
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
-      {
-        logLevel: options?.logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd: options?.cwd,
-      },
-    )
+export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
+  const { stdout } = await execPromise(
+    `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
+    {
+      logLevel,
+      noStderr: true,
+      noStdout: true,
+      noSuccess: true,
+      cwd,
+    },
+  )
 
-    lastTag = stdout.trim()
+  const lastTag = stdout.trim()
 
-    logger.debug('Last stable tag:', lastTag || 'No stable tags found')
+  logger.debug('Last stable tag:', lastTag || 'No stable tags found')
 
-    return lastTag
-  }
+  return lastTag
+}
 
+export async function getLastTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
   const { stdout } = await execPromise(`git tag --sort=-creatordate | head -n 1`, {
-    logLevel: options?.logLevel,
+    logLevel,
     noStderr: true,
     noStdout: true,
     noSuccess: true,
-    cwd: options?.cwd,
+    cwd,
   })
 
-  lastTag = stdout.trim()
+  const lastTag = stdout.trim()
 
   logger.debug('Last tag:', lastTag || 'No tags found')
 
   return lastTag
+}
+
+export function getLastRepoTag(options?: {
+  onlyStable?: boolean
+  logLevel?: LogLevel
+  cwd?: string
+}): Promise<string | null> {
+  if (options?.onlyStable) {
+    return getLastStableTag({ logLevel: options?.logLevel, cwd: options?.cwd })
+  }
+
+  return getLastTag({ logLevel: options?.logLevel, cwd: options?.cwd })
 }
 
 export async function getLastPackageTag({
@@ -94,140 +104,163 @@ export interface ResolvedTags {
   to: string
 }
 
-async function resolveTagsIndependent({
+async function resolveFromTagIndependent({
   cwd,
-  pkg,
+  packageName,
   graduating,
-  newVersion,
-  step,
   logLevel,
 }: {
   cwd: string
-  pkg: PackageInfo
+  packageName: string
   graduating: boolean
-  newVersion?: string
-  step: Step
   logLevel?: LogLevel
-}): Promise<{ from: string, to: string }> {
-  let to: string
-
-  if (step === 'bump') {
-    to = getCurrentGitRef(cwd)
-  }
-  else {
-    to = newVersion
-      ? `${pkg.name}@${newVersion}`
-      : getCurrentGitRef(cwd)
-  }
-
+}): Promise<string> {
   const lastPackageTag = await getLastPackageTag({
-    packageName: pkg.name,
+    packageName,
     onlyStable: graduating,
     logLevel,
   })
 
   if (!lastPackageTag) {
-    const from = await getLastRepoTag({ logLevel }) || getFirstCommit(cwd)
-
-    return { from, to }
+    return getFirstCommit(cwd)
   }
 
-  return { from: lastPackageTag, to }
+  return lastPackageTag
 }
 
-async function resolveTagsUnified({
+async function resolveFromTagUnified({
   config,
-  newVersion,
   graduating,
-  step,
   logLevel,
 }: {
   config: ResolvedRelizyConfig
-  newVersion?: string
   graduating: boolean
-  step: Step
   logLevel?: LogLevel
-}): Promise<{ from: string, to: string }> {
+}): Promise<string> {
+  const from = await getLastRepoTag({ onlyStable: graduating, logLevel }) || getFirstCommit(config.cwd)
+
+  return from
+}
+
+async function resolveFromTag({
+  config,
+  versionMode,
+  step,
+  packageName,
+  graduating,
+  logLevel,
+}: {
+  config: ResolvedRelizyConfig
+  versionMode?: VersionMode | 'standalone'
+  step: Step
+  packageName?: string
+  graduating: boolean
+  logLevel?: LogLevel
+}) {
+  let from: string
+
+  if (versionMode === 'independent') {
+    if (!packageName) {
+      throw new Error('Package name is required for independent version mode')
+    }
+
+    from = await resolveFromTagIndependent({
+      cwd: config.cwd,
+      packageName,
+      graduating,
+      logLevel,
+    })
+  }
+  else {
+    from = await resolveFromTagUnified({
+      config,
+      graduating,
+      logLevel,
+    })
+  }
+
+  logger.debug(`[${versionMode}](${step}) Using from tag: ${from}`)
+
+  return config.from || from
+}
+
+function resolveToTag({
+  config,
+  versionMode,
+  newVersion,
+  step,
+  packageName,
+}: {
+  config: ResolvedRelizyConfig
+  versionMode?: VersionMode | 'standalone'
+  newVersion?: string
+  step: Step
+  packageName?: string
+}) {
+  const isUntaggedStep = step === 'bump' || step === 'changelog'
+
   let to: string
 
-  if (step === 'bump') {
+  if (isUntaggedStep) {
     to = getCurrentGitRef(config.cwd)
+  }
+
+  else if (versionMode === 'independent') {
+    if (!packageName) {
+      throw new Error('Package name is required for independent version mode')
+    }
+
+    if (!newVersion) {
+      throw new Error('New version is required for independent version mode')
+    }
+
+    to = getIndependentTag({ version: newVersion, name: packageName })
   }
   else {
     to = newVersion ? config.templates.tagBody.replace('{{newVersion}}', newVersion) : getCurrentGitRef(config.cwd)
   }
 
-  const from = await getLastRepoTag({ onlyStable: graduating, logLevel }) || getFirstCommit(config.cwd)
+  logger.debug(`[${versionMode}](${step}) Using to tag: ${to}`)
 
-  return { from, to }
+  return config.to || to
 }
 
-export interface ResolveTagsOptions<
-  VM extends VersionMode,
-  S extends Step,
-  Package = VM extends 'independent' ? PackageInfo : undefined,
-  NewVersion = S extends 'bump' | 'changelog' ? undefined : string,
-  CurrentVersion = S extends 'bump' | 'changelog' ? string : undefined,
-> {
-  config: ResolvedRelizyConfig
-  versionMode: VM
-  step: S
-  pkg: Package
-  currentVersion: CurrentVersion
-  newVersion: NewVersion
-  logLevel: LogLevel
-}
-
-export async function resolveTags<T extends VersionMode, S extends Step>({
+export async function resolveTags<S extends Step, NewVersion = S extends 'bump' | 'changelog' ? undefined : string>({
   config,
-  versionMode,
   step,
   pkg,
-  currentVersion,
   newVersion,
-  logLevel,
-}: ResolveTagsOptions<T, S>): Promise<ResolvedTags> {
+}: {
+  config: ResolvedRelizyConfig
+  step: S
+  pkg: ReadPackage
+  newVersion: NewVersion
+}): Promise<ResolvedTags> {
+  const versionMode = config.monorepo?.versionMode || 'standalone'
+  const logLevel = config.logLevel
+
   logger.debug(`[${versionMode}](${step}) Resolving tags`)
 
-  const graduating = (currentVersion && isGraduating(currentVersion, config.bump.type)) || false
+  const releaseType = config.bump.type
 
-  const newTags = (newVersion && config.templates.tagBody.replace('{{newVersion}}', newVersion)) || null
-
-  if (config.from) {
-    const tags = {
-      from: config.from,
-      to: config.to || newTags || getCurrentGitRef(config.cwd),
-    }
-
-    logger.debug(`[${versionMode}](${step}) Using specified tags: ${tags.from} → ${tags.to}`)
-
-    return tags
-  }
-
-  if (versionMode === 'independent') {
-    const tags = await resolveTagsIndependent({
-      cwd: config.cwd,
-      pkg: pkg!,
-      graduating,
-      newVersion,
-      step,
-      logLevel,
-    })
-
-    logger.debug(`[${versionMode}](${step}) Using tags: ${tags.from} → ${tags.to}`)
-
-    return tags
-  }
-
-  const tags = await resolveTagsUnified({
+  const from = await resolveFromTag({
     config,
-    newVersion,
-    graduating,
+    versionMode,
     step,
+    packageName: pkg.name,
+    graduating: isGraduating(pkg.version, releaseType),
     logLevel,
   })
 
-  logger.debug(`[${versionMode}](${step}) Using tags: ${tags.from} → ${tags.to}`)
+  const to = resolveToTag({
+    config,
+    versionMode,
+    newVersion: newVersion as string | undefined,
+    step,
+    packageName: pkg.name,
+  })
 
-  return tags
+  logger.debug(`[${versionMode}](${step}) Using tags: ${from} → ${to}`)
+
+  return { from, to }
 }

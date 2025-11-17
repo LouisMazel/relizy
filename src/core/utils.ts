@@ -1,4 +1,4 @@
-import type { HookConfig } from '../types'
+import type { HookConfig, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
 
@@ -203,4 +203,8 @@ export async function executeBuildCmd({
   else {
     logger.debug('No build command specified')
   }
+}
+
+export function isBumpedPackage(pkg: PackageBase): pkg is PackageBase & { oldVersion: string } {
+  return 'oldVersion' in pkg && !!pkg.oldVersion
 }
