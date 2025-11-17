@@ -26,7 +26,7 @@ export default defineConfig({
 
   publish: {
     registry: 'https://registry.npmjs.org',
-    buildCmd: 'pnpm build',
+    buildCmd: process.env.CI ? undefined : 'pnpm build',
     access: 'public',
   },
 })

@@ -1,10 +1,10 @@
 import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../core'
-import type { PackageInfo } from '../types'
+import type { PackageBase, ReadPackage } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { getFirstCommit } from '../core'
+import { getFirstCommit, getIndependentTag } from '../core'
 import { generateMarkDown } from './markdown'
 import { executeHook } from './utils'
 
@@ -21,27 +21,44 @@ function fromTagIsFirstCommit(fromTag: string, cwd: string) {
 export async function generateChangelog(
   {
     pkg,
-    commits,
     config,
-    from,
     dryRun,
+    newVersion,
   }: {
-    pkg: PackageInfo
-    commits: GitCommit[]
+    pkg: {
+      fromTag?: string
+      name: string
+      newVersion?: string
+      commits: GitCommit[]
+    }
     config: ResolvedRelizyConfig
-    from: string
     dryRun: boolean
+    newVersion: string | undefined
   },
 ) {
-  let fromTag = config.from || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.currentVersion}` : config.templates.tagBody.replace('{{newVersion}}', pkg.currentVersion)) || from
+  let fromTag = config.from
+    || pkg.fromTag
+    || getFirstCommit(config.cwd)
 
   const isFirstCommit = fromTagIsFirstCommit(fromTag, config.cwd)
 
   if (isFirstCommit) {
-    fromTag = config.monorepo?.versionMode === 'independent' ? `${pkg.name}@0.0.0` : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
+    fromTag = config.monorepo?.versionMode === 'independent' ? getIndependentTag({ version: '0.0.0', name: pkg.name }) : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
   }
 
-  const toTag = config.to || (config.monorepo?.versionMode === 'independent' ? `${pkg.name}@${pkg.version}` : config.templates.tagBody.replace('{{newVersion}}', pkg.version))
+  newVersion = newVersion || pkg.newVersion
+
+  let toTag = config.to
+
+  if (!toTag && newVersion) {
+    toTag = config.monorepo?.versionMode === 'independent'
+      ? getIndependentTag({ version: newVersion, name: pkg.name })
+      : config.templates.tagBody.replace('{{newVersion}}', newVersion)
+  }
+
+  if (!toTag) {
+    throw new Error(`No tag found for ${pkg.name}`)
+  }
 
   logger.debug(`Generating changelog for ${pkg.name} - from ${fromTag} to ${toTag}`)
 
@@ -53,20 +70,21 @@ export async function generateChangelog(
     }
 
     const generatedChangelog = await generateMarkDown({
-      commits,
+      commits: pkg.commits,
       config,
       from: fromTag,
+      isFirstCommit,
       to: toTag,
     })
 
     let changelog = generatedChangelog
 
-    if (commits.length === 0) {
+    if (pkg.commits.length === 0) {
       changelog = `${changelog}\n\n${config.templates.emptyChangelogContent}`
     }
 
     const changelogResult = await executeHook('generate:changelog', config, dryRun, {
-      commits,
+      commits: pkg.commits,
       changelog,
     })
 
@@ -74,7 +92,7 @@ export async function generateChangelog(
 
     logger.verbose(`Output changelog for ${pkg.name}:\n${changelog}`)
 
-    logger.debug(`Changelog generated for ${pkg.name} (${commits.length} commits)`)
+    logger.debug(`Changelog generated for ${pkg.name} (${pkg.commits.length} commits)`)
 
     logger.verbose(`Final changelog for ${pkg.name}:\n\n${changelog}\n\n`)
 
@@ -93,11 +111,13 @@ export async function generateChangelog(
  * Write changelog to file
  */
 export function writeChangelogToFile({
+  cwd,
   pkg,
   changelog,
   dryRun = false,
 }: {
-  pkg: PackageInfo
+  cwd: string
+  pkg: ReadPackage | PackageBase
   changelog: string
   dryRun: boolean
 }) {
@@ -123,11 +143,12 @@ export function writeChangelogToFile({
   }
 
   if (dryRun) {
-    logger.info(`[dry-run] ${pkg.name} - Write changelog to ${changelogPath}`)
+    const relativeChangelogPath = relative(cwd, changelogPath)
+    logger.info(`[dry-run] ${pkg.name} - Write changelog to ${relativeChangelogPath}`)
   }
   else {
     logger.debug(`Writing changelog to ${changelogPath}`)
     writeFileSync(changelogPath, updatedChangelog, 'utf8')
-    logger.info(`Changelog updated for ${pkg.name}`)
+    logger.info(`Changelog updated for ${pkg.name} (${('newVersion' in pkg && pkg.newVersion) || pkg.version})`)
   }
 }

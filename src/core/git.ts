@@ -1,12 +1,12 @@
 import type { LogLevel } from '@maz-ui/node'
 
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PackageInfo } from '../types'
+import type { BumpResultTruthy, GitProvider } from '../types'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
-import { getRootPackage, hasLernaJson, loadRelizyConfig } from '../core'
+import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../core'
 import { executeHook } from './utils'
 
 export function getGitStatus(cwd?: string) {
@@ -37,7 +37,7 @@ export async function fetchGitTags(cwd?: string): Promise<void> {
     logger.debug('Git tags fetched successfully')
   }
   catch (error) {
-    logger.warn('Failed to fetch some git tags from remote (tags might already exist locally)', error)
+    logger.fail('Failed to fetch some git tags from remote (tags might already exist locally)', error)
     logger.info('Continuing with local tags')
   }
 }
@@ -96,13 +96,13 @@ export async function createCommitAndTags({
   dryRun,
   logLevel,
 }: {
-  config?: ResolvedRelizyConfig
-  noVerify?: boolean
-  bumpedPackages?: PackageInfo[]
+  config: ResolvedRelizyConfig
+  noVerify: boolean
+  bumpedPackages: BumpResultTruthy['bumpedPackages']
   newVersion?: string
   dryRun?: boolean
-  logLevel?: LogLevel
-} = {}): Promise<string[]> {
+  logLevel: LogLevel
+}): Promise<string[]> {
   const internalConfig = config || await loadRelizyConfig()
 
   try {
@@ -140,14 +140,16 @@ export async function createCommitAndTags({
         execSync(`git add ${pattern}`)
       }
       catch {
-      // Ignore errors if pattern doesn't match any files
+        // Ignore errors if pattern doesn't match any files
       }
     }
 
-    const rootPackage = getRootPackage(internalConfig.cwd)
+    const rootPackage = readPackageJson(internalConfig.cwd)
     newVersion = newVersion || rootPackage.version
 
-    const versionForMessage = internalConfig.monorepo?.versionMode === 'independent' ? bumpedPackages?.map(pkg => `${pkg.name}@${pkg.version}`).join(', ') || 'unknown' : newVersion || 'unknown'
+    const versionForMessage = internalConfig.monorepo?.versionMode === 'independent'
+      ? bumpedPackages?.map(pkg => getIndependentTag(pkg)).join(', ') || 'unknown'
+      : newVersion || 'unknown'
 
     const commitMessage = internalConfig.templates.commitMessage
       ?.replaceAll('{{newVersion}}', versionForMessage)
@@ -176,10 +178,15 @@ export async function createCommitAndTags({
 
     if (internalConfig.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0) {
       logger.debug(`Creating ${bumpedPackages.length} independent package tags`)
+
       for (const pkg of bumpedPackages) {
-        const tagName = `${pkg.name}@${pkg.version}`
+        if (!pkg.newVersion) {
+          continue
+        }
+
+        const tagName = getIndependentTag({ version: pkg.newVersion, name: pkg.name })
         const tagMessage = internalConfig.templates?.tagMessage
-          ?.replaceAll('{{newVersion}}', pkg.version || '')
+          ?.replaceAll('{{newVersion}}', pkg.newVersion)
           || tagName
 
         if (dryRun) {

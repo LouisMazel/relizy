@@ -1,6 +1,6 @@
-import type { PackageInfo, PublishOptions, PublishResponse } from '../types'
+import type { PackageBase, PublishOptions, PublishResponse } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectPackageManager, executeBuildCmd, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, getPackagesWithDependencies, getRootPackage, loadRelizyConfig, publishPackage, topologicalSort } from '../core'
+import { detectPackageManager, executeBuildCmd, getIndependentTag, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
 import { executeHook } from '../core/utils'
 
 // eslint-disable-next-line complexity
@@ -38,27 +38,29 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   try {
     await executeHook('before:publish', config, dryRun)
 
+    const rootPackage = readPackageJson(config.cwd)
+
     logger.start('Start publishing packages')
 
-    const packages = options.bumpedPackages || getPackages({
-      cwd: config.cwd,
+    const packages = options.bumpedPackages || await getPackages({
+      config,
       patterns: config.publish.packages ?? config.monorepo?.packages,
-      ignorePackageNames: config.monorepo?.ignorePackageNames,
+      suffix: options.suffix,
+      force: options.force ?? false,
     })
-
-    const rootPackage = getRootPackage(config.cwd)
 
     logger.debug(`Found ${packages.length} package(s)`)
 
     logger.debug('Building dependency graph and sorting...')
-    const packagesWithDeps = getPackagesWithDependencies(packages, config.bump.dependencyTypes)
-    const sortedPackages = topologicalSort(packagesWithDeps)
+    const sortedPackages = topologicalSort(packages)
 
-    let publishedPackages: PackageInfo[] = packages || []
+    let publishedPackages: PackageBase[] = packages || []
 
     if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'independent') {
       logger.debug('Determining packages to publish in independent mode...')
+
       publishedPackages = await getPackagesToPublishInIndependentMode(sortedPackages, config)
+
       logger.info(`Publishing ${publishedPackages.length} package(s) (independent mode)`)
       logger.debug(`Packages: ${publishedPackages.join(', ')}`)
     }
@@ -74,7 +76,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
     }
 
     if (publishedPackages.length === 0) {
-      logger.warn('No packages need to be published')
+      logger.fail('No packages need to be published')
       return
     }
 
@@ -85,7 +87,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     for (const pkg of sortedPackages) {
       if (publishedPackages.some(p => p.name === pkg.name)) {
-        logger.debug(`Publishing ${pkg.name}@${pkg.version}...`)
+        logger.debug(`Publishing ${getIndependentTag(pkg)}...`)
         await publishPackage({
           pkg,
           config,

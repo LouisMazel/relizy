@@ -9,7 +9,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       reporter: ['clover', 'html', 'lcov'],
-      include: ['src/core/version.ts'],
+      include: ['src/core/version.ts', 'src/core/tags.ts'],
       exclude: [
         ...coverageConfigDefaults.exclude,
       ],
