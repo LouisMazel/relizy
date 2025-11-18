@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.4...v0.2.5-beta.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.4...v0.2.5-beta.0)
+
+### 🩹 Fixes
+
+- Changelog generation with wrong tags ([03f3959](https://github.com/LouisMazel/relizy/commit/03f3959))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.4
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.3...v0.2.4)
