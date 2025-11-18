@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.2.5-beta.6...v0.2.5-beta.7
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.6...v0.2.5-beta.7)
+
+### 🚀 Features
+
+- Add option to skip git tag creation during release ([9700ccf](https://github.com/LouisMazel/relizy/commit/9700ccf))
+
+  Allow users to disable tag creation during release using the
+  `--no-git-tag` flag. Useful when you want to publish and push
+  commits without creating git tags.
+  Usage: relizy release --no-git-tag
+
+- **docs:** Document gitTag option and improve release examples ([91ee4c3](https://github.com/LouisMazel/relizy/commit/91ee4c3))
+
+### 🩹 Fixes
+
+- **docs:** Correct package.json config example ([2294e31](https://github.com/LouisMazel/relizy/commit/2294e31))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.5...v0.2.5-beta.6
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.5...v0.2.5-beta.6)
