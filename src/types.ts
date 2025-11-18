@@ -414,6 +414,11 @@ export interface ReleaseConfig {
    * @default false
    */
   clean?: boolean
+  /**
+   * Create tag
+   * @default true
+   */
+  gitTag?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
