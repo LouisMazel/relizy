@@ -1,5 +1,21 @@
 # Changelog
 
+## v0.2.5-beta.5...v0.2.5-beta.6
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.5...v0.2.5-beta.6)
+
+### 🩹 Fixes
+
+- Get github user profiles only if its github release ([9f7c67c](https://github.com/LouisMazel/relizy/commit/9f7c67c))
+
+### 📖 Documentation
+
+- **docs:** Improve SEO meta ([df629e6](https://github.com/LouisMazel/relizy/commit/df629e6))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.4...v0.2.5-beta.5
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.4...v0.2.5-beta.5)
