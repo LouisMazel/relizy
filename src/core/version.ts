@@ -287,7 +287,7 @@ export function getPackageNewVersion({
   }
 
   if (isChangedPreid(currentVersion, preid)) {
-    logger.info(`Graduating from ${getPreid(currentVersion)} to ${preid}`)
+    logger.debug(`Graduating from ${getPreid(currentVersion)} to ${preid}`)
   }
 
   return newVersion
