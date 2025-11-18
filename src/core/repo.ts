@@ -117,13 +117,14 @@ export function readPackages({
 }) {
   const packages: ReadPackage[] = []
   const foundPaths = new Set<string>()
+  const patternsSet = new Set<string>(patterns)
 
   if (!patterns)
-    patterns = ['.']
+    patternsSet.add('.')
 
-  logger.debug(`Getting packages from patterns: ${patterns.join(', ')}`)
+  logger.debug(`Read package.json files from patterns: ${patternsSet.values()}`)
 
-  for (const pattern of patterns) {
+  for (const pattern of patternsSet) {
     try {
       const matches = fastGlob.sync(pattern, {
         cwd,
@@ -216,13 +217,12 @@ export async function getPackages({
 
   const packages = new Map<string, PackageBase>()
   const foundPaths = new Set<string>()
+  const patternsSet = new Set<string>(patterns)
 
   if (!patterns)
-    patterns = ['.']
+    patternsSet.add('.')
 
-  logger.debug(`Getting packages from patterns: ${patterns.join(', ')}`)
-
-  const patternsSet = new Set<string>(patterns)
+  logger.debug(`Getting packages from patterns: ${patternsSet.values()}`)
 
   for (const pattern of patternsSet) {
     const matches = fastGlob.sync(pattern, {
