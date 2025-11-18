@@ -203,10 +203,25 @@ function getCommitBody(commit: GitCommit) {
       return false
     }
 
-    const isFileLine = /^[AMDRC]\s+/.test(trimmedLine)
-    const R100 = /R100\s+/.test(trimmedLine)
+    /**
+     * Git diff status codes that appear in commit bodies:
+     * - A: Added
+     * - M: Modified (can include M000-M100 with break pairing)
+     * - D: Deleted
+     * - R: Renamed (R000-R100 with similarity score)
+     * - C: Copied (C000-C100 with similarity score)
+     * - T: Type changed
+     * - U: Unmerged
+     * - X: Unknown
+     * - B: Broken pairing
+     *
+     * Pattern: Status code followed by whitespace and file path(s)
+     */
 
-    return !isFileLine && !R100
+    // Matches: [A|M|D|T|U|X|B] or [R|C|M][0-9]{3} followed by whitespace
+    const isFileLine = /^[AMDTUXB](?:\d{3})?\s+/.test(trimmedLine) || /^[RCM]\d{3}\s+/.test(trimmedLine)
+
+    return !isFileLine
   })
 
   if (contentLines.length === 0) {
