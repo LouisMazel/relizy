@@ -70,6 +70,95 @@ describe('Given resolveTags function', () => {
 
         expect(result).toEqual({ from: FIRST_COMMIT_HASH, to: TEST_BRANCH })
       })
+
+      it('Then resolves tags for changelog step', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'independent' })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo(),
+          newVersion: undefined,
+        })
+
+        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then resolves tags for publish step with newVersion', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'independent' })
+        const result = await resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg: createMockPackageInfo({ name: 'pkg-a' }),
+          newVersion: '1.1.0' as any,
+        })
+
+        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        expect(result.to).toBe('pkg-a@1.1.0')
+      })
+
+      it('Then resolves tags for provider-release step', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'independent' })
+        const result = await resolveTags<'provider-release'>({
+          config,
+          step: 'provider-release',
+          pkg: createMockPackageInfo({ name: 'pkg-a' }),
+          newVersion: '2.0.0' as any,
+        })
+
+        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        expect(result.to).toBe('pkg-a@2.0.0')
+      })
+    })
+  })
+
+  describe('When version mode is unified', () => {
+    describe('And step is bump', () => {
+      it('Then resolves tags using repo-wide tag', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'unified' })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo(),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'LAST_TAG', to: TEST_BRANCH })
+      })
+
+      it('Then resolves tags for changelog step', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'unified' })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo(),
+          newVersion: undefined,
+        })
+
+        expect(result.from).toBe('LAST_TAG')
+        expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then resolves tags for publish step with version', async () => {
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          versionMode: 'unified',
+        })
+        config.templates = {
+          ...config.templates,
+          tagBody: 'v{{newVersion}}',
+        }
+
+        const result = await resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg: createMockPackageInfo(),
+          newVersion: '1.2.0' as any,
+        })
+
+        expect(result.from).toBe('LAST_TAG')
+        expect(result.to).toBe('v1.2.0')
+      })
     })
   })
 
@@ -109,6 +198,40 @@ describe('Given resolveTags function', () => {
         })
 
         expect(result).toEqual({ from: 'LAST_TAG', to: TEST_BRANCH })
+      })
+
+      it('Then resolves tags for changelog step', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, versionMode: 'selective' })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo(),
+          newVersion: undefined,
+        })
+
+        expect(result.from).toBe('LAST_TAG')
+        expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then resolves tags for publish step', async () => {
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          versionMode: 'selective',
+        })
+        config.templates = {
+          ...config.templates,
+          tagBody: 'v{{newVersion}}',
+        }
+
+        const result = await resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg: createMockPackageInfo(),
+          newVersion: '1.5.0' as any,
+        })
+
+        expect(result.from).toBe('LAST_TAG')
+        expect(result.to).toBe('v1.5.0')
       })
     })
   })
