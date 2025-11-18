@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.5-beta.1...v0.2.5-beta.2
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.1...v0.2.5-beta.2)
+
+### 💅 Refactors
+
+- Use a log debug when version has changed preid" ([1350fc4](https://github.com/LouisMazel/relizy/commit/1350fc4))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.0...v0.2.5-beta.1
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.0...v0.2.5-beta.1)
