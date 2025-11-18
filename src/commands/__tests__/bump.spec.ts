@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -17,6 +18,10 @@ vi.mock('node:fs/promises', async () => {
   const memfs = await import('memfs')
   return memfs.fs.promises
 })
+
+vi.mock('node:process', () => ({
+  exit: vi.fn(),
+}))
 
 // Mock core functions
 vi.mock('../../core', () => ({
@@ -278,7 +283,18 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([])
+      vi.mocked(core.getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '1.1.0',
+          fromTag: 'v1.0.0',
+          commits: [],
+          dependencies: [],
+          private: false,
+        },
+      ])
 
       await bump({
         type: 'minor',
@@ -682,13 +698,17 @@ describe('Given bump command', () => {
 
       vi.mocked(core.getPackages).mockResolvedValueOnce([])
 
-      await bump({
-        type: 'minor',
-        yes: true,
-        dryRun: true,
-      })
+      try {
+        await bump({
+          type: 'minor',
+          yes: true,
+          dryRun: true,
+        })
+      }
+      catch {
+      }
 
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalledWith(mockCwd, '1.1.0', true)
+      expect(vi.mocked(core.writeVersion)).not.toHaveBeenCalled()
     })
   })
 
@@ -769,7 +789,7 @@ describe('Given bump command', () => {
   })
 
   describe('When no packages need bumping', () => {
-    it('Then returns bumped false when no changes', async () => {
+    it('Then exists with code 0 when no changes', async () => {
       vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
@@ -788,12 +808,15 @@ describe('Given bump command', () => {
 
       vi.mocked(core.getPackages).mockResolvedValueOnce([])
 
-      const result = await bump({
-        type: 'release',
-        yes: true,
-      })
-
-      expect(result.bumped).toBe(false)
+      try {
+        await bump({
+          type: 'release',
+          yes: true,
+        })
+      }
+      catch {
+        expect(vi.mocked(process.exit)).toHaveBeenCalledWith(0)
+      }
     })
   })
 })

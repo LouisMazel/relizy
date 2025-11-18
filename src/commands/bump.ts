@@ -1,7 +1,8 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpOptions, BumpResult } from '../types'
-import { logger } from '@maz-ui/node'
+import { exit } from 'node:process'
 
+import { logger } from '@maz-ui/node'
 import { checkGitStatusIfDirty, confirmBump, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
 import { executeHook } from '../core/utils'
 
@@ -345,8 +346,8 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string' ? '' : 's'} bumped)`)
     }
     else {
-      logger.fail('No packages to bump, no commits found')
-      process.exit(1)
+      logger.fail('No packages to bump, no relevant commits found')
+      exit(0)
     }
 
     await executeHook('success:bump', config, dryRun)
