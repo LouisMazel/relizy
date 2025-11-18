@@ -176,7 +176,7 @@ export async function createCommitAndTags({
     logger.debug(`Sign tags: ${internalConfig.signTags}`)
     const createdTags: string[] = []
 
-    if (internalConfig.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0) {
+    if (internalConfig.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0 && internalConfig.release.gitTag) {
       logger.debug(`Creating ${bumpedPackages.length} independent package tags`)
 
       for (const pkg of bumpedPackages) {
@@ -215,7 +215,7 @@ export async function createCommitAndTags({
 
       logger.success(`Created ${createdTags.length} tags for independent packages, ${createdTags.join(', ')}`)
     }
-    else {
+    else if (internalConfig.release.gitTag) {
       const tagName = internalConfig.templates.tagBody
         ?.replaceAll('{{newVersion}}', newVersion)
 
@@ -264,16 +264,18 @@ export async function createCommitAndTags({
   }
 }
 
-export async function pushCommitAndTags({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: LogLevel, cwd: string }) {
+export async function pushCommitAndTags({ config, dryRun, logLevel, cwd }: { config: ResolvedRelizyConfig, dryRun: boolean, logLevel?: LogLevel, cwd: string }) {
   logger.start('Start push changes and tags')
 
+  const command = config.release.gitTag ? 'git push --follow-tags' : 'git push'
+
   if (dryRun) {
-    logger.info('[dry-run] git push --follow-tags')
+    logger.info(`[dry-run] ${command}`)
   }
   else {
-    logger.debug('Executing: git push --follow-tags')
+    logger.debug(`Executing: ${command}`)
 
-    await execPromise('git push --follow-tags', { noStderr: true, noStdout: true, logLevel, cwd })
+    await execPromise(command, { noStderr: true, noStdout: true, logLevel, cwd })
   }
 
   logger.success('Pushing changes and tags completed!')

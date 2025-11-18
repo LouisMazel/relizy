@@ -217,6 +217,7 @@ program
   .option('--force', 'Bump even if there are no commits')
   .option('--no-clean', 'Skip check if the working directory is clean')
   .option('--no-commit', 'Skip commit and tag')
+  .option('--no-git-tag', 'Skip tag creation')
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
@@ -233,6 +234,7 @@ program
         push: hasCliFlag('--no-push') || hasCliFlag('--no-commit') ? false : undefined,
         publish: hasCliFlag('--no-publish') ? false : undefined,
         providerRelease: hasCliFlag('--no-provider-release') ? false : undefined,
+        gitTag: hasCliFlag('--no-git-tag') ? false : undefined,
         noVerify: hasCliFlag('--no-verify') ? true : undefined,
         clean: hasCliFlag('--no-clean') ? false : undefined,
         registry: options.registry,

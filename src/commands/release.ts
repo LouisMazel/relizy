@@ -44,6 +44,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         noVerify: options.noVerify,
         providerRelease: options.providerRelease,
         clean: options.clean,
+        gitTag: options.gitTag,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -142,7 +143,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       await executeHook('before:push', config, dryRun)
 
       try {
-        await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
+        await pushCommitAndTags({
+          config,
+          dryRun,
+          logLevel: config.logLevel,
+          cwd: config.cwd,
+        })
 
         await executeHook('success:push', config, dryRun)
       }
