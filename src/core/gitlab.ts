@@ -1,5 +1,4 @@
-import type { GitCommit } from 'changelogen'
-import type { ResolvedRelizyConfig } from '../core'
+import type { ResolvedRelizyConfig, RootPackage } from '../core'
 import type { BumpResult, BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -220,13 +219,7 @@ async function gitlabUnified({
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  rootPackage: {
-    fromTag?: string
-    name: string
-    version: string
-    newVersion: string
-    commits: GitCommit[]
-  }
+  rootPackage: RootPackage
   bumpResult: BumpResultTruthy | undefined
 }) {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
