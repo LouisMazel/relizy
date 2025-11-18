@@ -454,10 +454,7 @@ function displayUnifiedModePackages({
   newVersion,
   force,
 }: {
-  packages: {
-    name: string
-    version: string
-  }[]
+  packages: PackageBase[]
   newVersion: string
   force: boolean
 }) {
@@ -473,10 +470,7 @@ function displaySelectiveModePackages({
   newVersion,
   force,
 }: {
-  packages: {
-    name: string
-    version: string
-  }[]
+  packages: PackageBase[]
   newVersion: string
   force: boolean
 }) {
@@ -495,7 +489,7 @@ function displaySelectiveModePackages({
     if (packagesWithCommits.length > 0) {
       logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -503,7 +497,7 @@ function displaySelectiveModePackages({
     if (packagesAsDependents.length > 0) {
       logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -511,7 +505,7 @@ function displaySelectiveModePackages({
     if (packagesAsGraduation.length > 0) {
       logger.log(`${packagesAsGraduation.length} graduation package(s):`)
       packagesAsGraduation.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -522,11 +516,7 @@ function displayIndependentModePackages({
   packages,
   force,
 }: {
-  packages: {
-    name: string
-    version: string
-    newVersion?: string
-  }[]
+  packages: PackageBase[]
   force: boolean
 }) {
   if (force) {
@@ -544,7 +534,7 @@ function displayIndependentModePackages({
     if (packagesWithCommits.length > 0) {
       logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -552,7 +542,7 @@ function displayIndependentModePackages({
     if (packagesAsDependents.length > 0) {
       logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -560,7 +550,7 @@ function displayIndependentModePackages({
     if (packagesAsGraduation.length > 0) {
       logger.log(`${packagesAsGraduation.length} graduation package(s):`)
       packagesAsGraduation.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -578,11 +568,7 @@ export async function confirmBump({
 }: {
   versionMode: VersionMode
   config: ResolvedRelizyConfig
-  packages: {
-    name: string
-    version: string
-    newVersion?: string
-  }[]
+  packages: PackageBase[]
   force: boolean
   currentVersion?: string
   newVersion?: string
