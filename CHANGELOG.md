@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.5-beta.0...v0.2.5-beta.1
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.0...v0.2.5-beta.1)
+
+### 🩹 Fixes
+
+- Exclude modify files from commit body ([e51fab7](https://github.com/LouisMazel/relizy/commit/e51fab7))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.4...v0.2.5-beta.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.4...v0.2.5-beta.0)
