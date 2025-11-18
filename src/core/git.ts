@@ -148,7 +148,7 @@ export async function createCommitAndTags({
     newVersion = newVersion || rootPackage.version
 
     const versionForMessage = internalConfig.monorepo?.versionMode === 'independent'
-      ? bumpedPackages?.map(pkg => getIndependentTag(pkg)).join(', ') || 'unknown'
+      ? bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || 'unknown'
       : newVersion || 'unknown'
 
     const commitMessage = internalConfig.templates.commitMessage

@@ -325,7 +325,7 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
       to,
     })
 
-    logger.debug(`Root package: ${getIndependentTag(rootPackage)}`)
+    logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: rootPackage.newVersion || rootPackage.version })}`)
 
     return await gitlabUnified({
       config,

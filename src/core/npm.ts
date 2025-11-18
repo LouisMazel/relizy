@@ -271,7 +271,7 @@ export async function publishPackage({
   dryRun: boolean
 }): Promise<void> {
   const tag = determinePublishTag(pkg.version, config.publish.tag)
-  const packageNameAndVersion = getIndependentTag(pkg)
+  const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
   const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 
   logger.debug(`Building publish command for ${pkg.name}`)
