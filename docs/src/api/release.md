@@ -79,6 +79,11 @@ interface ReleaseOptions {
    * @default undefined
    */
   suffix?: string
+  /**
+   * Enable/disable git tag creation
+   * @default true
+   */
+  gitTag?: boolean
 }
 ```
 
@@ -94,6 +99,7 @@ await release({
   push: true,
   publish: true,
   providerRelease: true,
+  gitTag: true,
 })
 ```
 
