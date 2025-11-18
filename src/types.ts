@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { getRootPackage, ResolvedRelizyConfig } from './core'
+import type { ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab'
@@ -80,7 +80,7 @@ export interface BumpResultTruthy {
   /**
    * Root package
    */
-  rootPackage?: Awaited<ReturnType<typeof getRootPackage>>
+  rootPackage?: RootPackage
   /**
    * Bumped packages
    */

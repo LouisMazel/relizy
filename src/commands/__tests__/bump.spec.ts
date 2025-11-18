@@ -1,4 +1,4 @@
-import process from 'node:process'
+import { exit } from 'node:process'
 import { logger } from '@maz-ui/node'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -808,15 +808,12 @@ describe('Given bump command', () => {
 
       vi.mocked(core.getPackages).mockResolvedValueOnce([])
 
-      try {
-        await bump({
-          type: 'release',
-          yes: true,
-        })
-      }
-      catch {
-        expect(vi.mocked(process.exit)).toHaveBeenCalledWith(0)
-      }
+      await bump({
+        type: 'release',
+        yes: true,
+      })
+
+      expect(vi.mocked(exit)).toHaveBeenCalledWith(1)
     })
   })
 })
