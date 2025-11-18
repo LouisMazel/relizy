@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.5-beta.4...v0.2.5-beta.5
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.4...v0.2.5-beta.5)
+
+### 🩹 Fixes
+
+- Do not compute new version of root package in independent mode ([3be33db](https://github.com/LouisMazel/relizy/commit/3be33db))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.3...v0.2.5-beta.4
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.3...v0.2.5-beta.4)
