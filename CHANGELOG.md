@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.5-beta.2...v0.2.5-beta.3
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.2...v0.2.5-beta.3)
+
+### 🩹 Fixes
+
+- Improve checking of package to bump before running release ([560dbe1](https://github.com/LouisMazel/relizy/commit/560dbe1))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.1...v0.2.5-beta.2
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.1...v0.2.5-beta.2)
