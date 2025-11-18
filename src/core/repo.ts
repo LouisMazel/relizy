@@ -35,6 +35,12 @@ export function readPackageJson(packagePath: string): ReadPackage {
   }
 }
 
+export interface RootPackage extends ReadPackage {
+  fromTag: string
+  commits: GitCommit[]
+  newVersion?: string
+}
+
 export async function getRootPackage({
   config,
   force,
@@ -49,7 +55,7 @@ export async function getRootPackage({
   to: string
   suffix: string | undefined
   changelog: boolean
-}) {
+}): Promise<RootPackage> {
   try {
     const packageJson = readPackageJson(config.cwd)
 
@@ -61,26 +67,30 @@ export async function getRootPackage({
       changelog,
     })
 
-    const releaseType = determineReleaseType({
-      currentVersion: packageJson.version,
-      commits,
-      releaseType: config.bump.type,
-      preid: config.bump.preid,
-      types: config.types,
-      force,
-    })
+    let newVersion: string | undefined
 
-    if (!releaseType) {
-      logger.fail('No commits require a version bump')
-      process.exit(0)
+    if (config.monorepo?.versionMode !== 'independent') {
+      const releaseType = determineReleaseType({
+        currentVersion: packageJson.version,
+        commits,
+        releaseType: config.bump.type,
+        preid: config.bump.preid,
+        types: config.types,
+        force,
+      })
+
+      if (!releaseType) {
+        logger.fail('No commits require a version bump')
+        process.exit(1)
+      }
+
+      newVersion = getPackageNewVersion({
+        currentVersion: packageJson.version,
+        releaseType,
+        preid: config.bump.preid,
+        suffix,
+      })
     }
-
-    const newVersion = getPackageNewVersion({
-      currentVersion: packageJson.version,
-      releaseType,
-      preid: config.bump.preid,
-      suffix,
-    })
 
     return {
       ...packageJson,

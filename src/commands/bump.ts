@@ -43,7 +43,7 @@ async function bumpUnifiedMode({
   const newVersion = rootPackage.newVersion
 
   if (!newVersion) {
-    throw new Error(`Could not determine a new version for ${rootPackage.name} (root)`)
+    throw new Error(`Could not determine a new version`)
   }
 
   logger.debug(`Bump from ${from} to ${to}`)
@@ -58,7 +58,7 @@ async function bumpUnifiedMode({
   })
 
   if (packages.length === 0) {
-    logger.fail('No packages to bump')
+    logger.debug('No packages to bump')
     return { bumped: false }
   }
 
@@ -136,6 +136,10 @@ async function bumpSelectiveMode({
 
   const currentVersion = rootPackage.version
   const newVersion = rootPackage.newVersion
+
+  if (!newVersion) {
+    throw new Error('Could not determine a new version')
+  }
 
   logger.debug(`Bump from ${currentVersion} to ${newVersion}`)
 
@@ -347,7 +351,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     }
     else {
       logger.fail('No packages to bump, no relevant commits found')
-      exit(0)
+      exit(1)
     }
 
     await executeHook('success:bump', config, dryRun)
