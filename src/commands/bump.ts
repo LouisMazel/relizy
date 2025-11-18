@@ -56,6 +56,11 @@ async function bumpUnifiedMode({
     force,
   })
 
+  if (packages.length === 0) {
+    logger.fail('No packages to bump')
+    return { bumped: false }
+  }
+
   if (!config.bump.yes) {
     await confirmBump({
       versionMode: 'unified',
@@ -142,7 +147,7 @@ async function bumpSelectiveMode({
   })
 
   if (packages.length === 0) {
-    logger.debug('No packages have commits, skipping bump')
+    logger.debug('No packages to bump')
     return { bumped: false }
   }
 
@@ -222,7 +227,7 @@ async function bumpIndependentMode({
   })
 
   if (packagesToBump.length === 0) {
-    logger.debug('No packages have commits')
+    logger.debug('No packages to bump')
     return { bumped: false }
   }
 
@@ -341,6 +346,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     }
     else {
       logger.fail('No packages to bump, no commits found')
+      process.exit(1)
     }
 
     await executeHook('success:bump', config, dryRun)
