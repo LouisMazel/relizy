@@ -110,27 +110,28 @@ export async function generateMarkDown({
     }
   }
 
-  // Try to map authors to github usernames
-  await Promise.all(
-    [..._authors.keys()].map(async (authorName) => {
-      const meta = _authors.get(authorName)
+  if (updatedConfig.repo?.provider === 'github') {
+    await Promise.all(
+      [..._authors.keys()].map(async (authorName) => {
+        const meta = _authors.get(authorName)
 
-      if (!meta) {
-        return
-      }
-
-      for (const data of [...meta.email, meta.name]) {
-        const { user } = await fetch(`https://ungh.cc/users/find/${data}`)
-          .then(r => r.json() as Promise<{ user: { username?: string } }>)
-          .catch(() => ({ user: null }))
-
-        if (user) {
-          meta.github = user.username
-          break
+        if (!meta) {
+          return
         }
-      }
-    }),
-  )
+
+        for (const data of [...meta.email, meta.name]) {
+          const { user } = await fetch(`https://ungh.cc/users/find/${data}`)
+            .then(r => r.json() as Promise<{ user: { username?: string } }>)
+            .catch(() => ({ user: null }))
+
+          if (user) {
+            meta.github = user.username
+            break
+          }
+        }
+      }),
+    )
+  }
 
   const authors = [..._authors.entries()].map(e => ({
     name: e[0],
