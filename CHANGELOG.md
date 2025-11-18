@@ -1,5 +1,17 @@
 # Changelog
 
+## v0.2.5-beta.3...v0.2.5-beta.4
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.3...v0.2.5-beta.4)
+
+### 💅 Refactors
+
+- Improve circular dependencies detection ([1cd0ec7](https://github.com/LouisMazel/relizy/commit/1cd0ec7))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.2...v0.2.5-beta.3
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.2...v0.2.5-beta.3)
