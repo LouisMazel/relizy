@@ -142,28 +142,40 @@ export function topologicalSort(packages: PackageBase[]): PackageBase[] {
     packageMap.set(pkg.name, pkg)
   }
 
-  function visit(pkgName: string) {
-    if (visited.has(pkgName))
-      return
+  function visit(pkgName: string, path: string[] = []) {
+    logger.debug(`Visiting ${pkgName}, path: ${path.join(' → ')}, visiting: ${Array.from(visiting).join(', ')}`)
 
     if (visiting.has(pkgName)) {
-      logger.fail(`Circular dependency detected involving ${pkgName}`)
+      const cycle = [...path, pkgName]
+      logger.warn(`Circular dependency detected: ${cycle.join(' → ')}`)
+      return
+    }
+
+    if (visited.has(pkgName)) {
+      logger.debug(`${pkgName} already visited globally, skipping`)
       return
     }
 
     visiting.add(pkgName)
+    logger.debug(`Added ${pkgName} to visiting set`)
 
     const pkg = packageMap.get(pkgName)
-    if (!pkg)
+    if (!pkg) {
+      logger.debug(`Package ${pkgName} not found in packageMap`)
+      visiting.delete(pkgName)
       return
+    }
+
+    logger.debug(`${pkgName} has dependencies: ${pkg.dependencies.join(', ')}`)
 
     for (const depName of pkg.dependencies) {
-      visit(depName)
+      visit(depName, [...path, pkgName])
     }
 
     visiting.delete(pkgName)
     visited.add(pkgName)
     sorted.push(pkg)
+    logger.debug(`Finished visiting ${pkgName}`)
   }
 
   for (const pkg of packages) {
