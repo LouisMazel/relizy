@@ -594,16 +594,14 @@ export async function confirmBump({
 
   if (versionMode === 'unified') {
     if (!newVersion) {
-      logger.error('Cannot confirm bump in unified mode without a new version')
-      process.exit(1)
+      throw new Error('Cannot confirm bump in unified mode without a new version')
     }
 
     displayUnifiedModePackages({ packages, newVersion, force })
   }
   else if (versionMode === 'selective') {
     if (!newVersion) {
-      logger.error('Cannot confirm bump in selective mode without a new version')
-      process.exit(1)
+      throw new Error('Cannot confirm bump in selective mode without a new version')
     }
 
     displaySelectiveModePackages({ packages, newVersion, force })
