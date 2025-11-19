@@ -3,7 +3,7 @@ import { logger } from '@maz-ui/node'
 import { detectPackageManager, executeBuildCmd, getIndependentTag, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
 import { executeHook } from '../core/utils'
 
-// eslint-disable-next-line complexity
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function publish(options: Partial<PublishOptions> = {}) {
   const config = await loadRelizyConfig({
     configName: options.configName,
@@ -39,6 +39,10 @@ export async function publish(options: Partial<PublishOptions> = {}) {
     await executeHook('before:publish', config, dryRun)
 
     const rootPackage = readPackageJson(config.cwd)
+
+    if (!rootPackage) {
+      throw new Error('Failed to read root package.json')
+    }
 
     logger.start('Start publishing packages')
 
