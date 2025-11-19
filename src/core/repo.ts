@@ -9,13 +9,17 @@ import fastGlob from 'fast-glob'
 import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType, resolveTags } from '../core'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
 
-export function readPackageJson(packagePath: string): ReadPackage {
+export function readPackageJson(packagePath: string): ReadPackage | undefined {
   const packageJsonPath = join(packagePath, 'package.json')
 
-  if (!existsSync(packageJsonPath))
-    throw new Error(`package.json not found at ${packageJsonPath}`)
-  if (!statSync(packagePath).isDirectory())
-    throw new Error(`Not a directory: ${packagePath}`)
+  if (!existsSync(packageJsonPath)) {
+    logger.fail(`package.json not found at ${packageJsonPath}`)
+    return
+  }
+  if (!statSync(packagePath).isDirectory()) {
+    logger.fail(`Not a directory: ${packagePath}`)
+    return
+  }
 
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as {
     name: string | undefined
@@ -58,6 +62,10 @@ export async function getRootPackage({
 }): Promise<RootPackage> {
   try {
     const packageJson = readPackageJson(config.cwd)
+
+    if (!packageJson) {
+      throw new Error('Failed to read root package.json')
+    }
 
     const commits = await getPackageCommits({
       pkg: packageJson,
@@ -238,6 +246,11 @@ export async function getPackages({
 
       const packageBase = readPackageJson(matchPath)
 
+      if (!packageBase) {
+        logger.debug(`Failed to read package.json at ${matchPath} - ignored`)
+        continue
+      }
+
       if (packageBase.private) {
         logger.debug(`${packageBase.name} is private and will be ignored`)
         continue
@@ -390,6 +403,10 @@ export async function getPackageCommits({
   logger.debug(`Has breaking changes: ${hasBreakingChanges}`)
 
   const rootPackage = readPackageJson(changelogConfig.cwd)
+
+  if (!rootPackage) {
+    throw new Error('Failed to read root package.json')
+  }
 
   const commits = allCommits.filter((commit) => {
     const type = changelogConfig?.types[commit.type] as ConfigType | undefined

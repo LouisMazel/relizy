@@ -309,6 +309,10 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
 
     const rootPackageBase = readPackageJson(config.cwd)
 
+    if (!rootPackageBase) {
+      throw new Error('Failed to read root package.json')
+    }
+
     const { from, to } = await resolveTags<'provider-release'>({
       config,
       step: 'provider-release',

@@ -23,6 +23,10 @@ async function bumpUnifiedMode({
 
   const rootPackageBase = readPackageJson(config.cwd)
 
+  if (!rootPackageBase) {
+    throw new Error('Failed to read root package.json')
+  }
+
   const { from, to } = await resolveTags<'bump'>({
     config,
     step: 'bump',
@@ -117,6 +121,10 @@ async function bumpSelectiveMode({
   logger.debug('Starting bump in selective mode')
 
   const rootPackageBase = readPackageJson(config.cwd)
+
+  if (!rootPackageBase) {
+    throw new Error('Failed to read root package.json')
+  }
 
   const { from, to } = await resolveTags<'bump'>({
     config,
