@@ -266,11 +266,13 @@ export function writeVersion(pkgPath: string, newVersion: string, dryRun = false
 }
 
 export function getPackageNewVersion({
+  name,
   currentVersion,
   releaseType,
   preid,
   suffix,
 }: {
+  name: string
   currentVersion: string
   releaseType: ReleaseType
   preid: string | undefined
@@ -279,7 +281,7 @@ export function getPackageNewVersion({
   let newVersion = semver.inc(currentVersion, releaseType, preid as string)
 
   if (!newVersion) {
-    throw new Error(`Unable to bump version "${currentVersion}" with release type "${releaseType}"\n\nYou should use an explicit release type (use flag: --major, --minor, --patch, --premajor, --preminor, --prepatch, --prerelease)`)
+    throw new Error(`Unable to bump "${name}" version "${currentVersion}" with release type "${releaseType}"\n\nYou should use an explicit release type (use flag: --major, --minor, --patch, --premajor, --preminor, --prepatch, --prerelease)`)
   }
 
   if (isPrereleaseReleaseType(releaseType) && suffix) {
@@ -290,15 +292,15 @@ export function getPackageNewVersion({
   const isValidVersion = semver.gt(newVersion, currentVersion)
 
   if (!isValidVersion) {
-    throw new Error(`Unable to bump version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
+    throw new Error(`Unable to bump "${name}" version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
   }
 
   if (isGraduating(currentVersion, releaseType)) {
-    logger.info(`Graduating from prerelease ${currentVersion} to stable ${newVersion}`)
+    logger.info(`Graduating "${name}" from prerelease ${currentVersion} to stable ${newVersion}`)
   }
 
   if (isChangedPreid(currentVersion, preid)) {
-    logger.debug(`Graduating from ${getPreid(currentVersion)} to ${preid}`)
+    logger.debug(`Graduating "${name}" from ${getPreid(currentVersion)} to ${preid}`)
   }
 
   return newVersion
