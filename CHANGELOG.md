@@ -1,5 +1,37 @@
 # Changelog
 
+## v0.2.5-beta.6...v0.2.5-beta.12
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.6...v0.2.5-beta.12)
+
+### 🚀 Features
+
+- Add option to skip git tag creation during release ([9700ccf](https://github.com/LouisMazel/relizy/commit/9700ccf))
+
+  Allow users to disable tag creation during release using the
+  `--no-git-tag` flag. Useful when you want to publish and push
+  commits without creating git tags.
+  Usage: relizy release --no-git-tag
+
+- **docs:** Document gitTag option and improve release examples ([91ee4c3](https://github.com/LouisMazel/relizy/commit/91ee4c3))
+
+### 🩹 Fixes
+
+- **docs:** Correct package.json config example ([2294e31](https://github.com/LouisMazel/relizy/commit/2294e31))
+- Publish - print new version instead the old in publish log ([3fc5c07](https://github.com/LouisMazel/relizy/commit/3fc5c07))
+- Don't throw an error when a folder in glob patterns has not package.json, ignore the package instead ([757acae](https://github.com/LouisMazel/relizy/commit/757acae))
+- Don't throw an error when a folder in glob patterns has not package.json, ignore the package instead ([337303f](https://github.com/LouisMazel/relizy/commit/337303f))
+- Bump - don't exit with error when no relevant commits to bump ([f0cf9ce](https://github.com/LouisMazel/relizy/commit/f0cf9ce))
+- Release - errors when release stable version from prerelease ([ee87638](https://github.com/LouisMazel/relizy/commit/ee87638))
+
+### 💅 Refactors
+
+- Bump - improve confirm prompt with data ([d8b5788](https://github.com/LouisMazel/relizy/commit/d8b5788))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.6...v0.2.5-beta.10
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.6...v0.2.5-beta.10)
