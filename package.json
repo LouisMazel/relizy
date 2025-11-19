@@ -71,7 +71,7 @@
     "pre-commit": "lint-staged"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.10.1",
+    "@inquirer/prompts": "^8.0.1",
     "@maz-ui/node": "^4.3.1-alpha.0",
     "@maz-ui/utils": "^4.3.0",
     "c12": "^3.3.2",
@@ -91,7 +91,7 @@
     "@maz-ui/eslint-config": "4.3.1-alpha.2",
     "@types/node": "^24.10.1",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.0.8",
+    "@vitest/coverage-v8": "^4.0.10",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
@@ -100,7 +100,7 @@
     "memfs": "^4.51.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.10"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [

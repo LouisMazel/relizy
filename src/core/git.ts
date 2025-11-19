@@ -145,6 +145,11 @@ export async function createCommitAndTags({
     }
 
     const rootPackage = readPackageJson(internalConfig.cwd)
+
+    if (!rootPackage) {
+      throw new Error('Failed to read root package.json')
+    }
+
     newVersion = newVersion || rootPackage.version
 
     const versionForMessage = internalConfig.monorepo?.versionMode === 'independent'

@@ -67,11 +67,15 @@ async function generateIndependentRootChangelog({
 
   logger.verbose(`Aggregated root changelog: ${aggregatedChangelog}`)
 
-  const rootPackage = readPackageJson(config.cwd)
+  const rootPackageRead = readPackageJson(config.cwd)
+
+  if (!rootPackageRead) {
+    throw new Error('Failed to read root package.json')
+  }
 
   writeChangelogToFile({
     cwd: config.cwd,
-    pkg: rootPackage,
+    pkg: rootPackageRead,
     changelog: aggregatedChangelog,
     dryRun,
   })
@@ -100,6 +104,10 @@ async function generateSimpleRootChangelog({
   logger.debug('Generating simple root changelog')
 
   const rootPackageRead = readPackageJson(config.cwd)
+
+  if (!rootPackageRead) {
+    throw new Error('Failed to read root package.json')
+  }
 
   const { from, to } = await resolveTags<'changelog'>({
     config,
