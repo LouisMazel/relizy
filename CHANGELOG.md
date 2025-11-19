@@ -1,5 +1,24 @@
 # Changelog
 
+## v0.2.5-beta.12...v0.2.5-beta.13
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.12...v0.2.5-beta.13)
+
+### 🚀 Features
+
+- Publish - add optional safety check to check package registry authentication ([ff81c7a](https://github.com/LouisMazel/relizy/commit/ff81c7a))
+  - Only for npm and pnpm (not yarn and bun)
+  - Is disabled by default
+  - To enable it, set 'config.publish.safety' to true
+
+### 💅 Refactors
+
+- Improve logs while bumping package version ([493d403](https://github.com/LouisMazel/relizy/commit/493d403))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.6...v0.2.5-beta.12
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.6...v0.2.5-beta.12)
