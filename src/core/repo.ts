@@ -93,6 +93,7 @@ export async function getRootPackage({
       }
 
       newVersion = getPackageNewVersion({
+        name: packageJson.name,
         currentVersion: packageJson.version,
         releaseType,
         preid: config.bump.preid,
@@ -321,6 +322,7 @@ export async function getPackages({
 
     const newVersion = releaseType
       ? getPackageNewVersion({
+          name: pkg.name,
           currentVersion: pkg.version,
           releaseType,
           preid: config.bump.preid,
