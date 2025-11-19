@@ -10,6 +10,17 @@ import { formatJson } from '@maz-ui/utils'
 import * as semver from 'semver'
 import { hasLernaJson } from '../core'
 
+export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
+  const isSameBase = semver.major(version) === semver.major(newVersion)
+    && semver.minor(version) === semver.minor(newVersion)
+    && semver.patch(version) === semver.patch(newVersion)
+
+  const fromPrerelease = semver.prerelease(version) !== null
+  const toStable = semver.prerelease(newVersion) === null
+
+  return isSameBase && fromPrerelease && toStable
+}
+
 export function determineSemverChange(
   commits: GitCommit[],
   types: RelizyConfig['types'],
@@ -229,25 +240,25 @@ export function determineReleaseType({
   return handleExplicitReleaseType({ releaseType, currentVersion })
 }
 
-export function writeVersion(pkgPath: string, version: string, dryRun = false): void {
+export function writeVersion(pkgPath: string, newVersion: string, dryRun = false): void {
   const packageJsonPath = join(pkgPath, 'package.json')
 
   try {
-    logger.debug(`Writing ${version} to ${pkgPath}`)
+    logger.debug(`Writing ${newVersion} to ${pkgPath}`)
 
     const content = readFileSync(packageJsonPath, 'utf8')
     const packageJson = JSON.parse(content)
 
     const oldVersion = packageJson.version
-    packageJson.version = version
+    packageJson.version = newVersion
 
     if (dryRun) {
-      logger.info(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${version}`)
+      logger.info(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
       return
     }
 
     writeFileSync(packageJsonPath, `${formatJson(packageJson)}\n`, 'utf8')
-    logger.info(`Updated ${packageJson.name}: ${oldVersion} → ${version}`)
+    logger.info(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
   }
   catch (error) {
     throw new Error(`Unable to write version to ${packageJsonPath}: ${error}`)

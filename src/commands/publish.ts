@@ -1,7 +1,7 @@
 import type { PackageBase, PublishOptions, PublishResponse } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectPackageManager, executeBuildCmd, getIndependentTag, getPackages, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
-import { executeHook } from '../core/utils'
+import { detectPackageManager, executeBuildCmd, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
+import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function publish(options: Partial<PublishOptions> = {}) {
@@ -46,9 +46,9 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.start('Start publishing packages')
 
-    const packages = options.bumpedPackages || await getPackages({
+    const packages = await getPackagesOrBumpedPackages({
       config,
-      patterns: config.publish.packages ?? config.monorepo?.packages,
+      bumpResult: options.bumpResult,
       suffix: options.suffix,
       force: options.force ?? false,
     })

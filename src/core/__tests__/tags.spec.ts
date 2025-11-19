@@ -77,7 +77,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'changelog',
           pkg: createMockPackageInfo(),
-          newVersion: undefined,
+          newVersion: '1.1.0',
         })
 
         expect(result.from).toBe(FIRST_COMMIT_HASH)
@@ -90,7 +90,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'publish',
           pkg: createMockPackageInfo({ name: 'pkg-a' }),
-          newVersion: '1.1.0' as any,
+          newVersion: '1.1.0',
         })
 
         expect(result.from).toBe(FIRST_COMMIT_HASH)
@@ -103,7 +103,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'provider-release',
           pkg: createMockPackageInfo({ name: 'pkg-a' }),
-          newVersion: '2.0.0' as any,
+          newVersion: '2.0.0',
         })
 
         expect(result.from).toBe(FIRST_COMMIT_HASH)
@@ -132,7 +132,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'changelog',
           pkg: createMockPackageInfo(),
-          newVersion: undefined,
+          newVersion: '1.1.0',
         })
 
         expect(result.from).toBe('LAST_TAG')
@@ -153,7 +153,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'publish',
           pkg: createMockPackageInfo(),
-          newVersion: '1.2.0' as any,
+          newVersion: '1.2.0',
         })
 
         expect(result.from).toBe('LAST_TAG')
@@ -206,7 +206,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'changelog',
           pkg: createMockPackageInfo(),
-          newVersion: undefined,
+          newVersion: '1.1.0',
         })
 
         expect(result.from).toBe('LAST_TAG')
@@ -227,7 +227,7 @@ describe('Given resolveTags function', () => {
           config,
           step: 'publish',
           pkg: createMockPackageInfo(),
-          newVersion: '1.5.0' as any,
+          newVersion: '1.5.0',
         })
 
         expect(result.from).toBe('LAST_TAG')

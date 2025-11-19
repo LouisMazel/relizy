@@ -355,9 +355,9 @@ export interface PublishOptions extends PublishConfig {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Bumped packages
+   * Bump result
    */
-  bumpedPackages?: BumpResultTruthy['bumpedPackages']
+  bumpResult?: BumpResultTruthy
   /**
    * Set log level
    */

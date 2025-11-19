@@ -1,30 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { executeFormatCmd, executeHook, generateChangelog, getPackages, getRootPackage, isBumpedPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
-
-async function getPackagesToGenerateChangelogFor({
-  config,
-  bumpResult,
-  suffix,
-  force,
-}: {
-  config: ResolvedRelizyConfig
-  bumpResult: BumpResultTruthy | undefined
-  suffix: string | undefined
-  force: boolean
-}): Promise<PackageBase[]> {
-  if (bumpResult?.bumpedPackages && bumpResult.bumpedPackages.length > 0) {
-    return bumpResult.bumpedPackages
-  }
-
-  return await getPackages({
-    config,
-    patterns: config.monorepo?.packages,
-    suffix,
-    force,
-  })
-}
+import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -109,10 +86,12 @@ async function generateSimpleRootChangelog({
     throw new Error('Failed to read root package.json')
   }
 
+  const newVersion = bumpResult?.newVersion || rootPackageRead.version
+
   const { from, to } = await resolveTags<'changelog'>({
     config,
     step: 'changelog',
-    newVersion: undefined,
+    newVersion,
     pkg: rootPackageRead,
   })
 
@@ -128,8 +107,6 @@ async function generateSimpleRootChangelog({
   })
 
   logger.debug(`Generating ${rootPackage.name} changelog (${fromTag}...${to})`)
-
-  const newVersion = bumpResult?.newVersion || rootPackage.version
 
   const rootChangelog = await generateChangelog({
     pkg: rootPackage,
@@ -180,7 +157,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     if (config.changelog?.rootChangelog && config.monorepo) {
       if (config.monorepo.versionMode === 'independent') {
-        const packages = await getPackagesToGenerateChangelogFor({
+        const packages = await getPackagesOrBumpedPackages({
           config,
           bumpResult: options.bumpResult,
           suffix: options.suffix,
@@ -209,25 +186,25 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.debug('Generating package changelogs...')
 
-    const packages = options.bumpResult?.bumpedPackages
-      ? options.bumpResult.bumpedPackages
-      : await getPackages({
-          config,
-          patterns: config.monorepo?.packages,
-          suffix: options.suffix,
-          force: options.force ?? false,
-        })
+    const packages = await getPackagesOrBumpedPackages({
+      config,
+      bumpResult: options.bumpResult,
+      suffix: options.suffix,
+      force: options.force ?? false,
+    })
 
     logger.debug(`Processing ${packages.length} package(s)`)
 
     let generatedCount = 0
 
     for await (const pkg of packages) {
+      const newVersion = options.bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
+
       const { from, to } = await resolveTags<'changelog'>({
         config,
         step: 'changelog',
         pkg,
-        newVersion: undefined,
+        newVersion,
       })
 
       logger.debug(`Processing ${pkg.name} (${from}...${to})`)
@@ -236,7 +213,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
         pkg,
         config,
         dryRun,
-        newVersion: options.bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion,
+        newVersion,
       })
 
       if (changelog) {
