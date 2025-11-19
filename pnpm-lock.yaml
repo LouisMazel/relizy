@@ -11,9 +11,6 @@ importers:
       '@inquirer/prompts':
         specifier: ^8.0.1
         version: 8.0.1(@types/node@24.10.1)
-      '@maz-ui/node':
-        specifier: ^4.3.1-alpha.0
-        version: 4.3.1-alpha.0
       '@maz-ui/utils':
         specifier: ^4.3.0
         version: 4.3.0
@@ -55,8 +52,11 @@ importers:
         specifier: ^20.0.0
         version: 20.0.0
       '@maz-ui/eslint-config':
-        specifier: 4.3.1-alpha.2
-        version: 4.3.1-alpha.2(@vue/compiler-sfc@3.5.23)(eslint@9.39.1(jiti@2.6.1))(tailwindcss@3.4.18(yaml@2.8.1))(typescript@5.9.3)(vitest@4.0.10(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))
+        specifier: 4.3.2-beta.1
+        version: 4.3.2-beta.1(@vue/compiler-sfc@3.5.23)(eslint@9.39.1(jiti@2.6.1))(tailwindcss@3.4.18(yaml@2.8.1))(typescript@5.9.3)(vitest@4.0.10(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))
+      '@maz-ui/node':
+        specifier: 4.3.2-beta.1
+        version: 4.3.2-beta.1
       '@types/node':
         specifier: ^24.10.1
         version: 24.10.1
@@ -767,8 +767,8 @@ packages:
     peerDependencies:
       vue: ^3.0.0
 
-  '@maz-ui/eslint-config@4.3.1-alpha.2':
-    resolution: {integrity: sha512-POwb1ERqoYXsv3gWe8P57Mpm0YFNKUNbVRwenbc505cuvoYQWOax/SnbOdN9czCHaqf+sEvDhHXxEcWD90caYg==}
+  '@maz-ui/eslint-config@4.3.2-beta.1':
+    resolution: {integrity: sha512-InvG5Smvt2OQ8b3iwyyrkSfm1MFlgZ65pIu+FZ2kPzx99D1ZO3am9Ch2nMI0Kt1jnsFTEsaQ9uSZctYzkZrkPw==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       eslint: ^9.0.0
@@ -776,8 +776,8 @@ packages:
       eslint:
         optional: true
 
-  '@maz-ui/node@4.3.1-alpha.0':
-    resolution: {integrity: sha512-zxx6jmPeHKwHW+Rh7tbs7aQazwnae7Sj05hkfv9tirzeni8QbnWJOHZzbzcL7AYurikyca48sJ+m7rLfb0fI7A==}
+  '@maz-ui/node@4.3.2-beta.1':
+    resolution: {integrity: sha512-ISfg0LFTlIsuTo+JStLiucNy+AxGH63WGcSsrCG3wqLVEwTBwnYrLxAVenv4ibTxfFB8f15K5HEIhOZ0RTVFSQ==}
     engines: {node: '>=18.0.0'}
 
   '@maz-ui/utils@4.3.0':
@@ -2292,8 +2292,8 @@ packages:
       picomatch:
         optional: true
 
-  figlet@1.9.3:
-    resolution: {integrity: sha512-majPgOpVtrZN1iyNGbsUP6bOtZ6eaJgg5HHh0vFvm5DJhh8dc+FJpOC4GABvMZ/A7XHAJUuJujhgUY/2jPWgMA==}
+  figlet@1.9.4:
+    resolution: {integrity: sha512-uN6QE+TrzTAHC1IWTyrc4FfGo2KH/82J8Jl1tyKB7+z5DBit/m3D++Iu5lg91qJMnQQ3vpJrj5gxcK/pk4R9tQ==}
     engines: {node: '>= 17.0.0'}
     hasBin: true
 
@@ -4867,7 +4867,7 @@ snapshots:
       style-inject: 0.3.0
       vue: 3.5.23(typescript@5.9.3)
 
-  '@maz-ui/eslint-config@4.3.1-alpha.2(@vue/compiler-sfc@3.5.23)(eslint@9.39.1(jiti@2.6.1))(tailwindcss@3.4.18(yaml@2.8.1))(typescript@5.9.3)(vitest@4.0.10(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))':
+  '@maz-ui/eslint-config@4.3.2-beta.1(@vue/compiler-sfc@3.5.23)(eslint@9.39.1(jiti@2.6.1))(tailwindcss@3.4.18(yaml@2.8.1))(typescript@5.9.3)(vitest@4.0.10(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))':
     dependencies:
       '@antfu/eslint-config': 6.2.0(@vue/compiler-sfc@3.5.23)(eslint-plugin-format@1.0.2(eslint@9.39.1(jiti@2.6.1)))(eslint-plugin-vuejs-accessibility@2.4.1(eslint@9.39.1(jiti@2.6.1)))(eslint@9.39.1(jiti@2.6.1))(typescript@5.9.3)(vitest@4.0.10(@types/debug@4.1.12)(@types/node@24.10.1)(jiti@2.6.1)(yaml@2.8.1))
       eslint-plugin-format: 1.0.2(eslint@9.39.1(jiti@2.6.1))
@@ -4898,11 +4898,11 @@ snapshots:
       - typescript
       - vitest
 
-  '@maz-ui/node@4.3.1-alpha.0':
+  '@maz-ui/node@4.3.2-beta.1':
     dependencies:
       colorette: 2.0.20
       consola: 3.4.2
-      figlet: 1.9.3
+      figlet: 1.9.4
 
   '@maz-ui/utils@4.3.0': {}
 
@@ -6499,7 +6499,7 @@ snapshots:
     optionalDependencies:
       picomatch: 4.0.3
 
-  figlet@1.9.3:
+  figlet@1.9.4:
     dependencies:
       commander: 14.0.2
 
@@ -7884,7 +7884,7 @@ snapshots:
 
   refa@0.12.1:
     dependencies:
-      '@eslint-community/regexpp': 4.12.1
+      '@eslint-community/regexpp': 4.12.2
 
   regex-recursion@6.0.2:
     dependencies:
@@ -7898,7 +7898,7 @@ snapshots:
 
   regexp-ast-analysis@0.7.1:
     dependencies:
-      '@eslint-community/regexpp': 4.12.1
+      '@eslint-community/regexpp': 4.12.2
       refa: 0.12.1
 
   regexp-tree@0.1.27: {}
@@ -8030,7 +8030,7 @@ snapshots:
 
   scslre@0.3.0:
     dependencies:
-      '@eslint-community/regexpp': 4.12.1
+      '@eslint-community/regexpp': 4.12.2
       refa: 0.12.1
       regexp-ast-analysis: 0.7.1
 
