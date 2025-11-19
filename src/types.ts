@@ -319,6 +319,11 @@ export interface ProviderReleaseOptions {
 
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
+   * Package manager (e.g. `pnpm` or `npm`)
+   * @values `pnpm`, `npm`, `yarn`, `bun`
+   */
+  packageManager?: PackageManager
+  /**
    * NPM registry URL (e.g. `https://registry.npmjs.org/`)
    */
   registry?: string
@@ -342,6 +347,15 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * Command to build your packages before publishing (e.g. `pnpm build`)
    */
   buildCmd?: string
+  /**
+   * NPM token (e.g. `123456`) - only supported for pnpm and npm
+   */
+  token?: string
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
 }
 
 export interface PublishOptions extends PublishConfig {
@@ -462,6 +476,10 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default true
    */
   safetyCheck?: boolean
+  /**
+   * NPM token (e.g. "123456")
+   */
+  publishToken?: string
 }
 
 export interface TemplatesConfig {

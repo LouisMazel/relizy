@@ -8,6 +8,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When bumping with stable release types', () => {
     it('Then bumps patch version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'patch',
         preid: undefined,
@@ -19,6 +20,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps minor version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'minor',
         preid: undefined,
@@ -30,6 +32,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps major version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'major',
         preid: undefined,
@@ -41,6 +44,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps patch version from complex version', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.5.8',
         releaseType: 'patch',
         preid: undefined,
@@ -52,6 +56,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps minor version and resets patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.2.3',
         releaseType: 'minor',
         preid: undefined,
@@ -63,6 +68,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps major version and resets minor and patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '3.7.9',
         releaseType: 'major',
         preid: undefined,
@@ -74,6 +80,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates from prerelease to patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-beta.0',
         releaseType: 'patch',
         preid: undefined,
@@ -85,6 +92,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates from prerelease to minor', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-alpha.5',
         releaseType: 'minor',
         preid: undefined,
@@ -96,6 +104,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates from prerelease to major', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.5.0-rc.1',
         releaseType: 'major',
         preid: undefined,
@@ -109,6 +118,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When bumping with prerelease types without suffix', () => {
     it('Then bumps prepatch version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -120,6 +130,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps preminor version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'preminor',
         preid: 'beta',
@@ -131,6 +142,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps premajor version from stable', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'premajor',
         preid: 'rc',
@@ -142,6 +154,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prerelease version from existing prerelease', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-alpha.0',
         releaseType: 'prerelease',
         preid: 'alpha',
@@ -153,6 +166,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prerelease version multiple times', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-beta.5',
         releaseType: 'prerelease',
         preid: 'beta',
@@ -164,6 +178,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prepatch with different preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.3.4',
         releaseType: 'prepatch',
         preid: 'rc',
@@ -175,6 +190,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps preminor with alpha preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '5.2.1',
         releaseType: 'preminor',
         preid: 'alpha',
@@ -186,6 +202,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps premajor from version with patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '3.7.2',
         releaseType: 'premajor',
         preid: 'beta',
@@ -199,6 +216,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When bumping with prerelease types with suffix', () => {
     it('Then bumps prepatch version with custom suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -210,6 +228,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps preminor version with custom suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'preminor',
         preid: 'beta',
@@ -221,6 +240,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps premajor version with custom suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'premajor',
         preid: 'rc',
@@ -232,6 +252,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prerelease version with custom suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-alpha.0',
         releaseType: 'prerelease',
         preid: 'alpha',
@@ -243,6 +264,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then replaces existing prerelease number with suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-beta.5',
         releaseType: 'prerelease',
         preid: 'beta',
@@ -254,6 +276,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps with numeric suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.1.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -265,6 +288,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps with alphanumeric suffix', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '3.0.0',
         releaseType: 'preminor',
         preid: 'beta',
@@ -278,6 +302,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When bumping from initial versions', () => {
     it('Then bumps from 0.0.0 to patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '0.0.0',
         releaseType: 'patch',
         preid: undefined,
@@ -289,6 +314,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from 0.0.0 to minor', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '0.0.0',
         releaseType: 'minor',
         preid: undefined,
@@ -300,6 +326,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from 0.0.0 to major', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '0.0.0',
         releaseType: 'major',
         preid: undefined,
@@ -311,6 +338,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from 0.1.0 to prepatch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '0.1.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -322,6 +350,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from 0.0.1 to preminor', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '0.0.1',
         releaseType: 'preminor',
         preid: 'beta',
@@ -335,6 +364,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When bumping with different preids', () => {
     it('Then changes preid from alpha to beta with prerelease', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-alpha.0',
         releaseType: 'prerelease',
         preid: 'beta',
@@ -346,6 +376,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then changes preid from beta to rc with prerelease', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-beta.3',
         releaseType: 'prerelease',
         preid: 'rc',
@@ -357,19 +388,21 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then changes preid from rc to alpha with prerelease', () => {
       const result = () => getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.0.0-rc.1',
         releaseType: 'prerelease',
         preid: 'alpha',
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump version "2.0.0-rc.1" to "2.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrowError('Unable to bump "test" version "2.0.0-rc.1" to "2.0.0-alpha.0", new version is not greater than current version')
     })
   })
 
   describe('When suffix is ignored for stable releases', () => {
     it('Then ignores suffix for patch release', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'patch',
         preid: undefined,
@@ -381,6 +414,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then ignores suffix for minor release', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'minor',
         preid: undefined,
@@ -392,6 +426,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then ignores suffix for major release', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'major',
         preid: undefined,
@@ -405,41 +440,45 @@ describe('Given getPackageNewVersion function', () => {
   describe('When encountering invalid scenarios', () => {
     it('Then throws error when downgrading preid from beta to alpha', () => {
       const result = () => getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-beta.0',
         releaseType: 'prerelease',
         preid: 'alpha',
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump version "1.0.0-beta.0" to "1.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrowError('Unable to bump "test" version "1.0.0-beta.0" to "1.0.0-alpha.0", new version is not greater than current version')
     })
 
     it('Then throws error when downgrading preid from rc to beta', () => {
       const result = () => getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-rc.5',
         releaseType: 'prerelease',
         preid: 'beta',
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump version "1.0.0-rc.5" to "1.0.0-beta.0", new version is not greater than current version')
+      expect(result).toThrowError('Unable to bump "test" version "1.0.0-rc.5" to "1.0.0-beta.0", new version is not greater than current version')
     })
 
     it('Then throws error when downgrading preid from rc to alpha', () => {
       const result = () => getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.0.0-rc.0',
         releaseType: 'prerelease',
         preid: 'alpha',
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump version "2.0.0-rc.0" to "2.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrowError('Unable to bump "test" version "2.0.0-rc.0" to "2.0.0-alpha.0", new version is not greater than current version')
     })
   })
 
   describe('When bumping complex prerelease scenarios', () => {
     it('Then bumps from stable to prepatch then prerelease', () => {
       const firstBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -449,6 +488,7 @@ describe('Given getPackageNewVersion function', () => {
       expect(firstBump).toBe('1.0.1-alpha.0')
 
       const secondBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: firstBump,
         releaseType: 'prerelease',
         preid: 'alpha',
@@ -460,6 +500,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from preminor to prerelease multiple times', () => {
       const firstBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'preminor',
         preid: 'beta',
@@ -469,6 +510,7 @@ describe('Given getPackageNewVersion function', () => {
       expect(firstBump).toBe('1.1.0-beta.0')
 
       const secondBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: firstBump,
         releaseType: 'prerelease',
         preid: 'beta',
@@ -478,6 +520,7 @@ describe('Given getPackageNewVersion function', () => {
       expect(secondBump).toBe('1.1.0-beta.1')
 
       const thirdBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: secondBump,
         releaseType: 'prerelease',
         preid: 'beta',
@@ -489,6 +532,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps with suffix then without suffix', () => {
       const firstBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'prepatch',
         preid: 'alpha',
@@ -498,15 +542,17 @@ describe('Given getPackageNewVersion function', () => {
       expect(firstBump).toBe('1.0.1-alpha.build1')
 
       const secondBump = () => getPackageNewVersion({
+        name: 'test',
         currentVersion: firstBump,
         releaseType: 'prerelease',
         preid: 'alpha',
         suffix: undefined,
       })
 
-      expect(secondBump).toThrowError('Unable to bump version "1.0.1-alpha.build1" to "1.0.1-alpha.0", new version is not greater than current version')
+      expect(secondBump).toThrowError('Unable to bump "test" version "1.0.1-alpha.build1" to "1.0.1-alpha.0", new version is not greater than current version')
 
       const thirdBump = getPackageNewVersion({
+        name: 'test',
         currentVersion: firstBump,
         releaseType: 'prerelease',
         preid: 'beta',
@@ -520,6 +566,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When graduating from prerelease to stable', () => {
     it('Then graduates alpha prerelease to patch', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.2.3-alpha.5',
         releaseType: 'patch',
         preid: undefined,
@@ -531,6 +578,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates beta prerelease to minor', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.2.3-beta.2',
         releaseType: 'minor',
         preid: undefined,
@@ -542,6 +590,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates rc prerelease to major', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.2.3-rc.1',
         releaseType: 'major',
         preid: undefined,
@@ -553,6 +602,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates prepatch prerelease directly', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.0.1-alpha.0',
         releaseType: 'patch',
         preid: undefined,
@@ -564,6 +614,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates preminor prerelease directly', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '2.1.0-beta.0',
         releaseType: 'minor',
         preid: undefined,
@@ -575,6 +626,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then graduates premajor prerelease directly', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '3.0.0-rc.0',
         releaseType: 'major',
         preid: undefined,
@@ -588,6 +640,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When handling edge cases with versions', () => {
     it('Then bumps high version numbers', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '99.99.99',
         releaseType: 'patch',
         preid: undefined,
@@ -599,6 +652,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps from high minor to next', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.999.0',
         releaseType: 'minor',
         preid: undefined,
@@ -610,6 +664,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps version with multiple digit numbers', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '10.20.30',
         releaseType: 'patch',
         preid: undefined,
@@ -621,6 +676,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prerelease with high number', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-alpha.99',
         releaseType: 'prerelease',
         preid: 'alpha',
@@ -634,6 +690,7 @@ describe('Given getPackageNewVersion function', () => {
   describe('When using different preid values', () => {
     it('Then creates prepatch with custom preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'prepatch',
         preid: 'snapshot',
@@ -645,6 +702,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then creates preminor with custom preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'preminor',
         preid: 'dev',
@@ -656,6 +714,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then creates premajor with custom preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0',
         releaseType: 'premajor',
         preid: 'next',
@@ -667,6 +726,7 @@ describe('Given getPackageNewVersion function', () => {
 
     it('Then bumps prerelease with custom preid', () => {
       const result = getPackageNewVersion({
+        name: 'test',
         currentVersion: '1.0.0-canary.0',
         releaseType: 'prerelease',
         preid: 'canary',

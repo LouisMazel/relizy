@@ -20,12 +20,12 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
     token = config.tokens?.gitlab || config.repo?.token
   }
   else {
-    logger.error(`Unsupported Git provider: ${internalProvider || 'unknown'}`)
+    logger.error(`[provider-release-safety-check] Unsupported Git provider: ${internalProvider || 'unknown'}`)
     process.exit(1)
   }
 
   if (!token) {
-    logger.error(`No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
+    logger.error(`[provider-release-safety-check] No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
     process.exit(1)
   }
 }

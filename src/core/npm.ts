@@ -129,18 +129,57 @@ function isYarnBerry() {
   return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
 }
 
-function getCommandArgs({
+function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
   config,
   otp,
+  type,
 }: {
   packageManager: PackageManager
-  tag: string
+  tag: T extends 'publish' ? string : undefined
   config: ResolvedRelizyConfig
   otp?: string
+  type: T
 }) {
-  const args = ['publish', '--tag', tag]
+  const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
+
+  const registry = config.publish.registry
+  if (registry) {
+    args.push('--registry', registry)
+  }
+
+  const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
+
+  const publishToken = config.publish.token
+  if (publishToken) {
+    if (!registry) {
+      logger.warn('Publish token provided but no registry specified')
+    }
+    else if (!isPnpmOrNpm) {
+      logger.warn('Publish token only supported for pnpm and npm')
+    }
+    else {
+      const registryUrl = new URL(registry)
+      const authTokenKey = `--//${registryUrl.host}${registryUrl.pathname}:_authToken=${publishToken}`
+      args.push(authTokenKey)
+    }
+  }
+
+  // Priority: dynamic OTP > session OTP > config OTP
+  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
+  if (finalOtp) {
+    args.push('--otp', finalOtp)
+  }
+
+  if (type === 'auth') {
+    return args
+  }
+
+  const access = config.publish.access
+  if (access) {
+    args.push('--access', access)
+  }
 
   // Adjust for package managers
   if (packageManager === 'pnpm') {
@@ -154,22 +193,6 @@ function getCommandArgs({
   }
   else if (packageManager === 'npm') {
     args.push('--yes')
-  }
-
-  const registry = config.publish.registry
-  if (registry) {
-    args.push('--registry', registry)
-  }
-
-  const access = config.publish.access
-  if (access) {
-    args.push('--access', access)
-  }
-
-  // Priority: dynamic OTP > session OTP > config OTP
-  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
-  if (finalOtp) {
-    args.push('--otp', finalOtp)
   }
 
   return args
@@ -259,6 +282,50 @@ async function executePublishCommand({
   logger.info(`Published ${packageNameAndVersion}`)
 }
 
+export function getAuthCommand({
+  packageManager,
+  config,
+  otp,
+}: {
+  packageManager: PackageManager
+  config: ResolvedRelizyConfig
+  otp?: string
+}): string {
+  const args = getCommandArgs<'auth'>({
+    packageManager,
+    tag: undefined,
+    config,
+    otp,
+    type: 'auth',
+  })
+
+  return `${packageManager} ${args.join(' ')}`
+}
+
+function getPublishCommand({
+  packageManager,
+  tag,
+  config,
+  otp,
+}: {
+  packageManager: PackageManager
+  tag: string
+  config: ResolvedRelizyConfig
+  otp?: string
+}): string {
+  const args = getCommandArgs<'publish'>({
+    packageManager,
+    tag,
+    config,
+    otp,
+    type: 'publish',
+  })
+
+  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
+
+  return `${baseCommand} ${args.join(' ')}`
+}
+
 export async function publishPackage({
   pkg,
   config,
@@ -272,7 +339,6 @@ export async function publishPackage({
 }): Promise<void> {
   const tag = determinePublishTag(pkg.newVersion || pkg.version, config.publish.tag)
   const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
-  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 
   logger.debug(`Building publish command for ${pkg.name}`)
 
@@ -281,14 +347,12 @@ export async function publishPackage({
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const args = getCommandArgs({
+      const command = getPublishCommand({
         packageManager,
         tag,
         config,
         otp: dynamicOtp,
       })
-
-      const command = `${baseCommand} ${args.join(' ')}`
 
       logger.debug(`Publishing ${packageNameAndVersion} with tag '${tag}' with command: ${command}`)
 

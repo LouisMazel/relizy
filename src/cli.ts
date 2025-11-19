@@ -144,6 +144,7 @@ program
   .option('--access <type>', 'Package access level (public or restricted)')
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
+  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
     try {
       await publish({
@@ -152,10 +153,10 @@ program
         access: options.access,
         otp: options.otp,
         buildCmd: options.buildCmd,
+        token: options.publishToken,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
-
       })
     }
     catch {
@@ -221,6 +222,7 @@ program
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
+  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
     try {
       await release({
@@ -246,6 +248,7 @@ program
         buildCmd: options.buildCmd,
         rootChangelog: hasCliFlag('--no-root-changelog') ? false : undefined,
         token: options.token,
+        publishToken: options.publishToken,
         logLevel: program.opts().logLevel,
         force: options.force,
         yes: options.yes,

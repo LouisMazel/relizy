@@ -1,7 +1,50 @@
+import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PublishOptions, PublishResponse } from '../types'
-import { logger } from '@maz-ui/node'
-import { detectPackageManager, executeBuildCmd, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
+import { execPromise, logger } from '@maz-ui/node'
+import { detectPackageManager, executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
+
+export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+  logger.debug('[publish-safety-check] Running publish safety check')
+
+  if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
+    logger.debug('[publish-safety-check] Safety check disabled or publish disabled')
+    return
+  }
+
+  const packageManager = config.publish.packageManager || detectPackageManager(config.cwd)
+
+  if (!packageManager) {
+    logger.error('[publish-safety-check] Unable to detect package manager')
+    process.exit(1)
+  }
+
+  const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
+
+  if (isPnpmOrNpm) {
+    const authCommand = getAuthCommand({
+      packageManager,
+      config,
+      otp: config.publish.otp,
+    })
+
+    try {
+      logger.debug('[publish-safety-check] Authenticating to package registry...')
+      await execPromise(authCommand, {
+        cwd: config.cwd,
+        noStderr: true,
+        noStdout: true,
+        logLevel: config.logLevel,
+        noSuccess: true,
+      })
+      logger.info('[publish-safety-check] Successfully authenticated to package registry')
+    }
+    catch (error) {
+      logger.error('[publish-safety-check] Failed to authenticate to package registry:', error)
+      process.exit(1)
+    }
+  }
+}
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function publish(options: Partial<PublishOptions> = {}) {
@@ -15,15 +58,18 @@ export async function publish(options: Partial<PublishOptions> = {}) {
         registry: options.registry,
         tag: options.tag,
         buildCmd: options.buildCmd,
+        token: options.token,
       },
       logLevel: options.logLevel,
+      safetyCheck: options.safetyCheck,
     },
   })
 
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
-  const packageManager = detectPackageManager(process.cwd())
+  const packageManager = config.publish.packageManager || detectPackageManager(config.cwd)
+
   logger.debug(`Package manager: ${packageManager}`)
 
   logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
@@ -37,6 +83,8 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
   try {
     await executeHook('before:publish', config, dryRun)
+
+    await publishSafetyCheck({ config })
 
     const rootPackage = readPackageJson(config.cwd)
 

@@ -48,6 +48,7 @@ export function getDefaultConfig() {
     publish: {
       private: false,
       args: [],
+      safetyCheck: false,
     },
     tokens: {
       gitlab:
