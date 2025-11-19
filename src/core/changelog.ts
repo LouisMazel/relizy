@@ -33,7 +33,7 @@ export async function generateChangelog(
     }
     config: ResolvedRelizyConfig
     dryRun: boolean
-    newVersion: string | undefined
+    newVersion: string
   },
 ) {
   let fromTag = config.from
@@ -46,11 +46,9 @@ export async function generateChangelog(
     fromTag = config.monorepo?.versionMode === 'independent' ? getIndependentTag({ version: '0.0.0', name: pkg.name }) : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
   }
 
-  newVersion = newVersion || pkg.newVersion
-
   let toTag = config.to
 
-  if (!toTag && newVersion) {
+  if (!toTag) {
     toTag = config.monorepo?.versionMode === 'independent'
       ? getIndependentTag({ version: newVersion, name: pkg.name })
       : config.templates.tagBody.replace('{{newVersion}}', newVersion)

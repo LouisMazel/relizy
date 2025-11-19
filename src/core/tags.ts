@@ -3,7 +3,7 @@ import type { ReadPackage, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
 import { getCurrentGitRef, getFirstCommit } from './git'
-import { isGraduating } from './version'
+import { isGraduating, isGraduatingToStableBetweenVersion } from './version'
 
 export function getIndependentTag({ version, name }: { version: string, name: string }) {
   return `${name}@${version}`
@@ -225,7 +225,7 @@ function resolveToTag({
   return config.to || to
 }
 
-export async function resolveTags<S extends Step, NewVersion = S extends 'bump' | 'changelog' ? undefined : string>({
+export async function resolveTags<S extends Step, NewVersion = S extends 'bump' ? undefined : string>({
   config,
   step,
   pkg,
@@ -243,12 +243,14 @@ export async function resolveTags<S extends Step, NewVersion = S extends 'bump' 
 
   const releaseType = config.bump.type
 
+  const graduating = typeof newVersion === 'string' ? isGraduatingToStableBetweenVersion(pkg.version, newVersion) : isGraduating(pkg.version, releaseType)
+
   const from = await resolveFromTag({
     config,
     versionMode,
     step,
     packageName: pkg.name,
-    graduating: isGraduating(pkg.version, releaseType),
+    graduating,
     logLevel,
   })
 

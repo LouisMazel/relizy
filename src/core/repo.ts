@@ -28,7 +28,7 @@ export function readPackageJson(packagePath: string): ReadPackage | undefined {
   }
 
   if (!packageJson.name || !packageJson.version) {
-    throw new Error(`Invalid package.json at ${packagePath}`)
+    throw new Error(`Invalid package.json at ${packagePath} - missing name or version`)
   }
 
   return {

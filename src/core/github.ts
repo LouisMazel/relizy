@@ -1,12 +1,12 @@
 import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResultTruthy, PackageBase, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
-import { generateChangelog, getIndependentTag, getPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
+import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
 
-// eslint-disable-next-line sonarjs/cognitive-complexity, complexity
+// eslint-disable-next-line sonarjs/cognitive-complexity
 async function githubIndependentMode({
   config,
   dryRun,
@@ -32,14 +32,12 @@ async function githubIndependentMode({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const packages: PackageBase[]
-    = (bumpResult?.bumped && bumpResult?.bumpedPackages)
-      || await getPackages({
-        suffix,
-        patterns: config.monorepo?.packages,
-        config,
-        force,
-      })
+  const packages = await getPackagesOrBumpedPackages({
+    config,
+    bumpResult,
+    suffix,
+    force,
+  })
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
 
@@ -145,13 +143,15 @@ async function githubUnified({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const to = config.to || config.templates.tagBody.replace('{{newVersion}}', (bumpResult?.bumped && bumpResult.newVersion) || rootPackage.version)
+  const newVersion = bumpResult?.newVersion || rootPackage.version
+
+  const to = config.to || config.templates.tagBody.replace('{{newVersion}}', newVersion)
 
   const changelog = await generateChangelog({
     pkg: rootPackage,
     config,
     dryRun,
-    newVersion: bumpResult?.newVersion || rootPackage.version,
+    newVersion,
   })
 
   const releaseBody = changelog.split('\n').slice(2).join('\n')
@@ -227,10 +227,12 @@ export async function github(options: ProviderReleaseOptions) {
       throw new Error('Failed to read root package.json')
     }
 
+    const newVersion = options.bumpResult?.newVersion || rootPackageBase.version
+
     const { from, to } = await resolveTags<'provider-release'>({
       config,
       step: 'provider-release',
-      newVersion: options.bumpResult?.newVersion || rootPackageBase.version,
+      newVersion,
       pkg: rootPackageBase,
     })
 

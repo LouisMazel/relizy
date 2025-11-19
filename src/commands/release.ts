@@ -170,7 +170,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         tag: config.publish.tag,
         access: config.publish.access,
         otp: config.publish.otp,
-        bumpedPackages: bumpResult.bumpedPackages,
+        bumpResult,
         dryRun,
         config,
         configName: options.configName,

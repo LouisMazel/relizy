@@ -1,8 +1,8 @@
 import type { ResolvedRelizyConfig, RootPackage } from '../core'
-import type { BumpResult, BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { generateChangelog, getIndependentTag, getPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
+import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
 
 export interface GitlabRelease {
   tag_name: string
@@ -121,15 +121,15 @@ async function gitlabIndependentMode({
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  bumpResult: BumpResult | undefined
+  bumpResult: BumpResultTruthy | undefined
   suffix: string | undefined
   force: boolean
 }): Promise<PostedRelease[]> {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  const packages = (bumpResult?.bumped && bumpResult?.bumpedPackages) || await getPackages({
-    patterns: config.monorepo?.packages,
+  const packages = await getPackagesOrBumpedPackages({
     config,
+    bumpResult,
     suffix,
     force,
   })
@@ -224,13 +224,15 @@ async function gitlabUnified({
 }) {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  const to = config.templates.tagBody.replace('{{newVersion}}', rootPackage.newVersion || rootPackage.version)
+  const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
+
+  const to = config.templates.tagBody.replace('{{newVersion}}', newVersion)
 
   const changelog = await generateChangelog({
     pkg: rootPackage,
     config,
     dryRun,
-    newVersion: bumpResult?.newVersion || rootPackage.version,
+    newVersion,
   })
 
   const releaseBody = changelog.split('\n').slice(2).join('\n')
@@ -275,7 +277,7 @@ async function gitlabUnified({
     name: to,
     tag: to,
     version: to,
-    prerelease: isPrerelease(rootPackage.version),
+    prerelease: isPrerelease(newVersion),
   }] satisfies PostedRelease[]
 }
 
@@ -313,10 +315,12 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
       throw new Error('Failed to read root package.json')
     }
 
+    const newVersion = options.bumpResult?.newVersion || rootPackageBase.version
+
     const { from, to } = await resolveTags<'provider-release'>({
       config,
       step: 'provider-release',
-      newVersion: options.bumpResult?.newVersion || rootPackageBase.version,
+      newVersion,
       pkg: rootPackageBase,
     })
 
@@ -329,7 +333,7 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
       to,
     })
 
-    logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: rootPackage.newVersion || rootPackage.version })}`)
+    logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: newVersion })}`)
 
     return await gitlabUnified({
       config,

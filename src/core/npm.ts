@@ -65,7 +65,7 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
   }
 }
 
-export function determinePublishTag(version: string | undefined, configTag?: string): string {
+export function determinePublishTag(version: string, configTag?: string): string {
   let tag: string = 'latest'
 
   if (configTag) {
@@ -113,7 +113,7 @@ export async function getPackagesToPublishInIndependentMode(
       config,
       step: 'publish',
       pkg,
-      newVersion: pkg.version,
+      newVersion: pkg.newVersion || pkg.version,
     })
 
     if (pkg.commits.length > 0) {
@@ -270,7 +270,7 @@ export async function publishPackage({
   packageManager: PackageManager
   dryRun: boolean
 }): Promise<void> {
-  const tag = determinePublishTag(pkg.version, config.publish.tag)
+  const tag = determinePublishTag(pkg.newVersion || pkg.version, config.publish.tag)
   const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
   const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 

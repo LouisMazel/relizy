@@ -69,6 +69,7 @@ export function getDefaultConfig() {
       clean: true,
       providerRelease: true,
       noVerify: false,
+      gitTag: true,
     } as Required<ReleaseConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
