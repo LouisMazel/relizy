@@ -217,10 +217,10 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-      : bumpResult.newVersion || readPackageJson(config.cwd).version
+      : bumpResult.newVersion || readPackageJson(config.cwd)?.version
 
     logger.box('Release workflow completed!\n\n'
-      + `Version: ${versionDisplay}\n`
+      + `Version: ${versionDisplay ?? 'Unknown'}\n`
       + `Tag(s): ${createdTags.length ? createdTags.join(', ') : 'No'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
