@@ -6,7 +6,7 @@ import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
-import { publish } from './publish'
+import { publish, publishSafetyCheck } from './publish'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
@@ -35,6 +35,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         registry: options.registry,
         tag: options.tag,
         buildCmd: options.buildCmd,
+        token: options.publishToken,
       },
       release: {
         commit: options.commit,
@@ -51,7 +52,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   })
 }
 
-function releaseSafetyCheck({
+async function releaseSafetyCheck({
   config,
   provider,
 }: {
@@ -63,6 +64,8 @@ function releaseSafetyCheck({
   }
 
   providerReleaseSafetyCheck({ config, provider })
+
+  await publishSafetyCheck({ config })
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -78,7 +81,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
-  releaseSafetyCheck({ config, provider: options.provider })
+  await releaseSafetyCheck({ config, provider: options.provider })
 
   try {
     await executeHook('before:release', config, dryRun)
