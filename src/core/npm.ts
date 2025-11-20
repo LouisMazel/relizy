@@ -253,33 +253,33 @@ async function executePublishCommand({
   packageNameAndVersion,
   pkg,
   config,
+  tag,
   dryRun,
 }: {
   command: string
   packageNameAndVersion: string
   pkg: PackageBase
   config: ResolvedRelizyConfig
+  tag: string
   dryRun: boolean
 }): Promise<void> {
-  logger.debug(`Executing publish command (${command}) in ${pkg.path}`)
+  logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"`)
 
-  if (dryRun) {
-    logger.info(`[dry-run] ${packageNameAndVersion}: Run ${command}`)
-    return
+  if (!dryRun) {
+    const { stdout } = await execPromise(command, {
+      noStderr: true,
+      noStdout: true,
+      noSuccess: true,
+      logLevel: config.logLevel,
+      cwd: pkg.path,
+    })
+
+    if (stdout) {
+      logger.debug(stdout)
+    }
   }
 
-  const { stdout } = await execPromise(command, {
-    noStderr: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: pkg.path,
-  })
-
-  if (stdout) {
-    logger.debug(stdout)
-  }
-
-  logger.info(`Published ${packageNameAndVersion}`)
+  logger.info(`${dryRun ? '[dry-run] ' : ''}Published ${packageNameAndVersion}`)
 }
 
 export function getAuthCommand({
@@ -354,8 +354,6 @@ export async function publishPackage({
         otp: dynamicOtp,
       })
 
-      logger.debug(`Publishing ${packageNameAndVersion} with tag '${tag}' with command: ${command}`)
-
       process.chdir(pkg.path)
 
       await executePublishCommand({
@@ -364,6 +362,7 @@ export async function publishPackage({
         pkg,
         config,
         dryRun,
+        tag,
       })
 
       // Success - store OTP for next packages if it was prompted
