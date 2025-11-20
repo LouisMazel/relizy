@@ -358,8 +358,8 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string' ? '' : 's'} bumped)`)
     }
     else {
-      logger.fail('No packages to bump, no relevant commits found')
-      exit(1)
+      logger.fail('No packages to bump')
+      exit(10)
     }
 
     await executeHook('success:bump', config, dryRun)
