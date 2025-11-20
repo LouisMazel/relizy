@@ -100,8 +100,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     })
 
     if (!bumpResult.bumped) {
-      logger.debug('No packages bumped')
-      return
+      logger.info('No packages to bump - skipping release')
+      process.exit(10)
     }
 
     logger.box('Step 2/6: Generate changelogs')

@@ -789,7 +789,7 @@ describe('Given bump command', () => {
   })
 
   describe('When no packages need bumping', () => {
-    it('Then exists with code 0 when no changes', async () => {
+    it('Then exists with code 10 when no changes', async () => {
       vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
@@ -813,7 +813,7 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(exit)).toHaveBeenCalledWith(1)
+      expect(vi.mocked(exit)).toHaveBeenCalledWith(10)
     })
   })
 })

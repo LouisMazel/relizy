@@ -256,7 +256,11 @@ program
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
-    catch {
+    catch (error: any) {
+      // Exit code 10 means "no packages to bump" - not an error
+      if (error?.code === 10) {
+        process.exit(10)
+      }
       process.exit(1)
     }
   })
