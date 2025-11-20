@@ -118,7 +118,7 @@ export async function getRootPackage({
 
       if (!releaseType) {
         logger.fail('No commits require a version bump')
-        process.exit(0)
+        process.exit(10)
       }
 
       newVersion = getPackageNewVersion({
