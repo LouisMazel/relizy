@@ -1,5 +1,54 @@
 # Changelog
 
+## v0.2.4...v0.2.5
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.4...v0.2.5)
+
+### 🚀 Features
+
+- Add option to skip git tag creation during release ([5fe056d](https://github.com/LouisMazel/relizy/commit/5fe056d))
+
+  Allow users to disable tag creation during release using the
+  `--no-git-tag` flag. Useful when you want to publish and push
+  commits without creating git tags.
+  Usage: relizy release --no-git-tag
+
+- **docs:** Document gitTag option and improve release examples ([13f9d32](https://github.com/LouisMazel/relizy/commit/13f9d32))
+- Publish - add optional safety check to check package registry authentication ([0d9c2e0](https://github.com/LouisMazel/relizy/commit/0d9c2e0))
+  - Only for npm and pnpm (not yarn and bun)
+  - Is disabled by default
+  - To enable it, set 'config.publish.safety' to true
+
+### 🩹 Fixes
+
+- Changelog generation with wrong tags ([15154ad](https://github.com/LouisMazel/relizy/commit/15154ad))
+- Exclude modify files from commit body ([9f60547](https://github.com/LouisMazel/relizy/commit/9f60547))
+- Improve checking of package to bump before running release ([f70e1eb](https://github.com/LouisMazel/relizy/commit/f70e1eb))
+- Do not compute new version of root package in independent mode ([17a6ff2](https://github.com/LouisMazel/relizy/commit/17a6ff2))
+- Get github user profiles only if its github release ([d38e61e](https://github.com/LouisMazel/relizy/commit/d38e61e))
+- **docs:** Correct package.json config example ([0ac9b1b](https://github.com/LouisMazel/relizy/commit/0ac9b1b))
+- Publish - print new version instead the old in publish log ([ead28af](https://github.com/LouisMazel/relizy/commit/ead28af))
+- Don't throw an error when a folder in glob patterns has not package.json, ignore the package instead ([0f341aa](https://github.com/LouisMazel/relizy/commit/0f341aa))
+- Don't throw an error when a folder in glob patterns has not package.json, ignore the package instead ([271ce5f](https://github.com/LouisMazel/relizy/commit/271ce5f))
+- Bump - don't exit with error when no relevant commits to bump ([a5a58f5](https://github.com/LouisMazel/relizy/commit/a5a58f5))
+- Release - errors when release stable version from prerelease ([a86a2e4](https://github.com/LouisMazel/relizy/commit/a86a2e4))
+
+### 💅 Refactors
+
+- Use a log debug when version has changed preid" ([f0e658c](https://github.com/LouisMazel/relizy/commit/f0e658c))
+- Improve circular dependencies detection ([bde3725](https://github.com/LouisMazel/relizy/commit/bde3725))
+- Bump - improve confirm prompt with data ([c49f111](https://github.com/LouisMazel/relizy/commit/c49f111))
+- Improve logs while bumping package version ([89f5f73](https://github.com/LouisMazel/relizy/commit/89f5f73))
+- Improve publication logs to know exactly what is being published ([aa602ba](https://github.com/LouisMazel/relizy/commit/aa602ba))
+
+### 📖 Documentation
+
+- **docs:** Improve SEO meta ([06d094c](https://github.com/LouisMazel/relizy/commit/06d094c))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5-beta.13...v0.2.5-beta.14
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5-beta.13...v0.2.5-beta.14)
