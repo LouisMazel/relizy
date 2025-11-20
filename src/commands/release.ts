@@ -1,12 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
-
 import { social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
@@ -115,8 +115,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     })
 
     if (!bumpResult.bumped) {
-      logger.debug('No packages bumped')
-      return
+      logger.info('No packages to bump - skipping release')
+      process.exit(10)
     }
 
     logger.box('Generate changelogs')

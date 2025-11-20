@@ -283,7 +283,12 @@ program
         social: hasCliFlag('--no-social') ? false : undefined,
       })
     }
-    catch (error) {
+    catch (error: any) {
+      // Exit code 10 means "no packages to bump" - not an error
+      if (error?.code === 10) {
+        logger.error('No packages to bump')
+        process.exit(10)
+      }
       logger.error('Failed to release -', error)
       process.exit(1)
     }
