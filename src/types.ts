@@ -1,13 +1,16 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { ResolvedRelizyConfig } from './core'
+import type { ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 
-export interface PackageInfo {
+/**
+ * PACAKGE TYPES
+ */
+export interface ReadPackage {
   /**
    * Package name
    */
@@ -19,25 +22,46 @@ export interface PackageInfo {
   /**
    * Current version
    */
-  currentVersion: string
-  /**
-   * New version
-   */
   version: string
   /**
-   * Tag name
+   * Package path
    */
-  fromTag?: string
+  private: boolean
 }
-export interface PackageWithCommits extends PackageInfo {
+
+export interface PackageBase extends ReadPackage {
+  /**
+   * From tag
+   */
+  fromTag: string
   /**
    * Commits
    */
   commits: GitCommit[]
+  /**
+   * New version
+   */
+  newVersion?: string
+  /**
+   * Dependencies
+   */
+  dependencies: string[]
+  /**
+   * Reason for bumping
+   */
+  reason?: 'commits' | 'dependency' | 'graduation'
+  /**
+   * Dependency chain
+   */
+  dependencyChain?: string[]
 }
 
+/**
+ * OTHERS
+ */
+
 export interface PublishResponse {
-  publishedPackages: PackageInfo[]
+  publishedPackages: PackageBase[]
 }
 
 export interface BumpResultTruthy {
@@ -54,9 +78,15 @@ export interface BumpResultTruthy {
    */
   fromTag?: string
   /**
+   * Root package
+   */
+  rootPackage?: RootPackage
+  /**
    * Bumped packages
    */
-  bumpedPackages: PackageInfo[]
+  bumpedPackages: (PackageBase & {
+    oldVersion: string
+  })[]
   /**
    * Bumped
    */
@@ -204,9 +234,9 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   dryRun?: boolean
   /**
-   * Bumped packages
+   * Bump result
    */
-  bumpedPackages?: PackageInfo[]
+  bumpResult?: BumpResultTruthy
   /**
    * Use custom config
    */
@@ -220,6 +250,15 @@ export interface ChangelogOptions extends ChangelogConfig {
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Generate changelog for all packages even if there are no commits
+   * @default false
+   */
+  force: boolean
+  /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   */
+  suffix?: string
 }
 
 export interface ProviderReleaseOptions {
@@ -252,7 +291,7 @@ export interface ProviderReleaseOptions {
   /**
    * Bump result
    */
-  bumpResult?: BumpResult
+  bumpResult?: BumpResultTruthy
   /**
    * Set log level
    */
@@ -267,9 +306,23 @@ export interface ProviderReleaseOptions {
    * @default false
    */
   safetyCheck?: boolean
+  /**
+   * Generate changelog for all packages even if there are no commits
+   * @default false
+   */
+  force: boolean
+  /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   */
+  suffix?: string
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {
+  /**
+   * Package manager (e.g. `pnpm` or `npm`)
+   * @values `pnpm`, `npm`, `yarn`, `bun`
+   */
+  packageManager?: PackageManager
   /**
    * NPM registry URL (e.g. `https://registry.npmjs.org/`)
    */
@@ -294,6 +347,15 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * Command to build your packages before publishing (e.g. `pnpm build`)
    */
   buildCmd?: string
+  /**
+   * NPM token (e.g. `123456`) - only supported for pnpm and npm
+   */
+  token?: string
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
 }
 
 export interface PublishOptions extends PublishConfig {
@@ -307,9 +369,9 @@ export interface PublishOptions extends PublishConfig {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Bumped packages
+   * Bump result
    */
-  bumpedPackages?: PackageInfo[]
+  bumpResult?: BumpResultTruthy
   /**
    * Set log level
    */
@@ -319,6 +381,15 @@ export interface PublishOptions extends PublishConfig {
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   */
+  suffix?: string
+  /**
+   * Bump even if there are no commits
+   * @default false
+   */
+  force?: boolean
 }
 
 export interface ReleaseConfig {
@@ -357,6 +428,11 @@ export interface ReleaseConfig {
    * @default false
    */
   clean?: boolean
+  /**
+   * Create tag
+   * @default true
+   */
+  gitTag?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -400,6 +476,10 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default true
    */
   safetyCheck?: boolean
+  /**
+   * NPM token (e.g. "123456")
+   */
+  publishToken?: string
 }
 
 export interface TemplatesConfig {
@@ -457,7 +537,16 @@ export type HookConfig = {
   }) => string | void | null | undefined | Promise<string | void | null | undefined>
 }
 
-export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish'>> {
+/**
+ * Relizy configuration
+ * @see https://louismazel.github.io/relizy/config/overview
+ */
+export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types'>> {
+  types: Record<string, {
+    title: string
+    semver?: SemverBumpType
+  } | false>
+
   /**
    * Current working directory
    * @default process.cwd()

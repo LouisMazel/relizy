@@ -172,22 +172,6 @@ Root package.json: 4.3.1-alpha.2 → 4.3.1
       content: '◐',
       class: 'step',
     },
-    content: `Start provider release`,
-  },
-  {
-    type: 'text',
-    prefix: {
-      content: '✔',
-      class: 'success',
-    },
-    content: `Provider release completed!`,
-  },
-  {
-    type: 'text',
-    prefix: {
-      content: '◐',
-      class: 'step',
-    },
     content: `Start publishing packages`,
   },
   {
@@ -213,6 +197,14 @@ Root package.json: 4.3.1-alpha.2 → 4.3.1
       class: 'info',
     },
     content: `Using Git provider: github`,
+  },
+  {
+    type: 'text',
+    prefix: {
+      content: '✔',
+      class: 'success',
+    },
+    content: `Provider release completed!`,
   },
   {
     type: 'text',

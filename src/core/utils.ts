@@ -1,6 +1,7 @@
-import type { HookConfig } from '../types'
+import type { BumpResultTruthy, HookConfig, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
+import { getPackages } from './repo'
 
 /**
  * Execute a hook
@@ -203,4 +204,31 @@ export async function executeBuildCmd({
   else {
     logger.debug('No build command specified')
   }
+}
+
+export function isBumpedPackage(pkg: PackageBase): pkg is PackageBase & { oldVersion: string } {
+  return 'oldVersion' in pkg && !!pkg.oldVersion
+}
+
+export async function getPackagesOrBumpedPackages({
+  config,
+  bumpResult,
+  suffix,
+  force,
+}: {
+  config: ResolvedRelizyConfig
+  bumpResult: BumpResultTruthy | undefined
+  suffix: string | undefined
+  force: boolean
+}): Promise<PackageBase[]> {
+  if (bumpResult?.bumpedPackages && bumpResult.bumpedPackages.length > 0) {
+    return bumpResult.bumpedPackages
+  }
+
+  return await getPackages({
+    config,
+    patterns: config.monorepo?.packages,
+    suffix,
+    force,
+  })
 }

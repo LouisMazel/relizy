@@ -1,16 +1,16 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { PackageInfo, PackageManager } from '../types'
-import type { PackageWithDeps } from './dependencies'
+import type { PackageBase, PackageManager } from '../types'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
-import { getPackageCommits, isInCI, isPrerelease } from '../core'
-import { resolveTags } from './tags'
+import { isInCI, isPrerelease } from '../core'
+import { getIndependentTag, resolveTags } from './tags'
 
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
   try {
     const packageJsonPath = join(cwd, 'package.json')
@@ -28,7 +28,8 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
         }
       }
       catch (e) {
-        logger.warn(`Failed to parse package.json: ${(e as Error).message}`)
+        const errorString = e instanceof Error ? e.message : String(e)
+        logger.debug(`Failed to parse package.json: ${errorString}`)
       }
     }
 
@@ -59,12 +60,12 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
     return 'npm'
   }
   catch (error) {
-    logger.warn(`Error detecting package manager: ${error}, defaulting to npm`)
+    logger.fail(`Error detecting package manager: ${error}, defaulting to npm`)
     return 'npm'
   }
 }
 
-export function determinePublishTag(version: string | undefined, configTag?: string): string {
+export function determinePublishTag(version: string, configTag?: string): string {
   let tag: string = 'latest'
 
   if (configTag) {
@@ -84,10 +85,10 @@ export function determinePublishTag(version: string | undefined, configTag?: str
 }
 
 export function getPackagesToPublishInSelectiveMode(
-  sortedPackages: PackageWithDeps[],
+  sortedPackages: PackageBase[],
   rootVersion: string | undefined,
-): PackageInfo[] {
-  const packagesToPublish: PackageInfo[] = []
+): PackageBase[] {
+  const packagesToPublish: PackageBase[] = []
 
   for (const pkg of sortedPackages) {
     const pkgJsonPath = join(pkg.path, 'package.json')
@@ -102,33 +103,22 @@ export function getPackagesToPublishInSelectiveMode(
 }
 
 export async function getPackagesToPublishInIndependentMode(
-  sortedPackages: PackageWithDeps[],
+  sortedPackages: PackageBase[],
   config: ResolvedRelizyConfig,
-): Promise<PackageInfo[]> {
-  const packagesToPublish: PackageInfo[] = []
+): Promise<PackageBase[]> {
+  const packagesToPublish: PackageBase[] = []
 
   for (const pkg of sortedPackages) {
-    const { from, to } = await resolveTags<'independent', 'publish'>({
+    const { from, to } = await resolveTags<'publish'>({
       config,
-      versionMode: 'independent',
       step: 'publish',
       pkg,
-      newVersion: pkg.version,
-      currentVersion: undefined,
-      logLevel: config.logLevel,
+      newVersion: pkg.newVersion || pkg.version,
     })
 
-    const commits = await getPackageCommits({
-      pkg,
-      from,
-      to,
-      config,
-      changelog: false,
-    })
-
-    if (commits.length > 0) {
+    if (pkg.commits.length > 0) {
       packagesToPublish.push(pkg)
-      logger.debug(`${pkg.name}: ${commits.length} commit(s) since ${from} → ${to}`)
+      logger.debug(`${pkg.name}: ${pkg.commits.length} commit(s) since ${from} → ${to}`)
     }
   }
 
@@ -139,18 +129,57 @@ function isYarnBerry() {
   return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
 }
 
-function getCommandArgs({
+function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
   config,
   otp,
+  type,
 }: {
   packageManager: PackageManager
-  tag: string
+  tag: T extends 'publish' ? string : undefined
   config: ResolvedRelizyConfig
   otp?: string
+  type: T
 }) {
-  const args = ['publish', '--tag', tag]
+  const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
+
+  const registry = config.publish.registry
+  if (registry) {
+    args.push('--registry', registry)
+  }
+
+  const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
+
+  const publishToken = config.publish.token
+  if (publishToken) {
+    if (!registry) {
+      logger.warn('Publish token provided but no registry specified')
+    }
+    else if (!isPnpmOrNpm) {
+      logger.warn('Publish token only supported for pnpm and npm')
+    }
+    else {
+      const registryUrl = new URL(registry)
+      const authTokenKey = `--//${registryUrl.host}${registryUrl.pathname}:_authToken=${publishToken}`
+      args.push(authTokenKey)
+    }
+  }
+
+  // Priority: dynamic OTP > session OTP > config OTP
+  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
+  if (finalOtp) {
+    args.push('--otp', finalOtp)
+  }
+
+  if (type === 'auth') {
+    return args
+  }
+
+  const access = config.publish.access
+  if (access) {
+    args.push('--access', access)
+  }
 
   // Adjust for package managers
   if (packageManager === 'pnpm') {
@@ -164,22 +193,6 @@ function getCommandArgs({
   }
   else if (packageManager === 'npm') {
     args.push('--yes')
-  }
-
-  const registry = config.publish.registry
-  if (registry) {
-    args.push('--registry', registry)
-  }
-
-  const access = config.publish.access
-  if (access) {
-    args.push('--access', access)
-  }
-
-  // Priority: dynamic OTP > session OTP > config OTP
-  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
-  if (finalOtp) {
-    args.push('--otp', finalOtp)
   }
 
   return args
@@ -240,33 +253,77 @@ async function executePublishCommand({
   packageNameAndVersion,
   pkg,
   config,
+  tag,
   dryRun,
 }: {
   command: string
   packageNameAndVersion: string
-  pkg: PackageInfo
+  pkg: PackageBase
   config: ResolvedRelizyConfig
+  tag: string
   dryRun: boolean
 }): Promise<void> {
-  logger.debug(`Executing publish command (${command}) in ${pkg.path}`)
+  logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"`)
 
-  if (dryRun) {
-    logger.info(`[dry-run] ${packageNameAndVersion}: Run ${command}`)
-    return
+  if (!dryRun) {
+    const { stdout } = await execPromise(command, {
+      noStderr: true,
+      noStdout: true,
+      noSuccess: true,
+      logLevel: config.logLevel,
+      cwd: pkg.path,
+    })
+
+    if (stdout) {
+      logger.debug(stdout)
+    }
   }
 
-  const { stdout } = await execPromise(command, {
-    noStderr: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: pkg.path,
+  logger.info(`${dryRun ? '[dry-run] ' : ''}Published ${packageNameAndVersion}`)
+}
+
+export function getAuthCommand({
+  packageManager,
+  config,
+  otp,
+}: {
+  packageManager: PackageManager
+  config: ResolvedRelizyConfig
+  otp?: string
+}): string {
+  const args = getCommandArgs<'auth'>({
+    packageManager,
+    tag: undefined,
+    config,
+    otp,
+    type: 'auth',
   })
 
-  if (stdout) {
-    logger.debug(stdout)
-  }
+  return `${packageManager} ${args.join(' ')}`
+}
 
-  logger.info(`Published ${packageNameAndVersion}`)
+function getPublishCommand({
+  packageManager,
+  tag,
+  config,
+  otp,
+}: {
+  packageManager: PackageManager
+  tag: string
+  config: ResolvedRelizyConfig
+  otp?: string
+}): string {
+  const args = getCommandArgs<'publish'>({
+    packageManager,
+    tag,
+    config,
+    otp,
+    type: 'publish',
+  })
+
+  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
+
+  return `${baseCommand} ${args.join(' ')}`
 }
 
 export async function publishPackage({
@@ -275,14 +332,13 @@ export async function publishPackage({
   packageManager,
   dryRun,
 }: {
-  pkg: PackageInfo
+  pkg: PackageBase
   config: ResolvedRelizyConfig
   packageManager: PackageManager
   dryRun: boolean
 }): Promise<void> {
-  const tag = determinePublishTag(pkg.version, config.publish.tag)
-  const packageNameAndVersion = `${pkg.name}@${pkg.version}`
-  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
+  const tag = determinePublishTag(pkg.newVersion || pkg.version, config.publish.tag)
+  const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
 
   logger.debug(`Building publish command for ${pkg.name}`)
 
@@ -291,16 +347,12 @@ export async function publishPackage({
 
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const args = getCommandArgs({
+      const command = getPublishCommand({
         packageManager,
         tag,
         config,
         otp: dynamicOtp,
       })
-
-      const command = `${baseCommand} ${args.join(' ')}`
-
-      logger.debug(`Publishing ${packageNameAndVersion} with tag '${tag}' with command: ${command}`)
 
       process.chdir(pkg.path)
 
@@ -310,6 +362,7 @@ export async function publishPackage({
         pkg,
         config,
         dryRun,
+        tag,
       })
 
       // Success - store OTP for next packages if it was prompted

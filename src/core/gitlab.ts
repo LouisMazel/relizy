@@ -1,8 +1,8 @@
-import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResult, PackageInfo, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { ResolvedRelizyConfig, RootPackage } from '../core'
+import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { generateChangelog, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
+import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
 
 export interface GitlabRelease {
   tag_name: string
@@ -115,18 +115,23 @@ export async function createGitlabRelease({
 async function gitlabIndependentMode({
   config,
   dryRun,
-  bumpedPackages,
+  bumpResult,
+  suffix,
+  force,
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  bumpedPackages?: PackageInfo[]
+  bumpResult: BumpResultTruthy | undefined
+  suffix: string | undefined
+  force: boolean
 }): Promise<PostedRelease[]> {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  const packages = bumpedPackages || getPackages({
-    cwd: config.cwd,
-    patterns: config.monorepo?.packages,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
+  const packages = await getPackagesOrBumpedPackages({
+    config,
+    bumpResult,
+    suffix,
+    force,
   })
 
   logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
@@ -142,30 +147,23 @@ async function gitlabIndependentMode({
   const postedReleases: PostedRelease[] = []
 
   for (const pkg of packages) {
-    const to = `${pkg.name}@${pkg.version}`
-    const from = pkg.fromTag
+    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+
+    const from = config.from || pkg.fromTag
+    const to = getIndependentTag({ version: newVersion, name: pkg.name })
 
     if (!from) {
-      logger.warn(`No fromTag found for ${pkg.name}, skipping release`)
+      logger.warn(`No from tag found for ${pkg.name}, skipping release`)
       continue
     }
 
     logger.debug(`Processing ${pkg.name}: ${from} → ${to}`)
 
-    const commits = await getPackageCommits({
-      pkg,
-      config,
-      from,
-      to,
-      changelog: true,
-    })
-
     const changelog = await generateChangelog({
       pkg,
-      commits,
       config,
-      from,
       dryRun,
+      newVersion,
     })
 
     if (!changelog) {
@@ -197,8 +195,8 @@ async function gitlabIndependentMode({
       postedReleases.push({
         name: pkg.name,
         tag: release.tag_name,
-        version: pkg.version,
-        prerelease: isPrerelease(pkg.version),
+        version: newVersion,
+        prerelease: isPrerelease(newVersion),
       })
     }
   }
@@ -217,34 +215,24 @@ async function gitlabUnified({
   config,
   dryRun,
   rootPackage,
-  fromTag,
-  oldVersion,
+  bumpResult,
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  rootPackage: PackageInfo
-  fromTag: string | undefined
-  oldVersion: string | undefined
+  rootPackage: RootPackage
+  bumpResult: BumpResultTruthy | undefined
 }) {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  const to = config.templates.tagBody.replace('{{newVersion}}', rootPackage.version)
+  const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
 
-  const commits = await getPackageCommits({
-    pkg: rootPackage,
-    config,
-    from: fromTag || getFirstCommit(config.cwd),
-    to,
-    changelog: true,
-  })
-  logger.debug(`Found ${commits.length} commit(s)`)
+  const to = config.templates.tagBody.replace('{{newVersion}}', newVersion)
 
   const changelog = await generateChangelog({
     pkg: rootPackage,
-    commits,
     config,
-    from: fromTag || oldVersion || 'v0.0.0',
     dryRun,
+    newVersion,
   })
 
   const releaseBody = changelog.split('\n').slice(2).join('\n')
@@ -289,11 +277,11 @@ async function gitlabUnified({
     name: to,
     tag: to,
     version: to,
-    prerelease: isPrerelease(rootPackage.version),
+    prerelease: isPrerelease(newVersion),
   }] satisfies PostedRelease[]
 }
 
-export async function gitlab(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}): Promise<PostedRelease[]> {
+export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Promise<PostedRelease[]> {
   try {
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
@@ -311,28 +299,47 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> & { bumpRe
       },
     })
 
-    if (!options.bumpResult?.bumped) {
-      logger.warn('No bump result found, skipping release')
-      return []
-    }
-
     if (config.monorepo?.versionMode === 'independent') {
       return await gitlabIndependentMode({
         config,
         dryRun,
-        bumpedPackages: options.bumpResult.bumpedPackages,
+        bumpResult: options.bumpResult,
+        suffix: options.suffix,
+        force: options.force ?? false,
       })
     }
 
-    const rootPackage = getRootPackage(process.cwd())
-    logger.debug(`Root package: ${rootPackage.name}@${rootPackage.version}`)
+    const rootPackageBase = readPackageJson(config.cwd)
+
+    if (!rootPackageBase) {
+      throw new Error('Failed to read root package.json')
+    }
+
+    const newVersion = options.bumpResult?.newVersion || rootPackageBase.version
+
+    const { from, to } = await resolveTags<'provider-release'>({
+      config,
+      step: 'provider-release',
+      newVersion,
+      pkg: rootPackageBase,
+    })
+
+    const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
+      config,
+      force: options.force ?? false,
+      suffix: options.suffix,
+      changelog: true,
+      from,
+      to,
+    })
+
+    logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: newVersion })}`)
 
     return await gitlabUnified({
       config,
       dryRun,
       rootPackage,
-      fromTag: options.bumpResult.fromTag,
-      oldVersion: options.bumpResult.oldVersion,
+      bumpResult: options.bumpResult,
     })
   }
   catch (error) {

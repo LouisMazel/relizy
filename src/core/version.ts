@@ -1,56 +1,95 @@
-import type { ChangelogConfig, GitCommit } from 'changelogen'
+import type { GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { PackageToBump, ResolvedRelizyConfig } from '../core'
-import type { BumpOptions, PackageInfo, PackageWithCommits, VersionMode } from '../types'
+import type { ResolvedRelizyConfig } from '../core'
+import type { PackageBase, RelizyConfig, VersionMode } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { determineSemverChange } from 'changelogen'
 import * as semver from 'semver'
-import { expandPackagesToBumpWithDependents, resolveTags } from '../core'
-import { getPackageCommits, hasLernaJson } from './monorepo'
+import { hasLernaJson } from '../core'
+
+export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
+  const isSameBase = semver.major(version) === semver.major(newVersion)
+    && semver.minor(version) === semver.minor(newVersion)
+    && semver.patch(version) === semver.patch(newVersion)
+
+  const fromPrerelease = semver.prerelease(version) !== null
+  const toStable = semver.prerelease(newVersion) === null
+
+  return isSameBase && fromPrerelease && toStable
+}
+
+export function determineSemverChange(
+  commits: GitCommit[],
+  types: RelizyConfig['types'],
+): 'major' | 'minor' | 'patch' | undefined {
+  let [hasMajor, hasMinor, hasPatch] = [false, false, false]
+  for (const commit of commits) {
+    const commitType = types[commit.type]
+
+    if (!commitType) {
+      continue
+    }
+
+    const semverType = commitType.semver
+    if (semverType === 'major' || commit.isBreaking) {
+      hasMajor = true
+    }
+    else if (semverType === 'minor') {
+      hasMinor = true
+    }
+    else if (semverType === 'patch') {
+      hasPatch = true
+    }
+  }
+
+  // eslint-disable-next-line sonarjs/no-nested-conditional
+  return hasMajor ? 'major' : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
+}
 
 function detectReleaseTypeFromCommits(
   commits: GitCommit[],
-  config: ResolvedRelizyConfig,
-): 'major' | 'minor' | 'patch' | null {
-  return determineSemverChange(commits, config as ChangelogConfig) as 'major' | 'minor' | 'patch' | null
+  types: RelizyConfig['types'],
+) {
+  return determineSemverChange(commits, types)
 }
 
 function validatePrereleaseDowngrade(
   currentVersion: string,
   targetPreid: string | undefined,
-  configuredType: BumpOptions['type'],
+  configuredType: ReleaseType,
 ): void {
   if (configuredType !== 'prerelease' || !targetPreid || !isPrerelease(currentVersion)) {
     return
   }
 
   const testVersion = semver.inc(currentVersion, 'prerelease', targetPreid)
-  if (testVersion && !semver.gt(testVersion, currentVersion)) {
+  const isNotUpgrade = testVersion && !semver.gt(testVersion, currentVersion)
+
+  if (isNotUpgrade) {
     throw new Error(`Unable to graduate from ${currentVersion} to ${testVersion}, it's not a valid prerelease`)
   }
 }
 
 function handleStableVersionWithReleaseType(
   commits: GitCommit[] | undefined,
-  config: ResolvedRelizyConfig,
+  types: RelizyConfig['types'],
   force: boolean,
-): BumpOptions['type'] | null {
+): ReleaseType | undefined {
   if (!commits?.length && !force) {
     logger.debug('No commits found for stable version with "release" type, skipping bump')
-    return null
+    return undefined
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, config)
-    : null
+    ? detectReleaseTypeFromCommits(commits, types)
+    : undefined
 
   if (!detectedType && !force) {
     logger.debug('No significant commits found, skipping bump')
-    return null
+    return undefined
   }
 
   logger.debug(`Auto-detected release type from commits: ${detectedType}`)
@@ -59,56 +98,57 @@ function handleStableVersionWithReleaseType(
 
 function handleStableVersionWithPrereleaseType(
   commits: GitCommit[] | undefined,
-  config: ResolvedRelizyConfig,
+  types: RelizyConfig['types'],
   force: boolean,
-): BumpOptions['type'] | null {
+): ReleaseType | undefined {
   if (!commits?.length && !force) {
     logger.debug('No commits found for stable version with "prerelease" type, skipping bump')
-    return null
+    return undefined
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, config)
-    : null
+    ? detectReleaseTypeFromCommits(commits, types)
+    : undefined
 
   if (!detectedType) {
     logger.debug('No significant commits found, using prepatch as default')
     return 'prepatch'
   }
 
-  const prereleaseType = `pre${detectedType}` as BumpOptions['type']
+  const prereleaseType = `pre${detectedType}` as ReleaseType
   logger.debug(`Auto-detected prerelease type from commits: ${prereleaseType}`)
   return prereleaseType
 }
 
 function handlePrereleaseVersionToStable(
   currentVersion: string,
-): BumpOptions['type'] {
+): ReleaseType {
   logger.debug(`Graduating from prerelease ${currentVersion} to stable release`)
   return 'release'
 }
 
 function handlePrereleaseVersionWithPrereleaseType(
-  currentVersion: string,
-  targetPreid: string | undefined,
-  commits: GitCommit[] | undefined,
-  config: ResolvedRelizyConfig,
-  force: boolean,
-): BumpOptions['type'] | null {
+  { currentVersion, preid, commits, force }: {
+    currentVersion: string
+    preid: string | undefined
+    commits: GitCommit[] | undefined
+    force: boolean
+  },
+): ReleaseType | undefined {
   const currentPreid = getPreid(currentVersion)
-  const hasChangedPreid = targetPreid && currentPreid && currentPreid !== targetPreid
+  const hasChangedPreid = preid && currentPreid && currentPreid !== preid
 
   if (hasChangedPreid) {
-    const testVersion = semver.inc(currentVersion, 'prerelease', targetPreid)
+    const testVersion = semver.inc(currentVersion, 'prerelease', preid)
 
     if (!testVersion) {
-      throw new Error(`Unable to change preid from ${currentPreid} to ${targetPreid} for version ${currentVersion}`)
+      throw new Error(`Unable to change preid from ${currentPreid} to ${preid} for version ${currentVersion}`)
     }
 
     const isUpgrade = semver.gt(testVersion, currentVersion)
 
     if (!isUpgrade) {
-      throw new Error(`Unable to change preid from ${currentVersion} to ${testVersion}, it's not a valid upgrade (cannot downgrade from ${currentPreid} to ${targetPreid})`)
+      throw new Error(`Unable to change preid from ${currentVersion} to ${testVersion}, it's not a valid upgrade (cannot downgrade from ${currentPreid} to ${preid})`)
     }
 
     return 'prerelease'
@@ -116,63 +156,57 @@ function handlePrereleaseVersionWithPrereleaseType(
 
   if (!commits?.length && !force) {
     logger.debug('No commits found for prerelease version, skipping bump')
-    return null
+    return undefined
   }
 
   logger.debug(`Incrementing prerelease version: ${currentVersion}`)
   return 'prerelease'
 }
 
-function handleExplicitReleaseType(
-  configuredType: NonNullable<BumpOptions['type']>,
-  currentVersion: string,
-): BumpOptions['type'] {
+function handleExplicitReleaseType({
+  releaseType,
+  currentVersion,
+}: {
+  releaseType: ReleaseType
+  currentVersion: string
+}): ReleaseType {
   const isCurrentPrerelease = isPrerelease(currentVersion)
-  const isGraduatingToStable = isCurrentPrerelease && isStableReleaseType(configuredType)
+  const isGraduatingToStable = isCurrentPrerelease && isStableReleaseType(releaseType)
 
   if (isGraduatingToStable) {
-    logger.debug(`Graduating from prerelease ${currentVersion} to stable with type: ${configuredType}`)
+    logger.debug(`Graduating from prerelease ${currentVersion} to stable with type: ${releaseType}`)
   }
   else {
-    logger.debug(`Using explicit release type: ${configuredType}`)
+    logger.debug(`Using explicit release type: ${releaseType}`)
   }
 
-  return configuredType
+  return releaseType
 }
 
 export function determineReleaseType({
   currentVersion,
-  from,
-  to,
   commits,
-  config,
+  releaseType,
+  preid,
+  types,
   force,
 }: {
   currentVersion: string
-  from: string
-  to: string
   commits?: GitCommit[]
-  config: ResolvedRelizyConfig
+  releaseType: ReleaseType
+  preid: string | undefined
+  types: ResolvedRelizyConfig['types']
   force: boolean
-}): BumpOptions['type'] | null {
-  const configWithRange = {
-    ...config,
-    from,
-    to,
-  }
-
-  const configuredType = configWithRange.bump.type
-  const targetPreid = configWithRange.bump.preid
-
-  if (configuredType === 'release' && targetPreid) {
+}): ReleaseType | undefined {
+  if (releaseType === 'release' && preid) {
     throw new Error('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
   }
 
-  validatePrereleaseDowngrade(currentVersion, targetPreid, configuredType)
+  validatePrereleaseDowngrade(currentVersion, preid, releaseType)
 
   if (force) {
-    logger.debug(`Force flag enabled, using configured type: ${configuredType}`)
-    return configuredType
+    logger.debug(`Force flag enabled, using configured type: ${releaseType}`)
+    return releaseType
   }
 
   const isCurrentPrerelease = isPrerelease(currentVersion)
@@ -181,100 +215,95 @@ export function determineReleaseType({
    * Stable branch
    */
   if (!isCurrentPrerelease) {
-    if (configuredType === 'release') {
-      return handleStableVersionWithReleaseType(commits, configWithRange, force)
+    if (releaseType === 'release') {
+      return handleStableVersionWithReleaseType(commits, types, force)
     }
 
-    if (configuredType === 'prerelease') {
-      return handleStableVersionWithPrereleaseType(commits, configWithRange, force)
+    if (releaseType === 'prerelease') {
+      return handleStableVersionWithPrereleaseType(commits, types, force)
     }
 
-    return handleExplicitReleaseType(configuredType, currentVersion)
+    return handleExplicitReleaseType({ releaseType, currentVersion })
   }
 
   /**
    * Prerelease branch
    */
-  if (configuredType === 'release') {
+  if (releaseType === 'release') {
     return handlePrereleaseVersionToStable(currentVersion)
   }
 
-  if (configuredType === 'prerelease') {
-    return handlePrereleaseVersionWithPrereleaseType(
-      currentVersion,
-      targetPreid,
-      commits,
-      configWithRange,
-      force,
-    )
+  if (releaseType === 'prerelease') {
+    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force })
   }
 
-  return handleExplicitReleaseType(configuredType, currentVersion)
+  return handleExplicitReleaseType({ releaseType, currentVersion })
 }
 
-export function writeVersion(pkgPath: string, version: string, dryRun = false): void {
+export function writeVersion(pkgPath: string, newVersion: string, dryRun = false): void {
   const packageJsonPath = join(pkgPath, 'package.json')
 
   try {
-    logger.debug(`Writing ${version} to ${pkgPath}`)
+    logger.debug(`Writing ${newVersion} to ${pkgPath}`)
 
     const content = readFileSync(packageJsonPath, 'utf8')
     const packageJson = JSON.parse(content)
 
     const oldVersion = packageJson.version
-    packageJson.version = version
+    packageJson.version = newVersion
 
     if (dryRun) {
-      logger.info(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${version}`)
+      logger.info(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
       return
     }
 
     writeFileSync(packageJsonPath, `${formatJson(packageJson)}\n`, 'utf8')
-    logger.info(`Updated ${packageJson.name}: ${oldVersion} → ${version}`)
+    logger.info(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
   }
   catch (error) {
     throw new Error(`Unable to write version to ${packageJsonPath}: ${error}`)
   }
 }
 
-export function bumpPackageVersion({
+export function getPackageNewVersion({
+  name,
   currentVersion,
   releaseType,
   preid,
   suffix,
 }: {
+  name: string
   currentVersion: string
   releaseType: ReleaseType
   preid: string | undefined
   suffix: string | undefined
 }): string {
-  try {
-    let newVersion = semver.inc(currentVersion, releaseType, preid as string)
+  let newVersion = semver.inc(currentVersion, releaseType, preid as string)
 
-    if (!newVersion) {
-      throw new Error(`Unable to bump version "${currentVersion}" with release type "${releaseType}"\n\nYou should use an explicit release type (use flag: --major, --minor, --patch, --premajor, --preminor, --prepatch, --prerelease)`)
-    }
-
-    if (isPrereleaseReleaseType(releaseType) && suffix) {
-      // Remplace le dernier .X par .suffix
-      newVersion = newVersion.replace(/\.(\d+)$/, `.${suffix}`)
-    }
-
-    const isValidVersion = semver.gt(newVersion, currentVersion)
-
-    if (!isValidVersion) {
-      throw new Error(`Unable to bump version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
-    }
-
-    if (isGraduating(currentVersion, releaseType)) {
-      logger.info(`Graduating from prerelease ${currentVersion} to stable ${newVersion}`)
-    }
-
-    return newVersion
+  if (!newVersion) {
+    throw new Error(`Unable to bump "${name}" version "${currentVersion}" with release type "${releaseType}"\n\nYou should use an explicit release type (use flag: --major, --minor, --patch, --premajor, --preminor, --prepatch, --prerelease)`)
   }
-  catch (error) {
-    throw new Error(`Unable to bump version: ${error}`)
+
+  if (isPrereleaseReleaseType(releaseType) && suffix) {
+    // Remplace le dernier .X par .suffix
+    newVersion = newVersion.replace(/\.(\d+)$/, `.${suffix}`)
   }
+
+  const isValidVersion = semver.gt(newVersion, currentVersion)
+
+  if (!isValidVersion) {
+    throw new Error(`Unable to bump "${name}" version "${currentVersion}" to "${newVersion}", new version is not greater than current version`)
+  }
+
+  if (isGraduating(currentVersion, releaseType)) {
+    logger.info(`Graduating "${name}" from prerelease ${currentVersion} to stable ${newVersion}`)
+  }
+
+  if (isChangedPreid(currentVersion, preid)) {
+    logger.debug(`Graduating "${name}" from ${getPreid(currentVersion)} to ${preid}`)
+  }
+
+  return newVersion
 }
 
 export function updateLernaVersion({
@@ -324,7 +353,7 @@ export function updateLernaVersion({
     logger.success(`Updated lerna.json: ${oldVersion} → ${version}`)
   }
   catch (error) {
-    logger.warn(`Unable to update lerna.json: ${error}`)
+    logger.fail(`Unable to update lerna.json: ${error}`)
   }
 }
 
@@ -387,17 +416,21 @@ export function isChangedPreid(
   return currentPreid !== targetPreid
 }
 
-export function bumpPackageIndependently({
+export function getBumpedPackageIndependently({
   pkg,
   dryRun,
 }: {
-  pkg: PackageToBump & PackageInfo
+  pkg: PackageBase
   dryRun: boolean
 }): { bumped: true, newVersion: string, oldVersion: string } | { bumped: false } {
   logger.debug(`Analyzing ${pkg.name}`)
 
   const currentVersion = pkg.version || '0.0.0'
-  const newVersion = pkg.version
+  const newVersion = pkg.newVersion
+
+  if (!newVersion) {
+    return { bumped: false }
+  }
 
   logger.debug(`Bumping ${pkg.name} from ${currentVersion} to ${newVersion}`)
 
@@ -434,13 +467,13 @@ function displayUnifiedModePackages({
   newVersion,
   force,
 }: {
-  packages: PackageInfo[]
+  packages: PackageBase[]
   newVersion: string
   force: boolean
 }) {
-  logger.log(`${packages.length} package(s)${force ? ' (force)' : ''}:`)
+  logger.log(`${packages.length} package(s):`)
   packages.forEach((pkg) => {
-    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
   })
   logger.log('')
 }
@@ -450,25 +483,26 @@ function displaySelectiveModePackages({
   newVersion,
   force,
 }: {
-  packages: PackageInfo[]
+  packages: PackageBase[]
   newVersion: string
   force: boolean
 }) {
   if (force) {
-    logger.log(`${packages.length} package(s) (force):`)
+    logger.log(`${packages.length} package(s):`)
     packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+      logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (force)`)
     })
     logger.log('')
   }
   else {
     const packagesWithCommits = packages.filter(p => 'reason' in p && p.reason === 'commits')
     const packagesAsDependents = packages.filter(p => 'reason' in p && p.reason === 'dependency')
+    const packagesAsGraduation = packages.filter(p => 'reason' in p && p.reason === 'graduation')
 
     if (packagesWithCommits.length > 0) {
       logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -476,7 +510,15 @@ function displaySelectiveModePackages({
     if (packagesAsDependents.length > 0) {
       logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
+      })
+      logger.log('')
+    }
+
+    if (packagesAsGraduation.length > 0) {
+      logger.log(`${packagesAsGraduation.length} graduation package(s):`)
+      packagesAsGraduation.forEach((pkg) => {
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -486,35 +528,42 @@ function displaySelectiveModePackages({
 function displayIndependentModePackages({
   packages,
   force,
-  dryRun,
 }: {
-  packages: PackageInfo[]
+  packages: PackageBase[]
   force: boolean
-  dryRun: boolean
 }) {
   if (force) {
-    logger.log(`${dryRun ? '[dry-run] ' : ''}${packages.length} package(s) (force):`)
+    logger.log(`${packages.length} package(s):`)
     packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.currentVersion} → ${pkg.version}`)
+      logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (force)`)
     })
     logger.log('')
   }
   else {
     const packagesWithCommits = packages.filter(p => 'reason' in p && p.reason === 'commits')
     const packagesAsDependents = packages.filter(p => 'reason' in p && p.reason === 'dependency')
+    const packagesAsGraduation = packages.filter(p => 'reason' in p && p.reason === 'graduation')
 
     if (packagesWithCommits.length > 0) {
-      logger.log(`${dryRun ? '[dry-run] ' : ''}${packagesWithCommits.length} package(s) with commits:`)
+      logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.currentVersion} → ${pkg.version}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
 
     if (packagesAsDependents.length > 0) {
-      logger.log(`${dryRun ? '[dry-run] ' : ''}${packagesAsDependents.length} dependent package(s):`)
+      logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.currentVersion} → ${pkg.version}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
+      })
+      logger.log('')
+    }
+
+    if (packagesAsGraduation.length > 0) {
+      logger.log(`${packagesAsGraduation.length} graduation package(s):`)
+      packagesAsGraduation.forEach((pkg) => {
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
       })
       logger.log('')
     }
@@ -532,12 +581,17 @@ export async function confirmBump({
 }: {
   versionMode: VersionMode
   config: ResolvedRelizyConfig
-  packages: PackageInfo[]
+  packages: PackageBase[]
   force: boolean
   currentVersion?: string
   newVersion?: string
   dryRun: boolean
 }) {
+  if (packages.length === 0) {
+    logger.debug('No packages to bump')
+    return
+  }
+
   const lernaJsonExists = hasLernaJson(config.cwd)
 
   logger.log('')
@@ -551,14 +605,22 @@ export async function confirmBump({
     dryRun,
   })
 
-  if (versionMode === 'unified' && newVersion) {
+  if (versionMode === 'unified') {
+    if (!newVersion) {
+      throw new Error('Cannot confirm bump in unified mode without a new version')
+    }
+
     displayUnifiedModePackages({ packages, newVersion, force })
   }
-  else if (versionMode === 'selective' && newVersion) {
+  else if (versionMode === 'selective') {
+    if (!newVersion) {
+      throw new Error('Cannot confirm bump in selective mode without a new version')
+    }
+
     displaySelectiveModePackages({ packages, newVersion, force })
   }
   else if (versionMode === 'independent') {
-    displayIndependentModePackages({ packages, force, dryRun })
+    displayIndependentModePackages({ packages, force })
   }
 
   try {
@@ -568,225 +630,40 @@ export async function confirmBump({
     })
 
     if (!confirmed) {
-      logger.warn('Bump cancelled by user')
+      logger.log('')
+      logger.fail('Bump refused')
       process.exit(0)
     }
   }
-  catch {
-    logger.error('Error while confirming bump')
+  catch (error) {
+    const userHasExited = error instanceof Error && error.name === 'ExitPromptError'
+
+    if (userHasExited) {
+      logger.log('')
+      logger.fail('Bump cancelled')
+      process.exit(0)
+    }
+
+    logger.fail('Error while confirming bump')
     process.exit(1)
   }
 
   logger.log('')
 }
 
-async function findPackagesWithCommits({
-  packages,
-  config,
-  force,
-}: {
-  packages: PackageInfo[]
-  config: ResolvedRelizyConfig
-  force: boolean
-}): Promise<PackageWithCommits[]> {
-  const packagesWithCommits: PackageWithCommits[] = []
-
-  logger.debug(`Checking for commits in ${packages.length} package(s)`)
-
-  for (const pkg of packages) {
-    const { from, to } = await resolveTags<'independent', 'bump'>({
-      config,
-      versionMode: 'independent',
-      step: 'bump',
-      currentVersion: pkg.version,
-      newVersion: undefined,
-      pkg,
-      logLevel: config.logLevel,
-    })
-
-    const commits = await getPackageCommits({
-      pkg,
-      from,
-      to,
-      config,
-      changelog: false,
-    })
-
-    if (commits.length <= 0 && !force) {
-      logger.debug(`${pkg.name}: No commits found, skipping`)
-      continue
-    }
-
-    packagesWithCommits.push({ ...pkg, commits })
-    logger.debug(`${pkg.name}: ${commits.length} commit(s)`)
-  }
-
-  return packagesWithCommits
-}
-
-async function calculatePackageNewVersion({
-  pkg,
-  config,
-  force,
-  suffix,
-}: {
-  pkg: PackageToBump
-  config: ResolvedRelizyConfig
-  force: boolean
-  suffix: string | undefined
-}): Promise<(PackageInfo & PackageToBump) | null> {
-  const releaseType = config.bump.type
-
-  const { from, to } = await resolveTags<'independent', 'bump'>({
-    config,
-    versionMode: 'independent',
-    step: 'bump',
-    currentVersion: pkg.version,
-    newVersion: undefined,
-    pkg,
-    logLevel: config.logLevel,
-  })
-
-  const forcedBump = pkg.reason === 'dependency'
-
-  let forcedBumpType: BumpOptions['type'] | undefined
-  if (forcedBump) {
-    if (isStableReleaseType(releaseType)) {
-      forcedBumpType = 'patch'
-    }
-    else {
-      forcedBumpType = isPrerelease(pkg.version) ? 'prerelease' : 'prepatch'
-    }
-  }
-
-  const commits = pkg.commits?.length > 0
-    ? pkg.commits
-    : await getPackageCommits({
-        pkg,
-        from,
-        to,
-        config,
-        changelog: false,
-      })
-
-  let calculatedReleaseType: BumpOptions['type'] | null = null
-
-  if (forcedBumpType) {
-    calculatedReleaseType = forcedBumpType
-  }
-  else if (commits.length === 0 && !force) {
-    return null
-  }
-  else {
-    calculatedReleaseType = determineReleaseType({ from, to, commits, config, force, currentVersion: pkg.version })
-    if (!calculatedReleaseType) {
-      return null
-    }
-  }
-
-  const currentVersion = pkg.version || '0.0.0'
-  const newVersion = bumpPackageVersion({
-    currentVersion,
-    releaseType: calculatedReleaseType,
-    preid: config.bump.preid,
-    suffix,
-  })
-
-  return {
-    name: pkg.name,
-    path: pkg.path,
-    currentVersion,
-    version: newVersion,
-    fromTag: from,
-    reason: pkg.reason,
-    commits,
-    dependencyChain: pkg.dependencyChain,
-  }
-}
-
-async function calculateNewVersionsForPackages({
-  allPackagesToBump,
-  config,
-  force,
-  suffix,
-}: {
-  allPackagesToBump: PackageToBump[]
-  config: ResolvedRelizyConfig
-  force: boolean
-  suffix: string | undefined
-}): Promise<(PackageInfo & PackageToBump)[]> {
-  const packagesWithNewVersions: (PackageInfo & PackageToBump)[] = []
-
-  for (const pkgToBump of allPackagesToBump) {
-    const packageWithNewVersion = await calculatePackageNewVersion({
-      pkg: pkgToBump,
-      config,
-      force,
-      suffix,
-    })
-
-    if (packageWithNewVersion) {
-      packagesWithNewVersions.push(packageWithNewVersion)
-    }
-  }
-
-  return packagesWithNewVersions
-}
-
-export async function findPackagesWithCommitsAndCalculateVersions({
-  packages,
-  config,
-  force,
-  suffix,
-}: {
-  packages: PackageInfo[]
-  config: ResolvedRelizyConfig
-  force: boolean
-  suffix: string | undefined
-}): Promise<(PackageInfo & PackageToBump)[]> {
-  const packagesWithCommits = await findPackagesWithCommits({
-    packages,
-    config,
-    force,
-  })
-
-  if (packagesWithCommits.length === 0) {
-    return []
-  }
-
-  const allPackagesToBump = expandPackagesToBumpWithDependents({
-    allPackages: packages,
-    packagesWithCommits,
-    dependencyTypes: config.bump.dependencyTypes,
-  })
-
-  logger.debug(`Total packages to bump (including dependents): ${allPackagesToBump.length}`)
-
-  const packagesWithNewVersions = await calculateNewVersionsForPackages({
-    allPackagesToBump,
-    config,
-    force,
-    suffix,
-  })
-
-  logger.debug(`Found ${packagesWithNewVersions.length} package(s) to bump`)
-
-  return packagesWithNewVersions
-}
-
-export function bumpIndependentPackages({
+export function getBumpedIndependentPackages({
   packages,
   dryRun,
 }: {
-  packages: (PackageToBump & PackageInfo)[]
+  packages: PackageBase[]
   dryRun: boolean
 }) {
-  const bumpedPackages: PackageInfo[] = []
+  const bumpedPackages: PackageBase[] = []
 
   for (const pkgToBump of packages) {
-    logger.debug(`Bumping ${pkgToBump.name} from ${pkgToBump.currentVersion} to ${pkgToBump.version} (reason: ${pkgToBump.reason})`)
+    logger.debug(`Bumping ${pkgToBump.name} from ${pkgToBump.version} to ${pkgToBump.newVersion} (reason: ${pkgToBump.reason})`)
 
-    const result = bumpPackageIndependently({
+    const result = getBumpedPackageIndependently({
       pkg: pkgToBump,
       dryRun,
     })
@@ -794,7 +671,7 @@ export function bumpIndependentPackages({
     if (result.bumped) {
       bumpedPackages.push({
         ...pkgToBump,
-        version: result.newVersion,
+        version: result.oldVersion,
       })
     }
   }

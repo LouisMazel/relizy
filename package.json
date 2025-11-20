@@ -1,8 +1,8 @@
 {
   "name": "relizy",
   "type": "module",
-  "version": "0.2.3-alpha.0",
-  "packageManager": "pnpm@10.20.0",
+  "version": "0.2.5",
+  "packageManager": "pnpm@10.22.0",
   "description": "Changelogen adapter for monorepo management with unified and independent versioning",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
@@ -71,8 +71,8 @@
     "pre-commit": "lint-staged"
   },
   "dependencies": {
-    "@inquirer/prompts": "^7.10.1",
-    "@maz-ui/node": "^4.3.1-alpha.0",
+    "@inquirer/prompts": "^8.0.1",
+    "@maz-ui/node": "4.3.2-beta.1",
     "@maz-ui/utils": "^4.3.0",
     "c12": "^3.3.2",
     "changelogen": "^0.6.2",
@@ -88,18 +88,19 @@
     "@commitlint/config-conventional": "^20.0.0",
     "@commitlint/cz-commitlint": "^20.1.0",
     "@commitlint/types": "^20.0.0",
-    "@maz-ui/eslint-config": "4.3.1-alpha.2",
+    "@maz-ui/eslint-config": "4.3.2-beta.1",
     "@types/node": "^24.10.1",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.0.8",
+    "@vitest/coverage-v8": "^4.0.10",
     "cross-env": "^10.1.0",
     "eslint": "^9.39.1",
     "husky": "^9.1.7",
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.6",
+    "memfs": "^4.51.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.0.8"
+    "vitest": "^4.0.10"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
