@@ -27,12 +27,12 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
     })
 
     if (!credentials) {
-      logger.warn('⚠️  Twitter is enabled but credentials are missing.')
-      logger.warn('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
-      logger.warn('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
-      logger.warn('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
-      logger.warn('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
-      logger.warn('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
+      logger.warn('Twitter is enabled but credentials are missing.')
+      logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
+      logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
+      logger.log('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
+      logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
+      logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
     }
   }
 
@@ -45,14 +45,14 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
     })
 
     if (!token) {
-      logger.warn('⚠️  Slack is enabled but credentials are missing.')
-      logger.warn('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
-      logger.warn('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
+      logger.log('Slack is enabled but credentials are missing.')
+      logger.log('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
+      logger.log('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
     }
 
     if (!slackConfig.channel) {
-      logger.warn('⚠️  Slack is enabled but no channel is configured.')
-      logger.warn('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
+      logger.warn('Slack is enabled but no channel is configured.')
+      logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
     }
   }
 
