@@ -561,7 +561,7 @@ export interface TwitterSocialConfig {
   onlyStable?: boolean
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
    */
   messageTemplate?: string
   /**
@@ -570,14 +570,57 @@ export interface TwitterSocialConfig {
   credentials?: TwitterCredentials
 }
 
+export interface SlackCredentials {
+  /**
+   * Slack Bot Token or User OAuth Token
+   * Required scopes: chat:write, chat:write.public (for public channels)
+   */
+  token?: string
+}
+
+export interface SlackSocialConfig {
+  /**
+   * Enable Slack posting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip Slack posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Slack
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * Slack channel ID or name (e.g., "#releases" or "C1234567890")
+   */
+  channel?: string
+  /**
+   * Custom message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   */
+  messageTemplate?: string
+  /**
+   * Slack credentials (optional - falls back to environment variables)
+   */
+  credentials?: SlackCredentials
+}
+
 export interface SocialConfig {
   /**
    * Twitter configuration
    */
   twitter?: TwitterSocialConfig
+  /**
+   * Slack configuration
+   */
+  slack?: SlackSocialConfig
+  /**
+   * URL to full changelog (e.g., https://example.com/changelog)
+   * This URL will be included in social media posts to allow users to view the complete changelog
+   */
+  changelogUrl?: string
   // Future social platforms can be added here:
   // linkedin?: LinkedInSocialConfig
-  // slack?: SlackSocialConfig
   // discord?: DiscordSocialConfig
 }
 
@@ -599,6 +642,10 @@ export interface TwitterOptions {
    */
   releaseUrl?: string
   /**
+   * Full changelog URL (e.g., https://example.com/changelog)
+   */
+  changelogUrl?: string
+  /**
    * Twitter credentials (all fields required)
    */
   credentials: {
@@ -607,6 +654,46 @@ export interface TwitterOptions {
     accessToken: string
     accessTokenSecret: string
   }
+  /**
+   * Custom message template
+   */
+  messageTemplate?: string
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+}
+
+export interface SlackOptions {
+  /**
+   * Release information
+   */
+  release: PostedRelease
+  /**
+   * Project name
+   */
+  projectName: string
+  /**
+   * Changelog content
+   */
+  changelog: string
+  /**
+   * Release URL (GitHub/GitLab)
+   */
+  releaseUrl?: string
+  /**
+   * Full changelog URL (e.g., https://example.com/changelog)
+   */
+  changelogUrl?: string
+  /**
+   * Slack channel ID or name
+   */
+  channel: string
+  /**
+   * Slack token (required)
+   */
+  token: string
   /**
    * Custom message template
    */
@@ -637,9 +724,14 @@ export interface TemplatesConfig {
   emptyChangelogContent?: string
   /**
    * Twitter message template
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
    */
   twitterMessage?: string
+  /**
+   * Slack message template (optional - if not provided, uses rich blocks format)
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   */
+  slackMessage?: string
 }
 
 export interface RepoConfig {
@@ -663,7 +755,7 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
 
 /**
  * Tokens configuration
