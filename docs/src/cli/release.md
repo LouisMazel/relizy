@@ -44,6 +44,8 @@ relizy release --minor
 relizy release --major
 ```
 
+All available version flags: `--patch`, `--minor`, `--major`, `--prerelease`, `--prepatch`, `--preminor`, `--premajor`
+
 If no type is specified, Relizy automatically detects it from commits.
 
 ### --no-commit
@@ -51,7 +53,7 @@ If no type is specified, Relizy automatically detects it from commits.
 Skip creating git commit:
 
 ```bash
-relizy release --minor --no-commit
+relizy release --no-commit
 ```
 
 ### --no-push
@@ -59,7 +61,7 @@ relizy release --minor --no-commit
 Skip pushing to remote:
 
 ```bash
-relizy release --minor --no-push
+relizy release --no-push
 ```
 
 ### --dry-run
@@ -67,7 +69,7 @@ relizy release --minor --no-push
 Preview changes without executing:
 
 ```bash
-relizy release --minor --dry-run
+relizy release --dry-run
 ```
 
 ### --yes
@@ -75,7 +77,15 @@ relizy release --minor --dry-run
 Skip all confirmations:
 
 ```bash
-relizy release --minor --yes
+relizy release --yes
+```
+
+### --no-git-tag
+
+Skip pushing git tag:
+
+```bash
+relizy release --no-git-tag
 ```
 
 ## Examples

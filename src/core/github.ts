@@ -1,19 +1,24 @@
+import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResult, BumpResultTruthy, PackageInfo, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
-import { generateChangelog, getCurrentGitRef, getFirstCommit, getPackageCommits, getPackages, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
+import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 async function githubIndependentMode({
   config,
   dryRun,
-  bumpedPackages,
+  bumpResult,
+  force,
+  suffix,
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  bumpedPackages?: PackageInfo[]
+  bumpResult: BumpResultTruthy | undefined
+  force: boolean
+  suffix: string | undefined
 }): Promise<PostedRelease[]> {
   const repoConfig = config.repo
 
@@ -27,10 +32,11 @@ async function githubIndependentMode({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const packages = bumpedPackages || getPackages({
-    cwd: config.cwd,
-    patterns: config.monorepo?.packages,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
+  const packages = await getPackagesOrBumpedPackages({
+    config,
+    bumpResult,
+    suffix,
+    force,
   })
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
@@ -38,11 +44,13 @@ async function githubIndependentMode({
   const postedReleases: PostedRelease[] = []
 
   for (const pkg of packages) {
-    const to = `${pkg.name}@${pkg.version}`
-    const from = pkg.fromTag
+    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+
+    const from = config.from || pkg.fromTag
+    const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
 
     if (!from) {
-      logger.warn(`No fromTag found for ${pkg.name}, skipping release`)
+      logger.warn(`No from tag found for ${pkg.name}, skipping release`)
       continue
     }
 
@@ -50,20 +58,11 @@ async function githubIndependentMode({
 
     logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
 
-    const commits = await getPackageCommits({
-      pkg,
-      to: toTag,
-      from,
-      config,
-      changelog: true,
-    })
-
     const changelog = await generateChangelog({
       pkg,
-      commits,
       config,
-      from,
       dryRun,
+      newVersion,
     })
 
     const releaseBody = changelog.split('\n').slice(2).join('\n')
@@ -72,7 +71,7 @@ async function githubIndependentMode({
       tag_name: to,
       name: to,
       body: releaseBody,
-      prerelease: isPrerelease(pkg.version),
+      prerelease: isPrerelease(newVersion),
     }
 
     logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
@@ -82,7 +81,7 @@ async function githubIndependentMode({
       postedReleases.push({
         name: pkg.name,
         tag: release.tag_name,
-        version: pkg.version,
+        version: newVersion,
         prerelease: release.prerelease,
       })
     }
@@ -99,7 +98,7 @@ async function githubIndependentMode({
       postedReleases.push({
         name: pkg.name,
         tag: release.tag_name,
-        version: pkg.version,
+        version: newVersion,
         prerelease: release.prerelease,
       })
     }
@@ -123,7 +122,13 @@ async function githubUnified({
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  rootPackage: PackageInfo
+  rootPackage: {
+    name: string
+    version: string
+    path: string
+    fromTag?: string
+    commits: GitCommit[]
+  }
   bumpResult: BumpResultTruthy | undefined
 }) {
   const repoConfig = config.repo
@@ -138,24 +143,15 @@ async function githubUnified({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const to = config.templates.tagBody.replace('{{newVersion}}', bumpResult?.newVersion || rootPackage.version)
+  const newVersion = bumpResult?.newVersion || rootPackage.version
 
-  const toTag = dryRun ? getCurrentGitRef(config.cwd) : to
-
-  const commits = await getPackageCommits({
-    pkg: rootPackage,
-    config,
-    from: bumpResult?.fromTag || getFirstCommit(config.cwd),
-    to: toTag,
-    changelog: true,
-  })
+  const to = config.to || config.templates.tagBody.replace('{{newVersion}}', newVersion)
 
   const changelog = await generateChangelog({
     pkg: rootPackage,
-    commits,
     config,
-    from: bumpResult?.fromTag || 'v0.0.0',
     dryRun,
+    newVersion,
   })
 
   const releaseBody = changelog.split('\n').slice(2).join('\n')
@@ -181,7 +177,7 @@ async function githubUnified({
     logger.debug('Publishing release to GitHub...')
     await createGithubRelease({
       ...config,
-      from: bumpResult?.fromTag || 'v0.0.0',
+      from: (bumpResult?.bumped && bumpResult.fromTag) || 'v0.0.0',
       to,
       repo: repoConfig,
     }, release)
@@ -197,7 +193,7 @@ async function githubUnified({
   }] satisfies PostedRelease[]
 }
 
-export async function github(options: Partial<ProviderReleaseOptions> & { bumpResult?: BumpResult } = {}) {
+export async function github(options: ProviderReleaseOptions) {
   try {
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
@@ -215,22 +211,39 @@ export async function github(options: Partial<ProviderReleaseOptions> & { bumpRe
       },
     })
 
-    if (!options.bumpResult?.bumped) {
-      logger.warn('No bump result found, skipping release')
-      return []
-    }
-
     if (config.monorepo?.versionMode === 'independent') {
-      return await githubIndependentMode({ config, dryRun, bumpedPackages: options.bumpResult.bumpedPackages })
+      return await githubIndependentMode({
+        config,
+        dryRun,
+        bumpResult: options.bumpResult,
+        force: options.force ?? false,
+        suffix: options.suffix,
+      })
     }
 
-    let rootPackage = getRootPackage(config.cwd)
+    const rootPackageBase = readPackageJson(config.cwd)
 
-    const foundedRootPackage = options.bumpResult.bumpedPackages.find(pkg => pkg.path === rootPackage.path)
-
-    if (foundedRootPackage) {
-      rootPackage = foundedRootPackage
+    if (!rootPackageBase) {
+      throw new Error('Failed to read root package.json')
     }
+
+    const newVersion = options.bumpResult?.newVersion || rootPackageBase.version
+
+    const { from, to } = await resolveTags<'provider-release'>({
+      config,
+      step: 'provider-release',
+      newVersion,
+      pkg: rootPackageBase,
+    })
+
+    const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
+      config,
+      force: options.force ?? false,
+      suffix: options.suffix,
+      changelog: true,
+      from,
+      to,
+    })
 
     return await githubUnified({
       config,

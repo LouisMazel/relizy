@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { PostedRelease, SocialOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { generateChangelog, getCurrentGitRef, getFirstCommit, getPackageCommits, getRootPackage, isPrerelease, loadRelizyConfig } from '../core'
+import { generateChangelog, isPrerelease, loadRelizyConfig, readPackageJson } from '../core'
 import { extractChangelogSummary, getReleaseUrl, getTwitterCredentials, postReleaseToTwitter } from '../core/twitter'
 import { executeHook } from '../core/utils'
 
@@ -78,27 +78,25 @@ async function handleTwitterPost({
     await executeHook('before:twitter', config, dryRun)
 
     try {
-      const rootPackage = getRootPackage(config.cwd)
+      const rootPackageBase = readPackageJson(config.cwd)
+
+      if (!rootPackageBase) {
+        throw new Error('Failed to read root package.json')
+      }
+
       const releaseUrl = getReleaseUrl(config, mainRelease.tag)
 
-      // Read the actual changelog file if available
-      const toTag = dryRun ? getCurrentGitRef(config.cwd) : mainRelease.tag
-      const fromTag = config.from || getFirstCommit(config.cwd)
-
-      const commits = await getPackageCommits({
-        pkg: rootPackage,
-        config,
-        from: fromTag,
-        to: toTag,
-        changelog: true,
-      })
-
+      // Use the tag from the posted release
       const changelog = await generateChangelog({
-        pkg: rootPackage,
-        commits,
+        pkg: {
+          ...rootPackageBase,
+          fromTag: config.from || '',
+          commits: [],
+          newVersion: mainRelease.version,
+        },
         config,
-        from: fromTag,
         dryRun,
+        newVersion: mainRelease.version,
       })
 
       // Extract summary from the generated changelog
@@ -108,7 +106,7 @@ async function handleTwitterPost({
 
       await postReleaseToTwitter({
         release: mainRelease,
-        projectName: rootPackage.name,
+        projectName: rootPackageBase.name,
         changelog: changelogSummary,
         releaseUrl,
         credentials,

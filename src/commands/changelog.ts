@@ -1,32 +1,14 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { ChangelogConfig, ChangelogOptions, PackageInfo } from '../types'
+import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { executeFormatCmd, executeHook, generateChangelog, getPackageCommits, getPackages, getRootPackage, loadRelizyConfig, resolveTags, writeChangelogToFile } from '../core'
-
-function getPackagesToGenerateChangelogFor({
-  config,
-  bumpedPackages,
-}: {
-  config: ResolvedRelizyConfig
-  bumpedPackages: PackageInfo[] | undefined
-}) {
-  if (bumpedPackages && bumpedPackages.length > 0) {
-    return bumpedPackages
-  }
-
-  return getPackages({
-    cwd: config.cwd,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
-    patterns: config.monorepo?.packages,
-  })
-}
+import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
 
 async function generateIndependentRootChangelog({
   packages,
   config,
   dryRun,
 }: {
-  packages: PackageInfo[]
+  packages: PackageBase[]
   config: ResolvedRelizyConfig
   dryRun: boolean
 }) {
@@ -37,43 +19,18 @@ async function generateIndependentRootChangelog({
 
   logger.debug('Generating aggregated root changelog for independent mode')
 
-  const rootPackage = getRootPackage(config.cwd)
   const packageChangelogs: string[] = []
 
   for (const pkg of packages) {
-    const { from, to } = await resolveTags<'independent', 'changelog'>({
-      config,
-      versionMode: 'independent',
-      step: 'changelog',
-      currentVersion: pkg.version,
-      newVersion: undefined,
-      pkg,
-      logLevel: config.logLevel,
-    })
-
-    const lastTag = from
-
-    logger.debug(`Generating changelog for ${pkg.name} (${lastTag}...${to})`)
-
-    const commits = await getPackageCommits({
-      pkg,
-      from: lastTag,
-      to,
-      config,
-      changelog: true,
-    })
-
     const changelog = await generateChangelog({
-      config,
       pkg,
-      commits,
-      from: lastTag,
+      config,
       dryRun,
+      newVersion: (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version,
     })
 
     if (changelog) {
-      const cleanedChangelog = changelog.split('\n').slice(2).join('\n')
-      packageChangelogs.push(`## ${pkg.name}@${pkg.version}\n\n${cleanedChangelog}`)
+      packageChangelogs.push(changelog)
     }
   }
 
@@ -87,8 +44,15 @@ async function generateIndependentRootChangelog({
 
   logger.verbose(`Aggregated root changelog: ${aggregatedChangelog}`)
 
+  const rootPackageRead = readPackageJson(config.cwd)
+
+  if (!rootPackageRead) {
+    throw new Error('Failed to read root package.json')
+  }
+
   writeChangelogToFile({
-    pkg: rootPackage,
+    cwd: config.cwd,
+    pkg: rootPackageRead,
     changelog: aggregatedChangelog,
     dryRun,
   })
@@ -99,9 +63,15 @@ async function generateIndependentRootChangelog({
 async function generateSimpleRootChangelog({
   config,
   dryRun,
+  force,
+  suffix,
+  bumpResult,
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
+  force: boolean
+  suffix: string | undefined
+  bumpResult: BumpResultTruthy | undefined
 }) {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
@@ -110,39 +80,44 @@ async function generateSimpleRootChangelog({
 
   logger.debug('Generating simple root changelog')
 
-  const rootPackage = getRootPackage(config.cwd)
+  const rootPackageRead = readPackageJson(config.cwd)
 
-  const { from, to } = await resolveTags<'unified' | 'selective', 'changelog'>({
+  if (!rootPackageRead) {
+    throw new Error('Failed to read root package.json')
+  }
+
+  const newVersion = bumpResult?.newVersion || rootPackageRead.version
+
+  const { from, to } = await resolveTags<'changelog'>({
     config,
-    versionMode: (config.monorepo?.versionMode || 'unified') as 'unified' | 'selective',
     step: 'changelog',
-    currentVersion: rootPackage.version,
-    newVersion: undefined,
-    pkg: undefined,
-    logLevel: config.logLevel,
+    newVersion,
+    pkg: rootPackageRead,
   })
 
-  logger.debug(`Generating root changelog (${from}...${to})`)
-  logger.debug(`Root package: ${rootPackage.name} at ${rootPackage.path}`)
+  const fromTag = bumpResult?.fromTag || from
 
-  const rootCommits = await getPackageCommits({
-    pkg: rootPackage,
-    from,
-    to,
+  const rootPackage = bumpResult?.rootPackage || await getRootPackage({
     config,
+    force,
+    suffix,
     changelog: true,
+    from: fromTag,
+    to,
   })
+
+  logger.debug(`Generating ${rootPackage.name} changelog (${fromTag}...${to})`)
 
   const rootChangelog = await generateChangelog({
     pkg: rootPackage,
-    commits: rootCommits,
     config,
-    from,
     dryRun,
+    newVersion,
   })
 
   if (rootChangelog) {
     writeChangelogToFile({
+      cwd: config.cwd,
       changelog: rootChangelog,
       pkg: rootPackage,
       dryRun,
@@ -154,6 +129,7 @@ async function generateSimpleRootChangelog({
   }
 }
 
+// eslint-disable-next-line complexity
 export async function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
   const config = await loadRelizyConfig({
     configName: options.configName,
@@ -179,13 +155,15 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.start('Start generating changelogs')
 
-    const packages = getPackagesToGenerateChangelogFor({
-      config,
-      bumpedPackages: options.bumpedPackages,
-    })
-
     if (config.changelog?.rootChangelog && config.monorepo) {
       if (config.monorepo.versionMode === 'independent') {
+        const packages = await getPackagesOrBumpedPackages({
+          config,
+          bumpResult: options.bumpResult,
+          suffix: options.suffix,
+          force: options.force ?? false,
+        })
+
         await generateIndependentRootChangelog({
           packages,
           config,
@@ -196,6 +174,9 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
         await generateSimpleRootChangelog({
           config,
           dryRun,
+          bumpResult: options.bumpResult,
+          suffix: options.suffix,
+          force: options.force ?? false,
         })
       }
     }
@@ -205,41 +186,39 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.debug('Generating package changelogs...')
 
+    const packages = await getPackagesOrBumpedPackages({
+      config,
+      bumpResult: options.bumpResult,
+      suffix: options.suffix,
+      force: options.force ?? false,
+    })
+
     logger.debug(`Processing ${packages.length} package(s)`)
 
     let generatedCount = 0
 
     for await (const pkg of packages) {
-      const { from, to } = await resolveTags<'independent' | 'selective' | 'unified', 'changelog'>({
+      const newVersion = options.bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
+
+      const { from, to } = await resolveTags<'changelog'>({
         config,
-        versionMode: config.monorepo?.versionMode || 'unified',
         step: 'changelog',
-        currentVersion: pkg.version,
-        newVersion: undefined,
         pkg,
-        logLevel: config.logLevel,
+        newVersion,
       })
 
       logger.debug(`Processing ${pkg.name} (${from}...${to})`)
 
-      const commits = await getPackageCommits({
-        pkg,
-        from,
-        to,
-        config,
-        changelog: true,
-      })
-
       const changelog = await generateChangelog({
         pkg,
-        commits,
         config,
-        from,
         dryRun,
+        newVersion,
       })
 
       if (changelog) {
         writeChangelogToFile({
+          cwd: config.cwd,
           pkg,
           changelog,
           dryRun,

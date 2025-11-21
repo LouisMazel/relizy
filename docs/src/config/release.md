@@ -94,6 +94,20 @@ export default defineConfig({
 })
 ```
 
+## gitTag
+
+Enable/disable git tag push:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    gitTag: true,
+  },
+})
+```
+
 ## Complete Example
 
 ```ts
@@ -108,6 +122,7 @@ export default defineConfig({
     publish: true,
     release: true,
     push: true,
+    gitTag: true,
   },
 })
 ```

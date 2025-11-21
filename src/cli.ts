@@ -144,6 +144,7 @@ program
   .option('--access <type>', 'Package access level (public or restricted)')
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
+  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
     try {
       await publish({
@@ -152,10 +153,10 @@ program
         access: options.access,
         otp: options.otp,
         buildCmd: options.buildCmd,
+        token: options.publishToken,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
-
       })
     }
     catch {
@@ -238,10 +239,12 @@ program
   .option('--force', 'Bump even if there are no commits')
   .option('--no-clean', 'Skip check if the working directory is clean')
   .option('--no-commit', 'Skip commit and tag')
+  .option('--no-git-tag', 'Skip tag creation')
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--no-social', 'Skip social media posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
+  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
     try {
       await release({
@@ -255,6 +258,7 @@ program
         push: hasCliFlag('--no-push') || hasCliFlag('--no-commit') ? false : undefined,
         publish: hasCliFlag('--no-publish') ? false : undefined,
         providerRelease: hasCliFlag('--no-provider-release') ? false : undefined,
+        gitTag: hasCliFlag('--no-git-tag') ? false : undefined,
         noVerify: hasCliFlag('--no-verify') ? true : undefined,
         clean: hasCliFlag('--no-clean') ? false : undefined,
         registry: options.registry,
@@ -266,6 +270,7 @@ program
         buildCmd: options.buildCmd,
         rootChangelog: hasCliFlag('--no-root-changelog') ? false : undefined,
         token: options.token,
+        publishToken: options.publishToken,
         logLevel: program.opts().logLevel,
         force: options.force,
         yes: options.yes,

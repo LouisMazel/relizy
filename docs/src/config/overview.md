@@ -51,9 +51,11 @@ export default defineConfig({
 {
   "name": "my-monorepo",
   "version": "1.0.0",
-  "monorepo": {
-    "versionMode": "selective",
-    "packageGlobs": ["packages/*"]
+  "relizy": {
+    "monorepo": {
+      "versionMode": "selective",
+      "packageGlobs": ["packages/*"]
+    }
   }
 }
 ```

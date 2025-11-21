@@ -4,6 +4,7 @@ import { upperFirst } from '@maz-ui/utils'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
+import { getFirstCommit } from './git'
 
 export interface Reference {
   type: 'hash' | 'issue' | 'pull-request'
@@ -22,11 +23,13 @@ export async function generateMarkDown({
   config,
   from,
   to,
+  isFirstCommit,
 }: {
   commits: GitCommit[]
   config: ResolvedRelizyConfig
   from: string
   to: string
+  isFirstCommit: boolean
 }) {
   const typeGroups = groupBy(commits, 'type')
 
@@ -41,11 +44,15 @@ export async function generateMarkDown({
 
   // Version Title
   const versionTitle = updatedConfig.to
-  // eslint-disable-next-line sonarjs/no-nested-template-literals
-  markdown.push('', `## ${versionTitle || `${updatedConfig.from || ''}...${updatedConfig.to}`}`, '')
+
+  const changelogTitle = `${updatedConfig.from}...${updatedConfig.to}`
+  markdown.push('', `## ${changelogTitle}`, '')
 
   if (updatedConfig.repo && updatedConfig.from && versionTitle) {
-    const formattedCompareLink = formatCompareChanges(versionTitle, updatedConfig as ResolvedChangelogConfig)
+    const formattedCompareLink = formatCompareChanges(versionTitle, {
+      ...updatedConfig,
+      from: isFirstCommit ? getFirstCommit(updatedConfig.cwd) : updatedConfig.from,
+    } as ResolvedChangelogConfig)
     markdown.push(formattedCompareLink)
   }
 
@@ -103,27 +110,28 @@ export async function generateMarkDown({
     }
   }
 
-  // Try to map authors to github usernames
-  await Promise.all(
-    [..._authors.keys()].map(async (authorName) => {
-      const meta = _authors.get(authorName)
+  if (updatedConfig.repo?.provider === 'github') {
+    await Promise.all(
+      [..._authors.keys()].map(async (authorName) => {
+        const meta = _authors.get(authorName)
 
-      if (!meta) {
-        return
-      }
-
-      for (const data of [...meta.email, meta.name]) {
-        const { user } = await fetch(`https://ungh.cc/users/find/${data}`)
-          .then(r => r.json() as Promise<{ user: { username?: string } }>)
-          .catch(() => ({ user: null }))
-
-        if (user) {
-          meta.github = user.username
-          break
+        if (!meta) {
+          return
         }
-      }
-    }),
-  )
+
+        for (const data of [...meta.email, meta.name]) {
+          const { user } = await fetch(`https://ungh.cc/users/find/${data}`)
+            .then(r => r.json() as Promise<{ user: { username?: string } }>)
+            .catch(() => ({ user: null }))
+
+          if (user) {
+            meta.github = user.username
+            break
+          }
+        }
+      }),
+    )
+  }
 
   const authors = [..._authors.entries()].map(e => ({
     name: e[0],
@@ -196,10 +204,25 @@ function getCommitBody(commit: GitCommit) {
       return false
     }
 
-    const isFileLine = /^[AMDRC]\s+/.test(trimmedLine)
-    const R100 = /R100\s+/.test(trimmedLine)
+    /**
+     * Git diff status codes that appear in commit bodies:
+     * - A: Added
+     * - M: Modified (can include M000-M100 with break pairing)
+     * - D: Deleted
+     * - R: Renamed (R000-R100 with similarity score)
+     * - C: Copied (C000-C100 with similarity score)
+     * - T: Type changed
+     * - U: Unmerged
+     * - X: Unknown
+     * - B: Broken pairing
+     *
+     * Pattern: Status code followed by whitespace and file path(s)
+     */
 
-    return !isFileLine && !R100
+    // Matches: [A|M|D|T|U|X|B] or [R|C|M][0-9]{3} followed by whitespace
+    const isFileLine = /^[AMDTUXB](?:\d{3})?\s+/.test(trimmedLine) || /^[RCM]\d{3}\s+/.test(trimmedLine)
+
+    return !isFileLine
   })
 
   if (contentLines.length === 0) {

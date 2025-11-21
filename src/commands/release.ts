@@ -1,12 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, getRootPackage, loadRelizyConfig, pushCommitAndTags } from '../core'
+import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson } from '../core'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
-import { publish } from './publish'
+import { publish, publishSafetyCheck } from './publish'
 import { social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
@@ -36,6 +36,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         registry: options.registry,
         tag: options.tag,
         buildCmd: options.buildCmd,
+        token: options.publishToken,
       },
       release: {
         commit: options.commit,
@@ -45,6 +46,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         noVerify: options.noVerify,
         providerRelease: options.providerRelease,
         clean: options.clean,
+        gitTag: options.gitTag,
         social: options.social,
       },
       safetyCheck: options.safetyCheck,
@@ -52,7 +54,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   })
 }
 
-function releaseSafetyCheck({
+async function releaseSafetyCheck({
   config,
   provider,
 }: {
@@ -65,6 +67,8 @@ function releaseSafetyCheck({
 
   providerReleaseSafetyCheck({ config, provider })
   socialSafetyCheck({ config })
+
+  await publishSafetyCheck({ config })
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -80,7 +84,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
-  releaseSafetyCheck({ config, provider: options.provider })
+  await releaseSafetyCheck({ config, provider: options.provider })
 
   try {
     await executeHook('before:release', config, dryRun)
@@ -95,6 +99,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       force,
       clean: config.release.clean,
       configName: options.configName,
+      suffix: options.suffix,
     })
 
     if (!bumpResult.bumped) {
@@ -110,10 +115,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         dryRun,
         formatCmd: config.changelog.formatCmd,
         rootChangelog: config.changelog.rootChangelog,
-        bumpedPackages: bumpResult.bumpedPackages,
+        bumpResult,
         config,
         logLevel: config.logLevel,
         configName: options.configName,
+        force,
+        suffix: options.suffix,
       })
     }
     else {
@@ -142,7 +149,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       await executeHook('before:push', config, dryRun)
 
       try {
-        await pushCommitAndTags({ dryRun, logLevel: config.logLevel, cwd: config.cwd })
+        await pushCommitAndTags({
+          config,
+          dryRun,
+          logLevel: config.logLevel,
+          cwd: config.cwd,
+        })
 
         await executeHook('success:push', config, dryRun)
       }
@@ -164,10 +176,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         tag: config.publish.tag,
         access: config.publish.access,
         otp: config.publish.otp,
-        bumpedPackages: bumpResult.bumpedPackages,
+        bumpResult,
         dryRun,
         config,
         configName: options.configName,
+        suffix: options.suffix,
+        force,
       })
     }
     else {
@@ -192,6 +206,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           logLevel: config.logLevel,
           bumpResult,
           configName: options.configName,
+          force,
+          suffix: options.suffix,
         })
         provider = response.detectedProvider
         postedReleases = response.postedReleases
@@ -231,10 +247,10 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-      : bumpResult.newVersion || getRootPackage(config.cwd).version
+      : bumpResult.newVersion || readPackageJson(config.cwd)?.version
 
     logger.box('Release workflow completed!\n\n'
-      + `Version: ${versionDisplay}\n`
+      + `Version: ${versionDisplay ?? 'Unknown'}\n`
       + `Tag(s): ${createdTags.length ? createdTags.join(', ') : 'No'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`

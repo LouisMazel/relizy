@@ -1,11 +1,12 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
+import type { ReleaseType } from 'semver'
 import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { loadConfig, setupDotenv } from 'c12'
 
+import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 
@@ -27,8 +28,8 @@ export function getDefaultConfig() {
       ci: { title: '🤖 CI' },
     } as NonNullable<RelizyConfig['types']>,
     templates: {
-      commitMessage: 'chore(release): bump version to v{{newVersion}}',
-      tagMessage: 'Bump version to v{{newVersion}}',
+      commitMessage: 'chore(release): bump version to {{newVersion}}',
+      tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
       twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
@@ -36,7 +37,7 @@ export function getDefaultConfig() {
     excludeAuthors: [],
     noAuthors: false,
     bump: {
-      type: 'release' satisfies NonNullable<BumpConfig['type']>,
+      type: 'release' satisfies ReleaseType,
       clean: true,
       dependencyTypes: ['dependencies'],
       yes: false,
@@ -48,6 +49,7 @@ export function getDefaultConfig() {
     publish: {
       private: false,
       args: [],
+      safetyCheck: false,
     },
     tokens: {
       gitlab:
@@ -69,6 +71,7 @@ export function getDefaultConfig() {
       clean: true,
       providerRelease: true,
       noVerify: false,
+      gitTag: true,
       social: true,
     } as Required<ReleaseConfig>,
     social: {
