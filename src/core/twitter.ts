@@ -1,7 +1,7 @@
 import type { TwitterCredentials, TwitterOptions } from '../types'
-import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { extractChangelogSummary } from './social-utils'
 
 export interface ResolvedTwitterCredentials {
   apiKey: string
@@ -52,12 +52,13 @@ export function formatTweetMessage(options: {
   version: string
   changelog: string
   releaseUrl?: string
+  changelogUrl?: string
 }): string {
-  const { template, projectName, version, changelog, releaseUrl } = options
+  const { template, projectName, version, changelog, releaseUrl, changelogUrl } = options
 
   // Truncate changelog to fit Twitter's character limit (280 chars)
-  // Reserve space for template text, project name, version, and URL
-  const reservedChars = template.length + projectName.length + version.length + (releaseUrl?.length || 0) + 20
+  // Reserve space for template text, project name, version, and URLs
+  const reservedChars = template.length + projectName.length + version.length + (releaseUrl?.length || 0) + (changelogUrl?.length || 0) + 30
   const maxChangelogLength = 280 - reservedChars
 
   let truncatedChangelog = changelog
@@ -78,6 +79,14 @@ export function formatTweetMessage(options: {
     message = message.replace('{{releaseUrl}}', '').trim()
   }
 
+  if (changelogUrl) {
+    message = message.replace('{{changelogUrl}}', changelogUrl)
+  }
+  else {
+    // Remove the changelogUrl placeholder if no URL is provided
+    message = message.replace('{{changelogUrl}}', '').trim()
+  }
+
   // Ensure the final message doesn't exceed Twitter's limit
   if (message.length > 280) {
     message = `${message.substring(0, 277)}...`
@@ -87,54 +96,12 @@ export function formatTweetMessage(options: {
 }
 
 /**
- * Get the release URL from repo config and release tag
- */
-export function getReleaseUrl(config: ResolvedRelizyConfig, tag: string): string | undefined {
-  const repo = config.repo
-  if (!repo?.domain || !repo?.repo) {
-    return undefined
-  }
-
-  const provider = repo.provider || 'github'
-  const baseUrl = provider === 'github'
-    ? `https://${repo.domain}/${repo.repo}/releases/tag`
-    : `https://${repo.domain}/${repo.repo}/-/releases`
-
-  return `${baseUrl}/${tag}`
-}
-
-/**
- * Extract a summary from changelog content
- */
-export function extractChangelogSummary(changelog: string, maxLength: number = 150): string {
-  // Remove markdown headers
-  const cleaned = changelog
-    .split('\n')
-    .filter(line => !line.startsWith('#'))
-    .join('\n')
-    .trim()
-
-  // Get first few lines or sentences
-  const sentences = cleaned.split(/[.!?]\s+/)
-  let summary = ''
-
-  for (const sentence of sentences) {
-    if ((summary + sentence).length > maxLength) {
-      break
-    }
-    summary += `${sentence}. `
-  }
-
-  return summary.trim() || cleaned.substring(0, maxLength)
-}
-
-/**
  * Post a release announcement to Twitter
  */
 export async function postReleaseToTwitter(options: TwitterOptions): Promise<void> {
-  const { release, projectName, changelog, releaseUrl, credentials, messageTemplate, dryRun = false } = options
+  const { release, projectName, changelog, releaseUrl, changelogUrl, credentials, messageTemplate, dryRun = false } = options
 
-  logger.debug('Preparing Twitter post...')
+  logger.debug('[social:twitter] Preparing Twitter post...')
 
   const template = messageTemplate || `🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}`
 
@@ -146,6 +113,7 @@ export async function postReleaseToTwitter(options: TwitterOptions): Promise<voi
     version: release.version,
     changelog: changelogSummary,
     releaseUrl,
+    changelogUrl,
   })
 
   logger.debug(`Tweet message (${message.length} chars):\n${message}`)
