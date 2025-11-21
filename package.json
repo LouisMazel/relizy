@@ -70,6 +70,18 @@
     "test:unit:coverage": "vitest run --coverage",
     "pre-commit": "lint-staged"
   },
+  "peerDependencies": {
+    "@slack/web-api": "^7.0.0",
+    "twitter-api-v2": "^1.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@slack/web-api": {
+      "optional": true
+    },
+    "twitter-api-v2": {
+      "optional": true
+    }
+  },
   "dependencies": {
     "@inquirer/prompts": "^8.1.0",
     "@maz-ui/node": "4.3.4-beta.0",
@@ -82,8 +94,7 @@
     "defu": "^6.1.4",
     "fast-glob": "^3.3.2",
     "node-fetch-native": "^1.6.7",
-    "semver": "^7.7.2",
-    "twitter-api-v2": "^1.27.0"
+    "semver": "^7.7.2"
   },
   "devDependencies": {
     "@commitlint/cli": "^20.2.0",
@@ -100,6 +111,7 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.7",
     "memfs": "^4.51.1",
+    "twitter-api-v2": "^1.27.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
     "vitest": "^4.0.16"
