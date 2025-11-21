@@ -35,9 +35,17 @@ export function getReleaseUrl(config: ResolvedRelizyConfig, tag: string): string
   }
 
   const provider = repo.provider || 'github'
-  const baseUrl = provider === 'github'
-    ? `https://${repo.domain}/${repo.repo}/releases/tag`
-    : `https://${repo.domain}/${repo.repo}/-/releases`
 
-  return `${baseUrl}/${tag}`
+  if (provider === 'github') {
+    return `https://${repo.domain}/${repo.repo}/releases/tag/${tag}`
+  }
+  else if (provider === 'gitlab') {
+    return `https://${repo.domain}/${repo.repo}/-/releases/${tag}`
+  }
+  else if (provider === 'bitbucket') {
+    // Bitbucket doesn't have releases, link to the tag instead
+    return `https://${repo.domain}/${repo.repo}/commits/tag/${tag}`
+  }
+
+  return undefined
 }

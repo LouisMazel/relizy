@@ -4,7 +4,7 @@ import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
-export type GitProvider = 'github' | 'gitlab'
+export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 
 /**
