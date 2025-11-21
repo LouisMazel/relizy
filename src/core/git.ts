@@ -62,6 +62,10 @@ export function detectGitProvider(cwd: string = process.cwd()): GitProvider | nu
       return 'gitlab'
     }
 
+    if (remoteUrl.includes('bitbucket.org') || remoteUrl.includes('bitbucket')) {
+      return 'bitbucket'
+    }
+
     return null
   }
   catch {
