@@ -33,6 +33,7 @@ export function getDefaultConfig() {
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
       twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+      slackMessage: undefined, // Use rich blocks format by default (no template)
     },
     excludeAuthors: [],
     noAuthors: false,
@@ -79,6 +80,10 @@ export function getDefaultConfig() {
     } as Required<ReleaseConfig>,
     social: {
       twitter: {
+        enabled: false,
+        onlyStable: true,
+      },
+      slack: {
         enabled: false,
         onlyStable: true,
       },

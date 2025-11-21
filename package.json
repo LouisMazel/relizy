@@ -75,6 +75,7 @@
     "@maz-ui/node": "4.3.4-beta.0",
     "@maz-ui/utils": "^4.3.0",
     "c12": "^3.3.3",
+    "@slack/web-api": "^7.12.0",
     "changelogen": "^0.6.2",
     "commander": "^14.0.2",
     "convert-gitmoji": "^0.1.5",
