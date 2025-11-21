@@ -32,4 +32,11 @@ export default defineConfig({
     packageManager: 'pnpm',
     safetyCheck: true,
   },
+
+  social: {
+    changelogUrl: 'https://github.com/LouisMazel/relizy/releases',
+    twitter: {
+      enabled: true,
+    },
+  },
 })
