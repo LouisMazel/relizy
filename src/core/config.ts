@@ -32,6 +32,8 @@ export function getDefaultConfig() {
       tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
+      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+      slackMessage: undefined, // Use rich blocks format by default (no template)
     },
     excludeAuthors: [],
     noAuthors: false,
@@ -60,6 +62,23 @@ export function getDefaultConfig() {
         process.env.RELIZY_GITHUB_TOKEN
         || process.env.GITHUB_TOKEN
         || process.env.GH_TOKEN,
+      twitter: {
+        apiKey:
+          process.env.RELIZY_TWITTER_API_KEY
+          || process.env.TWITTER_API_KEY,
+        apiSecret:
+          process.env.RELIZY_TWITTER_API_SECRET
+          || process.env.TWITTER_API_SECRET,
+        accessToken:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN
+          || process.env.TWITTER_ACCESS_TOKEN,
+        accessTokenSecret:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+          || process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      },
+      slack:
+        process.env.RELIZY_SLACK_TOKEN
+        || process.env.SLACK_TOKEN,
     },
     scopeMap: {},
     release: {
@@ -71,7 +90,18 @@ export function getDefaultConfig() {
       providerRelease: true,
       noVerify: false,
       gitTag: true,
+      social: true,
     } as Required<ReleaseConfig>,
+    social: {
+      twitter: {
+        enabled: false,
+        onlyStable: true,
+      },
+      slack: {
+        enabled: false,
+        onlyStable: true,
+      },
+    },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }

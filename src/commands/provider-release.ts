@@ -11,6 +11,14 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
 
   const internalProvider = provider || config.repo?.provider || detectGitProvider()
 
+  // Bitbucket doesn't support releases via API
+  if (internalProvider === 'bitbucket') {
+    logger.warn('[provider-release-safety-check] Bitbucket does not support releases via API')
+    logger.info('Relizy will skip the release creation step for Bitbucket')
+    logger.info('You can still use Relizy for versioning, changelog, publishing, and social media posting')
+    return
+  }
+
   let token: string | undefined
 
   if (internalProvider === 'github') {
@@ -72,6 +80,20 @@ export async function providerRelease(
     }
 
     let postedReleases: PostedRelease[] = []
+
+    // Skip Bitbucket as it doesn't support releases
+    if (detectedProvider === 'bitbucket') {
+      logger.warn('⚠️  Bitbucket does not support releases via API')
+      logger.info('Skipping release creation for Bitbucket')
+      logger.info('Git tags will still be created during the commit step')
+
+      await executeHook('success:provider-release', config, dryRun)
+
+      return {
+        detectedProvider,
+        postedReleases: [],
+      }
+    }
 
     const payload = {
       from: config.from || options.bumpResult?.fromTag,

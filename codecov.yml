@@ -1,0 +1,91 @@
+# Codecov Configuration for Relizy
+# Documentation: https://docs.codecov.com/docs/codecov-yaml
+
+# Coverage settings
+coverage:
+  # Precision for coverage percentages (2 decimal places)
+  precision: 2
+  # Rounding for coverage percentages
+  round: down
+  # Range for color coding (red to green)
+  range: 60..100
+
+  # Status checks configuration
+  status:
+    # Project-level coverage (overall codebase)
+    project:
+      default:
+        # Target coverage percentage
+        target: auto
+        # Maximum allowed coverage drop (0.5%)
+        threshold: 0.5%
+        # Base branch for comparison
+        base: auto
+        # Only show if coverage changes
+        if_ci_failed: error
+
+    # Patch-level coverage (new code only)
+    patch:
+      default:
+        # Require 80% coverage on new code
+        target: 80%
+        # No threshold for patch (strict)
+        threshold: 0%
+        # Base branch for comparison
+        base: auto
+        # Only show if coverage changes
+        if_ci_failed: error
+
+  # Changes settings (what gets flagged in PRs)
+  changes:
+    default:
+      # Only show changes if >0.5% difference
+      threshold: 0.5%
+
+# Comment configuration for Pull Requests
+comment:
+  # Enable PR comments
+  require_changes: true
+  # Comment behavior (update existing comment)
+  behavior: default
+  # Show coverage changes
+  layout: 'diff, flags, files'
+  # Hide footer to keep comments concise
+  hide_project_coverage: false
+
+# Ignore paths (common patterns)
+ignore:
+  - '**/*.spec.ts'
+  - '**/*.test.ts'
+  - '**/tests/**'
+  - '**/test/**'
+  - '**/__tests__/**'
+  - '**/__mocks__/**'
+  - '**/node_modules/**'
+  - '**/dist/**'
+  - '**/coverage/**'
+  - '**/*.d.ts'
+  - 'bin/**'
+
+# Flags configuration for categorizing coverage
+flags:
+  unit:
+    # All unit tests
+    paths:
+      - src/
+    # Require at least 1 upload with this flag
+    carryforward: false
+
+# GitHub Checks configuration
+github_checks:
+  # Enable GitHub Checks annotations
+  annotations: true
+
+# Codecov AI features (available on free tier)
+# parsers:
+#   gcov:
+#     branch_detection:
+#       conditional: true
+#       loop: true
+#       macro: false
+#       method: false

@@ -2,26 +2,30 @@
 
 # Function: getPackages()
 
-> **getPackages**(`__namedParameters`): [`PackageInfo`](../interfaces/PackageInfo.md)[]
+> **getPackages**(`__namedParameters`): `Promise`\<[`PackageBase`](../interfaces/PackageBase.md)[]\>
 
-Defined in: [src/core/monorepo.ts:53](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/monorepo.ts#L53)
+Defined in: [src/core/repo.ts:210](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/repo.ts#L210)
 
 ## Parameters
 
 ### \_\_namedParameters
 
-#### cwd
+#### config
 
-`string`
+[`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-#### ignorePackageNames
+#### force
 
-`string`[] \| `undefined`
+`boolean`
 
 #### patterns?
 
 `string`[]
 
+#### suffix
+
+`string` \| `undefined`
+
 ## Returns
 
-[`PackageInfo`](../interfaces/PackageInfo.md)[]
+`Promise`\<[`PackageBase`](../interfaces/PackageBase.md)[]\>

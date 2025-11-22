@@ -2,7 +2,7 @@
 
 # Interface: TemplatesConfig
 
-Defined in: [src/types.ts:403](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L403)
+Defined in: [src/types.ts:708](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L708)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:403](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **commitMessage**: `string`
 
-Defined in: [src/types.ts:407](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L407)
+Defined in: [src/types.ts:712](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L712)
 
 Commit message template
 
@@ -20,9 +20,20 @@ Commit message template
 
 > `optional` **emptyChangelogContent**: `string`
 
-Defined in: [src/types.ts:419](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L419)
+Defined in: [src/types.ts:724](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L724)
 
 Empty changelog content
+
+***
+
+### slackMessage?
+
+> `optional` **slackMessage**: `string`
+
+Defined in: [src/types.ts:734](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L734)
+
+Slack message template (optional - if not provided, uses rich blocks format)
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
 
 ***
 
@@ -30,7 +41,7 @@ Empty changelog content
 
 > `optional` **tagBody**: `string`
 
-Defined in: [src/types.ts:415](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L415)
+Defined in: [src/types.ts:720](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L720)
 
 Not used with "independent" version mode
 
@@ -40,6 +51,17 @@ Not used with "independent" version mode
 
 > `optional` **tagMessage**: `string`
 
-Defined in: [src/types.ts:411](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L411)
+Defined in: [src/types.ts:716](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L716)
 
 Tag message template
+
+***
+
+### twitterMessage?
+
+> `optional` **twitterMessage**: `string`
+
+Defined in: [src/types.ts:729](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L729)
+
+Twitter message template
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}

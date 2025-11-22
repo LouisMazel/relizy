@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [],
   test: {
     globals: true,
+    setupFiles: ['./vitest.setup.ts'],
     coverage: {
       provider: 'v8',
       reporter: ['clover', 'html', 'lcov'],

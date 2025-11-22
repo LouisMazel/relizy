@@ -2,25 +2,27 @@
 
 # Function: getPackageDependencies()
 
-> **getPackageDependencies**(`packagePath`, `allPackageNames`, `dependencyTypes`): `string`[]
+> **getPackageDependencies**(`__namedParameters`): `string`[]
 
-Defined in: [src/core/dependencies.ts:20](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/dependencies.ts#L20)
+Defined in: [src/core/dependencies.ts:9](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/dependencies.ts#L9)
 
 Get workspace dependencies of a package (only dependencies and peerDependencies, not devDependencies)
 
 ## Parameters
 
-### packagePath
+### \_\_namedParameters
 
-`string`
-
-### allPackageNames
+#### allPackageNames
 
 `Set`\<`string`\>
 
-### dependencyTypes
+#### dependencyTypes
 
-(`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[] | `undefined`
+(`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[] \| `undefined`
+
+#### packagePath
+
+`string`
 
 ## Returns
 

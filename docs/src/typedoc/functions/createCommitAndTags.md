@@ -4,17 +4,17 @@
 
 > **createCommitAndTags**(`__namedParameters`): `Promise`\<`string`[]\>
 
-Defined in: [src/core/git.ts:86](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/git.ts#L86)
+Defined in: [src/core/git.ts:95](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/git.ts#L95)
 
 ## Parameters
 
 ### \_\_namedParameters
 
-#### bumpedPackages?
+#### bumpedPackages
 
-[`PackageInfo`](../interfaces/PackageInfo.md)[]
+[`PackageBase`](../interfaces/PackageBase.md) & `object`[]
 
-#### config?
+#### config
 
 [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
@@ -22,7 +22,7 @@ Defined in: [src/core/git.ts:86](https://github.com/LouisMazel/relizy/blob/9bfb2
 
 `boolean`
 
-#### logLevel?
+#### logLevel
 
 `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
@@ -30,7 +30,7 @@ Defined in: [src/core/git.ts:86](https://github.com/LouisMazel/relizy/blob/9bfb2
 
 `string`
 
-#### noVerify?
+#### noVerify
 
 `boolean`
 

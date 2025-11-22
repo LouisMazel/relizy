@@ -31,4 +31,11 @@ export default defineConfig({
     token: process.env.RELIZY_NPM_TOKEN,
     packageManager: 'npm',
   },
+
+  social: {
+    changelogUrl: 'https://github.com/LouisMazel/relizy/releases',
+    twitter: {
+      enabled: true,
+    },
+  },
 })
