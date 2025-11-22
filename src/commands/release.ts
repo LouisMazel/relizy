@@ -257,7 +257,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     logger.box('Release workflow completed!\n\n'
       + `Version: ${versionDisplay ?? 'Unknown'}\n`
-      + `Tag(s): ${createdTags.length ? createdTags.join(', ') : 'No'}\n`
+      + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
