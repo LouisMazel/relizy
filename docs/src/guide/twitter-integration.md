@@ -2,6 +2,20 @@
 
 Automatically post release announcements to Twitter (X) when you publish new versions.
 
+## Prerequisites
+
+**Important:** Relizy requires the `twitter-api-v2` library as a peer dependency. You must install it in your project:
+
+```bash
+pnpm add -D twitter-api-v2
+# or
+npm install -D twitter-api-v2
+# or
+yarn add -D twitter-api-v2
+```
+
+If not installed, Relizy will show an error message when attempting to post to Twitter.
+
 ## Setup
 
 ### 1. Create a Twitter App

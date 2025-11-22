@@ -2,6 +2,20 @@
 
 Automatically send release notifications to Slack channels when you publish new versions.
 
+## Prerequisites
+
+**Important:** Relizy requires the `@slack/web-api` library as a peer dependency. You must install it in your project:
+
+```bash
+pnpm add -D @slack/web-api
+# or
+npm install -D @slack/web-api
+# or
+yarn add -D @slack/web-api
+```
+
+If not installed, Relizy will show an error message when attempting to post to Slack.
+
 ## Setup
 
 ### 1. Create a Slack App
