@@ -63,11 +63,14 @@ describe('Given unified mode release workflow', () => {
       name: 'test-package',
       version: '1.0.0',
       path: '/root',
+      private: false,
     })
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test-package',
       version: '1.0.0',
       path: '/root',
+      private: false,
+      fromTag: 'v0.9.0',
       commits: [],
     })
     vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
@@ -80,7 +83,7 @@ describe('Given unified mode release workflow', () => {
     } as any)
     vi.mocked(changelogCmd).mockResolvedValue(undefined)
     vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue(undefined)
+    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
     vi.mocked(socialCmd).mockResolvedValue(undefined)
   })
 
@@ -142,10 +145,10 @@ describe('Given unified mode release workflow', () => {
 
   describe('When bumping patch version', () => {
     it('Then creates new patch version', async () => {
-      await release({ releaseType: 'patch' })
+      await release({ type: 'patch' })
 
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ releaseType: 'patch' }),
+        expect.objectContaining({ type: 'patch' }),
       )
     })
 
@@ -157,7 +160,7 @@ describe('Given unified mode release workflow', () => {
         fromTag: 'v1.0.0',
       } as any)
 
-      await release({ releaseType: 'patch' })
+      await release({ type: 'patch' })
 
       expect(changelogCmd).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -176,10 +179,10 @@ describe('Given unified mode release workflow', () => {
         fromTag: 'v1.0.0',
       } as any)
 
-      await release({ releaseType: 'minor' })
+      await release({ type: 'minor' })
 
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ releaseType: 'minor' }),
+        expect.objectContaining({ type: 'minor' }),
       )
     })
   })
@@ -193,10 +196,10 @@ describe('Given unified mode release workflow', () => {
         fromTag: 'v1.0.0',
       } as any)
 
-      await release({ releaseType: 'major' })
+      await release({ type: 'major' })
 
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ releaseType: 'major' }),
+        expect.objectContaining({ type: 'major' }),
       )
     })
   })
@@ -420,11 +423,11 @@ describe('Given unified mode release workflow', () => {
         fromTag: 'v1.0.0-alpha.0',
       } as any)
 
-      await release({ releaseType: 'prerelease', preid: 'beta' })
+      await release({ type: 'prerelease', preid: 'beta' })
 
       expect(bump).toHaveBeenCalledWith(
         expect.objectContaining({
-          releaseType: 'prerelease',
+          type: 'prerelease',
           preid: 'beta',
         }),
       )

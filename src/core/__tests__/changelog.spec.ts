@@ -54,6 +54,8 @@ describe('Given generateChangelog function', () => {
       tagBody: 'v{{newVersion}}',
       tagMessage: 'Release {{newVersion}}',
       emptyChangelogContent: 'No significant changes',
+      twitterMessage: '',
+      slackMessage: undefined,
     }
     vi.mocked(getFirstCommit).mockReturnValue('abc123')
     vi.mocked(generateMarkDown).mockResolvedValue('## v1.0.0...v1.1.0\n\n- Feature added')
@@ -185,7 +187,7 @@ describe('Given generateChangelog function', () => {
 
   describe('When generating for independent mode', () => {
     it('Then uses independent tag for toTag', async () => {
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@1.1.0')
       const pkg = {
         name: 'pkg-a',
@@ -206,7 +208,7 @@ describe('Given generateChangelog function', () => {
     })
 
     it('Then uses independent tag for first commit', async () => {
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       vi.mocked(getFirstCommit).mockReturnValue('initial')
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@0.0.0')
       const pkg = {

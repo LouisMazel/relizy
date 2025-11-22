@@ -1,6 +1,6 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import * as core from '../../core'
 import { createGitlabRelease, gitlab } from '../gitlab'
 
@@ -51,7 +51,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When creating release with valid config', () => {
     it('Then posts to GitLab API', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -81,7 +86,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then returns release response', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -106,7 +116,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then uses custom domain when provided', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.example.com',
@@ -130,7 +145,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then defaults domain to gitlab.com', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         repo: 'user/repo',
@@ -153,7 +173,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then uses token from repo config when tokens.gitlab not set', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = {}
+      config.tokens = {
+        gitlab: undefined,
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -184,7 +209,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When in dry-run mode', () => {
     it('Then skips API call and returns mock response', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -214,7 +244,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When missing token', () => {
     it('Then throws error', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = {}
+      config.tokens = {
+        gitlab: undefined,
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -237,7 +272,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then allows missing token in dry-run mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = {}
+      config.tokens = {
+        gitlab: undefined,
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -261,7 +301,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When missing repository config', () => {
     it('Then throws error', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -283,7 +328,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When GitLab API fails', () => {
     it('Then throws error with API response', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -312,7 +362,12 @@ describe('Given createGitlabRelease function', () => {
   describe('When release has optional fields', () => {
     it('Then includes ref in payload', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -339,7 +394,12 @@ describe('Given createGitlabRelease function', () => {
 
     it('Then defaults ref to main when not provided', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -374,18 +434,26 @@ describe('Given gitlab function', () => {
       domain: 'gitlab.com',
       repo: 'user/repo',
     }
-    config.tokens = { gitlab: 'test-token' }
+    config.tokens = {
+      gitlab: 'test-token',
+      github: undefined,
+      twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+      slack: undefined,
+    }
     vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(core.readPackageJson).mockReturnValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
+      private: false,
     })
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
       commits: [],
+      fromTag: 'v0.9.0',
+      private: false,
     })
     vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
@@ -406,7 +474,7 @@ describe('Given gitlab function', () => {
 
   describe('When in unified mode', () => {
     it('Then creates single GitLab release', async () => {
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(fetch).toHaveBeenCalledWith(
         expect.stringContaining('/api/v4/projects/user%2Frepo/releases'),
@@ -415,7 +483,7 @@ describe('Given gitlab function', () => {
     })
 
     it('Then gets current branch for ref', async () => {
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(execPromise).toHaveBeenCalledWith(
         'git rev-parse --abbrev-ref HEAD',
@@ -424,7 +492,7 @@ describe('Given gitlab function', () => {
     })
 
     it('Then returns posted releases array', async () => {
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
@@ -439,11 +507,11 @@ describe('Given gitlab function', () => {
       const bumpResult = {
         newVersion: '2.0.0',
         bumpedPackages: [],
-        bumped: true,
+        bumped: true as const,
         fromTag: 'v1.0.0',
       }
 
-      await gitlab({ bumpResult })
+      await gitlab({ bumpResult, force: false })
 
       expect(core.resolveTags).toHaveBeenCalledWith(
         expect.objectContaining({ newVersion: '2.0.0' }),
@@ -456,16 +524,18 @@ describe('Given gitlab function', () => {
         version: '2.0.0',
         path: '/root',
         commits: [],
+        fromTag: 'v1.0.0',
+        private: false,
       }
       const bumpResult = {
         newVersion: '2.0.0',
         bumpedPackages: [],
         rootPackage,
-        bumped: true,
+        bumped: true as const,
         fromTag: 'v1.0.0',
       }
 
-      await gitlab({ bumpResult })
+      await gitlab({ bumpResult, force: false })
 
       expect(core.getRootPackage).not.toHaveBeenCalled()
     })
@@ -477,9 +547,11 @@ describe('Given gitlab function', () => {
         newVersion: '1.1.0',
         path: '/root',
         commits: [],
+        fromTag: 'v1.0.0',
+        private: false,
       })
 
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(core.generateChangelog).toHaveBeenCalledWith(
         expect.objectContaining({ newVersion: '1.1.0' }),
@@ -489,7 +561,7 @@ describe('Given gitlab function', () => {
     it('Then marks as prerelease when version is prerelease', async () => {
       vi.mocked(core.isPrerelease).mockReturnValue(true)
 
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(result[0].prerelease).toBe(true)
     })
@@ -505,7 +577,7 @@ describe('Given gitlab function', () => {
     })
 
     it('Then returns posted releases array', async () => {
-      const result = await gitlab({ dryRun: true })
+      const result = await gitlab({ dryRun: true, force: false })
 
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
@@ -519,17 +591,22 @@ describe('Given gitlab function', () => {
   describe('When in independent mode', () => {
     beforeEach(() => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
         repo: 'user/repo',
       }
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
       vi.mocked(core.getIndependentTag).mockImplementation(({ name, version }) => {
         return `${name}@${version}`
@@ -538,13 +615,13 @@ describe('Given gitlab function', () => {
     })
 
     it('Then creates releases for each package', async () => {
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(fetch).toHaveBeenCalledTimes(2)
     })
 
     it('Then uses independent tags for each package', async () => {
-      await gitlab({})
+      await gitlab({ force: false })
 
       const calls = vi.mocked(fetch).mock.calls
       expect(calls[0][1]?.body).toContain('"tag_name":"pkg-a@1.0.0"')
@@ -552,7 +629,7 @@ describe('Given gitlab function', () => {
     })
 
     it('Then returns posted releases for all packages', async () => {
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(result).toHaveLength(2)
       expect(result[0]).toMatchObject({ name: 'pkg-a', tag: 'pkg-a@1.0.0' })
@@ -562,6 +639,7 @@ describe('Given gitlab function', () => {
     it('Then uses newVersion from bumped packages', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
         {
+          ...createMockPackageInfo(),
           name: 'pkg-a',
           version: '1.0.0',
           newVersion: '1.1.0',
@@ -572,7 +650,7 @@ describe('Given gitlab function', () => {
       ])
       vi.mocked(core.isBumpedPackage).mockReturnValue(true)
 
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(core.getIndependentTag).toHaveBeenCalledWith({
         name: 'pkg-a',
@@ -582,11 +660,11 @@ describe('Given gitlab function', () => {
 
     it('Then skips packages without from tag', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '' },
+        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
 
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(fetch).toHaveBeenCalledTimes(1)
       expect(result).toHaveLength(1)
@@ -594,13 +672,13 @@ describe('Given gitlab function', () => {
 
     it('Then skips packages with empty changelog', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
       vi.mocked(core.generateChangelog).mockResolvedValueOnce(null as any)
       vi.mocked(core.generateChangelog).mockResolvedValueOnce('## v2.0.0\n\n- Feature')
 
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(fetch).toHaveBeenCalledTimes(1)
       expect(result).toHaveLength(1)
@@ -610,13 +688,13 @@ describe('Given gitlab function', () => {
     it('Then returns empty array when no packages to release', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
-      const result = await gitlab({})
+      const result = await gitlab({ force: false })
 
       expect(result).toHaveLength(0)
     })
 
     it('Then gets current branch for each release', async () => {
-      await gitlab({})
+      await gitlab({ force: false })
 
       expect(execPromise).toHaveBeenCalledWith(
         'git rev-parse --abbrev-ref HEAD',
@@ -627,7 +705,7 @@ describe('Given gitlab function', () => {
 
   describe('When package.json cannot be read', () => {
     it('Then throws error', async () => {
-      vi.mocked(core.readPackageJson).mockReturnValue(null)
+      vi.mocked(core.readPackageJson).mockReturnValue(undefined as any)
 
       await expect(gitlab({})).rejects.toThrow('Failed to read root package.json')
     })
@@ -635,7 +713,7 @@ describe('Given gitlab function', () => {
 
   describe('When using config name option', () => {
     it('Then passes configName to loadRelizyConfig', async () => {
-      await gitlab({ configName: 'custom' })
+      await gitlab({ configName: 'custom', force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({ configName: 'custom' }),
@@ -647,7 +725,7 @@ describe('Given gitlab function', () => {
     it('Then passes base config to loadRelizyConfig', async () => {
       const baseConfig = createMockConfig({ bump: { type: 'minor' } })
 
-      await gitlab({ config: baseConfig })
+      await gitlab({ config: baseConfig, force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({ baseConfig }),
@@ -658,13 +736,18 @@ describe('Given gitlab function', () => {
   describe('When using force option', () => {
     it('Then passes force to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
         repo: 'user/repo',
       }
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
@@ -687,17 +770,22 @@ describe('Given gitlab function', () => {
   describe('When using suffix option', () => {
     it('Then passes suffix to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
         repo: 'user/repo',
       }
-      config.tokens = { gitlab: 'test-token' }
+      config.tokens = {
+        gitlab: 'test-token',
+        github: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
-      await gitlab({ suffix: 'beta' })
+      await gitlab({ suffix: 'beta', force: false })
 
       expect(core.getPackagesOrBumpedPackages).toHaveBeenCalledWith(
         expect.objectContaining({ suffix: 'beta' }),
@@ -705,7 +793,7 @@ describe('Given gitlab function', () => {
     })
 
     it('Then passes suffix to getRootPackage in unified mode', async () => {
-      await gitlab({ suffix: 'beta' })
+      await gitlab({ suffix: 'beta', force: false })
 
       expect(core.getRootPackage).toHaveBeenCalledWith(
         expect.objectContaining({ suffix: 'beta' }),
@@ -758,7 +846,7 @@ describe('Given gitlab function', () => {
         '## v1.0.0\n\nRelease notes here\n- Feature A\n- Feature B',
       )
 
-      await gitlab({})
+      await gitlab({ force: false })
 
       const call = vi.mocked(fetch).mock.calls[0]
       const body = JSON.parse(call[1]?.body as string)
