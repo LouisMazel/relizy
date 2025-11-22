@@ -246,6 +246,8 @@ When submitting a PR:
 
 The Codecov bot will automatically comment on your PR with coverage details and changes.
 
+For detailed contribution guidelines, including development setup, testing workflows, commit conventions, and the complete PR process, please read our **[Contributing Guide](CONTRIBUTING.md)**.
+
 ## License
 
 MIT
