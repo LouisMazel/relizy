@@ -23,7 +23,7 @@ vi.mock('@maz-ui/node', async () => {
   return {
     ...actual,
     logger: {
-      ...actual.logger,
+      ...(actual.logger || {}),
       setLevel: vi.fn(),
       debug: vi.fn(),
       verbose: vi.fn(),
@@ -430,8 +430,8 @@ describe('Given loadRelizyConfig function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(process.cwd).mockReturnValue('/project')
-    vi.mocked(setupDotenv).mockResolvedValue(undefined)
-    vi.mocked(defu).mockImplementation((a, b) => ({ ...b, ...a }))
+    vi.mocked(setupDotenv).mockResolvedValue({} as any)
+    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
     vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
   })
 
@@ -818,6 +818,7 @@ describe('Given defineConfig function', () => {
   describe('When defining config', () => {
     it('Then returns the same config object', () => {
       const config: RelizyConfig = {
+        types: {},
         bump: { type: 'patch' },
       }
 
@@ -828,6 +829,7 @@ describe('Given defineConfig function', () => {
 
     it('Then preserves all config properties', () => {
       const config: RelizyConfig = {
+        types: {},
         bump: { type: 'minor' },
         changelog: { rootChangelog: false },
         publish: { private: true },
@@ -839,15 +841,18 @@ describe('Given defineConfig function', () => {
     })
 
     it('Then works with empty config', () => {
-      const config: RelizyConfig = {}
+      const config: RelizyConfig = {
+        types: {},
+      }
 
       const result = defineConfig(config)
 
-      expect(result).toEqual({})
+      expect(result).toEqual({ types: {} })
     })
 
     it('Then works with full config', () => {
       const config: RelizyConfig = {
+        types: {},
         cwd: '/project',
         bump: { type: 'major' },
         changelog: { rootChangelog: true },

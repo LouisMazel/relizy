@@ -63,7 +63,7 @@ describe('Given release command', () => {
     vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [] } as any)
     vi.mocked(changelogCmd).mockResolvedValue(undefined)
     vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue(undefined)
+    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
     vi.mocked(socialCmd).mockResolvedValue(undefined)
   })
 
@@ -247,10 +247,10 @@ describe('Given release command', () => {
 
   describe('When passing options to sub-commands', () => {
     it('Then passes options to bump', async () => {
-      await release({ releaseType: 'major' })
+      await release({ type: 'major' })
 
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ releaseType: 'major' }),
+        expect.objectContaining({ type: 'major' }),
       )
     })
 
