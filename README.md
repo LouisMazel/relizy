@@ -7,7 +7,24 @@
       A tool to manage releases for monorepos and single packages.
     </strong>
   </p>
-  <a href="https://louismazel.github.io/relizy/">Documentation</a>
+
+  <p>
+    <a href="https://codecov.io/gh/LouisMazel/relizy">
+      <img src="https://codecov.io/gh/LouisMazel/relizy/branch/main/graph/badge.svg?token=YOUR_TOKEN_HERE" alt="codecov" />
+    </a>
+    <a href="https://github.com/LouisMazel/relizy/actions/workflows/test-unit.yml">
+      <img src="https://github.com/LouisMazel/relizy/actions/workflows/test-unit.yml/badge.svg" alt="Unit Tests" />
+    </a>
+    <a href="https://www.npmjs.com/package/relizy">
+      <img src="https://img.shields.io/npm/v/relizy.svg" alt="npm version" />
+    </a>
+    <a href="https://www.npmjs.com/package/relizy">
+      <img src="https://img.shields.io/npm/dm/relizy.svg" alt="npm downloads" />
+    </a>
+  </p>
+
+<a href="https://louismazel.github.io/relizy/">Documentation</a>
+
 </div>
 
 ---
@@ -183,6 +200,51 @@ relizy release --patch --no-publish --no-push
 ```
 
 For detailed CLI reference, configuration options, and advanced features, check out the [full documentation](https://louismazel.github.io/relizy/).
+
+## 🧑‍💻 Development & Contributing
+
+### Running Tests
+
+```bash
+# Run all tests
+pnpm test:unit
+
+# Run tests in watch mode
+pnpm test:unit:watch
+
+# Run tests with coverage
+pnpm test:unit:coverage
+```
+
+### Code Coverage
+
+This project uses [Codecov](https://codecov.io) to track code coverage. Coverage reports are automatically generated and uploaded when you push to `main` or `develop` branches, or when you create a pull request.
+
+**Coverage Requirements:**
+
+- **Overall project**: Coverage should not decrease by more than 0.5%
+- **New code (patches)**: Must have at least 80% coverage
+
+You can view detailed coverage reports on [Codecov](https://codecov.io/gh/LouisMazel/relizy).
+
+To see coverage locally:
+
+```bash
+pnpm test:unit:coverage
+# Open coverage/index.html in your browser
+```
+
+### Pull Request Guidelines
+
+When submitting a PR:
+
+1. Ensure all tests pass (`pnpm test:unit`)
+2. Check TypeScript types (`pnpm typecheck`)
+3. Lint your code (`pnpm lint`)
+4. Add tests for new features
+5. Maintain or improve code coverage (Codecov will comment on your PR)
+
+The Codecov bot will automatically comment on your PR with coverage details and changes.
 
 ## License
 
