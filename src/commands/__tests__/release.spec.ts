@@ -24,12 +24,15 @@ vi.mock('../changelog', () => ({
 }))
 vi.mock('../publish', () => ({
   publish: vi.fn(),
+  publishSafetyCheck: vi.fn(),
 }))
 vi.mock('../provider-release', () => ({
   providerRelease: vi.fn(),
+  providerReleaseSafetyCheck: vi.fn(),
 }))
 vi.mock('../social', () => ({
   social: vi.fn(),
+  socialSafetyCheck: vi.fn(),
 }))
 
 const { bump } = await import('../bump')

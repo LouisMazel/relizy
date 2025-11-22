@@ -1,10 +1,18 @@
-import { logger } from '@maz-ui/node'
+import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import * as core from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 logger.setLevel('error')
+
+vi.mock('@maz-ui/node', async () => {
+  const actual = await vi.importActual('@maz-ui/node')
+  return {
+    ...actual,
+    execPromise: vi.fn(),
+  }
+})
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')
@@ -21,21 +29,84 @@ vi.mock('../../core', async () => {
 })
 
 describe('Given publishSafetyCheck function', () => {
-  describe('When safety check is enabled', () => {
-    it('Then throws error if not in CI', () => {
+  let processExitSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
+  })
+
+  afterEach(() => {
+    processExitSpy.mockRestore()
+  })
+
+  describe('When package manager cannot be detected', () => {
+    it('Then exits with code 1', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.publish = { safetyCheck: true, private: false, args: [] }
+      config.safetyCheck = true
+      config.release.publish = true
+      vi.mocked(core.detectPackageManager).mockReturnValue(null)
 
-      expect(() => publishSafetyCheck({ config })).toThrow('Safety check')
+      await publishSafetyCheck({ config })
+
+      expect(processExitSpy).toHaveBeenCalledWith(1)
+    })
+  })
+
+  describe('When auth check fails', () => {
+    it('Then exits with code 1', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.publish = { safetyCheck: true, private: false, args: [] }
+      config.safetyCheck = true
+      config.release.publish = true
+      vi.mocked(core.detectPackageManager).mockReturnValue('npm')
+      vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
+
+      await publishSafetyCheck({ config })
+
+      expect(processExitSpy).toHaveBeenCalledWith(1)
+    })
+  })
+
+  describe('When auth check succeeds', () => {
+    it('Then does not exit', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.publish = { safetyCheck: true, private: false, args: [] }
+      config.safetyCheck = true
+      config.release.publish = true
+      vi.mocked(core.detectPackageManager).mockReturnValue('npm')
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
 
   describe('When safety check is disabled', () => {
-    it('Then does not throw error', () => {
+    it('Then returns early without checking', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.publish = { safetyCheck: false, private: false, args: [] }
 
-      expect(() => publishSafetyCheck({ config })).not.toThrow()
+      await publishSafetyCheck({ config })
+
+      expect(core.detectPackageManager).not.toHaveBeenCalled()
+      expect(processExitSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When publish is disabled', () => {
+    it('Then returns early without checking', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.publish = { safetyCheck: true, private: false, args: [] }
+      config.safetyCheck = true
+      config.release.publish = false
+
+      await publishSafetyCheck({ config })
+
+      expect(core.detectPackageManager).not.toHaveBeenCalled()
+      expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
 })
