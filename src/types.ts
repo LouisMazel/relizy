@@ -758,13 +758,40 @@ export type HookType = 'before' | 'success' | 'error'
 export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
 
 /**
- * Tokens configuration
- * @default {}
+ * API tokens configuration
  */
 export interface TokensConfig {
+  /**
+   * registry token for publishing
+   * Environment variables: NPM_TOKEN, RELIZY_NPM_TOKEN, NODE_AUTH_TOKEN
+   */
   registry?: string
-  gitlab?: string
+  /**
+   * GitHub token for creating releases
+   * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+   */
   github?: string
+  /**
+   * GitLab token for creating releases
+   * Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+   */
+  gitlab?: string
+  /**
+   * Twitter API credentials for posting tweets
+   * Environment variables: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+   * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+   */
+  twitter?: {
+    apiKey?: string
+    apiSecret?: string
+    accessToken?: string
+    accessTokenSecret?: string
+  }
+  /**
+   * Slack bot token for posting messages
+   * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+   */
+  slack?: string
 }
 
 /**
@@ -832,13 +859,13 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    */
   release?: ReleaseConfig
   /**
-   * Tokens config
-   */
-  tokens?: TokensConfig
-  /**
    * Social media configuration
    */
   social?: SocialConfig
+  /**
+   * API tokens configuration
+   */
+  tokens?: TokensConfig
   /**
    * Hooks config
    */
