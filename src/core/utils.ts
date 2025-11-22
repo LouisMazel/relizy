@@ -19,7 +19,7 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     const result = await hookInput(config, dryRun, params)
 
     if (result)
-      logger.debug(`Hook ${hook} returned: ${result}`)
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
 
     logger.info(`Hook ${hook} executed`)
 
@@ -36,7 +36,7 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     })
 
     if (result)
-      logger.debug(`Hook ${hook} returned: ${result}`)
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
 
     logger.info(`Hook ${hook} executed`)
 

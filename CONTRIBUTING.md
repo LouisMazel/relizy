@@ -395,6 +395,30 @@ If your commit is rejected:
 - Reference related issues (e.g., "Closes #123")
 - Respond to review feedback promptly
 - Ensure CI checks pass
+- **Maintain code coverage**: Codecov will comment on your PR
+
+#### Code Coverage Requirements
+
+This project uses [Codecov](https://codecov.io/gh/LouisMazel/relizy) to track code coverage. When you submit a PR, Codecov will automatically:
+
+- 📊 Comment with coverage diff
+- 📁 Show coverage for each modified file
+- ✅ Run status checks
+
+**Coverage Requirements:**
+
+- **Overall project**: Coverage must not decrease by more than 0.5%
+- **New code (patch)**: Must have at least 80% coverage
+
+If Codecov checks fail, add more tests to cover your code:
+
+```bash
+# Run tests with coverage locally
+pnpm test:unit:coverage
+
+# Open coverage report in browser
+open coverage/index.html
+```
 
 ### Review Process
 

@@ -20,6 +20,7 @@ Managing releases in JavaScript projects—especially monorepos—involves many 
 - 📦 Publishing packages to npm
 - 🚀 Creating releases on GitHub/GitLab
 - 🔗 Managing dependencies between packages
+- 🐦 Posting release announcements to Twitter (X) and/or Slack
 
 Doing all this manually is tedious, error-prone, and time-consuming.
 
@@ -41,6 +42,7 @@ This one command will:
 - ✅ Create git commits and tags
 - ✅ Publish to npm (optional)
 - ✅ Create GitHub/GitLab releases (optional)
+- ✅ Post release announcements to Twitter (X) and/or Slack (optional)
 
 ## Key Features
 
