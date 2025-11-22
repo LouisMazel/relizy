@@ -16,7 +16,10 @@ import {
   publishPackage,
 } from '../npm'
 import { getIndependentTag, resolveTags } from '../tags'
-import { isInCI, isPrerelease } from '../utils'
+import { isInCI } from '../utils'
+
+// Mock isPrerelease locally since it's not exported
+const isPrerelease = vi.fn()
 
 logger.setLevel('error')
 
@@ -27,7 +30,7 @@ vi.mock('node:path', async () => {
     ...actual,
     join: vi.fn((...args) => args.join('/')),
     default: {
-      ...actual.default,
+      ...(actual.default as any),
       join: vi.fn((...args) => args.join('/')),
     },
   }

@@ -1,6 +1,6 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import * as core from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
@@ -46,7 +46,7 @@ describe('Given publishSafetyCheck function', () => {
       config.publish = { safetyCheck: true, private: false, args: [] }
       config.safetyCheck = true
       config.release.publish = true
-      vi.mocked(core.detectPackageManager).mockReturnValue(null)
+      vi.mocked(core.detectPackageManager).mockReturnValue(undefined as any)
 
       await publishSafetyCheck({ config })
 
@@ -120,7 +120,7 @@ describe('Given publish command', () => {
     vi.mocked(core.publishPackage).mockResolvedValue(undefined)
     vi.mocked(core.topologicalSort).mockImplementation(pkgs => pkgs)
     vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0' })
+    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
   })
 
   describe('When publishing with default options', () => {
@@ -147,8 +147,8 @@ describe('Given publish command', () => {
   describe('When publishing packages', () => {
     it('Then publishes in topological order', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] },
+        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
+        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
       ])
 
       await publish({})
@@ -160,7 +160,7 @@ describe('Given publish command', () => {
     it('Then passes package manager to publish', async () => {
       vi.mocked(core.detectPackageManager).mockReturnValue('pnpm')
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] },
+        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await publish({})
@@ -176,7 +176,7 @@ describe('Given publish command', () => {
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to hooks and publish', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] },
+        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await publish({ dryRun: true })
@@ -192,7 +192,7 @@ describe('Given publish command', () => {
     it('Then executes error hook', async () => {
       vi.mocked(core.publishPackage).mockRejectedValue(new Error('Publish failed'))
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] },
+        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await expect(publish({})).rejects.toThrow('Publish failed')

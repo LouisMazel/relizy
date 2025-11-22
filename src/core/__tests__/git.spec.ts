@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
 import {
   checkGitStatusIfDirty,
@@ -460,9 +460,20 @@ describe('Given createCommitAndTags function', () => {
       commitMessage: 'chore(release): bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       tagMessage: 'Release {{newVersion}}',
+      emptyChangelogContent: 'No relevant changes for this release',
+      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+      slackMessage: undefined,
     }
     config.release = {
       gitTag: true,
+      commit: true,
+      publish: true,
+      changelog: true,
+      push: true,
+      clean: true,
+      providerRelease: true,
+      noVerify: false,
+      social: true,
     }
     config.signTags = false
     bumpedPackages = []
@@ -471,7 +482,7 @@ describe('Given createCommitAndTags function', () => {
     vi.mocked(hasLernaJson).mockReturnValue(false)
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0' })
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/project', private: false })
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
     vi.mocked(execSync).mockReturnValue('')
   })
@@ -486,7 +497,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: true,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith('[dry-run] git add package.json')
@@ -501,7 +512,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: true,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(executeHook).toHaveBeenCalledWith('before:commit-and-tag', config, true)
@@ -517,7 +528,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '2.0.0',
         dryRun: true,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run] git tag'))
@@ -532,7 +543,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execPromise).toHaveBeenCalledWith(
@@ -550,7 +561,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('--no-verify'))
@@ -565,7 +576,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       const calls = vi.mocked(execPromise).mock.calls
@@ -584,7 +595,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       const calls = vi.mocked(execPromise).mock.calls
@@ -595,10 +606,10 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When version mode is independent', () => {
     it('Then creates individual tags for each bumped package', async () => {
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       bumpedPackages = [
-        { name: 'package-a', version: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
-        { name: 'package-b', version: '2.0.0', newVersion: '2.1.0', path: '/path/b' },
+        { ...createMockPackageInfo(), name: 'package-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
+        { ...createMockPackageInfo(), name: 'package-b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.1.0', path: '/path/b' },
       ]
       vi.mocked(getIndependentTag)
         .mockReturnValueOnce('package-a@1.1.0')
@@ -611,7 +622,7 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(result).toEqual(['package-a@1.1.0', 'package-b@2.1.0'])
@@ -620,9 +631,9 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then uses independent tags in commit message', async () => {
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       bumpedPackages = [
-        { name: 'pkg-a', version: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
       ]
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@1.1.0')
 
@@ -631,7 +642,7 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execPromise).toHaveBeenCalledWith(
@@ -641,10 +652,10 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then skips packages without newVersion', async () => {
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       bumpedPackages = [
-        { name: 'package-a', version: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
-        { name: 'package-b', version: '2.0.0', path: '/path/b' },
+        { ...createMockPackageInfo(), name: 'package-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
+        { ...createMockPackageInfo(), name: 'package-b', version: '2.0.0', oldVersion: '2.0.0', path: '/path/b' },
       ]
       vi.mocked(getIndependentTag).mockReturnValue('package-a@1.1.0')
 
@@ -653,7 +664,7 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(result).toHaveLength(1)
@@ -663,7 +674,7 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When version mode is not independent', () => {
     it('Then creates single tag with version', async () => {
-      config.monorepo = { versionMode: 'unified' }
+      config.monorepo = { versionMode: 'unified', packages: ['packages/*'] }
 
       const result = await createCommitAndTags({
         config,
@@ -671,7 +682,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '3.0.0',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(result).toEqual(['v3.0.0'])
@@ -686,7 +697,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '2.5.0',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(result).toEqual(['release-2.5.0'])
@@ -701,7 +712,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.2.3',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       const calls = vi.mocked(execPromise).mock.calls
@@ -720,7 +731,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(result).toEqual([])
@@ -738,7 +749,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execSync).toHaveBeenCalledWith('git add package.json')
@@ -772,7 +783,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execSync).toHaveBeenCalledWith('git add lerna.json')
@@ -792,7 +803,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })).resolves.toBeDefined()
     })
   })
@@ -807,7 +818,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '5.0.0',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execPromise).toHaveBeenCalledWith(
@@ -817,7 +828,7 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then uses default message when template is undefined', async () => {
-      config.templates.commitMessage = undefined
+      config.templates.commitMessage = undefined as any
 
       await createCommitAndTags({
         config,
@@ -825,7 +836,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execPromise).toHaveBeenCalledWith(
@@ -837,14 +848,14 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When newVersion is not provided', () => {
     it('Then uses version from root package.json', async () => {
-      vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '4.5.6' })
+      vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '4.5.6', path: '/project', private: false })
 
       await createCommitAndTags({
         config,
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(execPromise).toHaveBeenCalledWith(
@@ -856,14 +867,14 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When reading root package fails', () => {
     it('Then throws error', async () => {
-      vi.mocked(readPackageJson).mockReturnValue(null)
+      vi.mocked(readPackageJson).mockReturnValue(undefined as any)
 
       await expect(createCommitAndTags({
         config,
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })).rejects.toThrow('Failed to read root package.json')
     })
   })
@@ -885,7 +896,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })).rejects.toThrow('Tag already exists')
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to create tag'), error)
@@ -906,7 +917,7 @@ describe('Given createCommitAndTags function', () => {
           bumpedPackages,
           newVersion: '1.0.1',
           dryRun: false,
-          logLevel: 'info',
+          logLevel: 'normal',
         })
       }
       catch {
@@ -928,7 +939,7 @@ describe('Given createCommitAndTags function', () => {
           bumpedPackages,
           newVersion: '1.0.1',
           dryRun: false,
-          logLevel: 'info',
+          logLevel: 'normal',
         })
       }
       catch {
@@ -949,7 +960,7 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
       })
 
       expect(loadRelizyConfig).toHaveBeenCalled()
@@ -965,6 +976,14 @@ describe('Given pushCommitAndTags function', () => {
     config = createMockConfig({ bump: { type: 'patch' } })
     config.release = {
       gitTag: true,
+      commit: true,
+      publish: true,
+      changelog: true,
+      push: true,
+      clean: true,
+      providerRelease: true,
+      noVerify: false,
+      social: true,
     }
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
   })
@@ -974,7 +993,7 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
         cwd: '/project',
       })
 
@@ -983,7 +1002,7 @@ describe('Given pushCommitAndTags function', () => {
         {
           noStderr: true,
           noStdout: true,
-          logLevel: 'info',
+          logLevel: 'normal',
           cwd: '/project',
         },
       )
@@ -995,7 +1014,7 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
         cwd: '/project',
       })
 
@@ -1010,7 +1029,7 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'info',
+        logLevel: 'normal',
         cwd: '/project',
       })
 
@@ -1028,7 +1047,7 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: true,
-        logLevel: 'info',
+        logLevel: 'normal',
         cwd: '/project',
       })
 
