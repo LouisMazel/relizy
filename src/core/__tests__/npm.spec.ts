@@ -32,11 +32,14 @@ vi.mock('node:path', async () => {
     },
   }
 })
+const mockEnv: Record<string, string | undefined> = {}
 vi.mock('node:process', () => ({
   default: {
     cwd: vi.fn(),
     chdir: vi.fn(),
-    env: {},
+    get env() {
+      return mockEnv
+    },
   },
 }))
 vi.mock('@inquirer/prompts')
@@ -62,6 +65,7 @@ describe('Given detectPackageManager function', () => {
     vi.clearAllMocks()
     vi.mocked(process.cwd).mockReturnValue('/project')
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
+    Object.keys(mockEnv).forEach(key => delete mockEnv[key])
   })
 
   describe('When package.json has packageManager field', () => {
@@ -181,49 +185,44 @@ describe('Given detectPackageManager function', () => {
   describe('When detecting from user agent', () => {
     it('Then detects pnpm from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      process.env.npm_config_user_agent = 'pnpm/8.0.0 npm/? node/v18.0.0'
+      mockEnv.npm_config_user_agent = 'pnpm/8.0.0 npm/? node/v18.0.0'
 
       const result = detectPackageManager()
 
       expect(result).toBe('pnpm')
-      delete process.env.npm_config_user_agent
     })
 
     it('Then detects yarn from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      process.env.npm_config_user_agent = 'yarn/3.0.0 npm/? node/v18.0.0'
+      mockEnv.npm_config_user_agent = 'yarn/3.0.0 npm/? node/v18.0.0'
 
       const result = detectPackageManager()
 
       expect(result).toBe('yarn')
-      delete process.env.npm_config_user_agent
     })
 
     it('Then detects npm from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      process.env.npm_config_user_agent = 'npm/9.0.0 node/v18.0.0'
+      mockEnv.npm_config_user_agent = 'npm/9.0.0 node/v18.0.0'
 
       const result = detectPackageManager()
 
       expect(result).toBe('npm')
-      delete process.env.npm_config_user_agent
     })
 
     it('Then detects bun from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      process.env.npm_config_user_agent = 'bun/1.0.0'
+      mockEnv.npm_config_user_agent = 'bun/1.0.0'
 
       const result = detectPackageManager()
 
       expect(result).toBe('bun')
-      delete process.env.npm_config_user_agent
     })
   })
 
   describe('When no package manager detected', () => {
     it('Then defaults to npm', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      delete process.env.npm_config_user_agent
 
       const result = detectPackageManager()
 
@@ -609,6 +608,8 @@ describe('Given getAuthCommand function', () => {
 describe('Given publishPackage function', () => {
   let config: ResolvedRelizyConfig
   let pkg: PackageBase
+  let cwdSpy: ReturnType<typeof vi.spyOn>
+  let chdirSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -622,12 +623,18 @@ describe('Given publishPackage function', () => {
       newVersion: '1.0.1',
     }
 
-    vi.mocked(process.cwd).mockReturnValue('/project')
+    cwdSpy = vi.spyOn(globalThis.process, 'cwd').mockReturnValue('/project')
+    chdirSpy = vi.spyOn(globalThis.process, 'chdir').mockImplementation(() => {})
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getIndependentTag).mockReturnValue('test-package@1.0.1')
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    cwdSpy.mockRestore()
+    chdirSpy.mockRestore()
   })
 
   describe('When publishing successfully', () => {
@@ -653,7 +660,7 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(process.chdir).toHaveBeenCalledWith('/packages/test')
+      expect(chdirSpy).toHaveBeenCalledWith('/packages/test')
     })
 
     it('Then restores original directory', async () => {
@@ -664,7 +671,7 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(process.chdir).toHaveBeenCalledWith('/project')
+      expect(chdirSpy).toHaveBeenCalledWith('/project')
     })
 
     it('Then logs publish start and completion', async () => {
