@@ -1,3 +1,11 @@
+---
+title: Twitter Integration Guide
+description: Automatically post release announcements to Twitter (X) when you publish new versions with Relizy.
+keywords: twitter integration, twitter api, tweet automation, release tweets, automated twitter posting, twitter announcements, relizy twitter, x platform
+category: Guide
+tags: [twitter, x, integration, social, automation, announcements, ci-cd]
+---
+
 # Twitter Integration
 
 Automatically post release announcements to Twitter (X) when you publish new versions.
