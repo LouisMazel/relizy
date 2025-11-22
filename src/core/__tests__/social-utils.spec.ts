@@ -172,7 +172,7 @@ Content here`
     })
 
     it('Then handles URLs in changelog', () => {
-      const changelog = 'See https://example.com for details.'
+      const changelog = 'See https://example.com for details'
 
       const result = extractChangelogSummary(changelog, 100)
 
