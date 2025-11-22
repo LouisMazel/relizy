@@ -9,3 +9,6 @@ contact_links:
   - name: 📝 Code of Conduct
     url: https://github.com/LouisMazel/relizy/blob/main/.github/CODE_OF_CONDUCT.md
     about: Read the code of conduct before opening an issue
+  - name: 📝 Contributing Guidelines
+    url: https://github.com/LouisMazel/relizy/blob/main/CONTRIBUTING.md
+    about: Read the contributing guidelines before opening an issue

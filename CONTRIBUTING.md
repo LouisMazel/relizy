@@ -40,6 +40,7 @@ Thank you for considering contributing to Relizy! We appreciate your interest in
     - [Before Submitting](#before-submitting)
     - [Submitting the PR](#submitting-the-pr)
     - [PR Guidelines](#pr-guidelines)
+      - [Code Coverage Requirements](#code-coverage-requirements)
     - [Review Process](#review-process)
   - [Additional Resources](#additional-resources)
     - [Documentation](#documentation)
@@ -48,7 +49,7 @@ Thank you for considering contributing to Relizy! We appreciate your interest in
 
 ## Code of Conduct
 
-This project adheres to the [Contributor Covenant Code of Conduct](.github/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [me@loicmazuel.com](mailto:me@loicmazuel.com).
+This project adheres to the [Contributor Covenant Code of Conduct](https://github.com/LouisMazel/relizy/blob/main/.github/CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to [me@loicmazuel.com](mailto:me@loicmazuel.com).
 
 ## How Can I Contribute?
 
@@ -183,22 +184,11 @@ relizy/
 │   ├── commands/               # CLI command implementations
 │   │   ├── bump.ts             # Version bumping logic
 │   │   ├── changelog.ts        # Changelog generation
-│   │   ├── publish.ts          # NPM publishing
 │   │   ├── provider-release.ts # GitHub/GitLab release creation
-│   │   └── release.ts          # Complete release workflow
+│   │   ├── publish.ts          # NPM publishing
+│   │   ├── release.ts          # Complete release workflow
+│   │   └── social.ts           # Social media posting
 │   └── core/                   # Core business logic
-│       ├── monorepo.ts         # Package discovery
-│       ├── config.ts           # Configuration loading
-│       ├── version.ts          # Version calculations (has tests)
-│       ├── dependencies.ts     # Dependency graph traversal
-│       ├── git.ts              # Git operations
-│       ├── github.ts           # GitHub API integration
-│       ├── gitlab.ts           # GitLab API integration
-│       ├── npm.ts              # NPM registry operations
-│       ├── changelog.ts        # Changelog generation
-│       ├── tags.ts             # Git tag management
-│       ├── utils.ts            # Utility functions
-│       └── markdown.ts         # Markdown formatting
 ├── bin/
 │   └── relizy.mjs              # CLI executable entry point
 ├── .github/                    # GitHub templates and workflows
@@ -431,7 +421,7 @@ open coverage/index.html
 
 ### Documentation
 
-- [README.md](README.md) - Project overview and usage
+- [README.md](https://github.com/LouisMazel/relizy/blob/main/README.md) - Project overview and usage
 - [Online Documentation](https://relizy.vercel.app/) - Full documentation site
 
 ### Useful Links
