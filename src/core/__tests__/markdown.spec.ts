@@ -359,7 +359,7 @@ describe('Given generateMarkDown function', () => {
   describe('When handling commit bodies', () => {
     it('Then includes commit body when includeCommitBody is true', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { includeCommitBody: true }
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -382,7 +382,7 @@ describe('Given generateMarkDown function', () => {
 
     it('Then excludes commit body when includeCommitBody is false', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { includeCommitBody: false }
+      config.changelog = { includeCommitBody: false, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -404,7 +404,7 @@ describe('Given generateMarkDown function', () => {
 
     it('Then filters out git diff status lines from body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { includeCommitBody: true }
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -429,7 +429,7 @@ describe('Given generateMarkDown function', () => {
 
     it('Then handles empty body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { includeCommitBody: true }
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -522,7 +522,7 @@ describe('Given generateMarkDown function', () => {
 
     it('Then excludes authors in excludeAuthors list', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.excludeAuthors = ['ignored']
+      ;(config as any).excludeAuthors = ['ignored']
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -544,7 +544,7 @@ describe('Given generateMarkDown function', () => {
 
     it('Then excludes authors by email in excludeAuthors', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.excludeAuthors = ['excluded@example.com']
+      ;(config as any).excludeAuthors = ['excluded@example.com']
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),

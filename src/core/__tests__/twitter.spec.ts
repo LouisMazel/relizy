@@ -385,7 +385,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When posting in dry run mode', () => {
     it('Then logs message without posting', async () => {
       await postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Bug fixes',
         credentials: {
@@ -408,7 +408,7 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
@@ -439,7 +439,7 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Bug fixes',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
@@ -459,7 +459,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToTwitter({
-        release: { version: '2.0.0', tag: 'v2.0.0' },
+        release: { name: 'pkg', version: '2.0.0', tag: 'v2.0.0', prerelease: false },
         projectName: 'my-pkg',
         changelog: 'New features',
         messageTemplate: 'Custom: {{projectName}} {{version}}',
@@ -483,7 +483,7 @@ describe('Given postReleaseToTwitter function', () => {
       })
 
       await expect(postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
@@ -511,7 +511,7 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await expect(postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
@@ -528,7 +528,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When including URLs in tweet', () => {
     it('Then formats tweet with releaseUrl', async () => {
       await postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
@@ -546,7 +546,7 @@ describe('Given postReleaseToTwitter function', () => {
 
     it('Then formats tweet with changelogUrl', async () => {
       await postReleaseToTwitter({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',

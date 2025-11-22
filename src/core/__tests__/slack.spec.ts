@@ -484,7 +484,7 @@ describe('Given postReleaseToSlack function', () => {
   describe('When posting in dry run mode', () => {
     it('Then logs message without posting', async () => {
       await postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Bug fixes',
         channel: '#releases',
@@ -503,7 +503,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#general',
@@ -530,7 +530,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Bug fixes',
         channel: '#releases',
@@ -546,7 +546,7 @@ describe('Given postReleaseToSlack function', () => {
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToSlack({
-        release: { version: '2.0.0', tag: 'v2.0.0' },
+        release: { name: 'pkg', version: '2.0.0', tag: 'v2.0.0', prerelease: false },
         projectName: 'my-pkg',
         changelog: 'New features',
         channel: '#releases',
@@ -568,7 +568,7 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
@@ -592,7 +592,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#nonexistent',
@@ -614,7 +614,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#private',
@@ -636,7 +636,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
@@ -658,7 +658,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
@@ -679,7 +679,7 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
@@ -692,7 +692,7 @@ describe('Given postReleaseToSlack function', () => {
   describe('When posting with different channel formats', () => {
     it('Then works with channel name format', async () => {
       await postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
@@ -705,7 +705,7 @@ describe('Given postReleaseToSlack function', () => {
 
     it('Then works with channel ID format', async () => {
       await postReleaseToSlack({
-        release: { version: '1.0.0', tag: 'v1.0.0' },
+        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
         channel: 'C1234567890',
