@@ -2,15 +2,15 @@
 
 # Function: getPackagesToPublishInSelectiveMode()
 
-> **getPackagesToPublishInSelectiveMode**(`sortedPackages`, `rootVersion`): [`PackageInfo`](../interfaces/PackageInfo.md)[]
+> **getPackagesToPublishInSelectiveMode**(`sortedPackages`, `rootVersion`): [`PackageBase`](../interfaces/PackageBase.md)[]
 
-Defined in: [src/core/npm.ts:86](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/npm.ts#L86)
+Defined in: [src/core/npm.ts:87](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/npm.ts#L87)
 
 ## Parameters
 
 ### sortedPackages
 
-[`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]
 
 ### rootVersion
 
@@ -18,4 +18,4 @@ Defined in: [src/core/npm.ts:86](https://github.com/LouisMazel/relizy/blob/9bfb2
 
 ## Returns
 
-[`PackageInfo`](../interfaces/PackageInfo.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]
