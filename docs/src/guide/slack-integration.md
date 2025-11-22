@@ -1,3 +1,11 @@
+---
+title: Slack Integration Guide
+description: Automatically send release notifications to Slack channels when you publish new versions with Relizy.
+keywords: slack integration, slack bot, release notifications, slack announcements, slack webhook, automated slack posting, relizy slack
+category: Guide
+tags: [slack, integration, notifications, social, automation, ci-cd]
+---
+
 # Slack Integration
 
 Automatically send release notifications to Slack channels when you publish new versions.

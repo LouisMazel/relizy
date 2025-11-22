@@ -1,3 +1,11 @@
+---
+title: Social Media Integration Overview
+description: Automatically announce your releases on social media platforms with Relizy - Twitter, Slack, and more.
+keywords: social media integration, automated announcements, twitter slack integration, release notifications, social automation, relizy social
+category: Guide
+tags: [social, twitter, slack, integration, automation, announcements, notifications]
+---
+
 # Social Media Integration
 
 Relizy can automatically announce your releases on social media platforms, keeping your users and team informed without manual work.
