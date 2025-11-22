@@ -2,7 +2,7 @@
 
 # Interface: SocialOptions
 
-Defined in: [src/types.ts:320](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L320)
+Defined in: [src/types.ts:320](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L320)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:320](https://github.com/LouisMazel/relizy/blob/2ef5703
 
 > `optional` **bumpResult**: [`BumpResult`](../type-aliases/BumpResult.md)
 
-Defined in: [src/types.ts:341](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L341)
+Defined in: [src/types.ts:341](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L341)
 
 Bump result (contains release information)
 
@@ -20,7 +20,7 @@ Bump result (contains release information)
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L332)
+Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L332)
 
 Use custom config
 
@@ -30,7 +30,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L337)
+Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L337)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -46,7 +46,7 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:354](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L354)
+Defined in: [src/types.ts:354](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L354)
 
 Run without side effects
 
@@ -62,7 +62,7 @@ false
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:324](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L324)
+Defined in: [src/types.ts:324](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L324)
 
 Start tag
 
@@ -72,7 +72,7 @@ Start tag
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:349](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L349)
+Defined in: [src/types.ts:349](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L349)
 
 Set log level
 
@@ -82,7 +82,7 @@ Set log level
 
 > `optional` **postedReleases**: [`PostedRelease`](PostedRelease.md)[]
 
-Defined in: [src/types.ts:345](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L345)
+Defined in: [src/types.ts:345](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L345)
 
 Posted releases (from provider-release step)
 
@@ -92,7 +92,7 @@ Posted releases (from provider-release step)
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:359](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L359)
+Defined in: [src/types.ts:359](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L359)
 
 Skip safety check
 
@@ -108,6 +108,6 @@ false
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:328](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L328)
+Defined in: [src/types.ts:328](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L328)
 
 End tag

@@ -182,7 +182,7 @@ async function handleTwitterPost({
       logger.debug(`[social:twitter] Changelog summary: ${changelogSummary.substring(0, 50)}...`)
 
       await postReleaseToTwitter({
-        twitterMessage: config.templates.twitterMessage,
+        messageTemplate: config.templates.twitterMessage,
         release: mainRelease,
         projectName: rootPackageBase.name,
         changelog: changelogSummary,
@@ -328,7 +328,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<void
     logger.debug(`[social] Dry run: ${dryRun}`)
 
     const config = await loadRelizyConfig({
-      configName: options.configName,
+      configFile: options.configName,
       baseConfig: options.config,
       overrides: {
         from: options.from,
