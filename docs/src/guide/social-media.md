@@ -2,6 +2,20 @@
 
 Relizy can automatically announce your releases on social media platforms, keeping your users and team informed without manual work.
 
+## Prerequisites
+
+**Important:** Social media integrations require platform-specific peer dependencies. Install the ones you need:
+
+```bash
+# For Twitter integration
+pnpm add -D twitter-api-v2
+
+# For Slack integration
+pnpm add -D @slack/web-api
+```
+
+These dependencies are optional - install only the ones for platforms you want to use. Relizy will show helpful error messages if a required dependency is missing.
+
 ## Supported Platforms
 
 - **Twitter (X)** - Post release announcements to your Twitter account
