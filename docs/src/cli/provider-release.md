@@ -1,9 +1,9 @@
 ---
 title: provider-release
-description: Create releases on GitHub or GitLab.
-keywords: relizy provider release, github release, gitlab release, git release, release notes
+description: Create releases on GitHub, GitLab, and Bitbucket.
+keywords: relizy provider release, github release, gitlab release, bitbucket release, git release, release notes
 category: CLI Reference
-tags: [cli, provider-release, github, gitlab, releases]
+tags: [cli, provider-release, github, gitlab, bitbucket, releases]
 ---
 
 # {{ $frontmatter.title }}
@@ -81,6 +81,43 @@ relizy provider-release --prerelease
 
 # Mark as pre-release (beta, alpha, rc)
 ```
+
+## Bitbucket Support
+
+Bitbucket is partially supported with some limitations:
+
+::: warning Bitbucket Limitations
+Bitbucket Cloud does not provide an API for creating releases. When using Bitbucket:
+
+- **Release creation is skipped** - No releases will be created
+- **Git tags are still created** - During the commit step
+- **All other features work** - Versioning, changelog, publishing, and social media posting
+
+Relizy will detect Bitbucket automatically and show a warning that release creation is skipped.
+:::
+
+```bash
+# With Bitbucket, this skips release creation but everything else works
+relizy provider-release --provider bitbucket
+
+# You can still use the full release workflow
+relizy release --patch
+# ✅ Versions bumped
+# ✅ Changelog generated
+# ✅ Git tag created
+# ⚠️  Release creation skipped (Bitbucket limitation)
+# ✅ Published to npm
+# ✅ Posted to social media
+```
+
+### Bitbucket Workarounds
+
+While you can't create releases via API, you can still:
+
+1. **Use Git tags** - Tags are created and pushed normally
+2. **View tags on Bitbucket** - At `https://bitbucket.org/user/repo/commits/tag/v1.0.0`
+3. **Use Bitbucket Pipelines** - Automate the release workflow
+4. **Social media announcements** - Keep users informed via Twitter/Slack
 
 ## Authentication
 
