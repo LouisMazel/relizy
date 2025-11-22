@@ -1,6 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import * as core from '../../core'
 import { changelog } from '../changelog'
 
@@ -30,12 +30,14 @@ describe('Given changelog command', () => {
     vi.mocked(core.executeFormatCmd).mockResolvedValue(undefined)
     vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
     vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root' })
+    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
     vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
+      private: false,
+      fromTag: 'v0.9.0',
       commits: [],
     })
   })
@@ -75,7 +77,7 @@ describe('Given changelog command', () => {
 
   describe('When format command is configured', () => {
     it('Then executes format command', async () => {
-      await changelog({ format: true })
+      await changelog({ formatCmd: 'prettier --write *.md' })
 
       expect(core.executeFormatCmd).toHaveBeenCalled()
     })
@@ -94,12 +96,12 @@ describe('Given changelog command', () => {
   describe('When in independent mode', () => {
     it('Then generates changelogs for all packages', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
-      config.changelog = { rootChangelog: true }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.changelog = { rootChangelog: true, formatCmd: '', includeCommitBody: false }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [] },
+        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
+        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [] }),
       ])
 
       await changelog({})

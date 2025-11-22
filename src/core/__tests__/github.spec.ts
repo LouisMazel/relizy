@@ -1,6 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import * as core from '../../core'
 import { github } from '../github'
 
@@ -37,18 +37,26 @@ describe('Given github function', () => {
       domain: 'github.com',
       repo: 'user/repo',
     }
-    config.tokens = { github: 'test-token' }
+    config.tokens = {
+      github: 'test-token',
+      gitlab: undefined,
+      twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+      slack: undefined,
+    }
     vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(core.readPackageJson).mockReturnValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
+      private: false,
     })
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
       commits: [],
+      fromTag: 'v0.9.0',
+      private: false,
     })
     vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
@@ -58,7 +66,7 @@ describe('Given github function', () => {
 
   describe('When in unified mode', () => {
     it('Then creates single GitHub release', async () => {
-      await github({})
+      await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.objectContaining({ from: 'v0.9.0', to: 'v1.0.0' }),
@@ -67,7 +75,7 @@ describe('Given github function', () => {
     })
 
     it('Then returns posted releases array', async () => {
-      const result = await github({})
+      const result = await github({ force: false })
 
       expect(result).toHaveLength(1)
       expect(result[0]).toEqual({
@@ -82,11 +90,11 @@ describe('Given github function', () => {
       const bumpResult = {
         newVersion: '2.0.0',
         bumpedPackages: [],
-        bumped: true,
+        bumped: true as const,
         fromTag: 'v1.0.0',
       }
 
-      await github({ bumpResult })
+      await github({ bumpResult, force: false })
 
       expect(core.resolveTags).toHaveBeenCalledWith(
         expect.objectContaining({ newVersion: '2.0.0' }),
@@ -99,16 +107,18 @@ describe('Given github function', () => {
         version: '2.0.0',
         path: '/root',
         commits: [],
+        fromTag: 'v1.0.0',
+        private: false,
       }
       const bumpResult = {
         newVersion: '2.0.0',
         bumpedPackages: [],
         rootPackage,
-        bumped: true,
+        bumped: true as const,
         fromTag: 'v1.0.0',
       }
 
-      await github({ bumpResult })
+      await github({ bumpResult, force: false })
 
       expect(core.getRootPackage).not.toHaveBeenCalled()
     })
@@ -116,7 +126,7 @@ describe('Given github function', () => {
     it('Then marks as prerelease when version is prerelease', async () => {
       vi.mocked(core.isPrerelease).mockReturnValue(true)
 
-      await github({})
+      await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.anything(),
@@ -127,13 +137,13 @@ describe('Given github function', () => {
 
   describe('When in dry-run mode', () => {
     it('Then skips actual GitHub release creation', async () => {
-      await github({ dryRun: true })
+      await github({ dryRun: true, force: false })
 
       expect(createGithubRelease).not.toHaveBeenCalled()
     })
 
     it('Then returns posted releases array', async () => {
-      const result = await github({ dryRun: true })
+      const result = await github({ dryRun: true, force: false })
 
       expect(result).toHaveLength(1)
       expect(result[0]).toMatchObject({
@@ -147,17 +157,22 @@ describe('Given github function', () => {
   describe('When in independent mode', () => {
     beforeEach(() => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'github',
         domain: 'github.com',
         repo: 'user/repo',
       }
-      config.tokens = { github: 'test-token' }
+      config.tokens = {
+        github: 'test-token',
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
       vi.mocked(core.getIndependentTag).mockImplementation(({ name, version }) => {
         return `${name}@${version}`
@@ -166,13 +181,13 @@ describe('Given github function', () => {
     })
 
     it('Then creates releases for each package', async () => {
-      await github({})
+      await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledTimes(2)
     })
 
     it('Then uses independent tags for each package', async () => {
-      await github({})
+      await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.objectContaining({ from: 'pkg-a@0.9.0', to: 'pkg-a@1.0.0' }),
@@ -185,7 +200,7 @@ describe('Given github function', () => {
     })
 
     it('Then returns posted releases for all packages', async () => {
-      const result = await github({})
+      const result = await github({ force: false })
 
       expect(result).toHaveLength(2)
       expect(result[0]).toMatchObject({ name: 'pkg-a', tag: 'pkg-a@1.0.0' })
@@ -195,6 +210,7 @@ describe('Given github function', () => {
     it('Then uses newVersion from bumped packages', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
         {
+          ...createMockPackageInfo(),
           name: 'pkg-a',
           version: '1.0.0',
           newVersion: '1.1.0',
@@ -205,7 +221,7 @@ describe('Given github function', () => {
       ])
       vi.mocked(core.isBumpedPackage).mockReturnValue(true)
 
-      await github({})
+      await github({ force: false })
 
       expect(core.getIndependentTag).toHaveBeenCalledWith({
         name: 'pkg-a',
@@ -215,18 +231,18 @@ describe('Given github function', () => {
 
     it('Then skips packages without from tag', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
-        { name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] },
-        { name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '' },
+        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
 
-      const result = await github({})
+      const result = await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledTimes(1)
       expect(result).toHaveLength(1)
     })
 
     it('Then uses HEAD as to tag in dry-run mode', async () => {
-      await github({ dryRun: true })
+      await github({ dryRun: true, force: false })
 
       expect(core.generateChangelog).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
@@ -236,7 +252,7 @@ describe('Given github function', () => {
     it('Then returns empty array when no packages to release', async () => {
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
-      const result = await github({})
+      const result = await github({ force: false })
 
       expect(result).toHaveLength(0)
     })
@@ -248,18 +264,18 @@ describe('Given github function', () => {
       config.repo = undefined
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(github({})).rejects.toThrow(
+      await expect(github({ force: false })).rejects.toThrow(
         'No repository configuration found. Please check your changelog config.',
       )
     })
 
     it('Then throws error in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = undefined
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(github({})).rejects.toThrow(
+      await expect(github({ force: false })).rejects.toThrow(
         'No repository configuration found. Please check your changelog config.',
       )
     })
@@ -273,26 +289,36 @@ describe('Given github function', () => {
         domain: 'github.com',
         repo: 'user/repo',
       }
-      config.tokens = {}
+      config.tokens = {
+        github: undefined,
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(github({})).rejects.toThrow(
+      await expect(github({ force: false })).rejects.toThrow(
         'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
     })
 
     it('Then throws error in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'github',
         domain: 'github.com',
         repo: 'user/repo',
       }
-      config.tokens = {}
+      config.tokens = {
+        github: undefined,
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(github({})).rejects.toThrow(
+      await expect(github({ force: false })).rejects.toThrow(
         'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
     })
@@ -305,16 +331,21 @@ describe('Given github function', () => {
         repo: 'user/repo',
         token: 'repo-token',
       }
-      config.tokens = {}
+      config.tokens = {
+        github: undefined,
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(github({})).resolves.not.toThrow()
+      await expect(github({ force: false })).resolves.not.toThrow()
     })
   })
 
   describe('When using custom from and to tags', () => {
     it('Then uses custom tags from options', async () => {
-      await github({ from: 'v0.5.0', to: 'v1.5.0' })
+      await github({ from: 'v0.5.0', to: 'v1.5.0', force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -327,7 +358,7 @@ describe('Given github function', () => {
     })
 
     it('Then uses custom token from options', async () => {
-      await github({ token: 'custom-token' })
+      await github({ token: 'custom-token', force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -344,21 +375,21 @@ describe('Given github function', () => {
       const error = new Error('GitHub API error')
       vi.mocked(createGithubRelease).mockRejectedValue(error)
 
-      await expect(github({})).rejects.toThrow('GitHub API error')
+      await expect(github({ force: false })).rejects.toThrow('GitHub API error')
     })
   })
 
   describe('When package.json cannot be read', () => {
     it('Then throws error', async () => {
-      vi.mocked(core.readPackageJson).mockReturnValue(null)
+      vi.mocked(core.readPackageJson).mockReturnValue(undefined as any)
 
-      await expect(github({})).rejects.toThrow('Failed to read root package.json')
+      await expect(github({ force: false })).rejects.toThrow('Failed to read root package.json')
     })
   })
 
   describe('When using config name option', () => {
     it('Then passes configName to loadRelizyConfig', async () => {
-      await github({ configName: 'custom' })
+      await github({ configName: 'custom', force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({ configName: 'custom' }),
@@ -370,7 +401,7 @@ describe('Given github function', () => {
     it('Then passes base config to loadRelizyConfig', async () => {
       const baseConfig = createMockConfig({ bump: { type: 'minor' } })
 
-      await github({ config: baseConfig })
+      await github({ config: baseConfig, force: false })
 
       expect(core.loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({ baseConfig }),
@@ -381,13 +412,18 @@ describe('Given github function', () => {
   describe('When using force option', () => {
     it('Then passes force to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'github',
         domain: 'github.com',
         repo: 'user/repo',
       }
-      config.tokens = { github: 'test-token' }
+      config.tokens = {
+        github: 'test-token',
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
@@ -410,17 +446,22 @@ describe('Given github function', () => {
   describe('When using suffix option', () => {
     it('Then passes suffix to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent' }
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.repo = {
         provider: 'github',
         domain: 'github.com',
         repo: 'user/repo',
       }
-      config.tokens = { github: 'test-token' }
+      config.tokens = {
+        github: 'test-token',
+        gitlab: undefined,
+        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+        slack: undefined,
+      }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
 
-      await github({ suffix: 'beta' })
+      await github({ suffix: 'beta', force: false })
 
       expect(core.getPackagesOrBumpedPackages).toHaveBeenCalledWith(
         expect.objectContaining({ suffix: 'beta' }),
@@ -428,7 +469,7 @@ describe('Given github function', () => {
     })
 
     it('Then passes suffix to getRootPackage in unified mode', async () => {
-      await github({ suffix: 'beta' })
+      await github({ suffix: 'beta', force: false })
 
       expect(core.getRootPackage).toHaveBeenCalledWith(
         expect.objectContaining({ suffix: 'beta' }),
@@ -442,7 +483,7 @@ describe('Given github function', () => {
         '## v1.0.0\n\nRelease notes here\n- Feature A\n- Feature B',
       )
 
-      await github({})
+      await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.anything(),

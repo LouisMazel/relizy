@@ -66,11 +66,14 @@ describe('Given selective mode release workflow', () => {
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
+      private: false,
     })
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
+      private: false,
+      fromTag: 'v0.9.0',
       commits: [],
     })
     vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
@@ -83,7 +86,7 @@ describe('Given selective mode release workflow', () => {
     } as any)
     vi.mocked(changelogCmd).mockResolvedValue(undefined)
     vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue(undefined)
+    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
     vi.mocked(socialCmd).mockResolvedValue(undefined)
   })
 
@@ -166,10 +169,10 @@ describe('Given selective mode release workflow', () => {
         fromTag: 'v1.0.0',
       } as any)
 
-      await release({ releaseType: 'major' })
+      await release({ type: 'major' })
 
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ releaseType: 'major' }),
+        expect.objectContaining({ type: 'major' }),
       )
     })
   })
