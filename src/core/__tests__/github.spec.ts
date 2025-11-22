@@ -6,9 +6,13 @@ import { github } from '../github'
 
 logger.setLevel('error')
 
-vi.mock('changelogen', () => ({
-  createGithubRelease: vi.fn(),
-}))
+vi.mock('changelogen', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('changelogen')>()
+  return {
+    ...actual,
+    createGithubRelease: vi.fn(),
+  }
+})
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')

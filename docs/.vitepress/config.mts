@@ -147,6 +147,7 @@ export default defineConfig({
           { text: 'GitHub Actions', link: '/guide/github-actions' },
           { text: 'GitLab CI', link: '/guide/gitlab-ci' },
           { text: 'Migration', link: '/guide/migration-from-changelogen-monorepo' },
+          { text: 'Contributing', link: '/guide/contributing' },
         ],
       },
       {
@@ -199,7 +200,7 @@ export default defineConfig({
           },
           {
             text: 'Contributing',
-            link: 'https://github.com/LouisMazel/relizy/blob/main/CONTRIBUTING.md',
+            link: '/guide/contributing',
           },
         ],
       },
@@ -247,6 +248,12 @@ export default defineConfig({
           text: 'Migration',
           items: [
             { text: 'Migration from @maz-ui/changelogen-monorepo', link: '/guide/migration-from-changelogen-monorepo' },
+          ],
+        },
+        {
+          text: 'Contributing',
+          items: [
+            { text: 'Contributing Guide', link: '/guide/contributing' },
           ],
         },
       ],
