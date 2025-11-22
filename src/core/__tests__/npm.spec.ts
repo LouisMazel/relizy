@@ -32,16 +32,7 @@ vi.mock('node:path', async () => {
     },
   }
 })
-const mockEnv: Record<string, string | undefined> = {}
-vi.mock('node:process', () => ({
-  default: {
-    cwd: vi.fn(),
-    chdir: vi.fn(),
-    get env() {
-      return mockEnv
-    },
-  },
-}))
+// Remove the node:process mock - we'll spy on globalThis.process directly
 vi.mock('@inquirer/prompts')
 vi.mock('@maz-ui/node', async () => {
   const actual = await vi.importActual('@maz-ui/node')
@@ -61,11 +52,18 @@ vi.mock('../utils', async () => {
 vi.mock('../tags')
 
 describe('Given detectPackageManager function', () => {
+  let cwdSpy: ReturnType<typeof vi.spyOn>
+
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(process.cwd).mockReturnValue('/project')
+    cwdSpy = vi.spyOn(globalThis.process, 'cwd').mockReturnValue('/project')
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
-    Object.keys(mockEnv).forEach(key => delete mockEnv[key])
+    delete globalThis.process.env.npm_config_user_agent
+  })
+
+  afterEach(() => {
+    cwdSpy.mockRestore()
+    delete globalThis.process.env.npm_config_user_agent
   })
 
   describe('When package.json has packageManager field', () => {
@@ -185,7 +183,7 @@ describe('Given detectPackageManager function', () => {
   describe('When detecting from user agent', () => {
     it('Then detects pnpm from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      mockEnv.npm_config_user_agent = 'pnpm/8.0.0 npm/? node/v18.0.0'
+      globalThis.process.env.npm_config_user_agent = 'pnpm/8.0.0 npm/? node/v18.0.0'
 
       const result = detectPackageManager()
 
@@ -194,7 +192,7 @@ describe('Given detectPackageManager function', () => {
 
     it('Then detects yarn from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      mockEnv.npm_config_user_agent = 'yarn/3.0.0 npm/? node/v18.0.0'
+      globalThis.process.env.npm_config_user_agent = 'yarn/3.0.0 npm/? node/v18.0.0'
 
       const result = detectPackageManager()
 
@@ -203,7 +201,7 @@ describe('Given detectPackageManager function', () => {
 
     it('Then detects npm from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      mockEnv.npm_config_user_agent = 'npm/9.0.0 node/v18.0.0'
+      globalThis.process.env.npm_config_user_agent = 'npm/9.0.0 node/v18.0.0'
 
       const result = detectPackageManager()
 
@@ -212,7 +210,7 @@ describe('Given detectPackageManager function', () => {
 
     it('Then detects bun from npm_config_user_agent', () => {
       vi.mocked(existsSync).mockReturnValue(false)
-      mockEnv.npm_config_user_agent = 'bun/1.0.0'
+      globalThis.process.env.npm_config_user_agent = 'bun/1.0.0'
 
       const result = detectPackageManager()
 
@@ -261,7 +259,6 @@ describe('Given detectPackageManager function', () => {
       expect(result).toBe('npm')
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Error detecting package manager'),
-        expect.any(Error),
       )
     })
 
@@ -484,6 +481,7 @@ describe('Given getPackagesToPublishInIndependentMode function', () => {
           name: 'pkg-a',
           path: '/packages/a',
           version: '1.0.0',
+          newVersion: undefined,
           commits: [{ message: 'commit' } as any],
         },
       ]
@@ -614,6 +612,7 @@ describe('Given publishPackage function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     config = createMockConfig({ bump: { type: 'patch' } })
+    config.cwd = '/project'
     config.publish = { private: false, args: [], safetyCheck: false }
     pkg = {
       ...createMockPackageInfo(),
