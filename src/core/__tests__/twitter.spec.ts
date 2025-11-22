@@ -431,7 +431,11 @@ describe('Given postReleaseToTwitter function', () => {
       })
 
       vi.doMock('twitter-api-v2', () => ({
-        TwitterApi: vi.fn(() => mockTwitterApi),
+        TwitterApi: class {
+          constructor() {
+            return mockTwitterApi
+          }
+        },
       }))
 
       await postReleaseToTwitter({
@@ -499,7 +503,11 @@ describe('Given postReleaseToTwitter function', () => {
       mockTwitterApi.readWrite.v2.tweet.mockRejectedValue(apiError)
 
       vi.doMock('twitter-api-v2', () => ({
-        TwitterApi: vi.fn(() => mockTwitterApi),
+        TwitterApi: class {
+          constructor() {
+            return mockTwitterApi
+          }
+        },
       }))
 
       await expect(postReleaseToTwitter({
