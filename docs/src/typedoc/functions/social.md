@@ -4,7 +4,7 @@
 
 > **social**(`options`): `Promise`\<`void`\>
 
-Defined in: [src/commands/social.ts:342](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/commands/social.ts#L342)
+Defined in: [src/commands/social.ts:325](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/commands/social.ts#L325)
 
 ## Parameters
 

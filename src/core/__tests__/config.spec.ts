@@ -525,7 +525,7 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ configName: 'custom' })
+      await loadRelizyConfig({ configFile: 'custom' })
 
       expect(loadConfig).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -545,7 +545,7 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ configName: 'custom' })
+      await loadRelizyConfig({ configFile: 'custom' })
 
       expect(logger.error).toHaveBeenCalledWith('No config file found with name "custom"')
       expect(process.exit).toHaveBeenCalledWith(1)

@@ -2,7 +2,7 @@
 
 # Interface: TwitterCredentials
 
-Defined in: [src/types.ts:531](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L531)
+Defined in: [src/types.ts:531](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L531)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:531](https://github.com/LouisMazel/relizy/blob/2ef5703
 
 > `optional` **accessToken**: `string`
 
-Defined in: [src/types.ts:543](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L543)
+Defined in: [src/types.ts:543](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L543)
 
 Twitter Access Token
 
@@ -20,7 +20,7 @@ Twitter Access Token
 
 > `optional` **accessTokenSecret**: `string`
 
-Defined in: [src/types.ts:547](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L547)
+Defined in: [src/types.ts:547](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L547)
 
 Twitter Access Token Secret
 
@@ -30,7 +30,7 @@ Twitter Access Token Secret
 
 > `optional` **apiKey**: `string`
 
-Defined in: [src/types.ts:535](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L535)
+Defined in: [src/types.ts:535](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L535)
 
 Twitter API Key (Consumer Key)
 
@@ -40,6 +40,6 @@ Twitter API Key (Consumer Key)
 
 > `optional` **apiSecret**: `string`
 
-Defined in: [src/types.ts:539](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/types.ts#L539)
+Defined in: [src/types.ts:539](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L539)
 
 Twitter API Secret (Consumer Secret)

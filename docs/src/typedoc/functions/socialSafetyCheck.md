@@ -4,7 +4,7 @@
 
 > **socialSafetyCheck**(`__namedParameters`): `void`
 
-Defined in: [src/commands/social.ts:10](https://github.com/LouisMazel/relizy/blob/2ef57034ec548cda308d10a2d236a6c6bd3b5888/src/commands/social.ts#L10)
+Defined in: [src/commands/social.ts:7](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/commands/social.ts#L7)
 
 ## Parameters
 
