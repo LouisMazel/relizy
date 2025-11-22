@@ -12,8 +12,6 @@ vi.mock('../../core', async () => {
     ...actual,
     loadRelizyConfig: vi.fn(),
     executeHook: vi.fn(),
-    postReleaseToTwitter: vi.fn(),
-    postReleaseToSlack: vi.fn(),
     getPackagesOrBumpedPackages: vi.fn(),
     getRootPackage: vi.fn(),
     resolveTags: vi.fn(),
@@ -24,35 +22,58 @@ vi.mock('../../core', async () => {
   }
 })
 
+vi.mock('../../core/twitter', () => ({
+  getTwitterCredentials: vi.fn(),
+  postReleaseToTwitter: vi.fn(),
+}))
+
+vi.mock('../../core/slack', () => ({
+  getSlackToken: vi.fn(),
+  postReleaseToSlack: vi.fn(),
+}))
+
+const { getTwitterCredentials, postReleaseToTwitter } = await import('../../core/twitter')
+const { getSlackToken, postReleaseToSlack } = await import('../../core/slack')
+
 describe('Given socialSafetyCheck function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
   describe('When Twitter is enabled without credentials', () => {
-    it('Then throws error', () => {
+    it('Then logs warning', () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.social = {
         twitter: { enabled: true },
         slack: { enabled: false },
       }
       config.tokens = {}
+      vi.mocked(getTwitterCredentials).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).toThrow('Twitter is enabled but no credentials found')
+      socialSafetyCheck({ config })
+
+      expect(getTwitterCredentials).toHaveBeenCalled()
     })
   })
 
   describe('When Slack is enabled without token', () => {
-    it('Then throws error', () => {
+    it('Then logs warning', () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.social = {
         twitter: { enabled: false },
         slack: { enabled: true },
       }
       config.tokens = {}
+      vi.mocked(getSlackToken).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).toThrow('Slack is enabled but no token found')
+      socialSafetyCheck({ config })
+
+      expect(getSlackToken).toHaveBeenCalled()
     })
   })
 
   describe('When credentials are provided', () => {
-    it('Then does not throw', () => {
+    it('Then does not log warning', () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.social = {
         twitter: { enabled: true },
@@ -66,8 +87,56 @@ describe('Given socialSafetyCheck function', () => {
           accessTokenSecret: 'token-secret',
         },
       }
+      vi.mocked(getTwitterCredentials).mockReturnValue({
+        apiKey: 'key',
+        apiSecret: 'secret',
+        accessToken: 'token',
+        accessTokenSecret: 'token-secret',
+      })
 
-      expect(() => socialSafetyCheck({ config })).not.toThrow()
+      socialSafetyCheck({ config })
+
+      expect(getTwitterCredentials).toHaveBeenCalled()
+    })
+  })
+
+  describe('When safety check is disabled', () => {
+    it('Then returns early without checking', () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.safetyCheck = false
+      config.social = {
+        twitter: { enabled: true },
+        slack: { enabled: false },
+      }
+
+      socialSafetyCheck({ config })
+
+      expect(getTwitterCredentials).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When social is disabled', () => {
+    it('Then returns early without checking', () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.release = {
+        commit: true,
+        changelog: true,
+        publish: true,
+        push: true,
+        providerRelease: true,
+        social: false,
+        clean: true,
+        noVerify: false,
+        gitTag: true,
+      }
+      config.social = {
+        twitter: { enabled: true },
+        slack: { enabled: false },
+      }
+
+      socialSafetyCheck({ config })
+
+      expect(getTwitterCredentials).not.toHaveBeenCalled()
     })
   })
 })
@@ -82,8 +151,8 @@ describe('Given social command', () => {
     }
     vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.postReleaseToTwitter).mockResolvedValue(undefined)
-    vi.mocked(core.postReleaseToSlack).mockResolvedValue(undefined)
+    vi.mocked(postReleaseToTwitter).mockResolvedValue(undefined)
+    vi.mocked(postReleaseToSlack).mockResolvedValue(undefined)
     vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
     vi.mocked(core.getRootPackage).mockResolvedValue({
       name: 'test',
@@ -96,6 +165,13 @@ describe('Given social command', () => {
     vi.mocked(core.getReleaseUrl).mockReturnValue('https://github.com/user/repo/releases/tag/v1.0.0')
     vi.mocked(core.extractChangelogSummary).mockReturnValue('Feature added')
     vi.mocked(core.isPrerelease).mockReturnValue(false)
+    vi.mocked(getTwitterCredentials).mockReturnValue({
+      apiKey: 'key',
+      apiSecret: 'secret',
+      accessToken: 'token',
+      accessTokenSecret: 'secret',
+    })
+    vi.mocked(getSlackToken).mockReturnValue('slack-token')
   })
 
   describe('When posting to Twitter', () => {
@@ -139,7 +215,7 @@ describe('Given social command', () => {
 
       await social({})
 
-      expect(core.postReleaseToTwitter).toHaveBeenCalled()
+      expect(postReleaseToTwitter).toHaveBeenCalled()
     })
   })
 
@@ -155,7 +231,7 @@ describe('Given social command', () => {
 
       await social({})
 
-      expect(core.postReleaseToSlack).toHaveBeenCalled()
+      expect(postReleaseToSlack).toHaveBeenCalled()
     })
   })
 
@@ -179,7 +255,7 @@ describe('Given social command', () => {
 
       await social({})
 
-      expect(core.postReleaseToTwitter).not.toHaveBeenCalled()
+      expect(postReleaseToTwitter).not.toHaveBeenCalled()
     })
   })
 
@@ -207,7 +283,7 @@ describe('Given social command', () => {
         },
       }
       vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(core.postReleaseToTwitter).mockRejectedValue(new Error('Twitter API error'))
+      vi.mocked(postReleaseToTwitter).mockRejectedValue(new Error('Twitter API error'))
 
       await expect(social({})).rejects.toThrow('Twitter API error')
 
@@ -239,7 +315,7 @@ describe('Given social command', () => {
 
       await social({})
 
-      expect(core.postReleaseToTwitter).toHaveBeenCalledTimes(2)
+      expect(postReleaseToTwitter).toHaveBeenCalledTimes(2)
     })
   })
 })
