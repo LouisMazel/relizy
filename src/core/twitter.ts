@@ -1,5 +1,4 @@
 import type { TwitterCredentials, TwitterOptions } from '../types'
-import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { extractChangelogSummary } from './social-utils'
 
@@ -11,25 +10,27 @@ export interface ResolvedTwitterCredentials {
 }
 
 /**
- * Get Twitter credentials from config or environment variables
+ * Get Twitter credentials from config
+ * Priority: social.twitter.credentials > config.tokens.twitter > environment variables (handled in config.ts)
  */
-export function getTwitterCredentials(configCredentials?: TwitterCredentials): ResolvedTwitterCredentials | null {
-  // Try config credentials first, then fall back to environment variables
-  const apiKey = configCredentials?.apiKey
-    || process.env.RELIZY_TWITTER_API_KEY
-    || process.env.TWITTER_API_KEY
+export function getTwitterCredentials(options: {
+  socialCredentials?: TwitterCredentials
+  tokenCredentials?: TwitterCredentials
+}): ResolvedTwitterCredentials | null {
+  const { socialCredentials, tokenCredentials } = options
 
-  const apiSecret = configCredentials?.apiSecret
-    || process.env.RELIZY_TWITTER_API_SECRET
-    || process.env.TWITTER_API_SECRET
+  // Priority 1: social.twitter.credentials (specific config)
+  const apiKey = socialCredentials?.apiKey
+    || tokenCredentials?.apiKey
 
-  const accessToken = configCredentials?.accessToken
-    || process.env.RELIZY_TWITTER_ACCESS_TOKEN
-    || process.env.TWITTER_ACCESS_TOKEN
+  const apiSecret = socialCredentials?.apiSecret
+    || tokenCredentials?.apiSecret
 
-  const accessTokenSecret = configCredentials?.accessTokenSecret
-    || process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET
-    || process.env.TWITTER_ACCESS_TOKEN_SECRET
+  const accessToken = socialCredentials?.accessToken
+    || tokenCredentials?.accessToken
+
+  const accessTokenSecret = socialCredentials?.accessTokenSecret
+    || tokenCredentials?.accessTokenSecret
 
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
     return null

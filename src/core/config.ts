@@ -65,6 +65,23 @@ export function getDefaultConfig() {
         process.env.RELIZY_GITHUB_TOKEN
         || process.env.GITHUB_TOKEN
         || process.env.GH_TOKEN,
+      twitter: {
+        apiKey:
+          process.env.RELIZY_TWITTER_API_KEY
+          || process.env.TWITTER_API_KEY,
+        apiSecret:
+          process.env.RELIZY_TWITTER_API_SECRET
+          || process.env.TWITTER_API_SECRET,
+        accessToken:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN
+          || process.env.TWITTER_ACCESS_TOKEN,
+        accessTokenSecret:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+          || process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      },
+      slack:
+        process.env.RELIZY_SLACK_TOKEN
+        || process.env.SLACK_TOKEN,
     },
     scopeMap: {},
     release: {

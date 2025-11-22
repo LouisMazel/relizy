@@ -1,16 +1,20 @@
 import type { SlackCredentials, SlackOptions } from '../types'
-import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { extractChangelogSummary } from './social-utils'
 
 /**
- * Get Slack token from config or environment variables
+ * Get Slack token from config
+ * Priority: social.slack.credentials > config.tokens.slack > environment variables (handled in config.ts)
  */
-export function getSlackToken(configCredentials?: SlackCredentials): string | null {
-  // Try config credentials first, then fall back to environment variables
-  const token = configCredentials?.token
-    || process.env.RELIZY_SLACK_TOKEN
-    || process.env.SLACK_TOKEN
+export function getSlackToken(options: {
+  socialCredentials?: SlackCredentials
+  tokenCredential?: string
+}): string | null {
+  const { socialCredentials, tokenCredential } = options
+
+  // Priority 1: social.slack.credentials (specific config)
+  const token = socialCredentials?.token
+    || tokenCredential
 
   if (!token) {
     return null
