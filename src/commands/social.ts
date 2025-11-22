@@ -21,11 +21,14 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
   // Check Twitter configuration
   const twitterConfig = config.social?.twitter
   if (twitterConfig?.enabled) {
-    const credentials = getTwitterCredentials(twitterConfig.credentials)
+    const credentials = getTwitterCredentials({
+      socialCredentials: twitterConfig.credentials,
+      tokenCredentials: config.tokens?.twitter,
+    })
 
     if (!credentials) {
       logger.warn('⚠️  Twitter is enabled but credentials are missing.')
-      logger.warn('Set the following environment variables or configure them in social.twitter.credentials:')
+      logger.warn('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
       logger.warn('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
       logger.warn('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
       logger.warn('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
@@ -36,11 +39,14 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
   // Check Slack configuration
   const slackConfig = config.social?.slack
   if (slackConfig?.enabled) {
-    const token = getSlackToken(slackConfig.credentials)
+    const token = getSlackToken({
+      socialCredentials: slackConfig.credentials,
+      tokenCredential: config.tokens?.slack,
+    })
 
     if (!token) {
       logger.warn('⚠️  Slack is enabled but credentials are missing.')
-      logger.warn('Set the following environment variables or configure them in social.slack.credentials:')
+      logger.warn('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
       logger.warn('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
     }
 
@@ -113,10 +119,13 @@ async function handleTwitterPost({
   logger.debug('[social:twitter] Twitter posting is enabled')
 
   try {
-    const credentials = getTwitterCredentials(twitterConfig.credentials)
+    const credentials = getTwitterCredentials({
+      socialCredentials: twitterConfig.credentials,
+      tokenCredentials: config.tokens?.twitter,
+    })
 
     if (!credentials) {
-      logger.warn('[social:twitter] Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables or configure them in social.twitter.credentials.')
+      logger.warn('[social:twitter] Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables or configure them in social.twitter.credentials or tokens.twitter.')
       logger.info('[social:twitter] Skipping Twitter post')
       return
     }
@@ -221,10 +230,13 @@ async function handleSlackPost({
   logger.debug('[social:slack] Slack posting is enabled')
 
   try {
-    const token = getSlackToken(slackConfig.credentials)
+    const token = getSlackToken({
+      socialCredentials: slackConfig.credentials,
+      tokenCredential: config.tokens?.slack,
+    })
 
     if (!token) {
-      logger.warn('[social:slack] Slack token not found. Set SLACK_TOKEN or RELIZY_SLACK_TOKEN environment variable or configure it in social.slack.credentials.')
+      logger.warn('[social:slack] Slack token not found. Set SLACK_TOKEN or RELIZY_SLACK_TOKEN environment variable or configure it in social.slack.credentials or tokens.slack.')
       logger.info('[social:slack] Skipping Slack post')
       return
     }

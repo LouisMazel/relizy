@@ -759,6 +759,38 @@ export type HookType = 'before' | 'success' | 'error'
 export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
 
 /**
+ * API tokens configuration
+ */
+export interface Tokens {
+  /**
+   * GitHub token for creating releases
+   * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+   */
+  github?: string
+  /**
+   * GitLab token for creating releases
+   * Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+   */
+  gitlab?: string
+  /**
+   * Twitter API credentials for posting tweets
+   * Environment variables: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+   * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+   */
+  twitter?: {
+    apiKey?: string
+    apiSecret?: string
+    accessToken?: string
+    accessTokenSecret?: string
+  }
+  /**
+   * Slack bot token for posting messages
+   * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+   */
+  slack?: string
+}
+
+/**
  * Hooks configuration
  * Useful to run custom scripts before, after a step or on error
  */
@@ -775,7 +807,7 @@ export type HookConfig = {
  * Relizy configuration
  * @see https://louismazel.github.io/relizy/config/overview
  */
-export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types'>> {
+export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
   types: Record<string, {
     title: string
     semver?: SemverBumpType
@@ -826,6 +858,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Social media configuration
    */
   social?: SocialConfig
+  /**
+   * API tokens configuration
+   */
+  tokens?: Tokens
   /**
    * Hooks config
    */
