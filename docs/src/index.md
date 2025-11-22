@@ -49,14 +49,14 @@ features:
   - icon: 🛠️
     title: CLI & Programmatic API
     details: Use it from the command line or integrate into your scripts. Flexible API for advanced workflows and custom automation.
-  - icon: 🎨
-    title: Multiple Configs
-    details: Support for multiple configuration files per project. Perfect for different release strategies or separate monorepo workflows.
-    link: /config/multiple-configs
   - icon: 📚
     title: Hooks
     details: Execute custom scripts at specific stages of the release workflow.
     link: /config/hooks
+  - icon: 🌐
+    title: Social
+    details: Post release announcements to social media platforms.
+    link: /guide/social
 ---
 
 ## Why Relizy?
@@ -101,6 +101,7 @@ That's it! Relizy will:
 - ✅ Create a git commit and tag
 - ✅ Publish to npm
 - ✅ Create a GitHub or GitLab release
+- ✅ Social media posts (X & Slack)
 
 <br />
 

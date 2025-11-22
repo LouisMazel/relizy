@@ -4,7 +4,7 @@
 
 > **getDefaultConfig**(): `object`
 
-Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/config.ts#L12)
+Defined in: [src/core/config.ts:13](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/config.ts#L13)
 
 ## Returns
 
@@ -46,6 +46,10 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 > **private**: `boolean` = `false`
 
+#### publish.safetyCheck
+
+> **safetyCheck**: `boolean` = `false`
+
 ### release
 
 > **release**: `Required`\<[`ReleaseConfig`](../interfaces/ReleaseConfig.md)\>
@@ -57,6 +61,34 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 ### scopeMap
 
 > **scopeMap**: `object` = `{}`
+
+### social
+
+> **social**: `object`
+
+#### social.slack
+
+> **slack**: `object`
+
+#### social.slack.enabled
+
+> **enabled**: `boolean` = `false`
+
+#### social.slack.onlyStable
+
+> **onlyStable**: `boolean` = `true`
+
+#### social.twitter
+
+> **twitter**: `object`
+
+#### social.twitter.enabled
+
+> **enabled**: `boolean` = `false`
+
+#### social.twitter.onlyStable
+
+> **onlyStable**: `boolean` = `true`
 
 ### templates
 
@@ -70,13 +102,21 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 > **emptyChangelogContent**: `string` = `'No relevant changes for this release'`
 
+#### templates.slackMessage
+
+> **slackMessage**: `undefined` = `undefined`
+
 #### templates.tagBody
 
 > **tagBody**: `string` = `'v{{newVersion}}'`
 
 #### templates.tagMessage
 
-> **tagMessage**: `string` = `'Bump version to v{{newVersion}}'`
+> **tagMessage**: `string` = `'Bump version to {{newVersion}}'`
+
+#### templates.twitterMessage
+
+> **twitterMessage**: `string` = `'🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}'`
 
 ### tokens
 
@@ -90,6 +130,30 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 > **gitlab**: `string` \| `undefined`
 
+#### tokens.slack
+
+> **slack**: `string` \| `undefined`
+
+#### tokens.twitter
+
+> **twitter**: `object`
+
+#### tokens.twitter.accessToken
+
+> **accessToken**: `string` \| `undefined`
+
+#### tokens.twitter.accessTokenSecret
+
+> **accessTokenSecret**: `string` \| `undefined`
+
+#### tokens.twitter.apiKey
+
+> **apiKey**: `string` \| `undefined`
+
+#### tokens.twitter.apiSecret
+
+> **apiSecret**: `string` \| `undefined`
+
 ### types
 
-> **types**: `Record`\<`string`, `boolean` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
+> **types**: `Record`\<`string`, `false` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>

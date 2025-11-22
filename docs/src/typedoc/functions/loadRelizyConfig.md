@@ -4,7 +4,7 @@
 
 > **loadRelizyConfig**(`options?`): `Promise`\<[`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)\>
 
-Defined in: [src/core/config.ts:107](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/config.ts#L107)
+Defined in: [src/core/config.ts:140](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/core/config.ts#L140)
 
 ## Parameters
 
@@ -20,7 +20,7 @@ Defined in: [src/core/config.ts:107](https://github.com/LouisMazel/relizy/blob/9
 
 #### overrides?
 
-\{ `bump?`: \{ `clean?`: `boolean`; `dependencyTypes?`: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"` \| `undefined`)[]; `preid?`: `string`; `type?`: `ReleaseType`; `yes?`: `boolean`; \}; `changelog?`: \{ `formatCmd?`: `string`; `includeCommitBody?`: `boolean`; `rootChangelog?`: `boolean`; \}; `cwd?`: `string`; `excludeAuthors?`: (`string` \| `undefined`)[]; `from?`: `string`; `hideAuthorEmail?`: `boolean`; `hooks?`: \{ `after:bump?`: `string` \| \{ \}; `after:changelog?`: `string` \| \{ \}; `after:commit-and-tag?`: `string` \| \{ \}; `after:provider-release?`: `string` \| \{ \}; `after:publish?`: `string` \| \{ \}; `after:push?`: `string` \| \{ \}; `after:release?`: `string` \| \{ \}; `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; \}; `logLevel?`: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`; `monorepo?`: \{ `ignorePackageNames?`: (`string` \| `undefined`)[]; `packages?`: (`string` \| `undefined`)[]; `versionMode?`: [`VersionMode`](../type-aliases/VersionMode.md); \}; `newVersion?`: `string`; `noAuthors?`: `boolean`; `publish?`: \{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `tag?`: `string`; \}; `release?`: \{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; \}; `repo?`: \{ `domain?`: `string`; `provider?`: [`GitProvider`](../type-aliases/GitProvider.md); `repo?`: `string`; `token?`: `string`; \}; `safetyCheck?`: `boolean`; `scopeMap?`: \{\[`key`: `string`\]: `string` \| `undefined`; \}; `signTags?`: `boolean`; `templates?`: \{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; \}; `to?`: `string`; `tokens?`: \{ `bitbucket?`: `string`; `github?`: `string`; `gitlab?`: `string`; \}; `types?`: \{\[`key`: `string`\]: `boolean` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}; \}
+\{ `bump?`: \{ `clean?`: `boolean`; `dependencyTypes?`: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"` \| `undefined`)[]; `preid?`: `string`; `type?`: `ReleaseType`; `yes?`: `boolean`; \}; `changelog?`: \{ `formatCmd?`: `string`; `includeCommitBody?`: `boolean`; `rootChangelog?`: `boolean`; \}; `cwd?`: `string`; `excludeAuthors?`: (`string` \| `undefined`)[]; `from?`: `string`; `hideAuthorEmail?`: `boolean`; `hooks?`: \{ `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `before:slack?`: `string` \| \{ \}; `before:social?`: `string` \| \{ \}; `before:twitter?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `error:slack?`: `string` \| \{ \}; `error:social?`: `string` \| \{ \}; `error:twitter?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; `success:bump?`: `string` \| \{ \}; `success:changelog?`: `string` \| \{ \}; `success:commit-and-tag?`: `string` \| \{ \}; `success:provider-release?`: `string` \| \{ \}; `success:publish?`: `string` \| \{ \}; `success:push?`: `string` \| \{ \}; `success:release?`: `string` \| \{ \}; `success:slack?`: `string` \| \{ \}; `success:social?`: `string` \| \{ \}; `success:twitter?`: `string` \| \{ \}; \}; `logLevel?`: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`; `monorepo?`: \{ `ignorePackageNames?`: (`string` \| `undefined`)[]; `packages?`: (`string` \| `undefined`)[]; `versionMode?`: [`VersionMode`](../type-aliases/VersionMode.md); \}; `newVersion?`: `string`; `noAuthors?`: `boolean`; `publish?`: \{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packageManager?`: [`PackageManager`](../type-aliases/PackageManager.md); `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `safetyCheck?`: `boolean`; `tag?`: `string`; `token?`: `string`; \}; `release?`: \{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `gitTag?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; `social?`: `boolean`; \}; `repo?`: \{ `domain?`: `string`; `provider?`: [`GitProvider`](../type-aliases/GitProvider.md); `repo?`: `string`; `token?`: `string`; \}; `safetyCheck?`: `boolean`; `scopeMap?`: \{\[`key`: `string`\]: `string` \| `undefined`; \}; `signTags?`: `boolean`; `social?`: \{ `changelogUrl?`: `string`; `slack?`: \{ `channel?`: `string`; `credentials?`: \{ `token?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}; `twitter?`: \{ `credentials?`: \{ `accessToken?`: ... \| ...; `accessTokenSecret?`: ... \| ...; `apiKey?`: ... \| ...; `apiSecret?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}; \}; `templates?`: \{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `slackMessage?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; `twitterMessage?`: `string`; \}; `to?`: `string`; `tokens?`: \{ `github?`: `string`; `gitlab?`: `string`; `slack?`: `string`; `twitter?`: \{ `accessToken?`: `string`; `accessTokenSecret?`: `string`; `apiKey?`: `string`; `apiSecret?`: `string`; \}; \}; `types?`: \{\[`key`: `string`\]: `false` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}; \}
 
 #### overrides.bump?
 
@@ -146,37 +146,9 @@ Start tag
 
 #### overrides.hooks?
 
-\{ `after:bump?`: `string` \| \{ \}; `after:changelog?`: `string` \| \{ \}; `after:commit-and-tag?`: `string` \| \{ \}; `after:provider-release?`: `string` \| \{ \}; `after:publish?`: `string` \| \{ \}; `after:push?`: `string` \| \{ \}; `after:release?`: `string` \| \{ \}; `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; \}
+\{ `before:bump?`: `string` \| \{ \}; `before:changelog?`: `string` \| \{ \}; `before:commit-and-tag?`: `string` \| \{ \}; `before:provider-release?`: `string` \| \{ \}; `before:publish?`: `string` \| \{ \}; `before:push?`: `string` \| \{ \}; `before:release?`: `string` \| \{ \}; `before:slack?`: `string` \| \{ \}; `before:social?`: `string` \| \{ \}; `before:twitter?`: `string` \| \{ \}; `error:bump?`: `string` \| \{ \}; `error:changelog?`: `string` \| \{ \}; `error:commit-and-tag?`: `string` \| \{ \}; `error:provider-release?`: `string` \| \{ \}; `error:publish?`: `string` \| \{ \}; `error:push?`: `string` \| \{ \}; `error:release?`: `string` \| \{ \}; `error:slack?`: `string` \| \{ \}; `error:social?`: `string` \| \{ \}; `error:twitter?`: `string` \| \{ \}; `generate:changelog?`: \{ \}; `success:bump?`: `string` \| \{ \}; `success:changelog?`: `string` \| \{ \}; `success:commit-and-tag?`: `string` \| \{ \}; `success:provider-release?`: `string` \| \{ \}; `success:publish?`: `string` \| \{ \}; `success:push?`: `string` \| \{ \}; `success:release?`: `string` \| \{ \}; `success:slack?`: `string` \| \{ \}; `success:social?`: `string` \| \{ \}; `success:twitter?`: `string` \| \{ \}; \}
 
 Hooks config
-
-#### overrides.hooks.after:bump?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:changelog?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:commit-and-tag?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:provider-release?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:publish?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:push?
-
-`string` \| \{ \}
-
-#### overrides.hooks.after:release?
-
-`string` \| \{ \}
 
 #### overrides.hooks.before:bump?
 
@@ -203,6 +175,18 @@ Hooks config
 `string` \| \{ \}
 
 #### overrides.hooks.before:release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:slack?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:social?
+
+`string` \| \{ \}
+
+#### overrides.hooks.before:twitter?
 
 `string` \| \{ \}
 
@@ -234,9 +218,61 @@ Hooks config
 
 `string` \| \{ \}
 
+#### overrides.hooks.error:slack?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:social?
+
+`string` \| \{ \}
+
+#### overrides.hooks.error:twitter?
+
+`string` \| \{ \}
+
 #### overrides.hooks.generate:changelog?
 
 \{ \}
+
+#### overrides.hooks.success:bump?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:changelog?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:commit-and-tag?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:provider-release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:publish?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:push?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:release?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:slack?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:social?
+
+`string` \| \{ \}
+
+#### overrides.hooks.success:twitter?
+
+`string` \| \{ \}
 
 #### overrides.logLevel?
 
@@ -290,7 +326,7 @@ Version mode for the monorepo.
 
 #### overrides.publish?
 
-\{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `tag?`: `string`; \}
+\{ `access?`: `"public"` \| `"restricted"`; `args?`: (`string` \| `undefined`)[]; `buildCmd?`: `string`; `otp?`: `string`; `packageManager?`: [`PackageManager`](../type-aliases/PackageManager.md); `packages?`: (`string` \| `undefined`)[]; `private?`: `boolean`; `registry?`: `string`; `safetyCheck?`: `boolean`; `tag?`: `string`; `token?`: `string`; \}
 
 Publish config
 
@@ -316,6 +352,12 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 NPM OTP (e.g. `123456`)
 
+#### overrides.publish.packageManager?
+
+[`PackageManager`](../type-aliases/PackageManager.md)
+
+Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
+
 #### overrides.publish.packages?
 
 (`string` \| `undefined`)[]
@@ -332,15 +374,33 @@ Glob pattern matching for packages to publish
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
+#### overrides.publish.safetyCheck?
+
+`boolean`
+
+Skip safety check
+
+**Default**
+
+```ts
+false
+```
+
 #### overrides.publish.tag?
 
 `string`
 
 NPM tag (e.g. `latest`)
 
+#### overrides.publish.token?
+
+`string`
+
+NPM token (e.g. `123456`) - only supported for pnpm and npm
+
 #### overrides.release?
 
-\{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; \}
+\{ `changelog?`: `boolean`; `clean?`: `boolean`; `commit?`: `boolean`; `gitTag?`: `boolean`; `noVerify?`: `boolean`; `providerRelease?`: `boolean`; `publish?`: `boolean`; `push?`: `boolean`; `social?`: `boolean`; \}
 
 Release config
 
@@ -373,6 +433,18 @@ false
 `boolean`
 
 Commit changes and create tag
+
+**Default**
+
+```ts
+true
+```
+
+#### overrides.release.gitTag?
+
+`boolean`
+
+Create tag
 
 **Default**
 
@@ -426,6 +498,18 @@ Push changes to your repository (commit and tag(s))
 
 ```ts
 true
+```
+
+#### overrides.release.social?
+
+`boolean`
+
+Post release announcements to social media platforms
+
+**Default**
+
+```ts
+false
 ```
 
 #### overrides.repo?
@@ -484,9 +568,147 @@ true
 
 `boolean`
 
+#### overrides.social?
+
+\{ `changelogUrl?`: `string`; `slack?`: \{ `channel?`: `string`; `credentials?`: \{ `token?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}; `twitter?`: \{ `credentials?`: \{ `accessToken?`: ... \| ...; `accessTokenSecret?`: ... \| ...; `apiKey?`: ... \| ...; `apiSecret?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}; \}
+
+Social media configuration
+
+#### overrides.social.changelogUrl?
+
+`string`
+
+URL to full changelog (e.g., https://example.com/changelog)
+This URL will be included in social media posts to allow users to view the complete changelog
+
+#### overrides.social.slack?
+
+\{ `channel?`: `string`; `credentials?`: \{ `token?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}
+
+Slack configuration
+
+#### overrides.social.slack.channel?
+
+`string`
+
+Slack channel ID or name (e.g., "#releases" or "C1234567890")
+
+#### overrides.social.slack.credentials?
+
+\{ `token?`: ... \| ...; \}
+
+Slack credentials (optional - falls back to environment variables)
+
+#### overrides.social.slack.credentials.token?
+
+... \| ...
+
+Slack Bot Token or User OAuth Token
+Required scopes: chat:write, chat:write.public (for public channels)
+
+#### overrides.social.slack.enabled?
+
+`boolean`
+
+Enable Slack posting
+
+**Default**
+
+```ts
+false
+```
+
+#### overrides.social.slack.messageTemplate?
+
+`string`
+
+Custom message template
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+
+#### overrides.social.slack.onlyStable?
+
+`boolean`
+
+Skip Slack posting for prerelease versions (alpha, beta, rc, etc.)
+Only stable versions will be posted to Slack
+
+**Default**
+
+```ts
+true
+```
+
+#### overrides.social.twitter?
+
+\{ `credentials?`: \{ `accessToken?`: ... \| ...; `accessTokenSecret?`: ... \| ...; `apiKey?`: ... \| ...; `apiSecret?`: ... \| ...; \}; `enabled?`: `boolean`; `messageTemplate?`: `string`; `onlyStable?`: `boolean`; \}
+
+Twitter configuration
+
+#### overrides.social.twitter.credentials?
+
+\{ `accessToken?`: ... \| ...; `accessTokenSecret?`: ... \| ...; `apiKey?`: ... \| ...; `apiSecret?`: ... \| ...; \}
+
+Twitter credentials (optional - falls back to environment variables)
+
+#### overrides.social.twitter.credentials.accessToken?
+
+... \| ...
+
+Twitter Access Token
+
+#### overrides.social.twitter.credentials.accessTokenSecret?
+
+... \| ...
+
+Twitter Access Token Secret
+
+#### overrides.social.twitter.credentials.apiKey?
+
+... \| ...
+
+Twitter API Key (Consumer Key)
+
+#### overrides.social.twitter.credentials.apiSecret?
+
+... \| ...
+
+Twitter API Secret (Consumer Secret)
+
+#### overrides.social.twitter.enabled?
+
+`boolean`
+
+Enable Twitter posting
+
+**Default**
+
+```ts
+false
+```
+
+#### overrides.social.twitter.messageTemplate?
+
+`string`
+
+Custom message template
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+
+#### overrides.social.twitter.onlyStable?
+
+`boolean`
+
+Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
+Only stable versions will be posted to Twitter
+
+**Default**
+
+```ts
+true
+```
+
 #### overrides.templates?
 
-\{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; \}
+\{ `commitMessage?`: `string`; `emptyChangelogContent?`: `string`; `slackMessage?`: `string`; `tagBody?`: `string`; `tagMessage?`: `string`; `twitterMessage?`: `string`; \}
 
 Templates config
 
@@ -502,6 +724,13 @@ Commit message template
 
 Empty changelog content
 
+#### overrides.templates.slackMessage?
+
+`string`
+
+Slack message template (optional - if not provided, uses rich blocks format)
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+
 #### overrides.templates.tagBody?
 
 `string`
@@ -514,6 +743,13 @@ Not used with "independent" version mode
 
 Tag message template
 
+#### overrides.templates.twitterMessage?
+
+`string`
+
+Twitter message template
+Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+
 #### overrides.to?
 
 `string`
@@ -522,23 +758,58 @@ End tag
 
 #### overrides.tokens?
 
-\{ `bitbucket?`: `string`; `github?`: `string`; `gitlab?`: `string`; \}
+\{ `github?`: `string`; `gitlab?`: `string`; `slack?`: `string`; `twitter?`: \{ `accessToken?`: `string`; `accessTokenSecret?`: `string`; `apiKey?`: `string`; `apiSecret?`: `string`; \}; \}
 
-#### overrides.tokens.bitbucket?
-
-`string`
+API tokens configuration
 
 #### overrides.tokens.github?
 
 `string`
 
+GitHub token for creating releases
+Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+
 #### overrides.tokens.gitlab?
+
+`string`
+
+GitLab token for creating releases
+Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+
+#### overrides.tokens.slack?
+
+`string`
+
+Slack bot token for posting messages
+Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+
+#### overrides.tokens.twitter?
+
+\{ `accessToken?`: `string`; `accessTokenSecret?`: `string`; `apiKey?`: `string`; `apiSecret?`: `string`; \}
+
+Twitter API credentials for posting tweets
+Environment variables: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+
+#### overrides.tokens.twitter.accessToken?
+
+`string`
+
+#### overrides.tokens.twitter.accessTokenSecret?
+
+`string`
+
+#### overrides.tokens.twitter.apiKey?
+
+`string`
+
+#### overrides.tokens.twitter.apiSecret?
 
 `string`
 
 #### overrides.types?
 
-\{\[`key`: `string`\]: `boolean` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}
+\{\[`key`: `string`\]: `false` \| \{ `semver?`: `SemverBumpType`; `title?`: `string`; \} \| `undefined`; \}
 
 ## Returns
 

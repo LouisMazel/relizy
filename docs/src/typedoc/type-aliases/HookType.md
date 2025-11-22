@@ -2,6 +2,6 @@
 
 # Type Alias: HookType
 
-> **HookType** = `"before"` \| `"after"` \| `"error"`
+> **HookType** = `"before"` \| `"success"` \| `"error"`
 
-Defined in: [src/types.ts:442](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L442)
+Defined in: [src/types.ts:757](https://github.com/LouisMazel/relizy/blob/e825440947cdf546c2bcfbd3c3752ac669c25476/src/types.ts#L757)
