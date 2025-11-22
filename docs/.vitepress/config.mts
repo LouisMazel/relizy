@@ -140,6 +140,9 @@ export default defineConfig({
           { text: 'Version Modes', link: '/guide/version-modes' },
           { text: 'Dependency Management', link: '/guide/dependency-management' },
           { text: 'Changelog Generation', link: '/guide/changelog' },
+          { text: 'Social Media Integration', link: '/guide/social-media' },
+          { text: 'Twitter Integration', link: '/guide/twitter-integration' },
+          { text: 'Slack Integration', link: '/guide/slack-integration' },
           { text: 'CI/CD Setup', link: '/guide/ci-cd' },
           { text: 'GitHub Actions', link: '/guide/github-actions' },
           { text: 'GitLab CI', link: '/guide/gitlab-ci' },
@@ -222,6 +225,14 @@ export default defineConfig({
             { text: 'Version Modes', link: '/guide/version-modes' },
             { text: 'Dependency Management', link: '/guide/dependency-management' },
             { text: 'Changelog Generation', link: '/guide/changelog' },
+          ],
+        },
+        {
+          text: 'Social Media',
+          items: [
+            { text: 'Overview', link: '/guide/social-media' },
+            { text: 'Twitter Integration', link: '/guide/twitter-integration' },
+            { text: 'Slack Integration', link: '/guide/slack-integration' },
           ],
         },
         {

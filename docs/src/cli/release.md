@@ -26,6 +26,7 @@ The `release` command combines multiple operations:
 4. ✅ Creates a git tag
 5. ✅ Publishes to npm
 6. ✅ Creates GitHub or GitLab release
+7. ✅ Posts to social media (optional)
 
 ## Options
 
@@ -86,6 +87,30 @@ Skip pushing git tag:
 
 ```bash
 relizy release --no-git-tag
+```
+
+### --no-social
+
+Skip social media posting:
+
+```bash
+relizy release --no-social
+```
+
+### --no-provider-release
+
+Skip provider release creation (GitHub/GitLab):
+
+```bash
+relizy release --no-provider-release
+```
+
+### --no-publish
+
+Skip npm publishing:
+
+```bash
+relizy release --no-publish
 ```
 
 ## Examples

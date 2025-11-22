@@ -108,6 +108,36 @@ export default defineConfig({
 })
 ```
 
+## providerRelease
+
+Enable/disable provider release creation (GitHub/GitLab):
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    providerRelease: true,
+  },
+})
+```
+
+## social
+
+Enable/disable social media posting:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    social: true,
+  },
+})
+```
+
+See [Social Media Integration](/guide/social-media) for more details.
+
 ## Complete Example
 
 ```ts
@@ -120,9 +150,10 @@ export default defineConfig({
     clean: true,
     noVerify: false,
     publish: true,
-    release: true,
+    providerRelease: true,
     push: true,
     gitTag: true,
+    social: true,
   },
 })
 ```
