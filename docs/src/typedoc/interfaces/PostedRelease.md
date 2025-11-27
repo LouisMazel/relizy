@@ -2,7 +2,7 @@
 
 # Interface: PostedRelease
 
-Defined in: [src/types.ts:103](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L103)
+Defined in: [src/types.ts:103](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L103)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:103](https://github.com/LouisMazel/relizy/blob/a435282
 
 > **name**: `string`
 
-Defined in: [src/types.ts:107](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L107)
+Defined in: [src/types.ts:107](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L107)
 
 Release name
 
@@ -20,7 +20,7 @@ Release name
 
 > **prerelease**: `boolean`
 
-Defined in: [src/types.ts:115](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L115)
+Defined in: [src/types.ts:115](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L115)
 
 Is prerelease
 
@@ -30,7 +30,7 @@ Is prerelease
 
 > **tag**: `string`
 
-Defined in: [src/types.ts:111](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L111)
+Defined in: [src/types.ts:111](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L111)
 
 Release tag
 
@@ -40,6 +40,6 @@ Release tag
 
 > **version**: `string`
 
-Defined in: [src/types.ts:119](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L119)
+Defined in: [src/types.ts:119](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L119)
 
 Release version

@@ -2,7 +2,7 @@
 
 # Interface: BumpResultTruthy
 
-Defined in: [src/types.ts:67](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L67)
+Defined in: [src/types.ts:67](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L67)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:67](https://github.com/LouisMazel/relizy/blob/a435282e
 
 > **bumped**: `true`
 
-Defined in: [src/types.ts:93](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L93)
+Defined in: [src/types.ts:93](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L93)
 
 Bumped
 
@@ -20,7 +20,7 @@ Bumped
 
 > **bumpedPackages**: [`PackageBase`](PackageBase.md) & `object`[]
 
-Defined in: [src/types.ts:87](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L87)
+Defined in: [src/types.ts:87](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L87)
 
 Bumped packages
 
@@ -30,7 +30,7 @@ Bumped packages
 
 > `optional` **fromTag**: `string`
 
-Defined in: [src/types.ts:79](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L79)
+Defined in: [src/types.ts:79](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L79)
 
 Tag name
 
@@ -40,7 +40,7 @@ Tag name
 
 > `optional` **newVersion**: `string`
 
-Defined in: [src/types.ts:75](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L75)
+Defined in: [src/types.ts:75](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L75)
 
 New version
 
@@ -50,7 +50,7 @@ New version
 
 > `optional` **oldVersion**: `string`
 
-Defined in: [src/types.ts:71](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L71)
+Defined in: [src/types.ts:71](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L71)
 
 Old version
 
@@ -60,6 +60,6 @@ Old version
 
 > `optional` **rootPackage**: [`RootPackage`](RootPackage.md)
 
-Defined in: [src/types.ts:83](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L83)
+Defined in: [src/types.ts:83](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L83)
 
 Root package

@@ -4,7 +4,7 @@
 
 > **github**(`options`): `Promise`\<[`PostedRelease`](../interfaces/PostedRelease.md)[]\>
 
-Defined in: [src/core/github.ts:196](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/github.ts#L196)
+Defined in: [src/core/github.ts:197](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/github.ts#L197)
 
 ## Parameters
 

@@ -2,7 +2,7 @@
 
 # Interface: ReleaseConfig
 
-Defined in: [src/types.ts:436](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L436)
+Defined in: [src/types.ts:436](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L436)
 
 ## Extended by
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:436](https://github.com/LouisMazel/relizy/blob/a435282
 
 > `optional` **changelog**: `boolean`
 
-Defined in: [src/types.ts:451](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L451)
+Defined in: [src/types.ts:451](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L451)
 
 Generate changelog files (CHANGELOG.md)
 
@@ -30,7 +30,7 @@ true
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:471](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L471)
+Defined in: [src/types.ts:471](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L471)
 
 Determine if the working directory is clean and if it is not clean, exit
 
@@ -46,7 +46,7 @@ false
 
 > `optional` **commit**: `boolean`
 
-Defined in: [src/types.ts:441](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L441)
+Defined in: [src/types.ts:441](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L441)
 
 Commit changes and create tag
 
@@ -62,7 +62,7 @@ true
 
 > `optional` **gitTag**: `boolean`
 
-Defined in: [src/types.ts:476](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L476)
+Defined in: [src/types.ts:476](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L476)
 
 Create tag
 
@@ -78,7 +78,7 @@ true
 
 > `optional` **noVerify**: `boolean`
 
-Defined in: [src/types.ts:466](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L466)
+Defined in: [src/types.ts:466](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L466)
 
 Skip git verification while committing by using --no-verify flag
 
@@ -94,7 +94,7 @@ true
 
 > `optional` **providerRelease**: `boolean`
 
-Defined in: [src/types.ts:456](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L456)
+Defined in: [src/types.ts:456](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L456)
 
 Publish release to your repository (github or gitlab)
 
@@ -110,7 +110,7 @@ true
 
 > `optional` **publish**: `boolean`
 
-Defined in: [src/types.ts:461](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L461)
+Defined in: [src/types.ts:461](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L461)
 
 Publish release to your registry
 
@@ -126,7 +126,7 @@ true
 
 > `optional` **push**: `boolean`
 
-Defined in: [src/types.ts:446](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L446)
+Defined in: [src/types.ts:446](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L446)
 
 Push changes to your repository (commit and tag(s))
 
@@ -142,7 +142,7 @@ true
 
 > `optional` **social**: `boolean`
 
-Defined in: [src/types.ts:481](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L481)
+Defined in: [src/types.ts:481](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L481)
 
 Post release announcements to social media platforms
 

@@ -2,7 +2,7 @@
 
 # Interface: PackageBase
 
-Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L32)
+Defined in: [src/types.ts:32](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L32)
 
 PACAKGE TYPES
 
@@ -16,7 +16,7 @@ PACAKGE TYPES
 
 > **commits**: `GitCommit`[]
 
-Defined in: [src/types.ts:40](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L40)
+Defined in: [src/types.ts:40](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L40)
 
 Commits
 
@@ -26,7 +26,7 @@ Commits
 
 > **dependencies**: `string`[]
 
-Defined in: [src/types.ts:48](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L48)
+Defined in: [src/types.ts:48](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L48)
 
 Dependencies
 
@@ -36,7 +36,7 @@ Dependencies
 
 > `optional` **dependencyChain**: `string`[]
 
-Defined in: [src/types.ts:56](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L56)
+Defined in: [src/types.ts:56](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L56)
 
 Dependency chain
 
@@ -46,7 +46,7 @@ Dependency chain
 
 > **fromTag**: `string`
 
-Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L36)
+Defined in: [src/types.ts:36](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L36)
 
 From tag
 
@@ -56,7 +56,7 @@ From tag
 
 > **name**: `string`
 
-Defined in: [src/types.ts:17](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L17)
+Defined in: [src/types.ts:17](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L17)
 
 Package name
 
@@ -70,7 +70,7 @@ Package name
 
 > `optional` **newVersion**: `string`
 
-Defined in: [src/types.ts:44](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L44)
+Defined in: [src/types.ts:44](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L44)
 
 New version
 
@@ -80,7 +80,7 @@ New version
 
 > **path**: `string`
 
-Defined in: [src/types.ts:21](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L21)
+Defined in: [src/types.ts:21](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L21)
 
 Package path
 
@@ -94,7 +94,7 @@ Package path
 
 > **private**: `boolean`
 
-Defined in: [src/types.ts:29](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L29)
+Defined in: [src/types.ts:29](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L29)
 
 Package path
 
@@ -108,7 +108,7 @@ Package path
 
 > `optional` **reason**: `"commits"` \| `"dependency"` \| `"graduation"`
 
-Defined in: [src/types.ts:52](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L52)
+Defined in: [src/types.ts:52](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L52)
 
 Reason for bumping
 
@@ -118,7 +118,7 @@ Reason for bumping
 
 > **version**: `string`
 
-Defined in: [src/types.ts:25](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L25)
+Defined in: [src/types.ts:25](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L25)
 
 Current version
 

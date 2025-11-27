@@ -4,7 +4,7 @@
 
 > **HookConfig** = \{ \[K in \`$\{HookType\}:$\{HookStep\}\`\]?: string \| ((config: ResolvedRelizyConfig, dryRun: boolean) =\> any) \} & `object`
 
-Defined in: [src/types.ts:796](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L796)
+Defined in: [src/types.ts:796](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L796)
 
 Hooks configuration
 Useful to run custom scripts before, after a step or on error
