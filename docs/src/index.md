@@ -113,22 +113,27 @@ That's it! Relizy will:
   <RelizyTerminal />
 </div>
 
-## Team
+<Contributors
+  repo="louismazel/relizy"
+  :creators="['LouisMazel']"
+  :links="[
+    { username: 'LouisMazel', link: 'https://twitter.com/mazeel', type: 'twitter' },
+  ]"
+/>
 
-<VPTeamMembers size="small" :members />
+<script setup lang="ts">
+import RelizyTerminal from './../.vitepress/theme/components/RelizyTerminal.vue'
+import Contributors from './../.vitepress/theme/components/Contributors.vue'
 
-<script setup>
-import { VPTeamMembers } from 'vitepress/theme'
+async function fetchContributors() {
+  const { contributors } = await fetch(`https://ungh.cc/repos/louismazel/relizy/contributors`)
+    .then(r => r.json() as Promise<{ contributors: {id: number, username: string, contributions: number }[] }>)
+    .catch(() => ({ user: null }))
 
-const members = [
-  {
-    avatar: 'https://www.github.com/LouisMazel.png',
-    name: 'Louis Mazel',
-    title: 'Creator',
-    links: [
-      { icon: 'github', link: 'https://github.com/LouisMazel' },
-      { icon: 'twitter', link: 'https://twitter.com/mazeel' },
-    ]
-  },
-]
+  console.log(contributors)
+
+  return contributors
+}
+
+fetchContributors()
 </script>

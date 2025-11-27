@@ -1,5 +1,5 @@
 import type { HeadConfig } from 'vitepress'
-import { defineConfig } from 'vitepress'
+import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
@@ -316,8 +316,17 @@ export default defineConfig({
 
   vite: {
     build: {
-      target: 'es2022',
+      target: 'esnext',
       minify: 'esbuild',
+    },
+    css: {
+      postcss: {
+        plugins: [
+          postcssIsolateStyles({
+            includeFiles: [/vp-doc\.css/],
+          }),
+        ],
+      },
     },
   },
 })
