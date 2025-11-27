@@ -43,8 +43,8 @@
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "bin": {
-    "relizy": "./bin/relizy.mjs",
-    "rly": "./bin/relizy.mjs"
+    "relizy": "bin/relizy.mjs",
+    "rly": "bin/relizy.mjs"
   },
   "files": [
     "LICENSE",
@@ -57,7 +57,7 @@
   },
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "prepare": "npx husky",
+    "postinstall": "npx husky",
     "build": "unbuild",
     "dev": "unbuild --stub",
     "relizy": "node bin/relizy.mjs",

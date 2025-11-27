@@ -23,7 +23,7 @@ export function isGraduatingToStableBetweenVersion(version: string, newVersion: 
 
 export function determineSemverChange(
   commits: GitCommit[],
-  types: RelizyConfig['types'],
+  types: NonNullable<RelizyConfig['types']>,
 ): 'major' | 'minor' | 'patch' | undefined {
   let [hasMajor, hasMinor, hasPatch] = [false, false, false]
   for (const commit of commits) {
@@ -51,7 +51,7 @@ export function determineSemverChange(
 
 function detectReleaseTypeFromCommits(
   commits: GitCommit[],
-  types: RelizyConfig['types'],
+  types: NonNullable<RelizyConfig['types']>,
 ) {
   return determineSemverChange(commits, types)
 }
@@ -75,7 +75,7 @@ function validatePrereleaseDowngrade(
 
 function handleStableVersionWithReleaseType(
   commits: GitCommit[] | undefined,
-  types: RelizyConfig['types'],
+  types: NonNullable<RelizyConfig['types']>,
   force: boolean,
 ): ReleaseType | undefined {
   if (!commits?.length && !force) {
@@ -98,7 +98,7 @@ function handleStableVersionWithReleaseType(
 
 function handleStableVersionWithPrereleaseType(
   commits: GitCommit[] | undefined,
-  types: RelizyConfig['types'],
+  types: NonNullable<RelizyConfig['types']>,
   force: boolean,
 ): ReleaseType | undefined {
   if (!commits?.length && !force) {
