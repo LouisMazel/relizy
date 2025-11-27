@@ -9,7 +9,7 @@ import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('node:process', () => ({
   default: {
@@ -120,7 +120,7 @@ describe('Given getDefaultConfig function', () => {
       const config = getDefaultConfig()
 
       expect(config.templates.twitterMessage).toBe(
-        '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+        '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}',
       )
     })
 

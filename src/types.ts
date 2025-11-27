@@ -655,9 +655,9 @@ export interface TwitterOptions {
     accessTokenSecret: string
   }
   /**
-   * Custom message template
+   * Custom Twitter message template
    */
-  messageTemplate?: string
+  twitterMessage: string
   /**
    * Run without side effects
    * @default false

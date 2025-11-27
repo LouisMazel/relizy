@@ -4,6 +4,10 @@ import type { ResolvedRelizyConfig } from './config'
  * Extract a summary from changelog content
  */
 export function extractChangelogSummary(changelog: string, maxLength: number = 150): string {
+  if (changelog.trim() === '') {
+    return ''
+  }
+
   // Remove markdown headers
   const cleaned = changelog
     .split('\n')
@@ -11,12 +15,19 @@ export function extractChangelogSummary(changelog: string, maxLength: number = 1
     .join('\n')
     .trim()
 
+  // remove trailing punctuation
+  let cleanedResult = cleaned
+  if (cleanedResult.endsWith('?') || cleanedResult.endsWith('!') || cleanedResult.endsWith('.')) {
+    cleanedResult = cleanedResult.slice(0, -1)
+  }
+
   // Get first few lines or sentences
-  const sentences = cleaned.split(/[.!?]\s+/)
+  const sentences = cleanedResult.split(/[.!?]\s+/)
+
   let summary = ''
 
   for (const sentence of sentences) {
-    if ((summary + sentence).length > maxLength) {
+    if ((summary + sentence).length > maxLength || sentence.trim() === '') {
       break
     }
     summary += `${sentence}. `
