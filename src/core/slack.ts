@@ -1,6 +1,6 @@
 import type { SlackCredentials, SlackOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { extractChangelogSummary } from './social-utils'
+import { extractChangelogSummary } from './social'
 
 /**
  * Get Slack token from config

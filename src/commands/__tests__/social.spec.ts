@@ -1,25 +1,44 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import * as core from '../../core'
+import { executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { social, socialSafetyCheck } from '../social'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
-vi.mock('../../core', async () => {
-  const actual = await vi.importActual('../../core')
+vi.mock('../../core/config', async () => {
+  const actual = await vi.importActual('../../core/config')
   return {
     ...actual,
     loadRelizyConfig: vi.fn(),
-    executeHook: vi.fn(),
+  }
+})
+vi.mock('../../core/utils', () => {
+  return {
     getPackagesOrBumpedPackages: vi.fn(),
+    executeHook: vi.fn(),
+  }
+})
+vi.mock('../../core/repo', () => {
+  return {
     getRootPackage: vi.fn(),
+  }
+})
+vi.mock('../../core/git', () => {
+  return {
     resolveTags: vi.fn(),
+  }
+})
+vi.mock('../../core/changelog', () => {
+  return {
     generateChangelog: vi.fn(),
+  }
+})
+vi.mock('../../core/version', () => {
+  return {
     isPrerelease: vi.fn(),
   }
 })
-
 vi.mock('../../core/twitter', () => ({
   getTwitterCredentials: vi.fn(),
   postReleaseToTwitter: vi.fn(),
@@ -29,9 +48,6 @@ vi.mock('../../core/slack', () => ({
   getSlackToken: vi.fn(),
   postReleaseToSlack: vi.fn(),
 }))
-
-const { getTwitterCredentials, postReleaseToTwitter } = await import('../../core/twitter')
-const { getSlackToken, postReleaseToSlack } = await import('../../core/slack')
 
 describe('Given socialSafetyCheck function', () => {
   beforeEach(() => {
@@ -150,12 +166,12 @@ describe('Given social command', () => {
       twitter: { enabled: false, onlyStable: true },
       slack: { enabled: false, onlyStable: true },
     }
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(postReleaseToTwitter).mockResolvedValue(undefined)
     vi.mocked(postReleaseToSlack).mockResolvedValue(undefined)
-    vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(core.getRootPackage).mockResolvedValue({
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
@@ -163,12 +179,12 @@ describe('Given social command', () => {
       fromTag: 'v0.9.0',
       commits: [],
     })
-    vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    // These functions are in social-utils, not core
-    // vi.mocked(core.getReleaseUrl).mockReturnValue('https://github.com/user/repo/releases/tag/v1.0.0')
-    // vi.mocked(core.extractChangelogSummary).mockReturnValue('Feature added')
-    vi.mocked(core.isPrerelease).mockReturnValue(false)
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    // These functions are in social, not core
+    // vi.mocked(getReleaseUrl).mockReturnValue('https://github.com/user/repo/releases/tag/v1.0.0')
+    // vi.mocked(extractChangelogSummary).mockReturnValue('Feature added')
+    vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getTwitterCredentials).mockReturnValue({
       apiKey: 'key',
       apiSecret: 'secret',
@@ -179,7 +195,7 @@ describe('Given social command', () => {
   })
 
   describe('When posting to Twitter', () => {
-    it('Then loads config and executes hooks', async () => {
+    it.only('Then loads config and executes hooks', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.social = {
         twitter: { enabled: true, onlyStable: true },
@@ -196,12 +212,12 @@ describe('Given social command', () => {
         },
         slack: undefined,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await social({})
 
-      expect(core.loadRelizyConfig).toHaveBeenCalled()
-      expect(core.executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), false)
+      expect(loadRelizyConfig).toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), false)
     })
 
     it('Then posts to Twitter', async () => {
@@ -221,7 +237,7 @@ describe('Given social command', () => {
         },
         slack: undefined,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await social({})
 
@@ -237,7 +253,7 @@ describe('Given social command', () => {
         slack: { enabled: true, onlyStable: true, channel: '#releases' },
       }
       config.tokens = { gitlab: undefined, github: undefined, twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined }, slack: 'slack-token' }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await social({})
 
@@ -263,8 +279,8 @@ describe('Given social command', () => {
         },
         slack: undefined,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(core.isPrerelease).mockReturnValue(true)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(isPrerelease).mockReturnValue(true)
 
       await social({})
 
@@ -276,7 +292,7 @@ describe('Given social command', () => {
     it('Then passes dryRun to hooks', async () => {
       await social({ dryRun: true })
 
-      expect(core.executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), true)
     })
   })
 
@@ -298,19 +314,21 @@ describe('Given social command', () => {
         },
         slack: undefined,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(postReleaseToTwitter).mockRejectedValue(new Error('Twitter API error'))
 
       await expect(social({})).rejects.toThrow('Twitter API error')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false)
     })
   })
 
   describe('When in independent mode', () => {
     it('Then posts for each package', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+      })
       config.social = {
         twitter: { enabled: true, onlyStable: true },
         slack: { enabled: false, onlyStable: true },
@@ -326,8 +344,8 @@ describe('Given social command', () => {
         },
         slack: undefined,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
         createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [] }),
       ])

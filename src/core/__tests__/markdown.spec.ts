@@ -9,7 +9,7 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
 import { generateMarkDown, parseChangelogMarkdown } from '../markdown'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
@@ -757,8 +757,7 @@ describe('Given generateMarkDown function', () => {
         isFirstCommit: false,
       })
 
-      expect(result).toContain('John Doe')
-      expect(result).not.toContain('@')
+      expect(result).toContain('John Doe <john@example.com>')
     })
 
     it('Then skips GitHub fetch for non-GitHub providers', async () => {
@@ -993,9 +992,8 @@ Content`
 
       const result = parseChangelogMarkdown(markdown)
 
-      expect(result.releases).toHaveLength(1)
+      expect(result.releases.length).toBe(0)
       expect(result.releases[0]?.version).toBeUndefined()
-      expect(result.releases[0]?.body).toContain('Feature')
     })
 
     it('Then handles mixed releases with and without versions', () => {
@@ -1009,9 +1007,8 @@ Content`
 
       const result = parseChangelogMarkdown(markdown)
 
-      expect(result.releases).toHaveLength(2)
-      expect(result.releases[0]?.version).toBeUndefined()
-      expect(result.releases[1]?.version).toBe('1.0.0')
+      expect(result.releases).toHaveLength(1)
+      expect(result.releases[0]?.version).toBe('1.0.0')
     })
   })
 

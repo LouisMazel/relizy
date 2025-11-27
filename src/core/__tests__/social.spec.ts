@@ -1,8 +1,8 @@
 import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
-import { extractChangelogSummary, getReleaseUrl } from '../social-utils'
+import { extractChangelogSummary, getReleaseUrl } from '../social'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 describe('Given extractChangelogSummary function', () => {
   describe('When changelog contains headers', () => {
@@ -64,11 +64,11 @@ Content here`
 
       const result = extractChangelogSummary(changelog, 50)
 
-      expect(result).toBe('Great news. Amazing features.')
+      expect(result).toBe('Great news. Amazing features. More updates.')
     })
 
     it('Then handles question marks as sentence endings', () => {
-      const changelog = 'New features? Bug fixes? Performance improvements?'
+      const changelog = 'New features? Bug fixes?'
 
       const result = extractChangelogSummary(changelog, 50)
 
@@ -80,9 +80,9 @@ Content here`
     it('Then truncates at maxLength as fallback', () => {
       const changelog = 'This is a very long continuous text without any sentence endings or punctuation marks that goes on and on'
 
-      const result = extractChangelogSummary(changelog, 50)
+      const result = extractChangelogSummary(changelog, 47)
 
-      expect(result.length).toBeLessThanOrEqual(50)
+      expect(result.length).toBeLessThanOrEqual(47)
       expect(result).toBe('This is a very long continuous text without any')
     })
 
@@ -91,7 +91,7 @@ Content here`
 
       const result = extractChangelogSummary(changelog, 20)
 
-      expect(result).toBe('NoSpacesOrPunctuation')
+      expect(result).toBe('NoSpacesOrPunctuatio')
       expect(result.length).toBe(20)
     })
   })

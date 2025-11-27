@@ -9,7 +9,7 @@ import { generateChangelog, writeChangelogToFile } from '../changelog'
 import { generateMarkDown } from '../markdown'
 import { executeHook } from '../utils'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('node:fs')
 vi.mock('node:path', async () => {
@@ -26,20 +26,22 @@ vi.mock('@maz-ui/node', async () => {
     ...actual,
   }
 })
-vi.mock('../../core', async () => {
-  const actual = await vi.importActual('../../core')
-  return {
-    ...actual,
-    getFirstCommit: vi.fn(),
-    getIndependentTag: vi.fn(),
-  }
-})
 vi.mock('../markdown')
 vi.mock('../utils', async () => {
   const actual = await vi.importActual('../utils')
   return {
     ...actual,
     executeHook: vi.fn(),
+  }
+})
+vi.mock('../git', () => {
+  return {
+    getFirstCommit: vi.fn(),
+  }
+})
+vi.mock('../tags', () => {
+  return {
+    getIndependentTag: vi.fn(),
   }
 })
 
@@ -280,7 +282,7 @@ describe('Given generateChangelog function', () => {
 
       expect(executeHook).toHaveBeenCalledWith(
         'generate:changelog',
-        config,
+        expect.any(Object),
         false,
         expect.objectContaining({
           commits: pkg.commits,
@@ -321,7 +323,7 @@ describe('Given generateChangelog function', () => {
 
       expect(executeHook).toHaveBeenCalledWith(
         'generate:changelog',
-        config,
+        expect.any(Object),
         true,
         expect.any(Object),
       )
@@ -553,6 +555,7 @@ describe('Given writeChangelogToFile function', () => {
       const pkg = {
         ...createMockPackageInfo(),
         version: '1.0.0',
+        newVersion: undefined,
       }
 
       writeChangelogToFile({

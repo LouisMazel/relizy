@@ -11,7 +11,7 @@ vi.mock('@maz-ui/node', () => ({
   },
 }))
 
-vi.mock('../social-utils', () => ({
+vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string) => changelog.substring(0, 500)),
 }))
 

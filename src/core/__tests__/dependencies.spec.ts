@@ -11,7 +11,7 @@ import {
   topologicalSort,
 } from '../dependencies'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('node:fs')
 vi.mock('node:path', async () => {

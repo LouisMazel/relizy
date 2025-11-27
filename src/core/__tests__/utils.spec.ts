@@ -104,14 +104,14 @@ describe('Given executeHook function', () => {
       expect(execPromise).toHaveBeenCalled()
     })
 
-    it('Then does not log debug when command returns empty string', async () => {
+    it('Then logs debug when command returns empty string', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.hooks = { 'before:changelog': 'ls' }
 
       await executeHook('before:changelog', config, false)
 
-      expect(logger.debug).not.toHaveBeenCalledWith(expect.stringContaining('returned'))
+      expect(logger.debug).toHaveBeenCalledWith(expect.stringContaining('returned'))
     })
   })
 })

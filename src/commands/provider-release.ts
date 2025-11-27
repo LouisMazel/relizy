@@ -1,8 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, ProviderReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectGitProvider, github, gitlab, loadRelizyConfig } from '../core'
-import { executeHook } from '../core/utils'
+import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
 
 export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
   if (!config.safetyCheck || !config.release.providerRelease) {

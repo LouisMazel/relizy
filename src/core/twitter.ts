@@ -1,6 +1,6 @@
 import type { TwitterCredentials, TwitterOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { extractChangelogSummary } from './social-utils'
+import { extractChangelogSummary } from './social'
 
 export interface ResolvedTwitterCredentials {
   apiKey: string
@@ -59,13 +59,18 @@ export function formatTweetMessage(options: {
 
   // Truncate changelog to fit Twitter's character limit (280 chars)
   // Reserve space for template text, project name, version, and URLs
-  const reservedChars = template.length + projectName.length + version.length + (releaseUrl?.length || 0) + (changelogUrl?.length || 0) + 30
+  const reservedChars = projectName.length + version.length + (releaseUrl?.length || 0) + (changelogUrl?.length || 0) + 30
+
   const maxChangelogLength = 280 - reservedChars
 
   let truncatedChangelog = changelog
   if (changelog.length > maxChangelogLength) {
     truncatedChangelog = `${changelog.substring(0, maxChangelogLength - 3)}...`
   }
+
+  console.log('Reserved chars:', reservedChars)
+  console.log('Max changelog length:', maxChangelogLength)
+  console.log('truncatedChangelog:', truncatedChangelog)
 
   let message = template
     .replace('{{projectName}}', projectName)
@@ -100,16 +105,14 @@ export function formatTweetMessage(options: {
  * Post a release announcement to Twitter
  */
 export async function postReleaseToTwitter(options: TwitterOptions): Promise<void> {
-  const { release, projectName, changelog, releaseUrl, changelogUrl, credentials, messageTemplate, dryRun = false } = options
+  const { release, projectName, changelog, releaseUrl, changelogUrl, credentials, twitterMessage, dryRun = false } = options
 
   logger.debug('[social:twitter] Preparing Twitter post...')
-
-  const template = messageTemplate || `🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}`
 
   const changelogSummary = extractChangelogSummary(changelog, 150)
 
   const message = formatTweetMessage({
-    template,
+    template: twitterMessage,
     projectName,
     version: release.version,
     changelog: changelogSummary,
