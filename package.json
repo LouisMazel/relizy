@@ -63,12 +63,24 @@
     "relizy": "node bin/relizy.mjs",
     "rly": "node bin/relizy.mjs",
     "typecheck": "tsc --noEmit --skipLibCheck",
-    "lint": "cross-env NODE_ENV=production eslint .",
-    "lint:fix": "pnpm lint --fix",
+    "lint": "cross-env NODE_ENV=production eslint . && pnpm -F docs lint",
+    "lint:fix": "cross-env NODE_ENV=production eslint . --fix && pnpm -F docs lint:fix",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest watch",
     "test:unit:coverage": "vitest run --coverage",
     "pre-commit": "lint-staged"
+  },
+  "peerDependencies": {
+    "@slack/web-api": "^7.0.0",
+    "twitter-api-v2": "^1.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@slack/web-api": {
+      "optional": true
+    },
+    "twitter-api-v2": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@inquirer/prompts": "^8.0.1",
@@ -98,6 +110,7 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.6",
     "memfs": "^4.51.0",
+    "twitter-api-v2": "^1.27.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
     "vitest": "^4.0.10"

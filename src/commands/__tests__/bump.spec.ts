@@ -6,7 +6,7 @@ import { createMockCommit } from '../../../tests/mocks'
 import * as core from '../../core'
 import { bump } from '../bump'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 // Mock file system
 vi.mock('node:fs', async () => {
