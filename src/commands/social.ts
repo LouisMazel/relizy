@@ -182,7 +182,7 @@ async function handleTwitterPost({
       logger.debug(`[social:twitter] Changelog summary: ${changelogSummary.substring(0, 50)}...`)
 
       await postReleaseToTwitter({
-        messageTemplate: config.templates.twitterMessage,
+        twitterMessage: config.templates.twitterMessage,
         release: mainRelease,
         projectName: rootPackageBase.name,
         changelog: changelogSummary,

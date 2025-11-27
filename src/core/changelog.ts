@@ -4,8 +4,9 @@ import type { PackageBase, ReadPackage } from '../types'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { getFirstCommit, getIndependentTag } from '../core'
+import { getFirstCommit } from './git'
 import { generateMarkDown } from './markdown'
+import { getIndependentTag } from './tags'
 import { executeHook } from './utils'
 
 /**

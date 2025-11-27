@@ -7,7 +7,7 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import { getPackages } from '../repo'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 // Mock file system
 vi.mock('node:fs', async () => {

@@ -1,19 +1,16 @@
+import type { DeepPartial } from '@maz-ui/utils'
 import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../src/core/config'
-import type { BumpConfig, PackageBase, VersionMode } from '../src/types'
+import type { PackageBase, RelizyConfig } from '../src/types'
 import { getDefaultConfig } from '../src/core/config'
 
 export function createMockConfig({
   to,
   from,
-  versionMode,
   bump,
-}: {
-  to?: string
-  from?: string
-  versionMode?: VersionMode
-  bump: Partial<BumpConfig>
-}) {
+  // versionMode,
+  monorepo,
+}: DeepPartial<RelizyConfig>) {
   const defaultConfig = getDefaultConfig()
 
   return {
@@ -22,8 +19,9 @@ export function createMockConfig({
     to,
     from,
     monorepo: {
-      versionMode: versionMode || 'selective',
+      versionMode: 'selective',
       packages: ['packages/*'],
+      ...monorepo,
     },
     bump: {
       ...defaultConfig.bump,

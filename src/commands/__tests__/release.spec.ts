@@ -4,7 +4,7 @@ import { createMockConfig } from '../../../tests/mocks'
 import * as core from '../../core'
 import { release } from '../release'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')

@@ -1,10 +1,10 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import * as core from '../../core'
+import { detectPackageManager, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('@maz-ui/node', async () => {
   const actual = await vi.importActual('@maz-ui/node')
@@ -14,16 +14,38 @@ vi.mock('@maz-ui/node', async () => {
   }
 })
 
-vi.mock('../../core', async () => {
-  const actual = await vi.importActual('../../core')
+vi.mock('../../core/config', async () => {
+  const actual = await vi.importActual('../../core/config')
   return {
     ...actual,
     loadRelizyConfig: vi.fn(),
+  }
+})
+vi.mock('../../core/utils', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/utils')>()
+  return {
+    ...actual,
     executeHook: vi.fn(),
     getPackagesOrBumpedPackages: vi.fn(),
+  }
+})
+vi.mock('../../core/npm', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/npm')>()
+  return {
+    ...actual,
     detectPackageManager: vi.fn(),
     publishPackage: vi.fn(),
+    getPackagesToPublishInSelectiveMode: vi.fn().mockReturnValue([]),
+    getPackagesToPublishInIndependentMode: vi.fn().mockReturnValue([]),
+  }
+})
+vi.mock('../../core/dependencies', () => {
+  return {
     topologicalSort: vi.fn(),
+  }
+})
+vi.mock('../../core/repo', () => {
+  return {
     readPackageJson: vi.fn(),
   }
 })
@@ -46,7 +68,7 @@ describe('Given publishSafetyCheck function', () => {
       config.publish = { safetyCheck: true, private: false, args: [] }
       config.safetyCheck = true
       config.release.publish = true
-      vi.mocked(core.detectPackageManager).mockReturnValue(undefined as any)
+      vi.mocked(detectPackageManager).mockReturnValue(undefined as any)
 
       await publishSafetyCheck({ config })
 
@@ -60,7 +82,7 @@ describe('Given publishSafetyCheck function', () => {
       config.publish = { safetyCheck: true, private: false, args: [] }
       config.safetyCheck = true
       config.release.publish = true
-      vi.mocked(core.detectPackageManager).mockReturnValue('npm')
+      vi.mocked(detectPackageManager).mockReturnValue('npm')
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
       await publishSafetyCheck({ config })
@@ -75,7 +97,7 @@ describe('Given publishSafetyCheck function', () => {
       config.publish = { safetyCheck: true, private: false, args: [] }
       config.safetyCheck = true
       config.release.publish = true
-      vi.mocked(core.detectPackageManager).mockReturnValue('npm')
+      vi.mocked(detectPackageManager).mockReturnValue('npm')
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -91,7 +113,7 @@ describe('Given publishSafetyCheck function', () => {
 
       await publishSafetyCheck({ config })
 
-      expect(core.detectPackageManager).not.toHaveBeenCalled()
+      expect(detectPackageManager).not.toHaveBeenCalled()
       expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
@@ -105,7 +127,7 @@ describe('Given publishSafetyCheck function', () => {
 
       await publishSafetyCheck({ config })
 
-      expect(core.detectPackageManager).not.toHaveBeenCalled()
+      expect(detectPackageManager).not.toHaveBeenCalled()
       expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
@@ -114,58 +136,63 @@ describe('Given publishSafetyCheck function', () => {
 describe('Given publish command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.detectPackageManager).mockReturnValue('npm')
-    vi.mocked(core.publishPackage).mockResolvedValue(undefined)
-    vi.mocked(core.topologicalSort).mockImplementation(pkgs => pkgs)
-    vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(detectPackageManager).mockReturnValue('npm')
+    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
   })
 
   describe('When publishing with default options', () => {
     it('Then loads config and executes hooks', async () => {
       await publish({})
 
-      expect(core.loadRelizyConfig).toHaveBeenCalled()
-      expect(core.executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), false)
+      expect(loadRelizyConfig).toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), false)
     })
 
     it('Then detects package manager', async () => {
       await publish({})
 
-      expect(core.detectPackageManager).toHaveBeenCalled()
+      expect(detectPackageManager).toHaveBeenCalled()
     })
 
     it('Then executes success hook', async () => {
-      await publish({})
-
-      expect(core.executeHook).toHaveBeenCalledWith('success:publish', expect.any(Object), false)
-    })
-  })
-
-  describe('When publishing packages', () => {
-    it('Then publishes in topological order', async () => {
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+      vi.mocked(getPackagesToPublishInSelectiveMode).mockReturnValue([
         createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
         createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
       ])
 
       await publish({})
 
-      expect(core.topologicalSort).toHaveBeenCalled()
-      expect(core.publishPackage).toHaveBeenCalledTimes(2)
+      expect(executeHook).toHaveBeenCalledWith('success:publish', expect.any(Object), false)
+    })
+  })
+
+  describe('When publishing packages', () => {
+    it('Then publishes in topological order', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
+        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
+      ])
+
+      await publish({})
+
+      expect(topologicalSort).toHaveBeenCalled()
+      expect(publishPackage).toHaveBeenCalledTimes(2)
     })
 
     it('Then passes package manager to publish', async () => {
-      vi.mocked(core.detectPackageManager).mockReturnValue('pnpm')
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+      vi.mocked(detectPackageManager).mockReturnValue('pnpm')
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await publish({})
 
-      expect(core.publishPackage).toHaveBeenCalledWith(
+      expect(publishPackage).toHaveBeenCalledWith(
         expect.objectContaining({
           packageManager: 'pnpm',
         }),
@@ -175,14 +202,14 @@ describe('Given publish command', () => {
 
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to hooks and publish', async () => {
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await publish({ dryRun: true })
 
-      expect(core.executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), true)
-      expect(core.publishPackage).toHaveBeenCalledWith(
+      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), true)
+      expect(publishPackage).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
     })
@@ -190,14 +217,14 @@ describe('Given publish command', () => {
 
   describe('When error occurs', () => {
     it('Then executes error hook', async () => {
-      vi.mocked(core.publishPackage).mockRejectedValue(new Error('Publish failed'))
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+      vi.mocked(publishPackage).mockRejectedValue(new Error('Publish failed'))
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
 
       await expect(publish({})).rejects.toThrow('Publish failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
     })
   })
 })
