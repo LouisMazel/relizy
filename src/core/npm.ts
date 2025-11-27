@@ -129,18 +129,21 @@ function isYarnBerry() {
   return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
 }
 
+// eslint-disable-next-line sonarjs/cognitive-complexity
 function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
   config,
   otp,
   type,
+  dryRun,
 }: {
   packageManager: PackageManager
   tag: T extends 'publish' ? string : undefined
   config: ResolvedRelizyConfig
   otp?: string
   type: T
+  dryRun?: boolean
 }) {
   const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
 
@@ -193,6 +196,10 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   }
   else if (packageManager === 'npm') {
     args.push('--yes')
+  }
+
+  if (dryRun) {
+    args.push('--dry-run')
   }
 
   return args
@@ -255,6 +262,7 @@ async function executePublishCommand({
   config,
   tag,
   dryRun,
+  packageManager,
 }: {
   command: string
   packageNameAndVersion: string
@@ -262,24 +270,27 @@ async function executePublishCommand({
   config: ResolvedRelizyConfig
   tag: string
   dryRun: boolean
+  packageManager: PackageManager
 }): Promise<void> {
   logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"`)
 
-  if (!dryRun) {
-    const { stdout } = await execPromise(command, {
-      noStderr: true,
-      noStdout: true,
-      noSuccess: true,
-      logLevel: config.logLevel,
-      cwd: pkg.path,
-    })
+  const dryRunPublish = dryRun && packageManager !== 'npm' && packageManager !== 'yarn'
 
-    if (stdout) {
-      logger.debug(stdout)
-    }
+  if (dryRunPublish) {
+    logger.info(`${dryRun ? '[dry-run] ' : ''}Skipping actual publish for ${packageNameAndVersion}`)
+    return
   }
 
-  logger.info(`${dryRun ? '[dry-run] ' : ''}Published ${packageNameAndVersion}`)
+  const { stdout, stderr } = await execPromise(command, {
+    noStderr: true,
+    noStdout: true,
+    noSuccess: true,
+    logLevel: config.logLevel,
+    cwd: pkg.path,
+  })
+
+  logger.debug('Publish stdout:', stdout)
+  logger.debug('Publish stderr:', stderr)
 }
 
 export function getAuthCommand({
@@ -307,17 +318,20 @@ function getPublishCommand({
   tag,
   config,
   otp,
+  dryRun,
 }: {
   packageManager: PackageManager
   tag: string
   config: ResolvedRelizyConfig
   otp?: string
+  dryRun: boolean
 }): string {
   const args = getCommandArgs<'publish'>({
     packageManager,
     tag,
     config,
     otp,
+    dryRun,
     type: 'publish',
   })
 
@@ -352,6 +366,7 @@ export async function publishPackage({
         tag,
         config,
         otp: dynamicOtp,
+        dryRun,
       })
 
       process.chdir(pkg.path)
@@ -359,6 +374,7 @@ export async function publishPackage({
       await executePublishCommand({
         command,
         packageNameAndVersion,
+        packageManager,
         pkg,
         config,
         dryRun,
