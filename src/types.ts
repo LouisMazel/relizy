@@ -542,7 +542,7 @@ export type HookConfig = {
  * @see https://louismazel.github.io/relizy/config/overview
  */
 export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types'>> {
-  types: Record<string, {
+  types?: Record<string, {
     title: string
     semver?: SemverBumpType
   } | false>
