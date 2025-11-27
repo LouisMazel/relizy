@@ -1,7 +1,4 @@
-catalogMode: prefer
-shellEmulator: true
-trustPolicy: no-downgrade
-
+# eslint-disable pnpm/yaml-enforce-settings
 packages:
   - docs
 
