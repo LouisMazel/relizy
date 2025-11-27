@@ -2,7 +2,7 @@
 
 # Interface: SlackOptions
 
-Defined in: [src/types.ts:668](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L668)
+Defined in: [src/types.ts:668](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L668)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:668](https://github.com/LouisMazel/relizy/blob/a435282
 
 > **changelog**: `string`
 
-Defined in: [src/types.ts:680](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L680)
+Defined in: [src/types.ts:680](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L680)
 
 Changelog content
 
@@ -20,7 +20,7 @@ Changelog content
 
 > `optional` **changelogUrl**: `string`
 
-Defined in: [src/types.ts:688](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L688)
+Defined in: [src/types.ts:688](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L688)
 
 Full changelog URL (e.g., https://example.com/changelog)
 
@@ -30,7 +30,7 @@ Full changelog URL (e.g., https://example.com/changelog)
 
 > **channel**: `string`
 
-Defined in: [src/types.ts:692](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L692)
+Defined in: [src/types.ts:692](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L692)
 
 Slack channel ID or name
 
@@ -40,7 +40,7 @@ Slack channel ID or name
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:705](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L705)
+Defined in: [src/types.ts:705](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L705)
 
 Run without side effects
 
@@ -56,7 +56,7 @@ false
 
 > `optional` **messageTemplate**: `string`
 
-Defined in: [src/types.ts:700](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L700)
+Defined in: [src/types.ts:700](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L700)
 
 Custom message template
 
@@ -66,7 +66,7 @@ Custom message template
 
 > **projectName**: `string`
 
-Defined in: [src/types.ts:676](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L676)
+Defined in: [src/types.ts:676](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L676)
 
 Project name
 
@@ -76,7 +76,7 @@ Project name
 
 > **release**: [`PostedRelease`](PostedRelease.md)
 
-Defined in: [src/types.ts:672](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L672)
+Defined in: [src/types.ts:672](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L672)
 
 Release information
 
@@ -86,7 +86,7 @@ Release information
 
 > `optional` **releaseUrl**: `string`
 
-Defined in: [src/types.ts:684](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L684)
+Defined in: [src/types.ts:684](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L684)
 
 Release URL (GitHub/GitLab)
 
@@ -96,6 +96,6 @@ Release URL (GitHub/GitLab)
 
 > **token**: `string`
 
-Defined in: [src/types.ts:696](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L696)
+Defined in: [src/types.ts:696](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L696)
 
 Slack token (required)

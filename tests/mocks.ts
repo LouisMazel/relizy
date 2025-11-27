@@ -8,9 +8,9 @@ export function createMockConfig({
   to,
   from,
   bump,
-  // versionMode,
+  versionMode = 'selective',
   monorepo,
-}: DeepPartial<RelizyConfig>) {
+}: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
   const defaultConfig = getDefaultConfig()
 
   return {
@@ -19,7 +19,7 @@ export function createMockConfig({
     to,
     from,
     monorepo: {
-      versionMode: 'selective',
+      versionMode,
       packages: ['packages/*'],
       ...monorepo,
     },

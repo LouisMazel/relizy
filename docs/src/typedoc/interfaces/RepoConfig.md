@@ -2,7 +2,7 @@
 
 # Interface: RepoConfig
 
-Defined in: [src/types.ts:737](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L737)
+Defined in: [src/types.ts:737](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L737)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:737](https://github.com/LouisMazel/relizy/blob/a435282
 
 > `optional` **domain**: `string`
 
-Defined in: [src/types.ts:741](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L741)
+Defined in: [src/types.ts:741](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L741)
 
 Git domain (e.g. `github.com`)
 
@@ -20,7 +20,7 @@ Git domain (e.g. `github.com`)
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:754](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L754)
+Defined in: [src/types.ts:754](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L754)
 
 Git provider (e.g. `github` or `gitlab`)
 
@@ -36,7 +36,7 @@ Git provider (e.g. `github` or `gitlab`)
 
 > `optional` **repo**: `string`
 
-Defined in: [src/types.ts:745](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L745)
+Defined in: [src/types.ts:745](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L745)
 
 Git repository (e.g. `user/repo`)
 
@@ -46,6 +46,6 @@ Git repository (e.g. `user/repo`)
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:749](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L749)
+Defined in: [src/types.ts:749](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L749)
 
 Git token

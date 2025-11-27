@@ -4,7 +4,7 @@
 
 > **getTwitterCredentials**(`options`): [`ResolvedTwitterCredentials`](../interfaces/ResolvedTwitterCredentials.md) \| `null`
 
-Defined in: [src/core/twitter.ts:16](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/twitter.ts#L16)
+Defined in: [src/core/twitter.ts:16](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/twitter.ts#L16)
 
 Get Twitter credentials from config
 Priority: social.twitter.credentials > config.tokens.twitter > environment variables (handled in config.ts)

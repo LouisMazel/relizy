@@ -2,7 +2,7 @@
 
 # Interface: ResolvedTags
 
-Defined in: [src/core/tags.ts:342](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/tags.ts#L342)
+Defined in: [src/core/tags.ts:342](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/tags.ts#L342)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/core/tags.ts:342](https://github.com/LouisMazel/relizy/blob/a43
 
 > **from**: `string`
 
-Defined in: [src/core/tags.ts:343](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/tags.ts#L343)
+Defined in: [src/core/tags.ts:343](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/tags.ts#L343)
 
 ***
 
@@ -18,4 +18,4 @@ Defined in: [src/core/tags.ts:343](https://github.com/LouisMazel/relizy/blob/a43
 
 > **to**: `string`
 
-Defined in: [src/core/tags.ts:344](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/tags.ts#L344)
+Defined in: [src/core/tags.ts:344](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/tags.ts#L344)

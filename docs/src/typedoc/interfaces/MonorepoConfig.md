@@ -2,7 +2,7 @@
 
 # Interface: MonorepoConfig
 
-Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L122)
+Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L122)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/a435282
 
 > `optional` **ignorePackageNames**: `string`[]
 
-Defined in: [src/types.ts:135](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L135)
+Defined in: [src/types.ts:135](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L135)
 
 Package names to ignore.
 
@@ -26,7 +26,7 @@ Package names to ignore.
 
 > **packages**: `string`[]
 
-Defined in: [src/types.ts:130](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L130)
+Defined in: [src/types.ts:130](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L130)
 
 Glob pattern matching for packages to bump.
 
@@ -36,6 +36,6 @@ Glob pattern matching for packages to bump.
 
 > **versionMode**: [`VersionMode`](../type-aliases/VersionMode.md)
 
-Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L126)
+Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L126)
 
 Version mode for the monorepo.
