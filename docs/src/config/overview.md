@@ -22,7 +22,7 @@ import { defineConfig } from 'relizy'
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
   },
 })
 ```
@@ -33,7 +33,7 @@ import { defineConfig } from 'relizy'
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
   },
 })
 ```
@@ -42,7 +42,7 @@ export default defineConfig({
 {
   "monorepo": {
     "versionMode": "selective",
-    "packageGlobs": ["packages/*"]
+    "packages": ["packages/*"]
   }
 }
 ```
@@ -54,7 +54,7 @@ export default defineConfig({
   "relizy": {
     "monorepo": {
       "versionMode": "selective",
-      "packageGlobs": ["packages/*"]
+      "packages": ["packages/*"]
     }
   }
 }
@@ -63,14 +63,14 @@ export default defineConfig({
 ```yml [relizy.config.yml]
 monorepo:
   versionMode: selective
-  packageGlobs:
+  packages:
     - packages/*
 ```
 
 ```toml [relizy.config.toml]
 [monorepo]
 versionMode = "selective"
-packageGlobs = [ "packages/*" ]
+packages = [ "packages/*" ]
 ```
 
 :::
@@ -119,7 +119,7 @@ relizy release --minor
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
   },
 })
 ```
@@ -131,7 +131,7 @@ export default defineConfig({
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
     ignorePackageNames: ['pacakge-a'],
   },
   bump: {

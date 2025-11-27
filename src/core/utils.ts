@@ -198,7 +198,7 @@ export async function executeBuildCmd({
       logger.info('Build completed')
     }
     else {
-      logger.log('[dry-run] exec build command: ', config.publish.buildCmd)
+      logger.info('[dry-run] exec build command: ', config.publish.buildCmd)
     }
   }
   else {

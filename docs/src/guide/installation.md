@@ -138,7 +138,7 @@ import { defineConfig } from 'relizy'
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
   },
 })
 ```

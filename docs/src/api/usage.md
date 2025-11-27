@@ -155,7 +155,7 @@ await release({
   type: 'minor',
   monorepo: {
     versionMode: 'selective',
-    packageGlobs: ['packages/*'],
+    packages: ['packages/*'],
   },
   publish: true,
 })
