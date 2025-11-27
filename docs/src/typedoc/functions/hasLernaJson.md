@@ -4,7 +4,7 @@
 
 > **hasLernaJson**(`rootDir`): `boolean`
 
-Defined in: [src/core/repo.ts:469](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/repo.ts#L469)
+Defined in: [src/core/repo.ts:469](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/repo.ts#L469)
 
 ## Parameters
 

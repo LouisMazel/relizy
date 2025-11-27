@@ -2,7 +2,7 @@
 
 # Interface: TwitterSocialConfig
 
-Defined in: [src/types.ts:550](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L550)
+Defined in: [src/types.ts:550](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L550)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:550](https://github.com/LouisMazel/relizy/blob/a435282
 
 > `optional` **credentials**: [`TwitterCredentials`](TwitterCredentials.md)
 
-Defined in: [src/types.ts:570](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L570)
+Defined in: [src/types.ts:570](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L570)
 
 Twitter credentials (optional - falls back to environment variables)
 
@@ -20,7 +20,7 @@ Twitter credentials (optional - falls back to environment variables)
 
 > `optional` **enabled**: `boolean`
 
-Defined in: [src/types.ts:555](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L555)
+Defined in: [src/types.ts:555](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L555)
 
 Enable Twitter posting
 
@@ -36,7 +36,7 @@ false
 
 > `optional` **messageTemplate**: `string`
 
-Defined in: [src/types.ts:566](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L566)
+Defined in: [src/types.ts:566](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L566)
 
 Custom message template
 Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
@@ -47,7 +47,7 @@ Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}
 
 > `optional` **onlyStable**: `boolean`
 
-Defined in: [src/types.ts:561](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L561)
+Defined in: [src/types.ts:561](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L561)
 
 Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
 Only stable versions will be posted to Twitter

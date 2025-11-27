@@ -4,7 +4,7 @@
 
 > **extractVersionFromTag**(`tag`, `packageName?`): `string` \| `null`
 
-Defined in: [src/core/version.ts:709](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/version.ts#L709)
+Defined in: [src/core/version.ts:709](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/version.ts#L709)
 
 Extracts a semantic version from a git tag.
 Supports multiple tag formats:

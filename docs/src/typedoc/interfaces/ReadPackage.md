@@ -2,7 +2,7 @@
 
 # Interface: ReadPackage
 
-Defined in: [src/types.ts:13](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L13)
+Defined in: [src/types.ts:13](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L13)
 
 PACAKGE TYPES
 
@@ -17,7 +17,7 @@ PACAKGE TYPES
 
 > **name**: `string`
 
-Defined in: [src/types.ts:17](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L17)
+Defined in: [src/types.ts:17](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L17)
 
 Package name
 
@@ -27,7 +27,7 @@ Package name
 
 > **path**: `string`
 
-Defined in: [src/types.ts:21](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L21)
+Defined in: [src/types.ts:21](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L21)
 
 Package path
 
@@ -37,7 +37,7 @@ Package path
 
 > **private**: `boolean`
 
-Defined in: [src/types.ts:29](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L29)
+Defined in: [src/types.ts:29](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L29)
 
 Package path
 
@@ -47,6 +47,6 @@ Package path
 
 > **version**: `string`
 
-Defined in: [src/types.ts:25](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L25)
+Defined in: [src/types.ts:25](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L25)
 
 Current version

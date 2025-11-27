@@ -4,7 +4,7 @@
 
 > **getDefaultConfig**(): `object`
 
-Defined in: [src/core/config.ts:13](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/config.ts#L13)
+Defined in: [src/core/config.ts:13](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/config.ts#L13)
 
 ## Returns
 
@@ -116,7 +116,7 @@ Defined in: [src/core/config.ts:13](https://github.com/LouisMazel/relizy/blob/a4
 
 #### templates.twitterMessage
 
-> **twitterMessage**: `string` = `'🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}'`
+> **twitterMessage**: `string` = `'🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}'`
 
 ### tokens
 

@@ -4,7 +4,7 @@
 
 > **providerReleaseSafetyCheck**(`__namedParameters`): `void`
 
-Defined in: [src/commands/provider-release.ts:7](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/commands/provider-release.ts#L7)
+Defined in: [src/commands/provider-release.ts:6](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/commands/provider-release.ts#L6)
 
 ## Parameters
 

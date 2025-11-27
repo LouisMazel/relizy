@@ -2,7 +2,7 @@
 
 # Interface: RelizyConfig
 
-Defined in: [src/types.ts:809](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L809)
+Defined in: [src/types.ts:809](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L809)
 
 Relizy configuration
 
@@ -20,7 +20,7 @@ https://louismazel.github.io/relizy/config/overview
 
 > `optional` **bump**: [`BumpConfig`](BumpConfig.md)
 
-Defined in: [src/types.ts:843](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L843)
+Defined in: [src/types.ts:843](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L843)
 
 Bump config
 
@@ -30,7 +30,7 @@ Bump config
 
 > `optional` **changelog**: [`ChangelogConfig`](ChangelogConfig.md)
 
-Defined in: [src/types.ts:851](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L851)
+Defined in: [src/types.ts:851](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L851)
 
 Changelog config
 
@@ -40,7 +40,7 @@ Changelog config
 
 > `optional` **cwd**: `string`
 
-Defined in: [src/types.ts:819](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L819)
+Defined in: [src/types.ts:819](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L819)
 
 Current working directory
 
@@ -72,7 +72,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:823](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L823)
+Defined in: [src/types.ts:823](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L823)
 
 Start tag
 
@@ -98,7 +98,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/
 
 > `optional` **hooks**: [`HookConfig`](../type-aliases/HookConfig.md)
 
-Defined in: [src/types.ts:867](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L867)
+Defined in: [src/types.ts:867](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L867)
 
 Hooks config
 
@@ -108,7 +108,7 @@ Hooks config
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:872](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L872)
+Defined in: [src/types.ts:872](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L872)
 
 Set log level
 
@@ -124,7 +124,7 @@ Set log level
 
 > `optional` **monorepo**: [`MonorepoConfig`](MonorepoConfig.md)
 
-Defined in: [src/types.ts:831](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L831)
+Defined in: [src/types.ts:831](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L831)
 
 Monorepo config
 
@@ -158,7 +158,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/
 
 > `optional` **publish**: [`PublishConfig`](../type-aliases/PublishConfig.md)
 
-Defined in: [src/types.ts:847](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L847)
+Defined in: [src/types.ts:847](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L847)
 
 Publish config
 
@@ -168,7 +168,7 @@ Publish config
 
 > `optional` **release**: [`ReleaseConfig`](ReleaseConfig.md)
 
-Defined in: [src/types.ts:855](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L855)
+Defined in: [src/types.ts:855](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L855)
 
 Release config
 
@@ -178,7 +178,7 @@ Release config
 
 > `optional` **repo**: [`RepoConfig`](RepoConfig.md)
 
-Defined in: [src/types.ts:835](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L835)
+Defined in: [src/types.ts:835](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L835)
 
 Repo config
 
@@ -192,7 +192,7 @@ Repo config
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:877](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L877)
+Defined in: [src/types.ts:877](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L877)
 
 The safety check will verify if tokens or others required for release are set (depends on the release options)
 
@@ -232,7 +232,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/
 
 > `optional` **social**: [`SocialConfig`](SocialConfig.md)
 
-Defined in: [src/types.ts:859](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L859)
+Defined in: [src/types.ts:859](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L859)
 
 Social media configuration
 
@@ -242,7 +242,7 @@ Social media configuration
 
 > `optional` **templates**: [`TemplatesConfig`](TemplatesConfig.md)
 
-Defined in: [src/types.ts:839](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L839)
+Defined in: [src/types.ts:839](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L839)
 
 Templates config
 
@@ -252,7 +252,7 @@ Templates config
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:827](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L827)
+Defined in: [src/types.ts:827](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L827)
 
 End tag
 
@@ -266,7 +266,7 @@ End tag
 
 > `optional` **tokens**: [`Tokens`](Tokens.md)
 
-Defined in: [src/types.ts:863](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L863)
+Defined in: [src/types.ts:863](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L863)
 
 API tokens configuration
 
@@ -276,4 +276,4 @@ API tokens configuration
 
 > `optional` **types**: `Record`\<`string`, `false` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
 
-Defined in: [src/types.ts:810](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L810)
+Defined in: [src/types.ts:810](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L810)

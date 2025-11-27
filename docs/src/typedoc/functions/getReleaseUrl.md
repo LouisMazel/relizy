@@ -4,7 +4,7 @@
 
 > **getReleaseUrl**(`config`, `tag`): `string` \| `undefined`
 
-Defined in: [src/core/social-utils.ts:31](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/core/social-utils.ts#L31)
+Defined in: [src/core/social.ts:42](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/core/social.ts#L42)
 
 Get the release URL from repo config and release tag
 

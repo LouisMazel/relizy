@@ -2,7 +2,7 @@
 
 # Interface: TwitterOptions
 
-Defined in: [src/types.ts:627](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L627)
+Defined in: [src/types.ts:627](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L627)
 
 ## Properties
 
@@ -10,7 +10,7 @@ Defined in: [src/types.ts:627](https://github.com/LouisMazel/relizy/blob/a435282
 
 > **changelog**: `string`
 
-Defined in: [src/types.ts:639](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L639)
+Defined in: [src/types.ts:639](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L639)
 
 Changelog content
 
@@ -20,7 +20,7 @@ Changelog content
 
 > `optional` **changelogUrl**: `string`
 
-Defined in: [src/types.ts:647](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L647)
+Defined in: [src/types.ts:647](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L647)
 
 Full changelog URL (e.g., https://example.com/changelog)
 
@@ -30,7 +30,7 @@ Full changelog URL (e.g., https://example.com/changelog)
 
 > **credentials**: `object`
 
-Defined in: [src/types.ts:651](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L651)
+Defined in: [src/types.ts:651](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L651)
 
 Twitter credentials (all fields required)
 
@@ -56,7 +56,7 @@ Twitter credentials (all fields required)
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:665](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L665)
+Defined in: [src/types.ts:665](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L665)
 
 Run without side effects
 
@@ -68,21 +68,11 @@ false
 
 ***
 
-### messageTemplate?
-
-> `optional` **messageTemplate**: `string`
-
-Defined in: [src/types.ts:660](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L660)
-
-Custom message template
-
-***
-
 ### projectName
 
 > **projectName**: `string`
 
-Defined in: [src/types.ts:635](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L635)
+Defined in: [src/types.ts:635](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L635)
 
 Project name
 
@@ -92,7 +82,7 @@ Project name
 
 > **release**: [`PostedRelease`](PostedRelease.md)
 
-Defined in: [src/types.ts:631](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L631)
+Defined in: [src/types.ts:631](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L631)
 
 Release information
 
@@ -102,6 +92,16 @@ Release information
 
 > `optional` **releaseUrl**: `string`
 
-Defined in: [src/types.ts:643](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/types.ts#L643)
+Defined in: [src/types.ts:643](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L643)
 
 Release URL (GitHub/GitLab)
+
+***
+
+### twitterMessage
+
+> **twitterMessage**: `string`
+
+Defined in: [src/types.ts:660](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/types.ts#L660)
+
+Custom Twitter message template

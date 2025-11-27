@@ -4,7 +4,7 @@
 
 > **providerRelease**(`options`): `Promise`\<\{ `detectedProvider`: [`GitProvider`](../type-aliases/GitProvider.md); `postedReleases`: [`PostedRelease`](../interfaces/PostedRelease.md)[]; \}\>
 
-Defined in: [src/commands/provider-release.ts:41](https://github.com/LouisMazel/relizy/blob/a435282e06e69dcbf3309f6ea7f68f7c7432183d/src/commands/provider-release.ts#L41)
+Defined in: [src/commands/provider-release.ts:40](https://github.com/LouisMazel/relizy/blob/dc294c6b88715027ecd2379bf72e0317c5da3413/src/commands/provider-release.ts#L40)
 
 ## Parameters
 
