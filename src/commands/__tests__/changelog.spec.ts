@@ -1,10 +1,10 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import * as core from '../../core'
+import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../../core'
 import { changelog } from '../changelog'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')
@@ -25,14 +25,14 @@ vi.mock('../../core', async () => {
 describe('Given changelog command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.executeFormatCmd).mockResolvedValue(undefined)
-    vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    vi.mocked(core.readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
-    vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(core.getRootPackage).mockResolvedValue({
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(executeFormatCmd).mockResolvedValue(undefined)
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
       path: '/root',
@@ -46,21 +46,21 @@ describe('Given changelog command', () => {
     it('Then loads config and executes hooks', async () => {
       await changelog({})
 
-      expect(core.loadRelizyConfig).toHaveBeenCalled()
-      expect(core.executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), false)
+      expect(loadRelizyConfig).toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), false)
     })
 
     it('Then generates changelog for root package', async () => {
       await changelog({})
 
-      expect(core.generateChangelog).toHaveBeenCalled()
-      expect(core.writeChangelogToFile).toHaveBeenCalled()
+      expect(generateChangelog).toHaveBeenCalled()
+      expect(writeChangelogToFile).toHaveBeenCalled()
     })
 
     it('Then executes success hook', async () => {
       await changelog({})
 
-      expect(core.executeHook).toHaveBeenCalledWith('success:changelog', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:changelog', expect.any(Object), false)
     })
   })
 
@@ -68,8 +68,8 @@ describe('Given changelog command', () => {
     it('Then passes dryRun to hooks and functions', async () => {
       await changelog({ dryRun: true })
 
-      expect(core.executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), true)
-      expect(core.writeChangelogToFile).toHaveBeenCalledWith(
+      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), true)
+      expect(writeChangelogToFile).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
     })
@@ -79,17 +79,17 @@ describe('Given changelog command', () => {
     it('Then executes format command', async () => {
       await changelog({ formatCmd: 'prettier --write *.md' })
 
-      expect(core.executeFormatCmd).toHaveBeenCalled()
+      expect(executeFormatCmd).toHaveBeenCalled()
     })
   })
 
   describe('When error occurs', () => {
     it('Then executes error hook', async () => {
-      vi.mocked(core.generateChangelog).mockRejectedValue(new Error('Failed'))
+      vi.mocked(generateChangelog).mockRejectedValue(new Error('Failed'))
 
       await expect(changelog({})).rejects.toThrow('Failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:changelog', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:changelog', expect.any(Object), false)
     })
   })
 
@@ -98,15 +98,17 @@ describe('Given changelog command', () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       config.changelog = { rootChangelog: true, formatCmd: '', includeCommitBody: false }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(core.getPackagesOrBumpedPackages).mockResolvedValue([
+
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
         createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [] }),
       ])
 
       await changelog({})
 
-      expect(core.generateChangelog).toHaveBeenCalledTimes(3)
+      // 2 packages + root changelog (with bumped packages (2))
+      expect(generateChangelog).toHaveBeenCalledTimes(4)
     })
   })
 })

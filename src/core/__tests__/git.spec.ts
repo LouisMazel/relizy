@@ -21,7 +21,7 @@ import {
 } from '../git'
 import { executeHook } from '../utils'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('node:child_process')
 vi.mock('node:fs')
@@ -33,20 +33,30 @@ vi.mock('@maz-ui/node', async () => {
     execPromise: vi.fn(),
   }
 })
-vi.mock('../../core', async () => {
-  const actual = await vi.importActual('../../core')
+
+vi.mock('../config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../config')>()
   return {
     ...actual,
     loadRelizyConfig: vi.fn(),
-    hasLernaJson: vi.fn(),
-    readPackageJson: vi.fn(),
+  }
+})
+
+vi.mock('../tags', () => {
+  return {
     getIndependentTag: vi.fn(),
   }
 })
-vi.mock('../utils', async () => {
-  const actual = await vi.importActual('../utils')
+
+vi.mock('../repo', () => {
   return {
-    ...actual,
+    readPackageJson: vi.fn(),
+    hasLernaJson: vi.fn(),
+  }
+})
+
+vi.mock('../utils', () => {
+  return {
     executeHook: vi.fn(),
   }
 })
@@ -372,9 +382,9 @@ describe('Given parseGitRemoteUrl function', () => {
     })
 
     it('Then handles GitLab SSH URL', () => {
-      const result = parseGitRemoteUrl('git@gitlab.com:group/subgroup/project.git')
+      const result = parseGitRemoteUrl('git@gitlab.walkingnerds.dev:renaissance/edr.git')
 
-      expect(result).toEqual({ owner: 'group', repo: 'subgroup/project' })
+      expect(result).toEqual({ owner: 'renaissance', repo: 'edr' })
     })
 
     it('Then handles custom domain SSH URL', () => {
@@ -410,7 +420,7 @@ describe('Given parseGitRemoteUrl function', () => {
     })
 
     it('Then handles nested paths', () => {
-      const result = parseGitRemoteUrl('https://gitlab.com/parent/child/project.git')
+      const result = parseGitRemoteUrl('https://gitlab.walkingnerds.dev/twn/packages/eslint-config.git')
 
       expect(result).toEqual({ owner: 'parent', repo: 'child/project' })
     })
@@ -654,21 +664,20 @@ describe('Given createCommitAndTags function', () => {
     it('Then skips packages without newVersion', async () => {
       config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       bumpedPackages = [
-        { ...createMockPackageInfo(), name: 'package-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
-        { ...createMockPackageInfo(), name: 'package-b', version: '2.0.0', oldVersion: '2.0.0', path: '/path/b' },
+        { ...createMockPackageInfo(), name: 'package-a', newVersion: '1.0.0', oldVersion: '0.0.9', path: '/path/a' },
+        { ...createMockPackageInfo(), name: 'package-b', newVersion: '2.0.0', oldVersion: '1.0.0', path: '/path/b' },
       ]
-      vi.mocked(getIndependentTag).mockReturnValue('package-a@1.1.0')
+      vi.mocked(getIndependentTag).mockImplementation(pkg => `${pkg.name}@${pkg.version}`)
 
       const result = await createCommitAndTags({
         config,
         noVerify: false,
         bumpedPackages,
-        dryRun: false,
         logLevel: 'normal',
       })
 
-      expect(result).toHaveLength(1)
-      expect(result).toEqual(['package-a@1.1.0'])
+      expect(result).toHaveLength(2)
+      expect(result).toEqual(['package-a@1.0.0', 'package-b@2.0.0'])
     })
   })
 

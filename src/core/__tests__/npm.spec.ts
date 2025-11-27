@@ -17,11 +17,9 @@ import {
 } from '../npm'
 import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
+import { isPrerelease } from '../version'
 
-// Mock isPrerelease locally since it's not exported
-const isPrerelease = vi.fn()
-
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('node:fs')
 vi.mock('node:path', async () => {
@@ -49,9 +47,17 @@ vi.mock('../utils', async () => {
   return {
     ...actual,
     isInCI: vi.fn(),
+  }
+})
+
+vi.mock('../version', async () => {
+  const actual = await vi.importActual('../version')
+  return {
+    ...actual,
     isPrerelease: vi.fn(),
   }
 })
+
 vi.mock('../tags')
 
 describe('Given detectPackageManager function', () => {

@@ -9,7 +9,7 @@ import { social as socialCmd } from '../../src/commands/social'
 import * as core from '../../src/core'
 import { createMockConfig } from '../mocks'
 
-logger.setLevel('error')
+logger.setLevel('silent')
 
 vi.mock('../../src/core', async () => {
   const actual = await vi.importActual('../../src/core')
