@@ -75,7 +75,7 @@ export function detectGitProvider(cwd: string = process.cwd()): GitProvider | nu
 
 export function parseGitRemoteUrl(remoteUrl: string): { owner: string, repo: string } | null {
   const sshRegex = /git@[\w.-]+:([\w.-]+)\/([\w.-]+?)(?:\.git)?$/
-  const httpsRegex = /https?:\/\/[\w.-]+\/([\w.-]+)\/([\w.-]+?)(?:\.git)?$/
+  const httpsRegex = /https?:\/\/[\w.-]+\/(.+?)\/([^/]+?)(?:\.git)?$/
 
   const sshMatch = remoteUrl.match(sshRegex)
   if (sshMatch) {

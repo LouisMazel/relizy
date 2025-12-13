@@ -4,28 +4,21 @@ import type { ResolvedRelizyConfig } from '../src/core/config'
 import type { PackageBase, RelizyConfig } from '../src/types'
 import { getDefaultConfig } from '../src/core/config'
 
-export function createMockConfig({
-  to,
-  from,
-  bump,
-  versionMode = 'selective',
-  monorepo,
-}: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
+export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
   const defaultConfig = getDefaultConfig()
+  const versionMode = config.versionMode ?? config.monorepo?.versionMode ?? 'selective'
 
   return {
     ...defaultConfig,
-    cwd: process.cwd(),
-    to,
-    from,
+    ...config,
     monorepo: {
       versionMode,
       packages: ['packages/*'],
-      ...monorepo,
+      ...config.monorepo,
     },
     bump: {
       ...defaultConfig.bump,
-      ...bump,
+      ...config.bump,
     },
   } as ResolvedRelizyConfig
 }

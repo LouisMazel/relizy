@@ -3,15 +3,6 @@ import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { executeBuildCmd, executeFormatCmd, executeHook, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
 
-vi.mock('@maz-ui/node', () => ({
-  logger: {
-    debug: vi.fn(),
-    info: vi.fn(),
-    log: vi.fn(),
-  },
-  execPromise: vi.fn(),
-}))
-
 vi.mock('../repo', () => ({
   getPackages: vi.fn().mockResolvedValue([
     { name: 'pkg-a', version: '1.0.0' },
@@ -591,7 +582,7 @@ describe('Given executeBuildCmd function', () => {
 
       await executeBuildCmd({ config, dryRun: true })
 
-      expect(logger.log).toHaveBeenCalledWith('[dry-run] exec build command: ', 'pnpm build')
+      expect(logger.info).toHaveBeenCalledWith('[dry-run] exec build command: ', 'pnpm build')
       expect(execPromise).not.toHaveBeenCalled()
     })
 

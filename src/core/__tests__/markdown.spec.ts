@@ -1,5 +1,4 @@
 import type { GitCommit } from 'changelogen'
-import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
@@ -8,8 +7,6 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
 import { generateMarkDown, parseChangelogMarkdown } from '../markdown'
-
-logger.setLevel('silent')
 
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')

@@ -3,8 +3,7 @@ import type { BumpOptions, BumpResult } from '../types'
 import { exit } from 'node:process'
 
 import { logger } from '@maz-ui/node'
-import { checkGitStatusIfDirty, confirmBump, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
-import { executeHook } from '../core/utils'
+import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
