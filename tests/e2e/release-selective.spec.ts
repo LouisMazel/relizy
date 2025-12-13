@@ -1,15 +1,12 @@
-import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { bump } from '../../src/commands/bump'
-import { changelog as changelogCmd } from '../../src/commands/changelog'
-import { providerRelease as providerReleaseCmd } from '../../src/commands/provider-release'
-import { publish as publishCmd } from '../../src/commands/publish'
+import { changelog } from '../../src/commands/changelog'
+import { providerRelease } from '../../src/commands/provider-release'
+import { publish } from '../../src/commands/publish'
 import { release } from '../../src/commands/release'
-import { social as socialCmd } from '../../src/commands/social'
-import * as core from '../../src/core'
+import { social } from '../../src/commands/social'
+import { checkGitStatusIfDirty, executeHook, fetchGitTags, generateChangelog, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags } from '../../src/core'
 import { createMockConfig } from '../mocks'
-
-logger.setLevel('silent')
 
 vi.mock('../../src/core', async () => {
   const actual = await vi.importActual('../../src/core')
@@ -20,7 +17,6 @@ vi.mock('../../src/core', async () => {
     checkGitStatusIfDirty: vi.fn(),
     fetchGitTags: vi.fn(),
     readPackageJson: vi.fn(),
-    writePackageJson: vi.fn(),
     getRootPackage: vi.fn(),
     resolveTags: vi.fn(),
     generateChangelog: vi.fn(),
@@ -42,33 +38,35 @@ vi.mock('../../src/commands/social')
 describe('Given selective mode release workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    config.monorepo = {
-      versionMode: 'selective',
-      packages: ['packages/*'],
-    }
-    config.release = {
-      commit: true,
-      changelog: true,
-      publish: true,
-      push: true,
-      providerRelease: true,
-      social: true,
-      clean: true,
-      noVerify: false,
-      gitTag: true,
-    }
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.checkGitStatusIfDirty).mockReturnValue(undefined)
-    vi.mocked(core.fetchGitTags).mockResolvedValue(undefined)
-    vi.mocked(core.readPackageJson).mockReturnValue({
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      monorepo: {
+        versionMode: 'selective',
+        packages: ['packages/*'],
+      },
+      release: {
+        commit: true,
+        changelog: true,
+        publish: true,
+        push: true,
+        providerRelease: true,
+        social: true,
+        clean: true,
+        noVerify: false,
+        gitTag: true,
+      },
+    })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(checkGitStatusIfDirty).mockReturnValue(undefined)
+    vi.mocked(fetchGitTags).mockResolvedValue(undefined)
+    vi.mocked(readPackageJson).mockReturnValue({
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
       private: false,
     })
-    vi.mocked(core.getRootPackage).mockResolvedValue({
+    vi.mocked(getRootPackage).mockResolvedValue({
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
@@ -76,18 +74,18 @@ describe('Given selective mode release workflow', () => {
       fromTag: 'v0.9.0',
       commits: [],
     })
-    vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
     vi.mocked(bump).mockResolvedValue({
       newVersion: '1.0.0',
       bumpedPackages: [],
       bumped: true,
       fromTag: 'v0.9.0',
     } as any)
-    vi.mocked(changelogCmd).mockResolvedValue(undefined)
-    vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(socialCmd).mockResolvedValue(undefined)
+    vi.mocked(changelog).mockResolvedValue(undefined)
+    vi.mocked(publish).mockResolvedValue(undefined)
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
+    vi.mocked(social).mockResolvedValue(undefined)
   })
 
   describe('When bumping packages with changes', () => {
@@ -104,7 +102,7 @@ describe('Given selective mode release workflow', () => {
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -128,7 +126,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -149,25 +147,25 @@ describe('Given selective mode release workflow', () => {
         bumped: false,
         fromTag: 'v0.9.0',
       } as any)
+      vi.mocked(bump).mockResolvedValue({
+        newVersion: '1.0.0',
+        bumpedPackages: [],
+        bumped: true,
+        fromTag: 'v0.9.0',
+      } as any)
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalled()
-      expect(publishCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
+      expect(publish).toHaveBeenCalled()
     })
   })
 
   describe('When using unified version for all packages', () => {
     it('Then all packages get same version', async () => {
-      vi.mocked(bump).mockResolvedValue({
-        newVersion: '2.0.0',
-        bumpedPackages: [
-          { name: 'pkg-a', version: '1.0.0', newVersion: '2.0.0', path: '/packages/pkg-a' },
-          { name: 'pkg-b', version: '1.0.0', newVersion: '2.0.0', path: '/packages/pkg-b' },
-        ],
-        bumped: true,
-        fromTag: 'v1.0.0',
-      } as any)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'major' },
+      }))
 
       await release({ type: 'major' })
 
@@ -190,7 +188,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(publishCmd).toHaveBeenCalledWith(
+      expect(publish).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -215,7 +213,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
     })
   })
 
@@ -232,7 +230,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(providerReleaseCmd).toHaveBeenCalledWith(
+      expect(providerRelease).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({ newVersion: '1.0.0' }),
         }),
@@ -253,7 +251,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(socialCmd).toHaveBeenCalled()
+      expect(social).toHaveBeenCalled()
     })
   })
 
@@ -262,10 +260,10 @@ describe('Given selective mode release workflow', () => {
       await release({ dryRun: true })
 
       expect(bump).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(changelogCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(publishCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(providerReleaseCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(socialCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(changelog).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(publish).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(providerRelease).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(social).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
     })
   })
 
@@ -284,7 +282,7 @@ describe('Given selective mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -304,15 +302,15 @@ describe('Given selective mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
     })
 
     it('Then stops execution', async () => {
-      vi.mocked(changelogCmd).mockRejectedValue(new Error('Changelog failed'))
+      vi.mocked(changelog).mockRejectedValue(new Error('Changelog failed'))
 
       await expect(release({})).rejects.toThrow('Changelog failed')
 
-      expect(publishCmd).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
     })
   })
 
@@ -354,15 +352,15 @@ describe('Given selective mode release workflow', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).not.toHaveBeenCalled()
-      expect(publishCmd).not.toHaveBeenCalled()
-      expect(providerReleaseCmd).not.toHaveBeenCalled()
-      expect(socialCmd).not.toHaveBeenCalled()
+      expect(changelog).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
     })
   })
 
@@ -370,17 +368,17 @@ describe('Given selective mode release workflow', () => {
     it('Then executes success hook', async () => {
       await release({})
 
-      expect(core.executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
     })
 
     it('Then all enabled steps are executed', async () => {
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).toHaveBeenCalled()
-      expect(publishCmd).toHaveBeenCalled()
-      expect(providerReleaseCmd).toHaveBeenCalled()
-      expect(socialCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
+      expect(publish).toHaveBeenCalled()
+      expect(providerRelease).toHaveBeenCalled()
+      expect(social).toHaveBeenCalled()
     })
   })
 })

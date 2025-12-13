@@ -762,6 +762,11 @@ export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-relea
  */
 export interface Tokens {
   /**
+   * Registry token for publishing (NPM or private registry)
+   * Environment variables: NPM_TOKEN, NODE_AUTH_TOKEN, RELIZY_NPM_TOKEN
+   */
+  registry?: string
+  /**
    * GitHub token for creating releases
    * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
    */

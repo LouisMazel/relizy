@@ -521,8 +521,7 @@ describe('Given getAuthCommand function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
-    config.publish = { private: false, args: [], safetyCheck: false }
+    config = createMockConfig({ bump: { type: 'patch' }, publish: { private: false, args: [], safetyCheck: false } })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
   })
@@ -611,9 +610,19 @@ describe('Given publishPackage function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
-    config.cwd = '/project'
-    config.publish = { private: false, args: [], safetyCheck: false }
+    config = createMockConfig({
+      cwd: '/project',
+      bump: { type: 'patch' },
+      tokens: {
+        gitlab: 'test-token',
+      },
+      repo: {
+        provider: 'gitlab',
+        domain: 'gitlab.com',
+        repo: 'user/repo',
+      },
+      publish: { private: false, args: [], safetyCheck: false },
+    })
     pkg = {
       ...createMockPackageInfo(),
       name: 'test-package',

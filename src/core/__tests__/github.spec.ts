@@ -58,18 +58,18 @@ vi.mock('../changelog', async (importOriginal) => {
 describe('Given github function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    config.repo = {
-      provider: 'github',
-      domain: 'github.com',
-      repo: 'user/repo',
-    }
-    config.tokens = {
-      github: 'test-token',
-      gitlab: undefined,
-      twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-      slack: undefined,
-    }
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      monorepo: { versionMode: 'unified' },
+      repo: {
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      },
+      tokens: {
+        github: 'test-token',
+      },
+    })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(readPackageJson).mockReturnValue({
       name: 'test',
@@ -189,19 +189,18 @@ describe('Given github function', () => {
 
   describe('When in independent mode', () => {
     beforeEach(() => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-      config.tokens = {
-        github: 'test-token',
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
@@ -316,18 +315,15 @@ describe('Given github function', () => {
 
   describe('When missing GitHub token', () => {
     it('Then throws error in unified mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-      config.tokens = {
-        github: undefined,
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await expect(github({ force: false })).rejects.toThrow(
@@ -336,19 +332,21 @@ describe('Given github function', () => {
     })
 
     it('Then throws error in independent mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-      config.tokens = {
-        github: undefined,
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: undefined,
+          gitlab: undefined,
+          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          slack: undefined,
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await expect(github({ force: false })).rejects.toThrow(
@@ -357,19 +355,22 @@ describe('Given github function', () => {
     })
 
     it('Then accepts token from repo config', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-        token: 'repo-token',
-      }
-      config.tokens = {
-        github: undefined,
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+          token: 'repo-token',
+        },
+        tokens: {
+          github: undefined,
+          gitlab: undefined,
+          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          slack: undefined,
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await expect(github({ force: false })).resolves.not.toThrow()
@@ -444,19 +445,21 @@ describe('Given github function', () => {
 
   describe('When using force option', () => {
     it('Then passes force to getPackagesOrBumpedPackages in independent mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-      config.tokens = {
-        github: 'test-token',
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+          gitlab: undefined,
+          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          slack: undefined,
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
 
@@ -478,19 +481,21 @@ describe('Given github function', () => {
 
   describe('When using suffix option', () => {
     it('Then passes suffix to getPackagesOrBumpedPackages in independent mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-      config.tokens = {
-        github: 'test-token',
-        gitlab: undefined,
-        twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-        slack: undefined,
-      }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+          gitlab: undefined,
+          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          slack: undefined,
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
 

@@ -87,8 +87,8 @@
     }
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.0.1",
-    "@maz-ui/node": "4.3.2-beta.1",
+    "@inquirer/prompts": "^8.1.0",
+    "@maz-ui/node": "4.3.2",
     "@maz-ui/utils": "^4.3.0",
     "c12": "^3.3.2",
     "changelogen": "^0.6.2",
@@ -100,24 +100,24 @@
     "semver": "^7.7.2"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.1.0",
-    "@commitlint/config-conventional": "^20.0.0",
-    "@commitlint/cz-commitlint": "^20.1.0",
-    "@commitlint/types": "^20.0.0",
-    "@maz-ui/eslint-config": "4.3.2-beta.1",
-    "@types/node": "^24.10.1",
+    "@commitlint/cli": "^20.2.0",
+    "@commitlint/config-conventional": "^20.2.0",
+    "@commitlint/cz-commitlint": "^20.2.0",
+    "@commitlint/types": "^20.2.0",
+    "@maz-ui/eslint-config": "4.3.2",
+    "@types/node": "^25.0.1",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.0.10",
+    "@vitest/coverage-v8": "^4.0.15",
     "cross-env": "^10.1.0",
-    "eslint": "^9.39.1",
+    "eslint": "^9.39.2",
     "husky": "^9.1.7",
     "jiti": "^2.6.1",
-    "lint-staged": "^16.2.6",
-    "memfs": "^4.51.0",
-    "twitter-api-v2": "^1.27.0",
+    "lint-staged": "^16.2.7",
+    "memfs": "^4.51.1",
+    "twitter-api-v2": "^1.28.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.0.10"
+    "vitest": "^4.0.15"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [

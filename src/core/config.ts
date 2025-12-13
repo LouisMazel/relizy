@@ -51,8 +51,10 @@ export function getDefaultConfig() {
       private: false,
       args: [],
       safetyCheck: false,
+      token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
     },
     tokens: {
+      registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       gitlab:
         process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN
