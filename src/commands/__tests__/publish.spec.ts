@@ -1,18 +1,8 @@
-import { execPromise, logger } from '@maz-ui/node'
+import { execPromise } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { detectPackageManager, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
-
-logger.setLevel('silent')
-
-vi.mock('@maz-ui/node', async () => {
-  const actual = await vi.importActual('@maz-ui/node')
-  return {
-    ...actual,
-    execPromise: vi.fn(),
-  }
-})
 
 vi.mock('../../core/config', async () => {
   const actual = await vi.importActual('../../core/config')

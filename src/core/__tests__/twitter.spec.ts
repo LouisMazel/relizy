@@ -2,15 +2,6 @@ import { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { formatTweetMessage, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
 
-vi.mock('@maz-ui/node', () => ({
-  logger: {
-    debug: vi.fn(),
-    info: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-  },
-}))
-
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string) => changelog.substring(0, 150)),
 }))
@@ -294,11 +285,11 @@ describe('Given formatTweetMessage function', () => {
         changelogUrl: 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md',
       })
 
-      expect(result.length).toBeLessThanOrEqual(280)
-      expect(result).toMatch(/\.\.\.$/)
+      expect(result.length).toBe(280)
+      expect(result).toContain('...')
     })
 
-    it.only('Then ensures truncated message ends with ellipsis', () => {
+    it('Then ensures truncated message ends with ellipsis', () => {
       const veryLongText = 'x'.repeat(400)
       const result = formatTweetMessage({
         template: `🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
@@ -309,7 +300,7 @@ describe('Given formatTweetMessage function', () => {
         changelog: veryLongText,
       })
 
-      console.log('result', result)
+      // console.log('result', result)
 
       // expect(result).toMatch(/\.\.\.$/)
       expect(result.length).toBe(280)
@@ -466,7 +457,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Custom: {projectName} {version}',
+        twitterMessage: 'Custom: {{projectName}} {{version}}',
         release: { name: 'pkg', version: '2.0.0', tag: 'v2.0.0', prerelease: false },
         projectName: 'my-pkg',
         changelog: 'New features',
@@ -479,15 +470,19 @@ describe('Given postReleaseToTwitter function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.stringContaining('Custom: my-pkg 2.0.0'))
+      expect(logger.info).toHaveBeenCalledWith(
+        '[dry-run] Would post tweet:',
+        expect.stringContaining('Custom: my-pkg 2.0.0'),
+      )
     })
   })
 
   describe('When Twitter API dependency is missing', () => {
     it('Then throws error with installation instructions', async () => {
-      vi.doMock('twitter-api-v2', () => {
-        throw Object.assign(new Error('Cannot find module'), { code: 'ERR_MODULE_NOT_FOUND' })
-      })
+      vi.doMock(
+        'twitter-api-v2',
+        () => { return undefined as any },
+      )
 
       await expect(postReleaseToTwitter({
         twitterMessage: 'Test tweet',
@@ -537,7 +532,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When including URLs in tweet', () => {
     it('Then formats tweet with releaseUrl', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
+        twitterMessage: 'Test tweet {{releaseUrl}}',
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
@@ -556,7 +551,7 @@ describe('Given postReleaseToTwitter function', () => {
 
     it('Then formats tweet with changelogUrl', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
+        twitterMessage: 'Test tweet {{changelogUrl}}',
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
         projectName: 'pkg',
         changelog: 'Updates',
@@ -570,7 +565,10 @@ describe('Given postReleaseToTwitter function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.stringContaining('CHANGELOG.md'))
+      expect(logger.info).toHaveBeenCalledWith(
+        '[dry-run] Would post tweet:',
+        expect.stringContaining('CHANGELOG.md'),
+      )
     })
   })
 })

@@ -1,18 +1,22 @@
+import type { ChatPostMessageResponse } from '@slack/web-api'
+import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PostedRelease, SocialOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { extractChangelogSummary, generateChangelog, getIndependentTag, getReleaseUrl, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson } from '../core'
-import { executeHook } from '../core/utils'
+import { executeHook, extractChangelogSummary, generateChangelog, getIndependentTag, getReleaseUrl, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson } from '../core'
+
+type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
 export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+  logger.start('Start checking social config')
+
   if (!config.safetyCheck) {
     return
   }
 
-  // Check if social posting is enabled
-  if (!config.release.social) {
-    logger.debug('Social media posting is disabled in configuration')
-    return
+  const errors = {
+    twitter: false,
+    slack: false,
   }
 
   // Check Twitter configuration
@@ -24,12 +28,7 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
     })
 
     if (!credentials) {
-      logger.warn('Twitter is enabled but credentials are missing.')
-      logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
-      logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
-      logger.log('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
-      logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
-      logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
+      errors.twitter = true
     }
   }
 
@@ -45,16 +44,24 @@ export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) 
       logger.log('Slack is enabled but credentials are missing.')
       logger.log('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
       logger.log('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
+
+      errors.slack = true
     }
 
     if (!slackConfig.channel) {
       logger.warn('Slack is enabled but no channel is configured.')
       logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
+
+      errors.slack = true
     }
   }
 
-  // Future: Check other social platforms here
-  // if (config.social?.linkedin?.enabled) { ... }
+  if (errors.twitter || errors.slack) {
+    logger.warn('social config checked with errors')
+    process.exit(1)
+  }
+
+  logger.success('social config checked successfully')
 }
 
 /**
@@ -105,12 +112,12 @@ async function handleTwitterPost({
   config: ResolvedRelizyConfig
   postedReleases: PostedRelease[]
   dryRun: boolean
-}) {
+}): Promise<SocialNetworkResponse<TweetV2PostTweetResult>> {
   // Check if Twitter is enabled specifically
   const twitterConfig = config.social?.twitter
   if (!twitterConfig?.enabled) {
     logger.debug('[social:twitter] Twitter posting is disabled in configuration')
-    return
+    return { success: true, response: undefined }
   }
 
   logger.debug('[social:twitter] Twitter posting is enabled')
@@ -122,9 +129,7 @@ async function handleTwitterPost({
     })
 
     if (!credentials) {
-      logger.warn('[social:twitter] Twitter credentials not found. Set TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, and TWITTER_ACCESS_TOKEN_SECRET environment variables or configure them in social.twitter.credentials or tokens.twitter.')
-      logger.info('[social:twitter] Skipping Twitter post')
-      return
+      return { success: false, error: 'Twitter credentials not found' }
     }
 
     logger.debug('[social:twitter] Credentials found ✓')
@@ -133,7 +138,7 @@ async function handleTwitterPost({
 
     if (!mainRelease) {
       logger.warn('[social:twitter] No release found to tweet about')
-      return
+      return { success: false, error: 'No release found to tweet about' }
     }
 
     logger.info(`[social:twitter] Preparing tweet for release: ${mainRelease.tag} (${mainRelease.version})`)
@@ -142,7 +147,7 @@ async function handleTwitterPost({
     const onlyStable = twitterConfig.onlyStable ?? true
     if (onlyStable && isPrerelease(mainRelease.version)) {
       logger.info(`[social:twitter] Skipping Twitter post for prerelease version ${mainRelease.version} (social.twitter.onlyStable is enabled)`)
-      return
+      return { success: true, response: undefined }
     }
 
     await executeHook('before:twitter', config, dryRun)
@@ -181,7 +186,7 @@ async function handleTwitterPost({
       const changelogSummary = extractChangelogSummary(changelog, 150)
       logger.debug(`[social:twitter] Changelog summary: ${changelogSummary.substring(0, 50)}...`)
 
-      await postReleaseToTwitter({
+      const response = await postReleaseToTwitter({
         twitterMessage: config.templates.twitterMessage,
         release: mainRelease,
         projectName: rootPackageBase.name,
@@ -193,19 +198,24 @@ async function handleTwitterPost({
       })
 
       await executeHook('success:twitter', config, dryRun)
+
+      return { success: true, response }
     }
     catch (error) {
       await executeHook('error:twitter', config, dryRun)
       logger.error('[social:twitter] Error posting to Twitter:', error)
-      // Don't throw - Twitter posting failure shouldn't fail the social command
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: `Error posting to Twitter: ${errorMessage}` }
     }
   }
   catch (error) {
     logger.error('[social:twitter] Error during Twitter posting:', error)
-    // Don't throw - Twitter posting failure shouldn't fail the social command
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Error during Twitter posting: ${errorMessage}` }
   }
 }
 
+// eslint-disable-next-line complexity
 async function handleSlackPost({
   config,
   postedReleases,
@@ -214,12 +224,12 @@ async function handleSlackPost({
   config: ResolvedRelizyConfig
   postedReleases: PostedRelease[]
   dryRun: boolean
-}) {
+}): Promise<SocialNetworkResponse<ChatPostMessageResponse>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
   if (!slackConfig?.enabled) {
     logger.debug('[social:slack] Slack posting is disabled in configuration')
-    return
+    return { success: true, response: undefined }
   }
 
   logger.debug('[social:slack] Slack posting is enabled')
@@ -233,7 +243,7 @@ async function handleSlackPost({
     if (!token) {
       logger.warn('[social:slack] Slack token not found. Set SLACK_TOKEN or RELIZY_SLACK_TOKEN environment variable or configure it in social.slack.credentials or tokens.slack.')
       logger.info('[social:slack] Skipping Slack post')
-      return
+      return { success: false, error: 'Slack token not found' }
     }
 
     logger.debug('[social:slack] Token found ✓')
@@ -241,7 +251,7 @@ async function handleSlackPost({
     if (!slackConfig.channel) {
       logger.warn('[social:slack] Slack channel not configured. Set it in social.slack.channel.')
       logger.info('[social:slack] Skipping Slack post')
-      return
+      return { success: false, error: 'Slack channel not configured' }
     }
 
     logger.debug(`[social:slack] Channel configured: ${slackConfig.channel}`)
@@ -250,7 +260,7 @@ async function handleSlackPost({
 
     if (!mainRelease) {
       logger.warn('[social:slack] No release found to post about')
-      return
+      return { success: false, error: 'No release found to post about' }
     }
 
     logger.info(`[social:slack] Preparing Slack message for release: ${mainRelease.tag} (${mainRelease.version})`)
@@ -259,12 +269,12 @@ async function handleSlackPost({
     const onlyStable = slackConfig.onlyStable ?? true
     if (onlyStable && isPrerelease(mainRelease.version)) {
       logger.info(`[social:slack] Skipping Slack post for prerelease version ${mainRelease.version} (social.slack.onlyStable is enabled)`)
-      return
+      return { success: true, response: undefined }
     }
 
-    await executeHook('before:slack', config, dryRun)
-
     try {
+      await executeHook('before:slack', config, dryRun)
+
       const rootPackageBase = readPackageJson(config.cwd)
 
       if (!rootPackageBase) {
@@ -296,7 +306,7 @@ async function handleSlackPost({
 
       const messageTemplate = slackConfig.messageTemplate || config.templates.slackMessage
 
-      await postReleaseToSlack({
+      const response = await postReleaseToSlack({
         release: mainRelease,
         projectName: rootPackageBase.name,
         changelog,
@@ -309,19 +319,26 @@ async function handleSlackPost({
       })
 
       await executeHook('success:slack', config, dryRun)
+
+      return { success: true, response }
     }
     catch (error) {
       await executeHook('error:slack', config, dryRun)
       logger.error('[social:slack] Error posting to Slack:', error)
-      // Don't throw - Slack posting failure shouldn't fail the social command
+
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return { success: false, error: `Error posting to Slack: ${errorMessage}` }
     }
   }
   catch (error) {
     logger.error('[social:slack] Error during Slack posting:', error)
-    // Don't throw - Slack posting failure shouldn't fail the social command
+
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return { success: false, error: `Error during Slack posting: ${errorMessage}` }
   }
 }
 
+// eslint-disable-next-line complexity
 export async function social(options: Partial<SocialOptions> = {}): Promise<void> {
   try {
     const dryRun = options.dryRun ?? false
@@ -376,22 +393,27 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<void
     await executeHook('before:social', config, dryRun)
 
     try {
-      // Handle Twitter posting
-      await handleTwitterPost({
-        config,
-        postedReleases,
-        dryRun,
-      })
+      const requests = [
+        handleTwitterPost({
+          config,
+          postedReleases,
+          dryRun,
+        }),
+        handleSlackPost({
+          config,
+          postedReleases,
+          dryRun,
+        }),
+      ]
 
-      // Handle Slack posting
-      await handleSlackPost({
-        config,
-        postedReleases,
-        dryRun,
-      })
+      const responses = await Promise.all(requests)
 
-      // Future: Add other social platforms here
-      // await handleLinkedInPost({ config, postedReleases, dryRun })
+      const success = responses.every(response => response.success)
+      const error = responses.find(response => response.success === false)?.error
+
+      if (!success) {
+        throw new Error(error)
+      }
 
       logger.success('[social] Social media posts completed!')
 

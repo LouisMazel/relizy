@@ -274,7 +274,7 @@ async function executePublishCommand({
 }): Promise<void> {
   logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"`)
 
-  const dryRunPublish = dryRun && packageManager !== 'npm' && packageManager !== 'yarn'
+  const dryRunPublish = dryRun && packageManager !== 'npm' && packageManager !== 'pnpm'
 
   if (dryRunPublish) {
     logger.info(`${dryRun ? '[dry-run] ' : ''}Skipping actual publish for ${packageNameAndVersion}`)

@@ -1,8 +1,5 @@
-import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
 import { extractChangelogSummary, getReleaseUrl } from '../social'
-
-logger.setLevel('silent')
 
 describe('Given extractChangelogSummary function', () => {
   describe('When changelog contains headers', () => {

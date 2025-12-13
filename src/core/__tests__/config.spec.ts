@@ -9,8 +9,6 @@ import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
 
-logger.setLevel('silent')
-
 vi.mock('node:process', () => ({
   default: {
     cwd: vi.fn(),
@@ -18,19 +16,6 @@ vi.mock('node:process', () => ({
     exit: vi.fn(),
   },
 }))
-vi.mock('@maz-ui/node', async () => {
-  const actual = await vi.importActual('@maz-ui/node')
-  return {
-    ...actual,
-    logger: {
-      ...(actual.logger || {}),
-      setLevel: vi.fn(),
-      debug: vi.fn(),
-      verbose: vi.fn(),
-      error: vi.fn(),
-    },
-  }
-})
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
   return {
@@ -201,7 +186,7 @@ describe('Given getDefaultConfig function', () => {
       expect(config.release.push).toBe(true)
       expect(config.release.providerRelease).toBe(true)
       expect(config.release.gitTag).toBe(true)
-      expect(config.release.social).toBe(true)
+      expect(config.release.social).toBe(false)
     })
 
     it('Then enables clean by default', () => {

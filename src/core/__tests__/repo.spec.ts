@@ -1,13 +1,10 @@
 import type { GitCommit } from 'changelogen'
-import { logger } from '@maz-ui/node'
 import * as changelogen from 'changelogen'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import { getPackages } from '../repo'
-
-logger.setLevel('silent')
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -132,14 +129,13 @@ describe('Given getPackages function', () => {
       ])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'unified',
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'unified',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -160,14 +156,13 @@ describe('Given getPackages function', () => {
       setupMockCommits('default', mockCommits)
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -187,14 +182,13 @@ describe('Given getPackages function', () => {
       ])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -218,13 +212,12 @@ describe('Given getPackages function', () => {
 
       const config = createMockConfig({
         bump: { type: 'release' },
-        versionMode: 'unified',
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
       })
       config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'unified',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -241,14 +234,13 @@ describe('Given getPackages function', () => {
       setupMockCommits('default', [])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'patch' },
-        versionMode: 'unified',
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'unified',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -268,14 +260,13 @@ describe('Given getPackages function', () => {
   describe('When handling independent monorepo mode', () => {
     it('Then calculates version independently for each package', async () => {
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       setupMockCommits('default', [
         createMockCommit('feat', 'feature for pkg-a'),
@@ -298,14 +289,13 @@ describe('Given getPackages function', () => {
       ])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       await getPackages({
         config,
@@ -326,14 +316,13 @@ describe('Given getPackages function', () => {
       ])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'selective',
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'selective',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -350,14 +339,13 @@ describe('Given getPackages function', () => {
       setupMockCommits('default', [])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'patch' },
-        versionMode: 'selective',
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'selective',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -382,14 +370,13 @@ describe('Given getPackages function', () => {
       }, mockCwd)
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,
@@ -407,15 +394,14 @@ describe('Given getPackages function', () => {
       ])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          ignorePackageNames: ['pkg-a'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-        ignorePackageNames: ['pkg-a'],
-      }
 
       const packages = await getPackages({
         config,
@@ -433,14 +419,13 @@ describe('Given getPackages function', () => {
       setupMockCommits('default', [])
 
       const config = createMockConfig({
+        cwd: mockCwd,
         bump: { type: 'release' },
-        versionMode: 'independent',
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
-      config.cwd = mockCwd
-      config.monorepo = {
-        versionMode: 'independent',
-        packages: ['packages/*'],
-      }
 
       const packages = await getPackages({
         config,

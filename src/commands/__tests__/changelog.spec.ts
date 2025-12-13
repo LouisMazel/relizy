@@ -1,10 +1,7 @@
-import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../../core'
 import { changelog } from '../changelog'
-
-logger.setLevel('silent')
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')

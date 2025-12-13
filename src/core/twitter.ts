@@ -9,10 +9,6 @@ export interface ResolvedTwitterCredentials {
   accessTokenSecret: string
 }
 
-/**
- * Get Twitter credentials from config
- * Priority: social.twitter.credentials > config.tokens.twitter > environment variables (handled in config.ts)
- */
 export function getTwitterCredentials(options: {
   socialCredentials?: TwitterCredentials
   tokenCredentials?: TwitterCredentials
@@ -33,6 +29,14 @@ export function getTwitterCredentials(options: {
     || tokenCredentials?.accessTokenSecret
 
   if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
+    logger.warn('Twitter is enabled but credentials are missing.')
+    logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
+    logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
+    logger.log('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
+    logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
+    logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
+
+    logger.info('Skipping Twitter post')
     return null
   }
 
@@ -44,9 +48,6 @@ export function getTwitterCredentials(options: {
   }
 }
 
-/**
- * Format the tweet message using the template
- */
 export function formatTweetMessage(options: {
   template: string
   projectName: string
@@ -57,54 +58,54 @@ export function formatTweetMessage(options: {
 }): string {
   const { template, projectName, version, changelog, releaseUrl, changelogUrl } = options
 
-  // Truncate changelog to fit Twitter's character limit (280 chars)
-  // Reserve space for template text, project name, version, and URLs
-  const reservedChars = projectName.length + version.length + (releaseUrl?.length || 0) + (changelogUrl?.length || 0) + 30
+  const TWITTER_MAX_LENGTH = 280
+  const ELLIPSIS = '...'
 
-  const maxChangelogLength = 280 - reservedChars
-
-  let truncatedChangelog = changelog
-  if (changelog.length > maxChangelogLength) {
-    truncatedChangelog = `${changelog.substring(0, maxChangelogLength - 3)}...`
-  }
-
-  console.log('Reserved chars:', reservedChars)
-  console.log('Max changelog length:', maxChangelogLength)
-  console.log('truncatedChangelog:', truncatedChangelog)
-
-  let message = template
+  // Step 1: Build template with all placeholders replaced except changelog
+  let templateWithValues = template
     .replace('{{projectName}}', projectName)
     .replace('{{version}}', version)
-    .replace('{{changelog}}', truncatedChangelog)
 
   if (releaseUrl) {
-    message = message.replace('{{releaseUrl}}', releaseUrl)
+    templateWithValues = templateWithValues.replace('{{releaseUrl}}', releaseUrl)
   }
   else {
     // Remove the releaseUrl placeholder if no URL is provided
-    message = message.replace('{{releaseUrl}}', '').trim()
+    templateWithValues = templateWithValues.replace('{{releaseUrl}}', '')
   }
 
   if (changelogUrl) {
-    message = message.replace('{{changelogUrl}}', changelogUrl)
+    templateWithValues = templateWithValues.replace('{{changelogUrl}}', changelogUrl)
   }
   else {
     // Remove the changelogUrl placeholder if no URL is provided
-    message = message.replace('{{changelogUrl}}', '').trim()
+    templateWithValues = templateWithValues.replace('{{changelogUrl}}', '')
   }
 
-  // Ensure the final message doesn't exceed Twitter's limit
-  if (message.length > 280) {
-    message = `${message.substring(0, 277)}...`
+  // Step 2: Calculate how much space is available for the changelog
+  const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
+  const availableForChangelog = TWITTER_MAX_LENGTH - templateWithoutChangelog.length
+
+  // Step 3: Truncate changelog if needed
+  let finalChangelog = changelog
+  if (changelog.length > availableForChangelog) {
+    const maxLength = Math.max(0, availableForChangelog - ELLIPSIS.length)
+    finalChangelog = changelog.substring(0, maxLength) + ELLIPSIS
+  }
+
+  // Step 4: Build final message
+  let message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
+
+  // Step 5: Safety check - if message still exceeds limit, truncate entire message
+  // This should only happen if the template + URLs alone are > 280 chars
+  if (message.length > TWITTER_MAX_LENGTH) {
+    message = message.substring(0, TWITTER_MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
   }
 
   return message
 }
 
-/**
- * Post a release announcement to Twitter
- */
-export async function postReleaseToTwitter(options: TwitterOptions): Promise<void> {
+export async function postReleaseToTwitter(options: TwitterOptions) {
   const { release, projectName, changelog, releaseUrl, changelogUrl, credentials, twitterMessage, dryRun = false } = options
 
   logger.debug('[social:twitter] Preparing Twitter post...')
@@ -144,6 +145,8 @@ export async function postReleaseToTwitter(options: TwitterOptions): Promise<voi
 
     logger.success(`Tweet posted successfully! Tweet ID: ${tweet.data.id}`)
     logger.info(`Tweet URL: https://twitter.com/i/web/status/${tweet.data.id}`)
+
+    return tweet
   }
   catch (error: any) {
     // Check if it's a missing dependency error

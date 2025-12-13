@@ -1,8 +1,5 @@
-import { logger } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { resolveTags } from '../tags'
-
-logger.setLevel('silent')
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
@@ -14,31 +11,6 @@ vi.mock('../git', async (importActual) => {
     ...actual,
     getCurrentGitRef: vi.fn(() => TEST_BRANCH),
     getFirstCommit: vi.fn(() => FIRST_COMMIT_HASH),
-  }
-})
-
-vi.mock('@maz-ui/node', async (importActual) => {
-  const actual = await importActual<typeof import('@maz-ui/node')>()
-
-  return {
-    ...actual,
-    execPromise: vi.fn((param) => {
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
-        return Promise.resolve({
-          stdout: 'LAST_STABLE_TAG',
-        })
-      }
-
-      if (param === `git tag --sort=-creatordate | head -n 1`) {
-        return Promise.resolve({
-          stdout: 'LAST_TAG',
-        })
-      }
-
-      return Promise.resolve({
-        stdout: '',
-      })
-    }),
   }
 })
 

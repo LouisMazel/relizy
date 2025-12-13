@@ -4,6 +4,8 @@ import { logger } from '@maz-ui/node'
 import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
 
 export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
+  logger.start('Start checking provider release config')
+
   if (!config.safetyCheck || !config.release.providerRelease) {
     return
   }
@@ -14,7 +16,6 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
   if (internalProvider === 'bitbucket') {
     logger.warn('[provider-release-safety-check] Bitbucket does not support releases via API')
     logger.info('Relizy will skip the release creation step for Bitbucket')
-    logger.info('You can still use Relizy for versioning, changelog, publishing, and social media posting')
     return
   }
 
@@ -35,6 +36,8 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
     logger.error(`[provider-release-safety-check] No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
     process.exit(1)
   }
+
+  logger.success('provider release config checked successfully')
 }
 
 export async function providerRelease(

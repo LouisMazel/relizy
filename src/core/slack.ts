@@ -168,7 +168,7 @@ export function formatSlackMessage(options: {
 /**
  * Post a release announcement to Slack
  */
-export async function postReleaseToSlack(options: SlackOptions): Promise<void> {
+export async function postReleaseToSlack(options: SlackOptions) {
   const {
     release,
     projectName,
@@ -212,6 +212,8 @@ export async function postReleaseToSlack(options: SlackOptions): Promise<void> {
     })
 
     logger.success(`[social:slack] Message posted successfully! Channel: ${result.channel}, Timestamp: ${result.ts}`)
+
+    return result
   }
   catch (error: any) {
     // Check if it's a missing dependency error

@@ -1,10 +1,7 @@
-import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
 import { providerRelease } from '../provider-release'
-
-logger.setLevel('silent')
 
 vi.mock('../../core/config', async () => {
   const actual = await vi.importActual('../../core/config')

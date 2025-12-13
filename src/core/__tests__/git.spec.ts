@@ -21,18 +21,9 @@ import {
 } from '../git'
 import { executeHook } from '../utils'
 
-logger.setLevel('silent')
-
 vi.mock('node:child_process')
 vi.mock('node:fs')
 vi.mock('node:path')
-vi.mock('@maz-ui/node', async () => {
-  const actual = await vi.importActual('@maz-ui/node')
-  return {
-    ...actual,
-    execPromise: vi.fn(),
-  }
-})
 
 vi.mock('../config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../config')>()
@@ -422,7 +413,7 @@ describe('Given parseGitRemoteUrl function', () => {
     it('Then handles nested paths', () => {
       const result = parseGitRemoteUrl('https://gitlab.walkingnerds.dev/twn/packages/eslint-config.git')
 
-      expect(result).toEqual({ owner: 'parent', repo: 'child/project' })
+      expect(result).toEqual({ owner: 'twn/packages', repo: 'eslint-config' })
     })
 
     it('Then handles custom domains', () => {

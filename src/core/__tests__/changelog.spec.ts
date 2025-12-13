@@ -9,8 +9,6 @@ import { generateChangelog, writeChangelogToFile } from '../changelog'
 import { generateMarkDown } from '../markdown'
 import { executeHook } from '../utils'
 
-logger.setLevel('silent')
-
 vi.mock('node:fs')
 vi.mock('node:path', async () => {
   const actual = await vi.importActual('node:path')
@@ -18,12 +16,6 @@ vi.mock('node:path', async () => {
     ...actual,
     join: vi.fn((...args) => args.join('/')),
     relative: vi.fn((from, to) => to),
-  }
-})
-vi.mock('@maz-ui/node', async () => {
-  const actual = await vi.importActual('@maz-ui/node')
-  return {
-    ...actual,
   }
 })
 vi.mock('../markdown')

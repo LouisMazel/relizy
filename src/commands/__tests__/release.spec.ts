@@ -1,10 +1,13 @@
-import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import * as core from '../../core'
-import { release } from '../release'
+import { checkGitStatusIfDirty, executeHook, fetchGitTags, loadRelizyConfig } from '../../core'
+import { bump } from '../bump'
 
-logger.setLevel('silent')
+import { changelog } from '../changelog'
+import { providerRelease } from '../provider-release'
+import { publish } from '../publish'
+import { release } from '../release'
+import { social } from '../social'
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')
@@ -14,6 +17,9 @@ vi.mock('../../core', async () => {
     executeHook: vi.fn(),
     checkGitStatusIfDirty: vi.fn(),
     fetchGitTags: vi.fn(),
+    pushCommitAndTags: vi.fn(),
+    readPackageJson: vi.fn(),
+    createCommitAndTags: vi.fn(),
   }
 })
 vi.mock('../bump', () => ({
@@ -35,12 +41,6 @@ vi.mock('../social', () => ({
   socialSafetyCheck: vi.fn(),
 }))
 
-const { bump } = await import('../bump')
-const { changelog: changelogCmd } = await import('../changelog')
-const { publish: publishCmd } = await import('../publish')
-const { providerRelease: providerReleaseCmd } = await import('../provider-release')
-const { social: socialCmd } = await import('../social')
-
 describe('Given release command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -56,51 +56,47 @@ describe('Given release command', () => {
       noVerify: false,
       gitTag: true,
     }
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.checkGitStatusIfDirty).mockReturnValue(undefined)
-    vi.mocked(core.fetchGitTags).mockResolvedValue(undefined)
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(checkGitStatusIfDirty).mockReturnValue(undefined)
+    vi.mocked(fetchGitTags).mockResolvedValue(undefined)
     vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [] } as any)
-    vi.mocked(changelogCmd).mockResolvedValue(undefined)
-    vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(socialCmd).mockResolvedValue(undefined)
+    vi.mocked(changelog).mockResolvedValue(undefined)
+    vi.mocked(publish).mockResolvedValue(undefined)
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
+    vi.mocked(social).mockResolvedValue(undefined)
   })
 
   describe('When running full release workflow', () => {
     it('Then loads config and executes hooks', async () => {
       await release({})
 
-      expect(core.loadRelizyConfig).toHaveBeenCalled()
-      expect(core.executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), false)
-    })
-
-    it('Then checks git status when clean is enabled', async () => {
-      await release({})
-
-      expect(core.checkGitStatusIfDirty).toHaveBeenCalled()
-    })
-
-    it('Then fetches git tags', async () => {
-      await release({})
-
-      expect(core.fetchGitTags).toHaveBeenCalled()
+      expect(loadRelizyConfig).toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), false)
     })
 
     it('Then runs all release steps in order', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).toHaveBeenCalled()
-      expect(publishCmd).toHaveBeenCalled()
-      expect(providerReleaseCmd).toHaveBeenCalled()
-      expect(socialCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
+      expect(publish).toHaveBeenCalled()
+      expect(providerRelease).toHaveBeenCalled()
+      expect(social).toHaveBeenCalled()
     })
 
     it('Then executes success hook', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
       await release({})
 
-      expect(core.executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenNthCalledWith(
+        4,
+        'success:release',
+        expect.any(Object),
+        false,
+      )
     })
   })
 
@@ -118,11 +114,11 @@ describe('Given release command', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(changelogCmd).not.toHaveBeenCalled()
+      expect(changelog).not.toHaveBeenCalled()
     })
 
     it('Then skips publish when disabled', async () => {
@@ -138,11 +134,11 @@ describe('Given release command', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(publishCmd).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
     })
 
     it('Then skips provider release when disabled', async () => {
@@ -158,11 +154,11 @@ describe('Given release command', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(providerReleaseCmd).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
     })
 
     it('Then skips social when disabled', async () => {
@@ -178,11 +174,11 @@ describe('Given release command', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(socialCmd).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
     })
 
     it('Then skips git status check when clean is disabled', async () => {
@@ -198,30 +194,32 @@ describe('Given release command', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(core.checkGitStatusIfDirty).not.toHaveBeenCalled()
+      expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
     })
   })
 
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to all steps', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
       await release({ dryRun: true })
 
       expect(bump).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(changelogCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(publishCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(providerReleaseCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(socialCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(changelog).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(publish).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(providerRelease).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(social).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
     })
 
     it('Then passes dryRun to hooks', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
       await release({ dryRun: true })
 
-      expect(core.executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
-      expect(core.executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
     })
   })
 
@@ -231,17 +229,18 @@ describe('Given release command', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
     })
 
     it('Then stops execution on error', async () => {
-      vi.mocked(changelogCmd).mockRejectedValue(new Error('Changelog failed'))
+      vi.mocked(bump).mockResolvedValue({ newVersion: '2.0.0', bumpedPackages: [], bumped: true })
+      vi.mocked(changelog).mockRejectedValue(new Error('Changelog failed'))
 
       await expect(release({})).rejects.toThrow('Changelog failed')
 
-      expect(publishCmd).not.toHaveBeenCalled()
-      expect(providerReleaseCmd).not.toHaveBeenCalled()
-      expect(socialCmd).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
     })
   })
 
@@ -249,21 +248,21 @@ describe('Given release command', () => {
     it('Then passes options to bump', async () => {
       await release({ type: 'major' })
 
-      expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ type: 'major' }),
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({ overrides: expect.objectContaining({ bump: expect.objectContaining({ type: 'major' }) }) }),
       )
     })
 
     it('Then passes bumpResult to subsequent steps', async () => {
-      const bumpResult = { newVersion: '2.0.0', bumpedPackages: [] }
-      vi.mocked(bump).mockResolvedValue(bumpResult as any)
+      const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
+      vi.mocked(bump).mockResolvedValue(bumpResult)
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({ bumpResult }),
       )
-      expect(providerReleaseCmd).toHaveBeenCalledWith(
+      expect(providerRelease).toHaveBeenCalledWith(
         expect.objectContaining({ bumpResult }),
       )
     })

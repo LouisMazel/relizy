@@ -188,6 +188,7 @@ export async function executeBuildCmd({
     logger.info('Running build command')
 
     logger.debug(`Running build command: ${config.publish.buildCmd}`)
+
     if (!dryRun) {
       await execPromise(config.publish.buildCmd, {
         noStderr: true,
