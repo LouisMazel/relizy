@@ -14,7 +14,18 @@ export default defineConfig({
       include: ['src/**/*'],
       exclude: [
         ...coverageConfigDefaults.exclude,
+        'src/cli.ts',
+        '**/*/index.ts',
+        'src/types.ts',
+        'src/commands/__tests__/*',
       ],
+      thresholds: {
+        autoUpdate: true,
+        statements: 82.68,
+        functions: 84.89,
+        branches: 77.01,
+        lines: 82.71,
+      },
     },
     exclude: defaultExclude,
   },

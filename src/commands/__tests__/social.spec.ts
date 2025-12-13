@@ -54,12 +54,13 @@ describe('Given socialSafetyCheck function', () => {
 
   describe('When Slack is enabled without token', () => {
     it('Then exits with error', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.social = {
-        twitter: { enabled: false, onlyStable: true },
-        slack: { enabled: true, onlyStable: true },
-      }
-      config.tokens = { gitlab: undefined, github: undefined, twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined }, slack: undefined }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true },
+        },
+      })
       vi.mocked(getSlackToken).mockReturnValue(null)
 
       expect(() => socialSafetyCheck({ config })).toThrowError()
@@ -68,22 +69,21 @@ describe('Given socialSafetyCheck function', () => {
 
   describe('When credentials are provided', () => {
     it('Then does not log warning', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.social = {
-        twitter: { enabled: true, onlyStable: true },
-        slack: { enabled: false, onlyStable: true },
-      }
-      config.tokens = {
-        gitlab: undefined,
-        github: undefined,
-        twitter: {
-          apiKey: 'key',
-          apiSecret: 'secret',
-          accessToken: 'token',
-          accessTokenSecret: 'token-secret',
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
         },
-        slack: undefined,
-      }
+        tokens: {
+          twitter: {
+            apiKey: 'key',
+            apiSecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'token-secret',
+          },
+        },
+      })
       vi.mocked(getTwitterCredentials).mockReturnValue({
         apiKey: 'key',
         apiSecret: 'secret',
@@ -175,22 +175,19 @@ describe('Given social command', () => {
     })
 
     it('Then posts to Twitter', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.social = {
-        twitter: { enabled: true, onlyStable: true },
-        slack: { enabled: false, onlyStable: true },
-      }
-      config.tokens = {
-        gitlab: undefined,
-        github: undefined,
-        twitter: {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: { github: 'test-token', twitter: {
           apiKey: 'key',
           apiSecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'secret',
+        } },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
         },
-        slack: undefined,
-      }
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await social({

@@ -328,5 +328,8 @@ export default defineConfig({
         ],
       },
     },
+    ssr: {
+      noExternal: ['maz-ui'],
+    },
   },
 })
