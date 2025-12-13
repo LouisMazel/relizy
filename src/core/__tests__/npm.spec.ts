@@ -19,8 +19,6 @@ import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
 import { isPrerelease } from '../version'
 
-logger.setLevel('silent')
-
 vi.mock('node:fs')
 vi.mock('node:path', async () => {
   const actual = await vi.importActual('node:path')
@@ -35,13 +33,6 @@ vi.mock('node:path', async () => {
 })
 // Remove the node:process mock - we'll spy on globalThis.process directly
 vi.mock('@inquirer/prompts')
-vi.mock('@maz-ui/node', async () => {
-  const actual = await vi.importActual('@maz-ui/node')
-  return {
-    ...actual,
-    execPromise: vi.fn(),
-  }
-})
 vi.mock('../utils', async () => {
   const actual = await vi.importActual('../utils')
   return {
@@ -683,42 +674,146 @@ describe('Given publishPackage function', () => {
     })
 
     it('Then logs publish start and completion', async () => {
-      const loggerSpy = vi.spyOn(logger, 'info')
+      const loggerInfoSpy = vi.spyOn(logger, 'info')
+      const loggerDebugSpy = vi.spyOn(logger, 'debug')
 
       await publishPackage({
         pkg,
         config,
-        packageManager: 'npm',
+        packageManager: 'yarn',
         dryRun: false,
       })
 
-      expect(loggerSpy).toHaveBeenCalledWith(
+      expect(loggerInfoSpy).toHaveBeenNthCalledWith(
+        1,
         expect.stringContaining('Publishing test-package@1.0.1'),
       )
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Published test-package@1.0.1'),
+      expect(loggerDebugSpy).toHaveBeenNthCalledWith(
+        2,
+        'Publish stdout:',
+        '',
+      )
+      expect(loggerDebugSpy).toHaveBeenNthCalledWith(
+        3,
+        'Publish stderr:',
+        '',
       )
     })
   })
 
   describe('When running in dry-run mode', () => {
-    it('Then logs dry-run messages', async () => {
-      const loggerSpy = vi.spyOn(logger, 'info')
+    describe('And using yarn', () => {
+      it('Then logs dry-run messages', async () => {
+        const loggerSpy = vi.spyOn(logger, 'info')
 
+        await publishPackage({
+          pkg,
+          config,
+          packageManager: 'yarn',
+          dryRun: true,
+        })
+
+        expect(loggerSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[dry-run]'),
+        )
+        expect(execPromise).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('And using npm', () => {
+      it('Then logs dry-run messages', async () => {
+        const loggerSpy = vi.spyOn(logger, 'info')
+
+        await publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: true,
+        })
+
+        expect(loggerSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[dry-run]'),
+        )
+        expect(execPromise).toHaveBeenCalledWith(
+          'npm publish --tag latest --yes --dry-run',
+          expect.anything(),
+        )
+      })
+    })
+
+    describe('And using pnpm', () => {
+      it('Then logs dry-run messages', async () => {
+        const loggerSpy = vi.spyOn(logger, 'info')
+
+        await publishPackage({
+          pkg,
+          config,
+          packageManager: 'pnpm',
+          dryRun: true,
+        })
+
+        expect(loggerSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[dry-run]'),
+        )
+        expect(execPromise).toHaveBeenCalledWith(
+          'pnpm publish --tag latest --no-git-checks --dry-run',
+          expect.anything(),
+        )
+      })
+    })
+
+    describe('And using bun', () => {
+      it('Then logs dry-run messages', async () => {
+        const loggerSpy = vi.spyOn(logger, 'info')
+
+        await publishPackage({
+          pkg,
+          config,
+          packageManager: 'bun',
+          dryRun: true,
+        })
+
+        expect(loggerSpy).toHaveBeenCalledWith(
+          expect.stringContaining('[dry-run]'),
+        )
+        expect(execPromise).not.toHaveBeenCalled()
+      })
+    })
+
+    it('Then does not execute publish command when using yarn', async () => {
       await publishPackage({
         pkg,
         config,
-        packageManager: 'npm',
+        packageManager: 'yarn',
         dryRun: true,
       })
 
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[dry-run]'),
-      )
       expect(execPromise).not.toHaveBeenCalled()
     })
 
-    it('Then does not execute publish command', async () => {
+    it('Then does not execute publish command when using bun', async () => {
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: true,
+      })
+
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+
+    it('Then does not execute publish command when using pnpm', async () => {
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--dry-run'), expect.any(Object))
+    })
+
+    it('Then does not execute publish command when using npm', async () => {
       await publishPackage({
         pkg,
         config,
@@ -726,7 +821,7 @@ describe('Given publishPackage function', () => {
         dryRun: true,
       })
 
-      expect(execPromise).not.toHaveBeenCalled()
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--dry-run'), expect.any(Object))
     })
   })
 

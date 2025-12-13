@@ -2,15 +2,6 @@ import { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { formatChangelogForSlack, formatSlackMessage, getSlackToken, postReleaseToSlack } from '../slack'
 
-vi.mock('@maz-ui/node', () => ({
-  logger: {
-    debug: vi.fn(),
-    info: vi.fn(),
-    error: vi.fn(),
-    success: vi.fn(),
-  },
-}))
-
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string) => changelog.substring(0, 500)),
 }))
