@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -10,7 +11,10 @@ vi.mock('../repo', () => ({
   ]),
 }))
 
-logger.setLevel = vi.fn()
+vi.mock('node:process', async importActual => ({
+  ...(await importActual()),
+  env: {},
+}))
 
 describe('Given executeHook function', () => {
   beforeEach(() => {
@@ -110,8 +114,43 @@ describe('Given executeHook function', () => {
 describe('Given isInCI function', () => {
   const originalEnv = process.env
 
+  // List of all CI-related environment variables that need to be cleared
+  const ciEnvVars = [
+    'CI',
+    'CONTINUOUS_INTEGRATION',
+    'GITHUB_ACTIONS',
+    'GITHUB_WORKFLOW',
+    'GITLAB_CI',
+    'CIRCLECI',
+    'TRAVIS',
+    'JENKINS_HOME',
+    'JENKINS_URL',
+    'BUILD_ID',
+    'TF_BUILD',
+    'AZURE_PIPELINES',
+    'TEAMCITY_VERSION',
+    'BITBUCKET_BUILD_NUMBER',
+    'DRONE',
+    'APPVEYOR',
+    'BUILDKITE',
+    'CODEBUILD_BUILD_ID',
+    'NETLIFY',
+    'VERCEL',
+    'HEROKU_TEST_RUN_ID',
+    'BUDDY',
+    'SEMAPHORE',
+    'CF_BUILD_ID',
+    'bamboo_buildKey',
+    'PROJECT_ID',
+    'SCREWDRIVER',
+    'STRIDER',
+  ]
+
   beforeEach(() => {
-    process.env = { ...originalEnv }
+    // Clear all CI-related environment variables
+    ciEnvVars.forEach((key) => {
+      delete process.env[key]
+    })
   })
 
   afterEach(() => {
@@ -322,11 +361,42 @@ describe('Given isInCI function', () => {
 describe('Given getCIName function', () => {
   const originalEnv = process.env
 
+  // List of all CI-related environment variables that need to be cleared
+  const ciEnvVars = [
+    'CI',
+    'CONTINUOUS_INTEGRATION',
+    'GITHUB_ACTIONS',
+    'GITHUB_WORKFLOW',
+    'GITLAB_CI',
+    'CIRCLECI',
+    'TRAVIS',
+    'JENKINS_HOME',
+    'JENKINS_URL',
+    'BUILD_ID',
+    'TF_BUILD',
+    'AZURE_PIPELINES',
+    'TEAMCITY_VERSION',
+    'BITBUCKET_BUILD_NUMBER',
+    'DRONE',
+    'APPVEYOR',
+    'BUILDKITE',
+    'CODEBUILD_BUILD_ID',
+    'NETLIFY',
+    'VERCEL',
+    'HEROKU_TEST_RUN_ID',
+    'BUDDY',
+    'SEMAPHORE',
+    'CF_BUILD_ID',
+    'bamboo_buildKey',
+    'PROJECT_ID',
+    'SCREWDRIVER',
+    'STRIDER',
+  ]
+
   beforeEach(() => {
-    process.env = { ...originalEnv }
-    Object.keys(process.env).forEach((key) => {
-      if (key.includes('CI') || key.includes('BUILD'))
-        delete process.env[key]
+    // Clear all CI-related environment variables
+    ciEnvVars.forEach((key) => {
+      delete process.env[key]
     })
   })
 
@@ -560,8 +630,7 @@ describe('Given executeBuildCmd function', () => {
   describe('When buildCmd is configured', () => {
     it('Then executes build command successfully', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false }
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: false })
 
@@ -577,8 +646,7 @@ describe('Given executeBuildCmd function', () => {
     })
 
     it('Then skips execution in dry run mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { buildCmd: 'pnpm build', private: false, args: [], safetyCheck: false }
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'pnpm build', private: false, args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: true })
 
@@ -588,8 +656,7 @@ describe('Given executeBuildCmd function', () => {
 
     it('Then throws error when build command fails', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('Build failed'))
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false }
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false } })
 
       await expect(executeBuildCmd({ config, dryRun: false })).rejects.toThrow()
     })
@@ -597,8 +664,7 @@ describe('Given executeBuildCmd function', () => {
 
   describe('When buildCmd is not configured', () => {
     it('Then logs debug message and returns', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { buildCmd: '', private: false, args: [], safetyCheck: false }
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: '', private: false, args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: false })
 
