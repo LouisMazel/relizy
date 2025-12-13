@@ -1,8 +1,5 @@
-import { logger } from '@maz-ui/node'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { determineReleaseType, getPackageNewVersion } from '../version'
-
-logger.setLevel('error')
 
 describe('Given getPackageNewVersion function', () => {
   describe('When bumping with stable release types', () => {

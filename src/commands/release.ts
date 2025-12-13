@@ -1,12 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson } from '../core'
-import { executeHook } from '../core/utils'
+import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson } from '../core'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
+import { social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
@@ -46,6 +46,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         providerRelease: options.providerRelease,
         clean: options.clean,
         gitTag: options.gitTag,
+        social: options.social,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -63,9 +64,13 @@ async function releaseSafetyCheck({
     return
   }
 
-  providerReleaseSafetyCheck({ config, provider })
+  const checks = [
+    providerReleaseSafetyCheck({ config, provider }),
+    publishSafetyCheck({ config }),
+    config.release.social ? socialSafetyCheck({ config }) : undefined,
+  ].filter(Boolean)
 
-  await publishSafetyCheck({ config })
+  await Promise.all(checks)
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -179,6 +184,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         configName: options.configName,
         suffix: options.suffix,
         force,
+        safetyCheck: false,
       })
     }
     else {
@@ -188,7 +194,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     let provider = config.repo?.provider
     let postedReleases: PostedRelease[] = []
 
-    logger.box('Step 6/6: Publish Git release')
+    logger.box('Step 6/7: Publish Git release')
+
     if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
 
@@ -205,6 +212,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           configName: options.configName,
           force,
           suffix: options.suffix,
+          safetyCheck: false,
         })
         provider = response.detectedProvider
         postedReleases = response.postedReleases
@@ -217,6 +225,30 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping release (--no-provider-release)')
     }
 
+    logger.box('Step 7/7: Post release to social media')
+    if (config.release.social) {
+      try {
+        await social({
+          from: config.from,
+          to: config.to,
+          config,
+          configName: options.configName,
+          bumpResult,
+          postedReleases,
+          dryRun,
+          logLevel: config.logLevel,
+          safetyCheck: false, // Already checked in releaseSafetyCheck
+        })
+      }
+      catch (error) {
+        logger.error('Error during social media posting:', error)
+        // Don't throw - social media posting failure shouldn't fail the release
+      }
+    }
+    else {
+      logger.info('Skipping social media posts (--no-social)')
+    }
+
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
@@ -224,10 +256,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     logger.box('Release workflow completed!\n\n'
       + `Version: ${versionDisplay ?? 'Unknown'}\n`
-      + `Tag(s): ${createdTags.length ? createdTags.join(', ') : 'No'}\n`
+      + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
+      + `Social media: ${config.release.social ? 'Yes' : 'Disabled'}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)

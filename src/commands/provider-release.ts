@@ -1,15 +1,23 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, ProviderReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectGitProvider, github, gitlab, loadRelizyConfig } from '../core'
-import { executeHook } from '../core/utils'
+import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
 
 export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
+  logger.start('Start checking provider release config')
+
   if (!config.safetyCheck || !config.release.providerRelease) {
     return
   }
 
   const internalProvider = provider || config.repo?.provider || detectGitProvider()
+
+  // Bitbucket doesn't support releases via API
+  if (internalProvider === 'bitbucket') {
+    logger.warn('[provider-release-safety-check] Bitbucket does not support releases via API')
+    logger.info('Relizy will skip the release creation step for Bitbucket')
+    return
+  }
 
   let token: string | undefined
 
@@ -28,6 +36,8 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
     logger.error(`[provider-release-safety-check] No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
     process.exit(1)
   }
+
+  logger.success('provider release config checked successfully')
 }
 
 export async function providerRelease(
@@ -72,6 +82,20 @@ export async function providerRelease(
     }
 
     let postedReleases: PostedRelease[] = []
+
+    // Skip Bitbucket as it doesn't support releases
+    if (detectedProvider === 'bitbucket') {
+      logger.warn('⚠️  Bitbucket does not support releases via API')
+      logger.info('Skipping release creation for Bitbucket')
+      logger.info('Git tags will still be created during the commit step')
+
+      await executeHook('success:provider-release', config, dryRun)
+
+      return {
+        detectedProvider,
+        postedReleases: [],
+      }
+    }
 
     const payload = {
       from: config.from || options.bumpResult?.fromTag,

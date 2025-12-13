@@ -154,7 +154,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
 
   const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
 
-  const publishToken = config.publish.token
+  const publishToken = config.publish.token || config.tokens.registry
   if (publishToken) {
     if (!registry) {
       logger.warn('Publish token provided but no registry specified')

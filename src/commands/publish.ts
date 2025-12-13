@@ -5,6 +5,8 @@ import { detectPackageManager, executeBuildCmd, getAuthCommand, getIndependentTa
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 
 export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+  logger.start('Start checking auth config to package registry')
+
   logger.debug('[publish-safety-check] Running publish safety check')
 
   if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
@@ -38,6 +40,7 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
         noSuccess: true,
       })
       logger.info('[publish-safety-check] Successfully authenticated to package registry')
+      logger.success('Successfully authenticated to package registry')
     }
     catch (error) {
       logger.error('[publish-safety-check] Failed to authenticate to package registry:', error)

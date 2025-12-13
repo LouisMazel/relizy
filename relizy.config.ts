@@ -28,7 +28,14 @@ export default defineConfig({
     registry: 'https://registry.npmjs.org',
     buildCmd: process.env.CI ? undefined : 'pnpm build',
     access: 'public',
-    token: process.env.RELIZY_NPM_TOKEN,
-    packageManager: 'npm',
+    packageManager: 'pnpm',
+    safetyCheck: true,
+  },
+
+  social: {
+    changelogUrl: 'https://github.com/LouisMazel/relizy/releases',
+    twitter: {
+      enabled: true,
+    },
   },
 })

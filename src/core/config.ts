@@ -32,6 +32,8 @@ export function getDefaultConfig() {
       tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
+      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}',
+      slackMessage: undefined, // Use rich blocks format by default (no template)
     },
     excludeAuthors: [],
     noAuthors: false,
@@ -49,8 +51,10 @@ export function getDefaultConfig() {
       private: false,
       args: [],
       safetyCheck: false,
+      token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
     },
     tokens: {
+      registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       gitlab:
         process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN
@@ -60,6 +64,23 @@ export function getDefaultConfig() {
         process.env.RELIZY_GITHUB_TOKEN
         || process.env.GITHUB_TOKEN
         || process.env.GH_TOKEN,
+      twitter: {
+        apiKey:
+          process.env.RELIZY_TWITTER_API_KEY
+          || process.env.TWITTER_API_KEY,
+        apiSecret:
+          process.env.RELIZY_TWITTER_API_SECRET
+          || process.env.TWITTER_API_SECRET,
+        accessToken:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN
+          || process.env.TWITTER_ACCESS_TOKEN,
+        accessTokenSecret:
+          process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+          || process.env.TWITTER_ACCESS_TOKEN_SECRET,
+      },
+      slack:
+        process.env.RELIZY_SLACK_TOKEN
+        || process.env.SLACK_TOKEN,
     },
     scopeMap: {},
     release: {
@@ -71,7 +92,18 @@ export function getDefaultConfig() {
       providerRelease: true,
       noVerify: false,
       gitTag: true,
+      social: false,
     } as Required<ReleaseConfig>,
+    social: {
+      twitter: {
+        enabled: false,
+        onlyStable: true,
+      },
+      slack: {
+        enabled: false,
+        onlyStable: true,
+      },
+    },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }
