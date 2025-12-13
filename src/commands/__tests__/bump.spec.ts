@@ -1,12 +1,10 @@
+import type { ResolvedRelizyConfig } from '../../core'
 import { exit } from 'node:process'
-import { logger } from '@maz-ui/node'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
-import * as core from '../../core'
+import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
-
-logger.setLevel('silent')
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -91,9 +89,6 @@ vi.mock('../../core', () => ({
   resolveTags: vi.fn(() => ({ from: 'v1.0.0', to: 'HEAD' })),
   updateLernaVersion: vi.fn(),
   writeVersion: vi.fn(),
-}))
-
-vi.mock('../../core/utils', () => ({
   executeHook: vi.fn(() => {}),
 }))
 
@@ -129,15 +124,15 @@ describe('Given bump command', () => {
 
   describe('When running in unified mode', () => {
     it('Then successfully updates all package versions to same version', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'minor',
-          yes: true,
-          clean: false,
+          yes: false,
+          clean: true,
           dependencyTypes: ['dependencies'],
         },
-        release: { clean: false },
+        release: { clean: true },
         monorepo: {
           versionMode: 'unified',
           packages: ['packages/*'],
@@ -153,9 +148,9 @@ describe('Given bump command', () => {
           emptyChangelogContent: 'No changes',
         },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         private: false,
         version: '1.0.0',
@@ -165,7 +160,7 @@ describe('Given bump command', () => {
         commits: [createMockCommit('feat', 'add feature')],
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -195,16 +190,40 @@ describe('Given bump command', () => {
         yes: true,
       })
 
+      expect(readPackageJson).toHaveBeenCalledWith(mockCwd)
+      expect(resolveTags).toHaveBeenCalledWith(expect.any(Object))
+      expect(executeHook).toHaveBeenNthCalledWith(
+        1,
+        'before:bump',
+        expect.any(Object),
+        false,
+      )
+      expect(executeHook).toHaveBeenNthCalledWith(
+        2,
+        'success:bump',
+        expect.any(Object),
+        false,
+      )
+      expect(checkGitStatusIfDirty).toHaveBeenCalledWith()
+      expect(fetchGitTags).toHaveBeenCalledWith(mockCwd)
+      expect(readPackages).toHaveBeenCalledWith({
+        cwd: mockCwd,
+        ignorePackageNames: undefined,
+        patterns: ['packages/*'],
+      })
+      expect(confirmBump).toHaveBeenCalledWith(
+        expect.any(Object),
+      )
       expect(result.bumped).toBe(true)
       if (result.bumped) {
         expect(result.newVersion).toBe('1.1.0')
         expect(result.oldVersion).toBe('1.0.0')
       }
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalled()
+      expect(vi.mocked(writeVersion)).toHaveBeenCalled()
     })
 
     it('Then writes correct versions to package.json files', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'patch',
@@ -218,9 +237,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.0.1',
@@ -230,7 +249,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -248,8 +267,8 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalledWith(mockCwd, '1.0.1', false)
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalledWith(
+      expect(vi.mocked(writeVersion)).toHaveBeenCalledWith(mockCwd, '1.0.1', false)
+      expect(vi.mocked(writeVersion)).toHaveBeenCalledWith(
         `${mockCwd}/packages/pkg-a`,
         '1.0.1',
         false,
@@ -257,7 +276,7 @@ describe('Given bump command', () => {
     })
 
     it('Then updates lerna.json in unified mode', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'minor',
@@ -271,9 +290,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.1.0',
@@ -283,7 +302,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -301,7 +320,7 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(core.updateLernaVersion)).toHaveBeenCalledWith({
+      expect(vi.mocked(updateLernaVersion)).toHaveBeenCalledWith({
         rootDir: mockCwd,
         versionMode: 'unified',
         version: '1.1.0',
@@ -312,7 +331,7 @@ describe('Given bump command', () => {
 
   describe('When running in independent mode', () => {
     it('Then updates each package with its own version', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -329,9 +348,9 @@ describe('Given bump command', () => {
         },
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -370,7 +389,7 @@ describe('Given bump command', () => {
     })
 
     it('Then writes different versions for each package', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -387,9 +406,9 @@ describe('Given bump command', () => {
         },
         templates: { tagBody: '{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -414,7 +433,7 @@ describe('Given bump command', () => {
         },
       ])
 
-      vi.mocked(core.getBumpedIndependentPackages).mockReturnValueOnce([
+      vi.mocked(getBumpedIndependentPackages).mockReturnValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -442,14 +461,14 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(core.getBumpedIndependentPackages)).toHaveBeenCalledWith({
+      expect(vi.mocked(getBumpedIndependentPackages)).toHaveBeenCalledWith({
         packages: expect.any(Array),
         dryRun: false,
       })
     })
 
     it('Then does not update lerna.json in independent mode', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -463,9 +482,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: '{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -484,13 +503,13 @@ describe('Given bump command', () => {
       })
 
       // In independent mode, updateLernaVersion should not update version
-      expect(vi.mocked(core.updateLernaVersion)).not.toHaveBeenCalled()
+      expect(vi.mocked(updateLernaVersion)).not.toHaveBeenCalled()
     })
   })
 
   describe('When running in selective mode', () => {
     it('Then only bumps packages with commits', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -506,9 +525,9 @@ describe('Given bump command', () => {
         },
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.1.0',
@@ -518,7 +537,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -546,7 +565,7 @@ describe('Given bump command', () => {
     })
 
     it('Then bumps dependent packages in selective mode', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -562,9 +581,9 @@ describe('Given bump command', () => {
         },
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.1.0',
@@ -574,7 +593,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -614,7 +633,7 @@ describe('Given bump command', () => {
     })
 
     it('Then writes root and selected packages with same version', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'patch',
@@ -628,9 +647,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.0.1',
@@ -640,7 +659,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -659,8 +678,8 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalledWith(mockCwd, '1.0.1', false)
-      expect(vi.mocked(core.writeVersion)).toHaveBeenCalledWith(
+      expect(vi.mocked(writeVersion)).toHaveBeenCalledWith(mockCwd, '1.0.1', false)
+      expect(vi.mocked(writeVersion)).toHaveBeenCalledWith(
         `${mockCwd}/packages/pkg-a`,
         '1.0.1',
         false,
@@ -670,7 +689,7 @@ describe('Given bump command', () => {
 
   describe('When using dry-run mode', () => {
     it('Then does not write files in dry-run', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'minor',
@@ -684,9 +703,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getRootPackage).mockResolvedValueOnce({
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
         name: 'root-package',
         version: '1.0.0',
         newVersion: '1.1.0',
@@ -696,7 +715,7 @@ describe('Given bump command', () => {
         private: false,
       })
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([])
+      vi.mocked(getPackages).mockResolvedValueOnce([])
 
       try {
         await bump({
@@ -708,13 +727,13 @@ describe('Given bump command', () => {
       catch {
       }
 
-      expect(vi.mocked(core.writeVersion)).not.toHaveBeenCalled()
+      expect(vi.mocked(writeVersion)).not.toHaveBeenCalled()
     })
   })
 
   describe('When force flag is enabled', () => {
     it('Then bumps all packages regardless of commits', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'patch',
@@ -728,9 +747,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: '{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([
+      vi.mocked(getPackages).mockResolvedValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -755,7 +774,7 @@ describe('Given bump command', () => {
         },
       ])
 
-      vi.mocked(core.getBumpedIndependentPackages).mockReturnValueOnce([
+      vi.mocked(getBumpedIndependentPackages).mockReturnValueOnce([
         {
           name: 'pkg-a',
           version: '1.0.0',
@@ -790,7 +809,7 @@ describe('Given bump command', () => {
 
   describe('When no packages need bumping', () => {
     it('Then exists with code 0 when no changes', async () => {
-      vi.mocked(core.loadRelizyConfig).mockResolvedValueOnce({
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
           type: 'release',
@@ -804,9 +823,9 @@ describe('Given bump command', () => {
         types: {},
         templates: { tagBody: '{{newVersion}}' },
         logLevel: 'default',
-      } as unknown as core.ResolvedRelizyConfig)
+      } as unknown as ResolvedRelizyConfig)
 
-      vi.mocked(core.getPackages).mockResolvedValueOnce([])
+      vi.mocked(getPackages).mockResolvedValueOnce([])
 
       await bump({
         type: 'release',

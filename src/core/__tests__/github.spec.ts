@@ -1,4 +1,3 @@
-import { logger } from '@maz-ui/node'
 import { createGithubRelease } from 'changelogen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -55,8 +54,6 @@ vi.mock('../changelog', async (importOriginal) => {
     generateChangelog: vi.fn(),
   }
 })
-
-logger.setLevel('silent')
 
 describe('Given github function', () => {
   beforeEach(() => {

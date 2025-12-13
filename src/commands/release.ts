@@ -1,8 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
-import { executeHook } from '../core/utils'
+import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
@@ -65,9 +64,13 @@ async function releaseSafetyCheck({
     return
   }
 
-  providerReleaseSafetyCheck({ config, provider })
-  await publishSafetyCheck({ config })
-  socialSafetyCheck({ config })
+  const checks = [
+    providerReleaseSafetyCheck({ config, provider }),
+    publishSafetyCheck({ config }),
+    socialSafetyCheck({ config }),
+  ]
+
+  await Promise.all(checks)
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
