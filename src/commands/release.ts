@@ -67,8 +67,8 @@ async function releaseSafetyCheck({
   const checks = [
     providerReleaseSafetyCheck({ config, provider }),
     publishSafetyCheck({ config }),
-    socialSafetyCheck({ config }),
-  ]
+    config.release.social ? socialSafetyCheck({ config }) : undefined,
+  ].filter(Boolean)
 
   await Promise.all(checks)
 }
@@ -201,6 +201,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     let postedReleases: PostedRelease[] = []
 
     logger.box('Step 6/7: Publish Git release')
+
     if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
 
@@ -217,6 +218,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           configName: options.configName,
           force,
           suffix: options.suffix,
+          safetyCheck: false,
         })
         provider = response.detectedProvider
         postedReleases = response.postedReleases
@@ -264,7 +266,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
-      + `Social media: ${config.release.social && config.social?.twitter?.enabled ? 'Yes' : 'Disabled'}\n`
+      + `Social media: ${config.release.social ? 'Yes' : 'Disabled'}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)

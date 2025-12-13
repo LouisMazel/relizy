@@ -53,6 +53,7 @@ export function getDefaultConfig() {
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       registry: 'https://registry.npmjs.org/',
       safetyCheck: false,
+      token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
     },
     tokens: {
       registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,

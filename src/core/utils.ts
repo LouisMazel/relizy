@@ -1,5 +1,6 @@
 import type { BumpResultTruthy, HookConfig, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { getPackages } from './repo'
 

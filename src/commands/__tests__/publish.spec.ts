@@ -54,10 +54,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When package manager cannot be detected', () => {
     it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { safetyCheck: true, private: false, args: [] }
-      config.safetyCheck = true
-      config.release.publish = true
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
       vi.mocked(detectPackageManager).mockReturnValue(undefined as any)
 
       await publishSafetyCheck({ config })
@@ -68,10 +65,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check fails', () => {
     it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { safetyCheck: true, private: false, args: [] }
-      config.safetyCheck = true
-      config.release.publish = true
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
       vi.mocked(detectPackageManager).mockReturnValue('npm')
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
@@ -83,10 +77,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check succeeds', () => {
     it('Then does not exit', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { safetyCheck: true, private: false, args: [] }
-      config.safetyCheck = true
-      config.release.publish = true
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
       vi.mocked(detectPackageManager).mockReturnValue('npm')
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
@@ -98,8 +89,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When safety check is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { safetyCheck: false, private: false, args: [] }
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: false, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
 
       await publishSafetyCheck({ config })
 
@@ -110,10 +100,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When publish is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.publish = { safetyCheck: true, private: false, args: [] }
-      config.safetyCheck = true
-      config.release.publish = false
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: false } })
 
       await publishSafetyCheck({ config })
 

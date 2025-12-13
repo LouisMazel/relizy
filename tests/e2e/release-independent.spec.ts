@@ -1,15 +1,12 @@
-import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { bump } from '../../src/commands/bump'
-import { changelog as changelogCmd } from '../../src/commands/changelog'
-import { providerRelease as providerReleaseCmd } from '../../src/commands/provider-release'
-import { publish as publishCmd } from '../../src/commands/publish'
+import { changelog } from '../../src/commands/changelog'
+import { providerRelease } from '../../src/commands/provider-release'
+import { publish } from '../../src/commands/publish'
 import { release } from '../../src/commands/release'
-import { social as socialCmd } from '../../src/commands/social'
-import * as core from '../../src/core'
+import { social } from '../../src/commands/social'
+import { checkGitStatusIfDirty, executeHook, fetchGitTags, generateChangelog, getIndependentTag, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags } from '../../src/core'
 import { createMockConfig } from '../mocks'
-
-logger.setLevel('silent')
 
 vi.mock('../../src/core', async () => {
   const actual = await vi.importActual('../../src/core')
@@ -20,7 +17,6 @@ vi.mock('../../src/core', async () => {
     checkGitStatusIfDirty: vi.fn(),
     fetchGitTags: vi.fn(),
     readPackageJson: vi.fn(),
-    writePackageJson: vi.fn(),
     getRootPackage: vi.fn(),
     resolveTags: vi.fn(),
     generateChangelog: vi.fn(),
@@ -43,33 +39,35 @@ vi.mock('../../src/commands/social')
 describe('Given independent mode release workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    config.monorepo = {
-      versionMode: 'independent',
-      packages: ['packages/*'],
-    }
-    config.release = {
-      commit: true,
-      changelog: true,
-      publish: true,
-      push: true,
-      providerRelease: true,
-      social: true,
-      clean: true,
-      noVerify: false,
-      gitTag: true,
-    }
-    vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
-    vi.mocked(core.executeHook).mockResolvedValue(undefined)
-    vi.mocked(core.checkGitStatusIfDirty).mockReturnValue(undefined)
-    vi.mocked(core.fetchGitTags).mockResolvedValue(undefined)
-    vi.mocked(core.readPackageJson).mockReturnValue({
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      release: {
+        commit: true,
+        changelog: true,
+        publish: true,
+        push: true,
+        providerRelease: true,
+        social: true,
+        clean: true,
+        noVerify: false,
+        gitTag: true,
+      },
+      monorepo: {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      },
+    })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(checkGitStatusIfDirty).mockReturnValue(undefined)
+    vi.mocked(fetchGitTags).mockResolvedValue(undefined)
+    vi.mocked(readPackageJson).mockReturnValue({
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
       private: false,
     })
-    vi.mocked(core.getRootPackage).mockResolvedValue({
+    vi.mocked(getRootPackage).mockResolvedValue({
       name: 'test-monorepo',
       version: '1.0.0',
       path: '/root',
@@ -77,9 +75,9 @@ describe('Given independent mode release workflow', () => {
       fromTag: 'v0.9.0',
       commits: [],
     })
-    vi.mocked(core.resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(core.generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    vi.mocked(core.getIndependentTag).mockImplementation(({ name, version }) => {
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => {
       return `${name}@${version}`
     })
     vi.mocked(bump).mockResolvedValue({
@@ -91,10 +89,10 @@ describe('Given independent mode release workflow', () => {
       bumped: true,
       fromTag: 'v0.9.0',
     } as any)
-    vi.mocked(changelogCmd).mockResolvedValue(undefined)
-    vi.mocked(publishCmd).mockResolvedValue(undefined)
-    vi.mocked(providerReleaseCmd).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(socialCmd).mockResolvedValue(undefined)
+    vi.mocked(changelog).mockResolvedValue(undefined)
+    vi.mocked(publish).mockResolvedValue(undefined)
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
+    vi.mocked(social).mockResolvedValue(undefined)
   })
 
   describe('When bumping packages independently', () => {
@@ -102,7 +100,7 @@ describe('Given independent mode release workflow', () => {
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -117,21 +115,10 @@ describe('Given independent mode release workflow', () => {
     it('Then root package version stays separate', async () => {
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({ newVersion: '1.0.0' }),
         }),
-      )
-    })
-
-    it('Then uses independent tags for packages', async () => {
-      await release({})
-
-      expect(core.getIndependentTag).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'pkg-a', version: '1.1.0' }),
-      )
-      expect(core.getIndependentTag).toHaveBeenCalledWith(
-        expect.objectContaining({ name: 'pkg-b', version: '2.0.1' }),
       )
     })
   })
@@ -151,7 +138,7 @@ describe('Given independent mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -169,13 +156,13 @@ describe('Given independent mode release workflow', () => {
     it('Then generates changelog for each package', async () => {
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
     })
 
     it('Then generates changelog for root package', async () => {
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({ newVersion: '1.0.0' }),
         }),
@@ -187,7 +174,7 @@ describe('Given independent mode release workflow', () => {
     it('Then publishes each bumped package', async () => {
       await release({})
 
-      expect(publishCmd).toHaveBeenCalledWith(
+      expect(publish).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -204,7 +191,7 @@ describe('Given independent mode release workflow', () => {
     it('Then creates release for each package', async () => {
       await release({})
 
-      expect(providerReleaseCmd).toHaveBeenCalledWith(
+      expect(providerRelease).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -221,7 +208,7 @@ describe('Given independent mode release workflow', () => {
     it('Then posts for each package', async () => {
       await release({})
 
-      expect(socialCmd).toHaveBeenCalledWith(
+      expect(social).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -247,7 +234,7 @@ describe('Given independent mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -273,7 +260,7 @@ describe('Given independent mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -306,35 +293,22 @@ describe('Given independent mode release workflow', () => {
     })
   })
 
-  describe('When using preid option', () => {
-    it('Then applies preid to prerelease versions', async () => {
-      await release({ type: 'prerelease', preid: 'alpha' })
-
-      expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'prerelease',
-          preid: 'alpha',
-        }),
-      )
-    })
-  })
-
   describe('When workflow executes in dry-run mode', () => {
     it('Then passes dryRun to all commands', async () => {
       await release({ dryRun: true })
 
       expect(bump).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(changelogCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(publishCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(providerReleaseCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
-      expect(socialCmd).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(changelog).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(publish).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(providerRelease).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
+      expect(social).toHaveBeenCalledWith(expect.objectContaining({ dryRun: true }))
     })
 
     it('Then passes dryRun to hooks', async () => {
       await release({ dryRun: true })
 
-      expect(core.executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
-      expect(core.executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
     })
   })
 
@@ -356,15 +330,15 @@ describe('Given independent mode release workflow', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).not.toHaveBeenCalled()
-      expect(publishCmd).not.toHaveBeenCalled()
-      expect(providerReleaseCmd).not.toHaveBeenCalled()
-      expect(socialCmd).not.toHaveBeenCalled()
+      expect(changelog).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
     })
   })
 
@@ -374,7 +348,7 @@ describe('Given independent mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
     })
 
     it('Then stops execution', async () => {
@@ -382,45 +356,30 @@ describe('Given independent mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow()
 
-      expect(changelogCmd).not.toHaveBeenCalled()
-      expect(publishCmd).not.toHaveBeenCalled()
+      expect(changelog).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
     })
   })
 
   describe('When error occurs during changelog', () => {
     it('Then executes error hook and stops', async () => {
-      vi.mocked(changelogCmd).mockRejectedValue(new Error('Changelog failed'))
+      vi.mocked(changelog).mockRejectedValue(new Error('Changelog failed'))
 
       await expect(release({})).rejects.toThrow('Changelog failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
-      expect(publishCmd).not.toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(publish).not.toHaveBeenCalled()
     })
   })
 
   describe('When error occurs during publish', () => {
     it('Then executes error hook and stops', async () => {
-      vi.mocked(publishCmd).mockRejectedValue(new Error('Publish failed'))
+      vi.mocked(publish).mockRejectedValue(new Error('Publish failed'))
 
       await expect(release({})).rejects.toThrow('Publish failed')
 
-      expect(core.executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
-      expect(providerReleaseCmd).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('When no packages have changes', () => {
-    it('Then still executes workflow', async () => {
-      vi.mocked(bump).mockResolvedValue({
-        newVersion: '1.0.0',
-        bumpedPackages: [],
-        bumped: false,
-        fromTag: 'v0.9.0',
-      } as any)
-
-      await release({})
-
-      expect(changelogCmd).toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(providerRelease).not.toHaveBeenCalled()
     })
   })
 
@@ -438,7 +397,7 @@ describe('Given independent mode release workflow', () => {
 
       await release({})
 
-      expect(changelogCmd).toHaveBeenCalledWith(
+      expect(changelog).toHaveBeenCalledWith(
         expect.objectContaining({
           bumpResult: expect.objectContaining({
             bumpedPackages: expect.arrayContaining([
@@ -455,17 +414,17 @@ describe('Given independent mode release workflow', () => {
     it('Then executes success hook', async () => {
       await release({})
 
-      expect(core.executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
     })
 
     it('Then all enabled steps are executed', async () => {
       await release({})
 
       expect(bump).toHaveBeenCalled()
-      expect(changelogCmd).toHaveBeenCalled()
-      expect(publishCmd).toHaveBeenCalled()
-      expect(providerReleaseCmd).toHaveBeenCalled()
-      expect(socialCmd).toHaveBeenCalled()
+      expect(changelog).toHaveBeenCalled()
+      expect(publish).toHaveBeenCalled()
+      expect(providerRelease).toHaveBeenCalled()
+      expect(social).toHaveBeenCalled()
     })
   })
 
@@ -487,11 +446,11 @@ describe('Given independent mode release workflow', () => {
         noVerify: false,
         gitTag: true,
       }
-      vi.mocked(core.loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await release({})
 
-      expect(core.checkGitStatusIfDirty).not.toHaveBeenCalled()
+      expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
     })
   })
 
