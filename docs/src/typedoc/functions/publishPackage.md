@@ -4,7 +4,7 @@
 
 > **publishPackage**(`__namedParameters`): `Promise`\<`void`\>
 
-Defined in: [src/core/npm.ts:273](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/npm.ts#L273)
+Defined in: [src/core/npm.ts:343](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/npm.ts#L343)
 
 ## Parameters
 
@@ -24,7 +24,7 @@ Defined in: [src/core/npm.ts:273](https://github.com/LouisMazel/relizy/blob/9bfb
 
 #### pkg
 
-[`PackageInfo`](../interfaces/PackageInfo.md)
+[`PackageBase`](../interfaces/PackageBase.md)
 
 ## Returns
 

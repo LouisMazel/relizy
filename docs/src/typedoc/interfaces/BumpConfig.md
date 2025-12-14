@@ -2,7 +2,7 @@
 
 # Interface: BumpConfig
 
-Defined in: [src/types.ts:117](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L117)
+Defined in: [src/types.ts:149](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L149)
 
 ## Extended by
 
@@ -15,7 +15,7 @@ Defined in: [src/types.ts:117](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:131](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L131)
+Defined in: [src/types.ts:163](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L163)
 
 Check if there are any changes to commit before bumping.
 
@@ -31,7 +31,7 @@ true
 
 > `optional` **dependencyTypes**: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[]
 
-Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L136)
+Defined in: [src/types.ts:168](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L168)
 
 Include dependencies when bumping.
 
@@ -47,7 +47,7 @@ Include dependencies when bumping.
 
 > `optional` **preid**: `string`
 
-Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L126)
+Defined in: [src/types.ts:158](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L158)
 
 Prerelease identifier (e.g. 'beta', 'alpha')
 
@@ -57,7 +57,7 @@ Prerelease identifier (e.g. 'beta', 'alpha')
 
 > `optional` **type**: `ReleaseType`
 
-Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L122)
+Defined in: [src/types.ts:154](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L154)
 
 Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
 
@@ -73,7 +73,7 @@ Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'premino
 
 > `optional` **yes**: `boolean`
 
-Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L141)
+Defined in: [src/types.ts:173](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L173)
 
 Skip confirmation prompt about bumping packages
 

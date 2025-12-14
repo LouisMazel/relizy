@@ -4,17 +4,13 @@
 
 > **generateChangelog**(`__namedParameters`): `Promise`\<`string`\>
 
-Defined in: [src/core/changelog.ts:21](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/changelog.ts#L21)
+Defined in: [src/core/changelog.ts:21](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/changelog.ts#L21)
 
 Generate changelog for a specific package
 
 ## Parameters
 
 ### \_\_namedParameters
-
-#### commits
-
-`GitCommit`[]
 
 #### config
 
@@ -24,13 +20,29 @@ Generate changelog for a specific package
 
 `boolean`
 
-#### from
+#### newVersion
 
 `string`
 
 #### pkg
 
-[`PackageInfo`](../interfaces/PackageInfo.md)
+\{ `commits`: `GitCommit`[]; `fromTag?`: `string`; `name`: `string`; `newVersion?`: `string`; \}
+
+#### pkg.commits
+
+`GitCommit`[]
+
+#### pkg.fromTag?
+
+`string`
+
+#### pkg.name
+
+`string`
+
+#### pkg.newVersion?
+
+`string`
 
 ## Returns
 

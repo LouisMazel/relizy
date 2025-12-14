@@ -2,9 +2,9 @@
 
 # Function: expandPackagesToBumpWithDependents()
 
-> **expandPackagesToBumpWithDependents**(`__namedParameters`): [`PackageToBump`](../interfaces/PackageToBump.md)[]
+> **expandPackagesToBumpWithDependents**(`__namedParameters`): [`PackageBase`](../interfaces/PackageBase.md)[]
 
-Defined in: [src/core/dependencies.ts:70](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/dependencies.ts#L70)
+Defined in: [src/core/dependencies.ts:65](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/dependencies.ts#L65)
 
 Recursively expand packages to bump with all their dependents (transitive)
 Returns packages with reason for bumping and dependency chain for traceability
@@ -15,16 +15,12 @@ Returns packages with reason for bumping and dependency chain for traceability
 
 #### allPackages
 
-[`PackageInfo`](../interfaces/PackageInfo.md)[]
-
-#### dependencyTypes
-
-(`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[] \| `undefined`
+[`PackageBase`](../interfaces/PackageBase.md)[]
 
 #### packagesWithCommits
 
-[`PackageWithCommits`](../interfaces/PackageWithCommits.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]
 
 ## Returns
 
-[`PackageToBump`](../interfaces/PackageToBump.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]

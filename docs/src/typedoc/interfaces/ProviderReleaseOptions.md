@@ -2,15 +2,15 @@
 
 # Interface: ProviderReleaseOptions
 
-Defined in: [src/types.ts:223](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L223)
+Defined in: [src/types.ts:264](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L264)
 
 ## Properties
 
 ### bumpResult?
 
-> `optional` **bumpResult**: [`BumpResult`](../type-aliases/BumpResult.md)
+> `optional` **bumpResult**: [`BumpResultTruthy`](BumpResultTruthy.md)
 
-Defined in: [src/types.ts:253](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L253)
+Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L294)
 
 Bump result
 
@@ -20,7 +20,7 @@ Bump result
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:239](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L239)
+Defined in: [src/types.ts:280](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L280)
 
 Use custom config
 
@@ -30,7 +30,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:244](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L244)
+Defined in: [src/types.ts:285](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L285)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -46,9 +46,25 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:262](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L262)
+Defined in: [src/types.ts:303](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L303)
 
 Run without side effects
+
+#### Default
+
+```ts
+false
+```
+
+***
+
+### force
+
+> **force**: `boolean`
+
+Defined in: [src/types.ts:313](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L313)
+
+Generate changelog for all packages even if there are no commits
 
 #### Default
 
@@ -62,7 +78,7 @@ false
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:227](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L227)
+Defined in: [src/types.ts:268](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L268)
 
 Start tag
 
@@ -72,7 +88,7 @@ Start tag
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:257](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L257)
+Defined in: [src/types.ts:298](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L298)
 
 Set log level
 
@@ -82,7 +98,7 @@ Set log level
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:249](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L249)
+Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L290)
 
 Git provider
 
@@ -98,7 +114,7 @@ Git provider
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:267](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L267)
+Defined in: [src/types.ts:308](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L308)
 
 Skip safety check
 
@@ -110,11 +126,21 @@ false
 
 ***
 
+### suffix?
+
+> `optional` **suffix**: `string`
+
+Defined in: [src/types.ts:317](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L317)
+
+Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+
+***
+
 ### to?
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:231](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L231)
+Defined in: [src/types.ts:272](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L272)
 
 End tag
 
@@ -124,6 +150,6 @@ End tag
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:235](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L235)
+Defined in: [src/types.ts:276](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L276)
 
 Git token (GitHub or GitLab)

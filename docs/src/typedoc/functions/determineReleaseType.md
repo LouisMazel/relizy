@@ -2,9 +2,9 @@
 
 # Function: determineReleaseType()
 
-> **determineReleaseType**(`__namedParameters`): `ReleaseType` \| `null` \| `undefined`
+> **determineReleaseType**(`__namedParameters`): `ReleaseType` \| `undefined`
 
-Defined in: [src/core/version.ts:149](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/version.ts#L149)
+Defined in: [src/core/version.ts:186](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/version.ts#L186)
 
 ## Parameters
 
@@ -14,10 +14,6 @@ Defined in: [src/core/version.ts:149](https://github.com/LouisMazel/relizy/blob/
 
 `GitCommit`[]
 
-#### config
-
-[`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
-
 #### currentVersion
 
 `string`
@@ -26,14 +22,18 @@ Defined in: [src/core/version.ts:149](https://github.com/LouisMazel/relizy/blob/
 
 `boolean`
 
-#### from
+#### preid
 
-`string`
+`string` \| `undefined`
 
-#### to
+#### releaseType
 
-`string`
+`ReleaseType`
+
+#### types
+
+`Record`\<`string`, `false` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
 
 ## Returns
 
-`ReleaseType` \| `null` \| `undefined`
+`ReleaseType` \| `undefined`

@@ -2,25 +2,39 @@
 
 # Function: resolveTags()
 
-> **resolveTags**\<`T`, `S`\>(`__namedParameters`): `Promise`\<[`ResolvedTags`](../interfaces/ResolvedTags.md)\>
+> **resolveTags**\<`S`, `NewVersion`\>(`__namedParameters`): `Promise`\<[`ResolvedTags`](../interfaces/ResolvedTags.md)\>
 
-Defined in: [src/core/tags.ts:181](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/tags.ts#L181)
+Defined in: [src/core/tags.ts:228](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/tags.ts#L228)
 
 ## Type Parameters
-
-### T
-
-`T` *extends* [`VersionMode`](../type-aliases/VersionMode.md)
 
 ### S
 
 `S` *extends* [`Step`](../type-aliases/Step.md)
 
+### NewVersion
+
+`NewVersion` = `S` *extends* `"bump"` ? `undefined` : `string`
+
 ## Parameters
 
 ### \_\_namedParameters
 
-[`ResolveTagsOptions`](../interfaces/ResolveTagsOptions.md)\<`T`, `S`\>
+#### config
+
+[`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
+
+#### newVersion
+
+`NewVersion`
+
+#### pkg
+
+[`ReadPackage`](../interfaces/ReadPackage.md)
+
+#### step
+
+`S`
 
 ## Returns
 

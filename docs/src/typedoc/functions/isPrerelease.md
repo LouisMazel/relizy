@@ -4,7 +4,7 @@
 
 > **isPrerelease**(`version?`): `boolean`
 
-Defined in: [src/core/version.ts:340](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/version.ts#L340)
+Defined in: [src/core/version.ts:368](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/version.ts#L368)
 
 ## Parameters
 
