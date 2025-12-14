@@ -1,5 +1,19 @@
 # Changelog
 
+## v0.2.5...v0.2.6
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5...v0.2.6)
+
+### 🩹 Fixes
+
+- **docs:** Correct config examples ([07248ad](https://github.com/LouisMazel/relizy/commit/07248ad))
+- Config type declaration - types is not required - #11 ([#11](https://github.com/LouisMazel/relizy/issues/11))
+- Exclude commits for untracked packages to avoid incorrect version updates ([27e3d91](https://github.com/LouisMazel/relizy/commit/27e3d91))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.6-beta.1...v0.2.6-beta.2
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.6-beta.1...v0.2.6-beta.2)
