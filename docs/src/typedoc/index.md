@@ -7,7 +7,10 @@
       A tool to manage releases for monorepos and single packages.
     </strong>
   </p>
+  <a href="https://louismazel.github.io/relizy/">Documentation</a>
 </div>
+
+---
 
 Seamless and automated release manager with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.
 
@@ -34,6 +37,10 @@ Imagine you have multiple packages in your project (like a box with several toys
 - 🎛️ Custom registry support (private registries, GitHub Packages, etc.)
 - ⚙️ Multiple configuration files support for different release workflows
 - 🔧 Support for npm, yarn, pnpm, and bun (auto-detected)
+
+## 📚 Documentation
+
+You can [find the documentation here](https://louismazel.github.io/relizy/).
 
 ## 📦 Installation
 
@@ -944,7 +951,7 @@ Create multiple configuration files following this naming pattern: `<name>.confi
 
 **Example file structure:**
 
-```
+```text
 /
 ├── relizy.config.ts              # Main config (core packages)
 ├── relizy.standalone.config.ts   # Standalone utilities config
@@ -1047,7 +1054,7 @@ export default defineConfig({
 })
 ```
 
-**`changelog.private.config.ts`** - Private packages (GitHub Packages):
+**`relizy.private.config.ts`** - Private packages (GitHub Packages):
 
 ```typescript
 import { defineConfig } from 'relizy'
@@ -1069,7 +1076,7 @@ export default defineConfig({
 pnpm relizy publish
 
 # Publish private packages to GitHub Packages
-pnpm relizy publish --config changelog.private
+pnpm relizy publish --config relizy.private
 ```
 
 ### Best Practices
@@ -1159,7 +1166,7 @@ If a `lerna.json` file exists at the root, the tool automatically updates its `v
 3. Set the environment variable:
 
 ```bash
-GITLAB_TOKEN="your-token-here"
+RELIZY_GITLAB_TOKEN="your-token-here"
 ```
 
 ### CI/CD Pipeline

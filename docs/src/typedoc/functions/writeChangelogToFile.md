@@ -4,7 +4,7 @@
 
 > **writeChangelogToFile**(`__namedParameters`): `void`
 
-Defined in: [src/core/changelog.ts:92](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/changelog.ts#L92)
+Defined in: [src/core/changelog.ts:111](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/changelog.ts#L111)
 
 Write changelog to file
 
@@ -16,13 +16,17 @@ Write changelog to file
 
 `string`
 
+#### cwd
+
+`string`
+
 #### dryRun
 
 `boolean` = `false`
 
 #### pkg
 
-[`PackageInfo`](../interfaces/PackageInfo.md)
+[`ReadPackage`](../interfaces/ReadPackage.md) \| [`PackageBase`](../interfaces/PackageBase.md)
 
 ## Returns
 

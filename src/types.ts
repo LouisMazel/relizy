@@ -319,8 +319,7 @@ export interface ProviderReleaseOptions {
 
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
-   * Package manager (e.g. `pnpm` or `npm`)
-   * @values `pnpm`, `npm`, `yarn`, `bun`
+   * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
    */
   packageManager?: PackageManager
   /**

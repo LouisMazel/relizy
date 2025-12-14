@@ -2,9 +2,9 @@
 
 # Function: topologicalSort()
 
-> **topologicalSort**(`packages`): [`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+> **topologicalSort**(`packages`): [`PackageBase`](../interfaces/PackageBase.md)[]
 
-Defined in: [src/core/dependencies.ts:137](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/dependencies.ts#L137)
+Defined in: [src/core/dependencies.ts:135](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/dependencies.ts#L135)
 
 Topological sort of packages based on their dependencies
 Ensures dependencies are processed before dependents
@@ -13,8 +13,8 @@ Ensures dependencies are processed before dependents
 
 ### packages
 
-[`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]
 
 ## Returns
 
-[`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]

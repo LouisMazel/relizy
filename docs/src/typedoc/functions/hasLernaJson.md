@@ -4,7 +4,7 @@
 
 > **hasLernaJson**(`rootDir`): `boolean`
 
-Defined in: [src/core/monorepo.ts:208](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/monorepo.ts#L208)
+Defined in: [src/core/repo.ts:469](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/repo.ts#L469)
 
 ## Parameters
 

@@ -4,7 +4,7 @@
 
 > **bump**(`options`): `Promise`\<[`BumpResult`](../type-aliases/BumpResult.md)\>
 
-Defined in: [src/commands/bump.ts:313](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/commands/bump.ts#L313)
+Defined in: [src/commands/bump.ts:295](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/commands/bump.ts#L295)
 
 ## Parameters
 

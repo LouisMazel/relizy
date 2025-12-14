@@ -2,7 +2,7 @@
 
 # Interface: PublishOptions
 
-Defined in: [src/types.ts:297](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L297)
+Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L360)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:297](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **access**: `"public"` \| `"restricted"`
 
-Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L282)
+Defined in: [src/types.ts:336](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L336)
 
 NPM access level (e.g. `public` or `restricted`)
 
@@ -28,7 +28,7 @@ NPM access level (e.g. `public` or `restricted`)
 
 > `optional` **args**: `string`[]
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:37
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:37
 
 #### Inherited from
 
@@ -40,7 +40,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **buildCmd**: `string`
 
-Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L294)
+Defined in: [src/types.ts:348](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L348)
 
 Command to build your packages before publishing (e.g. `pnpm build`)
 
@@ -50,13 +50,13 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 ***
 
-### bumpedPackages?
+### bumpResult?
 
-> `optional` **bumpedPackages**: [`PackageInfo`](PackageInfo.md)[]
+> `optional` **bumpResult**: [`BumpResultTruthy`](BumpResultTruthy.md)
 
-Defined in: [src/types.ts:310](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L310)
+Defined in: [src/types.ts:373](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L373)
 
-Bumped packages
+Bump result
 
 ***
 
@@ -64,7 +64,7 @@ Bumped packages
 
 > `optional` **config**: [`ResolvedRelizyConfig`](../type-aliases/ResolvedRelizyConfig.md)
 
-Defined in: [src/types.ts:306](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L306)
+Defined in: [src/types.ts:369](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L369)
 
 Use custom config
 
@@ -74,7 +74,7 @@ Use custom config
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:319](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L319)
+Defined in: [src/types.ts:382](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L382)
 
 Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
 
@@ -90,9 +90,25 @@ Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:302](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L302)
+Defined in: [src/types.ts:365](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L365)
 
 Run without side effects
+
+#### Default
+
+```ts
+false
+```
+
+***
+
+### force?
+
+> `optional` **force**: `boolean`
+
+Defined in: [src/types.ts:391](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L391)
+
+Bump even if there are no commits
 
 #### Default
 
@@ -106,7 +122,7 @@ false
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:314](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L314)
+Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L377)
 
 Set log level
 
@@ -116,7 +132,7 @@ Set log level
 
 > `optional` **otp**: `string`
 
-Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L286)
+Defined in: [src/types.ts:340](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L340)
 
 NPM OTP (e.g. `123456`)
 
@@ -126,11 +142,25 @@ NPM OTP (e.g. `123456`)
 
 ***
 
+### packageManager?
+
+> `optional` **packageManager**: [`PackageManager`](../type-aliases/PackageManager.md)
+
+Defined in: [src/types.ts:324](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L324)
+
+Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
+
+#### Inherited from
+
+`PublishConfig.packageManager`
+
+***
+
 ### packages?
 
 > `optional` **packages**: `string`[]
 
-Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L290)
+Defined in: [src/types.ts:344](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L344)
 
 Glob pattern matching for packages to publish
 
@@ -144,7 +174,7 @@ Glob pattern matching for packages to publish
 
 > `optional` **private**: `boolean`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:39
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:39
 
 #### Inherited from
 
@@ -156,7 +186,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **registry**: `string`
 
-Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L274)
+Defined in: [src/types.ts:328](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L328)
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
@@ -166,14 +196,58 @@ NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
 ***
 
+### safetyCheck?
+
+> `optional` **safetyCheck**: `boolean`
+
+Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L357)
+
+Skip safety check
+
+#### Default
+
+```ts
+false
+```
+
+#### Inherited from
+
+`PublishConfig.safetyCheck`
+
+***
+
+### suffix?
+
+> `optional` **suffix**: `string`
+
+Defined in: [src/types.ts:386](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L386)
+
+Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+
+***
+
 ### tag?
 
 > `optional` **tag**: `string`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:38
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:38
 
 NPM tag (e.g. `latest`)
 
 #### Inherited from
 
 `PublishConfig.tag`
+
+***
+
+### token?
+
+> `optional` **token**: `string`
+
+Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L352)
+
+NPM token (e.g. `123456`) - only supported for pnpm and npm
+
+#### Inherited from
+
+`PublishConfig.token`

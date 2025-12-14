@@ -4,7 +4,7 @@
 
 > **ConfigType** = \{ `semver?`: `SemverBumpType`; `title`: `string`; \} \| `boolean`
 
-Defined in: [src/types.ts:106](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L106)
+Defined in: [src/types.ts:138](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L138)
 
 ## Type Declaration
 

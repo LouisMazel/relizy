@@ -4,7 +4,7 @@
 
 > **executeHook**(`hook`, `config`, `dryRun`, `params?`): `Promise`\<`any`\>
 
-Defined in: [src/core/utils.ts:8](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/utils.ts#L8)
+Defined in: [src/core/utils.ts:9](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/utils.ts#L9)
 
 Execute a hook
 
@@ -12,7 +12,7 @@ Execute a hook
 
 ### hook
 
-`"error:release"` | `"error:publish"` | `"error:push"` | `"error:changelog"` | `"error:bump"` | `"error:commit-and-tag"` | `"error:provider-release"` | `"before:release"` | `"before:publish"` | `"before:push"` | `"before:changelog"` | `"before:bump"` | `"before:commit-and-tag"` | `"before:provider-release"` | `"after:release"` | `"after:publish"` | `"after:push"` | `"after:changelog"` | `"after:bump"` | `"after:commit-and-tag"` | `"after:provider-release"` | `"generate:changelog"`
+`"error:release"` | `"error:publish"` | `"error:push"` | `"error:changelog"` | `"error:bump"` | `"error:commit-and-tag"` | `"error:provider-release"` | `"before:release"` | `"before:publish"` | `"before:push"` | `"before:changelog"` | `"before:bump"` | `"before:commit-and-tag"` | `"before:provider-release"` | `"success:release"` | `"success:publish"` | `"success:push"` | `"success:changelog"` | `"success:bump"` | `"success:commit-and-tag"` | `"success:provider-release"` | `"generate:changelog"`
 
 ### config
 

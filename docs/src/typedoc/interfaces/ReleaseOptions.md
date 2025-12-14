@@ -2,7 +2,7 @@
 
 # Interface: ReleaseOptions
 
-Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L360)
+Defined in: [src/types.ts:437](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L437)
 
 ## Extends
 
@@ -14,7 +14,7 @@ Defined in: [src/types.ts:360](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **access**: `"public"` \| `"restricted"`
 
-Defined in: [src/types.ts:282](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L282)
+Defined in: [src/types.ts:336](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L336)
 
 NPM access level (e.g. `public` or `restricted`)
 
@@ -28,7 +28,7 @@ NPM access level (e.g. `public` or `restricted`)
 
 > `optional` **args**: `string`[]
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:37
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:37
 
 #### Inherited from
 
@@ -40,7 +40,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **buildCmd**: `string`
 
-Defined in: [src/types.ts:294](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L294)
+Defined in: [src/types.ts:348](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L348)
 
 Command to build your packages before publishing (e.g. `pnpm build`)
 
@@ -54,7 +54,7 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 > `optional` **changelog**: `boolean`
 
-Defined in: [src/types.ts:337](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L337)
+Defined in: [src/types.ts:409](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L409)
 
 Generate changelog files (CHANGELOG.md)
 
@@ -74,7 +74,7 @@ true
 
 > `optional` **clean**: `boolean`
 
-Defined in: [src/types.ts:357](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L357)
+Defined in: [src/types.ts:429](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L429)
 
 Determine if the working directory is clean and if it is not clean, exit
 
@@ -94,7 +94,7 @@ false
 
 > `optional` **commit**: `boolean`
 
-Defined in: [src/types.ts:327](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L327)
+Defined in: [src/types.ts:399](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L399)
 
 Commit changes and create tag
 
@@ -114,7 +114,7 @@ true
 
 > `optional` **configName**: `string`
 
-Defined in: [src/types.ts:381](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L381)
+Defined in: [src/types.ts:458](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L458)
 
 #### Default
 
@@ -128,7 +128,7 @@ Defined in: [src/types.ts:381](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **dependencyTypes**: (`"dependencies"` \| `"peerDependencies"` \| `"devDependencies"`)[]
 
-Defined in: [src/types.ts:136](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L136)
+Defined in: [src/types.ts:168](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L168)
 
 Include dependencies when bumping.
 
@@ -148,7 +148,7 @@ Include dependencies when bumping.
 
 > `optional` **dryRun**: `boolean`
 
-Defined in: [src/types.ts:365](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L365)
+Defined in: [src/types.ts:442](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L442)
 
 Run without side effects
 
@@ -164,7 +164,7 @@ false
 
 > `optional` **force**: `boolean`
 
-Defined in: [src/types.ts:386](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L386)
+Defined in: [src/types.ts:463](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L463)
 
 Bump even if there are no commits
 
@@ -180,7 +180,7 @@ false
 
 > `optional` **formatCmd**: `string`
 
-Defined in: [src/types.ts:178](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L178)
+Defined in: [src/types.ts:210](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L210)
 
 Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
@@ -194,7 +194,27 @@ Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:368](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L368)
+Defined in: [src/types.ts:445](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L445)
+
+***
+
+### gitTag?
+
+> `optional` **gitTag**: `boolean`
+
+Defined in: [src/types.ts:434](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L434)
+
+Create tag
+
+#### Default
+
+```ts
+true
+```
+
+#### Inherited from
+
+[`ReleaseConfig`](ReleaseConfig.md).[`gitTag`](ReleaseConfig.md#gittag)
 
 ***
 
@@ -202,7 +222,7 @@ Defined in: [src/types.ts:368](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **includeCommitBody**: `boolean`
 
-Defined in: [src/types.ts:188](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L188)
+Defined in: [src/types.ts:220](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L220)
 
 Include commit body in the changelog.
 
@@ -222,7 +242,7 @@ true
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L377)
+Defined in: [src/types.ts:454](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L454)
 
 ***
 
@@ -230,7 +250,7 @@ Defined in: [src/types.ts:377](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **noVerify**: `boolean`
 
-Defined in: [src/types.ts:352](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L352)
+Defined in: [src/types.ts:424](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L424)
 
 Skip git verification while committing by using --no-verify flag
 
@@ -250,7 +270,7 @@ true
 
 > `optional` **otp**: `string`
 
-Defined in: [src/types.ts:286](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L286)
+Defined in: [src/types.ts:340](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L340)
 
 NPM OTP (e.g. `123456`)
 
@@ -260,11 +280,25 @@ NPM OTP (e.g. `123456`)
 
 ***
 
+### packageManager?
+
+> `optional` **packageManager**: [`PackageManager`](../type-aliases/PackageManager.md)
+
+Defined in: [src/types.ts:324](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L324)
+
+Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
+
+#### Inherited from
+
+`PublishConfig.packageManager`
+
+***
+
 ### packages?
 
 > `optional` **packages**: `string`[]
 
-Defined in: [src/types.ts:290](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L290)
+Defined in: [src/types.ts:344](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L344)
 
 Glob pattern matching for packages to publish
 
@@ -278,7 +312,7 @@ Glob pattern matching for packages to publish
 
 > `optional` **preid**: `string`
 
-Defined in: [src/types.ts:126](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L126)
+Defined in: [src/types.ts:158](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L158)
 
 Prerelease identifier (e.g. 'beta', 'alpha')
 
@@ -292,7 +326,7 @@ Prerelease identifier (e.g. 'beta', 'alpha')
 
 > `optional` **private**: `boolean`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:39
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:39
 
 #### Inherited from
 
@@ -304,7 +338,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **provider**: [`GitProvider`](../type-aliases/GitProvider.md)
 
-Defined in: [src/types.ts:395](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L395)
+Defined in: [src/types.ts:472](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L472)
 
 Git provider (e.g. `github` or `gitlab`)
 
@@ -320,7 +354,7 @@ Git provider (e.g. `github` or `gitlab`)
 
 > `optional` **providerRelease**: `boolean`
 
-Defined in: [src/types.ts:342](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L342)
+Defined in: [src/types.ts:414](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L414)
 
 Publish release to your repository (github or gitlab)
 
@@ -340,7 +374,7 @@ true
 
 > `optional` **publish**: `boolean`
 
-Defined in: [src/types.ts:347](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L347)
+Defined in: [src/types.ts:419](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L419)
 
 Publish release to your registry
 
@@ -356,11 +390,21 @@ true
 
 ***
 
+### publishToken?
+
+> `optional` **publishToken**: `string`
+
+Defined in: [src/types.ts:481](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L481)
+
+NPM token (e.g. "123456")
+
+***
+
 ### push?
 
 > `optional` **push**: `boolean`
 
-Defined in: [src/types.ts:332](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L332)
+Defined in: [src/types.ts:404](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L404)
 
 Push changes to your repository (commit and tag(s))
 
@@ -380,7 +424,7 @@ true
 
 > `optional` **registry**: `string`
 
-Defined in: [src/types.ts:274](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L274)
+Defined in: [src/types.ts:328](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L328)
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
@@ -394,7 +438,7 @@ NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
 > `optional` **rootChangelog**: `boolean`
 
-Defined in: [src/types.ts:183](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L183)
+Defined in: [src/types.ts:215](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L215)
 
 Generate changelog at root level with all changes
 
@@ -414,7 +458,7 @@ true
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:400](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L400)
+Defined in: [src/types.ts:477](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L477)
 
 Skip safety check
 
@@ -424,13 +468,17 @@ Skip safety check
 true
 ```
 
+#### Overrides
+
+`PublishConfig.safetyCheck`
+
 ***
 
 ### suffix?
 
 > `optional` **suffix**: `string`
 
-Defined in: [src/types.ts:390](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L390)
+Defined in: [src/types.ts:467](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L467)
 
 Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
 
@@ -440,7 +488,7 @@ Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1
 
 > `optional` **tag**: `string`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:38
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:38
 
 NPM tag (e.g. `latest`)
 
@@ -454,7 +502,7 @@ NPM tag (e.g. `latest`)
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:371](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L371)
+Defined in: [src/types.ts:448](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L448)
 
 ***
 
@@ -462,7 +510,11 @@ Defined in: [src/types.ts:371](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **token**: `string`
 
-Defined in: [src/types.ts:374](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L374)
+Defined in: [src/types.ts:451](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L451)
+
+#### Overrides
+
+`PublishConfig.token`
 
 ***
 
@@ -470,7 +522,7 @@ Defined in: [src/types.ts:374](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **type**: `ReleaseType`
 
-Defined in: [src/types.ts:122](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L122)
+Defined in: [src/types.ts:154](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L154)
 
 Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
 
@@ -490,7 +542,7 @@ Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'premino
 
 > `optional` **yes**: `boolean`
 
-Defined in: [src/types.ts:141](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L141)
+Defined in: [src/types.ts:173](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L173)
 
 Skip confirmation prompt about bumping packages
 

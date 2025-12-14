@@ -2,12 +2,14 @@
 
 # Interface: PublishResponse
 
-Defined in: [src/types.ts:39](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L39)
+Defined in: [src/types.ts:63](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L63)
+
+OTHERS
 
 ## Properties
 
 ### publishedPackages
 
-> **publishedPackages**: [`PackageInfo`](PackageInfo.md)[]
+> **publishedPackages**: [`PackageBase`](PackageBase.md)[]
 
-Defined in: [src/types.ts:40](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L40)
+Defined in: [src/types.ts:64](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L64)

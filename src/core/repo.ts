@@ -377,6 +377,29 @@ function isAllowedCommit({
   return false
 }
 
+function isCommitOfTrackedPackages({
+  commit,
+  config,
+}: {
+  commit: GitCommit
+  config: ResolvedRelizyConfig
+}) {
+  if (!config.monorepo?.packages?.length) {
+    return true
+  }
+
+  const packages = readPackages({
+    cwd: config.cwd,
+    patterns: config.monorepo.packages,
+    ignorePackageNames: config.monorepo?.ignorePackageNames,
+  })
+
+  return packages.some((pkg) => {
+    const path = relative(config.cwd, pkg.path)
+    return commit.body.includes(path)
+  })
+}
+
 export async function getPackageCommits({
   pkg,
   from,
@@ -417,7 +440,9 @@ export async function getPackageCommits({
       return false
     }
 
-    if (pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name) {
+    const isTracked = isCommitOfTrackedPackages({ commit, config })
+
+    if ((pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name) && isTracked) {
       return true
     }
 
@@ -426,7 +451,7 @@ export async function getPackageCommits({
     const scopeMatches = commit.scope === pkg.name
     const bodyContainsPath = commit.body.includes(packageRelativePath)
 
-    return scopeMatches || bodyContainsPath
+    return (scopeMatches || bodyContainsPath) && isTracked
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)

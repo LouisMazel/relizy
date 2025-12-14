@@ -4,7 +4,7 @@
 
 > **PublishConfig** = `IChangelogConfig`\[`"publish"`\] & `object`
 
-Defined in: [src/types.ts:270](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L270)
+Defined in: [src/types.ts:320](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L320)
 
 ## Type Declaration
 
@@ -26,6 +26,12 @@ Command to build your packages before publishing (e.g. `pnpm build`)
 
 NPM OTP (e.g. `123456`)
 
+### packageManager?
+
+> `optional` **packageManager**: [`PackageManager`](PackageManager.md)
+
+Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
+
 ### packages?
 
 > `optional` **packages**: `string`[]
@@ -38,8 +44,26 @@ Glob pattern matching for packages to publish
 
 NPM registry URL (e.g. `https://registry.npmjs.org/`)
 
+### safetyCheck?
+
+> `optional` **safetyCheck**: `boolean`
+
+Skip safety check
+
+#### Default
+
+```ts
+false
+```
+
 ### tag?
 
 > `optional` **tag**: `string`
 
 NPM tag (e.g. `latest`)
+
+### token?
+
+> `optional` **token**: `string`
+
+NPM token (e.g. `123456`) - only supported for pnpm and npm

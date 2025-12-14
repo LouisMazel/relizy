@@ -2,9 +2,9 @@
 
 # Function: publish()
 
-> **publish**(`options`): `Promise`\<\{ `publishedPackages`: [`PackageInfo`](../interfaces/PackageInfo.md)[]; \} \| `undefined`\>
+> **publish**(`options`): `Promise`\<\{ `publishedPackages`: [`PackageBase`](../interfaces/PackageBase.md)[]; \} \| `undefined`\>
 
-Defined in: [src/commands/publish.ts:7](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/commands/publish.ts#L7)
+Defined in: [src/commands/publish.ts:50](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/commands/publish.ts#L50)
 
 ## Parameters
 
@@ -14,4 +14,4 @@ Defined in: [src/commands/publish.ts:7](https://github.com/LouisMazel/relizy/blo
 
 ## Returns
 
-`Promise`\<\{ `publishedPackages`: [`PackageInfo`](../interfaces/PackageInfo.md)[]; \} \| `undefined`\>
+`Promise`\<\{ `publishedPackages`: [`PackageBase`](../interfaces/PackageBase.md)[]; \} \| `undefined`\>

@@ -4,7 +4,7 @@
 
 > **getDefaultConfig**(): `object`
 
-Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/config.ts#L12)
+Defined in: [src/core/config.ts:13](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/config.ts#L13)
 
 ## Returns
 
@@ -46,6 +46,10 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 > **private**: `boolean` = `false`
 
+#### publish.safetyCheck
+
+> **safetyCheck**: `boolean` = `false`
+
 ### release
 
 > **release**: `Required`\<[`ReleaseConfig`](../interfaces/ReleaseConfig.md)\>
@@ -76,7 +80,7 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 #### templates.tagMessage
 
-> **tagMessage**: `string` = `'Bump version to v{{newVersion}}'`
+> **tagMessage**: `string` = `'Bump version to {{newVersion}}'`
 
 ### tokens
 
@@ -92,4 +96,4 @@ Defined in: [src/core/config.ts:12](https://github.com/LouisMazel/relizy/blob/9b
 
 ### types
 
-> **types**: `Record`\<`string`, `boolean` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
+> **types**: `Record`\<`string`, `false` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>

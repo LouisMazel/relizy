@@ -2,11 +2,17 @@
 
 # Interface: RelizyConfig
 
-Defined in: [src/types.ts:458](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L458)
+Defined in: [src/types.ts:543](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L543)
+
+Relizy configuration
+
+## See
+
+https://louismazel.github.io/relizy/config/overview
 
 ## Extends
 
-- `Partial`\<`Omit`\<`IChangelogConfig`, `"output"` \| `"templates"` \| `"publish"`\>\>
+- `Partial`\<`Omit`\<`IChangelogConfig`, `"output"` \| `"templates"` \| `"publish"` \| `"types"`\>\>
 
 ## Properties
 
@@ -14,7 +20,7 @@ Defined in: [src/types.ts:458](https://github.com/LouisMazel/relizy/blob/9bfb238
 
 > `optional` **bump**: [`BumpConfig`](BumpConfig.md)
 
-Defined in: [src/types.ts:487](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L487)
+Defined in: [src/types.ts:577](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L577)
 
 Bump config
 
@@ -24,7 +30,7 @@ Bump config
 
 > `optional` **changelog**: [`ChangelogConfig`](ChangelogConfig.md)
 
-Defined in: [src/types.ts:495](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L495)
+Defined in: [src/types.ts:585](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L585)
 
 Changelog config
 
@@ -34,7 +40,7 @@ Changelog config
 
 > `optional` **cwd**: `string`
 
-Defined in: [src/types.ts:463](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L463)
+Defined in: [src/types.ts:553](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L553)
 
 Current working directory
 
@@ -54,7 +60,7 @@ process.cwd()
 
 > `optional` **excludeAuthors**: `string`[]
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:47
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:47
 
 #### Inherited from
 
@@ -66,7 +72,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **from**: `string`
 
-Defined in: [src/types.ts:467](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L467)
+Defined in: [src/types.ts:557](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L557)
 
 Start tag
 
@@ -80,7 +86,7 @@ Start tag
 
 > `optional` **hideAuthorEmail**: `boolean`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:48
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:48
 
 #### Inherited from
 
@@ -92,7 +98,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **hooks**: [`HookConfig`](../type-aliases/HookConfig.md)
 
-Defined in: [src/types.ts:503](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L503)
+Defined in: [src/types.ts:593](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L593)
 
 Hooks config
 
@@ -102,7 +108,7 @@ Hooks config
 
 > `optional` **logLevel**: `"error"` \| `"default"` \| `"silent"` \| `"warning"` \| `"normal"` \| `"debug"` \| `"trace"` \| `"verbose"`
 
-Defined in: [src/types.ts:508](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L508)
+Defined in: [src/types.ts:598](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L598)
 
 Set log level
 
@@ -118,7 +124,7 @@ Set log level
 
 > `optional` **monorepo**: [`MonorepoConfig`](MonorepoConfig.md)
 
-Defined in: [src/types.ts:475](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L475)
+Defined in: [src/types.ts:565](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L565)
 
 Monorepo config
 
@@ -128,7 +134,7 @@ Monorepo config
 
 > `optional` **newVersion**: `string`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:33
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:33
 
 #### Inherited from
 
@@ -140,7 +146,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **noAuthors**: `boolean`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:46
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:46
 
 #### Inherited from
 
@@ -152,7 +158,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **publish**: [`PublishConfig`](../type-aliases/PublishConfig.md)
 
-Defined in: [src/types.ts:491](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L491)
+Defined in: [src/types.ts:581](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L581)
 
 Publish config
 
@@ -162,7 +168,7 @@ Publish config
 
 > `optional` **release**: [`ReleaseConfig`](ReleaseConfig.md)
 
-Defined in: [src/types.ts:499](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L499)
+Defined in: [src/types.ts:589](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L589)
 
 Release config
 
@@ -172,7 +178,7 @@ Release config
 
 > `optional` **repo**: [`RepoConfig`](RepoConfig.md)
 
-Defined in: [src/types.ts:479](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L479)
+Defined in: [src/types.ts:569](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L569)
 
 Repo config
 
@@ -186,7 +192,7 @@ Repo config
 
 > `optional` **safetyCheck**: `boolean`
 
-Defined in: [src/types.ts:513](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L513)
+Defined in: [src/types.ts:603](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L603)
 
 The safety check will verify if tokens or others required for release are set (depends on the release options)
 
@@ -202,7 +208,7 @@ true
 
 > `optional` **scopeMap**: `Record`\<`string`, `string`\>
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:28
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:28
 
 #### Inherited from
 
@@ -214,7 +220,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **signTags**: `boolean`
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:34
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:34
 
 #### Inherited from
 
@@ -226,7 +232,7 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 > `optional` **templates**: [`TemplatesConfig`](TemplatesConfig.md)
 
-Defined in: [src/types.ts:483](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L483)
+Defined in: [src/types.ts:573](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L573)
 
 Templates config
 
@@ -236,7 +242,7 @@ Templates config
 
 > `optional` **to**: `string`
 
-Defined in: [src/types.ts:471](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/types.ts#L471)
+Defined in: [src/types.ts:561](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L561)
 
 End tag
 
@@ -250,7 +256,7 @@ End tag
 
 > `optional` **tokens**: `Partial`\<`Record`\<`RepoProvider`, `string`\>\>
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:30
+Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.5.1/node\_modules/changelogen/dist/index.d.mts:30
 
 #### Inherited from
 
@@ -260,10 +266,6 @@ Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/
 
 ### types?
 
-> `optional` **types**: `Record`\<`string`, `boolean` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
+> `optional` **types**: `Record`\<`string`, `false` \| \{ `semver?`: `SemverBumpType`; `title`: `string`; \}\>
 
-Defined in: node\_modules/.pnpm/changelogen@0.6.2\_magicast@0.3.5/node\_modules/changelogen/dist/index.d.mts:24
-
-#### Inherited from
-
-`Partial.types`
+Defined in: [src/types.ts:544](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/types.ts#L544)

@@ -2,22 +2,24 @@
 
 # Function: getDependentsOf()
 
-> **getDependentsOf**(`packageName`, `allPackages`): [`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+> **getDependentsOf**(`__namedParameters`): `object`[]
 
-Defined in: [src/core/dependencies.ts:60](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/dependencies.ts#L60)
+Defined in: [src/core/dependencies.ts:45](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/dependencies.ts#L45)
 
 Get all packages that depend on the given package name
 
 ## Parameters
 
-### packageName
+### \_\_namedParameters
+
+#### allPackages
+
+`object`[]
+
+#### packageName
 
 `string`
 
-### allPackages
-
-[`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
-
 ## Returns
 
-[`PackageWithDeps`](../interfaces/PackageWithDeps.md)[]
+`object`[]

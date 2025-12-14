@@ -4,7 +4,7 @@
 
 > **confirmBump**(`__namedParameters`): `Promise`\<`void`\>
 
-Defined in: [src/core/version.ts:525](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/version.ts#L525)
+Defined in: [src/core/version.ts:573](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/version.ts#L573)
 
 ## Parameters
 
@@ -32,7 +32,7 @@ Defined in: [src/core/version.ts:525](https://github.com/LouisMazel/relizy/blob/
 
 #### packages
 
-[`PackageInfo`](../interfaces/PackageInfo.md)[]
+[`PackageBase`](../interfaces/PackageBase.md)[]
 
 #### versionMode
 

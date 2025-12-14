@@ -4,7 +4,7 @@
 
 > **getPackageCommits**(`__namedParameters`): `Promise`\<`GitCommit`[]\>
 
-Defined in: [src/core/monorepo.ts:126](https://github.com/LouisMazel/relizy/blob/9bfb2389d6fd5bfa94eb3574d1c2ca26c112b2e5/src/core/monorepo.ts#L126)
+Defined in: [src/core/repo.ts:403](https://github.com/LouisMazel/relizy/blob/16b3fd2aaf30cce7d45f45df9581ca61ca50bf78/src/core/repo.ts#L403)
 
 ## Parameters
 
@@ -24,7 +24,7 @@ Defined in: [src/core/monorepo.ts:126](https://github.com/LouisMazel/relizy/blob
 
 #### pkg
 
-[`PackageInfo`](../interfaces/PackageInfo.md)
+[`ReadPackage`](../interfaces/ReadPackage.md)
 
 #### to
 
