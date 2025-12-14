@@ -55,5 +55,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
           pnpm relizy release --tag latest --yes
