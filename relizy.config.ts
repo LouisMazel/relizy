@@ -30,5 +30,6 @@ export default defineConfig({
     access: 'public',
     token: process.env.RELIZY_NPM_TOKEN,
     packageManager: 'npm',
+    safetyCheck: true,
   },
 })
