@@ -294,7 +294,7 @@ async function bumpIndependentMode({
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
-    configName: options.configName,
+    configFile: options.configName,
     baseConfig: options.config,
     overrides: {
       bump: {

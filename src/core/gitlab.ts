@@ -287,7 +287,7 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
     logger.debug(`Dry run: ${dryRun}`)
 
     const config = await loadRelizyConfig({
-      configName: options.configName,
+      configFile: options.configName,
       baseConfig: options.config,
       overrides: {
         from: options.from,
