@@ -107,7 +107,8 @@ program
         configName: program.opts().config,
       })
     }
-    catch {
+    catch (error) {
+      logger.error('Failed to bump packages -', error)
       process.exit(1)
     }
   })
@@ -131,7 +132,8 @@ program
         configName: program.opts().config,
       })
     }
-    catch {
+    catch (error) {
+      logger.error('Failed to generate changelog -', error)
       process.exit(1)
     }
   })
@@ -159,7 +161,8 @@ program
         configName: program.opts().config,
       })
     }
-    catch {
+    catch (error) {
+      logger.error('Failed to publish packages -', error)
       process.exit(1)
     }
   })
@@ -184,7 +187,8 @@ program
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
-    catch {
+    catch (error) {
+      logger.error('Failed to publish release -', error)
       process.exit(1)
     }
   })
@@ -256,7 +260,8 @@ program
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
-    catch {
+    catch (error) {
+      logger.error('Failed to release -', error)
       process.exit(1)
     }
   })
