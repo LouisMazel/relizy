@@ -6,7 +6,7 @@ import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 
-import { loadConfig, setupDotenv } from 'c12'
+import { loadConfig } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 
@@ -110,31 +110,30 @@ async function resolveConfig(
 export async function loadRelizyConfig(options?: {
   baseConfig?: ResolvedRelizyConfig
   overrides?: DeepPartial<RelizyConfig>
-  configName?: string
+  configFile?: string
 }) {
   const cwd = options?.overrides?.cwd ?? process.cwd()
 
-  const configName = options?.configName ?? 'relizy'
-
-  await setupDotenv({ cwd })
+  const configFile = options?.configFile ?? 'relizy'
 
   const defaultConfig = getDefaultConfig()
 
   const overridesConfig = defu(options?.overrides, options?.baseConfig)
 
   const results = await loadConfig<ResolvedConfig>({
+    dotenv: true,
     cwd,
-    name: configName,
+    name: configFile,
     packageJson: true,
     defaults: defaultConfig as ResolvedConfig,
     overrides: overridesConfig as ResolvedConfig,
   })
 
-  if (!results._configFile) {
-    logger.debug(`No config file found with name "${configName}" - using standalone mode`)
+  if (typeof results._configFile !== 'string') {
+    logger.debug(`No config file found with name "${configFile}"`)
 
-    if (options?.configName) {
-      logger.error(`No config file found with name "${configName}"`)
+    if (options?.configFile) {
+      logger.error(`No config file found with name "${configFile}"`)
       process.exit(1)
     }
   }
