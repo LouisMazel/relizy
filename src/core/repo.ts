@@ -131,7 +131,7 @@ export function readPackages({
   if (!patterns)
     patternsSet.add('.')
 
-  logger.debug(`Read package.json files from patterns: ${patternsSet.values()}`)
+  logger.debug(`Read package.json files from patterns: ${[...patternsSet].join(', ')}`)
 
   for (const pattern of patternsSet) {
     try {
