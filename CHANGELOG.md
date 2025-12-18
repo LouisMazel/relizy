@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.2.6...v0.2.7
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.6...v0.2.7)
+
+### 💅 Refactors
+
+- Log errors in cli ([63d6418](https://github.com/LouisMazel/relizy/commit/63d6418))
+- Rename option configName of loadRelizyConfig to configFile ([a720569](https://github.com/LouisMazel/relizy/commit/a720569))
+
+### 📦 Build
+
+- Upgrade dependencies ([16da2f1](https://github.com/LouisMazel/relizy/commit/16da2f1))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.5...v0.2.6
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.5...v0.2.6)
