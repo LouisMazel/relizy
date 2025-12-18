@@ -132,7 +132,7 @@ async function generateSimpleRootChangelog({
 // eslint-disable-next-line complexity
 export async function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
   const config = await loadRelizyConfig({
-    configName: options.configName,
+    configFile: options.configName,
     baseConfig: options.config,
     overrides: {
       from: options.from,

@@ -34,7 +34,7 @@ export async function providerRelease(
   options: Partial<ProviderReleaseOptions> = {},
 ): Promise<{ detectedProvider: GitProvider, postedReleases: PostedRelease[] }> {
   const config = await loadRelizyConfig({
-    configName: options.configName,
+    configFile: options.configName,
     baseConfig: options.config,
     overrides: {
       from: options.from,
