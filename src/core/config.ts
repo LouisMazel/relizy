@@ -6,7 +6,7 @@ import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 
-import { loadConfig } from 'c12'
+import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 
@@ -113,6 +113,8 @@ export async function loadRelizyConfig(options?: {
   configFile?: string
 }) {
   const cwd = options?.overrides?.cwd ?? process.cwd()
+
+  await setupDotenv({ cwd })
 
   const configFile = options?.configFile ?? 'relizy'
 
