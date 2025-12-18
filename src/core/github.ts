@@ -199,7 +199,7 @@ export async function github(options: ProviderReleaseOptions) {
     logger.debug(`Dry run: ${dryRun}`)
 
     const config = await loadRelizyConfig({
-      configName: options.configName,
+      configFile: options.configName,
       baseConfig: options.config,
       overrides: {
         from: options.from,

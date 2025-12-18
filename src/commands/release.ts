@@ -10,7 +10,7 @@ import { publish, publishSafetyCheck } from './publish'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
-    configName: options.configName,
+    configFile: options.configName,
     overrides: {
       logLevel: options.logLevel,
       from: options.from,
