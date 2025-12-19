@@ -678,3 +678,91 @@ export function getBumpedIndependentPackages({
 
   return bumpedPackages
 }
+
+/**
+ * Determines if prerelease tags should be filtered out when searching for tags.
+ * Returns true when the current version is stable AND we're not graduating to stable.
+ *
+ * This prevents beta/prerelease tags from being used as the base for stable version bumps.
+ *
+ * @example
+ * shouldFilterPrereleaseTags('4.1.1', false) // true - stable version, not graduating
+ * shouldFilterPrereleaseTags('4.1.1-beta.0', true) // false - graduating to stable
+ * shouldFilterPrereleaseTags('4.1.1-beta.0', false) // false - prerelease version
+ */
+export function shouldFilterPrereleaseTags(currentVersion: string, graduating: boolean): boolean {
+  return !isPrerelease(currentVersion) && !graduating
+}
+
+/**
+ * Extracts a semantic version from a git tag.
+ * Supports multiple tag formats:
+ * - v1.2.3 → 1.2.3
+ * - 1.2.3 → 1.2.3
+ * - package-name@1.2.3 → 1.2.3
+ * - v1.2.3-beta.0 → 1.2.3-beta.0
+ *
+ * @param tag - The git tag to extract version from
+ * @param packageName - Optional package name for independent mode tags (e.g., "pkg-name@1.2.3")
+ * @returns The extracted version string or null if invalid
+ */
+export function extractVersionFromTag(tag: string, packageName?: string): string | null {
+  if (!tag) {
+    return null
+  }
+
+  // For independent mode tags like "pkg-name@1.2.3"
+  if (packageName) {
+    const prefix = `${packageName}@`
+    if (tag.startsWith(prefix)) {
+      return tag.slice(prefix.length)
+    }
+  }
+
+  // For tags with @ separator (e.g., "pkg@1.2.3")
+  const atIndex = tag.lastIndexOf('@')
+  if (atIndex !== -1) {
+    return tag.slice(atIndex + 1)
+  }
+
+  // For tags with v prefix (e.g., "v1.2.3")
+  if (tag.startsWith('v') && /^v\d/.test(tag)) {
+    return tag.slice(1)
+  }
+
+  // For plain version tags (e.g., "1.2.3")
+  if (/^\d+\.\d+\.\d+/.test(tag)) {
+    return tag
+  }
+
+  return null
+}
+
+/**
+ * Checks if a tag's version is compatible with the current version.
+ * A tag is compatible if its major version is less than or equal to the current major version.
+ *
+ * This prevents accidentally using tags from future major versions (e.g., v5.0.0-beta.0)
+ * when bumping a current stable version (e.g., 4.1.1 → 4.1.2).
+ *
+ * @param tagVersion - The semantic version extracted from the tag
+ * @param currentVersion - The current package version
+ * @returns true if the tag version's major is <= current major version
+ *
+ * @example
+ * isTagVersionCompatibleWithCurrent('4.1.1', '4.1.0') // true - same major
+ * isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1') // false - newer major
+ * isTagVersionCompatibleWithCurrent('3.9.9', '4.1.1') // true - older major
+ */
+export function isTagVersionCompatibleWithCurrent(tagVersion: string, currentVersion: string): boolean {
+  try {
+    const tagMajor = semver.major(tagVersion)
+    const currentMajor = semver.major(currentVersion)
+
+    return tagMajor <= currentMajor
+  }
+  catch {
+    // If we can't parse the version, consider it incompatible
+    return false
+  }
+}

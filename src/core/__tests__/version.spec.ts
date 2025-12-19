@@ -1,6 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
-import { determineReleaseType, getPackageNewVersion } from '../version'
+import { determineReleaseType, extractVersionFromTag, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 logger.setLevel('error')
 
@@ -1495,6 +1495,188 @@ describe('Given determineReleaseType function', () => {
       })
 
       expect(result).toBeUndefined()
+    })
+  })
+})
+
+describe('Given shouldFilterPrereleaseTags function', () => {
+  describe('When current version is stable', () => {
+    it('Then returns true when not graduating', () => {
+      const result = shouldFilterPrereleaseTags('4.1.1', false)
+      expect(result).toBe(true)
+    })
+
+    it('Then returns true when graduating flag is false', () => {
+      const result = shouldFilterPrereleaseTags('1.0.0', false)
+      expect(result).toBe(true)
+    })
+
+    it('Then returns false when graduating to stable', () => {
+      const result = shouldFilterPrereleaseTags('1.0.0', true)
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('When current version is prerelease', () => {
+    it('Then returns false when not graduating', () => {
+      const result = shouldFilterPrereleaseTags('4.1.1-beta.0', false)
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false when graduating to stable', () => {
+      const result = shouldFilterPrereleaseTags('5.0.0-alpha.3', true)
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false for any prerelease version', () => {
+      const result = shouldFilterPrereleaseTags('1.0.0-rc.1', false)
+      expect(result).toBe(false)
+    })
+  })
+})
+
+describe('Given extractVersionFromTag function', () => {
+  describe('When tag has v prefix', () => {
+    it('Then extracts version from v1.2.3', () => {
+      const result = extractVersionFromTag('v1.2.3')
+      expect(result).toBe('1.2.3')
+    })
+
+    it('Then extracts version from v5.0.0-beta.0', () => {
+      const result = extractVersionFromTag('v5.0.0-beta.0')
+      expect(result).toBe('5.0.0-beta.0')
+    })
+
+    it('Then extracts version from v10.20.30', () => {
+      const result = extractVersionFromTag('v10.20.30')
+      expect(result).toBe('10.20.30')
+    })
+  })
+
+  describe('When tag has package name prefix (independent mode)', () => {
+    it('Then extracts version from pkg@1.2.3', () => {
+      const result = extractVersionFromTag('pkg@1.2.3')
+      expect(result).toBe('1.2.3')
+    })
+
+    it('Then extracts version from @scope/package@1.2.3', () => {
+      const result = extractVersionFromTag('@scope/package@1.2.3')
+      expect(result).toBe('1.2.3')
+    })
+
+    it('Then extracts version with package name parameter', () => {
+      const result = extractVersionFromTag('my-pkg@5.0.0-beta.0', 'my-pkg')
+      expect(result).toBe('5.0.0-beta.0')
+    })
+
+    it('Then extracts version from package@1.0.0-alpha.1', () => {
+      const result = extractVersionFromTag('package@1.0.0-alpha.1')
+      expect(result).toBe('1.0.0-alpha.1')
+    })
+  })
+
+  describe('When tag is plain version', () => {
+    it('Then extracts version from 1.2.3', () => {
+      const result = extractVersionFromTag('1.2.3')
+      expect(result).toBe('1.2.3')
+    })
+
+    it('Then extracts version from 5.0.0-beta.0', () => {
+      const result = extractVersionFromTag('5.0.0-beta.0')
+      expect(result).toBe('5.0.0-beta.0')
+    })
+  })
+
+  describe('When tag is invalid', () => {
+    it('Then returns null for empty string', () => {
+      const result = extractVersionFromTag('')
+      expect(result).toBe(null)
+    })
+
+    it('Then returns null for invalid format', () => {
+      const result = extractVersionFromTag('invalid')
+      expect(result).toBe(null)
+    })
+
+    it('Then returns null for tag without version', () => {
+      const result = extractVersionFromTag('release')
+      expect(result).toBe(null)
+    })
+  })
+})
+
+describe('Given isTagVersionCompatibleWithCurrent function', () => {
+  describe('When tag major version is same as current', () => {
+    it('Then returns true for same version', () => {
+      const result = isTagVersionCompatibleWithCurrent('4.1.1', '4.1.1')
+      expect(result).toBe(true)
+    })
+
+    it('Then returns true for same major, different minor/patch', () => {
+      const result = isTagVersionCompatibleWithCurrent('4.5.2', '4.1.1')
+      expect(result).toBe(true)
+    })
+
+    it('Then returns true for prerelease with same major', () => {
+      const result = isTagVersionCompatibleWithCurrent('4.1.0-beta.0', '4.1.1')
+      expect(result).toBe(true)
+    })
+  })
+
+  describe('When tag major version is less than current', () => {
+    it('Then returns true for older major version', () => {
+      const result = isTagVersionCompatibleWithCurrent('3.9.9', '4.1.1')
+      expect(result).toBe(true)
+    })
+
+    it('Then returns true for much older version', () => {
+      const result = isTagVersionCompatibleWithCurrent('1.0.0', '5.0.0')
+      expect(result).toBe(true)
+    })
+
+    it('Then returns true for prerelease of older major', () => {
+      const result = isTagVersionCompatibleWithCurrent('3.5.0-alpha.0', '4.0.0')
+      expect(result).toBe(true)
+    })
+  })
+
+  describe('When tag major version is greater than current', () => {
+    it('Then returns false for newer major version', () => {
+      const result = isTagVersionCompatibleWithCurrent('5.0.0', '4.1.1')
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false for prerelease of newer major', () => {
+      const result = isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1')
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false for much newer version', () => {
+      const result = isTagVersionCompatibleWithCurrent('10.0.0', '4.1.1')
+      expect(result).toBe(false)
+    })
+  })
+
+  describe('When handling edge cases', () => {
+    it('Then returns false for invalid tag version', () => {
+      const result = isTagVersionCompatibleWithCurrent('invalid', '4.1.1')
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false for invalid current version', () => {
+      const result = isTagVersionCompatibleWithCurrent('4.1.1', 'invalid')
+      expect(result).toBe(false)
+    })
+
+    it('Then handles version 0.0.0', () => {
+      const result = isTagVersionCompatibleWithCurrent('0.0.1', '0.0.0')
+      expect(result).toBe(true)
+    })
+
+    it('Then handles high version numbers', () => {
+      // 99 (tag major) <= 100 (current major) is true, so compatible
+      const result = isTagVersionCompatibleWithCurrent('99.99.99', '100.0.0')
+      expect(result).toBe(true)
     })
   })
 })
