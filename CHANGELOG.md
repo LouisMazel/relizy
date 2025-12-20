@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.2.7...v0.2.8
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.7...v0.2.8)
+
+### 🩹 Fixes
+
+- Prevent incorrect version bumps from incompatible future tags ([2ca91e4](https://github.com/LouisMazel/relizy/commit/2ca91e4))
+
+  When bumping a stable version (e.g., 4.1.1 → 4.1.2), the system could
+  incorrectly use tags from future major versions (e.g., v5.0.0-beta.0) as
+  reference points, causing version calculation errors.
+  This fix introduces intelligent tag filtering that:
+  - Filters out tags with major versions higher than the current version
+  - Filters out prerelease tags when bumping stable to stable
+  - Preserves prerelease tags when working with prerelease versions
+    Usage: No changes required - the filtering is automatic based on your
+    current package version.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.6...v0.2.7
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.6...v0.2.7)
