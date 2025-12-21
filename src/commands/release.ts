@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson } from '../core'
+import { createCommitAndTags, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { executeHook } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
@@ -124,7 +124,35 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping changelog generation (--no-changelog)')
     }
 
-    logger.box('Step 3/6: Commit changes and create tag')
+    logger.box('Step 3/6: Publish packages to registry')
+    let publishResponse: PublishResponse | undefined
+
+    if (config.release.publish) {
+      try {
+        publishResponse = await publish({
+          registry: config.publish.registry,
+          tag: config.publish.tag,
+          access: config.publish.access,
+          otp: config.publish.otp,
+          bumpResult,
+          dryRun,
+          config,
+          configName: options.configName,
+          suffix: options.suffix,
+          force,
+        })
+      }
+      catch (error) {
+        logger.error('Publish failed, rolling back modified files...')
+        await rollbackModifiedFiles({ config })
+        throw error
+      }
+    }
+    else {
+      logger.info('Skipping publish (--no-publish)')
+    }
+
+    logger.box('Step 4/6: Commit changes and create tag')
 
     let createdTags: string[] = []
     if (config.release.commit) {
@@ -141,7 +169,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping commit and tag (--no-commit)')
     }
 
-    logger.box('Step 4/6: Push changes and tags')
+    logger.box('Step 5/6: Push changes and tags')
     if (config.release.push && config.release.commit) {
       await executeHook('before:push', config, dryRun)
 
@@ -162,27 +190,6 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     }
     else {
       logger.info('Skipping push (--no-push or --no-commit)')
-    }
-
-    logger.box('Step 5/6: Publish packages to registry')
-    let publishResponse: PublishResponse | undefined
-
-    if (config.release.publish) {
-      publishResponse = await publish({
-        registry: config.publish.registry,
-        tag: config.publish.tag,
-        access: config.publish.access,
-        otp: config.publish.otp,
-        bumpResult,
-        dryRun,
-        config,
-        configName: options.configName,
-        suffix: options.suffix,
-        force,
-      })
-    }
-    else {
-      logger.info('Skipping publish (--no-publish)')
     }
 
     let provider = config.repo?.provider

@@ -137,7 +137,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
       dryRun,
     })
 
-    for (const pkg of sortedPackages) {
+    for await (const pkg of sortedPackages) {
       if (publishedPackages.some(p => p.name === pkg.name)) {
         logger.debug(`Publishing ${getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })}...`)
         await publishPackage({
