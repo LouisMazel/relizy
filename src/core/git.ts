@@ -9,11 +9,16 @@ import { execPromise, logger } from '@maz-ui/node'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../core'
 import { executeHook } from './utils'
 
-export function getGitStatus(cwd?: string) {
-  return execSync('git status --porcelain', {
+export function getGitStatus(cwd?: string, trim = true) {
+  const status = execSync('git status --porcelain', {
     cwd,
     encoding: 'utf8',
-  }).trim()
+  })
+
+  if (trim)
+    return status.trim()
+
+  return status
 }
 
 export function checkGitStatusIfDirty() {
@@ -87,6 +92,51 @@ export function parseGitRemoteUrl(remoteUrl: string): { owner: string, repo: str
   return null
 }
 
+/**
+ * Get files modified in git status that are relevant for release
+ * Returns only package.json, CHANGELOG.md, and lerna.json files
+ */
+export function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConfig }): string[] {
+  // Get git status --porcelain output WITHOUT trimming to preserve format
+  const gitStatusRaw = getGitStatus(config.cwd, false)
+
+  if (!gitStatusRaw) {
+    logger.debug('No modified files in git status')
+    return []
+  }
+
+  // Parse git status output to get list of modified files
+  // Format: "XY filename" where X=index status, Y=worktree status
+  // We don't trim lines to preserve the 2-character status format
+  const modifiedFiles = gitStatusRaw
+    .split('\n')
+    .filter(line => line.length > 0)
+    .map((line) => {
+      // Git status porcelain format: 2 status chars + space + filename
+      // Example: " M package.json" or "M  file.txt" or "MM file.txt"
+      if (line.length < 4)
+        return null
+
+      // Extract filename (everything after the 3rd character)
+      const filename = line.substring(3).trim()
+      return filename || null
+    })
+    .filter((file): file is string => file !== null)
+
+  // Filter to only keep release-relevant files
+  const releaseFiles = modifiedFiles.filter((file) => {
+    const isPackageJson = file === 'package.json' || file.endsWith('/package.json')
+    const isChangelog = file === 'CHANGELOG.md' || file.endsWith('/CHANGELOG.md')
+    const isLerna = file === 'lerna.json'
+
+    return isPackageJson || isChangelog || isLerna
+  })
+
+  logger.debug(`Found ${releaseFiles.length} modified release files:`, releaseFiles.join(', '))
+
+  return releaseFiles
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function createCommitAndTags({
   config,
@@ -108,13 +158,7 @@ export async function createCommitAndTags({
   try {
     await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false)
 
-    const filePatternsToAdd = [
-      'package.json',
-      'lerna.json',
-      'CHANGELOG.md',
-      '**/CHANGELOG.md',
-      '**/package.json',
-    ]
+    const filePatternsToAdd = getModifiedReleaseFilePatterns({ config: internalConfig })
 
     logger.start('Start commit and tag')
 
@@ -284,6 +328,63 @@ export async function pushCommitAndTags({ config, dryRun, logLevel, cwd }: { con
   }
 
   logger.success('Pushing changes and tags completed!')
+}
+
+/**
+ * Rollback modified files to their last committed state
+ * Used when publish fails before commit/tag/push operations
+ */
+export async function rollbackModifiedFiles({
+  config,
+}: {
+  config: ResolvedRelizyConfig
+}): Promise<void> {
+  const modifiedFiles = getModifiedReleaseFilePatterns({ config })
+
+  if (modifiedFiles.length === 0) {
+    logger.debug('No modified files to rollback')
+    return
+  }
+
+  logger.debug(`Rolling back ${modifiedFiles.length} modified file(s)...`)
+  logger.debug(`Files to rollback: ${modifiedFiles.join(', ')}`)
+
+  try {
+    // Build file list for git commands
+    const fileList = modifiedFiles.join(' ')
+
+    logger.debug(`Restoring specific files from HEAD: ${fileList}`)
+    await execPromise(`git checkout HEAD -- ${fileList}`, {
+      cwd: config.cwd,
+      logLevel: config.logLevel,
+      noStderr: true,
+    })
+
+    logger.debug('Checking for untracked release files to remove...')
+    for (const file of modifiedFiles) {
+      const filePath = join(config.cwd, file)
+      if (existsSync(filePath)) {
+        try {
+          execSync(`git ls-files --error-unmatch "${file}"`, {
+            cwd: config.cwd,
+            encoding: 'utf8',
+            stdio: 'pipe',
+          })
+        }
+        catch {
+          logger.debug(`Removing untracked file: ${file}`)
+          execSync(`rm "${filePath}"`, { cwd: config.cwd })
+        }
+      }
+    }
+
+    logger.success(`Successfully rolled back ${modifiedFiles.length} release file(s)`)
+  }
+  catch (error) {
+    logger.error('Failed to rollback modified files automatically')
+    logger.warn(`Please manually restore these files: ${modifiedFiles.join(', ')}`)
+    throw error
+  }
 }
 
 export function getFirstCommit(cwd: string): string {

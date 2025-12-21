@@ -390,6 +390,17 @@ export async function publishPackage({
       return
     }
     catch (error) {
+      // DO NOT REMOVE THIS COMMENTED LOG
+      // console.log('PUBLISH ERROR', {
+      //   error,
+      //   json: JSON.stringify(error),
+      //   isOtpError: isOtpError(error),
+      //   attempt,
+      //   maxAttempts,
+      //   maxAttempts1: maxAttempts - 1,
+      //   attemptLessThanMaxAttempts: attempt < maxAttempts - 1,
+      //   attemptLessThanMaxAttemptsAndIsOtpError: attempt < maxAttempts - 1 && isOtpError(error),
+      // })
       // Check if it's an OTP error and we haven't exhausted retries
       if (isOtpError(error) && attempt < maxAttempts - 1) {
         dynamicOtp = await handleOtpError()
