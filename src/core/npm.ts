@@ -209,11 +209,29 @@ function isOtpError(error: unknown): boolean {
   if (typeof error !== 'object' || error === null)
     return false
 
+  // Check in error.message
   const errorMessage = 'message' in error && typeof error.message === 'string'
     ? error.message.toLowerCase()
     : ''
 
-  return errorMessage.includes('otp') || errorMessage.includes('one-time password') || errorMessage.includes('eotp')
+  // Also check in the full error string (includes stderr output)
+  const fullErrorString = String(error).toLowerCase()
+
+  // Combine both sources
+  const searchText = `${errorMessage} ${fullErrorString}`
+
+  const otpPatterns = [
+    'otp',
+    'one-time password',
+    'eotp',
+    'two-factor authentication',
+    '2fa',
+    'two factor',
+  ]
+
+  const isOtp = otpPatterns.some(pattern => searchText.includes(pattern))
+
+  return isOtp
 }
 
 function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
@@ -250,7 +268,7 @@ async function handleOtpError(): Promise<string> {
     return otp
   }
   catch (promptError) {
-    logger.error('Failed to get OTP:', promptError)
+    logger.error('Failed to get OTP')
     throw promptError
   }
 }
@@ -285,6 +303,7 @@ async function executePublishCommand({
     noStderr: true,
     noStdout: true,
     noSuccess: true,
+    noError: true,
     logLevel: config.logLevel,
     cwd: pkg.path,
   })
@@ -390,17 +409,6 @@ export async function publishPackage({
       return
     }
     catch (error) {
-      // DO NOT REMOVE THIS COMMENTED LOG
-      // console.log('PUBLISH ERROR', {
-      //   error,
-      //   json: JSON.stringify(error),
-      //   isOtpError: isOtpError(error),
-      //   attempt,
-      //   maxAttempts,
-      //   maxAttempts1: maxAttempts - 1,
-      //   attemptLessThanMaxAttempts: attempt < maxAttempts - 1,
-      //   attemptLessThanMaxAttemptsAndIsOtpError: attempt < maxAttempts - 1 && isOtpError(error),
-      // })
       // Check if it's an OTP error and we haven't exhausted retries
       if (isOtpError(error) && attempt < maxAttempts - 1) {
         dynamicOtp = await handleOtpError()
