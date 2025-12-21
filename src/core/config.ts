@@ -48,9 +48,12 @@ export function getDefaultConfig() {
     publish: {
       private: false,
       args: [],
+      token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
+      registry: 'https://registry.npmjs.org/',
       safetyCheck: false,
     },
     tokens: {
+      registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       gitlab:
         process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN
@@ -74,7 +77,7 @@ export function getDefaultConfig() {
     } as Required<ReleaseConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
-  }
+  } satisfies RelizyConfig
 }
 
 function setupLogger(logLevel?: LogLevel) {

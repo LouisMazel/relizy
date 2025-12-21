@@ -440,18 +440,17 @@ export async function getPackageCommits({
       return false
     }
 
-    const isTracked = isCommitOfTrackedPackages({ commit, config })
+    const isTrackedPackage = isCommitOfTrackedPackages({ commit, config })
 
-    if ((pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name) && isTracked) {
+    if ((pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name) && isTrackedPackage) {
       return true
     }
 
     const packageRelativePath = relative(changelogConfig.cwd, pkg.path)
 
-    const scopeMatches = commit.scope === pkg.name
     const bodyContainsPath = commit.body.includes(packageRelativePath)
 
-    return (scopeMatches || bodyContainsPath) && isTracked
+    return bodyContainsPath && isTrackedPackage
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)
