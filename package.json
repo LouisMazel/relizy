@@ -72,7 +72,7 @@
   },
   "dependencies": {
     "@inquirer/prompts": "^8.1.0",
-    "@maz-ui/node": "4.3.2",
+    "@maz-ui/node": "4.3.4-beta.0",
     "@maz-ui/utils": "^4.3.0",
     "c12": "^3.3.3",
     "changelogen": "^0.6.2",
