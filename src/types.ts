@@ -524,6 +524,16 @@ export type HookType = 'before' | 'success' | 'error'
 export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
 
 /**
+ * Tokens configuration
+ * @default {}
+ */
+export interface TokensConfig {
+  registry?: string
+  gitlab?: string
+  github?: string
+}
+
+/**
  * Hooks configuration
  * Useful to run custom scripts before, after a step or on error
  */
@@ -540,7 +550,7 @@ export type HookConfig = {
  * Relizy configuration
  * @see https://louismazel.github.io/relizy/config/overview
  */
-export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types'>> {
+export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
   types?: Record<string, {
     title: string
     semver?: SemverBumpType
@@ -587,6 +597,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Release config
    */
   release?: ReleaseConfig
+  /**
+   * Tokens config
+   */
+  tokens?: TokensConfig
   /**
    * Hooks config
    */
