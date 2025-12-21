@@ -12,8 +12,8 @@ importers:
         specifier: ^8.1.0
         version: 8.1.0(@types/node@25.0.3)
       '@maz-ui/node':
-        specifier: 4.3.2
-        version: 4.3.2
+        specifier: 4.3.4-beta.0
+        version: 4.3.4-beta.0
       '@maz-ui/utils':
         specifier: ^4.3.0
         version: 4.3.0
@@ -928,8 +928,8 @@ packages:
       eslint:
         optional: true
 
-  '@maz-ui/node@4.3.2':
-    resolution: {integrity: sha512-Ew3l76shb2RyvnuIa+E/sw9nl+WMIYNzOUHFu9GzlCdqihRQ3BPUUAL3rMzXTCZmUA/e1bPShX94srboI0jvBg==}
+  '@maz-ui/node@4.3.4-beta.0':
+    resolution: {integrity: sha512-bDtrnjOT+vUHYSo9Xd+/I6Ck5ld5FAzhpSE3f0hYP3ItkfoXHwGsm0QlH4yAq7NLf9tUYWf1DcIMwlG/C+kV9A==}
     engines: {node: '>=18.0.0'}
 
   '@maz-ui/utils@4.3.0':
@@ -5103,7 +5103,7 @@ snapshots:
       - typescript
       - vitest
 
-  '@maz-ui/node@4.3.2':
+  '@maz-ui/node@4.3.4-beta.0':
     dependencies:
       colorette: 2.0.20
       consola: 3.4.2
