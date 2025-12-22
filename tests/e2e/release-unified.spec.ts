@@ -76,7 +76,13 @@ describe('Given unified mode release workflow', () => {
     vi.mocked(changelog).mockResolvedValue(undefined)
     vi.mocked(publish).mockResolvedValue(undefined)
     vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(social).mockResolvedValue(undefined)
+    vi.mocked(social).mockResolvedValue({
+      results: [
+        { platform: 'twitter', success: true },
+        { platform: 'slack', success: true },
+      ],
+      hasErrors: false,
+    })
   })
 
   describe('When running full release workflow', () => {
@@ -308,11 +314,19 @@ describe('Given unified mode release workflow', () => {
   })
 
   describe('When error occurs during social', () => {
-    it('Then executes error hook', async () => {
-      vi.mocked(social).mockRejectedValue(new Error('Social failed'))
+    it('Then logs error but release succeeds', async () => {
+      vi.mocked(social).mockResolvedValue({
+        results: [
+          { platform: 'twitter', success: false, error: 'Twitter failed' },
+          { platform: 'slack', success: true },
+        ],
+        hasErrors: true,
+      })
 
       await release({})
 
+      expect(social).toHaveBeenCalled()
+      // Release succeeds despite social errors
       expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
     })
   })
