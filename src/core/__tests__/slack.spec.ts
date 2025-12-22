@@ -507,7 +507,7 @@ describe('Given postReleaseToSlack function', () => {
   })
 
   describe('When posting successfully', () => {
-    it.skip('Then posts message and logs success', async () => {
+    it('Then posts message and logs success', async () => {
       // Note: Mocking dynamic imports with constructors is complex in Vitest.
       // This test is covered by integration tests.
       mockWebClient.chat.postMessage.mockResolvedValue({
@@ -516,9 +516,19 @@ describe('Given postReleaseToSlack function', () => {
         ts: '1234567890.123456',
       })
 
-      vi.doMock('@slack/web-api', () => ({
-        WebClient: vi.fn(() => mockWebClient),
-      }))
+      vi.doMock('@slack/web-api', () => {
+        return {
+          WebClient: class {
+            chat = {
+              postMessage: vi.fn().mockResolvedValue({
+                ok: true,
+                channel: 'C123456',
+                ts: '1234567890.123456',
+              }),
+            }
+          },
+        }
+      })
 
       await postReleaseToSlack({
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
@@ -551,11 +561,11 @@ describe('Given postReleaseToSlack function', () => {
   })
 
   describe('When Slack API dependency is missing', () => {
-    it.skip('Then throws error with installation instructions', async () => {
+    it('Then throws error with installation instructions', async () => {
       // Note: Testing dynamic import failure is complex with Vitest mocking.
       // The error handling code is covered by integration tests.
       vi.doMock('@slack/web-api', () => {
-        throw Object.assign(new Error('Cannot find module'), { code: 'ERR_MODULE_NOT_FOUND' })
+        return undefined as any
       })
 
       await expect(postReleaseToSlack({
@@ -570,17 +580,21 @@ describe('Given postReleaseToSlack function', () => {
   })
 
   describe('When Slack API returns specific errors', () => {
-    it.skip('Then throws channel_not_found error', async () => {
+    it('Then throws channel_not_found error', async () => {
       // Note: Mocking dynamic imports with constructors is complex in Vitest.
-      const slackError = {
-        code: 'slack_webapi_platform_error',
-        data: { error: 'channel_not_found' },
-      }
-      mockWebClient.chat.postMessage.mockRejectedValue(slackError)
 
-      vi.doMock('@slack/web-api', () => ({
-        WebClient: vi.fn(() => mockWebClient),
-      }))
+      vi.doMock('@slack/web-api', () => {
+        return {
+          WebClient: class {
+            chat = {
+              postMessage: vi.fn().mockRejectedValue({
+                code: 'slack_webapi_platform_error',
+                data: { error: 'channel_not_found' },
+              }),
+            }
+          },
+        }
+      })
 
       await expect(postReleaseToSlack({
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
@@ -592,17 +606,20 @@ describe('Given postReleaseToSlack function', () => {
       })).rejects.toThrow('Slack channel not found')
     })
 
-    it.skip('Then throws not_in_channel error', async () => {
+    it('Then throws not_in_channel error', async () => {
       // Note: Mocking dynamic imports with constructors is complex in Vitest.
-      const slackError = {
-        code: 'slack_webapi_platform_error',
-        data: { error: 'not_in_channel' },
-      }
-      mockWebClient.chat.postMessage.mockRejectedValue(slackError)
-
-      vi.doMock('@slack/web-api', () => ({
-        WebClient: vi.fn(() => mockWebClient),
-      }))
+      vi.doMock('@slack/web-api', () => {
+        return {
+          WebClient: class {
+            chat = {
+              postMessage: vi.fn().mockRejectedValue({
+                code: 'slack_webapi_platform_error',
+                data: { error: 'not_in_channel' },
+              }),
+            }
+          },
+        }
+      })
 
       await expect(postReleaseToSlack({
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
@@ -614,17 +631,20 @@ describe('Given postReleaseToSlack function', () => {
       })).rejects.toThrow('Bot is not in the channel')
     })
 
-    it.skip('Then throws invalid_auth error', async () => {
+    it('Then throws invalid_auth error', async () => {
       // Note: Mocking dynamic imports with constructors is complex in Vitest.
-      const slackError = {
-        code: 'slack_webapi_platform_error',
-        data: { error: 'invalid_auth' },
-      }
-      mockWebClient.chat.postMessage.mockRejectedValue(slackError)
-
-      vi.doMock('@slack/web-api', () => ({
-        WebClient: vi.fn(() => mockWebClient),
-      }))
+      vi.doMock('@slack/web-api', () => {
+        return {
+          WebClient: class {
+            chat = {
+              postMessage: vi.fn().mockRejectedValue({
+                code: 'slack_webapi_platform_error',
+                data: { error: 'invalid_auth' },
+              }),
+            }
+          },
+        }
+      })
 
       await expect(postReleaseToSlack({
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
@@ -636,17 +656,20 @@ describe('Given postReleaseToSlack function', () => {
       })).rejects.toThrow('Invalid Slack token')
     })
 
-    it.skip('Then throws missing_scope error', async () => {
+    it('Then throws missing_scope error', async () => {
       // Note: Mocking dynamic imports with constructors is complex in Vitest.
-      const slackError = {
-        code: 'slack_webapi_platform_error',
-        data: { error: 'missing_scope' },
-      }
-      mockWebClient.chat.postMessage.mockRejectedValue(slackError)
-
-      vi.doMock('@slack/web-api', () => ({
-        WebClient: vi.fn(() => mockWebClient),
-      }))
+      vi.doMock('@slack/web-api', () => {
+        return {
+          WebClient: class {
+            chat = {
+              postMessage: vi.fn().mockRejectedValue({
+                code: 'slack_webapi_platform_error',
+                data: { error: 'missing_scope' },
+              }),
+            }
+          },
+        }
+      })
 
       await expect(postReleaseToSlack({
         release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
