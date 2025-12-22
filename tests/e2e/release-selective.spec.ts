@@ -85,7 +85,13 @@ describe('Given selective mode release workflow', () => {
     vi.mocked(changelog).mockResolvedValue(undefined)
     vi.mocked(publish).mockResolvedValue(undefined)
     vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(social).mockResolvedValue(undefined)
+    vi.mocked(social).mockResolvedValue({
+      results: [
+        { platform: 'twitter', success: true },
+        { platform: 'slack', success: true },
+      ],
+      hasErrors: false,
+    })
   })
 
   describe('When bumping packages with changes', () => {

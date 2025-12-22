@@ -83,22 +83,29 @@ describe('Given providerRelease command', () => {
   })
 
   describe('When error occurs', () => {
-    it('Then executes error hook', async () => {
+    it('Then executes error hook and returns error', async () => {
       vi.mocked(github).mockRejectedValue(new Error('Release failed'))
 
-      await expect(providerRelease({})).rejects.toThrow('Release failed')
+      const result = await providerRelease({})
 
+      expect(result).toEqual({
+        detectedProvider: 'github',
+        postedReleases: [],
+        error: 'Release failed',
+      })
       expect(executeHook).toHaveBeenCalledWith('error:provider-release', expect.any(Object), false)
     })
   })
 
   describe('When provider is not supported', () => {
-    it('Then throws error', async () => {
+    it('Then returns error', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.repo = { provider: 'bitbucket' as any, domain: 'bitbucket.org', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
-      await expect(providerRelease({})).rejects.toThrow()
+      const result = await providerRelease({})
+
+      expect(result.error).toBeDefined()
     })
   })
 })
