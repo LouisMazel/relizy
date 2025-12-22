@@ -767,11 +767,6 @@ export interface TokensConfig {
    */
   registry?: string
   /**
-   * Registry token for publishing (NPM or private registry)
-   * Environment variables: NPM_TOKEN, NODE_AUTH_TOKEN, RELIZY_NPM_TOKEN
-   */
-  registry?: string
-  /**
    * GitHub token for creating releases
    * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
    */

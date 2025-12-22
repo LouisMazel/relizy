@@ -656,8 +656,7 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips contributors section when noAuthors is true', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.noAuthors = true
+      const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
