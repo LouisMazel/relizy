@@ -119,6 +119,47 @@ export interface PostedRelease {
   version: string
 }
 
+export interface SocialNetworkResult {
+  /**
+   * Social platform name (e.g., 'twitter', 'slack')
+   */
+  platform: string
+  /**
+   * Whether the post was successful
+   */
+  success: boolean
+  /**
+   * Error message if the post failed
+   */
+  error?: string
+}
+
+export interface SocialResult {
+  /**
+   * Results for each social platform
+   */
+  results: SocialNetworkResult[]
+  /**
+   * Whether any of the social posts had errors
+   */
+  hasErrors: boolean
+}
+
+export interface ProviderReleaseResult {
+  /**
+   * Detected Git provider
+   */
+  detectedProvider: GitProvider
+  /**
+   * Posted releases
+   */
+  postedReleases: PostedRelease[]
+  /**
+   * Error message if provider release failed
+   */
+  error?: string
+}
+
 export interface MonorepoConfig {
   /**
    * Version mode for the monorepo.
