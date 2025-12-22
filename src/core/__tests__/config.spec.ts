@@ -552,7 +552,7 @@ describe('Given loadRelizyConfig function', () => {
       await loadRelizyConfig()
 
       expect(logger.debug).toHaveBeenCalledWith(
-        'No config file found with name "relizy" - using standalone mode',
+        'No config file found with name "relizy"',
       )
     })
 
