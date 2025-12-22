@@ -1,7 +1,7 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResultTruthy, PostedRelease, SocialOptions } from '../types'
+import type { BumpResultTruthy, PostedRelease, SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { executeHook, extractChangelogSummary, generateChangelog, getIndependentTag, getReleaseUrl, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson } from '../core'
 
@@ -338,8 +338,8 @@ async function handleSlackPost({
   }
 }
 
-// eslint-disable-next-line complexity
-export async function social(options: Partial<SocialOptions> = {}): Promise<void> {
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+export async function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
   try {
     const dryRun = options.dryRun ?? false
     logger.debug(`[social] Dry run: ${dryRun}`)
@@ -365,7 +365,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<void
     if (!config.release.social && !config.social?.twitter?.enabled && !config.social?.slack?.enabled) {
       logger.warn('[social] Social media posting is disabled in configuration.')
       logger.info('Enable it with release.social: true or social.twitter.enabled: true or social.slack.enabled: true')
-      return
+      return { results: [], hasErrors: false }
     }
 
     let postedReleases: PostedRelease[] = []
@@ -385,47 +385,70 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<void
       logger.warn('[social] No release information available (no bumpResult or postedReleases provided).')
       logger.info('Tip: This command should be called after bumping versions or creating a provider release.')
       logger.info('You can use it standalone with: relizy social --from <tag> --to <tag>')
-      return
+      return { results: [], hasErrors: false }
     }
 
     logger.info(`[social] Processing ${postedReleases.length} release(s) for social media posting`)
 
     await executeHook('before:social', config, dryRun)
 
-    try {
-      const requests = [
-        handleTwitterPost({
-          config,
-          postedReleases,
-          dryRun,
-        }),
-        handleSlackPost({
-          config,
-          postedReleases,
-          dryRun,
-        }),
-      ]
+    const requests = [
+      handleTwitterPost({
+        config,
+        postedReleases,
+        dryRun,
+      }),
+      handleSlackPost({
+        config,
+        postedReleases,
+        dryRun,
+      }),
+    ]
 
-      const responses = await Promise.all(requests)
+    const responses = await Promise.all(requests)
 
-      const success = responses.every(response => response.success)
-      const error = responses.find(response => response.success === false)?.error
+    // Build results array, filtering out disabled platforms
+    const results: SocialNetworkResult[] = []
 
-      if (!success) {
-        throw new Error(error)
-      }
+    // Twitter result
+    const twitterResponse = responses[0]
+    if (config.social?.twitter?.enabled) {
+      results.push({
+        platform: 'twitter',
+        success: twitterResponse.success,
+        error: twitterResponse.success ? undefined : twitterResponse.error,
+      })
+    }
 
+    // Slack result
+    const slackResponse = responses[1]
+    if (config.social?.slack?.enabled) {
+      results.push({
+        platform: 'slack',
+        success: slackResponse.success,
+        error: slackResponse.success ? undefined : slackResponse.error,
+      })
+    }
+
+    const hasErrors = results.some(r => !r.success)
+
+    if (hasErrors) {
+      await executeHook('error:social', config, dryRun)
+      logger.warn('[social] Some social media posts failed')
+    }
+    else {
       logger.success('[social] Social media posts completed!')
-
       await executeHook('success:social', config, dryRun)
     }
-    catch (error) {
-      await executeHook('error:social', config, dryRun)
-      throw error
-    }
+
+    return { results, hasErrors }
   }
   catch (error) {
     logger.error('[social] Error during social media posting:', error)
-    throw error
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return {
+      results: [{ platform: 'unknown', success: false, error: errorMessage }],
+      hasErrors: true,
+    }
   }
 }

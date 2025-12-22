@@ -1,5 +1,5 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
 
@@ -42,7 +42,7 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
 
 export async function providerRelease(
   options: Partial<ProviderReleaseOptions> = {},
-): Promise<{ detectedProvider: GitProvider, postedReleases: PostedRelease[] }> {
+): Promise<ProviderReleaseResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,
     baseConfig: options.config,
@@ -63,8 +63,10 @@ export async function providerRelease(
 
   logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
+  let detectedProvider: GitProvider | null = null
+
   try {
-    const detectedProvider = options.provider || detectGitProvider()
+    detectedProvider = options.provider || detectGitProvider()
     providerReleaseSafetyCheck({ config, provider: detectedProvider })
 
     await executeHook('before:provider-release', config, dryRun)
@@ -132,6 +134,11 @@ export async function providerRelease(
 
     await executeHook('error:provider-release', config, dryRun)
 
-    throw error
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    return {
+      detectedProvider: detectedProvider || 'github',
+      postedReleases: [],
+      error: errorMessage,
+    }
   }
 }

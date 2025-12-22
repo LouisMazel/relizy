@@ -1,5 +1,5 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions } from '../types'
+import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { bump } from './bump'
@@ -199,57 +199,50 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     let provider = config.repo?.provider
     let postedReleases: PostedRelease[] = []
+    let providerError: string | undefined
 
     logger.box('Step 6/7: Publish Git release')
 
     if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
 
-      try {
-        const response = await providerRelease({
-          from: config.from,
-          to: config.to,
-          token: options.token,
-          provider,
-          dryRun,
-          config,
-          logLevel: config.logLevel,
-          bumpResult,
-          configName: options.configName,
-          force,
-          suffix: options.suffix,
-          safetyCheck: false,
-        })
-        provider = response.detectedProvider
-        postedReleases = response.postedReleases
-      }
-      catch (error) {
-        logger.error('Error during release publication:', error)
-      }
+      const response = await providerRelease({
+        from: config.from,
+        to: config.to,
+        token: options.token,
+        provider,
+        dryRun,
+        config,
+        logLevel: config.logLevel,
+        bumpResult,
+        configName: options.configName,
+        force,
+        suffix: options.suffix,
+        safetyCheck: false,
+      })
+      provider = response.detectedProvider
+      postedReleases = response.postedReleases
+      providerError = response.error
     }
     else {
       logger.info('Skipping release (--no-provider-release)')
     }
 
     logger.box('Step 7/7: Post release to social media')
+    let socialResults: SocialResult | undefined
+
     if (config.release.social) {
-      try {
-        await social({
-          from: config.from,
-          to: config.to,
-          config,
-          configName: options.configName,
-          bumpResult,
-          postedReleases,
-          dryRun,
-          logLevel: config.logLevel,
-          safetyCheck: false, // Already checked in releaseSafetyCheck
-        })
-      }
-      catch (error) {
-        logger.error('Error during social media posting:', error)
-        // Don't throw - social media posting failure shouldn't fail the release
-      }
+      socialResults = await social({
+        from: config.from,
+        to: config.to,
+        config,
+        configName: options.configName,
+        bumpResult,
+        postedReleases,
+        dryRun,
+        logLevel: config.logLevel,
+        safetyCheck: false, // Already checked in releaseSafetyCheck
+      })
     }
     else {
       logger.info('Skipping social media posts (--no-social)')
@@ -260,13 +253,37 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
       : bumpResult.newVersion || readPackageJson(config.cwd)?.version
 
+    // Format provider-release display
+    let providerDisplay = 'Disabled'
+    if (config.release.providerRelease) {
+      if (providerError) {
+        providerDisplay = `Failed: ${providerError}`
+      }
+      else {
+        providerDisplay = `${postedReleases.length} release${postedReleases.length !== 1 ? 's' : ''}`
+      }
+    }
+
+    // Format social media display
+    let socialDisplay = 'Disabled'
+    if (config.release.social && socialResults) {
+      if (socialResults.hasErrors) {
+        const failed = socialResults.results.filter(r => !r.success).map(r => r.platform)
+        const succeeded = socialResults.results.filter(r => r.success).map(r => r.platform)
+        socialDisplay = `${succeeded.length} succeeded, ${failed.length} failed (${failed.join(', ')})`
+      }
+      else {
+        socialDisplay = `${socialResults.results.length} succeeded`
+      }
+    }
+
     logger.box('Release workflow completed!\n\n'
       + `Version: ${versionDisplay ?? 'Unknown'}\n`
       + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
       + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
-      + `Published release: ${config.release.providerRelease ? postedReleases.length : 'Disabled'}\n`
-      + `Social media: ${config.release.social ? 'Yes' : 'Disabled'}\n`
+      + `Provider release: ${providerDisplay}\n`
+      + `Social media: ${socialDisplay}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)
