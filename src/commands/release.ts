@@ -148,7 +148,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         })
       }
       catch (error) {
-        logger.error('Publish failed, rolling back modified files...')
+        logger.fail('Publish failed, rolling back modified files...')
         await rollbackModifiedFiles({ config })
         throw error
       }

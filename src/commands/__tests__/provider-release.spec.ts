@@ -29,11 +29,7 @@ vi.mock('../../core/utils', () => {
 describe('Given providerRelease command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = {
-      ...createMockConfig({ bump: { type: 'patch' } }),
-      safetyCheck: false,
-    }
-    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(github).mockResolvedValue([])
@@ -63,10 +59,7 @@ describe('Given providerRelease command', () => {
 
   describe('When creating GitLab release', () => {
     it('Then calls gitlab function', async () => {
-      const config = {
-        ...createMockConfig({ bump: { type: 'patch' } }),
-        safetyCheck: false,
-      }
+      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false })
       config.repo = { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
