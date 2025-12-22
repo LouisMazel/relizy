@@ -296,13 +296,21 @@ describe('Given social command', () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(postReleaseToTwitter).mockRejectedValue(new Error('Twitter API error'))
 
-      await expect(social({
+      const result = await social({
         bumpResult: {
           bumped: true,
           bumpedPackages: [],
         },
-      })).rejects.toThrow('Twitter API error')
+      })
 
+      expect(result.hasErrors).toBe(true)
+      expect(result.results).toEqual([
+        expect.objectContaining({
+          platform: 'twitter',
+          success: false,
+          error: expect.stringContaining('Twitter API error'),
+        }),
+      ])
       expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false)
     })
   })

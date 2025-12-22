@@ -64,7 +64,13 @@ describe('Given release command', () => {
     vi.mocked(changelog).mockResolvedValue(undefined)
     vi.mocked(publish).mockResolvedValue(undefined)
     vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
-    vi.mocked(social).mockResolvedValue(undefined)
+    vi.mocked(social).mockResolvedValue({
+      results: [
+        { platform: 'twitter', success: true },
+        { platform: 'slack', success: true },
+      ],
+      hasErrors: false,
+    })
   })
 
   describe('When running full release workflow', () => {
