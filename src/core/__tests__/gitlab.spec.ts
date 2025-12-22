@@ -732,7 +732,7 @@ describe('Given gitlab function', () => {
       await gitlab({ configName: 'custom', force: false })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ configName: 'custom' }),
+        expect.objectContaining({ configFile: 'custom' }),
       )
     })
   })
