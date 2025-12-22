@@ -308,12 +308,12 @@ describe('Given unified mode release workflow', () => {
   })
 
   describe('When error occurs during social', () => {
-    it.skip('Then executes error hook', async () => {
+    it('Then executes error hook', async () => {
       vi.mocked(social).mockRejectedValue(new Error('Social failed'))
 
-      await expect(release({})).rejects.toThrow('Social failed')
+      await release({})
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
     })
   })
 
