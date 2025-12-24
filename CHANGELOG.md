@@ -1,5 +1,322 @@
 # Changelog
 
+## v0.3.0...v1.0.0-beta.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.3.0...v1.0.0-beta.0)
+
+### 🚀 Features
+
+- Add automatic Twitter posting for releases ([684f92b](https://github.com/LouisMazel/relizy/commit/684f92b))
+
+  Add functionality to automatically post release announcements
+  to Twitter when a new version is published.
+  - New Twitter integration module (src/core/twitter.ts) with:
+    - Twitter credentials management from environment variables
+    - Tweet message formatting with customizable templates
+    - Release URL generation for GitHub/GitLab
+    - Changelog summary extraction
+    - Smart truncation to fit Twitter's 280 character limit
+  - Configuration support:
+    - release.twitter option to enable/disable Twitter posting
+    - templates.twitterMessage for custom tweet templates
+    - Environment variables for Twitter API credentials:
+      - TWITTER_API_KEY / RELIZY_TWITTER_API_KEY
+      - TWITTER_API_SECRET / RELIZY_TWITTER_API_SECRET
+      - TWITTER_ACCESS_TOKEN / RELIZY_TWITTER_ACCESS_TOKEN
+      - TWITTER_ACCESS_TOKEN_SECRET / RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+  - CLI support:
+    - --twitter flag for the release command to enable Twitter posting
+    - Hooks support: before:twitter, success:twitter, error:twitter
+  - Integration:
+    - Added as Step 7/7 in the release workflow
+    - Non-blocking: Twitter posting failures won't fail the release
+    - Dry-run support for testing
+  - Added twitter-api-v2 for Twitter API integration
+    Enable Twitter posting with environment variables set:
+    relizy release --twitter
+    Or configure in relizy.config.ts:
+    export default defineConfig({
+    release: {
+    twitter: true
+    }
+    })
+
+- Add option to skip Twitter posts for prerelease versions ([e263972](https://github.com/LouisMazel/relizy/commit/e263972))
+
+  Add twitterOnlyStable option to control whether prerelease versions
+  (alpha, beta, rc, etc.) should be posted to Twitter.
+  - New configuration option release.twitterOnlyStable (default: true)
+    - When enabled, only stable versions will be posted to Twitter
+    - Prerelease versions will be skipped automatically
+  - CLI flag --no-twitter-only-stable to allow Twitter posts for
+    prerelease versions when needed
+  - Updated handleTwitterPost function to check if version is
+    a prerelease before posting
+    By default, Twitter posting is now limited to stable versions only.
+    Users can override this with:
+    - Config: release.twitterOnlyStable: false
+    - CLI: --no-twitter-only-stable flag
+      Stable release (v1.0.0): Will be posted to Twitter
+      Prerelease (v1.0.0-beta.1): Will be skipped (unless configured)
+
+- **release:** ⚠️ Add Slack integration to social media posting ([7a32114](https://github.com/LouisMazel/relizy/commit/7a32114))
+
+  BREAKING CHANGE: Add comprehensive Slack support to social command
+  - Add SlackSocialConfig, SlackCredentials, SlackOptions types
+  - Install @slack/web-api dependency for Slack Web API integration
+  - Create src/core/slack.ts with Slack posting functionality
+    - Support for rich blocks format (default) or custom templates
+    - Automatic markdown to Slack mrkdwn conversion
+    - Channel and token configuration with environment variable fallback
+  - Create src/core/social-utils.ts for shared utilities
+    - extractChangelogSummary() for changelog condensing
+    - getReleaseUrl() for release URL generation
+    - Shared between Twitter and Slack implementations
+  - Add changelogUrl to SocialConfig for full changelog links
+  - Update Twitter integration to support changelogUrl
+  - Integrate Slack into social.ts with handleSlackPost()
+    - Add safety checks for Slack credentials and channel
+    - Support for before:slack, success:slack, error:slack hooks
+    - Skip prerelease versions with onlyStable option
+  - Add default Slack configuration and templates
+  - Add 'slack' to HookStep type for hook support
+    Features:
+  - Post release announcements to any Slack workspace
+  - Rich interactive messages with buttons (View Release, Full Changelog)
+  - Configurable channel (supports both names and IDs)
+  - Template support for custom message formatting
+  - Smart changelog condensing with full changelog links
+  - Dry-run support for testing
+
+- **release:** Add partial Bitbucket support ([ff5cd79](https://github.com/LouisMazel/relizy/commit/ff5cd79))
+
+  Add Bitbucket as a supported Git provider with limited functionality.
+  Bitbucket does not have a releases API like GitHub/GitLab, so releases
+  are skipped for Bitbucket repositories.
+  Changes:
+  - Add 'bitbucket' to GitProvider type
+  - Update detectGitProvider() to detect Bitbucket repositories
+    - Checks for 'bitbucket.org' or 'bitbucket' in remote URL
+  - Update getReleaseUrl() to generate Bitbucket tag URLs
+    - Format: https://{domain}/{repo}/commits/tag/{tag}
+  - Update providerReleaseSafetyCheck() to handle Bitbucket
+    - Shows informative warning that releases are not supported
+    - Allows other features (versioning, changelog, publishing, social) to work
+  - Update providerRelease() to skip release creation for Bitbucket
+    - Returns empty postedReleases array
+    - Logs clear warning messages
+    - Still triggers success hooks
+      Bitbucket support includes:
+      ✅ Git provider detection
+      ✅ Tag URLs for social media posts
+      ✅ Compare URLs in changelog (via changelogen 0.6.2+)
+      ✅ Versioning, changelog generation
+      ✅ NPM publishing
+      ✅ Social media posting (Twitter/Slack)
+      ❌ Release creation (not available in Bitbucket API)
+      The compare URLs in changelogs are automatically handled by changelogen
+      which supports Bitbucket format: /branches/compare/{tag2}..{tag1}
+
+- **relizy:** Add global tokens configuration for Twitter and Slack ([caf16c4](https://github.com/LouisMazel/relizy/commit/caf16c4))
+
+  Add centralized token management in the global config.tokens object,
+  with priority system for credential resolution.
+  Changes:
+  - Create Tokens interface in types.ts with support for:
+    - github: GitHub token
+    - gitlab: GitLab token
+    - twitter: Twitter API credentials (apiKey, apiSecret, accessToken, accessTokenSecret)
+    - slack: Slack bot token
+  - Update RelizyConfig to:
+    - Omit 'tokens' from IChangelogConfig (avoid conflict)
+    - Add tokens?: Tokens property
+  - Update config.ts to populate tokens from environment variables:
+    - twitter.apiKey: TWITTER_API_KEY or RELIZY_TWITTER_API_KEY
+    - twitter.apiSecret: TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET
+    - twitter.accessToken: TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN
+    - twitter.accessTokenSecret: TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET
+    - slack: SLACK_TOKEN or RELIZY_SLACK_TOKEN
+  - Update getTwitterCredentials() to use priority system:
+    1. social.twitter.credentials (specific config)
+    2. config.tokens.twitter (global config)
+    3. Environment variables (handled in config.ts)
+  - Update getSlackToken() to use priority system:
+    1. social.slack.credentials (specific config)
+    2. config.tokens.slack (global config)
+    3. Environment variables (handled in config.ts)
+  - Update social.ts to pass both credential sources to helpers
+    Benefits:
+  - Centralized token management
+  - Clear priority system (specific > global > env)
+  - Consistent with GitHub/GitLab token pattern
+  - Users can configure tokens once in config.tokens or per-platform in social.\*
+  - Better developer experience with multiple configuration options
+
+- **relizy:** Add Codecov integration with optimal configuration ([71f5226](https://github.com/LouisMazel/relizy/commit/71f5226))
+- **docs:** Add contributors section ([b5a2a70](https://github.com/LouisMazel/relizy/commit/b5a2a70))
+- Improve error reporting for social and provider-release steps ([2c17127](https://github.com/LouisMazel/relizy/commit/2c17127))
+
+  Social media and provider release failures are now non-blocking and
+  provide detailed feedback in the final release summary.
+  Changes:
+  - Social command returns SocialResult with per-platform details
+  - Provider-release returns errors in result instead of throwing
+  - Release workflow displays detailed status in final log box
+    Example output:
+    Social media: 1 succeeded, 1 failed (slack)
+    Provider release: Failed: Invalid token
+    This allows releases to continue even if external services fail,
+    while giving users full visibility into what succeeded or failed.
+
+### 🩹 Fixes
+
+- **release:** Add optional chaining for createdTags in success logger ([886b3cd](https://github.com/LouisMazel/relizy/commit/886b3cd))
+  - Fix TypeError when createdTags is undefined in tests
+  - Use optional chaining (createdTags?.length) to safely access length
+  - Change fallback text from 'No' to 'None' for clarity
+  - Resolves 41 E2E test failures
+  - Progress: 692/862 tests passing (80.3%)
+
+### 💅 Refactors
+
+- Restructure social media configuration ([f6b8384](https://github.com/LouisMazel/relizy/commit/f6b8384))
+
+  Refactor the social media posting configuration to be more
+  modular and extensible for future platforms.
+  - Removed twitter and twitterOnlyStable from ReleaseConfig
+  - Added new release.social flag to enable all social media posting
+  - Created new SocialConfig interface with platform-specific configs
+  - Added social.twitter configuration section with:
+    - enabled: Enable/disable Twitter posting
+    - onlyStable: Skip prereleases (default: true)
+    - messageTemplate: Custom tweet template
+    - credentials: Optional Twitter API credentials (falls back to env vars)
+  - More scalable architecture for adding new platforms
+    (LinkedIn, Slack, Discord, etc.)
+  - Cleaner separation of concerns
+  - Platform-specific configuration
+  - Credentials can be in config or environment variables
+    Before:
+    release: {
+    twitter: true,
+    twitterOnlyStable: true
+    }
+    After:
+    release: {
+    social: true
+    },
+    social: {
+    twitter: {
+    enabled: true,
+    onlyStable: true
+    }
+    }
+  - Replaced --twitter flag with --social
+  - Removed --no-twitter-only-stable flag (use config instead)
+  - Created ResolvedTwitterCredentials type for type safety
+  - Updated getTwitterCredentials to accept config credentials
+  - Refactored handleTwitterPost to use new config structure
+  - Updated release workflow step label to "social media"
+
+- Create standalone social command ([4c8f20a](https://github.com/LouisMazel/relizy/commit/4c8f20a))
+
+  Create a dedicated social command that can be used independently
+  or as part of the release workflow.
+  - Created src/commands/social.ts with:
+    - social() function - Main command implementation
+    - socialSafetyCheck() - Validates social media credentials
+    - handleTwitterPost() - Handles Twitter posting logic
+    - Full changelog generation from git commits
+  - Added new command: relizy social --from x.x.x --to x.x.x
+  - Changed release flag from --social to --no-social
+  - Default behavior: social posting is enabled (disable with --no-social)
+  - Updated release.ts to call social() command instead of inline logic
+  - Integrated socialSafetyCheck() in releaseSafetyCheck()
+  - Removed handleTwitterPost from release.ts (moved to social.ts)
+  - Changed release.social default from false to true
+  - Social posting now enabled by default in release workflow
+  - Use --no-social flag to disable during release
+  - Added SocialOptions interface for command options
+  - Added 'social' to HookStep type for hooks support
+  - Modular: Social posting can be used independently
+  - Reusable: Same logic in release and standalone command
+  - Testable: Easier to test social posting in isolation
+  - Extensible: Easy to add new social platforms
+  - Safety: Validates credentials before attempting to post
+    Standalone:
+    relizy social --from v1.0.0 --to v1.1.0
+    In release workflow:
+    relizy release # Social posting enabled by default
+    relizy release --no-social # Disable social posting
+
+- **release:** Use bumpResult fallback when postedReleases unavailable ([06909f8](https://github.com/LouisMazel/relizy/commit/06909f8))
+  - Add buildPostedReleasesFromBumpResult() to create releases from bump result
+  - Implement priority system: postedReleases first, then bumpResult fallback
+  - Handle independent, unified, and selective version modes
+  - Add comprehensive logging with [social] and [social:twitter] prefixes
+  - Ensure social posting works even when GitHub/GitLab releases are disabled
+    This allows the social command to function independently of provider releases,
+    making it more flexible and reliable in various release configurations.
+
+- Put social dependencies in peerDependencies ([6fcc1cb](https://github.com/LouisMazel/relizy/commit/6fcc1cb))
+- **docs:** Add social features to sidebar and navbar ([1e61610](https://github.com/LouisMazel/relizy/commit/1e61610))
+
+### 📖 Documentation
+
+- Add social media integration documentation ([9e72531](https://github.com/LouisMazel/relizy/commit/9e72531))
+  - Simplified README.md with social media features
+  - Added comprehensive social media guides (overview, Twitter, Slack)
+  - Updated provider-release docs with Bitbucket limitations
+  - Fixed release config documentation (providerRelease property)
+  - Updated config overview with social tokens
+
+- Add link to CONTRIBUTING.md in README PR guidelines ([fe9b08f](https://github.com/LouisMazel/relizy/commit/fe9b08f))
+- Add complete social media documentation and SEO metadata ([2548a2c](https://github.com/LouisMazel/relizy/commit/2548a2c))
+  - Create docs/src/config/social.md with detailed configuration reference
+  - Create docs/src/api/social.md with API documentation and examples
+  - Create docs/src/cli/social.md with CLI usage guide
+  - Add SEO frontmatter metadata to slack-integration.md guide
+  - Add SEO frontmatter metadata to social-media.md guide
+  - Add SEO frontmatter metadata to twitter-integration.md guide
+  - Document Twitter and Slack configuration options, credentials, templates
+  - Include CI/CD integration examples for GitHub Actions and GitLab CI
+  - Add troubleshooting sections and complete usage examples
+
+#### ⚠️ Breaking Changes
+
+- **release:** ⚠️ Add Slack integration to social media posting ([7a32114](https://github.com/LouisMazel/relizy/commit/7a32114))
+
+  BREAKING CHANGE: Add comprehensive Slack support to social command
+  - Add SlackSocialConfig, SlackCredentials, SlackOptions types
+  - Install @slack/web-api dependency for Slack Web API integration
+  - Create src/core/slack.ts with Slack posting functionality
+    - Support for rich blocks format (default) or custom templates
+    - Automatic markdown to Slack mrkdwn conversion
+    - Channel and token configuration with environment variable fallback
+  - Create src/core/social-utils.ts for shared utilities
+    - extractChangelogSummary() for changelog condensing
+    - getReleaseUrl() for release URL generation
+    - Shared between Twitter and Slack implementations
+  - Add changelogUrl to SocialConfig for full changelog links
+  - Update Twitter integration to support changelogUrl
+  - Integrate Slack into social.ts with handleSlackPost()
+    - Add safety checks for Slack credentials and channel
+    - Support for before:slack, success:slack, error:slack hooks
+    - Skip prerelease versions with onlyStable option
+  - Add default Slack configuration and templates
+  - Add 'slack' to HookStep type for hook support
+    Features:
+  - Post release announcements to any Slack workspace
+  - Rich interactive messages with buttons (View Release, Full Changelog)
+  - Configurable channel (supports both names and IDs)
+  - Template support for custom message formatting
+  - Smart changelog condensing with full changelog links
+  - Dry-run support for testing
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.8...v0.3.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.8...v0.3.0)
