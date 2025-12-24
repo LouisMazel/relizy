@@ -25,6 +25,7 @@ export async function generateChangelog(
     config,
     dryRun,
     newVersion,
+    minify,
   }: {
     pkg: {
       fromTag?: string
@@ -35,6 +36,7 @@ export async function generateChangelog(
     config: ResolvedRelizyConfig
     dryRun: boolean
     newVersion: string
+    minify?: boolean
   },
 ) {
   let fromTag = config.from
@@ -74,6 +76,7 @@ export async function generateChangelog(
       from: fromTag,
       isFirstCommit,
       to: toTag,
+      minify,
     })
 
     let changelog = generatedChangelog

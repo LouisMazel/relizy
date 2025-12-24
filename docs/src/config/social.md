@@ -33,10 +33,10 @@ interface SocialConfig {
   twitter?: {
     enabled?: boolean
     onlyStable?: boolean
-    messageTemplate?: string
+    template?: string
     credentials?: {
       apiKey?: string
-      apiSecret?: string
+      apiKeySecret?: string
       accessToken?: string
       accessTokenSecret?: string
     }
@@ -45,7 +45,7 @@ interface SocialConfig {
     enabled?: boolean
     onlyStable?: boolean
     channel?: string
-    messageTemplate?: string
+    template?: string
     credentials?: {
       token?: string
     }
@@ -93,7 +93,7 @@ export default defineConfig({
 })
 ```
 
-### twitter.messageTemplate
+### twitter.template
 
 - **Type:** `string`
 - **Default:** Auto-generated from version and changelog
@@ -111,7 +111,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      messageTemplate: '🚀 {{projectName}} v{{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
+      template: '🚀 {{projectName}} v{{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
     },
   },
 })
@@ -131,7 +131,7 @@ export default defineConfig({
       enabled: true,
       credentials: {
         apiKey: process.env.TWITTER_API_KEY,
-        apiSecret: process.env.TWITTER_API_SECRET,
+        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       },
@@ -143,7 +143,7 @@ export default defineConfig({
 **Environment Variables:**
 
 - `TWITTER_API_KEY` or `RELIZY_TWITTER_API_KEY`
-- `TWITTER_API_SECRET` or `RELIZY_TWITTER_API_SECRET`
+- `TWITTER_API_KEY_SECRET` or `RELIZY_TWITTER_API_KEY_SECRET`
 - `TWITTER_ACCESS_TOKEN` or `RELIZY_TWITTER_ACCESS_TOKEN`
 - `TWITTER_ACCESS_TOKEN_SECRET` or `RELIZY_TWITTER_ACCESS_TOKEN_SECRET`
 
@@ -206,7 +206,7 @@ export default defineConfig({
 })
 ```
 
-### slack.messageTemplate
+### slack.template
 
 - **Type:** `string`
 - **Default:** Auto-generated from version and changelog
@@ -225,7 +225,7 @@ export default defineConfig({
     slack: {
       enabled: true,
       channel: '#releases',
-      messageTemplate: '🚀 *{{projectName}} v{{version}}* is now available!\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
+      template: '🚀 *{{projectName}} v{{version}}* is now available!\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
     },
   },
 })
@@ -295,7 +295,7 @@ export default defineConfig({
     twitter: {
       enabled: true,
       onlyStable: true,
-      messageTemplate: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n📖 {{releaseUrl}}',
+      template: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n📖 {{releaseUrl}}',
     },
     changelogUrl: 'https://myproject.com/changelog',
   },
@@ -313,7 +313,7 @@ export default defineConfig({
       enabled: true,
       onlyStable: false, // Post all releases including prereleases
       channel: '#releases',
-      messageTemplate: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View on GitHub>',
+      template: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View on GitHub>',
     },
     changelogUrl: 'https://myproject.com/changelog',
   },
@@ -352,7 +352,7 @@ export default defineConfig({
       enabled: process.env.ENABLE_TWITTER === 'true',
       credentials: {
         apiKey: process.env.TWITTER_API_KEY,
-        apiSecret: process.env.TWITTER_API_SECRET,
+        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       },
@@ -379,7 +379,7 @@ export default defineConfig({
   tokens: {
     twitter: {
       apiKey: process.env.TWITTER_API_KEY,
-      apiSecret: process.env.TWITTER_API_SECRET,
+      apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
       accessToken: process.env.TWITTER_ACCESS_TOKEN,
       accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
     },

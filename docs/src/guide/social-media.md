@@ -77,7 +77,7 @@ Set your credentials as environment variables:
 ```bash
 # Twitter
 export TWITTER_API_KEY="your-api-key"
-export TWITTER_API_SECRET="your-api-secret"
+export TWITTER_API_KEY_SECRET="your-api-secret"
 export TWITTER_ACCESS_TOKEN="your-access-token"
 export TWITTER_ACCESS_TOKEN_SECRET="your-access-token-secret"
 

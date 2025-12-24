@@ -5,20 +5,17 @@ import { detectPackageManager, executeBuildCmd, getAuthCommand, getIndependentTa
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 
 export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
-  logger.start('Start checking auth config to package registry')
-
-  logger.debug('[publish-safety-check] Running publish safety check')
-
   if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
-    logger.debug('[publish-safety-check] Safety check disabled or publish disabled')
+    logger.debug('Safety check disabled or publish disabled')
     return
   }
+
+  logger.debug('Start checking auth config to package registry')
 
   const packageManager = config.publish.packageManager || detectPackageManager(config.cwd)
 
   if (!packageManager) {
-    logger.error('[publish-safety-check] Unable to detect package manager')
-    process.exit(1)
+    throw new Error('Unable to detect package manager')
   }
 
   const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
@@ -31,7 +28,7 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
     })
 
     try {
-      logger.debug('[publish-safety-check] Authenticating to package registry...')
+      logger.debug('Authenticating to package registry...')
       await execPromise(authCommand, {
         cwd: config.cwd,
         noStderr: true,
@@ -39,12 +36,10 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
         logLevel: config.logLevel,
         noSuccess: true,
       })
-      logger.info('[publish-safety-check] Successfully authenticated to package registry')
-      logger.success('Successfully authenticated to package registry')
+      logger.info('Successfully authenticated to package registry')
     }
     catch (error) {
-      logger.error('[publish-safety-check] Failed to authenticate to package registry:', error)
-      process.exit(1)
+      throw new Error('Failed to authenticate to package registry', { cause: error })
     }
   }
 }
@@ -75,7 +70,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
   logger.debug(`Package manager: ${packageManager}`)
 
-  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   if (config.publish.registry) {
     logger.debug(`Registry: ${config.publish.registry}`)

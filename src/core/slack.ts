@@ -53,7 +53,7 @@ export function formatChangelogForSlack(changelog: string, maxLength: number = 5
 /**
  * Format the Slack message using blocks
  */
-export function formatSlackMessage(options: {
+export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template }: {
   template?: string
   projectName: string
   version: string
@@ -61,12 +61,10 @@ export function formatSlackMessage(options: {
   releaseUrl?: string
   changelogUrl?: string
 }): any[] {
-  const { projectName, version, changelog, releaseUrl, changelogUrl } = options
-
   // Use template if provided, otherwise use blocks
-  if (options.template) {
+  if (template) {
     const summary = extractChangelogSummary(changelog, 500)
-    let message = options.template
+    let message = template
       .replace('{{projectName}}', projectName)
       .replace('{{version}}', version)
       .replace('{{changelog}}', summary)
@@ -168,31 +166,29 @@ export function formatSlackMessage(options: {
 /**
  * Post a release announcement to Slack
  */
-export async function postReleaseToSlack(options: SlackOptions) {
-  const {
-    release,
-    projectName,
-    changelog,
-    releaseUrl,
-    changelogUrl,
-    channel,
-    token,
-    messageTemplate,
-    dryRun = false,
-  } = options
-
-  logger.debug('[social:slack] Preparing Slack post...')
+export async function postReleaseToSlack({
+  version,
+  projectName,
+  changelog,
+  releaseUrl,
+  changelogUrl,
+  channel,
+  token,
+  template,
+  dryRun = false,
+}: SlackOptions) {
+  logger.debug('Preparing Slack post...')
 
   const blocks = formatSlackMessage({
-    template: messageTemplate,
+    template,
     projectName,
-    version: release.version,
+    version,
     changelog,
     releaseUrl,
     changelogUrl,
   })
 
-  logger.debug(`[social:slack] Message blocks (${blocks.length} blocks)`)
+  logger.debug(`Message blocks (${blocks.length} blocks)`)
 
   if (dryRun) {
     logger.info('[dry-run] Would post to Slack:', JSON.stringify(blocks, null, 2))
@@ -205,28 +201,30 @@ export async function postReleaseToSlack(options: SlackOptions) {
 
     const client = new WebClient(token)
 
+    logger.debug(`Posting message to Slack channel: ${channel}`)
+
     const result = await client.chat.postMessage({
       channel,
       blocks,
-      text: `${projectName} ${release.version} is out!`, // Fallback text for notifications
+      text: `${projectName} ${version} is out!`, // Fallback text for notifications
     })
 
-    logger.success(`[social:slack] Message posted successfully! Channel: ${result.channel}, Timestamp: ${result.ts}`)
+    logger.success(`Message posted successfully! Channel: ${result.channel}, Timestamp: ${result.ts}`)
 
     return result
   }
   catch (error: any) {
     // Check if it's a missing dependency error
     if (error.code === 'ERR_MODULE_NOT_FOUND' || error.message?.includes('@slack/web-api')) {
-      logger.error('[social:slack] Slack Web API dependency not found. Please install it with: pnpm add @slack/web-api')
+      logger.error('Slack Web API dependency not found. Please install it with: pnpm add @slack/web-api')
       throw new Error('Missing dependency: @slack/web-api. Install it with: pnpm add @slack/web-api')
     }
 
-    logger.error('[social:slack] Failed to post message:', error.message || error)
+    logger.error('Failed to post message:', error.message || error)
 
     // Add more specific error handling for common Slack errors
     if (error.data) {
-      logger.error('[social:slack] Slack API error:', error.data.error)
+      logger.error('Slack API error:', error.data.error)
 
       switch (error.data.error) {
         case 'channel_not_found':

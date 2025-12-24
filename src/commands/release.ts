@@ -6,6 +6,7 @@ import { bump } from './bump'
 import { changelog } from './changelog'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
+
 import { social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
@@ -64,13 +65,22 @@ async function releaseSafetyCheck({
     return
   }
 
-  const checks = [
-    providerReleaseSafetyCheck({ config, provider }),
-    publishSafetyCheck({ config }),
-    config.release.social ? socialSafetyCheck({ config }) : undefined,
-  ].filter(Boolean)
+  logger.box('Safety checks')
+  logger.start('Start safety checks')
 
-  await Promise.all(checks)
+  try {
+    await Promise.all([
+      providerReleaseSafetyCheck({ config, provider }),
+      publishSafetyCheck({ config }),
+      socialSafetyCheck({ config }),
+    ])
+
+    logger.success('Safety checks passed')
+  }
+  catch (error) {
+    logger.error('Safety checks failed')
+    throw error
+  }
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -91,7 +101,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   try {
     await executeHook('before:release', config, dryRun)
 
-    logger.box('Step 1/6: Bump versions')
+    logger.box('Bump versions')
 
     const bumpResult = await bump({
       type: config.bump.type,
@@ -109,7 +119,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       return
     }
 
-    logger.box('Step 2/6: Generate changelogs')
+    logger.box('Generate changelogs')
     if (config.release.changelog) {
       await changelog({
         from: config.from,
@@ -129,7 +139,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping changelog generation (--no-changelog)')
     }
 
-    logger.box('Step 3/6: Publish packages to registry')
+    logger.box('Publish packages to registry')
     let publishResponse: PublishResponse | undefined
 
     if (config.release.publish) {
@@ -145,6 +155,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           configName: options.configName,
           suffix: options.suffix,
           force,
+          safetyCheck: false,
         })
       }
       catch (error) {
@@ -157,7 +168,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping publish (--no-publish)')
     }
 
-    logger.box('Step 4/6: Commit changes and create tag')
+    logger.box('Commit changes and create tag')
 
     let createdTags: string[] = []
     if (config.release.commit) {
@@ -174,7 +185,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping commit and tag (--no-commit)')
     }
 
-    logger.box('Step 5/6: Push changes and tags')
+    logger.box('Push changes and tags')
     if (config.release.push && config.release.commit) {
       await executeHook('before:push', config, dryRun)
 
@@ -201,7 +212,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     let postedReleases: PostedRelease[] = []
     let providerError: string | undefined
 
-    logger.box('Step 6/7: Publish Git release')
+    logger.box('Publish Git release')
 
     if (config.release.providerRelease) {
       logger.debug(`Provider from config: ${provider}`)
@@ -228,24 +239,23 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping release (--no-provider-release)')
     }
 
-    logger.box('Step 7/7: Post release to social media')
+    logger.box('Post release to social media')
     let socialResults: SocialResult | undefined
 
-    if (config.release.social) {
+    if (config.release.social && (config.social?.twitter?.enabled || config.social?.slack?.enabled)) {
       socialResults = await social({
         from: config.from,
         to: config.to,
         config,
         configName: options.configName,
         bumpResult,
-        postedReleases,
         dryRun,
         logLevel: config.logLevel,
         safetyCheck: false, // Already checked in releaseSafetyCheck
       })
     }
     else {
-      logger.info('Skipping social media posts (--no-social)')
+      logger.info('Skipping social media posts (--no-social or no social media enabled)')
     }
 
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
@@ -266,6 +276,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     // Format social media display
     let socialDisplay = 'Disabled'
+
     if (config.release.social && socialResults) {
       if (socialResults.hasErrors) {
         const failed = socialResults.results.filter(r => !r.success).map(r => r.platform)

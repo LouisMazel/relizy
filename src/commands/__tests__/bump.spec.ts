@@ -1,5 +1,5 @@
 import type { ResolvedRelizyConfig } from '../../core'
-import { exit } from 'node:process'
+import process from 'node:process'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
@@ -18,7 +18,11 @@ vi.mock('node:fs/promises', async () => {
 })
 
 vi.mock('node:process', () => ({
-  exit: vi.fn(),
+  default: {
+    cwd: vi.fn(),
+    env: {},
+    exit: vi.fn(),
+  },
 }))
 
 // Mock core functions
@@ -832,7 +836,7 @@ describe('Given bump command', () => {
         yes: true,
       })
 
-      expect(vi.mocked(exit)).toHaveBeenCalledWith(1)
+      expect(process.exit).toHaveBeenCalledWith(1)
     })
   })
 })

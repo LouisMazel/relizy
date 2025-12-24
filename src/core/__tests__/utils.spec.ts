@@ -766,7 +766,6 @@ describe('Given getPackagesOrBumpedPackages function', () => {
 
       expect(getPackages).toHaveBeenCalledWith({
         config,
-        patterns: config.monorepo?.packages,
         suffix: undefined,
         force: false,
       })
@@ -789,7 +788,6 @@ describe('Given getPackagesOrBumpedPackages function', () => {
 
       expect(getPackages).toHaveBeenCalledWith({
         config,
-        patterns: config.monorepo?.packages,
         suffix: 'beta',
         force: true,
       })

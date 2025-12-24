@@ -4,23 +4,20 @@ import { extractChangelogSummary } from './social'
 
 export interface ResolvedTwitterCredentials {
   apiKey: string
-  apiSecret: string
+  apiKeySecret: string
   accessToken: string
   accessTokenSecret: string
 }
 
-export function getTwitterCredentials(options: {
+export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
   socialCredentials?: TwitterCredentials
   tokenCredentials?: TwitterCredentials
 }): ResolvedTwitterCredentials | null {
-  const { socialCredentials, tokenCredentials } = options
-
-  // Priority 1: social.twitter.credentials (specific config)
   const apiKey = socialCredentials?.apiKey
     || tokenCredentials?.apiKey
 
-  const apiSecret = socialCredentials?.apiSecret
-    || tokenCredentials?.apiSecret
+  const apiKeySecret = socialCredentials?.apiKeySecret
+    || tokenCredentials?.apiKeySecret
 
   const accessToken = socialCredentials?.accessToken
     || tokenCredentials?.accessToken
@@ -28,11 +25,11 @@ export function getTwitterCredentials(options: {
   const accessTokenSecret = socialCredentials?.accessTokenSecret
     || tokenCredentials?.accessTokenSecret
 
-  if (!apiKey || !apiSecret || !accessToken || !accessTokenSecret) {
+  if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
     logger.warn('Twitter is enabled but credentials are missing.')
     logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
     logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
-    logger.log('  - TWITTER_API_SECRET or RELIZY_TWITTER_API_SECRET')
+    logger.log('  - TWITTER_API_KEY_SECRET or RELIZY_TWITTER_API_KEY_SECRET')
     logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
     logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
 
@@ -42,13 +39,13 @@ export function getTwitterCredentials(options: {
 
   return {
     apiKey,
-    apiSecret,
+    apiKeySecret,
     accessToken,
     accessTokenSecret,
   }
 }
 
-export function formatTweetMessage(options: {
+export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl }: {
   template: string
   projectName: string
   version: string
@@ -56,8 +53,6 @@ export function formatTweetMessage(options: {
   releaseUrl?: string
   changelogUrl?: string
 }): string {
-  const { template, projectName, version, changelog, releaseUrl, changelogUrl } = options
-
   const TWITTER_MAX_LENGTH = 280
   const ELLIPSIS = '...'
 
@@ -105,17 +100,24 @@ export function formatTweetMessage(options: {
   return message
 }
 
-export async function postReleaseToTwitter(options: TwitterOptions) {
-  const { release, projectName, changelog, releaseUrl, changelogUrl, credentials, twitterMessage, dryRun = false } = options
-
-  logger.debug('[social:twitter] Preparing Twitter post...')
+export async function postReleaseToTwitter({
+  version,
+  projectName,
+  changelog,
+  releaseUrl,
+  changelogUrl,
+  credentials,
+  template,
+  dryRun = false,
+}: TwitterOptions) {
+  logger.debug('Preparing Twitter post...')
 
   const changelogSummary = extractChangelogSummary(changelog, 150)
 
   const message = formatTweetMessage({
-    template: twitterMessage,
+    template,
     projectName,
-    version: release.version,
+    version,
     changelog: changelogSummary,
     releaseUrl,
     changelogUrl,
@@ -134,16 +136,18 @@ export async function postReleaseToTwitter(options: TwitterOptions) {
 
     const client = new TwitterApi({
       appKey: credentials.apiKey,
-      appSecret: credentials.apiSecret,
+      appSecret: credentials.apiKeySecret,
       accessToken: credentials.accessToken,
       accessSecret: credentials.accessTokenSecret,
     })
 
     const rwClient = client.readWrite
 
+    logger.debug(`Posting tweet: ${message}`)
+
     const tweet = await rwClient.v2.tweet(message)
 
-    logger.success(`Tweet posted successfully! Tweet ID: ${tweet.data.id}`)
+    logger.info(`Tweet posted successfully! Tweet ID: ${tweet.data.id}`)
     logger.info(`Tweet URL: https://twitter.com/i/web/status/${tweet.data.id}`)
 
     return tweet

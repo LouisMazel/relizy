@@ -139,7 +139,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -166,7 +165,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -192,7 +190,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -221,7 +218,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -244,7 +240,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: true,
       })
@@ -274,7 +269,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -299,7 +293,6 @@ describe('Given getPackages function', () => {
 
       await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -326,7 +319,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -349,7 +341,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: true,
       })
@@ -380,7 +371,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -405,7 +395,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })
@@ -429,7 +418,6 @@ describe('Given getPackages function', () => {
 
       const packages = await getPackages({
         config,
-        patterns: ['packages/*'],
         suffix: undefined,
         force: false,
       })

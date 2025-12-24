@@ -39,7 +39,7 @@ describe('Given socialSafetyCheck function', () => {
           github: undefined,
           twitter: {
             apiKey: undefined,
-            apiSecret: undefined,
+            apiKeySecret: undefined,
             accessToken: undefined,
             accessTokenSecret: undefined,
           },
@@ -78,7 +78,7 @@ describe('Given socialSafetyCheck function', () => {
         tokens: {
           twitter: {
             apiKey: 'key',
-            apiSecret: 'secret',
+            apiKeySecret: 'secret',
             accessToken: 'token',
             accessTokenSecret: 'token-secret',
           },
@@ -86,7 +86,7 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getTwitterCredentials).mockReturnValue({
         apiKey: 'key',
-        apiSecret: 'secret',
+        apiKeySecret: 'secret',
         accessToken: 'token',
         accessTokenSecret: 'token-secret',
       })
@@ -111,11 +111,7 @@ describe('Given socialSafetyCheck function', () => {
 describe('Given social command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    config.social = {
-      twitter: { enabled: false, onlyStable: true },
-      slack: { enabled: false, onlyStable: true },
-    }
+    const config = createMockConfig({ bump: { type: 'patch' }, social: { twitter: { enabled: false, onlyStable: true } } })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(postReleaseToTwitter).mockResolvedValue(undefined)
@@ -134,7 +130,7 @@ describe('Given social command', () => {
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getTwitterCredentials).mockReturnValue({
       apiKey: 'key',
-      apiSecret: 'secret',
+      apiKeySecret: 'secret',
       accessToken: 'token',
       accessTokenSecret: 'secret',
     })
@@ -154,7 +150,7 @@ describe('Given social command', () => {
           github: undefined,
           twitter: {
             apiKey: 'key',
-            apiSecret: 'secret',
+            apiKeySecret: 'secret',
             accessToken: 'token',
             accessTokenSecret: 'secret',
           },
@@ -179,7 +175,7 @@ describe('Given social command', () => {
         bump: { type: 'patch' },
         tokens: { github: 'test-token', twitter: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'secret',
         } },
@@ -212,7 +208,7 @@ describe('Given social command', () => {
         tokens: {
           gitlab: undefined,
           github: undefined,
-          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
           slack: 'slack-token',
         },
       })
@@ -238,7 +234,7 @@ describe('Given social command', () => {
           github: undefined,
           twitter: {
             apiKey: 'key',
-            apiSecret: 'secret',
+            apiKeySecret: 'secret',
             accessToken: 'token',
             accessTokenSecret: 'secret',
           },
@@ -282,7 +278,7 @@ describe('Given social command', () => {
           github: undefined,
           twitter: {
             apiKey: 'key',
-            apiSecret: 'secret',
+            apiKeySecret: 'secret',
             accessToken: 'token',
             accessTokenSecret: 'secret',
           },
@@ -329,7 +325,7 @@ describe('Given social command', () => {
           github: undefined,
           twitter: {
             apiKey: 'key',
-            apiSecret: 'secret',
+            apiKeySecret: 'secret',
             accessToken: 'token',
             accessTokenSecret: 'secret',
           },
