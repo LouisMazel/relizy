@@ -32,7 +32,7 @@ export function getDefaultConfig() {
       tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
-      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}',
+      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
       slackMessage: undefined, // Use rich blocks format by default (no template)
     },
     excludeAuthors: [],
@@ -69,9 +69,9 @@ export function getDefaultConfig() {
         apiKey:
           process.env.RELIZY_TWITTER_API_KEY
           || process.env.TWITTER_API_KEY,
-        apiSecret:
-          process.env.RELIZY_TWITTER_API_SECRET
-          || process.env.TWITTER_API_SECRET,
+        apiKeySecret:
+          process.env.RELIZY_TWITTER_API_KEY_SECRET
+          || process.env.TWITTER_API_KEY_SECRET,
         accessToken:
           process.env.RELIZY_TWITTER_ACCESS_TOKEN
           || process.env.TWITTER_ACCESS_TOKEN,
@@ -93,7 +93,7 @@ export function getDefaultConfig() {
       providerRelease: true,
       noVerify: false,
       gitTag: true,
-      social: false,
+      social: true,
     } as Required<ReleaseConfig>,
     social: {
       twitter: {
@@ -107,7 +107,7 @@ export function getDefaultConfig() {
     },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
-  } satisfies RelizyConfig
+  }
 }
 
 function setupLogger(logLevel?: LogLevel) {

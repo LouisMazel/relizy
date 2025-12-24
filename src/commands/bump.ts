@@ -1,6 +1,6 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpOptions, BumpResult } from '../types'
-import { exit } from 'node:process'
+import process from 'node:process'
 
 import { logger } from '@maz-ui/node'
 import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
@@ -55,7 +55,6 @@ async function bumpUnifiedMode({
 
   const packages = await getPackages({
     config,
-    patterns: config.monorepo?.packages,
     suffix,
     force,
   })
@@ -80,7 +79,9 @@ async function bumpUnifiedMode({
     logger.info(`${packages.length === 1 ? packages[0].name : packages.length} package(s) bumped from ${currentVersion} to ${newVersion} (${config.monorepo?.versionMode || 'standalone'} mode)`)
   }
 
-  for (const pkg of [rootPackage, ...packages]) {
+  const packagesToWrite = [rootPackage, ...packages]
+
+  for (const pkg of packagesToWrite) {
     writeVersion(pkg.path, newVersion, dryRun)
   }
 
@@ -153,7 +154,6 @@ async function bumpSelectiveMode({
   logger.debug('Determining packages to bump...')
   const packages = await getPackages({
     config,
-    patterns: config.monorepo?.packages,
     suffix,
     force,
   })
@@ -191,7 +191,9 @@ async function bumpSelectiveMode({
 
   logger.debug(`Writing version to ${packages.length} package(s)`)
 
-  for (const pkg of [rootPackage, ...packages]) {
+  const packagesToWrite = [rootPackage, ...packages]
+
+  for (const pkg of packagesToWrite) {
     writeVersion(pkg.path, newVersion, dryRun)
   }
 
@@ -233,7 +235,6 @@ async function bumpIndependentMode({
 
   const packagesToBump = await getPackages({
     config,
-    patterns: config.monorepo?.packages,
     suffix,
     force,
   })
@@ -323,7 +324,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     await fetchGitTags(config.cwd)
 
-    logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+    logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
     const packages = readPackages({
       cwd: config.cwd,
@@ -358,7 +359,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     }
     else {
       logger.fail('No packages to bump, no relevant commits found')
-      exit(1)
+      process.exit(1)
     }
 
     await executeHook('success:bump', config, dryRun)

@@ -379,11 +379,7 @@ export interface SocialOptions {
   /**
    * Bump result (contains release information)
    */
-  bumpResult?: BumpResult
-  /**
-   * Posted releases (from provider-release step)
-   */
-  postedReleases?: PostedRelease[]
+  bumpResult?: BumpResultTruthy
   /**
    * Set log level
    */
@@ -577,7 +573,7 @@ export interface TwitterCredentials {
   /**
    * Twitter API Secret (Consumer Secret)
    */
-  apiSecret?: string
+  apiKeySecret?: string
   /**
    * Twitter Access Token
    */
@@ -603,8 +599,9 @@ export interface TwitterSocialConfig {
   /**
    * Custom message template
    * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
-  messageTemplate?: string
+  template?: string
   /**
    * Twitter credentials (optional - falls back to environment variables)
    */
@@ -634,12 +631,12 @@ export interface SlackSocialConfig {
   /**
    * Slack channel ID or name (e.g., "#releases" or "C1234567890")
    */
-  channel?: string
+  channel: string
   /**
    * Custom message template
    * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
    */
-  messageTemplate?: string
+  template?: string
   /**
    * Slack credentials (optional - falls back to environment variables)
    */
@@ -669,7 +666,7 @@ export interface TwitterOptions {
   /**
    * Release information
    */
-  release: PostedRelease
+  version: string
   /**
    * Project name
    */
@@ -691,14 +688,14 @@ export interface TwitterOptions {
    */
   credentials: {
     apiKey: string
-    apiSecret: string
+    apiKeySecret: string
     accessToken: string
     accessTokenSecret: string
   }
   /**
    * Custom Twitter message template
    */
-  twitterMessage: string
+  template: string
   /**
    * Run without side effects
    * @default false
@@ -710,7 +707,7 @@ export interface SlackOptions {
   /**
    * Release information
    */
-  release: PostedRelease
+  version: string
   /**
    * Project name
    */
@@ -738,7 +735,7 @@ export interface SlackOptions {
   /**
    * Custom message template
    */
-  messageTemplate?: string
+  template?: string
   /**
    * Run without side effects
    * @default false
@@ -766,11 +763,13 @@ export interface TemplatesConfig {
   /**
    * Twitter message template
    * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   twitterMessage?: string
   /**
    * Slack message template (optional - if not provided, uses rich blocks format)
    * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default undefined
    */
   slackMessage?: string
 }
@@ -819,12 +818,12 @@ export interface TokensConfig {
   gitlab?: string
   /**
    * Twitter API credentials for posting tweets
-   * Environment variables: TWITTER_API_KEY, TWITTER_API_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+   * Environment variables: TWITTER_API_KEY, TWITTER_API_KEY_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
    * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
    */
   twitter?: {
     apiKey?: string
-    apiSecret?: string
+    apiKeySecret?: string
     accessToken?: string
     accessTokenSecret?: string
   }

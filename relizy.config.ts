@@ -34,9 +34,14 @@ export default defineConfig({
   },
 
   social: {
-    changelogUrl: 'https://github.com/LouisMazel/relizy/releases',
+    changelogUrl: 'https://louismazel.github.io/relizy/changelog',
     twitter: {
       enabled: true,
+      template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{changelogUrl}}',
+    },
+    slack: {
+      enabled: false,
+      channel: '#test-releases',
     },
   },
 })

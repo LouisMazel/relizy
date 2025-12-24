@@ -57,9 +57,7 @@ describe('Given publishSafetyCheck function', () => {
       const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
       vi.mocked(detectPackageManager).mockReturnValue(undefined as any)
 
-      await publishSafetyCheck({ config })
-
-      expect(processExitSpy).toHaveBeenCalledWith(1)
+      await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
     })
   })
 
@@ -69,9 +67,7 @@ describe('Given publishSafetyCheck function', () => {
       vi.mocked(detectPackageManager).mockReturnValue('npm')
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
-      await publishSafetyCheck({ config })
-
-      expect(processExitSpy).toHaveBeenCalledWith(1)
+      await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
     })
   })
 

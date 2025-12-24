@@ -90,7 +90,7 @@ interface SlackConfig {
   channel?: string // Slack channel (#channel-name or ID)
   onlyStable?: boolean // Only post stable releases (default: true)
   credentials?: SlackCredentials // Alternative to env variables
-  messageTemplate?: string // Custom message template
+  template?: string // Custom message template
 }
 ```
 
@@ -163,7 +163,7 @@ Relizy sends rich, interactive messages to Slack using Block Kit:
 
 The default message looks like this:
 
-```
+```bash
 🚀 my-awesome-package 2.1.0 is out!
 
 ✨ Features
@@ -186,7 +186,7 @@ export default defineConfig({
     slack: {
       enabled: true,
       channel: '#releases',
-      messageTemplate: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
+      template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
     },
   },
 })

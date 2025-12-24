@@ -148,22 +148,22 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
-  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   try {
     await executeHook('before:changelog', config, dryRun)
 
     logger.start('Start generating changelogs')
 
+    const packages = await getPackagesOrBumpedPackages({
+      config,
+      bumpResult: options.bumpResult,
+      suffix: options.suffix,
+      force: options.force ?? false,
+    })
+
     if (config.changelog?.rootChangelog && config.monorepo) {
       if (config.monorepo.versionMode === 'independent') {
-        const packages = await getPackagesOrBumpedPackages({
-          config,
-          bumpResult: options.bumpResult,
-          suffix: options.suffix,
-          force: options.force ?? false,
-        })
-
         await generateIndependentRootChangelog({
           packages,
           config,
@@ -185,13 +185,6 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
     }
 
     logger.debug('Generating package changelogs...')
-
-    const packages = await getPackagesOrBumpedPackages({
-      config,
-      bumpResult: options.bumpResult,
-      suffix: options.suffix,
-      force: options.force ?? false,
-    })
 
     logger.debug(`Processing ${packages.length} package(s)`)
 

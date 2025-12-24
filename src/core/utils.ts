@@ -229,7 +229,6 @@ export async function getPackagesOrBumpedPackages({
 
   return await getPackages({
     config,
-    patterns: config.monorepo?.packages,
     suffix,
     force,
   })

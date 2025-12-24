@@ -44,18 +44,28 @@ vi.mock('../social', () => ({
 describe('Given release command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    config.release = {
-      commit: true,
-      changelog: true,
-      publish: true,
-      push: true,
-      providerRelease: true,
-      social: true,
-      clean: true,
-      noVerify: false,
-      gitTag: true,
-    }
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      release: {
+        commit: true,
+        changelog: true,
+        publish: true,
+        push: true,
+        providerRelease: true,
+        social: true,
+        clean: true,
+        noVerify: false,
+        gitTag: true,
+      },
+      social: {
+        twitter: {
+          enabled: true,
+        },
+        slack: {
+          enabled: true,
+        },
+      },
+    })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(checkGitStatusIfDirty).mockReturnValue(undefined)

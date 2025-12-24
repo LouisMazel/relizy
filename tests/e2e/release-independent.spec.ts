@@ -56,6 +56,14 @@ describe('Given independent mode release workflow', () => {
         versionMode: 'independent',
         packages: ['packages/*'],
       },
+      social: {
+        twitter: {
+          enabled: true,
+        },
+        slack: {
+          enabled: true,
+        },
+      },
     })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)

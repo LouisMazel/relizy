@@ -24,12 +24,14 @@ export async function generateMarkDown({
   from,
   to,
   isFirstCommit,
+  minify,
 }: {
   commits: GitCommit[]
   config: ResolvedRelizyConfig
   from: string
   to: string
   isFirstCommit: boolean
+  minify?: boolean
 }) {
   const typeGroups = groupBy(commits, 'type')
 
@@ -48,7 +50,7 @@ export async function generateMarkDown({
   const changelogTitle = `${updatedConfig.from}...${updatedConfig.to}`
   markdown.push('', `## ${changelogTitle}`, '')
 
-  if (updatedConfig.repo && updatedConfig.from && versionTitle) {
+  if (updatedConfig.repo && updatedConfig.from && versionTitle && !minify) {
     const formattedCompareLink = formatCompareChanges(versionTitle, {
       ...updatedConfig,
       from: isFirstCommit ? getFirstCommit(updatedConfig.cwd) : updatedConfig.from,
@@ -68,7 +70,11 @@ export async function generateMarkDown({
 
     markdown.push('', `### ${updatedConfig.types[type]?.title}`, '')
     for (const commit of group.reverse()) {
-      const line = formatCommit(commit, updatedConfig)
+      const line = formatCommit({
+        commit,
+        config: updatedConfig,
+        minify,
+      })
       markdown.push(line)
       if (commit.isBreaking) {
         breakingChanges.push(line)
@@ -83,7 +89,7 @@ export async function generateMarkDown({
   const _authors = new Map<string, { email: Set<string>, github?: string, name?: string }>()
 
   for (const commit of commits) {
-    if (!commit.author) {
+    if (!commit.author || minify) {
       continue
     }
 
@@ -236,15 +242,19 @@ function getCommitBody(commit: GitCommit) {
   return `\n\n${indentedBody}\n`
 }
 
-function formatCommit(commit: GitCommit, config: ResolvedRelizyConfig) {
-  const body = config.changelog.includeCommitBody ? getCommitBody(commit) : ''
+function formatCommit({ commit, config, minify }: {
+  commit: GitCommit
+  config: ResolvedRelizyConfig
+  minify?: boolean
+}) {
+  const body = config.changelog.includeCommitBody && !minify ? getCommitBody(commit) : ''
 
   return (
     `- ${
       commit.scope ? `**${commit.scope.trim()}:** ` : ''
     }${commit.isBreaking ? '⚠️  ' : ''
     }${upperFirst(commit.description)
-    }${formatReferences(commit.references, config)}${body}`
+    }${minify ? '' : formatReferences(commit.references, config)}${body}`
   )
 }
 
