@@ -1,5 +1,41 @@
 # Changelog
 
+## v0.2.8...v0.3.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.8...v0.3.0)
+
+### 🚀 Features
+
+- Add support of registry token in config.tokens.registry and config.publish.token ([54b2d26](https://github.com/LouisMazel/relizy/commit/54b2d26))
+
+### 🩹 Fixes
+
+- Prevent git state pollution on publish failure ([444006e](https://github.com/LouisMazel/relizy/commit/444006e))
+
+  The release workflow now publishes packages BEFORE creating git commits and tags,
+  preventing state pollution when npm publish fails.
+  **What changed:**
+  - Step order reorganized: Bump → Changelog → Publish → Commit → Tag → Push
+  - Automatic rollback of modified files if publish fails (package.json, CHANGELOG.md)
+  - Only release-related files are restored, preserving any other local changes
+    **Why this matters:**
+    Previously, if publish failed (e.g., authentication error, OTP required), the git
+    commit and tags were already created and pushed to remote, making it impossible to
+    retry cleanly. Now, if publish fails, your repository stays in a clean state and
+    you can simply retry the command.
+    The rollback is smart: it only restores files that were modified by the bump and
+    changelog steps, leaving your other work untouched.
+
+- Detect OTP errors from npm two-factor authentication messages ([596dcfe](https://github.com/LouisMazel/relizy/commit/596dcfe))
+
+  The interactive OTP prompt now works correctly when publishing to npm with
+  two-factor authentication enabled. Previously, it would fail to detect OTP
+  requirements and throw an error instead of asking for your code.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.2.7...v0.2.8
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.2.7...v0.2.8)
