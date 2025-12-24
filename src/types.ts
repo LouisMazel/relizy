@@ -4,7 +4,7 @@ import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
-export type GitProvider = 'github' | 'gitlab'
+export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 
 /**
@@ -117,6 +117,47 @@ export interface PostedRelease {
    * Release version
    */
   version: string
+}
+
+export interface SocialNetworkResult {
+  /**
+   * Social platform name (e.g., 'twitter', 'slack')
+   */
+  platform: string
+  /**
+   * Whether the post was successful
+   */
+  success: boolean
+  /**
+   * Error message if the post failed
+   */
+  error?: string
+}
+
+export interface SocialResult {
+  /**
+   * Results for each social platform
+   */
+  results: SocialNetworkResult[]
+  /**
+   * Whether any of the social posts had errors
+   */
+  hasErrors: boolean
+}
+
+export interface ProviderReleaseResult {
+  /**
+   * Detected Git provider
+   */
+  detectedProvider: GitProvider
+  /**
+   * Posted releases
+   */
+  postedReleases: PostedRelease[]
+  /**
+   * Error message if provider release failed
+   */
+  error?: string
 }
 
 export interface MonorepoConfig {
@@ -317,6 +358,44 @@ export interface ProviderReleaseOptions {
   suffix?: string
 }
 
+export interface SocialOptions {
+  /**
+   * Start tag
+   */
+  from?: string
+  /**
+   * End tag
+   */
+  to?: string
+  /**
+   * Use custom config
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * @default 'relizy'
+   */
+  configName?: string
+  /**
+   * Bump result (contains release information)
+   */
+  bumpResult?: BumpResultTruthy
+  /**
+   * Set log level
+   */
+  logLevel?: LogLevel
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * Skip safety check
+   * @default false
+   */
+  safetyCheck?: boolean
+}
+
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
    * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
@@ -432,6 +511,11 @@ export interface ReleaseConfig {
    * @default true
    */
   gitTag?: boolean
+  /**
+   * Post release announcements to social media platforms
+   * @default false
+   */
+  social?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -481,6 +565,184 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   publishToken?: string
 }
 
+export interface TwitterCredentials {
+  /**
+   * Twitter API Key (Consumer Key)
+   */
+  apiKey?: string
+  /**
+   * Twitter API Secret (Consumer Secret)
+   */
+  apiKeySecret?: string
+  /**
+   * Twitter Access Token
+   */
+  accessToken?: string
+  /**
+   * Twitter Access Token Secret
+   */
+  accessTokenSecret?: string
+}
+
+export interface TwitterSocialConfig {
+  /**
+   * Enable Twitter posting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Twitter
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * Custom message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   */
+  template?: string
+  /**
+   * Twitter credentials (optional - falls back to environment variables)
+   */
+  credentials?: TwitterCredentials
+}
+
+export interface SlackCredentials {
+  /**
+   * Slack Bot Token or User OAuth Token
+   * Required scopes: chat:write, chat:write.public (for public channels)
+   */
+  token?: string
+}
+
+export interface SlackSocialConfig {
+  /**
+   * Enable Slack posting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip Slack posting for prerelease versions (alpha, beta, rc, etc.)
+   * Only stable versions will be posted to Slack
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * Slack channel ID or name (e.g., "#releases" or "C1234567890")
+   */
+  channel: string
+  /**
+   * Custom message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   */
+  template?: string
+  /**
+   * Slack credentials (optional - falls back to environment variables)
+   */
+  credentials?: SlackCredentials
+}
+
+export interface SocialConfig {
+  /**
+   * Twitter configuration
+   */
+  twitter?: TwitterSocialConfig
+  /**
+   * Slack configuration
+   */
+  slack?: SlackSocialConfig
+  /**
+   * URL to full changelog (e.g., https://example.com/changelog)
+   * This URL will be included in social media posts to allow users to view the complete changelog
+   */
+  changelogUrl?: string
+  // Future social platforms can be added here:
+  // linkedin?: LinkedInSocialConfig
+  // discord?: DiscordSocialConfig
+}
+
+export interface TwitterOptions {
+  /**
+   * Release information
+   */
+  version: string
+  /**
+   * Project name
+   */
+  projectName: string
+  /**
+   * Changelog content
+   */
+  changelog: string
+  /**
+   * Release URL (GitHub/GitLab)
+   */
+  releaseUrl?: string
+  /**
+   * Full changelog URL (e.g., https://example.com/changelog)
+   */
+  changelogUrl?: string
+  /**
+   * Twitter credentials (all fields required)
+   */
+  credentials: {
+    apiKey: string
+    apiKeySecret: string
+    accessToken: string
+    accessTokenSecret: string
+  }
+  /**
+   * Custom Twitter message template
+   */
+  template: string
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+}
+
+export interface SlackOptions {
+  /**
+   * Release information
+   */
+  version: string
+  /**
+   * Project name
+   */
+  projectName: string
+  /**
+   * Changelog content
+   */
+  changelog: string
+  /**
+   * Release URL (GitHub/GitLab)
+   */
+  releaseUrl?: string
+  /**
+   * Full changelog URL (e.g., https://example.com/changelog)
+   */
+  changelogUrl?: string
+  /**
+   * Slack channel ID or name
+   */
+  channel: string
+  /**
+   * Slack token (required)
+   */
+  token: string
+  /**
+   * Custom message template
+   */
+  template?: string
+  /**
+   * Run without side effects
+   * @default false
+   */
+  dryRun?: boolean
+}
+
 export interface TemplatesConfig {
   /**
    * Commit message template
@@ -498,6 +760,18 @@ export interface TemplatesConfig {
    * Empty changelog content
    */
   emptyChangelogContent?: string
+  /**
+   * Twitter message template
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   */
+  twitterMessage?: string
+  /**
+   * Slack message template (optional - if not provided, uses rich blocks format)
+   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default undefined
+   */
+  slackMessage?: string
 }
 
 export interface RepoConfig {
@@ -521,16 +795,43 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
 
 /**
- * Tokens configuration
- * @default {}
+ * API tokens configuration
  */
 export interface TokensConfig {
+  /**
+   * registry token for publishing
+   * Environment variables: NPM_TOKEN, RELIZY_NPM_TOKEN, NODE_AUTH_TOKEN
+   */
   registry?: string
-  gitlab?: string
+  /**
+   * GitHub token for creating releases
+   * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+   */
   github?: string
+  /**
+   * GitLab token for creating releases
+   * Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+   */
+  gitlab?: string
+  /**
+   * Twitter API credentials for posting tweets
+   * Environment variables: TWITTER_API_KEY, TWITTER_API_KEY_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
+   * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+   */
+  twitter?: {
+    apiKey?: string
+    apiKeySecret?: string
+    accessToken?: string
+    accessTokenSecret?: string
+  }
+  /**
+   * Slack bot token for posting messages
+   * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+   */
+  slack?: string
 }
 
 /**
@@ -598,7 +899,11 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    */
   release?: ReleaseConfig
   /**
-   * Tokens config
+   * Social media configuration
+   */
+  social?: SocialConfig
+  /**
+   * API tokens configuration
    */
   tokens?: TokensConfig
   /**

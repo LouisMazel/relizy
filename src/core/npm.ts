@@ -268,7 +268,7 @@ async function handleOtpError(): Promise<string> {
     return otp
   }
   catch (promptError) {
-    logger.error('Failed to get OTP')
+    logger.fail('Failed to get OTP')
     throw promptError
   }
 }

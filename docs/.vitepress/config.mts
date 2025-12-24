@@ -1,5 +1,5 @@
 import type { HeadConfig } from 'vitepress'
-import { defineConfig } from 'vitepress'
+import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
@@ -140,21 +140,26 @@ export default defineConfig({
           { text: 'Version Modes', link: '/guide/version-modes' },
           { text: 'Dependency Management', link: '/guide/dependency-management' },
           { text: 'Changelog Generation', link: '/guide/changelog' },
+          { text: 'Social Media Integration', link: '/guide/social-media' },
+          { text: 'Twitter Integration', link: '/guide/twitter-integration' },
+          { text: 'Slack Integration', link: '/guide/slack-integration' },
           { text: 'CI/CD Setup', link: '/guide/ci-cd' },
           { text: 'GitHub Actions', link: '/guide/github-actions' },
           { text: 'GitLab CI', link: '/guide/gitlab-ci' },
           { text: 'Migration', link: '/guide/migration-from-changelogen-monorepo' },
+          { text: 'Contributing', link: '/guide/contributing' },
         ],
       },
       {
         text: 'Config',
         items: [
           { text: 'Overview', link: '/config/overview' },
+          { text: 'Release Config', link: '/config/release' },
           { text: 'Monorepo Config', link: '/config/monorepo' },
           { text: 'Changelog Config', link: '/config/changelog' },
           { text: 'Bump Config', link: '/config/bump' },
           { text: 'Publish Config', link: '/config/publish' },
-          { text: 'Release Config', link: '/config/release' },
+          { text: 'Social Config', link: '/config/social' },
           { text: 'Hooks Config', link: '/config/hooks' },
           { text: 'Multiple Configs', link: '/config/multiple-configs' },
         ],
@@ -168,19 +173,21 @@ export default defineConfig({
           { text: 'changelog', link: '/cli/changelog' },
           { text: 'publish', link: '/cli/publish' },
           { text: 'provider-release', link: '/cli/provider-release' },
+          { text: 'social', link: '/cli/social' },
         ],
       },
       {
         text: 'API',
         items: [
           { text: 'Overview', link: '/api/usage' },
+          { text: 'release()', link: '/api/release' },
           { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
           { text: 'bump()', link: '/api/bump' },
           { text: 'changelog()', link: '/api/changelog' },
           { text: 'publish()', link: '/api/publish' },
           { text: 'providerRelease()', link: '/api/provider-release' },
           { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
-          { text: 'release()', link: '/api/release' },
+          { text: 'social()', link: '/api/social' },
         ],
       },
       {
@@ -196,7 +203,7 @@ export default defineConfig({
           },
           {
             text: 'Contributing',
-            link: 'https://github.com/LouisMazel/relizy/blob/main/CONTRIBUTING.md',
+            link: '/guide/contributing',
           },
         ],
       },
@@ -225,6 +232,14 @@ export default defineConfig({
           ],
         },
         {
+          text: 'Social Media',
+          items: [
+            { text: 'Overview', link: '/guide/social-media' },
+            { text: 'Twitter Integration', link: '/guide/twitter-integration' },
+            { text: 'Slack Integration', link: '/guide/slack-integration' },
+          ],
+        },
+        {
           text: 'Integration',
           items: [
             { text: 'CI/CD Setup', link: '/guide/ci-cd' },
@@ -238,6 +253,12 @@ export default defineConfig({
             { text: 'Migration from @maz-ui/changelogen-monorepo', link: '/guide/migration-from-changelogen-monorepo' },
           ],
         },
+        {
+          text: 'Contributing',
+          items: [
+            { text: 'Contributing Guide', link: '/guide/contributing' },
+          ],
+        },
       ],
       '/cli/': [
         {
@@ -249,6 +270,7 @@ export default defineConfig({
             { text: 'changelog', link: '/cli/changelog' },
             { text: 'publish', link: '/cli/publish' },
             { text: 'provider-release', link: '/cli/provider-release' },
+            { text: 'social', link: '/cli/social' },
           ],
         },
       ],
@@ -257,13 +279,14 @@ export default defineConfig({
           text: 'Programmatic API',
           items: [
             { text: 'API Usage', link: '/api/usage' },
+            { text: 'release()', link: '/api/release' },
             { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
             { text: 'bump()', link: '/api/bump' },
             { text: 'changelog()', link: '/api/changelog' },
             { text: 'publish()', link: '/api/publish' },
             { text: 'providerRelease()', link: '/api/provider-release' },
             { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
-            { text: 'release()', link: '/api/release' },
+            { text: 'social()', link: '/api/social' },
           ],
         },
       ],
@@ -272,11 +295,12 @@ export default defineConfig({
           text: 'Configuration',
           items: [
             { text: 'Overview', link: '/config/overview' },
+            { text: 'Release Config', link: '/config/release' },
             { text: 'Monorepo Config', link: '/config/monorepo' },
             { text: 'Changelog Config', link: '/config/changelog' },
             { text: 'Bump Config', link: '/config/bump' },
             { text: 'Publish Config', link: '/config/publish' },
-            { text: 'Release Config', link: '/config/release' },
+            { text: 'Social Config', link: '/config/social' },
             { text: 'Hooks Config', link: '/config/hooks' },
             { text: 'Multiple Configs', link: '/config/multiple-configs' },
           ],
@@ -292,8 +316,20 @@ export default defineConfig({
 
   vite: {
     build: {
-      target: 'es2022',
+      target: 'esnext',
       minify: 'esbuild',
+    },
+    css: {
+      postcss: {
+        plugins: [
+          postcssIsolateStyles({
+            includeFiles: [/vp-doc\.css/],
+          }),
+        ],
+      },
+    },
+    ssr: {
+      noExternal: ['maz-ui'],
     },
   },
 })

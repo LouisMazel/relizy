@@ -253,12 +253,12 @@ export function writeVersion(pkgPath: string, newVersion: string, dryRun = false
     packageJson.version = newVersion
 
     if (dryRun) {
-      logger.info(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
+      logger.debug(`[dry-run] Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
       return
     }
 
     writeFileSync(packageJsonPath, `${formatJson(packageJson)}\n`, 'utf8')
-    logger.info(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
+    logger.debug(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
   }
   catch (error) {
     throw new Error(`Unable to write version to ${packageJsonPath}: ${error}`)
@@ -473,7 +473,7 @@ function displayUnifiedModePackages({
 }) {
   logger.log(`${packages.length} package(s):`)
   packages.forEach((pkg) => {
-    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
+    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
   })
   logger.log('')
 }

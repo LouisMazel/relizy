@@ -1,5 +1,6 @@
 import type { BumpResultTruthy, HookConfig, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { getPackages } from './repo'
 
@@ -19,7 +20,7 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     const result = await hookInput(config, dryRun, params)
 
     if (result)
-      logger.debug(`Hook ${hook} returned: ${result}`)
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
 
     logger.info(`Hook ${hook} executed`)
 
@@ -36,7 +37,7 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     })
 
     if (result)
-      logger.debug(`Hook ${hook} returned: ${result}`)
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
 
     logger.info(`Hook ${hook} executed`)
 
@@ -188,6 +189,7 @@ export async function executeBuildCmd({
     logger.info('Running build command')
 
     logger.debug(`Running build command: ${config.publish.buildCmd}`)
+
     if (!dryRun) {
       await execPromise(config.publish.buildCmd, {
         noStderr: true,
@@ -227,7 +229,6 @@ export async function getPackagesOrBumpedPackages({
 
   return await getPackages({
     config,
-    patterns: config.monorepo?.packages,
     suffix,
     force,
   })

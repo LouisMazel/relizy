@@ -1,8 +1,8 @@
 {
   "name": "relizy",
   "type": "module",
-  "version": "0.3.0",
-  "packageManager": "pnpm@10.22.0",
+  "version": "1.0.0-beta.0",
+  "packageManager": "pnpm@10.26.2",
   "description": "Changelogen adapter for monorepo management with unified and independent versioning",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
@@ -64,11 +64,27 @@
     "rly": "node bin/relizy.mjs",
     "typecheck": "tsc --noEmit --skipLibCheck",
     "lint": "cross-env NODE_ENV=production eslint .",
-    "lint:fix": "pnpm lint --fix",
+    "lint:fix": "cross-env NODE_ENV=production eslint . --fix",
+    "lint:all": "pnpm lint && pnpm lint:docs",
+    "lint:fix:all": "pnpm lint:fix && pnpm lint:docs:fix",
+    "lint:docs": "cross-env NODE_ENV=production pnpm -F docs lint",
+    "lint:docs:fix": "pnpm lint:docs --fix",
     "test:unit": "vitest run",
     "test:unit:watch": "vitest watch",
     "test:unit:coverage": "vitest run --coverage",
     "pre-commit": "lint-staged"
+  },
+  "peerDependencies": {
+    "@slack/web-api": "^7.0.0",
+    "twitter-api-v2": "^1.20.0"
+  },
+  "peerDependenciesMeta": {
+    "@slack/web-api": {
+      "optional": true
+    },
+    "twitter-api-v2": {
+      "optional": true
+    }
   },
   "dependencies": {
     "@inquirer/prompts": "^8.1.0",
@@ -89,6 +105,7 @@
     "@commitlint/cz-commitlint": "^20.2.0",
     "@commitlint/types": "^20.2.0",
     "@maz-ui/eslint-config": "4.3.2",
+    "@slack/web-api": "^7.12.0",
     "@types/node": "^25.0.3",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.0.16",
@@ -98,6 +115,7 @@
     "jiti": "^2.6.1",
     "lint-staged": "^16.2.7",
     "memfs": "^4.51.1",
+    "twitter-api-v2": "^1.28.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
     "vitest": "^4.0.16"

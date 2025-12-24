@@ -268,4 +268,7 @@ Root package.json: 4.3.1-alpha.2 → 4.3.1
   color: var(--vt-color-success);
   font-weight: bold;
 }
+.relizy-terminal .vt__line {
+  white-space: pre-line;
+}
 </style>

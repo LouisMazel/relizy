@@ -175,12 +175,13 @@ async function githubUnified({
   }
   else {
     logger.debug('Publishing release to GitHub...')
-    await createGithubRelease({
+    const releaseConfig = {
       ...config,
       from: (bumpResult?.bumped && bumpResult.fromTag) || 'v0.0.0',
       to,
       repo: repoConfig,
-    }, release)
+    }
+    await createGithubRelease(releaseConfig, release)
   }
 
   logger.success(`Release ${to} published to GitHub!`)
@@ -194,6 +195,7 @@ async function githubUnified({
 }
 
 export async function github(options: ProviderReleaseOptions) {
+  logger.debug('Config:', options)
   try {
     const dryRun = options.dryRun ?? false
     logger.debug(`Dry run: ${dryRun}`)
