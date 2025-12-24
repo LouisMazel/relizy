@@ -65,7 +65,7 @@ The simplest way to provide credentials is via environment variables:
 
 ```bash
 export TWITTER_API_KEY="your-api-key"
-export TWITTER_API_SECRET="your-api-secret"
+export TWITTER_API_KEY_SECRET="your-api-key-secret"
 export TWITTER_ACCESS_TOKEN="your-access-token"
 export TWITTER_ACCESS_TOKEN_SECRET="your-access-token-secret"
 ```
@@ -74,7 +74,7 @@ Or use the `RELIZY_` prefix:
 
 ```bash
 export RELIZY_TWITTER_API_KEY="your-api-key"
-export RELIZY_TWITTER_API_SECRET="your-api-secret"
+export RELIZY_TWITTER_API_KEY_SECRET="your-api-key-secret"
 export RELIZY_TWITTER_ACCESS_TOKEN="your-access-token"
 export RELIZY_TWITTER_ACCESS_TOKEN_SECRET="your-access-token-secret"
 ```
@@ -88,7 +88,7 @@ interface TwitterConfig {
   enabled?: boolean // Enable Twitter posting (default: false)
   onlyStable?: boolean // Only post stable releases (default: true)
   credentials?: TwitterCredentials // Alternative to env variables
-  messageTemplate?: string // Custom tweet template
+  template?: string // Custom tweet template
 }
 ```
 
@@ -103,7 +103,7 @@ export default defineConfig({
       enabled: true,
       credentials: {
         apiKey: process.env.TWITTER_API_KEY,
-        apiSecret: process.env.TWITTER_API_SECRET,
+        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       },
@@ -119,7 +119,7 @@ export default defineConfig({
   tokens: {
     twitter: {
       apiKey: process.env.TWITTER_API_KEY,
-      apiSecret: process.env.TWITTER_API_SECRET,
+      apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
       accessToken: process.env.TWITTER_ACCESS_TOKEN,
       accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
     },
@@ -150,7 +150,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      messageTemplate: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
+      template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
     },
   },
 })
@@ -206,7 +206,7 @@ In CI/CD environments, add your Twitter credentials as secret environment variab
 - name: Release
   env:
     TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-    TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+    TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
     TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
     TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
   run: pnpm relizy release --yes
@@ -220,7 +220,7 @@ release:
     - pnpm relizy release --yes
   variables:
     TWITTER_API_KEY: $TWITTER_API_KEY
-    TWITTER_API_SECRET: $TWITTER_API_SECRET
+    TWITTER_API_KEY_SECRET: $TWITTER_API_KEY_SECRET
     TWITTER_ACCESS_TOKEN: $TWITTER_ACCESS_TOKEN
     TWITTER_ACCESS_TOKEN_SECRET: $TWITTER_ACCESS_TOKEN_SECRET
 ```

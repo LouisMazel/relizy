@@ -208,16 +208,16 @@ function getPackageReleaseType({
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
 export async function getPackages({
-  patterns,
   config,
   suffix,
   force,
 }: {
-  patterns?: string[]
   config: ResolvedRelizyConfig
   suffix: string | undefined
   force: boolean
 }): Promise<PackageBase[]> {
+  const patterns = config.monorepo?.packages
+
   const readedPackages = readPackages({
     cwd: config.cwd,
     patterns,

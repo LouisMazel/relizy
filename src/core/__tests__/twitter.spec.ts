@@ -14,13 +14,13 @@ describe('Given getTwitterCredentials function', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
           apiKey: 'social-key',
-          apiSecret: 'social-secret',
+          apiKeySecret: 'social-secret',
           accessToken: 'social-token',
           accessTokenSecret: 'social-token-secret',
         },
         tokenCredentials: {
           apiKey: 'token-key',
-          apiSecret: 'token-secret',
+          apiKeySecret: 'token-secret',
           accessToken: 'token-token',
           accessTokenSecret: 'token-token-secret',
         },
@@ -28,7 +28,7 @@ describe('Given getTwitterCredentials function', () => {
 
       expect(result).toEqual({
         apiKey: 'social-key',
-        apiSecret: 'social-secret',
+        apiKeySecret: 'social-secret',
         accessToken: 'social-token',
         accessTokenSecret: 'social-token-secret',
       })
@@ -40,7 +40,7 @@ describe('Given getTwitterCredentials function', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
           apiKey: 'social-key',
-          apiSecret: 'social-secret',
+          apiKeySecret: 'social-secret',
         },
         tokenCredentials: {
           accessToken: 'token-token',
@@ -50,7 +50,7 @@ describe('Given getTwitterCredentials function', () => {
 
       expect(result).toEqual({
         apiKey: 'social-key',
-        apiSecret: 'social-secret',
+        apiKeySecret: 'social-secret',
         accessToken: 'token-token',
         accessTokenSecret: 'token-token-secret',
       })
@@ -63,7 +63,7 @@ describe('Given getTwitterCredentials function', () => {
         },
         tokenCredentials: {
           apiKey: 'token-key',
-          apiSecret: 'token-secret',
+          apiKeySecret: 'token-secret',
           accessToken: 'token-token',
           accessTokenSecret: 'token-token-secret',
         },
@@ -71,7 +71,7 @@ describe('Given getTwitterCredentials function', () => {
 
       expect(result).toEqual({
         apiKey: 'social-key',
-        apiSecret: 'token-secret',
+        apiKeySecret: 'token-secret',
         accessToken: 'token-token',
         accessTokenSecret: 'token-token-secret',
       })
@@ -83,7 +83,7 @@ describe('Given getTwitterCredentials function', () => {
       const result = getTwitterCredentials({
         tokenCredentials: {
           apiKey: 'token-key',
-          apiSecret: 'token-secret',
+          apiKeySecret: 'token-secret',
           accessToken: 'token-token',
           accessTokenSecret: 'token-token-secret',
         },
@@ -91,7 +91,7 @@ describe('Given getTwitterCredentials function', () => {
 
       expect(result).toEqual({
         apiKey: 'token-key',
-        apiSecret: 'token-secret',
+        apiKeySecret: 'token-secret',
         accessToken: 'token-token',
         accessTokenSecret: 'token-token-secret',
       })
@@ -102,7 +102,7 @@ describe('Given getTwitterCredentials function', () => {
     it('Then returns null when apiKey is missing', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -111,7 +111,7 @@ describe('Given getTwitterCredentials function', () => {
       expect(result).toBeNull()
     })
 
-    it('Then returns null when apiSecret is missing', () => {
+    it('Then returns null when apiKeySecret is missing', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
           apiKey: 'key',
@@ -127,7 +127,7 @@ describe('Given getTwitterCredentials function', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessTokenSecret: 'token-secret',
         },
       })
@@ -139,7 +139,7 @@ describe('Given getTwitterCredentials function', () => {
       const result = getTwitterCredentials({
         socialCredentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
         },
       })
@@ -380,13 +380,13 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When posting in dry run mode', () => {
     it('Then logs message without posting', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Bug fixes',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -404,13 +404,13 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -436,34 +436,34 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Bug fixes',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
         dryRun: false,
       })
 
-      expect(logger.debug).toHaveBeenCalledWith('[social:twitter] Preparing Twitter post...')
+      expect(logger.debug).toHaveBeenCalledWith('Preparing Twitter post...')
     })
   })
 
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Custom: {{projectName}} {{version}}',
-        release: { name: 'pkg', version: '2.0.0', tag: 'v2.0.0', prerelease: false },
+        template: 'Custom: {{projectName}} {{version}}',
+        version: '2.0.0',
         projectName: 'my-pkg',
         changelog: 'New features',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -485,13 +485,13 @@ describe('Given postReleaseToTwitter function', () => {
       )
 
       await expect(postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -514,13 +514,13 @@ describe('Given postReleaseToTwitter function', () => {
       }))
 
       await expect(postReleaseToTwitter({
-        twitterMessage: 'Test tweet',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Updates',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -532,14 +532,14 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When including URLs in tweet', () => {
     it('Then formats tweet with releaseUrl', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet {{releaseUrl}}',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet {{releaseUrl}}',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Updates',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },
@@ -551,14 +551,14 @@ describe('Given postReleaseToTwitter function', () => {
 
     it('Then formats tweet with changelogUrl', async () => {
       await postReleaseToTwitter({
-        twitterMessage: 'Test tweet {{changelogUrl}}',
-        release: { name: 'pkg', version: '1.0.0', tag: 'v1.0.0', prerelease: false },
+        template: 'Test tweet {{changelogUrl}}',
+        version: '1.0.0',
         projectName: 'pkg',
         changelog: 'Updates',
         changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
         credentials: {
           apiKey: 'key',
-          apiSecret: 'secret',
+          apiKeySecret: 'secret',
           accessToken: 'token',
           accessTokenSecret: 'token-secret',
         },

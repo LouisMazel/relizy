@@ -337,7 +337,7 @@ async function getLastPackageTagWithFiltering({
   return lastTag
 }
 
-export type Step = 'bump' | 'changelog' | 'publish' | 'provider-release'
+export type Step = 'bump' | 'changelog' | 'publish' | 'provider-release' | 'social'
 
 export interface ResolvedTags {
   from: string

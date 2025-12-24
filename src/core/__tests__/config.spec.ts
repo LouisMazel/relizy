@@ -105,7 +105,7 @@ describe('Given getDefaultConfig function', () => {
       const config = getDefaultConfig()
 
       expect(config.templates.twitterMessage).toBe(
-        '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}',
+        '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
       )
     })
 
@@ -186,7 +186,7 @@ describe('Given getDefaultConfig function', () => {
       expect(config.release.push).toBe(true)
       expect(config.release.providerRelease).toBe(true)
       expect(config.release.gitTag).toBe(true)
-      expect(config.release.social).toBe(false)
+      expect(config.release.social).toBe(true)
     })
 
     it('Then enables clean by default', () => {
@@ -359,7 +359,7 @@ describe('Given getDefaultConfig function', () => {
 
     it('Then resolves all Twitter credentials', () => {
       process.env.TWITTER_API_KEY = 'api-key'
-      process.env.TWITTER_API_SECRET = 'api-secret'
+      process.env.TWITTER_API_KEY_SECRET = 'api-secret'
       process.env.TWITTER_ACCESS_TOKEN = 'access-token'
       process.env.TWITTER_ACCESS_TOKEN_SECRET = 'token-secret'
 
@@ -367,7 +367,7 @@ describe('Given getDefaultConfig function', () => {
 
       expect(config.tokens.twitter).toEqual({
         apiKey: 'api-key',
-        apiSecret: 'api-secret',
+        apiKeySecret: 'api-secret',
         accessToken: 'access-token',
         accessTokenSecret: 'token-secret',
       })

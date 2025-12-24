@@ -343,7 +343,7 @@ describe('Given github function', () => {
         tokens: {
           github: undefined,
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
           slack: undefined,
         },
       })
@@ -367,7 +367,7 @@ describe('Given github function', () => {
         tokens: {
           github: undefined,
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
           slack: undefined,
         },
       })
@@ -456,7 +456,7 @@ describe('Given github function', () => {
         tokens: {
           github: 'test-token',
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
           slack: undefined,
         },
       })
@@ -492,7 +492,7 @@ describe('Given github function', () => {
         tokens: {
           github: 'test-token',
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiSecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
           slack: undefined,
         },
       })

@@ -55,6 +55,14 @@ describe('Given selective mode release workflow', () => {
         noVerify: false,
         gitTag: true,
       },
+      social: {
+        twitter: {
+          enabled: true,
+        },
+        slack: {
+          enabled: true,
+        },
+      },
     })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)

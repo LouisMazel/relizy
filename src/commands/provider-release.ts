@@ -4,17 +4,18 @@ import { logger } from '@maz-ui/node'
 import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
 
 export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
-  logger.start('Start checking provider release config')
-
   if (!config.safetyCheck || !config.release.providerRelease) {
+    logger.debug('Safety check disabled or provider release disabled')
     return
   }
+
+  logger.debug('Start checking provider release config')
 
   const internalProvider = provider || config.repo?.provider || detectGitProvider()
 
   // Bitbucket doesn't support releases via API
   if (internalProvider === 'bitbucket') {
-    logger.warn('[provider-release-safety-check] Bitbucket does not support releases via API')
+    logger.warn('Bitbucket does not support releases via API')
     logger.info('Relizy will skip the release creation step for Bitbucket')
     return
   }
@@ -28,16 +29,14 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
     token = config.tokens?.gitlab || config.repo?.token
   }
   else {
-    logger.error(`[provider-release-safety-check] Unsupported Git provider: ${internalProvider || 'unknown'}`)
-    process.exit(1)
+    throw new Error(`Unsupported Git provider: ${internalProvider || 'unknown'}`)
   }
 
   if (!token) {
-    logger.error(`[provider-release-safety-check] No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
-    process.exit(1)
+    throw new Error(`No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
   }
 
-  logger.success('provider release config checked successfully')
+  logger.info('provider release config checked successfully')
 }
 
 export async function providerRelease(
@@ -61,7 +60,7 @@ export async function providerRelease(
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
-  logger.info(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   let detectedProvider: GitProvider | null = null
 

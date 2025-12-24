@@ -20,15 +20,11 @@ relizy social [options]
 
 The `social` command posts release announcements to configured social media platforms (Twitter, Slack):
 
-1. ✅ Loads release information from git tags or bump result
-2. ✅ Generates changelog summaries
-3. ✅ Formats messages for each platform
-4. ✅ Posts to enabled platforms (Twitter, Slack)
-5. ✅ Handles platform-specific requirements (character limits, formatting)
-6. ❌ Does NOT bump versions
-7. ❌ Does NOT create git tags
-8. ❌ Does NOT publish to npm
-9. ❌ Does NOT create provider releases
+1. Loads release information from git tags or bump result
+2. Generates changelog summaries
+3. Formats messages for each platform
+4. Posts to enabled platforms (Twitter, Slack)
+5. Handles platform-specific requirements (character limits, formatting)
 
 ## Prerequisites
 
@@ -140,7 +136,7 @@ relizy social --dry-run --from v1.0.0 --to v1.1.0
 
 Output:
 
-```
+```bash
 [dry-run] Would post to Twitter:
 🎉 MyProject v1.1.0 released!
 
@@ -186,10 +182,10 @@ export default defineConfig({
     twitter: {
       enabled: true,
       onlyStable: true, // Skip prerelease versions
-      messageTemplate: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n{{releaseUrl}}',
+      template: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n{{releaseUrl}}',
       credentials: {
         apiKey: process.env.TWITTER_API_KEY,
-        apiSecret: process.env.TWITTER_API_SECRET,
+        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
         accessToken: process.env.TWITTER_ACCESS_TOKEN,
         accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
       },
@@ -198,7 +194,7 @@ export default defineConfig({
       enabled: true,
       onlyStable: false, // Post all releases
       channel: '#releases',
-      messageTemplate: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
+      template: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
       credentials: {
         token: process.env.SLACK_TOKEN,
       },
@@ -216,7 +212,7 @@ Set these environment variables for Twitter posting:
 
 ```bash
 export TWITTER_API_KEY="your_api_key"
-export TWITTER_API_SECRET="your_api_secret"
+export TWITTER_API_KEY_SECRET="your_api_secret"
 export TWITTER_ACCESS_TOKEN="your_access_token"
 export TWITTER_ACCESS_TOKEN_SECRET="your_access_token_secret"
 ```
@@ -225,7 +221,7 @@ Or with `RELIZY_` prefix:
 
 ```bash
 export RELIZY_TWITTER_API_KEY="your_api_key"
-export RELIZY_TWITTER_API_SECRET="your_api_secret"
+export RELIZY_TWITTER_API_KEY_SECRET="your_api_secret"
 export RELIZY_TWITTER_ACCESS_TOKEN="your_access_token"
 export RELIZY_TWITTER_ACCESS_TOKEN_SECRET="your_access_token_secret"
 ```
@@ -251,7 +247,7 @@ Create a `.env` file in your project root:
 ```ini
 # Twitter
 TWITTER_API_KEY=your_api_key
-TWITTER_API_SECRET=your_api_secret
+TWITTER_API_KEY_SECRET=your_api_key_secret
 TWITTER_ACCESS_TOKEN=your_access_token
 TWITTER_ACCESS_TOKEN_SECRET=your_access_token_secret
 
@@ -293,7 +289,7 @@ jobs:
       - name: Post to social media
         env:
           TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          TWITTER_API_SECRET: ${{ secrets.TWITTER_API_SECRET }}
+          TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
           TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
           SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
@@ -321,7 +317,7 @@ social:
       pnpm relizy social --from $PREVIOUS_TAG --to $LATEST_TAG
   variables:
     TWITTER_API_KEY: $TWITTER_API_KEY
-    TWITTER_API_SECRET: $TWITTER_API_SECRET
+    TWITTER_API_KEY_SECRET: $TWITTER_API_KEY_SECRET
     TWITTER_ACCESS_TOKEN: $TWITTER_ACCESS_TOKEN
     TWITTER_ACCESS_TOKEN_SECRET: $TWITTER_ACCESS_TOKEN_SECRET
     SLACK_TOKEN: $SLACK_TOKEN
@@ -333,7 +329,7 @@ social:
 
 **Error:**
 
-```
+```bash
 Twitter is enabled but credentials are missing.
 Set the following environment variables...
 ```
@@ -345,7 +341,7 @@ Set the required environment variables or configure credentials in your config f
 
 **Error:**
 
-```
+```bash
 Missing dependency: twitter-api-v2
 Please install it: pnpm add -D twitter-api-v2
 ```
@@ -361,7 +357,7 @@ pnpm add -D twitter-api-v2
 
 **Error:**
 
-```
+```bash
 Slack API error: channel_not_found
 ```
 
@@ -375,7 +371,7 @@ Slack API error: channel_not_found
 
 **Error:**
 
-```
+```bash
 Tweet exceeds 280 characters
 ```
 
@@ -383,7 +379,7 @@ Tweet exceeds 280 characters
 Relizy automatically truncates tweets, but you can customize the template to make it shorter:
 
 ```ts
-messageTemplate: '🎉 {{projectName}} v{{version}}\n{{releaseUrl}}'
+template: '🎉 {{projectName}} v{{version}}\n{{releaseUrl}}'
 ```
 
 ## Integration with release Command
