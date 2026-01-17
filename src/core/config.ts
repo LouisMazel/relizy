@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -52,7 +52,7 @@ export function getDefaultConfig() {
       args: [],
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       registry: 'https://registry.npmjs.org/',
-      safetyCheck: false,
+      safetyCheck: true,
     },
     tokens: {
       registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
@@ -99,11 +99,11 @@ export function getDefaultConfig() {
       twitter: {
         enabled: false,
         onlyStable: true,
-      },
+      } satisfies SocialConfig['twitter'],
       slack: {
         enabled: false,
         onlyStable: true,
-      },
+      } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
