@@ -344,7 +344,7 @@ export interface ProviderReleaseOptions {
   dryRun?: boolean
   /**
    * Skip safety check
-   * @default false
+   * @default true
    */
   safetyCheck?: boolean
   /**
@@ -391,7 +391,7 @@ export interface SocialOptions {
   dryRun?: boolean
   /**
    * Skip safety check
-   * @default false
+   * @default true
    */
   safetyCheck?: boolean
 }
@@ -431,7 +431,7 @@ export type PublishConfig = IChangelogConfig['publish'] & {
   token?: string
   /**
    * Skip safety check
-   * @default false
+   * @default true
    */
   safetyCheck?: boolean
 }
@@ -916,7 +916,7 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    */
   logLevel?: LogLevel
   /**
-   * The safety check will verify if tokens or others required for release are set (depends on the release options)
+   * Global safety check. The safety check will verify if tokens or others required for release are set (depends on the release options)
    * @default true
    */
   safetyCheck?: boolean
