@@ -359,7 +359,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     }
     else {
       logger.fail('No packages to bump, no relevant commits found')
-      process.exit(1)
+      process.exit(10)
     }
 
     await executeHook('success:bump', config, dryRun)
