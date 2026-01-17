@@ -57,7 +57,7 @@
   },
   "scripts": {
     "preinstall": "npx only-allow pnpm",
-    "postinstall": "npx husky",
+    "prepare": "npx husky",
     "build": "unbuild",
     "dev": "unbuild --stub",
     "relizy": "node bin/relizy.mjs",
