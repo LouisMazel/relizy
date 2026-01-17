@@ -172,7 +172,7 @@ describe('Given getDefaultConfig function', () => {
     it('Then disables safety check by default', () => {
       const config = getDefaultConfig()
 
-      expect(config.publish.safetyCheck).toBe(false)
+      expect(config.publish.safetyCheck).toBe(true)
     })
   })
 

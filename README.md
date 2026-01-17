@@ -10,7 +10,7 @@
 
   <p>
     <a href="https://codecov.io/gh/LouisMazel/relizy">
-      <img src="https://codecov.io/gh/LouisMazel/relizy/branch/main/graph/badge.svg?token=YOUR_TOKEN_HERE" alt="codecov" />
+      <img src="https://codecov.io/gh/LouisMazel/relizy/graph/badge.svg?token=KLWVQUN37O" alt="codecov" />
     </a>
     <a href="https://github.com/LouisMazel/relizy/actions/workflows/test-unit.yml">
       <img src="https://github.com/LouisMazel/relizy/actions/workflows/test-unit.yml/badge.svg" alt="Unit Tests" />
@@ -28,6 +28,8 @@
 </div>
 
 ---
+
+![Relizy Illustration](./resources/relizy-illustration.jpeg)
 
 Seamless and automated release manager with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.
 
@@ -240,7 +242,7 @@ When submitting a PR:
 
 1. Ensure all tests pass (`pnpm test:unit`)
 2. Check TypeScript types (`pnpm typecheck`)
-3. Lint your code (`pnpm lint`)
+3. Lint your code (`pnpm lint:all`)
 4. Add tests for new features
 5. Maintain or improve code coverage (Codecov will comment on your PR)
 
