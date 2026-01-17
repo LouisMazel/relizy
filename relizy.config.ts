@@ -44,4 +44,5 @@ export default defineConfig({
       channel: '#test-releases',
     },
   },
+  safetyCheck: true,
 })
