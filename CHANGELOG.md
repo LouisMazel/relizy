@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-beta.0...v1.0.0-beta.1
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0-beta.0...v1.0.0-beta.1)
+
+### 🚀 Features
+
+- `safetyCheck` is enable by default ([075dc4e](https://github.com/LouisMazel/relizy/commit/075dc4e))
+
+### 🩹 Fixes
+
+- Remove postinstall script ([ea98dff](https://github.com/LouisMazel/relizy/commit/ea98dff))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.3.0...v1.0.0-beta.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.3.0...v1.0.0-beta.0)
