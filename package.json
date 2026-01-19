@@ -56,7 +56,6 @@
     "node": ">=20.0.0"
   },
   "scripts": {
-    "preinstall": "npx only-allow pnpm",
     "prepare": "npx husky",
     "build": "unbuild",
     "dev": "unbuild --stub",
