@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-beta.1...v1.0.0-beta.2
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0-beta.1...v1.0.0-beta.2)
+
+### 🚀 Features
+
+- Add config to choose the max length of the twitter post ([da73a00](https://github.com/LouisMazel/relizy/commit/da73a00))
+
+### 💅 Refactors
+
+- Social - improve format of twitter post ([1043d2a](https://github.com/LouisMazel/relizy/commit/1043d2a))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.0-beta.0...v1.0.0-beta.1
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0-beta.0...v1.0.0-beta.1)
