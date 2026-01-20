@@ -27,7 +27,7 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
     || tokenCredentials?.accessTokenSecret
 
   if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
-    logger.warn('Twitter is enabled but credentials are missing.')
+    logger.error('Twitter is enabled but credentials are missing.')
     logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
 
     if (!apiKey)

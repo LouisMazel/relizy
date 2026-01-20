@@ -1,3 +1,4 @@
+import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
@@ -28,6 +29,7 @@ describe('Given socialSafetyCheck function', () => {
 
   describe('When Twitter is enabled without credentials', () => {
     it('Then exits with error', () => {
+      const loggerErrorSpy = vi.spyOn(logger, 'error')
       const config = createMockConfig({
         bump: { type: 'patch' },
         social: {
@@ -48,7 +50,9 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getTwitterCredentials).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).toThrowError()
+      expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Twitter credentials not found')
+
+      expect(loggerErrorSpy).toHaveBeenCalledWith('Error during social safety check:', 'Twitter credentials not found')
     })
   })
 
@@ -63,12 +67,12 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getSlackToken).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).toThrowError()
+      expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Slack credentials not found')
     })
   })
 
   describe('When credentials are provided', () => {
-    it('Then does not log warning', () => {
+    it('Then does not log warning', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         social: {
@@ -91,17 +95,17 @@ describe('Given socialSafetyCheck function', () => {
         accessTokenSecret: 'token-secret',
       })
 
-      socialSafetyCheck({ config })
+      await socialSafetyCheck({ config })
 
       expect(getTwitterCredentials).toHaveBeenCalled()
     })
   })
 
   describe('When safety check is disabled', () => {
-    it('Then returns early without checking', () => {
+    it('Then returns early without checking', async () => {
       const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false, social: { twitter: { enabled: true }, slack: { enabled: true } } })
 
-      socialSafetyCheck({ config })
+      await socialSafetyCheck({ config })
 
       expect(getTwitterCredentials).not.toHaveBeenCalled()
     })
