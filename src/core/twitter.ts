@@ -9,6 +9,7 @@ export interface ResolvedTwitterCredentials {
   accessTokenSecret: string
 }
 
+// eslint-disable-next-line complexity
 export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
   socialCredentials?: TwitterCredentials
   tokenCredentials?: TwitterCredentials
@@ -28,10 +29,15 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
   if (!apiKey || !apiKeySecret || !accessToken || !accessTokenSecret) {
     logger.warn('Twitter is enabled but credentials are missing.')
     logger.log('Set the following environment variables or configure them in social.twitter.credentials or tokens.twitter:')
-    logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
-    logger.log('  - TWITTER_API_KEY_SECRET or RELIZY_TWITTER_API_KEY_SECRET')
-    logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
-    logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
+
+    if (!apiKey)
+      logger.log('  - TWITTER_API_KEY or RELIZY_TWITTER_API_KEY')
+    if (!apiKeySecret)
+      logger.log('  - TWITTER_API_KEY_SECRET or RELIZY_TWITTER_API_KEY_SECRET')
+    if (!accessToken)
+      logger.log('  - TWITTER_ACCESS_TOKEN or RELIZY_TWITTER_ACCESS_TOKEN')
+    if (!accessTokenSecret)
+      logger.log('  - TWITTER_ACCESS_TOKEN_SECRET or RELIZY_TWITTER_ACCESS_TOKEN_SECRET')
 
     logger.info('Skipping Twitter post')
     return null
