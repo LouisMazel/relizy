@@ -33,7 +33,7 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
   }
 
   if (!token) {
-    throw new Error(`No token provided for ${internalProvider || 'unknown'} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
+    throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
   }
 
   logger.info('provider release config checked successfully')

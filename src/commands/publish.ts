@@ -42,6 +42,9 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
       throw new Error('Failed to authenticate to package registry', { cause: error })
     }
   }
+  else {
+    logger.debug(`Skipping authentication to package registry because "${packageManager}" is not supported`)
+  }
 }
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
