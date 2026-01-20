@@ -139,6 +139,7 @@ async function handleTwitterPost({
         changelogUrl,
         credentials,
         dryRun,
+        postMaxLength: config.social.twitter.postMaxLength,
       })
 
       await executeHook('success:twitter', config, dryRun)

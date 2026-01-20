@@ -184,6 +184,7 @@ describe('Given formatTweetMessage function', () => {
         changelog: 'Bug fixes',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
         changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
+        postMaxLength: 280,
       })
 
       expect(result).toContain('my-package')
@@ -200,6 +201,7 @@ describe('Given formatTweetMessage function', () => {
         version: '2.0.0',
         changelog: 'New features',
         releaseUrl: 'https://github.com/user/relizy/releases/tag/v2.0.0',
+        postMaxLength: 280,
       })
 
       expect(result).toContain('🚀 relizy 2.0.0 is out!')
@@ -215,6 +217,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
+        postMaxLength: 280,
       })
 
       expect(result).not.toContain('{{releaseUrl}}')
@@ -227,6 +230,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
+        postMaxLength: 280,
       })
 
       expect(result).toBe('pkg 1.0.0')
@@ -240,6 +244,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
+        postMaxLength: 280,
       })
 
       expect(result).not.toContain('{{changelogUrl}}')
@@ -255,6 +260,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: longChangelog,
+        postMaxLength: 280,
       })
 
       expect(result.length).toBeLessThanOrEqual(280)
@@ -268,6 +274,7 @@ describe('Given formatTweetMessage function', () => {
         version: '1.0.0',
         changelog: 'x'.repeat(200),
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
+        postMaxLength: 280,
       })
 
       expect(result.length).toBeLessThanOrEqual(280)
@@ -283,6 +290,7 @@ describe('Given formatTweetMessage function', () => {
         changelog: 'Long changelog text that goes on and on with many details about the release',
         releaseUrl: 'https://github.com/verylongusername/verylongrepositoryname/releases/tag/v1.0.0-beta.1',
         changelogUrl: 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md',
+        postMaxLength: 280,
       })
 
       expect(result.length).toBe(280)
@@ -298,6 +306,7 @@ describe('Given formatTweetMessage function', () => {
         releaseUrl: 'https://example.com/releases',
         version: '1.0.0',
         changelog: veryLongText,
+        postMaxLength: 280,
       })
 
       // console.log('result', result)
@@ -314,6 +323,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
+        postMaxLength: 280,
       })
 
       const matches = result.match(/pkg/g)
@@ -329,6 +339,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: shortChangelog,
+        postMaxLength: 280,
       })
 
       expect(result).toContain('Fix bug')
@@ -343,6 +354,7 @@ describe('Given formatTweetMessage function', () => {
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
+        postMaxLength: 280,
       })
 
       expect(result).toContain('🚀')
@@ -356,6 +368,7 @@ describe('Given formatTweetMessage function', () => {
         version: '1.0.0',
         changelog: 'Updates',
         releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0?tab=readme',
+        postMaxLength: 280,
       })
 
       expect(result).toContain('?tab=readme')
@@ -391,6 +404,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: true,
+        postMaxLength: 280,
       })
 
       expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.any(String))
@@ -415,6 +429,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: true,
+        postMaxLength: 280,
       })
 
       expect(mockImport).not.toHaveBeenCalled()
@@ -448,6 +463,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: false,
+        postMaxLength: 280,
       })
 
       expect(logger.debug).toHaveBeenCalledWith('Preparing Twitter post...')
@@ -468,6 +484,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: true,
+        postMaxLength: 280,
       })
 
       expect(logger.info).toHaveBeenCalledWith(
@@ -496,6 +513,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: false,
+        postMaxLength: 280,
       })).rejects.toThrow('Missing dependency: twitter-api-v2')
     })
   })
@@ -525,6 +543,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: false,
+        postMaxLength: 280,
       })).rejects.toThrow('API rate limit exceeded')
     })
   })
@@ -544,6 +563,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: true,
+        postMaxLength: 280,
       })
 
       expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.stringContaining('https://github.com'))
@@ -563,6 +583,7 @@ describe('Given postReleaseToTwitter function', () => {
           accessTokenSecret: 'token-secret',
         },
         dryRun: true,
+        postMaxLength: 280,
       })
 
       expect(logger.info).toHaveBeenCalledWith(

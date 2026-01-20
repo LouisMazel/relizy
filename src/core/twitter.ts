@@ -45,15 +45,16 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
   }
 }
 
-export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl }: {
+export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl, postMaxLength }: {
   template: string
   projectName: string
   version: string
   changelog: string
   releaseUrl?: string
   changelogUrl?: string
+  postMaxLength: number
 }): string {
-  const TWITTER_MAX_LENGTH = 280
+  const MAX_LENGTH = postMaxLength
   const ELLIPSIS = '...'
 
   // Step 1: Build template with all placeholders replaced except changelog
@@ -79,7 +80,7 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
 
   // Step 2: Calculate how much space is available for the changelog
   const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
-  const availableForChangelog = TWITTER_MAX_LENGTH - templateWithoutChangelog.length
+  const availableForChangelog = MAX_LENGTH - templateWithoutChangelog.length
 
   // Step 3: Truncate changelog if needed
   let finalChangelog = changelog
@@ -93,8 +94,8 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
 
   // Step 5: Safety check - if message still exceeds limit, truncate entire message
   // This should only happen if the template + URLs alone are > 280 chars
-  if (message.length > TWITTER_MAX_LENGTH) {
-    message = message.substring(0, TWITTER_MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
+  if (message.length > MAX_LENGTH) {
+    message = message.substring(0, MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
   }
 
   return message
@@ -108,6 +109,7 @@ export async function postReleaseToTwitter({
   changelogUrl,
   credentials,
   template,
+  postMaxLength,
   dryRun = false,
 }: TwitterOptions) {
   logger.debug('Preparing Twitter post...')
@@ -121,6 +123,7 @@ export async function postReleaseToTwitter({
     changelog: changelogSummary,
     releaseUrl,
     changelogUrl,
+    postMaxLength,
   })
 
   logger.debug(`Tweet message (${message.length} chars):\n${message}`)
