@@ -2,10 +2,6 @@ import { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { formatTweetMessage, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
 
-vi.mock('../social', () => ({
-  extractChangelogSummary: vi.fn((changelog: string) => changelog.substring(0, 150)),
-}))
-
 logger.setLevel = vi.fn()
 
 describe('Given getTwitterCredentials function', () => {
@@ -178,7 +174,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When all placeholders are provided', () => {
     it('Then replaces all placeholders correctly', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
+        template: '{{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
         projectName: 'my-package',
         version: '1.0.0',
         changelog: 'Bug fixes',
@@ -196,7 +192,7 @@ describe('Given formatTweetMessage function', () => {
 
     it('Then formats with default template', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+        template: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
         projectName: 'relizy',
         version: '2.0.0',
         changelog: 'New features',
@@ -213,7 +209,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When releaseUrl is not provided', () => {
     it('Then removes releaseUrl placeholder', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}}\n{{releaseUrl}}',
+        template: '{{projectName}} {{newVersion}}\n{{releaseUrl}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
@@ -226,7 +222,7 @@ describe('Given formatTweetMessage function', () => {
 
     it('Then trims whitespace after removing releaseUrl', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}} {{releaseUrl}}',
+        template: '{{projectName}} {{newVersion}} {{releaseUrl}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
@@ -240,7 +236,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When changelogUrl is not provided', () => {
     it('Then removes changelogUrl placeholder', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}}\n{{changelogUrl}}',
+        template: '{{projectName}} {{newVersion}}\n{{changelogUrl}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
@@ -254,9 +250,9 @@ describe('Given formatTweetMessage function', () => {
 
   describe('When changelog exceeds character limit', () => {
     it('Then truncates changelog to fit in tweet', () => {
-      const longChangelog = 'a'.repeat(300)
+      const longChangelog = 'a'.repeat(500)
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}}\n{{changelog}}',
+        template: '{{projectName}} {{newVersion}}\n{{changelog}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: longChangelog,
@@ -269,7 +265,7 @@ describe('Given formatTweetMessage function', () => {
 
     it('Then reserves space for template and URLs', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} {{version}}\n{{changelog}}\n{{releaseUrl}}',
+        template: '🚀 {{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}',
         projectName: 'my-awesome-package',
         version: '1.0.0',
         changelog: 'x'.repeat(200),
@@ -284,7 +280,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When final message exceeds 280 characters', () => {
     it('Then truncates entire message to 280 chars', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}} {{changelog}} {{releaseUrl}} {{changelogUrl}}',
+        template: '{{projectName}} {{newVersion}} {{changelog}} {{releaseUrl}} {{changelogUrl}}',
         projectName: 'very-long-package-name-that-takes-up-space',
         version: '1.0.0-beta.1',
         changelog: 'Long changelog text that goes on and on with many details about the release',
@@ -300,7 +296,7 @@ describe('Given formatTweetMessage function', () => {
     it('Then ensures truncated message ends with ellipsis', () => {
       const veryLongText = 'x'.repeat(400)
       const result = formatTweetMessage({
-        template: `🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
+        template: `🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
         projectName: 'pkg',
         changelogUrl: 'https://example.com/changelog',
         releaseUrl: 'https://example.com/releases',
@@ -309,9 +305,7 @@ describe('Given formatTweetMessage function', () => {
         postMaxLength: 280,
       })
 
-      // console.log('result', result)
-
-      // expect(result).toMatch(/\.\.\.$/)
+      expect(result).toContain('...')
       expect(result.length).toBe(280)
     })
   })
@@ -319,7 +313,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When template has multiple instances of same placeholder', () => {
     it('Then replaces only first instance of each placeholder', () => {
       const result = formatTweetMessage({
-        template: '{{projectName}} v{{version}} - {{projectName}} {{version}}',
+        template: '{{projectName}} v{{newVersion}} - {{projectName}} {{newVersion}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
@@ -335,7 +329,7 @@ describe('Given formatTweetMessage function', () => {
     it('Then uses full changelog without truncation', () => {
       const shortChangelog = 'Fix bug'
       const result = formatTweetMessage({
-        template: '{{projectName}} {{version}}: {{changelog}}',
+        template: '{{projectName}} {{newVersion}}: {{changelog}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: shortChangelog,
@@ -350,7 +344,7 @@ describe('Given formatTweetMessage function', () => {
   describe('When handling special characters', () => {
     it('Then preserves emojis in template', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} 🎉 {{version}}',
+        template: '🚀 {{projectName}} 🎉 {{newVersion}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
@@ -473,7 +467,7 @@ describe('Given postReleaseToTwitter function', () => {
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToTwitter({
-        template: 'Custom: {{projectName}} {{version}}',
+        template: 'Custom: {{projectName}} {{newVersion}}',
         version: '2.0.0',
         projectName: 'my-pkg',
         changelog: 'New features',

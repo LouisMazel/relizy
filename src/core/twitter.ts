@@ -57,10 +57,12 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
   const MAX_LENGTH = postMaxLength
   const ELLIPSIS = '...'
 
+  const changelogSummary = extractChangelogSummary(changelog, postMaxLength)
+
   // Step 1: Build template with all placeholders replaced except changelog
   let templateWithValues = template
     .replace('{{projectName}}', projectName)
-    .replace('{{version}}', version)
+    .replace('{{newVersion}}', version)
 
   if (releaseUrl) {
     templateWithValues = templateWithValues.replace('{{releaseUrl}}', releaseUrl)
@@ -83,10 +85,10 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
   const availableForChangelog = MAX_LENGTH - templateWithoutChangelog.length
 
   // Step 3: Truncate changelog if needed
-  let finalChangelog = changelog
-  if (changelog.length > availableForChangelog) {
+  let finalChangelog = changelogSummary
+  if (changelogSummary.length > availableForChangelog) {
     const maxLength = Math.max(0, availableForChangelog - ELLIPSIS.length)
-    finalChangelog = changelog.substring(0, maxLength) + ELLIPSIS
+    finalChangelog = changelogSummary.substring(0, maxLength) + ELLIPSIS
   }
 
   // Step 4: Build final message
@@ -114,13 +116,11 @@ export async function postReleaseToTwitter({
 }: TwitterOptions) {
   logger.debug('Preparing Twitter post...')
 
-  const changelogSummary = extractChangelogSummary(changelog, 150)
-
   const message = formatTweetMessage({
     template,
     projectName,
     version,
-    changelog: changelogSummary,
+    changelog,
     releaseUrl,
     changelogUrl,
     postMaxLength,
@@ -129,7 +129,7 @@ export async function postReleaseToTwitter({
   logger.debug(`Tweet message (${message.length} chars):\n${message}`)
 
   if (dryRun) {
-    logger.info('[dry-run] Would post tweet:', message)
+    logger.info('[dry-run] Would post tweet:', `"${message}"`)
     return
   }
 

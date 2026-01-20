@@ -94,12 +94,12 @@ Content here`
   })
 
   describe('When using default maxLength', () => {
-    it('Then uses 150 as default maxLength', () => {
+    it('Then uses no default maxLength', () => {
       const changelog = 'a'.repeat(200)
 
       const result = extractChangelogSummary(changelog)
 
-      expect(result.length).toBeLessThanOrEqual(150)
+      expect(result.length).toBeLessThanOrEqual(201)
     })
 
     it('Then extracts sentences within default 150 length', () => {

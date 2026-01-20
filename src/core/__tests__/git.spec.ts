@@ -462,7 +462,7 @@ describe('Given createCommitAndTags function', () => {
       tagBody: 'v{{newVersion}}',
       tagMessage: 'Release {{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
-      twitterMessage: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+      twitterMessage: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
       slackMessage: undefined,
     }
     config.release = {

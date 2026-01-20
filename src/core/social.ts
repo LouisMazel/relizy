@@ -3,7 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 /**
  * Extract a summary from changelog content
  */
-export function extractChangelogSummary(changelog: string, maxLength: number = 150): string {
+export function extractChangelogSummary(changelog: string, maxLength?: number): string {
   if (changelog.trim() === '') {
     return ''
   }
@@ -27,7 +27,7 @@ export function extractChangelogSummary(changelog: string, maxLength: number = 1
   let summary = ''
 
   for (const sentence of sentences) {
-    if ((summary + sentence).length > maxLength || sentence.trim() === '') {
+    if ((maxLength && (summary + sentence).length > maxLength) || sentence.trim() === '') {
       break
     }
     summary += `${sentence}. `

@@ -598,8 +598,8 @@ export interface TwitterSocialConfig {
   onlyStable?: boolean
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   template?: string
   /**
@@ -639,7 +639,7 @@ export interface SlackSocialConfig {
   channel: string
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
    */
   template?: string
   /**
@@ -772,13 +772,13 @@ export interface TemplatesConfig {
   emptyChangelogContent?: string
   /**
    * Twitter message template
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * @default '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   twitterMessage?: string
   /**
    * Slack message template (optional - if not provided, uses rich blocks format)
-   * Available variables: {{projectName}}, {{version}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
    * @default undefined
    */
   slackMessage?: string

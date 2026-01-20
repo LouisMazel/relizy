@@ -3,7 +3,7 @@ import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { executeHook, extractChangelogSummary, generateChangelog, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { executeHook, generateChangelog, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
@@ -126,15 +126,11 @@ async function handleTwitterPost({
 
       logger.debug(`Changelog generated (${changelog.length} chars)`)
 
-      // Extract summary from the generated changelog
-      const changelogSummary = extractChangelogSummary(changelog, 150)
-      logger.debug(`Changelog summary: ${changelogSummary.substring(0, 50)}...`)
-
       const response = await postReleaseToTwitter({
         template: config.social.twitter.template || config.templates.twitterMessage,
         version: newVersion,
         projectName: rootPackageBase.name,
-        changelog: changelogSummary,
+        changelog,
         releaseUrl,
         changelogUrl,
         credentials,

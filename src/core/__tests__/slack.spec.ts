@@ -375,7 +375,7 @@ describe('Given formatSlackMessage function', () => {
   describe('When using custom template', () => {
     it('Then returns simple text block with template', () => {
       const blocks = formatSlackMessage({
-        template: 'Custom: {{projectName}} {{version}}',
+        template: 'Custom: {{projectName}} {{newVersion}}',
         projectName: 'my-pkg',
         version: '2.0.0',
         changelog: 'Features',
@@ -393,7 +393,7 @@ describe('Given formatSlackMessage function', () => {
 
     it('Then replaces all placeholders in template', () => {
       const blocks = formatSlackMessage({
-        template: '{{projectName}} {{version}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
+        template: '{{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Bug fixes',
@@ -552,7 +552,7 @@ describe('Given postReleaseToSlack function', () => {
         changelog: 'New features',
         channel: '#releases',
         token: 'xoxb-token',
-        template: 'Custom: {{projectName}} {{version}}',
+        template: 'Custom: {{projectName}} {{newVersion}}',
         dryRun: true,
       })
 
