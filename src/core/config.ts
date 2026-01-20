@@ -99,6 +99,7 @@ export function getDefaultConfig() {
       twitter: {
         enabled: false,
         onlyStable: true,
+        postMaxLength: 280,
       } satisfies SocialConfig['twitter'],
       slack: {
         enabled: false,

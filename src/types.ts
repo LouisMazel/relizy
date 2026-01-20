@@ -606,6 +606,11 @@ export interface TwitterSocialConfig {
    * Twitter credentials (optional - falls back to environment variables)
    */
   credentials?: TwitterCredentials
+  /**
+   * Maximum length of the tweet
+   * @default 280
+   */
+  postMaxLength?: number
 }
 
 export interface SlackCredentials {
@@ -701,6 +706,11 @@ export interface TwitterOptions {
    * @default false
    */
   dryRun?: boolean
+  /**
+   * Maximum length of the tweet
+   * @default 280
+   */
+  postMaxLength: number
 }
 
 export interface SlackOptions {
