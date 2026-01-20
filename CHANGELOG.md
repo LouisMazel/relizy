@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.0-beta.2...v1.0.0-beta.3
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0-beta.2...v1.0.0-beta.3)
+
+### 💅 Refactors
+
+- Improve logs of safety check methods ([0bb788a](https://github.com/LouisMazel/relizy/commit/0bb788a))
+
+### 📦 Build
+
+- Upgrade dependencies ([5336e48](https://github.com/LouisMazel/relizy/commit/5336e48))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.0-beta.1...v1.0.0-beta.2
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0-beta.1...v1.0.0-beta.2)
