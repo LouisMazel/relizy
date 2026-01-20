@@ -66,7 +66,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
     const summary = extractChangelogSummary(changelog, 500)
     let message = template
       .replace('{{projectName}}', projectName)
-      .replace('{{version}}', version)
+      .replace('{{newVersion}}', version)
       .replace('{{changelog}}', summary)
 
     if (releaseUrl) {

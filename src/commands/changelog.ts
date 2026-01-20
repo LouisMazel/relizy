@@ -57,7 +57,12 @@ async function generateIndependentRootChangelog({
     dryRun,
   })
 
-  logger.debug('Aggregated root changelog written')
+  if (dryRun) {
+    logger.info(`[dry-run] Root package "${rootPackageRead.name}" - ${date} - Changelog:\n\n${aggregatedChangelog}`)
+  }
+  else {
+    logger.debug('Aggregated root changelog written')
+  }
 }
 
 async function generateSimpleRootChangelog({
@@ -115,18 +120,21 @@ async function generateSimpleRootChangelog({
     newVersion,
   })
 
-  if (rootChangelog) {
-    writeChangelogToFile({
-      cwd: config.cwd,
-      changelog: rootChangelog,
-      pkg: rootPackage,
-      dryRun,
-    })
-    logger.debug('Root changelog written')
+  writeChangelogToFile({
+    cwd: config.cwd,
+    changelog: rootChangelog,
+    pkg: rootPackage,
+    dryRun,
+  })
+
+  if (dryRun) {
+    logger.info(`[dry-run] Root package "${rootPackage.name}" - ${fromTag}...${to} - Changelog:\n\n${rootChangelog}`)
   }
   else {
-    logger.debug('No changelog to generate for root package')
+    logger.debug('Root changelog written')
   }
+
+  return rootChangelog
 }
 
 // eslint-disable-next-line complexity
@@ -209,14 +217,18 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
         newVersion,
       })
 
-      if (changelog) {
-        writeChangelogToFile({
-          cwd: config.cwd,
-          pkg,
-          changelog,
-          dryRun,
-        })
-        generatedCount++
+      writeChangelogToFile({
+        cwd: config.cwd,
+        pkg,
+        changelog,
+        dryRun,
+      })
+      generatedCount++
+
+      if (dryRun) {
+        logger.info(`[dry-run] ${pkg.name}: changelog generated:\n\n${changelog}`)
+      }
+      else {
         logger.debug(`${pkg.name}: changelog written`)
       }
     }
