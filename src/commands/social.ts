@@ -7,62 +7,80 @@ import { executeHook, generateChangelog, getReleaseUrl, getRootPackage, getSlack
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
-export function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
-  const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
-  if (!config.safetyCheck || socialMediaDisabled) {
-    logger.debug('Safety check disabled or social disabled')
-    return
-  }
-
-  logger.debug('Start checking social config')
-
-  const errors = {
-    twitter: false,
-    slack: false,
-  }
-
-  // Check Twitter configuration
-  const twitterConfig = config.social?.twitter
-  if (twitterConfig?.enabled) {
-    const credentials = getTwitterCredentials({
-      socialCredentials: twitterConfig.credentials,
-      tokenCredentials: config.tokens?.twitter,
-    })
-
-    if (!credentials) {
-      errors.twitter = true
-    }
-  }
-
-  // Check Slack configuration
-  const slackConfig = config.social?.slack
-  if (slackConfig?.enabled) {
-    const token = getSlackToken({
-      socialCredentials: slackConfig.credentials,
-      tokenCredential: config.tokens?.slack,
-    })
-
-    if (!token) {
-      logger.log('Slack is enabled but credentials are missing.')
-      logger.log('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
-      logger.log('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
-
-      errors.slack = true
+// eslint-disable-next-line sonarjs/cognitive-complexity
+export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+  try {
+    const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
+    if (!config.safetyCheck || socialMediaDisabled) {
+      logger.debug('Safety check disabled or social disabled')
+      return
     }
 
-    if (!slackConfig.channel) {
-      logger.warn('Slack is enabled but no channel is configured.')
-      logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
+    logger.debug('Start checking social config')
 
-      errors.slack = true
+    // Check Twitter configuration
+    const twitterConfig = config.social?.twitter
+    if (twitterConfig?.enabled) {
+      const credentials = getTwitterCredentials({
+        socialCredentials: twitterConfig.credentials,
+        tokenCredentials: config.tokens?.twitter,
+      })
+
+      if (!credentials) {
+        logger.fail('Twitter credentials not found')
+        throw new Error('Twitter credentials not found')
+      }
+
+      // check if twitter-api-v2 is installed
+      try {
+        await import('twitter-api-v2')
+      }
+      catch {
+        logger.fail('twitter-api-v2 is not installed, please install it')
+        throw new Error('twitter-api-v2 is not installed')
+      }
     }
-  }
 
-  if (errors.twitter || errors.slack) {
-    throw new Error('Social config checked with errors')
-  }
+    // Check Slack configuration
+    const slackConfig = config.social?.slack
+    if (slackConfig?.enabled) {
+      const token = getSlackToken({
+        socialCredentials: slackConfig.credentials,
+        tokenCredential: config.tokens?.slack,
+      })
 
-  logger.info('Social config checked successfully')
+      // check if @slack/web-api is installed
+      try {
+        await import('@slack/web-api')
+      }
+      catch {
+        logger.fail('@slack/web-api is not installed, please install it')
+        throw new Error('@slack/web-api is not installed')
+      }
+
+      if (!token) {
+        logger.fail('Slack is enabled but credentials are missing.')
+        logger.log('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
+        logger.log('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
+
+        throw new Error('Slack credentials not found')
+      }
+
+      if (!slackConfig.channel) {
+        logger.fail('Slack is enabled but no channel is configured.')
+        logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
+
+        throw new Error('Slack channel not found')
+      }
+    }
+
+    logger.info('Social config checked successfully')
+  }
+  catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    logger.error('Error during social safety check:', errorMessage)
+    throw new Error(`Error during social safety check: ${errorMessage}`)
+  }
 }
 
 async function handleTwitterPost({
@@ -280,7 +298,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
     logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
     // Safety check
-    socialSafetyCheck({ config })
+    await socialSafetyCheck({ config })
 
     if (!config.release.social && !config.social?.twitter?.enabled && !config.social?.slack?.enabled) {
       logger.warn('Social media posting is disabled in configuration.')
