@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.0.0...v1.0.1
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0...v1.0.1)
+
+### 💅 Refactors
+
+- Add projectName config option ([08ca6a5](https://github.com/LouisMazel/relizy/commit/08ca6a5))
+
+  Allows overriding the package name from root package.json for Twitter (X) and Slack posts.
+  Use `projectName` in your config to customize the displayed name in social notifications.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v0.3.0...v1.0.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v0.3.0...v1.0.0)
