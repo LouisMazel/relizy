@@ -1,6 +1,7 @@
 /// <reference types="vitest" />
 
 import { coverageConfigDefaults, defaultExclude, defineConfig } from 'vitest/config'
+import { isInCI } from './src/core/utils'
 
 export default defineConfig({
   plugins: [],
@@ -20,10 +21,10 @@ export default defineConfig({
         'src/commands/__tests__/*',
       ],
       thresholds: {
-        autoUpdate: true,
+        autoUpdate: !isInCI(),
         statements: 81.43,
         functions: 85.44,
-        branches: 76.52,
+        branches: 76.58,
         lines: 81.39,
       },
     },
