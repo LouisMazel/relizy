@@ -129,6 +129,7 @@ export default defineConfig({
 ```ts
 // relizy.config.ts
 export default defineConfig({
+  projectName: 'My project', // replace the name in your root package.json (Useful for Twitter (X) and Slack posts)
   monorepo: {
     versionMode: 'selective',
     packages: ['packages/*'],
@@ -212,9 +213,11 @@ const defaultConfig = {
   },
   templates: {
     commitMessage: 'chore(release): bump version to {{newVersion}}',
-    tagMessage: 'Bump version to v{{newVersion}}',
+    tagMessage: 'Bump version to {{newVersion}}',
     tagBody: 'v{{newVersion}}',
     emptyChangelogContent: 'No relevant changes for this release',
+    twitterMessage: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+    slackMessage: undefined,
   },
   excludeAuthors: [],
   noAuthors: false,
