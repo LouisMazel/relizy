@@ -147,7 +147,7 @@ async function handleTwitterPost({
       const response = await postReleaseToTwitter({
         template: config.social.twitter.template || config.templates.twitterMessage,
         version: newVersion,
-        projectName: rootPackageBase.name,
+        projectName: config.projectName || rootPackageBase.name,
         changelog,
         releaseUrl,
         changelogUrl,
@@ -249,7 +249,7 @@ async function handleSlackPost({
 
       const response = await postReleaseToSlack({
         version: newVersion,
-        projectName: rootPackageBase.name,
+        projectName: config.projectName || rootPackageBase.name,
         changelog,
         releaseUrl,
         changelogUrl,

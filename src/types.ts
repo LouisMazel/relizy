@@ -862,6 +862,12 @@ export type HookConfig = {
  * @see https://louismazel.github.io/relizy/config/overview
  */
 export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
+  /**
+   * Project name
+   * Useful for tweet and slack posts
+   */
+  projectName?: string
+
   types?: Record<string, {
     title: string
     semver?: SemverBumpType
