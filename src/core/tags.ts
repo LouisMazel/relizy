@@ -125,18 +125,16 @@ async function getAllRecentPackageTags({
  */
 function filterCompatibleTags({
   tags,
-  currentVersion,
+  pkg,
   onlyStable,
-  packageName,
 }: {
   tags: string[]
-  currentVersion: string
+  pkg: ReadPackage
   onlyStable: boolean
-  packageName?: string
 }): string[] {
   const filtered = tags.filter((tag) => {
     // Extract version from tag
-    const tagVersion = extractVersionFromTag(tag, packageName)
+    const tagVersion = extractVersionFromTag(tag, pkg.name)
 
     if (!tagVersion) {
       logger.debug(`Skipping tag ${tag}: cannot extract version`)
@@ -150,8 +148,8 @@ function filterCompatibleTags({
     }
 
     // Filter out tags with incompatible major versions (major > current major)
-    if (!isTagVersionCompatibleWithCurrent(tagVersion, currentVersion)) {
-      logger.debug(`Skipping tag ${tag}: version ${tagVersion} has higher major than current ${currentVersion}`)
+    if (!isTagVersionCompatibleWithCurrent(tagVersion, pkg.version)) {
+      logger.debug(`Skipping tag ${tag}: version ${tagVersion} has higher major than current ${pkg.version}`)
       return false
     }
 
@@ -166,14 +164,14 @@ function filterCompatibleTags({
 
 export function getLastRepoTag(options?: {
   onlyStable?: boolean
-  currentVersion?: string
+  pkg?: ReadPackage
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
   // If currentVersion is provided, use intelligent filtering
-  if (options?.currentVersion) {
+  if (options?.pkg) {
     return getLastRepoTagWithFiltering({
-      currentVersion: options.currentVersion,
+      pkg: options.pkg,
       onlyStable: options.onlyStable ?? false,
       logLevel: options.logLevel,
       cwd: options.cwd,
@@ -197,12 +195,12 @@ export function getLastRepoTag(options?: {
  * 4. Returns the most recent compatible tag
  */
 async function getLastRepoTagWithFiltering({
-  currentVersion,
+  pkg,
   onlyStable,
   logLevel,
   cwd,
 }: {
-  currentVersion: string
+  pkg: ReadPackage
   onlyStable: boolean
   logLevel?: LogLevel
   cwd?: string
@@ -210,18 +208,18 @@ async function getLastRepoTagWithFiltering({
   const recentTags = await getAllRecentRepoTags({ limit: 50, logLevel, cwd })
 
   if (recentTags.length === 0) {
-    logger.debug('No tags found in repository')
+    logger.info('No tags found in repository')
     return null
   }
 
   const compatibleTags = filterCompatibleTags({
     tags: recentTags,
-    currentVersion,
+    pkg,
     onlyStable,
   })
 
   if (compatibleTags.length === 0) {
-    logger.debug('No compatible tags found')
+    logger.info(`No compatible tags found for version ${pkg.version}`)
     return null
   }
 
@@ -232,23 +230,20 @@ async function getLastRepoTagWithFiltering({
 }
 
 export async function getLastPackageTag({
-  packageName,
+  pkg,
   onlyStable,
-  currentVersion,
   logLevel,
   cwd,
 }: {
-  packageName: string
+  pkg: ReadPackage
   onlyStable?: boolean
-  currentVersion?: string
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
   // If currentVersion is provided, use intelligent filtering
-  if (currentVersion) {
+  if (pkg.version) {
     return getLastPackageTagWithFiltering({
-      packageName,
-      currentVersion,
+      pkg,
       onlyStable: onlyStable ?? false,
       logLevel,
       cwd,
@@ -257,7 +252,7 @@ export async function getLastPackageTag({
 
   // Otherwise, use legacy behavior for backward compatibility
   try {
-    const escapedPackageName = packageName.replace(/[@/]/g, '\\$&')
+    const escapedPackageName = pkg.name.replace(/[@/]/g, '\\$&')
 
     let grepPattern: string
     if (onlyStable) {
@@ -295,44 +290,41 @@ export async function getLastPackageTag({
  * 4. Returns the most recent compatible tag
  */
 async function getLastPackageTagWithFiltering({
-  packageName,
-  currentVersion,
+  pkg,
   onlyStable,
   logLevel,
   cwd,
 }: {
-  packageName: string
-  currentVersion: string
+  pkg: ReadPackage
   onlyStable: boolean
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
   const recentTags = await getAllRecentPackageTags({
-    packageName,
+    packageName: pkg.name,
     limit: 50,
     logLevel,
     cwd,
   })
 
   if (recentTags.length === 0) {
-    logger.debug(`No tags found for package ${packageName}`)
+    logger.info(`No tags found for package ${pkg.name}`)
     return null
   }
 
   const compatibleTags = filterCompatibleTags({
     tags: recentTags,
-    currentVersion,
+    pkg,
     onlyStable,
-    packageName,
   })
 
   if (compatibleTags.length === 0) {
-    logger.debug(`No compatible tags found for package ${packageName}`)
+    logger.info(`No compatible tags found for package ${pkg.name} with version ${pkg.version}`)
     return null
   }
 
   const lastTag = compatibleTags[0]
-  logger.debug(`Last compatible package tag for ${packageName}: ${lastTag}`)
+  logger.debug(`Last compatible package tag for ${pkg.name}: ${lastTag}`)
 
   return lastTag
 }
@@ -346,24 +338,21 @@ export interface ResolvedTags {
 
 async function resolveFromTagIndependent({
   cwd,
-  packageName,
-  currentVersion,
+  pkg,
   graduating,
   logLevel,
 }: {
   cwd: string
-  packageName: string
-  currentVersion: string
+  pkg: ReadPackage
   graduating: boolean
   logLevel?: LogLevel
 }): Promise<string> {
   // Determine if we should filter prerelease tags
-  const filterPrereleases = shouldFilterPrereleaseTags(currentVersion, graduating)
+  const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
   const lastPackageTag = await getLastPackageTag({
-    packageName,
-    currentVersion,
+    pkg,
     onlyStable,
     logLevel,
     cwd,
@@ -378,21 +367,21 @@ async function resolveFromTagIndependent({
 
 async function resolveFromTagUnified({
   config,
-  currentVersion,
+  pkg,
   graduating,
   logLevel,
 }: {
   config: ResolvedRelizyConfig
-  currentVersion: string
+  pkg: ReadPackage
   graduating: boolean
   logLevel?: LogLevel
 }): Promise<string> {
   // Determine if we should filter prerelease tags
-  const filterPrereleases = shouldFilterPrereleaseTags(currentVersion, graduating)
+  const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
   const from = await getLastRepoTag({
-    currentVersion,
+    pkg,
     onlyStable,
     logLevel,
     cwd: config.cwd,
@@ -405,30 +394,27 @@ async function resolveFromTag({
   config,
   versionMode,
   step,
-  packageName,
-  currentVersion,
+  pkg,
   graduating,
   logLevel,
 }: {
   config: ResolvedRelizyConfig
   versionMode?: VersionMode | 'standalone'
   step: Step
-  packageName?: string
-  currentVersion: string
+  pkg: ReadPackage
   graduating: boolean
   logLevel?: LogLevel
 }) {
   let from: string
 
   if (versionMode === 'independent') {
-    if (!packageName) {
+    if (!pkg.name) {
       throw new Error('Package name is required for independent version mode')
     }
 
     from = await resolveFromTagIndependent({
       cwd: config.cwd,
-      packageName,
-      currentVersion,
+      pkg,
       graduating,
       logLevel,
     })
@@ -436,7 +422,7 @@ async function resolveFromTag({
   else {
     from = await resolveFromTagUnified({
       config,
-      currentVersion,
+      pkg,
       graduating,
       logLevel,
     })
@@ -512,8 +498,7 @@ export async function resolveTags<S extends Step, NewVersion = S extends 'bump' 
     config,
     versionMode,
     step,
-    packageName: pkg.name,
-    currentVersion: pkg.version,
+    pkg,
     graduating,
     logLevel,
   })
