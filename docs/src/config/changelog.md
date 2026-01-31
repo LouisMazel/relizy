@@ -10,6 +10,70 @@ tags: [config, changelog, commits, documentation]
 
 {{ $frontmatter.description }}
 
+## Changelog Config Options
+
+### formatCmd
+
+Command to format the changelog after generation (e.g., with Prettier):
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  changelog: {
+    formatCmd: 'prettier --write CHANGELOG.md',
+  },
+})
+```
+
+### rootChangelog
+
+Generate a changelog at root level that contains all changes from all packages:
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  changelog: {
+    rootChangelog: true,
+  },
+})
+```
+
+### includeCommitBody
+
+Include the commit body in the changelog entries:
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  changelog: {
+    includeCommitBody: true,
+  },
+})
+```
+
+### Complete Changelog Config Example
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  changelog: {
+    formatCmd: 'prettier --write CHANGELOG.md',
+    rootChangelog: true,
+    includeCommitBody: true,
+  },
+})
+```
+
 ## Commit Types
 
 Customize how commit types appear in changelogs:

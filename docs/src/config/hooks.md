@@ -28,6 +28,9 @@ Hooks are available for the following steps:
 - `push` - Push changes to remote repository
 - `publish` - Package publication to npm registry
 - `provider-release` - Release publication to Git provider (GitHub/GitLab)
+- `social` - Social media posting (all platforms)
+- `twitter` - Twitter (X) posting
+- `slack` - Slack posting
 - `release` - Full release workflow (only available for `relizy release`)
 
 ## Special Hook: `generate:changelog`
@@ -344,6 +347,18 @@ type HookStep
     | 'provider-release'
     | 'publish'
     | 'push'
+
+type HookStep
+  = | 'bump'
+    | 'changelog'
+    | 'commit-and-tag'
+    | 'provider-release'
+    | 'publish'
+    | 'push'
+    | 'release'
+    | 'social'
+    | 'twitter'
+    | 'slack'
 
 type HookConfig = {
   [K in `${HookType}:${HookStep}`]?:

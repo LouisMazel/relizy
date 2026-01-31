@@ -52,9 +52,29 @@ export default defineConfig({
 })
 ```
 
+## clean
+
+Check if there are any uncommitted changes before bumping. If the working directory is not clean, the bump will be aborted:
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    clean: true,
+  },
+})
+```
+
 ## yes
 
-Set to `true` to skip the confirmation prompt:
+Skip the confirmation prompt about bumping packages:
+
+- **Type:** `boolean`
+- **Default:** `false`
 
 ```ts
 import { defineConfig } from 'relizy'

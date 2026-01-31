@@ -151,13 +151,17 @@ export default defineConfig({
 
 ## Configuration Sections
 
-| Section                            | Description                |
-| ---------------------------------- | -------------------------- |
-| [monorepo](monorepo.md)            | Monorepo-specific settings |
-| [types](changelog.md#commit-types) | Commit type customization  |
-| [bump](bump.md)                    | Version bump settings      |
-| [publish](publish.md)              | NPM publishing options     |
-| [release](release.md)              | Release workflow settings  |
+| Section                                 | Description                               |
+| --------------------------------------- | ----------------------------------------- |
+| [monorepo](monorepo.md)                 | Monorepo-specific settings                |
+| [types](changelog.md#commit-types)      | Commit type customization                 |
+| [bump](bump.md)                         | Version bump settings                     |
+| [changelog](changelog.md)               | Changelog generation settings             |
+| [publish](publish.md)                   | NPM publishing options                    |
+| [release](release.md)                   | Release workflow settings                 |
+| [social](social.md)                     | Social media integration (Twitter, Slack) |
+| [hooks](hooks.md)                       | Lifecycle hooks for custom scripts        |
+| [multiple-configs](multiple-configs.md) | Using multiple configuration files        |
 
 ## TypeScript Support
 
@@ -285,10 +289,11 @@ const defaultConfig = {
 
 Explore specific configuration sections:
 
-- [Monorepo Config](monorepo.md)
-- [Changelog Config](changelog.md)
-- [Bump Config](bump.md)
-- [Publish Config](publish.md)
-- [Release Config](release.md)
-- [Hooks Config](hooks.md)
-- [Multiple Configs](multiple-configs.md)
+- [Monorepo Config](monorepo.md) - Monorepo-specific settings
+- [Changelog Config](changelog.md) - Changelog generation and commit types
+- [Bump Config](bump.md) - Version bump settings
+- [Publish Config](publish.md) - NPM publishing options
+- [Release Config](release.md) - Release workflow settings
+- [Social Config](social.md) - Social media integration (Twitter, Slack)
+- [Hooks Config](hooks.md) - Lifecycle hooks for custom scripts
+- [Multiple Configs](multiple-configs.md) - Using multiple configuration files

@@ -117,6 +117,24 @@ export default defineConfig({
 })
 ```
 
+### twitter.postMaxLength
+
+- **Type:** `number`
+- **Default:** `280`
+
+Maximum length of the tweet. The message will be truncated if it exceeds this limit:
+
+```ts
+export default defineConfig({
+  social: {
+    twitter: {
+      enabled: true,
+      postMaxLength: 280,
+    },
+  },
+})
+```
+
 ### twitter.credentials
 
 - **Type:** `TwitterCredentials`
