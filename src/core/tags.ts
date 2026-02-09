@@ -336,6 +336,14 @@ export interface ResolvedTags {
   to: string
 }
 
+/**
+ * Special marker indicating this is a new package with no previous tags.
+ * When this marker is returned as the "from" tag, getPackageCommits should
+ * return an empty array instead of analyzing all commits from the beginning
+ * of the repository (which would cause ENOBUFS errors on large repos).
+ */
+export const NEW_PACKAGE_MARKER = '__NEW_PACKAGE__' as const
+
 async function resolveFromTagIndependent({
   cwd,
   pkg,
@@ -359,7 +367,11 @@ async function resolveFromTagIndependent({
   })
 
   if (!lastPackageTag) {
-    return getFirstCommit(cwd)
+    // For new packages without any tags, return a marker instead of the first commit.
+    // This prevents ENOBUFS errors when getGitDiff tries to analyze all commits
+    // from the beginning of a large repository.
+    logger.debug(`No tag found for package ${pkg.name}, marking as new package`)
+    return NEW_PACKAGE_MARKER
   }
 
   return lastPackageTag
