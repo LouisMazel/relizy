@@ -1,13 +1,42 @@
 import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../core'
 import type { ConfigType, PackageBase, ReadPackage } from '../types'
+import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getGitDiff, parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
-import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType, resolveTags } from '../core'
+import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType, NEW_PACKAGE_MARKER, resolveTags } from '../core'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
+
+/**
+ * Get the first commit hash that touched a specific package directory.
+ * This is used for new packages without tags to avoid ENOBUFS errors
+ * when using the first commit of the entire repo.
+ */
+function getFirstPackageCommitHash(packagePath: string, cwd: string): string | null {
+  const relativePath = relative(cwd, packagePath)
+
+  try {
+    // Get the oldest commit that touched this package directory
+    const result = execSync(
+      `git log --reverse --format="%H" -- "${relativePath}" | head -1`,
+      { cwd, encoding: 'utf8' },
+    )
+    const hash = result.trim()
+
+    if (hash) {
+      logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)
+      return hash
+    }
+
+    return null
+  }
+  catch {
+    return null
+  }
+}
 
 export function readPackageJson(packagePath: string): ReadPackage | undefined {
   const packageJsonPath = join(packagePath, 'package.json')
@@ -415,13 +444,29 @@ export async function getPackageCommits({
 }): Promise<GitCommit[]> {
   logger.debug(`Analyzing commits for ${pkg.name} since ${from} to ${to}`)
 
+  // For new packages without any previous tags, find the first commit
+  // that touched this package to avoid ENOBUFS errors.
+  let actualFrom = from
+  if (from === NEW_PACKAGE_MARKER) {
+    const firstPackageCommit = getFirstPackageCommitHash(pkg.path, config.cwd)
+    if (firstPackageCommit) {
+      logger.debug(`${pkg.name} is a new package, using first package commit: ${firstPackageCommit.slice(0, 8)}`)
+      // Use the parent of the first commit to include it in the diff
+      actualFrom = `${firstPackageCommit}^`
+    }
+    else {
+      logger.debug(`${pkg.name} has no commits yet, returning empty`)
+      return []
+    }
+  }
+
   const changelogConfig = {
     ...config,
-    from,
+    from: actualFrom,
     to,
   }
 
-  const rawCommits = await getGitDiff(from, to, changelogConfig.cwd)
+  const rawCommits = await getGitDiff(actualFrom, to, changelogConfig.cwd)
   const allCommits = parseCommits(rawCommits, changelogConfig)
 
   const hasBreakingChanges = allCommits.some(commit => commit.isBreaking)
