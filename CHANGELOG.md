@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.0.1...v1.0.2-beta.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.1...v1.0.2-beta.0)
+
+### 🩹 Fixes
+
+- Prevent ENOBUFS error on new packages in independent mode ([fca172f](https://github.com/LouisMazel/relizy/commit/fca172f))
+
+  New packages without tags now use the first commit that touched the package
+  directory instead of the repository's first commit.
+
+### 📖 Documentation
+
+- **docs:** Add project name config in overview ([cfe000e](https://github.com/LouisMazel/relizy/commit/cfe000e))
+- Update config docs ([5fc4513](https://github.com/LouisMazel/relizy/commit/5fc4513))
+
+### 📦 Build
+
+- Upgrade dependencies ([1ef5a67](https://github.com/LouisMazel/relizy/commit/1ef5a67))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.0...v1.0.1
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.0...v1.0.1)
