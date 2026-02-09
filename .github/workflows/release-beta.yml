@@ -110,13 +110,11 @@ jobs:
             COMMENT=$(cat <<EOF
           ## 🚀 Beta release published
 
-          | | |
-          |---|---|
-          | **Version** | [\`${VERSION}\`](${NPM_URL}) |
-          | **Tag** | \`beta\` |
-          | **Date** | ${DATE} |
-          | **Branch** | \`${BRANCH}\` |
-          | **Workflow run** | [View logs](${RUN_URL}) |
+          - **Version**: [\`${VERSION}\`](${NPM_URL})
+          - **Tag**: \`beta\`
+          - **Date**: \`${DATE}\`
+          - **Branch**: \`${BRANCH}\`
+          - **Workflow run**: [View logs](${RUN_URL})
 
           ### Installation
 
@@ -137,11 +135,9 @@ jobs:
 
           The release process encountered an error. Check the workflow logs for details.
 
-          | | |
-          |---|---|
-          | **Branch** | \`${BRANCH}\` |
-          | **Date** | ${DATE} |
-          | **Workflow run** | [View logs](${RUN_URL}) |
+          - **Branch**: \`${BRANCH}\`
+          - **Date**: \`${DATE}\`
+          - **Workflow run**: [View logs](${RUN_URL})
           EOF
           )
           else
@@ -150,11 +146,9 @@ jobs:
 
           No new beta version was published. There are no qualifying commits since the last release.
 
-          | | |
-          |---|---|
-          | **Branch** | \`${BRANCH}\` |
-          | **Date** | ${DATE} |
-          | **Workflow run** | [View logs](${RUN_URL}) |
+          - **Branch**: \`${BRANCH}\`
+          - **Date**: \`${DATE}\`
+          - **Workflow run**: [View logs](${RUN_URL})
           EOF
           )
           fi
