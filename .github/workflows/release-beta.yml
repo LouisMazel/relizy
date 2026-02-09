@@ -45,7 +45,13 @@ jobs:
           git config --global user.name "LouisMazel"
           git config --global user.email "12446546+LouisMazel@users.noreply.github.com"
 
+      - name: Capture current version
+        id: before-release
+        run: echo "version=$(jq -r '.version' package.json)" >> "$GITHUB_OUTPUT"
+
       - name: Version Packages (Beta)
+        id: release-step
+        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -57,3 +63,135 @@ jobs:
           RELIZY_TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
         run: |
           pnpm relizy release --prerelease --preid beta --tag beta --yes
+
+      - name: Check release result
+        if: always()
+        id: release-result
+        run: |
+          OUTCOME="${{ steps.release-step.outcome }}"
+
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "released=failed" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          NEW_VERSION=$(jq -r '.version' package.json)
+          OLD_VERSION="${{ steps.before-release.outputs.version }}"
+
+          if [ "$NEW_VERSION" != "$OLD_VERSION" ]; then
+            echo "released=true" >> "$GITHUB_OUTPUT"
+            echo "new-version=$NEW_VERSION" >> "$GITHUB_OUTPUT"
+            echo "old-version=$OLD_VERSION" >> "$GITHUB_OUTPUT"
+          else
+            echo "released=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Comment on Pull Request
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          PR_NUMBER=$(gh pr list --head "${{ github.ref_name }}" --state open --json number --jq '.[0].number')
+
+          if [ -z "$PR_NUMBER" ]; then
+            echo "No open pull request found for branch ${{ github.ref_name }}, skipping comment."
+            exit 0
+          fi
+
+          RELEASED="${{ steps.release-result.outputs.released }}"
+          BRANCH="${{ github.ref_name }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          DATE=$(date -u +"%Y-%m-%d %H:%M UTC")
+
+          if [ "$RELEASED" = "true" ]; then
+            VERSION="${{ steps.release-result.outputs.new-version }}"
+            NPM_URL="https://www.npmjs.com/package/relizy/v/${VERSION}"
+
+            COMMENT=$(cat <<EOF
+          ## 🚀 Beta release published
+
+          | | |
+          |---|---|
+          | **Version** | [\`${VERSION}\`](${NPM_URL}) |
+          | **Tag** | \`beta\` |
+          | **Date** | ${DATE} |
+          | **Branch** | \`${BRANCH}\` |
+          | **Workflow run** | [View logs](${RUN_URL}) |
+
+          ### Installation
+
+          \`\`\`bash
+          pnpm add relizy@${VERSION}
+          \`\`\`
+
+          or using the \`beta\` dist-tag:
+
+          \`\`\`bash
+          pnpm add relizy@beta
+          \`\`\`
+          EOF
+          )
+          elif [ "$RELEASED" = "failed" ]; then
+            COMMENT=$(cat <<EOF
+          ## ❌ Beta release failed
+
+          The release process encountered an error. Check the workflow logs for details.
+
+          | | |
+          |---|---|
+          | **Branch** | \`${BRANCH}\` |
+          | **Date** | ${DATE} |
+          | **Workflow run** | [View logs](${RUN_URL}) |
+          EOF
+          )
+          else
+            COMMENT=$(cat <<EOF
+          ## ℹ️ Beta release — no new version
+
+          No new beta version was published. There are no qualifying commits since the last release.
+
+          | | |
+          |---|---|
+          | **Branch** | \`${BRANCH}\` |
+          | **Date** | ${DATE} |
+          | **Workflow run** | [View logs](${RUN_URL}) |
+          EOF
+          )
+          fi
+
+          gh pr comment "$PR_NUMBER" --body "$COMMENT"
+
+      - name: Job summary
+        if: always()
+        run: |
+          RELEASED="${{ steps.release-result.outputs.released }}"
+          RUN_URL="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+
+          if [ "$RELEASED" = "true" ]; then
+            VERSION="${{ steps.release-result.outputs.new-version }}"
+            cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### ✅ Beta release published
+
+          - **Version**: \`${VERSION}\`
+          - **Tag**: \`beta\`
+          - **Branch**: \`${{ github.ref_name }}\`
+          - **npm**: https://www.npmjs.com/package/relizy/v/${VERSION}
+          EOF
+          elif [ "$RELEASED" = "failed" ]; then
+            cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### ❌ Beta release failed
+
+          The release process encountered an error on branch \`${{ github.ref_name }}\`.
+          [View workflow logs](${RUN_URL})
+          EOF
+          else
+            cat >> "$GITHUB_STEP_SUMMARY" <<EOF
+          ### ⚠️ No new beta release
+
+          No qualifying commits found since the last release on branch \`${{ github.ref_name }}\`.
+          EOF
+          fi
+
+      - name: Fail workflow if release failed
+        if: steps.release-step.outcome == 'failure'
+        run: exit 1
