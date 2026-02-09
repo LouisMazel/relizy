@@ -28,7 +28,7 @@ describe('Given socialSafetyCheck function', () => {
   })
 
   describe('When Twitter is enabled without credentials', () => {
-    it('Then exits with error', () => {
+    it('Then exits with error', async () => {
       const loggerErrorSpy = vi.spyOn(logger, 'error')
       const config = createMockConfig({
         bump: { type: 'patch' },
@@ -50,14 +50,14 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getTwitterCredentials).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Twitter credentials not found')
+      await expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Twitter credentials not found')
 
       expect(loggerErrorSpy).toHaveBeenCalledWith('Error during social safety check:', 'Twitter credentials not found')
     })
   })
 
   describe('When Slack is enabled without token', () => {
-    it('Then exits with error', () => {
+    it('Then exits with error', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         social: {
@@ -67,7 +67,7 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getSlackToken).mockReturnValue(null)
 
-      expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Slack credentials not found')
+      await expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Slack credentials not found')
     })
   })
 
