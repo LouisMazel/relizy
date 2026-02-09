@@ -1,5 +1,5 @@
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { resolveTags } from '../tags'
+import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
@@ -72,7 +72,7 @@ describe('Given resolveTags function', () => {
 
   describe('When version mode is independent', () => {
     describe('And step is bump', () => {
-      it('Then resolves tags', async () => {
+      it('Then resolves tags with NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'bump'>({
           config,
@@ -81,10 +81,11 @@ describe('Given resolveTags function', () => {
           newVersion: undefined,
         })
 
-        expect(result).toEqual({ from: FIRST_COMMIT_HASH, to: TEST_BRANCH })
+        // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
+        expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
       })
 
-      it('Then resolves tags for changelog step', async () => {
+      it('Then resolves tags for changelog step with NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'changelog'>({
           config,
@@ -93,11 +94,12 @@ describe('Given resolveTags function', () => {
           newVersion: '1.1.0',
         })
 
-        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
+        expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe(TEST_BRANCH)
       })
 
-      it('Then resolves tags for publish step with newVersion', async () => {
+      it('Then resolves tags for publish step with newVersion and NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'publish'>({
           config,
@@ -106,11 +108,12 @@ describe('Given resolveTags function', () => {
           newVersion: '1.1.0',
         })
 
-        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
+        expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe('pkg-a@1.1.0')
       })
 
-      it('Then resolves tags for provider-release step', async () => {
+      it('Then resolves tags for provider-release step with NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'provider-release'>({
           config,
@@ -119,7 +122,8 @@ describe('Given resolveTags function', () => {
           newVersion: '2.0.0',
         })
 
-        expect(result.from).toBe(FIRST_COMMIT_HASH)
+        // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
+        expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe('pkg-a@2.0.0')
       })
     })
