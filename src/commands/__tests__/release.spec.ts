@@ -1,8 +1,10 @@
+import type { BumpResult } from '../../types'
+import process from 'node:process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+
 import { createMockConfig } from '../../../tests/mocks'
 import { checkGitStatusIfDirty, executeHook, fetchGitTags, loadRelizyConfig } from '../../core'
 import { bump } from '../bump'
-
 import { changelog } from '../changelog'
 import { providerRelease } from '../provider-release'
 import { publish } from '../publish'
@@ -23,7 +25,7 @@ vi.mock('../../core', async () => {
   }
 })
 vi.mock('../bump', () => ({
-  bump: vi.fn(),
+  bump: vi.fn().mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true } satisfies BumpResult),
 }))
 vi.mock('../changelog', () => ({
   changelog: vi.fn(),
@@ -39,6 +41,13 @@ vi.mock('../provider-release', () => ({
 vi.mock('../social', () => ({
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
+}))
+vi.mock('node:process', () => ({
+  default: {
+    cwd: vi.fn(),
+    env: {},
+    exit: vi.fn().mockImplementation((code: number) => { throw new Error(`Process exited with code ${code}`) }),
+  },
 }))
 
 describe('Given release command', () => {
@@ -70,8 +79,8 @@ describe('Given release command', () => {
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(checkGitStatusIfDirty).mockReturnValue(undefined)
     vi.mocked(fetchGitTags).mockResolvedValue(undefined)
-    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [] } as any)
     vi.mocked(changelog).mockResolvedValue(undefined)
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
     vi.mocked(publish).mockResolvedValue(undefined)
     vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [] })
     vi.mocked(social).mockResolvedValue({
@@ -80,6 +89,24 @@ describe('Given release command', () => {
         { platform: 'slack', success: true },
       ],
       hasErrors: false,
+    })
+  })
+
+  describe('When no package to bump', () => {
+    it('Then skips all other steps', async () => {
+      vi.mocked(bump).mockResolvedValue({
+        bumped: false,
+      })
+
+      await expect(release({})).rejects.toThrow('Process exited with code 10')
+
+      expect(process.exit).toHaveBeenCalledWith(10)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+
+      expect(changelog).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
     })
   })
 

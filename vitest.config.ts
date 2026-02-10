@@ -7,6 +7,7 @@ export default defineConfig({
   plugins: [],
   test: {
     globals: true,
+    clearMocks: true,
     silent: process.env.CI ? 'passed-only' : false,
     setupFiles: ['./vitest.setup.ts'],
     coverage: {

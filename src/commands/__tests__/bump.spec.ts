@@ -21,7 +21,7 @@ vi.mock('node:process', () => ({
   default: {
     cwd: vi.fn(),
     env: {},
-    exit: vi.fn(),
+    exit: vi.fn().mockImplementation((code: number) => { throw new Error(`Process exited with code ${code}`) }),
   },
 }))
 
@@ -812,7 +812,7 @@ describe('Given bump command', () => {
   })
 
   describe('When no packages need bumping', () => {
-    it('Then exists with code 0 when no changes', async () => {
+    it('Then exists with code 10 when no changes', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
@@ -831,12 +831,9 @@ describe('Given bump command', () => {
 
       vi.mocked(getPackages).mockResolvedValueOnce([])
 
-      await bump({
-        type: 'release',
-        yes: true,
-      })
+      await expect(bump({ type: 'release', yes: true })).rejects.toThrow('Process exited with code 10')
 
-      expect(process.exit).toHaveBeenCalledWith(1)
+      expect(process.exit).toHaveBeenCalledWith(10)
     })
   })
 })

@@ -13,7 +13,7 @@ vi.mock('node:process', () => ({
   default: {
     cwd: vi.fn(),
     env: {},
-    exit: vi.fn(),
+    exit: vi.fn().mockImplementation((code: number) => { throw new Error(`Process exited with code ${code}`) }),
   },
 }))
 vi.mock('@maz-ui/utils', async () => {
@@ -530,7 +530,7 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ configFile: 'custom' })
+      await expect(loadRelizyConfig({ configFile: 'custom' })).rejects.toThrow('Process exited with code 1')
 
       expect(logger.error).toHaveBeenCalledWith('No config file found with name "custom"')
       expect(process.exit).toHaveBeenCalledWith(1)
