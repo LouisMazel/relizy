@@ -1,8 +1,9 @@
+import type { PullRequestInfo } from '../pr-comment'
 import { execSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { detectPullRequest, findGitHubPR, findGitLabMR } from '../pr-comment'
+import { detectPullRequest, findGitHubPR, findGitLabMR, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
 
 vi.mock('node:child_process')
 
@@ -647,6 +648,253 @@ describe('Given detectPullRequest function', () => {
             'PRIVATE-TOKEN': 'repo-token',
           }),
         }),
+      )
+    })
+  })
+})
+
+describe('Given PR_COMMENT_MARKER constant', () => {
+  it('Then is an HTML comment for identification', () => {
+    expect(PR_COMMENT_MARKER).toContain('<!--')
+    expect(PR_COMMENT_MARKER).toContain('relizy')
+  })
+})
+
+describe('Given postPrComment function', () => {
+  const githubPr: PullRequestInfo = {
+    number: 42,
+    url: 'https://github.com/user/repo/pull/42',
+    provider: 'github',
+  }
+
+  const commentBody = '## Release\n\n<!-- relizy-pr-comment -->\nSome content'
+
+  function createGitHubConfig(mode: 'append' | 'update' = 'append') {
+    return createMockConfig({
+      repo: {
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      },
+      tokens: {
+        github: 'test-token',
+      },
+      prComment: {
+        enabled: true,
+        mode,
+      },
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When mode is append', () => {
+    it('Then creates a new comment via POST', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1 }),
+      } as Response)
+
+      const config = createGitHubConfig('append')
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/user/repo/issues/42/comments',
+        expect.objectContaining({
+          method: 'POST',
+          headers: {
+            'Authorization': 'Bearer test-token',
+            'Accept': 'application/vnd.github.v3+json',
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ body: commentBody }),
+        }),
+      )
+    })
+
+    it('Then logs success message', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1 }),
+      } as Response)
+      const loggerSpy = vi.spyOn(logger, 'success')
+
+      const config = createGitHubConfig('append')
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('PR #42'))
+    })
+  })
+
+  describe('When mode is update and existing comment is found', () => {
+    it('Then updates existing comment via PATCH', async () => {
+      vi.mocked(fetch)
+        // First call: list comments to find existing
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { id: 100, body: 'unrelated comment' },
+            { id: 200, body: `Some text\n${PR_COMMENT_MARKER}\nOld content` },
+          ]),
+        } as Response)
+        // Second call: update existing comment
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 200 }),
+        } as Response)
+
+      const config = createGitHubConfig('update')
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      // Should list comments first
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/user/repo/issues/42/comments',
+        expect.objectContaining({
+          method: 'GET',
+        }),
+      )
+
+      // Should PATCH the found comment
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/user/repo/issues/comments/200',
+        expect.objectContaining({
+          method: 'PATCH',
+          body: JSON.stringify({ body: commentBody }),
+        }),
+      )
+    })
+  })
+
+  describe('When mode is update and no existing comment is found', () => {
+    it('Then creates a new comment via POST', async () => {
+      vi.mocked(fetch)
+        // First call: list comments - none match marker
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { id: 100, body: 'unrelated comment' },
+          ]),
+        } as Response)
+        // Second call: create new comment
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 300 }),
+        } as Response)
+
+      const config = createGitHubConfig('update')
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      // Should POST a new comment (second call)
+      expect(fetch).toHaveBeenCalledWith(
+        'https://api.github.com/repos/user/repo/issues/42/comments',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({ body: commentBody }),
+        }),
+      )
+    })
+  })
+
+  describe('When GitHub API returns an error on comment creation', () => {
+    it('Then logs warning and does not throw', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 403,
+        text: () => Promise.resolve('Forbidden'),
+      } as Response)
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      const config = createGitHubConfig('append')
+
+      await expect(
+        postPrComment({ config, pr: githubPr, body: commentBody }),
+      ).resolves.not.toThrow()
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to post PR comment'),
+      )
+    })
+  })
+
+  describe('When GitHub API returns an error on listing comments in update mode', () => {
+    it('Then logs warning and does not throw', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: false,
+        status: 500,
+        text: () => Promise.resolve('Internal Server Error'),
+      } as Response)
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      const config = createGitHubConfig('update')
+
+      await expect(
+        postPrComment({ config, pr: githubPr, body: commentBody }),
+      ).resolves.not.toThrow()
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Failed to post PR comment'),
+      )
+    })
+  })
+
+  describe('When no token is available', () => {
+    it('Then logs warning and returns without posting', async () => {
+      const config = createMockConfig({
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: undefined,
+        },
+        prComment: {
+          enabled: true,
+          mode: 'append',
+        },
+      })
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('token'))
+    })
+  })
+
+  describe('When using custom GitHub Enterprise domain', () => {
+    it('Then uses the Enterprise API base URL', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1 }),
+      } as Response)
+
+      const config = createMockConfig({
+        repo: {
+          provider: 'github',
+          domain: 'github.enterprise.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+        },
+        prComment: {
+          enabled: true,
+          mode: 'append',
+        },
+      })
+
+      await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(fetch).toHaveBeenCalledWith(
+        'https://github.enterprise.com/api/v3/repos/user/repo/issues/42/comments',
+        expect.anything(),
       )
     })
   })

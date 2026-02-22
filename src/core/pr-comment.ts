@@ -206,3 +206,173 @@ export async function detectPullRequest({
 
   return await findPrForProvider(provider, token, repo, branch, domain)
 }
+
+export const PR_COMMENT_MARKER = '<!-- relizy-pr-comment -->'
+
+async function createGitHubComment({
+  token,
+  repo,
+  prNumber,
+  body,
+  domain,
+}: {
+  token: string
+  repo: string
+  prNumber: number
+  body: string
+  domain?: string
+}): Promise<boolean> {
+  const url = `${getGitHubApiBase(domain)}/repos/${repo}/issues/${prNumber}/comments`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ body }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to post PR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
+async function findExistingGitHubComment({
+  token,
+  repo,
+  prNumber,
+  domain,
+}: {
+  token: string
+  repo: string
+  prNumber: number
+  domain?: string
+}): Promise<number | null> {
+  const url = `${getGitHubApiBase(domain)}/repos/${repo}/issues/${prNumber}/comments`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to list PR comments (${response.status}): ${errorText}`)
+    return null
+  }
+
+  const comments = await response.json() as Array<{ id: number, body: string }>
+
+  const existing = comments.find(c => c.body.includes(PR_COMMENT_MARKER))
+  return existing?.id ?? null
+}
+
+async function updateGitHubComment({
+  token,
+  repo,
+  commentId,
+  body,
+  domain,
+}: {
+  token: string
+  repo: string
+  commentId: number
+  body: string
+  domain?: string
+}): Promise<boolean> {
+  const url = `${getGitHubApiBase(domain)}/repos/${repo}/issues/comments/${commentId}`
+
+  const response = await fetch(url, {
+    method: 'PATCH',
+    headers: {
+      'Authorization': `Bearer ${token}`,
+      'Accept': 'application/vnd.github.v3+json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ body }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to update PR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
+async function postGitHubPrComment({
+  token,
+  repo,
+  pr,
+  body,
+  mode,
+  domain,
+}: {
+  token: string
+  repo: string
+  pr: PullRequestInfo
+  body: string
+  mode: string
+  domain?: string
+}): Promise<void> {
+  if (mode === 'update') {
+    const existingCommentId = await findExistingGitHubComment({ token, repo, prNumber: pr.number, domain })
+
+    if (existingCommentId) {
+      const updated = await updateGitHubComment({ token, repo, commentId: existingCommentId, body, domain })
+      if (updated) {
+        logger.success(`Updated comment on PR #${pr.number}`)
+      }
+      return
+    }
+  }
+
+  const created = await createGitHubComment({ token, repo, prNumber: pr.number, body, domain })
+  if (created) {
+    logger.success(`Posted comment on PR #${pr.number}`)
+  }
+}
+
+export async function postPrComment({
+  config,
+  pr,
+  body,
+}: {
+  config: ResolvedRelizyConfig
+  pr: PullRequestInfo
+  body: string
+}): Promise<void> {
+  const repo = config.repo?.repo
+  const domain = config.repo?.domain
+  const mode = config.prComment?.mode ?? 'append'
+
+  const token = getProviderToken(config, pr.provider)
+  if (!token) {
+    logger.warn(`No ${pr.provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR commenting`)
+    return
+  }
+
+  if (!repo) {
+    logger.warn('No repository configuration found for PR commenting')
+    return
+  }
+
+  try {
+    if (pr.provider === 'github') {
+      await postGitHubPrComment({ token, repo, pr, body, mode, domain })
+    }
+  }
+  catch (error) {
+    logger.warn(`Failed to post PR comment: ${error}`)
+  }
+}
