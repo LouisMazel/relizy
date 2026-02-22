@@ -44,7 +44,7 @@ export default defineConfig({
     },
   },
   prComment: {
-    mode: 'update',
+    mode: 'append',
   },
   safetyCheck: true,
 })
