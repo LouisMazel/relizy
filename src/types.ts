@@ -160,6 +160,21 @@ export interface ProviderReleaseResult {
   error?: string
 }
 
+export type PrCommentMode = 'append' | 'update'
+
+export interface PrCommentConfig {
+  /**
+   * Enable PR commenting
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * PR comment mode
+   * @default 'append'
+   */
+  mode?: PrCommentMode
+}
+
 export interface MonorepoConfig {
   /**
    * Version mode for the monorepo.
@@ -918,6 +933,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Social media configuration
    */
   social?: SocialConfig
+  /**
+   * PR comment configuration
+   */
+  prComment?: PrCommentConfig
   /**
    * API tokens configuration
    */

@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, PrCommentConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -106,6 +106,10 @@ export function getDefaultConfig() {
         onlyStable: true,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
+    prComment: {
+      enabled: false,
+      mode: 'append',
+    } as Required<PrCommentConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }

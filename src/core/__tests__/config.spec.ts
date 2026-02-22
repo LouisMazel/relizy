@@ -228,6 +228,20 @@ describe('Given getDefaultConfig function', () => {
     })
   })
 
+  describe('When checking prComment defaults', () => {
+    it('Then disables prComment by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.prComment.enabled).toBe(false)
+    })
+
+    it('Then sets prComment mode to append by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.prComment.mode).toBe('append')
+    })
+  })
+
   describe('When checking other defaults', () => {
     it('Then sets log level to default', () => {
       const config = getDefaultConfig()
