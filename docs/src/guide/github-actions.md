@@ -460,6 +460,66 @@ jobs:
       ${{ secrets.DISCORD_WEBHOOK }}
 ```
 
+## PR Comments
+
+Relizy can automatically post release information as a comment on the PR that triggered the release. To enable this, add the `pull-requests: write` permission and pass the PR number:
+
+```yaml
+name: Release with PR Comment
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  release:
+    if: github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+      pull-requests: write # Required for PR comments
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - run: npm ci
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+      - name: Release
+        run: relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+::: warning
+The `pull-requests: write` permission is required for `GITHUB_TOKEN` to post comments on pull requests.
+:::
+
+You can also run the PR comment as a standalone step:
+
+```yaml
+- name: Post PR Comment
+  run: relizy pr-comment --pr-number ${{ github.event.pull_request.number }}
+  env:
+    GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+```
+
+See the [PR Comments Guide](/guide/pr-comment) for more details.
+
 ## Best Practices
 
 ### 1. Use Concurrency Control

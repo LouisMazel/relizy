@@ -160,6 +160,7 @@ export default defineConfig({
 | [publish](publish.md)                   | NPM publishing options                    |
 | [release](release.md)                   | Release workflow settings                 |
 | [social](social.md)                     | Social media integration (Twitter, Slack) |
+| [prComment](pr-comment.md)              | PR comment settings                       |
 | [hooks](hooks.md)                       | Lifecycle hooks for custom scripts        |
 | [multiple-configs](multiple-configs.md) | Using multiple configuration files        |
 
@@ -270,6 +271,9 @@ const defaultConfig = {
       onlyStable: true,
     },
   },
+  prComment: {
+    mode: 'append',
+  },
   release: {
     commit: true,
     publish: true,
@@ -280,6 +284,7 @@ const defaultConfig = {
     noVerify: false,
     gitTag: true,
     social: true,
+    prComment: true,
   },
   logLevel: 'default',
 }
@@ -295,5 +300,6 @@ Explore specific configuration sections:
 - [Publish Config](publish.md) - NPM publishing options
 - [Release Config](release.md) - Release workflow settings
 - [Social Config](social.md) - Social media integration (Twitter, Slack)
+- [PR Comment Config](pr-comment.md) - PR comment settings
 - [Hooks Config](hooks.md) - Lifecycle hooks for custom scripts
 - [Multiple Configs](multiple-configs.md) - Using multiple configuration files

@@ -1,6 +1,5 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpOptions, BumpResult } from '../types'
-import process from 'node:process'
 
 import { logger } from '@maz-ui/node'
 import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
@@ -46,7 +45,8 @@ async function bumpUnifiedMode({
   const newVersion = rootPackage.newVersion
 
   if (!newVersion) {
-    throw new Error(`Could not determine a new version`)
+    logger.debug('Could not determine a new version')
+    return { bumped: false }
   }
 
   logger.debug(`Bump from ${from} to ${to}`)
@@ -146,7 +146,8 @@ async function bumpSelectiveMode({
   const newVersion = rootPackage.newVersion
 
   if (!newVersion) {
-    throw new Error('Could not determine a new version')
+    logger.debug('Could not determine a new version')
+    return { bumped: false }
   }
 
   logger.debug(`Bump from ${currentVersion} to ${newVersion}`)
@@ -359,7 +360,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     }
     else {
       logger.fail('No packages to bump, no relevant commits found')
-      process.exit(1)
+      return result
     }
 
     await executeHook('success:bump', config, dryRun)

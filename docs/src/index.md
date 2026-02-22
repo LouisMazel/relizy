@@ -57,6 +57,10 @@ features:
     title: Social
     details: Post release announcements to social media platforms.
     link: /guide/social
+  - icon: 💬
+    title: PR Comments
+    details: Automatically post release information as comments on your pull requests and merge requests. Supports GitHub and GitLab.
+    link: /guide/pr-comment
 ---
 
 ## Why Relizy?
@@ -102,6 +106,7 @@ That's it! Relizy will:
 - ✅ Publish to npm
 - ✅ Create a GitHub or GitLab release
 - ✅ Social media posts (X & Slack)
+- ✅ Post a comment on your PR/MR
 
 <br />
 

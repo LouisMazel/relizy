@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, PrCommentConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -94,6 +94,7 @@ export function getDefaultConfig() {
       noVerify: false,
       gitTag: true,
       social: true,
+      prComment: true,
     } as Required<ReleaseConfig>,
     social: {
       twitter: {
@@ -106,6 +107,9 @@ export function getDefaultConfig() {
         onlyStable: true,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
+    prComment: {
+      mode: 'append',
+    } as Required<PrCommentConfig>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }
@@ -170,7 +174,7 @@ export async function loadRelizyConfig(options?: {
 
     if (options?.configFile) {
       logger.error(`No config file found with name "${configFile}"`)
-      process.exit(1)
+      throw new Error(`No config file found with name "${configFile}"`)
     }
   }
 

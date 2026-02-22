@@ -1,5 +1,4 @@
 import type { ResolvedRelizyConfig } from '../../core'
-import process from 'node:process'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
@@ -812,7 +811,7 @@ describe('Given bump command', () => {
   })
 
   describe('When no packages need bumping', () => {
-    it('Then exists with code 0 when no changes', async () => {
+    it('Then returns bumped false when no changes', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,
         bump: {
@@ -831,12 +830,12 @@ describe('Given bump command', () => {
 
       vi.mocked(getPackages).mockResolvedValueOnce([])
 
-      await bump({
+      const result = await bump({
         type: 'release',
         yes: true,
       })
 
-      expect(process.exit).toHaveBeenCalledWith(1)
+      expect(result.bumped).toBe(false)
     })
   })
 })

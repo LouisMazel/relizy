@@ -117,17 +117,17 @@ export async function getRootPackage({
       })
 
       if (!releaseType) {
-        logger.fail('No commits require a version bump')
-        process.exit(0)
+        logger.debug('No commits require a version bump')
       }
-
-      newVersion = getPackageNewVersion({
-        name: packageJson.name,
-        currentVersion: packageJson.version,
-        releaseType,
-        preid: config.bump.preid,
-        suffix,
-      })
+      else {
+        newVersion = getPackageNewVersion({
+          name: packageJson.name,
+          currentVersion: packageJson.version,
+          releaseType,
+          preid: config.bump.preid,
+          suffix,
+        })
+      }
     }
 
     return {

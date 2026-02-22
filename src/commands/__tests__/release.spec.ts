@@ -4,6 +4,7 @@ import { checkGitStatusIfDirty, executeHook, fetchGitTags, loadRelizyConfig } fr
 import { bump } from '../bump'
 
 import { changelog } from '../changelog'
+import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
 import { publish } from '../publish'
 import { release } from '../release'
@@ -40,6 +41,9 @@ vi.mock('../social', () => ({
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))
+vi.mock('../pr-comment', () => ({
+  prComment: vi.fn(),
+}))
 
 describe('Given release command', () => {
   beforeEach(() => {
@@ -53,6 +57,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: true,
         social: true,
+        prComment: true,
         clean: true,
         noVerify: false,
         gitTag: true,
@@ -81,6 +86,7 @@ describe('Given release command', () => {
       ],
       hasErrors: false,
     })
+    vi.mocked(prComment).mockResolvedValue(undefined)
   })
 
   describe('When running full release workflow', () => {
@@ -126,6 +132,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: true,
         social: true,
+        prComment: true,
         clean: true,
         noVerify: false,
         gitTag: true,
@@ -146,6 +153,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: true,
         social: true,
+        prComment: true,
         clean: true,
         noVerify: false,
         gitTag: true,
@@ -166,6 +174,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: false,
         social: true,
+        prComment: true,
         clean: true,
         noVerify: false,
         gitTag: true,
@@ -186,6 +195,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: true,
         social: false,
+        prComment: true,
         clean: true,
         noVerify: false,
         gitTag: true,
@@ -206,6 +216,7 @@ describe('Given release command', () => {
         push: true,
         providerRelease: true,
         social: true,
+        prComment: true,
         clean: false,
         noVerify: false,
         gitTag: true,
@@ -280,6 +291,89 @@ describe('Given release command', () => {
       )
       expect(providerRelease).toHaveBeenCalledWith(
         expect.objectContaining({ bumpResult }),
+      )
+    })
+  })
+
+  describe('When posting PR comment', () => {
+    it('Then posts success comment with release context', async () => {
+      const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
+      vi.mocked(bump).mockResolvedValue(bumpResult)
+
+      await release({})
+
+      expect(prComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          releaseContext: expect.objectContaining({
+            status: 'success',
+            bumpResult,
+          }),
+        }),
+      )
+    })
+
+    it('Then posts no-release comment when no packages bumped', async () => {
+      vi.mocked(bump).mockResolvedValue({ bumped: false })
+
+      await release({})
+
+      expect(prComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          releaseContext: expect.objectContaining({
+            status: 'no-release',
+          }),
+        }),
+      )
+    })
+
+    it('Then posts failed comment when error occurs', async () => {
+      vi.mocked(bump).mockRejectedValue(new Error('Bump failed'))
+
+      await expect(release({})).rejects.toThrow('Bump failed')
+
+      expect(prComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          releaseContext: expect.objectContaining({
+            status: 'failed',
+            error: 'Bump failed',
+          }),
+        }),
+      )
+    })
+
+    it('Then does not post when prComment is disabled', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        release: {
+          commit: true,
+          changelog: true,
+          publish: true,
+          push: true,
+          providerRelease: true,
+          social: true,
+          prComment: false,
+          clean: true,
+          noVerify: false,
+          gitTag: true,
+        },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({})
+
+      expect(prComment).not.toHaveBeenCalled()
+    })
+
+    it('Then passes prNumber to prComment', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ prNumber: 123 })
+
+      expect(prComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prNumber: 123,
+        }),
       )
     })
   })

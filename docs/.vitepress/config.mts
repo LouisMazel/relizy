@@ -143,6 +143,7 @@ export default defineConfig({
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
           { text: 'Slack Integration', link: '/guide/slack-integration' },
+          { text: 'PR Comments', link: '/guide/pr-comment' },
           { text: 'CI/CD Setup', link: '/guide/ci-cd' },
           { text: 'GitHub Actions', link: '/guide/github-actions' },
           { text: 'GitLab CI', link: '/guide/gitlab-ci' },
@@ -160,6 +161,7 @@ export default defineConfig({
           { text: 'Bump Config', link: '/config/bump' },
           { text: 'Publish Config', link: '/config/publish' },
           { text: 'Social Config', link: '/config/social' },
+          { text: 'PR Comment Config', link: '/config/pr-comment' },
           { text: 'Hooks Config', link: '/config/hooks' },
           { text: 'Multiple Configs', link: '/config/multiple-configs' },
         ],
@@ -174,6 +176,7 @@ export default defineConfig({
           { text: 'publish', link: '/cli/publish' },
           { text: 'provider-release', link: '/cli/provider-release' },
           { text: 'social', link: '/cli/social' },
+          { text: 'pr-comment', link: '/cli/pr-comment' },
         ],
       },
       {
@@ -188,6 +191,7 @@ export default defineConfig({
           { text: 'providerRelease()', link: '/api/provider-release' },
           { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
           { text: 'social()', link: '/api/social' },
+          { text: 'prComment()', link: '/api/pr-comment' },
         ],
       },
       {
@@ -240,6 +244,12 @@ export default defineConfig({
           ],
         },
         {
+          text: 'PR Comments',
+          items: [
+            { text: 'PR Comments', link: '/guide/pr-comment' },
+          ],
+        },
+        {
           text: 'Integration',
           items: [
             { text: 'CI/CD Setup', link: '/guide/ci-cd' },
@@ -271,6 +281,7 @@ export default defineConfig({
             { text: 'publish', link: '/cli/publish' },
             { text: 'provider-release', link: '/cli/provider-release' },
             { text: 'social', link: '/cli/social' },
+            { text: 'pr-comment', link: '/cli/pr-comment' },
           ],
         },
       ],
@@ -287,6 +298,7 @@ export default defineConfig({
             { text: 'providerRelease()', link: '/api/provider-release' },
             { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
             { text: 'social()', link: '/api/social' },
+            { text: 'prComment()', link: '/api/pr-comment' },
           ],
         },
       ],
@@ -301,6 +313,7 @@ export default defineConfig({
             { text: 'Bump Config', link: '/config/bump' },
             { text: 'Publish Config', link: '/config/publish' },
             { text: 'Social Config', link: '/config/social' },
+            { text: 'PR Comment Config', link: '/config/pr-comment' },
             { text: 'Hooks Config', link: '/config/hooks' },
             { text: 'Multiple Configs', link: '/config/multiple-configs' },
           ],
