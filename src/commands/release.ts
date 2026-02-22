@@ -230,6 +230,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         await rollbackModifiedFiles({ config })
         throw error
       }
+
+      if (isCanary) {
+        logger.debug('Canary publish done, rolling back modified files...')
+        await rollbackModifiedFiles({ config })
+      }
     }
     else {
       logger.info('Skipping publish (--no-publish)')
