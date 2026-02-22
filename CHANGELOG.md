@@ -1,5 +1,67 @@
 # Changelog
 
+## v1.0.2-beta.1...v1.1.0-beta.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.2-beta.1...v1.1.0-beta.0)
+
+### 🚀 Features
+
+- US-001 - Add PR comment configuration schema ([825b119](https://github.com/LouisMazel/relizy/commit/825b119))
+- US-002 - Implement PR detection logic ([0b686e1](https://github.com/LouisMazel/relizy/commit/0b686e1))
+- US-004 - Implement GitHub PR comment posting ([393843e](https://github.com/LouisMazel/relizy/commit/393843e))
+- US-006 - Create standalone pr-comment CLI command ([944cf75](https://github.com/LouisMazel/relizy/commit/944cf75))
+- Add release PR comment ([462147f](https://github.com/LouisMazel/relizy/commit/462147f))
+- Add PR/MR comment with release information ([fefaa3b](https://github.com/LouisMazel/relizy/commit/fefaa3b))
+
+  Automatically post a comment on your pull request or merge request
+  after `relizy release` with release status, version transitions,
+  package table, and install commands.
+  Supports 3 statuses: ✅ success, ⏭️ no-release, ❌ failed.
+
+  ### Highlights
+  - **Two modes**: `append` (new comment each time) or `update`
+    (finds and updates existing comment via hidden marker)
+  - **GitHub & GitLab** support (including enterprise/self-hosted)
+  - **Auto-detection** of PR/MR from current branch, or manual
+    override with `--pr-number`
+  - **Standalone command**: `relizy pr-comment`
+  - **Integrated in release workflow** (enabled by default)
+
+  ### Configuration
+
+  ```ts
+  // relizy.config.ts
+  export default defineConfig({
+    prComment: {
+      mode: 'append', // or 'update'
+    },
+    release: {
+      prComment: true, // enabled by default, set false to disable
+    },
+  })
+  ```
+
+  ### CLI
+
+  ```bash
+  # As part of release
+  relizy release --patch
+  # Standalone
+  relizy pr-comment
+  # Skip during release
+  relizy release --patch --no-pr-comment
+  # Override PR number (useful in CI)
+  relizy release --patch --pr-number 42
+  ```
+
+### 📦 Build
+
+- Upgrade dependencies ([0b00262](https://github.com/LouisMazel/relizy/commit/0b00262))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.2-beta.0...v1.0.2-beta.1
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.2-beta.0...v1.0.2-beta.1)
