@@ -62,6 +62,17 @@ Built specifically to handle the complexity of monorepos:
 - **Selective versioning** - Only bump packages with changes and packages that depend on them
 - **Independent versioning** - Each package has its own version and tags
 
+### 🐤 Canary Releases
+
+Publish temporary test versions from any branch:
+
+- **Quick testing** - Publish a canary version from a pull request
+- **No side effects** - No git commits, tags, or changelog entries
+- **npm dist-tag** - Canary versions use the `canary` dist-tag, so `latest` is never affected
+- **CI/CD ready** - Automate canary releases on every pull request
+
+Learn more in the [Canary Releases](/guide/canary-releases) guide.
+
 ### 🤖 Smart Automation
 
 Automatically detects:
@@ -147,3 +158,4 @@ Ready to get started? Check out:
 - [Installation](installation.md) - Install Relizy in your project
 - [Getting Started](getting-started.md) - Your first release
 - [Version Modes](version-modes.md) - Choose the right versioning strategy
+- [Canary Releases](canary-releases.md) - Publish test versions from pull requests

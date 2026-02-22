@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { checkGitStatusIfDirty, confirmBump, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -28,13 +28,16 @@ vi.mock('node:process', () => ({
 vi.mock('../../core', () => ({
   checkGitStatusIfDirty: vi.fn(),
   confirmBump: vi.fn(() => true),
+  determineSemverChange: vi.fn(() => 'minor'),
   fetchGitTags: vi.fn(() => {}),
+  getCanaryVersion: vi.fn(() => '1.1.0-canary.abc1234.0'),
   getBumpedIndependentPackages: vi.fn((args) => {
     return args.packages.map((pkg: any) => ({
       ...pkg,
       oldVersion: pkg.version,
     }))
   }),
+  getPackageCommits: vi.fn(() => []),
   getPackages: vi.fn(() => []),
   getRootPackage: vi.fn(() => ({
     name: 'root-package',
@@ -45,6 +48,7 @@ vi.mock('../../core', () => ({
     fromTag: 'v1.0.0',
     commits: [],
   })),
+  getShortCommitSha: vi.fn(() => 'abc1234'),
   loadRelizyConfig: vi.fn((args) => {
     const defaultConfig = {
       cwd: '/test-repo',
@@ -832,6 +836,205 @@ describe('Given bump command', () => {
 
       const result = await bump({
         type: 'release',
+        yes: true,
+      })
+
+      expect(result.bumped).toBe(false)
+    })
+  })
+
+  describe('When running in canary mode', () => {
+    it('Then computes canary version and writes to packages with commits', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: true,
+        },
+        release: { clean: false },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+          fix: { title: 'Bug Fixes', semver: 'patch' },
+        },
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getPackageCommits).mockResolvedValueOnce([
+        createMockCommit('feat', 'add feature'),
+      ])
+
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '1.1.0',
+          reason: 'commits',
+          commits: [createMockCommit('feat', 'add feature')],
+          fromTag: 'v1.0.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+
+      vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-canary.abc1234.0')
+
+      const result = await bump({
+        canary: true,
+        yes: true,
+      })
+
+      expect(result.bumped).toBe(true)
+      if (result.bumped) {
+        expect(result.newVersion).toBe('1.1.0-canary.abc1234.0')
+        expect(result.oldVersion).toBe('1.0.0')
+        expect(result.bumpedPackages).toHaveLength(1)
+        expect(result.bumpedPackages?.[0].name).toBe('pkg-a')
+      }
+
+      expect(getShortCommitSha).toHaveBeenCalledWith(mockCwd)
+      expect(getCanaryVersion).toHaveBeenCalledWith({
+        currentVersion: '1.0.0',
+        releaseType: 'minor',
+        preid: 'canary',
+        sha: 'abc1234',
+      })
+      // Root + 1 package with commits = 2 writeVersion calls
+      expect(writeVersion).toHaveBeenCalledTimes(2)
+    })
+
+    it('Then uses custom preid when provided', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: true,
+          preid: 'snapshot',
+        },
+        release: { clean: false },
+        monorepo: undefined,
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+        },
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getPackageCommits).mockResolvedValueOnce([])
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '1.0.1',
+          reason: 'commits',
+          commits: [],
+          fromTag: 'v1.0.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+      vi.mocked(determineSemverChange).mockReturnValueOnce(undefined)
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('def5678')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-snapshot.def5678.0')
+
+      const result = await bump({
+        canary: true,
+        preid: 'snapshot',
+        yes: true,
+      })
+
+      expect(result.bumped).toBe(true)
+      if (result.bumped) {
+        expect(result.newVersion).toBe('1.0.1-snapshot.def5678.0')
+      }
+
+      expect(getCanaryVersion).toHaveBeenCalledWith({
+        currentVersion: '1.0.0',
+        releaseType: undefined,
+        preid: 'snapshot',
+        sha: 'def5678',
+      })
+    })
+
+    it('Then calls confirmBump with force false when yes is false', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: false,
+        },
+        release: { clean: false },
+        monorepo: undefined,
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+        },
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getPackageCommits).mockResolvedValueOnce([
+        createMockCommit('feat', 'add feature'),
+      ])
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '1.1.0',
+          reason: 'commits',
+          commits: [createMockCommit('feat', 'add feature')],
+          fromTag: 'v1.0.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+      vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-canary.abc1234.0')
+
+      await bump({
+        canary: true,
+      })
+
+      expect(confirmBump).toHaveBeenCalledWith(
+        expect.objectContaining({
+          currentVersion: '1.0.0',
+          newVersion: '1.1.0-canary.abc1234.0',
+          force: false,
+        }),
+      )
+    })
+
+    it('Then returns bumped false when no packages have commits', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: true,
+        },
+        release: { clean: false },
+        monorepo: undefined,
+        types: {},
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getPackageCommits).mockResolvedValueOnce([])
+      vi.mocked(getPackages).mockResolvedValueOnce([])
+      vi.mocked(determineSemverChange).mockReturnValueOnce(undefined)
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-canary.abc1234.0')
+
+      const result = await bump({
+        canary: true,
         yes: true,
       })
 

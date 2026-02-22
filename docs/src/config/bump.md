@@ -86,6 +86,22 @@ export default defineConfig({
 })
 ```
 
+## Canary Mode
+
+When using `--canary`, the `preid` option is used as the canary prerelease identifier. If not set, it defaults to `canary`.
+
+```bash
+# Uses default preid "canary"
+relizy release --canary
+# → 1.3.0-canary.a3f4b2c.0
+
+# Uses custom preid from config or CLI
+relizy release --canary --preid snapshot
+# → 1.3.0-snapshot.a3f4b2c.0
+```
+
+The `preid` value is also used as the npm dist-tag for canary releases. See the [Canary Releases guide](/guide/canary-releases) for full details.
+
 ## Complete Example
 
 ```ts

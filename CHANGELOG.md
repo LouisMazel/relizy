@@ -1,5 +1,43 @@
 # Changelog
 
+## v1.1.0-beta.0...v1.1.0-beta.1
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0-beta.0...v1.1.0-beta.1)
+
+### 🚀 Features
+
+- Add canary release mode ([c01b812](https://github.com/LouisMazel/relizy/commit/c01b812))
+
+  Publish temporary test versions from any branch with `--canary`.
+  Canary versions use the format `{nextVersion}-{preid}.{sha}.0`
+  (e.g., `1.3.0-canary.a3f4b2c.0`). The next version is auto-detected
+  from commits, then the canary suffix is appended.
+
+  ### What it does
+  - Bumps all packages to a canary version
+  - Publishes to npm with a `canary` dist-tag (or custom preid)
+  - Posts a PR/MR comment with the canary version details
+  - Skips changelog, git commit, git tag, git push, provider release,
+    and social media posting
+
+  ### CLI
+
+  ```bash
+  # Canary release
+  relizy release --canary
+  # Custom preid
+  relizy release --canary --preid snapshot
+  # → 1.3.0-snapshot.a3f4b2c.0
+  # In CI with PR comment
+  relizy release --canary --yes --pr-number 42
+  # Bump only (no publish)
+  relizy bump --canary
+  ```
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.2-beta.1...v1.1.0-beta.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.2-beta.1...v1.1.0-beta.0)

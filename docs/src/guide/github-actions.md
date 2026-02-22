@@ -181,6 +181,58 @@ env:
   NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
+## Canary Release Workflow
+
+Publish a temporary test version on every pull request:
+
+```yaml
+name: Canary Release
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write # Required for PR comments
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build
+        run: npm run build
+
+      - name: Canary Release
+        run: relizy release --canary --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+This workflow publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details. Reviewers can then install the canary version to test the changes:
+
+```bash
+npm install my-package@canary
+```
+
+See the [Canary Releases guide](/guide/canary-releases) for more details.
+
 ## Complete Workflows
 
 ### Full Release Workflow

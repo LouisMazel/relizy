@@ -124,6 +124,22 @@ async function tryPostPrComment({
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
 export async function release(options: Partial<ReleaseOptions> = {}): Promise<void> {
+  const isCanary = options.canary ?? false
+
+  if (isCanary) {
+    logger.info('Canary mode enabled')
+    options.commit = false
+    options.push = false
+    options.changelog = false
+    options.providerRelease = false
+    options.social = false
+    options.gitTag = false
+
+    options.type = 'prerelease'
+    options.preid = options.preid || 'canary'
+    options.tag = options.tag || 'canary'
+  }
+
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
@@ -140,7 +156,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   try {
     await executeHook('before:release', config, dryRun)
 
-    logger.box('Bump versions')
+    logger.box('Bump versions', `preid: ${config.bump.preid}`, `options: ${options.preid}`)
 
     const bumpResult = await bump({
       type: config.bump.type,
@@ -151,6 +167,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       clean: config.release.clean,
       configName: options.configName,
       suffix: options.suffix,
+      canary: isCanary,
     })
 
     if (!bumpResult.bumped) {

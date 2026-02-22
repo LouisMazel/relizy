@@ -50,6 +50,27 @@ All available version flags: `--patch`, `--minor`, `--major`, `--prerelease`, `-
 
 If no type is specified, Relizy automatically detects it from commits.
 
+### --canary
+
+Publish a temporary test version without git side effects:
+
+```bash
+relizy release --canary
+```
+
+When `--canary` is used, Relizy automatically disables: changelog generation, git commit, git tag, git push, provider release (GitHub/GitLab), and social media posting. Only publishing to npm and PR comments remain active.
+
+The canary version format is `{nextVersion}-canary.{sha}.0` (e.g., `1.3.0-canary.a3f4b2c.0`).
+
+Use `--preid` to customize the prerelease identifier:
+
+```bash
+relizy release --canary --preid snapshot
+# → 1.3.0-snapshot.a3f4b2c.0
+```
+
+See the [Canary Releases guide](/guide/canary-releases) for full details.
+
 ### --no-commit
 
 Skip creating git commit:
@@ -181,8 +202,22 @@ relizy release --selective --minor
 relizy release --patch --yes --no-clean
 ```
 
+### Canary Release
+
+```bash
+# Publish a canary version
+relizy release --canary
+
+# Canary with custom preid in CI
+relizy release --canary --preid snapshot --yes
+
+# Canary with PR comment
+relizy release --canary --yes --pr-number 42
+```
+
 ## See Also
 
+- [Canary Releases](/guide/canary-releases) - Full guide on canary releases
 - [bump](/cli/bump) - Version bumping only
 - [changelog](/cli/changelog) - Changelog generation only
 - [publish](/cli/publish) - NPM publishing only

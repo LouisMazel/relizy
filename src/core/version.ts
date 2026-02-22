@@ -754,6 +754,27 @@ export function extractVersionFromTag(tag: string, packageName?: string): string
  * isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1') // false - newer major
  * isTagVersionCompatibleWithCurrent('3.9.9', '4.1.1') // true - older major
  */
+export function getCanaryVersion({
+  currentVersion,
+  releaseType,
+  preid = 'canary',
+  sha,
+}: {
+  currentVersion: string
+  releaseType: 'major' | 'minor' | 'patch' | undefined
+  preid?: string
+  sha: string
+}): string {
+  const effectiveType = releaseType ?? 'patch'
+  const nextStable = semver.inc(currentVersion, effectiveType)
+
+  if (!nextStable) {
+    throw new Error(`Unable to compute canary version from "${currentVersion}" with release type "${effectiveType}"`)
+  }
+
+  return `${nextStable}-${preid}.${sha}.0`
+}
+
 export function isTagVersionCompatibleWithCurrent(tagVersion: string, currentVersion: string): boolean {
   try {
     const tagMajor = semver.major(tagVersion)
