@@ -77,6 +77,7 @@ program
   .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
+  .option('--pr-number <number>', 'Override PR/MR number for PR comment features', Number)
 
 program
   .command('bump')
