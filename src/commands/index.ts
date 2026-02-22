@@ -1,5 +1,6 @@
 export * from './bump'
 export * from './changelog'
+export * from './pr-comment'
 export * from './provider-release'
 export * from './publish'
 export * from './release'

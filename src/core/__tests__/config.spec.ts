@@ -228,6 +228,14 @@ describe('Given getDefaultConfig function', () => {
     })
   })
 
+  describe('When checking prComment defaults', () => {
+    it('Then sets prComment mode to append by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.prComment.mode).toBe('append')
+    })
+  })
+
   describe('When checking other defaults', () => {
     it('Then sets log level to default', () => {
       const config = getDefaultConfig()
@@ -519,7 +527,7 @@ describe('Given loadRelizyConfig function', () => {
       )
     })
 
-    it('Then exits if custom config not found', async () => {
+    it('Then throws if custom config not found', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
         config: { cwd: '/project' },
         _configFile: undefined,
@@ -530,10 +538,9 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ configFile: 'custom' })
+      await expect(loadRelizyConfig({ configFile: 'custom' })).rejects.toThrow('No config file found with name "custom"')
 
       expect(logger.error).toHaveBeenCalledWith('No config file found with name "custom"')
-      expect(process.exit).toHaveBeenCalledWith(1)
     })
   })
 

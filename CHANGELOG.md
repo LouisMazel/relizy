@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.0.2-beta.0...v1.0.2-beta.1
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.2-beta.0...v1.0.2-beta.1)
+
+### 🚀 Features
+
+- US-001 - Add PR comment configuration schema ([825b119](https://github.com/LouisMazel/relizy/commit/825b119))
+- US-002 - Implement PR detection logic ([0b686e1](https://github.com/LouisMazel/relizy/commit/0b686e1))
+- US-004 - Implement GitHub PR comment posting ([393843e](https://github.com/LouisMazel/relizy/commit/393843e))
+- US-006 - Create standalone pr-comment CLI command ([944cf75](https://github.com/LouisMazel/relizy/commit/944cf75))
+- Add release PR comment ([462147f](https://github.com/LouisMazel/relizy/commit/462147f))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.1...v1.0.2-beta.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.1...v1.0.2-beta.0)

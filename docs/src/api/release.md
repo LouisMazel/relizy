@@ -84,6 +84,18 @@ interface ReleaseOptions {
    * @default true
    */
   gitTag?: boolean
+
+  /**
+   * Enable/disable PR comment posting
+   * @default true
+   */
+  prComment?: boolean
+
+  /**
+   * Override PR/MR number for PR comment
+   * @default undefined
+   */
+  prNumber?: number
 }
 ```
 
@@ -107,3 +119,4 @@ await release({
 
 - [CLI reference](../cli/release.md)
 - [API usage](usage.md)
+- [prComment() API](pr-comment.md)

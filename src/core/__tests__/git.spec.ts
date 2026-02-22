@@ -475,6 +475,7 @@ describe('Given createCommitAndTags function', () => {
       providerRelease: true,
       noVerify: false,
       social: true,
+      prComment: true,
     }
     config.signTags = false
     bumpedPackages = []
@@ -1002,6 +1003,7 @@ describe('Given pushCommitAndTags function', () => {
       providerRelease: true,
       noVerify: false,
       social: true,
+      prComment: true,
     }
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
   })
