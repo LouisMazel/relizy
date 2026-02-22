@@ -1,9 +1,10 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
+import type { GitProvider, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { bump } from './bump'
 import { changelog } from './changelog'
+import { prComment } from './pr-comment'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
 
@@ -48,6 +49,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         clean: options.clean,
         gitTag: options.gitTag,
         social: options.social,
+        prComment: options.prComment,
       },
       safetyCheck: options.safetyCheck,
     },
@@ -80,6 +82,43 @@ async function releaseSafetyCheck({
   catch (error) {
     logger.error('Safety checks failed')
     throw error
+  }
+}
+
+async function tryPostPrComment({
+  config,
+  releaseContext,
+  prNumber,
+  dryRun,
+  logLevel,
+  configName,
+}: {
+  config: ResolvedRelizyConfig
+  releaseContext: ReleaseContext
+  prNumber?: number
+  dryRun: boolean
+  logLevel?: string
+  configName?: string
+}): Promise<boolean> {
+  if (!config.release.prComment) {
+    logger.info('Skipping PR comment (--no-pr-comment)')
+    return false
+  }
+
+  try {
+    await prComment({
+      prNumber,
+      dryRun,
+      logLevel: logLevel as any,
+      configName,
+      config,
+      releaseContext,
+    })
+    return true
+  }
+  catch (error) {
+    logger.warn('PR comment posting failed:', error)
+    return false
   }
 }
 
@@ -116,6 +155,17 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     if (!bumpResult.bumped) {
       logger.debug('No packages bumped')
+
+      logger.box('Post PR comment')
+      await tryPostPrComment({
+        config,
+        releaseContext: { status: 'no-release' },
+        prNumber: options.prNumber,
+        dryRun,
+        logLevel: config.logLevel,
+        configName: options.configName,
+      })
+
       return
     }
 
@@ -258,6 +308,16 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       logger.info('Skipping social media posts (--no-social or no social media enabled)')
     }
 
+    logger.box('Post PR comment')
+    const prCommentPosted = await tryPostPrComment({
+      config,
+      releaseContext: { status: 'success', bumpResult, tags: createdTags },
+      prNumber: options.prNumber,
+      dryRun,
+      logLevel: config.logLevel,
+      configName: options.configName,
+    })
+
     const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
     const versionDisplay = config.monorepo?.versionMode === 'independent'
       ? `${bumpResult.bumpedPackages.length} packages bumped independently`
@@ -288,6 +348,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       }
     }
 
+    // Format PR comment display
+    let prCommentDisplay = 'Disabled'
+    if (config.release.prComment) {
+      prCommentDisplay = prCommentPosted ? 'Posted' : 'Failed'
+    }
+
     logger.box('Release workflow completed!\n\n'
       + `Version: ${versionDisplay ?? 'Unknown'}\n`
       + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
@@ -295,12 +361,26 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
       + `Provider release: ${providerDisplay}\n`
       + `Social media: ${socialDisplay}\n`
+      + `PR comment: ${prCommentDisplay}\n`
       + `Git provider: ${provider}`)
 
     await executeHook('success:release', config, dryRun)
   }
   catch (error) {
     logger.error('Error during release workflow!\n\n', error)
+
+    logger.box('Post PR comment')
+    await tryPostPrComment({
+      config,
+      releaseContext: {
+        status: 'failed',
+        error: error instanceof Error ? error.message : String(error),
+      },
+      prNumber: options.prNumber,
+      dryRun,
+      logLevel: config.logLevel,
+      configName: options.configName,
+    })
 
     await executeHook('error:release', config, dryRun)
 

@@ -35,7 +35,7 @@ bun add -D relizy
 ## Import
 
 ```ts
-import { bump, changelog, providerRelease, publish, release } from 'relizy'
+import { bump, changelog, prComment, providerRelease, publish, release } from 'relizy'
 ```
 
 ## Quick Example
@@ -63,13 +63,14 @@ The programmatic API is useful for:
 
 ## Available Functions
 
-| Function                                   | Description                      |
-| ------------------------------------------ | -------------------------------- |
-| [`release()`](release.md)                  | Complete release workflow        |
-| [`bump()`](bump.md)                        | Bump package versions            |
-| [`changelog()`](changelog.md)              | Generate changelogs              |
-| [`publish()`](publish.md)                  | Publish to npm                   |
-| [`providerRelease()`](provider-release.md) | Create GitHub or GitLab releases |
+| Function                                   | Description                          |
+| ------------------------------------------ | ------------------------------------ |
+| [`release()`](release.md)                  | Complete release workflow            |
+| [`bump()`](bump.md)                        | Bump package versions                |
+| [`changelog()`](changelog.md)              | Generate changelogs                  |
+| [`publish()`](publish.md)                  | Publish to npm                       |
+| [`providerRelease()`](provider-release.md) | Create GitHub or GitLab releases     |
+| [`prComment()`](pr-comment.md)             | Post release info as a PR/MR comment |
 
 ## Basic Usage
 
@@ -310,4 +311,5 @@ Explore individual API functions:
 - [publish()](publish.md) - NPM publishing
 - [providerRelease()](provider-release.md) - Provider releases
 - [createCommitAndTags()](create-commit-and-tags.md) - Create commit and tags
+- [prComment()](pr-comment.md) - PR/MR comments
 - [loadRelizyConfig()](load-relizy-config.md) - Load Relizy config

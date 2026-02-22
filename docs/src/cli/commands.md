@@ -12,7 +12,7 @@ tags: [cli, commands, reference, documentation]
 
 ## Overview
 
-Relizy provides five main commands:
+Relizy provides seven main commands:
 
 | Command                                     | Description                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -21,6 +21,8 @@ Relizy provides five main commands:
 | [`changelog`](/cli/changelog)               | Generate or update CHANGELOG.md                                                          |
 | [`publish`](/cli/publish)                   | Publish packages to npm                                                                  |
 | [`provider-release`](/cli/provider-release) | Create GitHub or GitLab releases                                                         |
+| [`social`](/cli/social)                     | Post release announcements to social media                                               |
+| [`pr-comment`](/cli/pr-comment)             | Post release information as a PR/MR comment                                              |
 
 ## Global Options
 
@@ -112,6 +114,16 @@ relizy publish
 relizy provider-release
 ```
 
+### PR Comment Only
+
+```bash
+# Post release info as a PR comment
+relizy pr-comment
+
+# With specific PR number
+relizy pr-comment --pr-number 42
+```
+
 ## Monorepo-Specific Options
 
 ### Version Modes
@@ -187,6 +199,9 @@ relizy publish
 
 # Step 5: Create provider release
 relizy provider-release
+
+# Step 6: Post PR comment
+relizy pr-comment
 ```
 
 ## Command Chaining
@@ -254,6 +269,8 @@ relizy bump --help
 relizy changelog --help
 relizy publish --help
 relizy provider-release --help
+relizy social --help
+relizy pr-comment --help
 ```
 
 ## Next Steps
@@ -265,3 +282,5 @@ Dive deeper into each command:
 - [changelog](changelog.md) - Changelog generation
 - [publish](publish.md) - NPM publishing
 - [provider-release](provider-release.md) - GitHub/GitLab releases
+- [social](social.md) - Social media posting
+- [pr-comment](pr-comment.md) - PR/MR comments

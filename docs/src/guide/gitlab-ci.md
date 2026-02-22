@@ -451,6 +451,48 @@ release:
     - main
 ```
 
+## PR Comments (Merge Request Comments)
+
+Relizy can automatically post release information as a comment on the merge request. Use `CI_MERGE_REQUEST_IID` to pass the MR number:
+
+```yaml
+release_with_mr_comment:
+  image: node:20
+  stage: deploy
+  when: manual
+  script:
+    - npm ci
+    - git config user.name "GitLab CI"
+    - git config user.email "ci@gitlab.com"
+    - relizy release --patch --yes --pr-number $CI_MERGE_REQUEST_IID
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
+  only:
+    - merge_requests
+```
+
+::: tip
+`CI_JOB_TOKEN` has permission to comment on merge requests by default. For wider permissions (e.g., commenting on MRs in other projects), use a project access token stored as `GITLAB_TOKEN`.
+:::
+
+You can also run the PR comment as a standalone step:
+
+```yaml
+mr_comment:
+  image: node:20
+  stage: .post
+  script:
+    - npm ci
+    - relizy pr-comment --pr-number $CI_MERGE_REQUEST_IID
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+  only:
+    - merge_requests
+```
+
+See the [PR Comments Guide](/guide/pr-comment) for more details.
+
 ## Best Practices
 
 ### 1. Use Protected Variables

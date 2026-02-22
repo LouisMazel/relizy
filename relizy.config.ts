@@ -43,5 +43,8 @@ export default defineConfig({
       channel: '#test-releases',
     },
   },
+  prComment: {
+    mode: 'update',
+  },
   safetyCheck: true,
 })

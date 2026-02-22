@@ -27,6 +27,7 @@ The `release` command combines multiple operations:
 5. ✅ Publishes to npm
 6. ✅ Creates GitHub or GitLab release
 7. ✅ Posts to social media (optional)
+8. ✅ Posts a comment on the PR/MR (optional)
 
 ## Options
 
@@ -97,6 +98,28 @@ Skip social media posting:
 relizy release --no-social
 ```
 
+### --no-pr-comment
+
+Skip PR/MR comment posting:
+
+```bash
+relizy release --no-pr-comment
+```
+
+### --pr-number
+
+Override the auto-detected PR/MR number:
+
+```bash
+relizy release --patch --pr-number 42
+```
+
+Useful in CI/CD where the PR number is available as an environment variable:
+
+```bash
+relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
+```
+
 ### --no-provider-release
 
 Skip provider release creation (GitHub/GitLab):
@@ -164,3 +187,4 @@ relizy release --patch --yes --no-clean
 - [changelog](/cli/changelog) - Changelog generation only
 - [publish](/cli/publish) - NPM publishing only
 - [provider-release](/cli/provider-release) - Provider releases only
+- [pr-comment](/cli/pr-comment) - PR/MR comments only

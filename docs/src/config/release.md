@@ -138,6 +138,22 @@ export default defineConfig({
 
 See [Social Media Integration](/guide/social-media) for more details.
 
+## prComment
+
+Enable/disable PR comment posting:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    prComment: true,
+  },
+})
+```
+
+See [PR Comments](/guide/pr-comment) for more details.
+
 ## Complete Example
 
 ```ts
@@ -154,6 +170,7 @@ export default defineConfig({
     push: true,
     gitTag: true,
     social: true,
+    prComment: true,
   },
 })
 ```
