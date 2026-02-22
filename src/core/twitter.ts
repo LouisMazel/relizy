@@ -10,7 +10,7 @@ export interface ResolvedTwitterCredentials {
 }
 
 // eslint-disable-next-line complexity
-export function getTwitterCredentials({ socialCredentials, tokenCredentials}: {
+export function getTwitterCredentials({ socialCredentials, tokenCredentials }: {
   socialCredentials?: TwitterCredentials
   tokenCredentials?: TwitterCredentials
 }): ResolvedTwitterCredentials | null {
