@@ -16,6 +16,7 @@ import {
   getCurrentGitRef,
   getFirstCommit,
   getGitStatus,
+  getShortCommitSha,
   parseGitRemoteUrl,
   pushCommitAndTags,
 } from '../git'
@@ -1234,6 +1235,48 @@ describe('Given getCurrentGitRef function', () => {
       const result = getCurrentGitRef('/project')
 
       expect(result).toBe('HEAD')
+    })
+  })
+})
+
+describe('Given getShortCommitSha function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When getting short SHA with default length', () => {
+    it('Then returns 7-character SHA', () => {
+      vi.mocked(execSync).mockReturnValue('a3f4b2c\n')
+
+      const result = getShortCommitSha('/project')
+
+      expect(result).toBe('a3f4b2c')
+      expect(execSync).toHaveBeenCalledWith(
+        'git rev-parse --short=7 HEAD',
+        { cwd: '/project', encoding: 'utf8' },
+      )
+    })
+
+    it('Then trims whitespace from result', () => {
+      vi.mocked(execSync).mockReturnValue('  abc1234  \n')
+
+      const result = getShortCommitSha('/project')
+
+      expect(result).toBe('abc1234')
+    })
+  })
+
+  describe('When getting short SHA with custom length', () => {
+    it('Then uses specified length', () => {
+      vi.mocked(execSync).mockReturnValue('a3f4b\n')
+
+      const result = getShortCommitSha('/project', 5)
+
+      expect(result).toBe('a3f4b')
+      expect(execSync).toHaveBeenCalledWith(
+        'git rev-parse --short=5 HEAD',
+        { cwd: '/project', encoding: 'utf8' },
+      )
     })
   })
 })

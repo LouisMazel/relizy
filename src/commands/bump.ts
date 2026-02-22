@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { BumpOptions, BumpResult } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { checkGitStatusIfDirty, confirmBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getPackages, getRootPackage, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
+import { checkGitStatusIfDirty, confirmBump, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -292,6 +292,115 @@ async function bumpIndependentMode({
   }
 }
 
+async function bumpCanaryMode({
+  config,
+  dryRun,
+  preid = 'canary',
+}: {
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  preid?: string
+}): Promise<BumpResult> {
+  logger.debug('Starting bump in canary mode')
+
+  const rootPackageBase = readPackageJson(config.cwd)
+
+  if (!rootPackageBase) {
+    throw new Error('Failed to read root package.json')
+  }
+
+  const currentVersion = rootPackageBase.version
+
+  const { from, to } = await resolveTags<'bump'>({
+    config,
+    step: 'bump',
+    newVersion: undefined,
+    pkg: rootPackageBase,
+  })
+
+  const commits = await getPackageCommits({
+    pkg: rootPackageBase,
+    from,
+    to,
+    config,
+    changelog: false,
+  })
+
+  const releaseType = determineSemverChange(commits, config.types as Record<string, { title: string, semver?: import('changelogen').SemverBumpType }>)
+
+  const sha = getShortCommitSha(config.cwd)
+
+  const canaryVersion = getCanaryVersion({
+    currentVersion,
+    releaseType,
+    preid,
+    sha,
+  })
+
+  logger.info(`Canary version: ${canaryVersion}`)
+
+  const packages = readPackages({
+    cwd: config.cwd,
+    patterns: config.monorepo?.packages,
+    ignorePackageNames: config.monorepo?.ignorePackageNames,
+  })
+
+  const packagesForConfirm: import('../types').PackageBase[] = packages.map(pkg => ({
+    ...pkg,
+    fromTag: from,
+    commits: [],
+    dependencies: [],
+    newVersion: canaryVersion,
+    reason: 'commits' as const,
+  }))
+
+  if (!config.bump.yes) {
+    await confirmBump({
+      versionMode: config.monorepo?.versionMode || 'unified',
+      config,
+      packages: packagesForConfirm,
+      force: true,
+      currentVersion,
+      newVersion: canaryVersion,
+      dryRun,
+    })
+  }
+  else {
+    logger.info(`${packages.length === 1 ? packages[0].name : packages.length} package(s) will be bumped to ${canaryVersion} (canary)`)
+  }
+
+  const allPackages = [rootPackageBase, ...packages]
+
+  for (const pkg of allPackages) {
+    writeVersion(pkg.path, canaryVersion, dryRun)
+  }
+
+  logger.info(`${dryRun ? '[dry-run] ' : ''}${allPackages.length} package(s) bumped to ${canaryVersion} (canary)`)
+
+  return {
+    bumped: true,
+    oldVersion: currentVersion,
+    fromTag: from,
+    newVersion: canaryVersion,
+    rootPackage: {
+      ...rootPackageBase,
+      path: config.cwd,
+      fromTag: from,
+      commits,
+      newVersion: canaryVersion,
+    },
+    bumpedPackages: packages.map(pkg => ({
+      ...pkg,
+      oldVersion: pkg.version,
+      newVersion: canaryVersion,
+      fromTag: from,
+      commits: [],
+      dependencies: [],
+      reason: 'commits' as const,
+    })),
+  }
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
@@ -337,21 +446,30 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     let result: BumpResult
 
-    const payload = {
-      config,
-      dryRun,
-      force,
-      suffix: options.suffix,
-    }
-
-    if (config.monorepo?.versionMode === 'unified' || !config.monorepo) {
-      result = await bumpUnifiedMode(payload)
-    }
-    else if (config.monorepo?.versionMode === 'selective') {
-      result = await bumpSelectiveMode(payload)
+    if (options.canary) {
+      result = await bumpCanaryMode({
+        config,
+        dryRun,
+        preid: config.bump.preid || 'canary',
+      })
     }
     else {
-      result = await bumpIndependentMode(payload)
+      const payload = {
+        config,
+        dryRun,
+        force,
+        suffix: options.suffix,
+      }
+
+      if (config.monorepo?.versionMode === 'unified' || !config.monorepo) {
+        result = await bumpUnifiedMode(payload)
+      }
+      else if (config.monorepo?.versionMode === 'selective') {
+        result = await bumpSelectiveMode(payload)
+      }
+      else {
+        result = await bumpIndependentMode(payload)
+      }
     }
 
     if (result.bumped) {

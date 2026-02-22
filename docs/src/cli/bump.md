@@ -49,6 +49,24 @@ Preview version changes:
 relizy bump --minor --dry-run
 ```
 
+### --canary
+
+Compute and write a canary version without publishing:
+
+```bash
+relizy bump --canary
+# 1.2.3 → 1.3.0-canary.a3f4b2c.0
+```
+
+The canary version is based on the next version auto-detected from commits, with a canary suffix appended. Use `--preid` to customize the prerelease identifier:
+
+```bash
+relizy bump --canary --preid snapshot
+# 1.2.3 → 1.3.0-snapshot.a3f4b2c.0
+```
+
+See the [Canary Releases guide](/guide/canary-releases) for full details.
+
 ### --yes
 
 Skip confirmations:
@@ -88,6 +106,16 @@ relizy bump --major --dry-run
 # ✓ @myorg/ui: 1.5.0 → 2.0.0
 ```
 
+### Canary Version
+
+```bash
+relizy bump --canary
+
+# Before: "version": "1.2.3"
+# After:  "version": "1.3.0-canary.a3f4b2c.0"
+```
+
 ## See Also
 
+- [Canary Releases](/guide/canary-releases) - Full guide on canary releases
 - [release](release.md) - Full release workflow

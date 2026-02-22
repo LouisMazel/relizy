@@ -159,6 +159,35 @@ env:
   NODE_AUTH_TOKEN: $NPM_TOKEN
 ```
 
+## Canary Release Pipeline
+
+Publish a temporary test version on every merge request:
+
+```yaml
+canary:
+  image: node:20
+  stage: deploy
+  script:
+    - npm ci
+    - npm run build
+    - git config user.name "GitLab CI"
+    - git config user.email "ci@gitlab.com"
+    - relizy release --canary --yes --no-clean --pr-number $CI_MERGE_REQUEST_IID
+  variables:
+    GITLAB_TOKEN: $CI_JOB_TOKEN
+    NODE_AUTH_TOKEN: $NPM_TOKEN
+  only:
+    - merge_requests
+```
+
+This publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the merge request with the version details. Reviewers can then install it:
+
+```bash
+npm install my-package@canary
+```
+
+See the [Canary Releases guide](/guide/canary-releases) for more details.
+
 ## Complete Pipelines
 
 ### Full Release Pipeline
