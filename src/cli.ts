@@ -7,7 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command } from 'commander'
-import { bump, changelog, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
@@ -211,6 +211,24 @@ program
       })
     }
     catch {
+      process.exit(1)
+    }
+  })
+
+program
+  .command('pr-comment')
+  .description('Post or re-post a PR comment with release information')
+  .action(async () => {
+    try {
+      await prComment({
+        prNumber: program.opts().prNumber,
+        dryRun: program.opts().dryRun,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+      })
+    }
+    catch (error) {
+      logger.error('Failed to post PR comment -', error)
       process.exit(1)
     }
   })
