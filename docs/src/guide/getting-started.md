@@ -148,6 +148,19 @@ relizy release --prepatch --preid alpha --tag alpha
 # 1.0.0 → 1.0.1-alpha.0
 ```
 
+### Canary Release
+
+Publish a temporary test version without any git side effects:
+
+```bash
+relizy release --canary
+# 1.0.0 → 1.1.0-canary.a3f4b2c.0 (published to npm with "canary" dist-tag)
+```
+
+Canary releases are perfect for testing packages from a pull request. They skip changelog, git commits, tags, push, provider releases, and social media — only publishing to npm and optionally posting a PR comment.
+
+Learn more in the [Canary Releases](/guide/canary-releases) guide.
+
 ### Automatic Detection
 
 Let Relizy determine the version bump from your commits:
@@ -367,6 +380,7 @@ relizy release --minor
 Now that you understand the basics:
 
 - [Version Modes](/guide/version-modes) - Learn about monorepo versioning strategies
+- [Canary Releases](/guide/canary-releases) - Publish test versions from pull requests
 - [CLI Commands](/cli/commands) - Explore all available commands
 - [Configuration](/config/overview) - Customize Relizy for your project
 - [CI/CD Setup](/guide/ci-cd) - Automate releases in your pipeline

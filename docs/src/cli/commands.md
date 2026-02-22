@@ -74,6 +74,19 @@ relizy release --minor
 relizy release --minor --yes
 ```
 
+### Canary Release
+
+```bash
+# Publish a temporary test version
+relizy release --canary
+
+# Canary with custom preid
+relizy release --canary --preid snapshot
+
+# Canary in CI (skip prompts)
+relizy release --canary --yes
+```
+
 ### Version Bump Only
 
 ```bash
@@ -161,6 +174,13 @@ relizy release --minor
 ```bash
 # Complete release + npm publish + GitHub release
 relizy release --minor
+```
+
+### Canary Release from PR
+
+```bash
+# Publish a canary version and comment on the PR
+relizy release --canary --yes --pr-number 42
 ```
 
 ### Preview Before Release

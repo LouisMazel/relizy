@@ -140,6 +140,7 @@ export default defineConfig({
           { text: 'Version Modes', link: '/guide/version-modes' },
           { text: 'Dependency Management', link: '/guide/dependency-management' },
           { text: 'Changelog Generation', link: '/guide/changelog' },
+          { text: 'Canary Releases', link: '/guide/canary-releases' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
           { text: 'Slack Integration', link: '/guide/slack-integration' },
@@ -233,6 +234,7 @@ export default defineConfig({
             { text: 'Version Modes', link: '/guide/version-modes' },
             { text: 'Dependency Management', link: '/guide/dependency-management' },
             { text: 'Changelog Generation', link: '/guide/changelog' },
+            { text: 'Canary Releases', link: '/guide/canary-releases' },
           ],
         },
         {

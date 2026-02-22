@@ -94,6 +94,7 @@ program
   .option('--no-clean', 'Skip check if the working directory is clean')
   .option('--force', 'Bump even if there are no commits')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
+  .option('--canary', 'Publish a canary release from the current commit')
   .action(async (options) => {
     try {
       const result = await bump({
@@ -106,6 +107,7 @@ program
         yes: options.yes,
         suffix: options.suffix,
         configName: program.opts().config,
+        canary: options.canary,
       })
       if (!result.bumped) {
         process.exit(1)
@@ -272,12 +274,14 @@ program
   .option('--no-pr-comment', 'Skip PR comment posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--canary', 'Publish a canary release from the current commit')
   .action(async (options) => {
     try {
       await release({
         type: getReleaseType(options),
         preid: options.preid,
         suffix: options.suffix,
+        canary: options.canary,
         from: options.from,
         to: options.to,
         changelog: hasCliFlag('--no-changelog') ? false : undefined,

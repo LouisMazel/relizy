@@ -154,6 +154,28 @@ export default defineConfig({
 
 See [PR Comments](/guide/pr-comment) for more details.
 
+## Canary Mode Behavior
+
+When using `relizy release --canary`, several release options are **automatically overridden** regardless of your configuration:
+
+| Option            | Forced to | Reason                                          |
+| ----------------- | --------- | ----------------------------------------------- |
+| `commit`          | `false`   | No git commit for a temporary version           |
+| `push`            | `false`   | Nothing to push (no commit, no tag)             |
+| `changelog`       | `false`   | No changelog for a temporary version            |
+| `providerRelease` | `false`   | No GitHub/GitLab release for a test version     |
+| `social`          | `false`   | No social media announcement for a test version |
+| `gitTag`          | `false`   | No tag for an ephemeral version                 |
+
+The following options are **not affected** by canary mode and respect your configuration:
+
+- `publish` - Stays enabled (this is the main purpose of canary)
+- `prComment` - Stays enabled (useful to see canary version in PRs)
+- `clean` - Stays enabled (still checks for uncommitted changes)
+- `noVerify` - Unchanged
+
+See the [Canary Releases guide](/guide/canary-releases) for full details.
+
 ## Complete Example
 
 ```ts
