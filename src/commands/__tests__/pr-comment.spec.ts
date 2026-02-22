@@ -2,8 +2,8 @@ import type { PullRequestInfo } from '../../core/pr-comment'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { detectPullRequest, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
-import { prComment } from '../pr-comment'
+import { detectPullRequest, getCurrentGitBranch, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
+import { buildCommentBody, prComment } from '../pr-comment'
 
 vi.mock('../../core', () => ({
   loadRelizyConfig: vi.fn(),
@@ -11,6 +11,7 @@ vi.mock('../../core', () => ({
   postPrComment: vi.fn(),
   readPackageJson: vi.fn(),
   readPackages: vi.fn(),
+  getCurrentGitBranch: vi.fn(),
   PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
 }))
 
@@ -33,11 +34,11 @@ describe('Given prComment command', () => {
         github: 'test-token',
       },
       prComment: {
-        enabled: true,
         mode: 'append',
       },
     })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(getCurrentGitBranch).mockReturnValue('feature-branch')
     vi.mocked(readPackageJson).mockReturnValue({
       name: 'test-project',
       version: '1.2.3',
@@ -52,7 +53,7 @@ describe('Given prComment command', () => {
     vi.mocked(postPrComment).mockResolvedValue(undefined)
   })
 
-  describe('When command is registered', () => {
+  describe('When running standalone (no releaseContext)', () => {
     it('Then loads config', async () => {
       await prComment({})
 
@@ -69,6 +70,14 @@ describe('Given prComment command', () => {
       await prComment({})
 
       expect(readPackages).toHaveBeenCalled()
+    })
+
+    it('Then does not reload config when config is passed directly', async () => {
+      const config = createMockConfig({ prComment: { mode: 'append' } })
+
+      await prComment({ config, releaseContext: { status: 'success', bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0' } } })
+
+      expect(loadRelizyConfig).not.toHaveBeenCalled()
     })
   })
 
@@ -106,6 +115,16 @@ describe('Given prComment command', () => {
       expect(postPrComment).toHaveBeenCalledWith(
         expect.objectContaining({
           body: expect.stringContaining('1.2.3'),
+        }),
+      )
+    })
+
+    it('Then includes Release published header', async () => {
+      await prComment({})
+
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('Release published'),
         }),
       )
     })
@@ -158,6 +177,16 @@ describe('Given prComment command', () => {
       )
     })
 
+    it('Then shows status in preview', async () => {
+      const loggerSpy = vi.spyOn(logger, 'box')
+
+      await prComment({ dryRun: true })
+
+      expect(loggerSpy).toHaveBeenCalledWith(
+        expect.stringContaining('Status: success'),
+      )
+    })
+
     it('Then shows "Not detected" when no PR is found', async () => {
       vi.mocked(detectPullRequest).mockResolvedValue(null)
       const loggerSpy = vi.spyOn(logger, 'box')
@@ -196,7 +225,6 @@ describe('Given prComment command', () => {
           github: 'test-token',
         },
         prComment: {
-          enabled: true,
           mode: 'update',
         },
       })
@@ -217,10 +245,18 @@ describe('Given prComment command', () => {
   })
 
   describe('When root package.json cannot be read', () => {
-    it('Then throws an error', async () => {
+    it('Then throws an error in standalone mode', async () => {
       vi.mocked(readPackageJson).mockReturnValue(undefined)
 
       await expect(prComment({})).rejects.toThrow('Failed to read root package.json')
+    })
+
+    it('Then does not throw when releaseContext is provided', async () => {
+      vi.mocked(readPackageJson).mockReturnValue(undefined)
+
+      await expect(prComment({
+        releaseContext: { status: 'no-release' },
+      })).resolves.not.toThrow()
     })
   })
 
@@ -235,6 +271,204 @@ describe('Given prComment command', () => {
           body: expect.stringContaining('1.2.3'),
         }),
       )
+    })
+  })
+
+  describe('When releaseContext is provided', () => {
+    it('Then does not read packages from disk', async () => {
+      await prComment({
+        releaseContext: {
+          status: 'success',
+          bumpResult: { bumped: true, bumpedPackages: [], newVersion: '2.0.0' },
+        },
+      })
+
+      expect(readPackageJson).not.toHaveBeenCalled()
+      expect(readPackages).not.toHaveBeenCalled()
+    })
+
+    it('Then posts no-release comment', async () => {
+      await prComment({
+        releaseContext: { status: 'no-release' },
+      })
+
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('no new version'),
+        }),
+      )
+    })
+
+    it('Then posts failed comment with error', async () => {
+      await prComment({
+        releaseContext: { status: 'failed', error: 'Publish timed out' },
+      })
+
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('Release failed'),
+        }),
+      )
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('Publish timed out'),
+        }),
+      )
+    })
+
+    it('Then posts success comment with bumpResult', async () => {
+      await prComment({
+        releaseContext: {
+          status: 'success',
+          bumpResult: {
+            bumped: true,
+            newVersion: '2.0.0',
+            oldVersion: '1.0.0',
+            bumpedPackages: [
+              { name: 'pkg-a', oldVersion: '1.0.0', newVersion: '2.0.0', version: '2.0.0', path: '/a', private: false, fromTag: '', commits: [], dependencies: [] },
+            ],
+          },
+          tags: ['v2.0.0'],
+        },
+      })
+
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('Release published'),
+        }),
+      )
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('v2.0.0'),
+        }),
+      )
+      expect(postPrComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          body: expect.stringContaining('`1.0.0` → `2.0.0`'),
+        }),
+      )
+    })
+  })
+})
+
+describe('Given buildCommentBody', () => {
+  const baseParams = {
+    config: createMockConfig({ prComment: { mode: 'append' } }),
+    branch: 'main',
+    date: '2026-02-22 14:30 UTC',
+  }
+
+  describe('When status is success', () => {
+    it('Then generates success header', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        rootVersion: '1.0.0',
+      })
+
+      expect(body).toContain('Release published')
+      expect(body).toContain('1.0.0')
+      expect(body).toContain('relizy-pr-comment')
+    })
+
+    it('Then includes install commands with packageManager', () => {
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+        publish: { packageManager: 'pnpm' },
+        projectName: 'my-lib',
+      })
+      const body = buildCommentBody({
+        ...baseParams,
+        config,
+        rootVersion: '1.0.0',
+      })
+
+      expect(body).toContain('pnpm add my-lib@1.0.0')
+    })
+
+    it('Then includes dist-tag install variant', () => {
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+        publish: { packageManager: 'pnpm', tag: 'beta' },
+        projectName: 'my-lib',
+      })
+      const body = buildCommentBody({
+        ...baseParams,
+        config,
+        rootVersion: '1.0.0',
+      })
+
+      expect(body).toContain('pnpm add my-lib@1.0.0')
+      expect(body).toContain('pnpm add my-lib@beta')
+      expect(body).toContain('`beta` dist-tag')
+    })
+
+    it('Then includes bumped packages table with old→new', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: {
+          status: 'success',
+          bumpResult: {
+            bumped: true,
+            newVersion: '2.0.0',
+            oldVersion: '1.0.0',
+            bumpedPackages: [
+              { name: 'pkg-a', oldVersion: '1.0.0', newVersion: '2.0.0', version: '2.0.0', path: '/a', private: false, fromTag: '', commits: [], dependencies: [] },
+            ],
+          },
+          tags: ['v2.0.0'],
+        },
+      })
+
+      expect(body).toContain('`1.0.0` → `2.0.0`')
+      expect(body).toContain('pkg-a')
+      expect(body).toContain('v2.0.0')
+    })
+  })
+
+  describe('When status is no-release', () => {
+    it('Then generates no-release comment', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: { status: 'no-release' },
+      })
+
+      expect(body).toContain('no new version')
+      expect(body).toContain('main')
+      expect(body).toContain('2026-02-22 14:30 UTC')
+      expect(body).toContain('relizy-pr-comment')
+    })
+
+    it('Then does not include packages or install commands', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: { status: 'no-release' },
+      })
+
+      expect(body).not.toContain('Installation')
+      expect(body).not.toContain('Packages')
+    })
+  })
+
+  describe('When status is failed', () => {
+    it('Then generates failed comment with error', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: { status: 'failed', error: 'npm publish failed' },
+      })
+
+      expect(body).toContain('Release failed')
+      expect(body).toContain('npm publish failed')
+      expect(body).toContain('relizy-pr-comment')
+    })
+
+    it('Then includes date and branch', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: { status: 'failed', error: 'error' },
+      })
+
+      expect(body).toContain('main')
+      expect(body).toContain('2026-02-22 14:30 UTC')
     })
   })
 })

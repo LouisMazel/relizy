@@ -94,6 +94,7 @@ export function getDefaultConfig() {
       noVerify: false,
       gitTag: true,
       social: true,
+      prComment: true,
     } as Required<ReleaseConfig>,
     social: {
       twitter: {
@@ -107,7 +108,6 @@ export function getDefaultConfig() {
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
     prComment: {
-      enabled: false,
       mode: 'append',
     } as Required<PrCommentConfig>,
     logLevel: 'default' as LogLevel,

@@ -680,7 +680,6 @@ describe('Given postPrComment function', () => {
         github: 'test-token',
       },
       prComment: {
-        enabled: true,
         mode,
       },
     })
@@ -855,7 +854,6 @@ describe('Given postPrComment function', () => {
           github: undefined,
         },
         prComment: {
-          enabled: true,
           mode: 'append',
         },
       })
@@ -885,7 +883,6 @@ describe('Given postPrComment function', () => {
           github: 'test-token',
         },
         prComment: {
-          enabled: true,
           mode: 'append',
         },
       })

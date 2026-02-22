@@ -266,6 +266,7 @@ program
   .option('--no-changelog', 'Skip changelog generation files')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--no-social', 'Skip social media posting')
+  .option('--no-pr-comment', 'Skip PR comment posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .action(async (options) => {
@@ -300,6 +301,8 @@ program
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         social: hasCliFlag('--no-social') ? false : undefined,
+        prComment: hasCliFlag('--no-pr-comment') ? false : undefined,
+        prNumber: program.opts().prNumber,
       })
     }
     catch (error) {

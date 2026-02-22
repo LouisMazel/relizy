@@ -164,15 +164,31 @@ export type PrCommentMode = 'append' | 'update'
 
 export interface PrCommentConfig {
   /**
-   * Enable PR commenting
-   * @default false
-   */
-  enabled?: boolean
-  /**
    * PR comment mode
    * @default 'append'
    */
   mode?: PrCommentMode
+}
+
+export type PrCommentStatus = 'success' | 'no-release' | 'failed'
+
+export interface ReleaseContext {
+  /**
+   * Release status
+   */
+  status: PrCommentStatus
+  /**
+   * Bump result (available when status is 'success')
+   */
+  bumpResult?: BumpResultTruthy
+  /**
+   * Git tags created during release
+   */
+  tags?: string[]
+  /**
+   * Error message (available when status is 'failed')
+   */
+  error?: string
 }
 
 export interface MonorepoConfig {
@@ -531,6 +547,11 @@ export interface ReleaseConfig {
    * @default false
    */
   social?: boolean
+  /**
+   * Post release announcements to social media platforms
+   * @default false
+   */
+  prComment?: boolean
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -578,6 +599,10 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * NPM token (e.g. "123456")
    */
   publishToken?: string
+  /**
+   * Override PR/MR number for PR comment features
+   */
+  prNumber?: number
 }
 
 export interface TwitterCredentials {

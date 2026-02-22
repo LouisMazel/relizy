@@ -310,6 +310,147 @@ async function updateGitHubComment({
   return true
 }
 
+function getGitLabApiBase(domain?: string): string {
+  const gitlabDomain = domain || 'gitlab.com'
+  return `https://${gitlabDomain}/api/v4`
+}
+
+async function createGitLabComment({
+  token,
+  repo,
+  mrNumber,
+  body,
+  domain,
+}: {
+  token: string
+  repo: string
+  mrNumber: number
+  body: string
+  domain?: string
+}): Promise<boolean> {
+  const projectPath = encodeURIComponent(repo)
+  const url = `${getGitLabApiBase(domain)}/projects/${projectPath}/merge_requests/${mrNumber}/notes`
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: {
+      'PRIVATE-TOKEN': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ body }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to post MR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
+async function findExistingGitLabComment({
+  token,
+  repo,
+  mrNumber,
+  domain,
+}: {
+  token: string
+  repo: string
+  mrNumber: number
+  domain?: string
+}): Promise<number | null> {
+  const projectPath = encodeURIComponent(repo)
+  const url = `${getGitLabApiBase(domain)}/projects/${projectPath}/merge_requests/${mrNumber}/notes`
+
+  const response = await fetch(url, {
+    method: 'GET',
+    headers: {
+      'PRIVATE-TOKEN': token,
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to list MR comments (${response.status}): ${errorText}`)
+    return null
+  }
+
+  const notes = await response.json() as Array<{ id: number, body: string }>
+
+  const existing = notes.find(n => n.body.includes(PR_COMMENT_MARKER))
+  return existing?.id ?? null
+}
+
+async function updateGitLabComment({
+  token,
+  repo,
+  mrNumber,
+  noteId,
+  body,
+  domain,
+}: {
+  token: string
+  repo: string
+  mrNumber: number
+  noteId: number
+  body: string
+  domain?: string
+}): Promise<boolean> {
+  const projectPath = encodeURIComponent(repo)
+  const url = `${getGitLabApiBase(domain)}/projects/${projectPath}/merge_requests/${mrNumber}/notes/${noteId}`
+
+  const response = await fetch(url, {
+    method: 'PUT',
+    headers: {
+      'PRIVATE-TOKEN': token,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ body }),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to update MR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
+async function postGitLabMrComment({
+  token,
+  repo,
+  pr,
+  body,
+  mode,
+  domain,
+}: {
+  token: string
+  repo: string
+  pr: PullRequestInfo
+  body: string
+  mode: string
+  domain?: string
+}): Promise<void> {
+  if (mode === 'update') {
+    const existingNoteId = await findExistingGitLabComment({ token, repo, mrNumber: pr.number, domain })
+
+    if (existingNoteId) {
+      const updated = await updateGitLabComment({ token, repo, mrNumber: pr.number, noteId: existingNoteId, body, domain })
+      if (updated) {
+        logger.success(`Updated comment on MR !${pr.number}`)
+      }
+      return
+    }
+  }
+
+  const created = await createGitLabComment({ token, repo, mrNumber: pr.number, body, domain })
+  if (created) {
+    logger.success(`Posted comment on MR !${pr.number}`)
+  }
+}
+
 async function postGitHubPrComment({
   token,
   repo,
@@ -370,6 +511,12 @@ export async function postPrComment({
   try {
     if (pr.provider === 'github') {
       await postGitHubPrComment({ token, repo, pr, body, mode, domain })
+    }
+    else if (pr.provider === 'gitlab') {
+      await postGitLabMrComment({ token, repo, pr, body, mode, domain })
+    }
+    else {
+      logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
     }
   }
   catch (error) {
