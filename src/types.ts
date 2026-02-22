@@ -273,6 +273,11 @@ export interface BumpOptions extends BumpConfig {
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
   suffix?: string
+  /**
+   * Publish a canary release from the current commit
+   * @default false
+   */
+  canary?: boolean
 }
 
 export interface ChangelogConfig {
@@ -603,6 +608,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * Override PR/MR number for PR comment features
    */
   prNumber?: number
+  /**
+   * Publish a canary release from the current commit
+   * @default false
+   */
+  canary?: boolean
 }
 
 export interface TwitterCredentials {

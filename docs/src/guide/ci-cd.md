@@ -282,6 +282,53 @@ workflows:
               only: main
 ```
 
+## Canary Releases in CI
+
+Canary releases are ideal for CI pipelines. Publish a temporary test version on every pull request so reviewers can install and test the changes before merging.
+
+### Canary on Pull Request
+
+```yaml
+# GitHub Actions
+name: Canary
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org'
+      - run: npm ci
+      - run: npm run build
+      - name: Canary Release
+        run: relizy release --canary --yes
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+This publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details.
+
+::: tip
+Use `--no-clean` in CI to skip the git dirty check, since CI environments may have build artifacts.
+:::
+
+Learn more in the [Canary Releases](/guide/canary-releases) guide.
+
 ## Monorepo CI/CD
 
 ### Selective Publishing

@@ -96,10 +96,21 @@ interface ReleaseOptions {
    * @default undefined
    */
   prNumber?: number
+
+  /**
+   * Enable canary release mode.
+   * Publishes a temporary version with format {nextVersion}-{preid}.{sha}.0
+   * Automatically disables: commit, push, changelog, providerRelease, social, gitTag
+   * Keeps active: publish, prComment, safetyCheck, clean check
+   * @default false
+   */
+  canary?: boolean
 }
 ```
 
 ## Example
+
+### Standard Release
 
 ```ts
 import { release } from 'relizy'
@@ -115,8 +126,23 @@ await release({
 })
 ```
 
+### Canary Release
+
+```ts
+import { release } from 'relizy'
+
+await release({
+  canary: true,
+  yes: true,
+  prNumber: 42,
+})
+```
+
+When `canary` is `true`, the release function automatically disables `commit`, `push`, `changelog`, `providerRelease`, `social`, and `gitTag`. It publishes the canary version to npm with the `canary` dist-tag (or the value of `preid` if provided).
+
 ## See Also
 
+- [Canary Releases guide](../guide/canary-releases.md)
 - [CLI reference](../cli/release.md)
 - [API usage](usage.md)
 - [prComment() API](pr-comment.md)

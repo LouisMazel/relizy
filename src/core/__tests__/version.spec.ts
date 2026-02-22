@@ -1,5 +1,5 @@
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
-import { determineReleaseType, extractVersionFromTag, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { determineReleaseType, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 describe('Given getPackageNewVersion function', () => {
   describe('When bumping with stable release types', () => {
@@ -1674,6 +1674,120 @@ describe('Given isTagVersionCompatibleWithCurrent function', () => {
       // 99 (tag major) <= 100 (current major) is true, so compatible
       const result = isTagVersionCompatibleWithCurrent('99.99.99', '100.0.0')
       expect(result).toBe(true)
+    })
+  })
+})
+
+describe('Given getCanaryVersion function', () => {
+  describe('When computing canary version from stable version', () => {
+    it('Then computes canary version with minor bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: 'minor',
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('1.3.0-canary.a3f4b2c.0')
+    })
+
+    it('Then computes canary version with patch bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: 'patch',
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('1.2.4-canary.a3f4b2c.0')
+    })
+
+    it('Then computes canary version with major bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: 'major',
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('2.0.0-canary.a3f4b2c.0')
+    })
+  })
+
+  describe('When no release type is detected', () => {
+    it('Then defaults to patch bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: undefined,
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('1.2.4-canary.a3f4b2c.0')
+    })
+  })
+
+  describe('When using custom preid', () => {
+    it('Then uses snapshot preid', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: 'minor',
+        preid: 'snapshot',
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('1.3.0-snapshot.a3f4b2c.0')
+    })
+
+    it('Then uses nightly preid', () => {
+      const result = getCanaryVersion({
+        currentVersion: '2.0.0',
+        releaseType: 'patch',
+        preid: 'nightly',
+        sha: 'abc1234',
+      })
+
+      expect(result).toBe('2.0.1-nightly.abc1234.0')
+    })
+  })
+
+  describe('When computing from prerelease version', () => {
+    it('Then computes canary from beta version with minor bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.3.0-beta.1',
+        releaseType: 'minor',
+        sha: 'a3f4b2c',
+      })
+
+      expect(result).toBe('1.3.0-canary.a3f4b2c.0')
+    })
+
+    it('Then computes canary from alpha version with patch bump', () => {
+      const result = getCanaryVersion({
+        currentVersion: '2.0.0-alpha.0',
+        releaseType: 'patch',
+        sha: 'def5678',
+      })
+
+      expect(result).toBe('2.0.0-canary.def5678.0')
+    })
+  })
+
+  describe('When handling edge cases', () => {
+    it('Then handles version 0.0.0', () => {
+      const result = getCanaryVersion({
+        currentVersion: '0.0.0',
+        releaseType: 'minor',
+        sha: 'abc1234',
+      })
+
+      expect(result).toBe('0.1.0-canary.abc1234.0')
+    })
+
+    it('Then handles high version numbers', () => {
+      const result = getCanaryVersion({
+        currentVersion: '99.99.99',
+        releaseType: 'patch',
+        sha: 'xyz7890',
+      })
+
+      expect(result).toBe('99.99.100-canary.xyz7890.0')
     })
   })
 })

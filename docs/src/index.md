@@ -42,6 +42,10 @@ features:
     title: NPM Publishing
     details: Seamlessly publish packages to npm with automatic registry authentication. Handles both public and private registries.
     link: /cli/publish
+  - icon: 🐤
+    title: Canary Releases
+    details: Publish temporary test versions from any branch. Perfect for testing packages in pull requests before merging.
+    link: /guide/canary-releases
   - icon: ⚡
     title: CI/CD Ready
     details: Perfect for automation pipelines. Works seamlessly with GitHub Actions, GitLab CI, and any CI/CD platform.

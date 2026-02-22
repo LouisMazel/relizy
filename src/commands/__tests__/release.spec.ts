@@ -377,4 +377,78 @@ describe('Given release command', () => {
       )
     })
   })
+
+  describe('When running in canary mode', () => {
+    function setupCanaryConfig() {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        release: {
+          commit: false,
+          changelog: false,
+          publish: true,
+          push: false,
+          providerRelease: false,
+          social: false,
+          prComment: true,
+          clean: true,
+          noVerify: false,
+          gitTag: false,
+        },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    }
+
+    it('Then disables changelog, commit, push, providerRelease, social, and gitTag', async () => {
+      setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true })
+
+      expect(bump).toHaveBeenCalledWith(
+        expect.objectContaining({ canary: true }),
+      )
+      expect(changelog).not.toHaveBeenCalled()
+      expect(providerRelease).not.toHaveBeenCalled()
+      expect(social).not.toHaveBeenCalled()
+    })
+
+    it('Then still publishes to npm in canary mode', async () => {
+      setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true })
+
+      expect(publish).toHaveBeenCalled()
+    })
+
+    it('Then still posts PR comment in canary mode', async () => {
+      setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true })
+
+      expect(prComment).toHaveBeenCalledWith(
+        expect.objectContaining({
+          releaseContext: expect.objectContaining({
+            status: 'success',
+          }),
+        }),
+      )
+    })
+
+    it('Then uses custom preid when provided', async () => {
+      setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-snapshot.abc1234.0', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true, preid: 'snapshot' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrides: expect.objectContaining({
+            bump: expect.objectContaining({ preid: 'snapshot' }),
+          }),
+        }),
+      )
+    })
+  })
 })

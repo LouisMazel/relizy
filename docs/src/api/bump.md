@@ -75,6 +75,14 @@ interface BumpOptions {
    * @default undefined
    */
   suffix?: string
+
+  /**
+   * Enable canary bump mode.
+   * Computes a canary version with format {nextVersion}-{preid}.{sha}.0
+   * The next version is auto-detected from commits, then the canary suffix is appended.
+   * @default false
+   */
+  canary?: boolean
 }
 ```
 
@@ -90,6 +98,8 @@ interface BumpResult {
 
 ## Example
 
+### Standard Bump
+
 ```ts
 import { bump } from 'relizy'
 
@@ -100,7 +110,22 @@ const result = await bump({
 console.log(`Bumped from ${result.oldVersion} to ${result.newVersion}`)
 ```
 
+### Canary Bump
+
+```ts
+import { bump } from 'relizy'
+
+const result = await bump({
+  canary: true,
+  preid: 'snapshot', // optional, defaults to 'canary'
+})
+
+console.log(`Canary version: ${result.newVersion}`)
+// e.g., "1.3.0-snapshot.a3f4b2c.0"
+```
+
 ## See Also
 
+- [Canary Releases guide](../guide/canary-releases.md)
 - [CLI reference](../cli/bump.md)
 - [API usage](usage.md)

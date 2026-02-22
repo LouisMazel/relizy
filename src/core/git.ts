@@ -415,3 +415,7 @@ export function getCurrentGitRef(cwd: string): string {
   const branch = getCurrentGitBranch(cwd)
   return branch || 'HEAD'
 }
+
+export function getShortCommitSha(cwd: string, length = 7): string {
+  return execSync(`git rev-parse --short=${length} HEAD`, { cwd, encoding: 'utf8' }).trim()
+}
