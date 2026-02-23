@@ -106,7 +106,7 @@ async function tryPostPrComment({
   }
 
   try {
-    await prComment({
+    return await prComment({
       prNumber,
       dryRun,
       logLevel: logLevel as any,
@@ -114,7 +114,6 @@ async function tryPostPrComment({
       config,
       releaseContext,
     })
-    return true
   }
   catch (error) {
     logger.warn('PR comment posting failed:', error)

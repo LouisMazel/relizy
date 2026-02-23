@@ -432,7 +432,7 @@ async function postGitLabMrComment({
   body: string
   mode: string
   domain?: string
-}): Promise<void> {
+}): Promise<boolean> {
   if (mode === 'update') {
     const existingNoteId = await findExistingGitLabComment({ token, repo, mrNumber: pr.number, domain })
 
@@ -441,7 +441,7 @@ async function postGitLabMrComment({
       if (updated) {
         logger.success(`Updated comment on MR !${pr.number}`)
       }
-      return
+      return updated
     }
   }
 
@@ -449,6 +449,7 @@ async function postGitLabMrComment({
   if (created) {
     logger.success(`Posted comment on MR !${pr.number}`)
   }
+  return created
 }
 
 async function postGitHubPrComment({
@@ -465,7 +466,7 @@ async function postGitHubPrComment({
   body: string
   mode: string
   domain?: string
-}): Promise<void> {
+}): Promise<boolean> {
   if (mode === 'update') {
     const existingCommentId = await findExistingGitHubComment({ token, repo, prNumber: pr.number, domain })
 
@@ -474,7 +475,7 @@ async function postGitHubPrComment({
       if (updated) {
         logger.success(`Updated comment on PR #${pr.number}`)
       }
-      return
+      return updated
     }
   }
 
@@ -482,6 +483,7 @@ async function postGitHubPrComment({
   if (created) {
     logger.success(`Posted comment on PR #${pr.number}`)
   }
+  return created
 }
 
 export async function postPrComment({
@@ -492,7 +494,7 @@ export async function postPrComment({
   config: ResolvedRelizyConfig
   pr: PullRequestInfo
   body: string
-}): Promise<void> {
+}): Promise<boolean> {
   const repo = config.repo?.repo
   const domain = config.repo?.domain
   const mode = config.prComment?.mode ?? 'append'
@@ -500,26 +502,28 @@ export async function postPrComment({
   const token = getProviderToken(config, pr.provider)
   if (!token) {
     logger.warn(`No ${pr.provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR commenting`)
-    return
+    return false
   }
 
   if (!repo) {
     logger.warn('No repository configuration found for PR commenting')
-    return
+    return false
   }
 
   try {
     if (pr.provider === 'github') {
-      await postGitHubPrComment({ token, repo, pr, body, mode, domain })
+      return await postGitHubPrComment({ token, repo, pr, body, mode, domain })
     }
     else if (pr.provider === 'gitlab') {
-      await postGitLabMrComment({ token, repo, pr, body, mode, domain })
+      return await postGitLabMrComment({ token, repo, pr, body, mode, domain })
     }
     else {
       logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
+      return false
     }
   }
   catch (error) {
     logger.warn(`Failed to post PR comment: ${error}`)
+    return false
   }
 }
