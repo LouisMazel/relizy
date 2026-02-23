@@ -866,6 +866,110 @@ describe('Given postPrComment function', () => {
     })
   })
 
+  describe('When no repo is configured', () => {
+    it('Then returns false and logs warning', async () => {
+      const config = createMockConfig({
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: undefined as any,
+        },
+        tokens: {
+          github: 'test-token',
+        },
+        prComment: {
+          mode: 'append',
+        },
+      })
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      const result = await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(result).toBe(false)
+      expect(fetch).not.toHaveBeenCalled()
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('repository'))
+    })
+  })
+
+  describe('When provider is gitlab', () => {
+    it('Then posts comment via GitLab API', async () => {
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ id: 1 }),
+      } as Response)
+
+      const config = createMockConfig({
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        prComment: {
+          mode: 'append',
+        },
+      })
+
+      const gitlabMr: PullRequestInfo = {
+        number: 10,
+        url: 'https://gitlab.com/user/repo/-/merge_requests/10',
+        provider: 'gitlab',
+      }
+
+      const result = await postPrComment({ config, pr: gitlabMr, body: commentBody })
+
+      expect(result).toBe(true)
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringContaining('merge_requests/10/notes'),
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
+  })
+
+  describe('When provider is unsupported', () => {
+    it('Then returns false and logs warning', async () => {
+      const config = createMockConfig({
+        repo: {
+          provider: 'bitbucket' as any,
+          domain: 'bitbucket.org',
+          repo: 'user/repo',
+          token: 'test-token',
+        },
+        prComment: {
+          mode: 'append',
+        },
+      })
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      const pr: PullRequestInfo = {
+        number: 1,
+        url: 'https://bitbucket.org/user/repo/pull-requests/1',
+        provider: 'bitbucket' as any,
+      }
+
+      const result = await postPrComment({ config, pr, body: commentBody })
+
+      expect(result).toBe(false)
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('not supported'))
+    })
+  })
+
+  describe('When fetch throws an error', () => {
+    it('Then catches error and returns false', async () => {
+      vi.mocked(fetch).mockRejectedValue(new Error('Network error'))
+      const loggerSpy = vi.spyOn(logger, 'warn')
+
+      const config = createGitHubConfig('append')
+
+      const result = await postPrComment({ config, pr: githubPr, body: commentBody })
+
+      expect(result).toBe(false)
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to post PR comment'))
+    })
+  })
+
   describe('When using custom GitHub Enterprise domain', () => {
     it('Then uses the Enterprise API base URL', async () => {
       vi.mocked(fetch).mockResolvedValue({
