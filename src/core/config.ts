@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, PrCommentConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -9,6 +9,7 @@ import { formatJson } from '@maz-ui/utils'
 import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
+import { detectPackageManager } from './npm'
 
 export function getDefaultConfig() {
   return {
@@ -53,7 +54,8 @@ export function getDefaultConfig() {
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       registry: 'https://registry.npmjs.org/',
       safetyCheck: true,
-    },
+      packageManager: detectPackageManager(process.cwd()),
+    } satisfies PublishConfig,
     tokens: {
       registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       gitlab:
