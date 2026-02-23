@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PublishOptions, PublishResponse } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { detectPackageManager, executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
+import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 
 export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
@@ -12,17 +12,11 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
 
   logger.debug('Start checking auth config to package registry')
 
-  const packageManager = config.publish.packageManager || detectPackageManager(config.cwd)
-
-  if (!packageManager) {
-    throw new Error('Unable to detect package manager')
-  }
-
-  const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
+  const isPnpmOrNpm = config.publish.packageManager === 'pnpm' || config.publish.packageManager === 'npm'
 
   if (isPnpmOrNpm) {
     const authCommand = getAuthCommand({
-      packageManager,
+      packageManager: config.publish.packageManager,
       config,
       otp: config.publish.otp,
     })
@@ -43,7 +37,7 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
     }
   }
   else {
-    logger.debug(`Skipping authentication to package registry because "${packageManager}" is not supported`)
+    logger.debug(`Skipping authentication to package registry because "${config.publish.packageManager}" is not supported`)
   }
 }
 
@@ -69,9 +63,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
-  const packageManager = config.publish.packageManager || detectPackageManager(config.cwd)
-
-  logger.debug(`Package manager: ${packageManager}`)
+  logger.debug(`Package manager: ${config.publish.packageManager}`)
 
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -144,7 +136,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
         await publishPackage({
           pkg,
           config,
-          packageManager,
+          packageManager: config.publish.packageManager,
           dryRun,
         })
       }

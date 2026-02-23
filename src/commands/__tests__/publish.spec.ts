@@ -1,7 +1,7 @@
 import { execPromise } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { detectPackageManager, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
+import { executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -23,7 +23,6 @@ vi.mock('../../core/npm', async (importActual) => {
   const actual = await importActual<typeof import('../../core/npm')>()
   return {
     ...actual,
-    detectPackageManager: vi.fn(),
     publishPackage: vi.fn(),
     getPackagesToPublishInSelectiveMode: vi.fn().mockReturnValue([]),
     getPackagesToPublishInIndependentMode: vi.fn().mockReturnValue([]),
@@ -52,19 +51,19 @@ describe('Given publishSafetyCheck function', () => {
     processExitSpy.mockRestore()
   })
 
-  describe('When package manager cannot be detected', () => {
-    it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
-      vi.mocked(detectPackageManager).mockReturnValue(undefined as any)
+  describe('When package manager is not pnpm or npm', () => {
+    it('Then skips auth check', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: undefined as any }, safetyCheck: true, release: { publish: true } })
 
-      await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
+      await publishSafetyCheck({ config })
+
+      expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
 
   describe('When auth check fails', () => {
     it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
-      vi.mocked(detectPackageManager).mockReturnValue('npm')
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
       await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
@@ -73,8 +72,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check succeeds', () => {
     it('Then does not exit', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
-      vi.mocked(detectPackageManager).mockReturnValue('npm')
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -89,7 +87,6 @@ describe('Given publishSafetyCheck function', () => {
 
       await publishSafetyCheck({ config })
 
-      expect(detectPackageManager).not.toHaveBeenCalled()
       expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
@@ -100,7 +97,6 @@ describe('Given publishSafetyCheck function', () => {
 
       await publishSafetyCheck({ config })
 
-      expect(detectPackageManager).not.toHaveBeenCalled()
       expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
@@ -109,9 +105,8 @@ describe('Given publishSafetyCheck function', () => {
 describe('Given publish command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'npm' } }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
-    vi.mocked(detectPackageManager).mockReturnValue('npm')
     vi.mocked(publishPackage).mockResolvedValue(undefined)
     vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
@@ -124,12 +119,6 @@ describe('Given publish command', () => {
 
       expect(loadRelizyConfig).toHaveBeenCalled()
       expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), false)
-    })
-
-    it('Then detects package manager', async () => {
-      await publish({})
-
-      expect(detectPackageManager).toHaveBeenCalled()
     })
 
     it('Then executes success hook', async () => {
@@ -158,7 +147,7 @@ describe('Given publish command', () => {
     })
 
     it('Then passes package manager to publish', async () => {
-      vi.mocked(detectPackageManager).mockReturnValue('pnpm')
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm' } }))
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
       ])
