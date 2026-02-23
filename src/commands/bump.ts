@@ -1,4 +1,4 @@
-import type { ResolvedRelizyConfig } from '../core'
+import type { ResolvedRelizyConfig } from '../core/config'
 import type { BumpOptions, BumpResult } from '../types'
 
 import { logger } from '@maz-ui/node'

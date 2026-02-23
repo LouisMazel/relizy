@@ -1,10 +1,15 @@
 import type { GitCommit } from 'changelogen'
-import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
-import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
+import { generateChangelog } from './changelog'
+import { loadRelizyConfig } from './config'
+import { getRootPackage, readPackageJson } from './repo'
+import { getIndependentTag, resolveTags } from './tags'
+import { getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
+import { isPrerelease } from './version'
 
 // eslint-disable-next-line sonarjs/cognitive-complexity
 async function githubIndependentMode({

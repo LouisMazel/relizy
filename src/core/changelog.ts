@@ -1,6 +1,6 @@
 import type { GitCommit } from 'changelogen'
-import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, ReadPackage } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'

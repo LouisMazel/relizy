@@ -1,12 +1,14 @@
 import type { LogLevel } from '@maz-ui/node'
 
-import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
-import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../core'
+import { loadRelizyConfig } from './config'
+import { hasLernaJson, readPackageJson } from './repo'
+import { getIndependentTag } from './tags'
 import { executeHook } from './utils'
 
 export function getGitStatus(cwd?: string, trim = true) {

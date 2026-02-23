@@ -1,11 +1,12 @@
-import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PackageManager } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
-import { isInCI, isPrerelease } from '../core'
 import { getIndependentTag, resolveTags } from './tags'
+import { isInCI } from './utils'
+import { isPrerelease } from './version'
 
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined

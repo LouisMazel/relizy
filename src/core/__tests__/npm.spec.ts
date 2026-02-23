@@ -699,11 +699,15 @@ describe('Given publishPackage function', () => {
       )
       expect(loggerDebugSpy).toHaveBeenNthCalledWith(
         2,
+        'Building publish command for test-package',
+      )
+      expect(loggerDebugSpy).toHaveBeenNthCalledWith(
+        3,
         'Publish stdout:',
         '',
       )
       expect(loggerDebugSpy).toHaveBeenNthCalledWith(
-        3,
+        4,
         'Publish stderr:',
         '',
       )

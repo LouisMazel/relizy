@@ -61,13 +61,24 @@ vi.mock('fast-glob', () => ({
   },
 }))
 
-vi.mock('../tags', () => ({
-  resolveTags: vi.fn(({ pkg }) => {
-    const fromTag = `${pkg.name}@${pkg.version}`
-    return { from: fromTag, to: 'HEAD' }
-  }),
-  isGraduating: vi.fn(() => false),
-}))
+vi.mock('../tags', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../tags')>()
+  return {
+    ...actual,
+    resolveTags: vi.fn(({ pkg }) => {
+      const fromTag = `${pkg.name}@${pkg.version}`
+      return { from: fromTag, to: 'HEAD' }
+    }),
+  }
+})
+
+vi.mock('../version', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../version')>()
+  return {
+    ...actual,
+    isGraduating: vi.fn(() => false),
+  }
+})
 
 vi.mock('changelogen', () => ({
   getGitDiff: vi.fn(() => 'mock git diff'),
