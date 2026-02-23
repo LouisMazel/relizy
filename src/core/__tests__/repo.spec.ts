@@ -61,24 +61,22 @@ vi.mock('fast-glob', () => ({
   },
 }))
 
-vi.mock('../tags', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../tags')>()
-  return {
-    ...actual,
-    resolveTags: vi.fn(({ pkg }) => {
-      const fromTag = `${pkg.name}@${pkg.version}`
-      return { from: fromTag, to: 'HEAD' }
-    }),
-  }
-})
+vi.mock('../tags', () => ({
+  NEW_PACKAGE_MARKER: '__NEW_PACKAGE__',
+  resolveTags: vi.fn(({ pkg }) => {
+    const fromTag = `${pkg.name}@${pkg.version}`
+    return { from: fromTag, to: 'HEAD' }
+  }),
+}))
 
-vi.mock('../version', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../version')>()
-  return {
-    ...actual,
-    isGraduating: vi.fn(() => false),
-  }
-})
+vi.mock('../version', () => ({
+  determineReleaseType: vi.fn(() => 'patch'),
+  getPackageNewVersion: vi.fn((_currentVersion: string, _releaseType: string) => '1.1.0'),
+  isChangedPreid: vi.fn(() => false),
+  isGraduating: vi.fn(() => false),
+  isPrerelease: vi.fn(() => false),
+  isStableReleaseType: vi.fn(() => true),
+}))
 
 vi.mock('changelogen', () => ({
   getGitDiff: vi.fn(() => 'mock git diff'),

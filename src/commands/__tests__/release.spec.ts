@@ -86,7 +86,7 @@ describe('Given release command', () => {
       ],
       hasErrors: false,
     })
-    vi.mocked(prComment).mockResolvedValue(undefined)
+    vi.mocked(prComment).mockResolvedValue(false)
   })
 
   describe('When running full release workflow', () => {

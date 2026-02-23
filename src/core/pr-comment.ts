@@ -160,7 +160,7 @@ function getProviderToken(config: ResolvedRelizyConfig, provider: GitProvider): 
     return config.tokens.gitlab || config.repo?.token
   }
 
-  return undefined
+  return config.repo?.token
 }
 
 export async function detectPullRequest({

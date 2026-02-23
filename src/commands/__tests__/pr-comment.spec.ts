@@ -50,7 +50,7 @@ describe('Given prComment command', () => {
       { name: 'pkg-b', version: '1.2.3', path: '/packages/pkg-b', private: false },
     ])
     vi.mocked(detectPullRequest).mockResolvedValue(mockPr)
-    vi.mocked(postPrComment).mockResolvedValue(undefined)
+    vi.mocked(postPrComment).mockResolvedValue(false)
   })
 
   describe('When running standalone (no releaseContext)', () => {
