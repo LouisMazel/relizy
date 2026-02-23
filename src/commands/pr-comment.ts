@@ -180,18 +180,18 @@ function buildInstallLines({
     '### Installation',
     '',
     '```bash',
-    `${installCmd} ${installPkgs.join(' ')}`,
+    ...installPkgs.map(pkg => `${installCmd} ${pkg}`),
     '```',
   ]
 
   if (distTag && distTag !== 'latest' && pkgNames.length > 0) {
-    const distTagArgs = pkgNames.map(n => `${n}@${distTag}`).join(' ')
+    const distTagPkgs = pkgNames.map(n => `${n}@${distTag}`)
     lines.push(
       '',
       `or using the \`${distTag}\` dist-tag:`,
       '',
       '```bash',
-      `${installCmd} ${distTagArgs}`,
+      ...distTagPkgs.map(pkg => `${installCmd} ${pkg}`),
       '```',
     )
   }
@@ -283,7 +283,7 @@ export function buildCommentBody(params: CommentBodyParams): string {
   }
 }
 
-export async function prComment(options: PrCommentOptions = {}): Promise<void> {
+export async function prComment(options: PrCommentOptions = {}): Promise<boolean> {
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
@@ -337,13 +337,13 @@ export async function prComment(options: PrCommentOptions = {}): Promise<void> {
     logger.box(
       `[dry-run] PR Comment Preview\n\nPR: ${prDisplay}\nMode: ${mode}\nStatus: ${statusDisplay}\n\n${body}`,
     )
-    return
+    return true
   }
 
   if (!pr) {
     logger.warn('No PR/MR detected. Use --pr-number to specify one manually.')
-    return
+    return false
   }
 
-  await postPrComment({ config, pr, body })
+  return await postPrComment({ config, pr, body })
 }
