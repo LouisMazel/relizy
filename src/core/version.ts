@@ -1,14 +1,14 @@
 import type { GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, RelizyConfig, VersionMode } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import * as semver from 'semver'
-import { hasLernaJson } from '../core'
+import { hasLernaJson } from './repo'
 
 export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
   const isSameBase = semver.major(version) === semver.major(newVersion)

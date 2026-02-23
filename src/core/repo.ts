@@ -1,14 +1,15 @@
 import type { GitCommit } from 'changelogen'
-import type { ResolvedRelizyConfig } from '../core'
 import type { ConfigType, PackageBase, ReadPackage } from '../types'
+import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getGitDiff, parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
-import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType, NEW_PACKAGE_MARKER, resolveTags } from '../core'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
+import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
+import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
 
 /**
  * Get the first commit hash that touched a specific package directory.

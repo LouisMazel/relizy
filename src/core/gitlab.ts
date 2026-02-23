@@ -1,8 +1,14 @@
-import type { ResolvedRelizyConfig, RootPackage } from '../core'
 import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { ResolvedRelizyConfig } from './config'
+import type { RootPackage } from './repo'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
-import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../core'
+import { generateChangelog } from './changelog'
+import { loadRelizyConfig } from './config'
+import { getRootPackage, readPackageJson } from './repo'
+import { getIndependentTag, resolveTags } from './tags'
+import { getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
+import { isPrerelease } from './version'
 
 export interface GitlabRelease {
   tag_name: string
