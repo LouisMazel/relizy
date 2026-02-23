@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.1.0-beta.2...v1.1.0-beta.3
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0-beta.2...v1.1.0-beta.3)
+
+### 🩹 Fixes
+
+- Report PR comment post status accurately in release summary ([080437c](https://github.com/LouisMazel/relizy/commit/080437c))
+
+  Propagate success/failure boolean through the entire
+  posting chain so the summary shows "Failed" when needed.
+
+### 💅 Refactors
+
+- Show one install command per package in PR comments ([ebef38b](https://github.com/LouisMazel/relizy/commit/ebef38b))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.1.0-beta.1...v1.1.0-beta.2
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0-beta.1...v1.1.0-beta.2)
