@@ -1,5 +1,103 @@
 # Changelog
 
+## v1.0.1...v1.1.0
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.1...v1.1.0)
+
+### 🚀 Features
+
+- Add PR/MR comment with release information ([1d3a800](https://github.com/LouisMazel/relizy/commit/1d3a800))
+
+  Automatically post a comment on your pull request or merge request
+  after `relizy release` with release status, version transitions,
+  package table, and install commands.
+  Supports 3 statuses: ✅ success, ⏭️ no-release, ❌ failed.
+
+  ### Highlights
+  - **Two modes**: `append` (new comment each time) or `update`
+    (finds and updates existing comment via hidden marker)
+  - **GitHub & GitLab** support (including enterprise/self-hosted)
+  - **Auto-detection** of PR/MR from current branch, or manual
+    override with `--pr-number`
+  - **Standalone command**: `relizy pr-comment`
+  - **Integrated in release workflow** (enabled by default)
+
+  ### Configuration
+
+  ```ts
+  // relizy.config.ts
+  export default defineConfig({
+    prComment: {
+      mode: 'append', // or 'update'
+    },
+    release: {
+      prComment: true, // enabled by default, set false to disable
+    },
+  })
+  ```
+
+  ### CLI
+
+  ```bash
+  # As part of release
+  relizy release --patch
+  # Standalone
+  relizy pr-comment
+  # Skip during release
+  relizy release --patch --no-pr-comment
+  # Override PR number (useful in CI)
+  relizy release --patch --pr-number 42
+  ```
+
+- Add canary release mode ([aaa49bf](https://github.com/LouisMazel/relizy/commit/aaa49bf))
+
+  Publish temporary test versions from any branch with `--canary`.
+  Canary versions use the format `{nextVersion}-{preid}.{sha}.0`
+  (e.g., `1.3.0-canary.a3f4b2c.0`). The next version is auto-detected
+  from commits, then the canary suffix is appended.
+  - Bumps all packages to a canary version
+  - Publishes to npm with a `canary` dist-tag (or custom preid)
+  - Posts a PR/MR comment with the canary version details
+  - Skips changelog, git commit, git tag, git push, provider release,
+    and social media posting
+
+  ```bash
+  relizy release --canary
+  relizy release --canary --preid snapshot
+  relizy release --canary --yes --pr-number 42
+  relizy bump --canary
+  ```
+
+### 🩹 Fixes
+
+- Prevent ENOBUFS error on new packages in independent mode ([4aee6a3](https://github.com/LouisMazel/relizy/commit/4aee6a3))
+
+  New packages without tags now use the first commit that touched the package
+  directory instead of the repository's first commit.
+
+- Report PR comment post status accurately in release summary ([df2fa1e](https://github.com/LouisMazel/relizy/commit/df2fa1e))
+
+  Propagate success/failure boolean through the entire
+  posting chain so the summary shows "Failed" when needed.
+
+### 💅 Refactors
+
+- Show one install command per package in PR comments ([f997136](https://github.com/LouisMazel/relizy/commit/f997136))
+
+### 📖 Documentation
+
+- **docs:** Add project name config in overview ([cfe000e](https://github.com/LouisMazel/relizy/commit/cfe000e))
+- Update config docs ([5fc4513](https://github.com/LouisMazel/relizy/commit/5fc4513))
+
+### 📦 Build
+
+- Upgrade dependencies ([0362261](https://github.com/LouisMazel/relizy/commit/0362261))
+- Upgrade dependencies ([2f86a38](https://github.com/LouisMazel/relizy/commit/2f86a38))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.1.0-beta.2...v1.1.0-beta.3
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0-beta.2...v1.1.0-beta.3)
