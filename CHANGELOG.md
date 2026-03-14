@@ -1,5 +1,41 @@
 # Changelog
 
+## v1.2.0 (2026-03-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0...v1.2.0)
+
+### 🚀 Features
+
+- Add stripBoldMarkers option to extractChangelogSummary ([8badf30](https://github.com/LouisMazel/relizy/commit/8badf30))
+- Add changelogTitle template option ([223026e](https://github.com/LouisMazel/relizy/commit/223026e))
+
+  Customize changelog section titles via `templates.changelogTitle` in your config.
+  Available variables: `{{oldVersion}}`, `{{newVersion}}`, `{{date}}`.
+
+  ```ts
+  export default defineConfig({
+    templates: {
+      changelogTitle: '{{newVersion}} - {{date}}',
+    },
+  })
+  ```
+
+### 💅 Refactors
+
+- Add dry-run preview with logger.box for social and provider releases ([a93e711](https://github.com/LouisMazel/relizy/commit/a93e711))
+
+### 📖 Documentation
+
+- Document changelogTitle template and stripBoldMarkers ([a760ecf](https://github.com/LouisMazel/relizy/commit/a760ecf))
+
+### 📦 Build
+
+- Upgrade dependencies ([67b1f4f](https://github.com/LouisMazel/relizy/commit/67b1f4f))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.0.1...v1.1.0
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.0.1...v1.1.0)
