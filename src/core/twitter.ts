@@ -63,7 +63,7 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
   const MAX_LENGTH = postMaxLength
   const ELLIPSIS = '...'
 
-  const changelogSummary = extractChangelogSummary(changelog, postMaxLength)
+  const changelogSummary = extractChangelogSummary(changelog, { maxLength: MAX_LENGTH, stripBoldMarkers: true })
 
   // Step 1: Build template with all placeholders replaced except changelog
   let templateWithValues = template
