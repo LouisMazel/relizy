@@ -82,13 +82,14 @@ async function githubIndependentMode({
     logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
 
     if (dryRun) {
-      logger.info(`[dry-run] Publish GitHub release for ${to}`)
+      logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
       postedReleases.push({
         name: pkg.name,
         tag: release.tag_name,
         version: newVersion,
         prerelease: release.prerelease,
       })
+      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
     }
     else {
       logger.debug(`Publishing release ${to} to GitHub...`)
@@ -177,6 +178,7 @@ async function githubUnified({
 
   if (dryRun) {
     logger.info('[dry-run] Publish GitHub release for', release.tag_name)
+    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
   }
   else {
     logger.debug('Publishing release to GitHub...')

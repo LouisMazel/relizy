@@ -155,7 +155,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   try {
     await executeHook('before:release', config, dryRun)
 
-    logger.box('Bump versions', `preid: ${config.bump.preid}`, `options: ${options.preid}`)
+    logger.box(
+      'Bump versions',
+      `- type: ${config.bump.type}`,
+      ...(config.bump.preid ? [`- preid: ${config.bump.preid}`] : []),
+    )
 
     const bumpResult = await bump({
       type: config.bump.type,

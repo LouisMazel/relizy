@@ -135,7 +135,7 @@ export async function postReleaseToTwitter({
   logger.debug(`Tweet message (${message.length} chars):\n${message}`)
 
   if (dryRun) {
-    logger.info('[dry-run] Would post tweet:', `"${message}"`)
+    logger.box(`[dry-run] Twitter Post Preview (${message.length}/${postMaxLength} chars)\n\n${message}`)
     return
   }
 
