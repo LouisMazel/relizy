@@ -28,7 +28,7 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup Node.js, pnpm and Nx cache
+      - name: Setup Node.js, pnpm # and Nx cache
         uses: ./.github/actions/setup
 
       - name: Test units with coverage

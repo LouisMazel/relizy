@@ -1,4 +1,4 @@
-name: 'Setup Node.js, pnpm and Nx cache'
+name: 'Setup Node.js, pnpm # and Nx cache'
 description: Setup Node.js with pnpm and configure Nx cache for faster builds
 
 inputs:
@@ -38,15 +38,15 @@ runs:
         node-version: ${{ inputs.node-version }}
         registry-url: ${{ inputs.registry-url }}
 
-    - name: Setup Nx cache
-      uses: actions/cache@v4
-      with:
-        path: |
-          .nx/cache
-          .nx/workspace-data
-        key: ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
+    # - name: Setup Nx cache
+    #   uses: actions/cache@v4
+    #   with:
+    #     path: |
+    #       .nx/cache
+    #       .nx/workspace-data
+    #     key: ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
 
     - name: Install dependencies
       shell: bash

@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: Setup Node.js, pnpm and Nx cache
+      - name: Setup Node.js, pnpm # and Nx cache
         uses: ./.github/actions/setup
         with:
           registry-url: 'https://registry.npmjs.org'
