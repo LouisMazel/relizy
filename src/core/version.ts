@@ -745,8 +745,11 @@ export function extractVersionFromTag(tag: string, packageName?: string): string
  * This prevents accidentally using tags from future major versions (e.g., v5.0.0-beta.0)
  * when bumping a current stable version (e.g., 4.1.1 → 4.1.2).
  *
- * @param tagVersion - The semantic version extracted from the tag
- * @param currentVersion - The current package version
+ * @param payload - The payload to check
+ * @param payload.currentVersion - The current package version
+ * @param payload.releaseType - The release type
+ * @param payload.preid - The pre-release identifier
+ * @param payload.sha - The sha of the commit
  * @returns true if the tag version's major is <= current major version
  *
  * @example
