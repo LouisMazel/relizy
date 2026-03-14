@@ -60,6 +60,60 @@ export default defineConfig({
 })
 ```
 
+## Changelog Title Template
+
+Customize the title used for each changelog section. By default, it shows `v1.0.0...v1.1.0`.
+
+- **Config key:** `templates.changelogTitle`
+- **Type:** `string`
+- **Default:** `'{{oldVersion}}...{{newVersion}}'`
+
+### Available Variables
+
+| Variable         | Description                      | Example      |
+| ---------------- | -------------------------------- | ------------ |
+| `{{oldVersion}}` | Previous version tag (from)      | `v1.0.0`     |
+| `{{newVersion}}` | New version tag (to)             | `v1.1.0`     |
+| `{{date}}`       | Today's date (YYYY-MM-DD format) | `2026-03-14` |
+
+### Examples
+
+Show only the new version:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  templates: {
+    changelogTitle: '{{newVersion}}',
+  },
+})
+```
+
+This produces:
+
+```md
+## v1.1.0
+```
+
+Include the date:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  templates: {
+    changelogTitle: '{{newVersion}} ({{date}})',
+  },
+})
+```
+
+This produces:
+
+```md
+## v1.1.0 (2026-03-14)
+```
+
 ### Complete Changelog Config Example
 
 ```ts
