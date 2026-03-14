@@ -12,7 +12,7 @@ describe('Given extractChangelogSummary function', () => {
 ## Fixes
 - Fix bug`
 
-      const result = extractChangelogSummary(changelog, 200)
+      const result = extractChangelogSummary(changelog, { maxLength: 200 })
 
       expect(result).not.toContain('#')
       expect(result).toContain('Add new feature')
@@ -23,7 +23,7 @@ describe('Given extractChangelogSummary function', () => {
 ### Sub Header
 Content here`
 
-      const result = extractChangelogSummary(changelog, 200)
+      const result = extractChangelogSummary(changelog, { maxLength: 200 })
 
       expect(result).not.toContain('#')
       expect(result).toBe('Content here.')
@@ -34,7 +34,7 @@ Content here`
     it('Then extracts sentences within maxLength', () => {
       const changelog = 'First sentence. Second sentence. Third sentence. Fourth sentence.'
 
-      const result = extractChangelogSummary(changelog, 50)
+      const result = extractChangelogSummary(changelog, { maxLength: 50 })
 
       expect(result.length).toBeLessThanOrEqual(52)
       expect(result).toContain('First sentence')
@@ -43,7 +43,7 @@ Content here`
     it('Then includes multiple sentences if they fit', () => {
       const changelog = 'Short. Also short. And this.'
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toBe('Short. Also short. And this.')
     })
@@ -51,7 +51,7 @@ Content here`
     it('Then stops at maxLength boundary', () => {
       const changelog = 'This is a short sentence. This is a much longer sentence that exceeds the maximum length allowed.'
 
-      const result = extractChangelogSummary(changelog, 30)
+      const result = extractChangelogSummary(changelog, { maxLength: 30 })
 
       expect(result).toBe('This is a short sentence.')
     })
@@ -59,7 +59,7 @@ Content here`
     it('Then handles exclamation marks as sentence endings', () => {
       const changelog = 'Great news! Amazing features! More updates!'
 
-      const result = extractChangelogSummary(changelog, 50)
+      const result = extractChangelogSummary(changelog, { maxLength: 50 })
 
       expect(result).toBe('Great news. Amazing features. More updates.')
     })
@@ -67,7 +67,7 @@ Content here`
     it('Then handles question marks as sentence endings', () => {
       const changelog = 'New features? Bug fixes?'
 
-      const result = extractChangelogSummary(changelog, 50)
+      const result = extractChangelogSummary(changelog, { maxLength: 50 })
 
       expect(result).toBe('New features. Bug fixes.')
     })
@@ -77,7 +77,7 @@ Content here`
     it('Then truncates at maxLength as fallback', () => {
       const changelog = 'This is a very long continuous text without any sentence endings or punctuation marks that goes on and on'
 
-      const result = extractChangelogSummary(changelog, 47)
+      const result = extractChangelogSummary(changelog, { maxLength: 47 })
 
       expect(result.length).toBeLessThanOrEqual(47)
       expect(result).toBe('This is a very long continuous text without any')
@@ -86,7 +86,7 @@ Content here`
     it('Then returns substring when no sentence breaks', () => {
       const changelog = 'NoSpacesOrPunctuationHereJustOneLongStringOfText'
 
-      const result = extractChangelogSummary(changelog, 20)
+      const result = extractChangelogSummary(changelog, { maxLength: 20 })
 
       expect(result).toBe('NoSpacesOrPunctuatio')
       expect(result.length).toBe(20)
@@ -114,13 +114,13 @@ Content here`
 
   describe('When changelog is empty or whitespace', () => {
     it('Then returns empty string for empty changelog', () => {
-      const result = extractChangelogSummary('', 100)
+      const result = extractChangelogSummary('', { maxLength: 100 })
 
       expect(result).toBe('')
     })
 
     it('Then returns empty string for whitespace only', () => {
-      const result = extractChangelogSummary('   \n\n  ', 100)
+      const result = extractChangelogSummary('   \n\n  ', { maxLength: 100 })
 
       expect(result).toBe('')
     })
@@ -130,7 +130,7 @@ Content here`
 ## Another Header
 ### Third Header`
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toBe('')
     })
@@ -142,7 +142,7 @@ Content here`
 - Fix bug B
 - Update docs`
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toContain('Add feature A')
     })
@@ -152,10 +152,41 @@ Content here`
 - Feature one
 - Feature two`
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toContain('Release notes')
       expect(result).toContain('Feature one')
+    })
+  })
+
+  describe('When changelog has bold scope markers', () => {
+    it('Then preserves ** around scopes by default', () => {
+      const changelog = '- **maz-ui:** Improving performances of JS code'
+
+      const result = extractChangelogSummary(changelog, { maxLength: 200 })
+
+      expect(result).toContain('**maz-ui:**')
+    })
+
+    it('Then removes ** around scopes when stripBoldMarkers is true', () => {
+      const changelog = '- **maz-ui:** Improving performances of JS code'
+
+      const result = extractChangelogSummary(changelog, { maxLength: 200, stripBoldMarkers: true })
+
+      expect(result).not.toContain('**')
+      expect(result).toContain('maz-ui:')
+      expect(result).toContain('Improving performances of JS code')
+    })
+
+    it('Then removes multiple bold scopes when stripBoldMarkers is true', () => {
+      const changelog = `- **maz-ui:** Improving performances
+- **core:** Fix bug in parser`
+
+      const result = extractChangelogSummary(changelog, { maxLength: 200, stripBoldMarkers: true })
+
+      expect(result).not.toContain('**')
+      expect(result).toContain('maz-ui:')
+      expect(result).toContain('core:')
     })
   })
 
@@ -163,7 +194,7 @@ Content here`
     it('Then preserves special characters in summary', () => {
       const changelog = 'Added @mentions & #tags support.'
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toBe('Added @mentions & #tags support.')
     })
@@ -171,7 +202,7 @@ Content here`
     it('Then handles URLs in changelog', () => {
       const changelog = 'See https://example.com for details'
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toBe('See https://example.com for details.')
     })
@@ -184,7 +215,7 @@ Content here`
 
 Second paragraph.`
 
-      const result = extractChangelogSummary(changelog, 100)
+      const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
       expect(result).toContain('First paragraph')
       expect(result).toContain('Second paragraph')
