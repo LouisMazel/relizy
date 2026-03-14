@@ -832,6 +832,12 @@ export interface TemplatesConfig {
    * @default undefined
    */
   slackMessage?: string
+  /**
+   * Changelog section title template
+   * Available variables: {{oldVersion}}, {{newVersion}}, {{date}}
+   * @default '{{oldVersion}}...{{newVersion}}'
+   */
+  changelogTitle?: string
 }
 
 export interface RepoConfig {

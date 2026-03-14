@@ -35,6 +35,7 @@ export function getDefaultConfig() {
       emptyChangelogContent: 'No relevant changes for this release',
       twitterMessage: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
       slackMessage: undefined, // Use rich blocks format by default (no template)
+      changelogTitle: '{{oldVersion}}...{{newVersion}}',
     },
     excludeAuthors: [],
     noAuthors: false,

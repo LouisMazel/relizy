@@ -47,7 +47,10 @@ export async function generateMarkDown({
   // Version Title
   const versionTitle = updatedConfig.to
 
-  const changelogTitle = `${updatedConfig.from}...${updatedConfig.to}`
+  const changelogTitle = (updatedConfig.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}')
+    .replace('{{oldVersion}}', updatedConfig.from)
+    .replace('{{newVersion}}', updatedConfig.to)
+    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
   markdown.push('', `## ${changelogTitle}`, '')
 
   if (updatedConfig.repo && updatedConfig.from && versionTitle && !minify) {

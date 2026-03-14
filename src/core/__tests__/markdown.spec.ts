@@ -50,6 +50,44 @@ describe('Given generateMarkDown function', () => {
       expect(result).toContain('## v1.0.0...v1.1.0')
     })
 
+    it('Then uses custom changelogTitle template', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.templates = { ...config.templates, changelogTitle: '{{newVersion}}' }
+      const commits: GitCommit[] = [
+        createMockCommit('feat', 'add new feature'),
+      ]
+
+      const result = await generateMarkDown({
+        commits,
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      expect(result).toContain('## v1.1.0')
+      expect(result).not.toContain('v1.0.0...v1.1.0')
+    })
+
+    it('Then supports date variable in changelogTitle template', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.templates = { ...config.templates, changelogTitle: '{{newVersion}} ({{date}})' }
+      const commits: GitCommit[] = [
+        createMockCommit('feat', 'add new feature'),
+      ]
+
+      const result = await generateMarkDown({
+        commits,
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      const today = new Date().toISOString().split('T')[0]
+      expect(result).toContain(`## v1.1.0 (${today})`)
+    })
+
     it('Then includes compare link when repo config exists', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.repo = {
