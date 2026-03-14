@@ -39,12 +39,14 @@ runs:
         registry-url: ${{ inputs.registry-url }}
 
     - name: Setup Nx cache
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
-        path: .nx/cache
-        key: ${{ runner.os }}-nx-${{ hashFiles('**/package.json', '**/pnpm-lock.yaml') }}
+        path: |
+          .nx/cache
+          .nx/workspace-data
+        key: ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-nx-
+          ${{ runner.os }}-nx-${{ hashFiles('nx.json', 'pnpm-lock.yaml') }}
 
     - name: Install dependencies
       shell: bash
