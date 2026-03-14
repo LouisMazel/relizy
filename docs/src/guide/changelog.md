@@ -275,7 +275,7 @@ export default defineConfig({
 
 Available variables: `{{oldVersion}}`, `{{newVersion}}`, `{{date}}`.
 
-See [Changelog Configuration](/config/changelog#changelog-title-template) for more details.
+See [Changelog Configuration](../config/changelog.md#changelog-title-template) for more details.
 
 ## Changelog Output
 
@@ -445,6 +445,6 @@ export default defineConfig({
 
 ## Next Steps
 
-- [Getting Started](/guide/getting-started) - Learn basic usage
-- [CLI Reference](/cli/changelog) - Changelog command details
-- [Configuration](/config/changelog) - Advanced changelog options
+- [Getting Started](./getting-started.md) - Learn basic usage
+- [CLI Reference](../cli/changelog.md) - Changelog command details
+- [Configuration](../config/changelog.md) - Advanced changelog options

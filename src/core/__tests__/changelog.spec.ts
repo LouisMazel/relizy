@@ -50,6 +50,7 @@ describe('Given generateChangelog function', () => {
       emptyChangelogContent: 'No significant changes',
       twitterMessage: '',
       slackMessage: undefined,
+      changelogTitle: '{{oldVersion}}...{{newVersion}}',
     }
     vi.mocked(getFirstCommit).mockReturnValue('abc123')
     vi.mocked(generateMarkDown).mockResolvedValue('## v1.0.0...v1.1.0\n\n- Feature added')

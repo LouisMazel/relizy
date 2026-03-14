@@ -465,6 +465,7 @@ describe('Given createCommitAndTags function', () => {
       emptyChangelogContent: 'No relevant changes for this release',
       twitterMessage: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
       slackMessage: undefined,
+      changelogTitle: '{{oldVersion}}...{{newVersion}}',
     }
     config.release = {
       gitTag: true,

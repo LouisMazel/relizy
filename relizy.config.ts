@@ -18,6 +18,7 @@ export default defineConfig({
 
   templates: {
     emptyChangelogContent: 'No relevant changes since last release',
+    changelogTitle: '{{newVersion}} ({{date}})',
   },
 
   changelog: {
