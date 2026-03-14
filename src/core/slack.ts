@@ -63,7 +63,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
 }): any[] {
   // Use template if provided, otherwise use blocks
   if (template) {
-    const summary = extractChangelogSummary(changelog, 500)
+    const summary = extractChangelogSummary(changelog, { maxLength: 500 })
     let message = template
       .replace('{{projectName}}', projectName)
       .replace('{{newVersion}}', version)

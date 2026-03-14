@@ -3,17 +3,22 @@ import type { ResolvedRelizyConfig } from './config'
 /**
  * Extract a summary from changelog content
  */
-export function extractChangelogSummary(changelog: string, maxLength?: number): string {
+export function extractChangelogSummary(changelog: string, { stripBoldMarkers = false, maxLength }: { stripBoldMarkers?: boolean, maxLength?: number } = {}): string {
   if (changelog.trim() === '') {
     return ''
   }
 
   // Remove markdown headers
-  const cleaned = changelog
+  let cleaned = changelog
     .split('\n')
     .filter(line => !line.startsWith('#'))
     .join('\n')
-    .trim()
+
+  if (stripBoldMarkers) {
+    cleaned = cleaned.replace(/\*\*([^*]+):\*\*/g, '$1:')
+  }
+
+  cleaned = cleaned.trim()
 
   // remove trailing punctuation
   let cleanedResult = cleaned
