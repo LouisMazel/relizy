@@ -37,13 +37,13 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
 
       - run: npm ci
 
@@ -155,7 +155,7 @@ env:
 For operations requiring wider permissions, use a Personal Access Token:
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
   with:
     token: ${{ secrets.PAT_TOKEN }}
 ```
@@ -202,13 +202,13 @@ jobs:
       pull-requests: write # Required for PR comments
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
 
@@ -269,15 +269,15 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
           cache: npm
 
@@ -337,13 +337,13 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           cache: pnpm
 
       - name: Install pnpm
@@ -392,13 +392,13 @@ jobs:
       version: ${{ steps.bump.outputs.version }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
 
       - run: npm ci
 
@@ -431,13 +431,13 @@ jobs:
       packages: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: v${{ needs.bump.outputs.version }}
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
           registry-url: 'https://registry.npmjs.org'
 
       - run: npm ci
@@ -453,7 +453,7 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           ref: v${{ needs.bump.outputs.version }}
 
@@ -472,8 +472,8 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
       - run: npm ci
       - run: npm test
 
@@ -535,13 +535,13 @@ jobs:
       pull-requests: write # Required for PR comments
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
         with:
           fetch-depth: 0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: '20'
+          node-version: '24'
 
       - run: npm ci
 
@@ -608,7 +608,7 @@ jobs:
 Speed up workflows:
 
 ```yaml
-- uses: actions/setup-node@v4
+- uses: actions/setup-node@v6
   with:
     cache: npm # or 'pnpm' or 'yarn'
 ```
@@ -653,7 +653,7 @@ permissions:
 Use a PAT instead of `GITHUB_TOKEN`:
 
 ```yaml
-- uses: actions/checkout@v4
+- uses: actions/checkout@v6
   with:
     token: ${{ secrets.PAT_TOKEN }}
 ```
