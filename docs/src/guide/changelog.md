@@ -257,6 +257,26 @@ Relizy automatically creates clickable links to commits and comparisons:
 
 The git remote is auto-detected from your repository.
 
+## Changelog Title
+
+By default, the changelog section title shows `v1.1.0...v1.2.0`. You can customize it with the `templates.changelogTitle` option:
+
+```ts
+// relizy.config.ts
+export default defineConfig({
+  templates: {
+    // Show only the new version
+    changelogTitle: '{{newVersion}}',
+    // Or include the date
+    // changelogTitle: '{{newVersion}} ({{date}})',
+  },
+})
+```
+
+Available variables: `{{oldVersion}}`, `{{newVersion}}`, `{{date}}`.
+
+See [Changelog Configuration](/config/changelog#changelog-title-template) for more details.
+
 ## Changelog Output
 
 ### Markdown Files
