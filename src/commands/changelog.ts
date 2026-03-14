@@ -226,7 +226,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
       generatedCount++
 
       if (dryRun) {
-        logger.info(`[dry-run] ${pkg.name}: changelog generated:\n\n${changelog}`)
+        logger.box(`[dry-run] ${pkg.name}: Changelog Preview:\n\n${changelog}`)
       }
       else {
         logger.debug(`${pkg.name}: changelog written`)

@@ -189,7 +189,8 @@ async function gitlabIndependentMode({
     logger.debug(`Creating release for ${to} (ref: ${release.ref})`)
 
     if (dryRun) {
-      logger.info(`[dry-run] Publish GitLab release for ${to}`)
+      logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
+      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
     }
     else {
       logger.debug(`Publishing release ${to} to GitLab...`)
@@ -266,7 +267,8 @@ async function gitlabUnified({
   }))
 
   if (dryRun) {
-    logger.info('[dry-run] Publish GitLab release for', release.tag_name)
+    logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
+    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
   }
   else {
     logger.debug('Publishing release to GitLab...')

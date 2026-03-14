@@ -401,7 +401,7 @@ describe('Given postReleaseToTwitter function', () => {
         postMaxLength: 280,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.any(String))
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Twitter Post Preview'))
       expect(logger.debug).toHaveBeenCalled()
     })
 
@@ -481,8 +481,7 @@ describe('Given postReleaseToTwitter function', () => {
         postMaxLength: 280,
       })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        '[dry-run] Would post tweet:',
+      expect(logger.box).toHaveBeenCalledWith(
         expect.stringContaining('Custom: my-pkg 2.0.0'),
       )
     })
@@ -560,7 +559,7 @@ describe('Given postReleaseToTwitter function', () => {
         postMaxLength: 280,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post tweet:', expect.stringContaining('https://github.com'))
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('https://github.com'))
     })
 
     it('Then formats tweet with changelogUrl', async () => {
@@ -580,8 +579,7 @@ describe('Given postReleaseToTwitter function', () => {
         postMaxLength: 280,
       })
 
-      expect(logger.info).toHaveBeenCalledWith(
-        '[dry-run] Would post tweet:',
+      expect(logger.box).toHaveBeenCalledWith(
         expect.stringContaining('CHANGELOG.md'),
       )
     })

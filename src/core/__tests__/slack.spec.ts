@@ -483,7 +483,7 @@ describe('Given postReleaseToSlack function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post to Slack:', expect.any(String))
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Slack Post Preview'))
       expect(logger.debug).toHaveBeenCalled()
     })
 
@@ -556,7 +556,7 @@ describe('Given postReleaseToSlack function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalledWith('[dry-run] Would post to Slack:', expect.stringContaining('Custom: my-pkg 2.0.0'))
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('Custom: my-pkg 2.0.0'))
     })
   })
 
@@ -714,7 +714,7 @@ describe('Given postReleaseToSlack function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalled()
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('#releases'))
     })
 
     it('Then works with channel ID format', async () => {
@@ -727,7 +727,7 @@ describe('Given postReleaseToSlack function', () => {
         dryRun: true,
       })
 
-      expect(logger.info).toHaveBeenCalled()
+      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('C1234567890'))
     })
   })
 })

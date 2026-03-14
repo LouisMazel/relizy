@@ -191,7 +191,13 @@ export async function postReleaseToSlack({
   logger.debug(`Message blocks (${blocks.length} blocks)`)
 
   if (dryRun) {
-    logger.info('[dry-run] Would post to Slack:', JSON.stringify(blocks, null, 2))
+    const preview = blocks
+      .filter((b: any) => b.type === 'header' || b.type === 'section')
+      .map((b: any) => b.text?.text ?? '')
+      .filter(Boolean)
+      .join('\n\n')
+
+    logger.box(`[dry-run] Slack Post Preview (channel: ${channel})\n\n${preview}`)
     return
   }
 
