@@ -232,7 +232,7 @@ The `pull-requests: write` permission is required for posting PR comments with `
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:

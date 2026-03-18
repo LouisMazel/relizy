@@ -228,7 +228,7 @@ jobs:
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   only:
     - main
@@ -251,7 +251,7 @@ version: 2.1
 jobs:
   release:
     docker:
-      - image: cimg/node:20.0
+      - image: cimg/node:24.0
     steps:
       - checkout
       - restore_cache:
