@@ -191,7 +191,7 @@ This workflow:
 
 ```yaml
 canary:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci

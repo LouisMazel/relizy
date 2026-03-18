@@ -16,7 +16,7 @@ Create `.gitlab-ci.yml`:
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -38,7 +38,7 @@ Best for controlled releases:
 
 ```yaml
 release:patch:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -48,7 +48,7 @@ release:patch:
     - main
 
 release:minor:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -58,7 +58,7 @@ release:minor:
     - main
 
 release:major:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -74,7 +74,7 @@ Automatic releases:
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci
@@ -95,7 +95,7 @@ Release when tags are pushed:
 
 ```yaml
 publish:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci
@@ -113,7 +113,7 @@ Automated periodic releases:
 
 ```yaml
 scheduled_release:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci
@@ -165,7 +165,7 @@ Publish a temporary test version on every merge request:
 
 ```yaml
 canary:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci
@@ -256,7 +256,7 @@ stages:
   - release
 
 .pnpm_base:
-  image: node:20
+  image: node:24
   before_script:
     - npm install -g pnpm
     - pnpm install
@@ -307,7 +307,7 @@ stages:
   - release
 
 bump_version:
-  image: node:20
+  image: node:24
   stage: bump
   when: manual
   script:
@@ -329,7 +329,7 @@ bump_version:
       dotenv: version.env
 
 publish_npm:
-  image: node:20
+  image: node:24
   stage: publish
   dependencies:
     - bump_version
@@ -343,7 +343,7 @@ publish_npm:
     - tags
 
 create_release:
-  image: node:20
+  image: node:24
   stage: release
   dependencies:
     - publish_npm
@@ -361,7 +361,7 @@ Pass release type dynamically:
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -386,7 +386,7 @@ Release after MR is merged:
 
 ```yaml
 release_on_merge:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - npm ci
@@ -404,7 +404,7 @@ For monorepos, publish packages in parallel:
 
 ```yaml
 .publish_base:
-  image: node:20
+  image: node:24
   stage: publish
   script:
     - npm ci
@@ -422,7 +422,7 @@ Use GitLab environments for release tracking:
 
 ```yaml
 release:production:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -435,7 +435,7 @@ release:production:
     - main
 
 release:staging:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -470,7 +470,7 @@ notify:slack:
 
 ```yaml
 release:
-  image: node:20
+  image: node:24
   stage: deploy
   script:
     - relizy release --yes
@@ -486,7 +486,7 @@ Relizy can automatically post release information as a comment on the merge requ
 
 ```yaml
 release_with_mr_comment:
-  image: node:20
+  image: node:24
   stage: deploy
   when: manual
   script:
@@ -509,7 +509,7 @@ You can also run the PR comment as a standalone step:
 
 ```yaml
 mr_comment:
-  image: node:20
+  image: node:24
   stage: .post
   script:
     - npm ci
