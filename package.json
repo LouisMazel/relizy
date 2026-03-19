@@ -100,7 +100,7 @@
   },
   "devDependencies": {
     "@commitlint/cli": "^20.4.4",
-    "@commitlint/config-conventional": "20.4.4",
+    "@commitlint/config-conventional": "20.5.0",
     "@commitlint/cz-commitlint": "^20.4.4",
     "@commitlint/types": "^20.4.4",
     "@maz-ui/eslint-config": "^4.7.0",
