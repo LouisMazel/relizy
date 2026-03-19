@@ -355,6 +355,20 @@ describe('Given formatTweetMessage function', () => {
       expect(result).toContain('🎉')
     })
 
+    it('Then escapes @ mentions in changelog to prevent unintended Twitter mentions', () => {
+      const result = formatTweetMessage({
+        template: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}',
+        projectName: 'maz-ui',
+        version: '4.9.0',
+        changelog: '- @maz-ui/mcp: Search engine improvements\n- @maz-ui/nuxt: Provide NuxtLink component',
+        postMaxLength: 280,
+      })
+
+      expect(result).not.toMatch(/@maz/)
+      expect(result).toContain('@\u200Bmaz-ui/mcp')
+      expect(result).toContain('@\u200Bmaz-ui/nuxt')
+    })
+
     it('Then handles URLs with special characters', () => {
       const result = formatTweetMessage({
         template: '{{projectName}} {{releaseUrl}}',
