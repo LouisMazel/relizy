@@ -90,17 +90,21 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
   const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
   const availableForChangelog = MAX_LENGTH - templateWithoutChangelog.length
 
-  // Step 3: Truncate changelog if needed
-  let finalChangelog = changelogSummary
-  if (changelogSummary.length > availableForChangelog) {
+  // Step 3: Escape @ mentions in changelog to prevent unintended Twitter mentions
+  // by inserting a zero-width space after @ (e.g., scoped package names like @scope/pkg)
+  const escapedChangelog = changelogSummary.replace(/@\b/g, '@\u200B')
+
+  // Step 4: Truncate changelog if needed
+  let finalChangelog = escapedChangelog
+  if (escapedChangelog.length > availableForChangelog) {
     const maxLength = Math.max(0, availableForChangelog - ELLIPSIS.length)
-    finalChangelog = changelogSummary.substring(0, maxLength) + ELLIPSIS
+    finalChangelog = escapedChangelog.substring(0, maxLength) + ELLIPSIS
   }
 
-  // Step 4: Build final message
+  // Step 5: Build final message
   let message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
 
-  // Step 5: Safety check - if message still exceeds limit, truncate entire message
+  // Step 6: Safety check - if message still exceeds limit, truncate entire message
   // This should only happen if the template + URLs alone are > 280 chars
   if (message.length > MAX_LENGTH) {
     message = message.substring(0, MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
