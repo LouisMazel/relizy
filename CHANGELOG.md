@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.2.1 (2026-03-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.0...v1.2.1)
+
+### 🩹 Fixes
+
+- **relizy:** Escape @ mentions in changelog to prevent unintended Twitter user tags ([7222aec](https://github.com/LouisMazel/relizy/commit/7222aec))
+
+### ❤️ Contributors
+
+- LouisMazel <me@loicmazuel.com>
+
 ## v1.2.0 (2026-03-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.1.0...v1.2.0)
