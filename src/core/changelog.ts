@@ -4,6 +4,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils'
 import { getFirstCommit } from './git'
 import { generateMarkDown } from './markdown'
 import { getIndependentTag } from './tags'
@@ -105,7 +106,7 @@ export async function generateChangelog(
     return changelog
   }
   catch (error) {
-    throw new Error(`Error generating changelog for ${pkg.name} (${fromTag}...${toTag}): ${error}`)
+    throw new Error(`Error generating changelog for ${pkg.name} (${fromTag}...${toTag}): ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

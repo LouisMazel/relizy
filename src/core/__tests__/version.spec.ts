@@ -392,7 +392,7 @@ describe('Given getPackageNewVersion function', () => {
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump "test" version "2.0.0-rc.1" to "2.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrow('Unable to bump "test" version "2.0.0-rc.1" to "2.0.0-alpha.0", new version is not greater than current version')
     })
   })
 
@@ -444,7 +444,7 @@ describe('Given getPackageNewVersion function', () => {
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump "test" version "1.0.0-beta.0" to "1.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrow('Unable to bump "test" version "1.0.0-beta.0" to "1.0.0-alpha.0", new version is not greater than current version')
     })
 
     it('Then throws error when downgrading preid from rc to beta', () => {
@@ -456,7 +456,7 @@ describe('Given getPackageNewVersion function', () => {
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump "test" version "1.0.0-rc.5" to "1.0.0-beta.0", new version is not greater than current version')
+      expect(result).toThrow('Unable to bump "test" version "1.0.0-rc.5" to "1.0.0-beta.0", new version is not greater than current version')
     })
 
     it('Then throws error when downgrading preid from rc to alpha', () => {
@@ -468,7 +468,7 @@ describe('Given getPackageNewVersion function', () => {
         suffix: undefined,
       })
 
-      expect(result).toThrowError('Unable to bump "test" version "2.0.0-rc.0" to "2.0.0-alpha.0", new version is not greater than current version')
+      expect(result).toThrow('Unable to bump "test" version "2.0.0-rc.0" to "2.0.0-alpha.0", new version is not greater than current version')
     })
   })
 
@@ -546,7 +546,7 @@ describe('Given getPackageNewVersion function', () => {
         suffix: undefined,
       })
 
-      expect(secondBump).toThrowError('Unable to bump "test" version "1.0.1-alpha.build1" to "1.0.1-alpha.0", new version is not greater than current version')
+      expect(secondBump).toThrow('Unable to bump "test" version "1.0.1-alpha.build1" to "1.0.1-alpha.0", new version is not greater than current version')
 
       const thirdBump = getPackageNewVersion({
         name: 'test',
@@ -881,7 +881,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toThrowError('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
+      expect(result).toThrow('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
     })
 
     it('Then throws error when preid is provided with prerelease version', () => {
@@ -895,7 +895,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toThrowError('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
+      expect(result).toThrow('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
     })
 
     it('Then throws error when preid is provided with force', () => {
@@ -909,7 +909,7 @@ describe('Given determineReleaseType function', () => {
         force: true,
       })
 
-      expect(result).toThrowError('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
+      expect(result).toThrow('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
     })
   })
 
@@ -1113,7 +1113,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toThrowError('Unable to graduate from 1.0.0-beta.0 to 1.0.0-alpha.0, it\'s not a valid prerelease')
+      expect(result).toThrow('Unable to graduate from 1.0.0-beta.0 to 1.0.0-alpha.0, it\'s not a valid prerelease')
     })
 
     it('Then throws error when downgrading from rc to beta', () => {
@@ -1127,7 +1127,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toThrowError('Unable to graduate from 1.0.0-rc.3 to 1.0.0-beta.0, it\'s not a valid prerelease')
+      expect(result).toThrow('Unable to graduate from 1.0.0-rc.3 to 1.0.0-beta.0, it\'s not a valid prerelease')
     })
 
     it('Then throws error when downgrading from rc to alpha', () => {
@@ -1141,7 +1141,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toThrowError('Unable to graduate from 2.0.0-rc.1 to 2.0.0-alpha.0, it\'s not a valid prerelease')
+      expect(result).toThrow('Unable to graduate from 2.0.0-rc.1 to 2.0.0-alpha.0, it\'s not a valid prerelease')
     })
 
     it('Then throws error when downgrading with force', () => {
@@ -1155,7 +1155,7 @@ describe('Given determineReleaseType function', () => {
         force: true,
       })
 
-      expect(result).toThrowError('Unable to graduate from 1.0.0-beta.0 to 1.0.0-alpha.0, it\'s not a valid prerelease')
+      expect(result).toThrow('Unable to graduate from 1.0.0-beta.0 to 1.0.0-alpha.0, it\'s not a valid prerelease')
     })
   })
 

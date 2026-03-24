@@ -41,7 +41,7 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
   }
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+// eslint-disable-next-line complexity
 export async function publish(options: Partial<PublishOptions> = {}) {
   const config = await loadRelizyConfig({
     configFile: options.configName,
