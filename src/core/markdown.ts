@@ -121,7 +121,7 @@ export async function generateMarkDown({
 
   if (updatedConfig.repo?.provider === 'github') {
     await Promise.all(
-      [..._authors.keys()].map(async (authorName) => {
+      Array.from(_authors.keys(), async (authorName) => {
         const meta = _authors.get(authorName)
 
         if (!meta) {
@@ -142,7 +142,7 @@ export async function generateMarkDown({
     )
   }
 
-  const authors = [..._authors.entries()].map(e => ({
+  const authors = Array.from(_authors.entries(), e => ({
     name: e[0],
     ...e[1],
   }))
@@ -166,9 +166,7 @@ export async function generateMarkDown({
     )
   }
 
-  const result = convert(markdown.join('\n').trim(), true)
-
-  return result
+  return convert(markdown.join('\n').trim(), true)
 }
 
 export function parseChangelogMarkdown(contents: string) {

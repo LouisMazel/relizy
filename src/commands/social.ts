@@ -3,11 +3,11 @@ import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils'
 import { executeHook, generateChangelog, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
   try {
     const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
@@ -77,9 +77,8 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
     logger.info('Social config checked successfully')
   }
   catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    logger.error('Error during social safety check:', errorMessage)
-    throw new Error(`Error during social safety check: ${errorMessage}`)
+    logger.error('Error during social safety check:', getErrorMessage(error))
+    throw new Error(`Error during social safety check: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

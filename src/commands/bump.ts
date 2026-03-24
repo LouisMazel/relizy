@@ -403,7 +403,7 @@ async function bumpCanaryMode({
   }
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+// eslint-disable-next-line complexity
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,

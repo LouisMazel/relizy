@@ -26,7 +26,7 @@ async function fetchContributors() {
 
     const baseContributors = await response.json() as { contributors: { id: number, username: string, contributions: number }[] }
 
-    const contributors = await Promise.all(baseContributors.contributors.map(async (contributor) => {
+    return await Promise.all(baseContributors.contributors.map(async (contributor) => {
       const userResponse = await fetch(`https://ungh.cc/users/find/${contributor.username}`)
       const isCreator = creators?.includes(contributor.username)
       const isMaintainer = maintainers?.includes(contributor.username)
@@ -57,8 +57,6 @@ async function fetchContributors() {
         githubLink,
       }
     }))
-
-    return contributors
   }
   catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)

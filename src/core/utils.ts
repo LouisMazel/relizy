@@ -2,6 +2,7 @@ import type { BumpResultTruthy, HookConfig, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils'
 import { getPackages } from './repo'
 
 /**
@@ -167,7 +168,7 @@ export async function executeFormatCmd({
       }
     }
     catch (error) {
-      throw new Error(`Format command failed: ${error}`)
+      throw new Error(`Format command failed: ${getErrorMessage(error)}`, { cause: error })
     }
   }
   else {
