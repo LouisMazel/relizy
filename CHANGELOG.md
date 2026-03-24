@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.2-beta.0 (2026-03-24)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.1...v1.2.2-beta.0)
+
+### 🩹 Fixes
+
+- **repo:** Normalize path separators to POSIX before commit body matching ([5bd83d3](https://github.com/LouisMazel/relizy/commit/5bd83d3))
+
+  On Windows, `path.relative()` returns backslash-separated paths (e.g.
+  `packages\admin`) while `git log --name-status` always outputs forward
+  slashes (e.g. `packages/admin/src/main.ts`). The `String.includes()`
+  check therefore always returned `false` on win32, causing every package's
+  commit list to be empty in independent monorepo mode and relizy to report
+  "No packages to bump, no relevant commits found".
+  Fix both affected sites in `isCommitOfTrackedPackages` and `getPackageCommits`
+  by normalizing the `path.relative()` result with `.split(sep).join('/')`
+  before the `includes` comparison.
+  Fixes #52
+  Co-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>
+
+### ❤️ Contributors
+
+- Ruan-cat ([@ruan-cat](https://github.com/ruan-cat))
+
 ## v1.2.1 (2026-03-19)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.0...v1.2.1)
