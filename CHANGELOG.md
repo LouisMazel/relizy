@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.2-beta.1 (2026-03-24)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.0...v1.2.2-beta.1)
+
+### 🩹 Fixes
+
+- **relizy:** Compute per-package canary versions in independent mode ([1e3df0d](https://github.com/LouisMazel/relizy/commit/1e3df0d))
+
+  Closes #51
+
+### 📦 Build
+
+- Upgrade dependencies ([0b0d65c](https://github.com/LouisMazel/relizy/commit/0b0d65c))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.2.2-beta.0 (2026-03-24)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.1...v1.2.2-beta.0)
