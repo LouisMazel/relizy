@@ -3,8 +3,9 @@ import type { ConfigType, PackageBase, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils'
 import { getGitDiff, parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
@@ -140,8 +141,7 @@ export async function getRootPackage({
     }
   }
   catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    throw new Error(errorMessage)
+    throw new Error(`Failed to get root package: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 
@@ -425,7 +425,7 @@ function isCommitOfTrackedPackages({
   })
 
   return packages.some((pkg) => {
-    const path = relative(config.cwd, pkg.path)
+    const path = relative(config.cwd, pkg.path).split(sep).join('/')
     return commit.body.includes(path)
   })
 }
@@ -492,7 +492,7 @@ export async function getPackageCommits({
       return true
     }
 
-    const packageRelativePath = relative(changelogConfig.cwd, pkg.path)
+    const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
 
     const bodyContainsPath = commit.body.includes(packageRelativePath)
 

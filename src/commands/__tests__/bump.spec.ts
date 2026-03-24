@@ -1040,5 +1040,160 @@ describe('Given bump command', () => {
 
       expect(result.bumped).toBe(false)
     })
+
+    it('Then computes per-package canary versions in independent mode', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: true,
+        },
+        release: { clean: false },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+          fix: { title: 'Bug Fixes', semver: 'patch' },
+        },
+        templates: { tagBody: '{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+
+      const featCommit = createMockCommit('feat', 'add feature')
+      const fixCommit = createMockCommit('fix', 'fix bug')
+
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: '@my-org/ui',
+          version: '9.1.0',
+          path: `${mockCwd}/packages/ui`,
+          newVersion: '9.2.0',
+          reason: 'commits',
+          commits: [featCommit],
+          fromTag: '@my-org/ui@9.1.0',
+          dependencies: [],
+          private: false,
+        },
+        {
+          name: '@my-org/config',
+          version: '1.2.0',
+          path: `${mockCwd}/packages/config`,
+          newVersion: '1.2.1',
+          reason: 'commits',
+          commits: [fixCommit],
+          fromTag: '@my-org/config@1.2.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+
+      // determineSemverChange is called per-package in independent canary mode
+      vi.mocked(determineSemverChange)
+        .mockReturnValueOnce('minor') // @my-org/ui has feat commit
+        .mockReturnValueOnce('patch') // @my-org/config has fix commit
+
+      vi.mocked(getCanaryVersion)
+        .mockReturnValueOnce('9.2.0-canary.abc1234.0') // @my-org/ui
+        .mockReturnValueOnce('1.2.1-canary.abc1234.0') // @my-org/config
+
+      const result = await bump({
+        canary: true,
+        yes: true,
+      })
+
+      expect(result.bumped).toBe(true)
+      if (result.bumped) {
+        // In independent mode, no single newVersion or rootPackage
+        expect(result.newVersion).toBeUndefined()
+        expect(result.rootPackage).toBeUndefined()
+
+        expect(result.bumpedPackages).toHaveLength(2)
+        expect(result.bumpedPackages[0].name).toBe('@my-org/ui')
+        expect(result.bumpedPackages[0].newVersion).toBe('9.2.0-canary.abc1234.0')
+        expect(result.bumpedPackages[0].oldVersion).toBe('9.1.0')
+
+        expect(result.bumpedPackages[1].name).toBe('@my-org/config')
+        expect(result.bumpedPackages[1].newVersion).toBe('1.2.1-canary.abc1234.0')
+        expect(result.bumpedPackages[1].oldVersion).toBe('1.2.0')
+      }
+
+      // getCanaryVersion should be called with each package's own version
+      expect(getCanaryVersion).toHaveBeenCalledWith({
+        currentVersion: '9.1.0',
+        releaseType: 'minor',
+        preid: 'canary',
+        sha: 'abc1234',
+      })
+      expect(getCanaryVersion).toHaveBeenCalledWith({
+        currentVersion: '1.2.0',
+        releaseType: 'patch',
+        preid: 'canary',
+        sha: 'abc1234',
+      })
+
+      // Should NOT read root package.json or resolve root tags
+      expect(readPackageJson).not.toHaveBeenCalled()
+      expect(resolveTags).not.toHaveBeenCalled()
+      expect(getPackageCommits).not.toHaveBeenCalled()
+
+      // writeVersion called once per package (no root)
+      expect(writeVersion).toHaveBeenCalledTimes(2)
+      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/ui`, '9.2.0-canary.abc1234.0', false)
+      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/config`, '1.2.1-canary.abc1234.0', false)
+    })
+
+    it('Then calls confirmBump with independent versionMode for canary independent mode', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: {
+          type: 'release',
+          yes: false,
+        },
+        release: { clean: false },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+        },
+        templates: { tagBody: '{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '2.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '2.1.0',
+          reason: 'commits',
+          commits: [createMockCommit('feat', 'add feature')],
+          fromTag: 'pkg-a@2.0.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+
+      vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('2.1.0-canary.abc1234.0')
+
+      await bump({
+        canary: true,
+      })
+
+      expect(confirmBump).toHaveBeenCalledWith(
+        expect.objectContaining({
+          versionMode: 'independent',
+          force: false,
+        }),
+      )
+    })
   })
 })

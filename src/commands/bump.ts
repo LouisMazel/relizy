@@ -303,6 +303,19 @@ async function bumpCanaryMode({
 }): Promise<BumpResult> {
   logger.debug('Starting bump in canary mode')
 
+  // Branch early for independent mode — each package gets its own canary version
+  if (config.monorepo?.versionMode === 'independent') {
+    const sha = getShortCommitSha(config.cwd)
+    const packages = await getPackages({ config, suffix: undefined, force: false })
+
+    if (packages.length === 0) {
+      logger.debug('No packages to bump')
+      return { bumped: false }
+    }
+
+    return bumpCanaryIndependentMode({ config, dryRun, preid, sha, packages })
+  }
+
   const rootPackageBase = readPackageJson(config.cwd)
 
   if (!rootPackageBase) {
@@ -354,7 +367,7 @@ async function bumpCanaryMode({
   }
 
   // Override newVersion on each package with the canary version
-  const packagesWithCanaryVersion = packages.map(pkg => ({
+  const packagesWithCanaryVersion = packages.map((pkg: import('../types').PackageBase) => ({
     ...pkg,
     newVersion: canaryVersion,
   }))
@@ -394,7 +407,7 @@ async function bumpCanaryMode({
       commits,
       newVersion: canaryVersion,
     },
-    bumpedPackages: packages.map(pkg => ({
+    bumpedPackages: packages.map((pkg: import('../types').PackageBase) => ({
       ...pkg,
       oldVersion: pkg.version,
       newVersion: canaryVersion,
@@ -403,7 +416,71 @@ async function bumpCanaryMode({
   }
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+async function bumpCanaryIndependentMode({
+  config,
+  dryRun,
+  preid,
+  sha,
+  packages,
+}: {
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  preid: string
+  sha: string
+  packages: import('../types').PackageBase[]
+}): Promise<BumpResult> {
+  logger.debug('Starting canary bump in independent mode')
+
+  const typesConfig = config.types as Record<string, { title: string, semver?: import('changelogen').SemverBumpType }>
+
+  // Compute per-package canary versions based on each package's own version and commits
+  const packagesWithCanaryVersion = packages.map((pkg) => {
+    const releaseType = determineSemverChange(pkg.commits, typesConfig)
+
+    const canaryVersion = getCanaryVersion({
+      currentVersion: pkg.version,
+      releaseType,
+      preid,
+      sha,
+    })
+
+    return {
+      ...pkg,
+      newVersion: canaryVersion,
+    }
+  })
+
+  if (!config.bump.yes) {
+    await confirmBump({
+      versionMode: 'independent',
+      config,
+      packages: packagesWithCanaryVersion,
+      force: false,
+      dryRun,
+    })
+  }
+  else {
+    for (const pkg of packagesWithCanaryVersion) {
+      logger.info(`${pkg.name}: ${pkg.version} → ${pkg.newVersion} (canary)`)
+    }
+  }
+
+  for (const pkg of packagesWithCanaryVersion) {
+    writeVersion(pkg.path, pkg.newVersion!, dryRun)
+  }
+
+  logger.info(`${dryRun ? '[dry-run] ' : ''}${packagesWithCanaryVersion.length} package(s) bumped independently (canary)`)
+
+  return {
+    bumped: true,
+    bumpedPackages: packagesWithCanaryVersion.map(pkg => ({
+      ...pkg,
+      oldVersion: pkg.version,
+    })),
+  }
+}
+
+// eslint-disable-next-line complexity
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,

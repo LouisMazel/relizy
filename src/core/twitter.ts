@@ -169,7 +169,7 @@ export async function postReleaseToTwitter({
     // Check if it's a missing dependency error
     if (error.code === 'ERR_MODULE_NOT_FOUND' || error.message?.includes('twitter-api-v2')) {
       logger.error('Twitter API dependency not found. Please install it with: pnpm add twitter-api-v2')
-      throw new Error('Missing dependency: twitter-api-v2. Install it with: pnpm add twitter-api-v2')
+      throw new Error('Missing dependency: twitter-api-v2. Install it with: pnpm add twitter-api-v2', { cause: error })
     }
 
     logger.error('Failed to post tweet:', error.message || error)

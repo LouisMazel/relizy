@@ -11,7 +11,6 @@ import { isPrerelease } from './version'
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
   try {
     const packageJsonPath = join(cwd, 'package.json')
@@ -130,7 +129,6 @@ function isYarnBerry() {
   return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
 }
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
@@ -230,9 +228,7 @@ function isOtpError(error: unknown): boolean {
     'two factor',
   ]
 
-  const isOtp = otpPatterns.some(pattern => searchText.includes(pattern))
-
-  return isOtp
+  return otpPatterns.some(pattern => searchText.includes(pattern))
 }
 
 function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
