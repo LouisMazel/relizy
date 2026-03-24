@@ -50,7 +50,7 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getTwitterCredentials).mockReturnValue(null)
 
-      await expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Twitter credentials not found')
+      await expect(() => socialSafetyCheck({ config })).rejects.toThrow('Error during social safety check: Twitter credentials not found')
 
       expect(loggerErrorSpy).toHaveBeenCalledWith('Error during social safety check:', 'Twitter credentials not found')
     })
@@ -67,7 +67,7 @@ describe('Given socialSafetyCheck function', () => {
       })
       vi.mocked(getSlackToken).mockReturnValue(null)
 
-      await expect(() => socialSafetyCheck({ config })).rejects.toThrowError('Error during social safety check: Slack credentials not found')
+      await expect(() => socialSafetyCheck({ config })).rejects.toThrow('Error during social safety check: Slack credentials not found')
     })
   })
 

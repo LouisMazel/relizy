@@ -122,8 +122,7 @@ describe('Given getPackages function', () => {
     // Mock parseCommits to use our controlled map
     vi.mocked(changelogen.parseCommits).mockImplementation((_diff: any, _config: any) => {
       // Try to determine which package based on config
-      const commits = mockCommitsMap.get('default') || []
-      return commits
+      return mockCommitsMap.get('default') || []
     })
   })
 

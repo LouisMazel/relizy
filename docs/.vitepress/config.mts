@@ -1,4 +1,4 @@
-import type { HeadConfig } from 'vitepress'
+import type { HeadConfig, UserConfig } from 'vitepress'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
@@ -61,7 +61,6 @@ export default defineConfig({
     },
   },
 
-  // eslint-disable-next-line sonarjs/cognitive-complexity
   transformHead: ({ siteData, pageData, title, description, head }) => {
     const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
     const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
@@ -88,7 +87,7 @@ export default defineConfig({
     if (pageData.frontmatter.keywords) {
       const keywords = typeof pageData.frontmatter.keywords === 'string'
         ? pageData.frontmatter.keywords
-        // eslint-disable-next-line sonarjs/no-nested-conditional
+
         : Array.isArray(pageData.frontmatter.keywords)
           ? pageData.frontmatter.keywords.join(', ')
           : ''
@@ -117,7 +116,7 @@ export default defineConfig({
     logo: { src: 'https://raw.githubusercontent.com/LouisMazel/relizy/refs/heads/main/resources/logo.svg', alt: 'Relizy logo' },
 
     search: {
-      provider: 'local',
+      provider: 'local' as const,
     },
 
     socialLinks: [
@@ -339,7 +338,7 @@ export default defineConfig({
         plugins: [
           postcssIsolateStyles({
             includeFiles: [/vp-doc\.css/],
-          }),
+          }) as any,
         ],
       },
     },
@@ -347,4 +346,4 @@ export default defineConfig({
       noExternal: ['maz-ui'],
     },
   },
-})
+} satisfies UserConfig<NoInfer<any>>)

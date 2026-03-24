@@ -223,7 +223,7 @@ export async function postReleaseToSlack({
     // Check if it's a missing dependency error
     if (error.code === 'ERR_MODULE_NOT_FOUND' || error.message?.includes('@slack/web-api')) {
       logger.error('Slack Web API dependency not found. Please install it with: pnpm add @slack/web-api')
-      throw new Error('Missing dependency: @slack/web-api. Install it with: pnpm add @slack/web-api')
+      throw new Error('Missing dependency: @slack/web-api. Install it with: pnpm add @slack/web-api', { cause: error })
     }
 
     logger.error('Failed to post message:', error.message || error)
@@ -234,13 +234,13 @@ export async function postReleaseToSlack({
 
       switch (error.data.error) {
         case 'channel_not_found':
-          throw new Error('Slack channel not found. Make sure the channel ID or name is correct.')
+          throw new Error('Slack channel not found. Make sure the channel ID or name is correct.', { cause: error })
         case 'not_in_channel':
-          throw new Error('Bot is not in the channel. Invite the bot to the channel first.')
+          throw new Error('Bot is not in the channel. Invite the bot to the channel first.', { cause: error })
         case 'invalid_auth':
-          throw new Error('Invalid Slack token. Check your credentials.')
+          throw new Error('Invalid Slack token. Check your credentials.', { cause: error })
         case 'missing_scope':
-          throw new Error('Missing required OAuth scope. The bot needs "chat:write" permission.')
+          throw new Error('Missing required OAuth scope. The bot needs "chat:write" permission.', { cause: error })
         default:
           throw error
       }
