@@ -11,7 +11,6 @@ import { getIndependentTag, resolveTags } from './tags'
 import { getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
 
-// eslint-disable-next-line sonarjs/cognitive-complexity
 async function githubIndependentMode({
   config,
   dryRun,

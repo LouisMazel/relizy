@@ -5,6 +5,7 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils'
 import { getGitDiff, parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
@@ -140,8 +141,7 @@ export async function getRootPackage({
     }
   }
   catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    throw new Error(errorMessage)
+    throw new Error(`Failed to get root package: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

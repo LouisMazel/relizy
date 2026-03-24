@@ -6,7 +6,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
-import { formatJson } from '@maz-ui/utils'
+import { formatJson, getErrorMessage } from '@maz-ui/utils'
 import * as semver from 'semver'
 import { hasLernaJson } from './repo'
 
@@ -45,7 +45,6 @@ export function determineSemverChange(
     }
   }
 
-  // eslint-disable-next-line sonarjs/no-nested-conditional
   return hasMajor ? 'major' : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
 }
 
@@ -261,7 +260,7 @@ export function writeVersion(pkgPath: string, newVersion: string, dryRun = false
     logger.debug(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
   }
   catch (error) {
-    throw new Error(`Unable to write version to ${packageJsonPath}: ${error}`)
+    throw new Error(`Unable to write version to ${packageJsonPath}: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

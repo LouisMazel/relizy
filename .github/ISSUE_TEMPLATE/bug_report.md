@@ -27,10 +27,6 @@ assignees: LouisMazel
 
 <!-- A clear and concise description of what actually happens -->
 
-```vue
-<!-- Add your Vue code here -->
-```
-
 ```typescript
 // Add your TypeScript code here
 ```

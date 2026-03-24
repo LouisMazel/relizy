@@ -392,14 +392,12 @@ async function resolveFromTagUnified({
   const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
-  const from = await getLastRepoTag({
+  return await getLastRepoTag({
     pkg,
     onlyStable,
     logLevel,
     cwd: config.cwd,
   }) || getFirstCommit(config.cwd)
-
-  return from
 }
 
 async function resolveFromTag({

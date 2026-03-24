@@ -76,8 +76,7 @@ export default defineConfig({
   hooks: {
     'generate:changelog': async (config, dryRun, { commits, changelog }) => {
       // Use AI to enhance the changelog
-      const enhancedChangelog = await generateAIChangelog(commits)
-      return enhancedChangelog
+      return await generateAIChangelog(commits)
 
       // Or keep the original by returning nothing
       // return undefined
