@@ -1,7 +1,7 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockPackageInfo } from '../../../tests/mocks'
-import { getBootstrapTag, getLastPackageTag, getLastRepoTag } from '../tags'
+import { getBootstrapTag, getLastPackageTag, getLastRepoTag, getLastTag } from '../tags'
 
 vi.mock('@maz-ui/node', async (importActual) => {
   const actual = await importActual<typeof import('@maz-ui/node')>()
@@ -83,6 +83,19 @@ describe('Given tag lookup on Windows-compatible paths', () => {
     expect(tag).toBe('')
   })
 
+  it('returns empty string for legacy last-tag lookup when only package tags exist', async () => {
+    vi.mocked(execPromise).mockResolvedValueOnce({
+      stdout: 'pkg-a@1.2.0\npkg-b@1.0.0',
+      stderr: '',
+    } as Awaited<ReturnType<typeof execPromise>>)
+
+    const tag = await getLastTag({
+      cwd: '/repo',
+    })
+
+    expect(tag).toBe('')
+  })
+
   it('returns null when repo tag collection finds no compatible tag for the current version', async () => {
     vi.mocked(execPromise).mockResolvedValueOnce({
       stdout: 'v3.0.0\nv2.1.0-beta.0',
@@ -111,6 +124,21 @@ describe('Given tag lookup on Windows-compatible paths', () => {
     })
 
     expect(tag).toBeNull()
+  })
+
+  it('uses the non-stable legacy package pattern when version metadata is unavailable', async () => {
+    vi.mocked(execPromise).mockResolvedValueOnce({
+      stdout: '@scope/pkg@1.2.0-beta.0\n@scope/pkg@1.1.0',
+      stderr: '',
+    } as Awaited<ReturnType<typeof execPromise>>)
+
+    const tag = await getLastPackageTag({
+      pkg: createMockPackageInfo({ name: '@scope/pkg', version: undefined as any }),
+      onlyStable: false,
+      cwd: '/repo',
+    })
+
+    expect(tag).toBe('@scope/pkg@1.2.0-beta.0')
   })
 
   it('returns null when package tag collection catches downstream errors', async () => {
