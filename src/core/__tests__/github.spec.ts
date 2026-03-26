@@ -316,6 +316,33 @@ describe('Given github function', () => {
       )
     })
 
+    it('Then prefers config.from over bootstrap fallback for new packages', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        from: 'custom-from-tag',
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+        },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '__NEW_PACKAGE__' },
+      ])
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'custom-from-tag', to: 'pkg-a@1.0.0' }),
+        expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
+      )
+    })
+
     it('Then creates prerelease releases for new packages from bootstrap baseline', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         {
