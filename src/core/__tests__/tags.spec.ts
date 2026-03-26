@@ -4,7 +4,6 @@ import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
 const LAST_TAG = 'v1.0.0' // Simulates the most recent tag (could be stable or prerelease)
-const LAST_STABLE_TAG = 'v0.9.0' // Simulates the last stable tag
 
 vi.mock('../git', async (importActual) => {
   const actual = await importActual<typeof import('../git')>()
@@ -22,8 +21,7 @@ vi.mock('@maz-ui/node', async (importActual) => {
   return {
     ...actual,
     execPromise: vi.fn((param) => {
-      // Mock for getAllRecentRepoTags (returns multiple tags)
-      if (param === `git tag --sort=-creatordate | head -n 50`) {
+      if (param === 'git tag --sort=-creatordate') {
         // Simulate a realistic scenario:
         // - v2.0.0-beta.0 (newest, prerelease, major 2 - simulates future beta)
         // - v1.0.0 (LAST_TAG, stable, major 1)
@@ -31,20 +29,6 @@ vi.mock('@maz-ui/node', async (importActual) => {
         // - v0.8.0 (older stable)
         return Promise.resolve({
           stdout: 'v2.0.0-beta.0\nv1.0.0\nv0.9.0\nv0.8.0',
-        })
-      }
-
-      // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_STABLE_TAG, // v0.9.0
-        })
-      }
-
-      // Mock for getLastTag
-      if (param === `git tag --sort=-creatordate | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_TAG, // v1.0.0
         })
       }
 

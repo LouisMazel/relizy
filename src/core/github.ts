@@ -1,5 +1,5 @@
 import type { GitCommit } from 'changelogen'
-import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, PackageBase, PostedRelease, ProviderReleaseOptions } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -7,9 +7,98 @@ import { createGithubRelease } from 'changelogen'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getRootPackage, readPackageJson } from './repo'
-import { getIndependentTag, resolveTags } from './tags'
+import { getBootstrapTag, getIndependentTag, isNewPackageMarker, resolveTags } from './tags'
 import { getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
+
+function resolveIndependentReleaseFrom({
+  config,
+  pkg,
+}: {
+  config: ResolvedRelizyConfig
+  pkg: {
+    name: string
+    fromTag?: string
+  }
+}) {
+  if (config.from) {
+    return config.from
+  }
+
+  if (isNewPackageMarker(pkg.fromTag)) {
+    return getBootstrapTag({
+      packageName: pkg.name,
+      versionMode: 'independent',
+      tagTemplate: config.templates.tagBody,
+    })
+  }
+
+  return pkg.fromTag
+}
+
+async function createIndependentGithubPostedRelease({
+  config,
+  dryRun,
+  pkg,
+  repoConfig,
+}: {
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  pkg: PackageBase
+  repoConfig: NonNullable<ResolvedRelizyConfig['repo']>
+}): Promise<PostedRelease | null> {
+  const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+  const from = resolveIndependentReleaseFrom({ config, pkg })
+  const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
+
+  if (!from) {
+    logger.warn(`No from tag found for ${pkg.name}, skipping release`)
+    return null
+  }
+
+  const toTag = dryRun ? 'HEAD' : to
+
+  logger.debug(`Processing ${pkg.name}: ${from} 鈫?${toTag}`)
+
+  const changelog = await generateChangelog({
+    pkg,
+    config,
+    dryRun,
+    newVersion,
+  })
+
+  const releaseBody = changelog.split('\n').slice(2).join('\n')
+  const release = {
+    tag_name: to,
+    name: to,
+    body: releaseBody,
+    prerelease: isPrerelease(newVersion),
+  }
+
+  logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
+
+  if (dryRun) {
+    logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
+    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+  }
+  else {
+    logger.debug(`Publishing release ${to} to GitHub...`)
+
+    await createGithubRelease({
+      ...config,
+      from,
+      to,
+      repo: repoConfig,
+    }, release)
+  }
+
+  return {
+    name: pkg.name,
+    tag: release.tag_name,
+    version: newVersion,
+    prerelease: release.prerelease,
+  }
+}
 
 async function githubIndependentMode({
   config,
@@ -30,7 +119,7 @@ async function githubIndependentMode({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '鉁?provided' : '鉁?missing'}`)
 
   if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
@@ -48,64 +137,15 @@ async function githubIndependentMode({
   const postedReleases: PostedRelease[] = []
 
   for (const pkg of packages) {
-    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
-
-    const from = config.from || pkg.fromTag
-    const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
-
-    if (!from) {
-      logger.warn(`No from tag found for ${pkg.name}, skipping release`)
-      continue
-    }
-
-    const toTag = dryRun ? 'HEAD' : to
-
-    logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
-
-    const changelog = await generateChangelog({
-      pkg,
+    const postedRelease = await createIndependentGithubPostedRelease({
       config,
       dryRun,
-      newVersion,
+      pkg,
+      repoConfig,
     })
 
-    const releaseBody = changelog.split('\n').slice(2).join('\n')
-
-    const release = {
-      tag_name: to,
-      name: to,
-      body: releaseBody,
-      prerelease: isPrerelease(newVersion),
-    }
-
-    logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
-
-    if (dryRun) {
-      logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: release.prerelease,
-      })
-      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
-    }
-    else {
-      logger.debug(`Publishing release ${to} to GitHub...`)
-
-      await createGithubRelease({
-        ...config,
-        from,
-        to,
-        repo: repoConfig,
-      }, release)
-
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: release.prerelease,
-      })
+    if (postedRelease) {
+      postedReleases.push(postedRelease)
     }
   }
 
@@ -142,7 +182,7 @@ async function githubUnified({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '鉁?provided' : '鉁?missing'}`)
 
   if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')

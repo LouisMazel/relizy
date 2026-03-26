@@ -29,6 +29,10 @@ vi.mock('../tags', () => {
   return {
     resolveTags: vi.fn(),
     getIndependentTag: vi.fn(),
+    getBootstrapTag: vi.fn(({ packageName, versionMode, tagTemplate }) => versionMode === 'independent'
+      ? `${packageName}@0.0.0`
+      : tagTemplate.replace('{{newVersion}}', '0.0.0')),
+    isNewPackageMarker: vi.fn(tag => tag === '__NEW_PACKAGE__'),
   }
 })
 
@@ -278,6 +282,19 @@ describe('Given github function', () => {
 
       expect(generateChangelog).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
+      )
+    })
+
+    it('Then maps NEW_PACKAGE_MARKER to bootstrap baseline for GitHub release config', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '__NEW_PACKAGE__' },
+      ])
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'pkg-a@0.0.0', to: 'pkg-a@1.0.0' }),
+        expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
       )
     })
 
