@@ -1,3 +1,4 @@
+import { logger } from '@maz-ui/node'
 import { createGithubRelease } from 'changelogen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -9,6 +10,17 @@ import { github } from '../github'
 vi.mock('changelogen', () => {
   return {
     createGithubRelease: vi.fn(),
+  }
+})
+
+vi.mock('@maz-ui/node', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@maz-ui/node')>()
+  return {
+    ...actual,
+    logger: {
+      ...actual.logger,
+      debug: vi.fn(),
+    },
   }
 })
 
@@ -109,6 +121,12 @@ describe('Given github function', () => {
           prerelease: false,
         },
       )
+    })
+
+    it('Then logs token availability without mojibake', async () => {
+      await github({ force: false })
+
+      expect(logger.debug).toHaveBeenCalledWith('GitHub token: ✓ provided')
     })
 
     it('Then returns posted releases array', async () => {

@@ -58,7 +58,7 @@ async function createIndependentGithubPostedRelease({
 
   const toTag = dryRun ? 'HEAD' : to
 
-  logger.debug(`Processing ${pkg.name}: ${from} 鈫?${toTag}`)
+  logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
 
   const changelog = await generateChangelog({
     pkg,
@@ -119,7 +119,7 @@ async function githubIndependentMode({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '鉁?provided' : '鉁?missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
   if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
@@ -182,7 +182,7 @@ async function githubUnified({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '鉁?provided' : '鉁?missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
   if (!config.tokens.github && !config.repo?.token) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
