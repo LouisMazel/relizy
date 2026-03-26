@@ -1,5 +1,5 @@
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
+import { getBootstrapTag, isNewPackageMarker, NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
@@ -40,6 +40,26 @@ vi.mock('@maz-ui/node', async (importActual) => {
 })
 
 describe('Given resolveTags function', () => {
+  describe('When using bootstrap helpers', () => {
+    it('Then identifies the new package marker', () => {
+      expect(isNewPackageMarker(NEW_PACKAGE_MARKER)).toBe(true)
+      expect(isNewPackageMarker('v1.0.0')).toBe(false)
+    })
+
+    it('Then builds bootstrap tags for independent and unified modes', () => {
+      expect(getBootstrapTag({
+        packageName: 'pkg-a',
+        versionMode: 'independent',
+        tagTemplate: 'v{{newVersion}}',
+      })).toBe('pkg-a@0.0.0')
+
+      expect(getBootstrapTag({
+        versionMode: 'unified',
+        tagTemplate: 'v{{newVersion}}',
+      })).toBe('v0.0.0')
+    })
+  })
+
   describe('When user provides tags', () => {
     it('Then returns user provided tags', async () => {
       const config = createMockConfig({ bump: { type: 'release' }, from: 'v1.0.0', to: 'v2.0.0', monorepo: { versionMode: 'selective' } })
