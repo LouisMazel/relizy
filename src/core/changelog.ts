@@ -7,14 +7,14 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
 import { getFirstCommit } from './git'
 import { generateMarkDown } from './markdown'
-import { getIndependentTag } from './tags'
+import { getBootstrapTag, getIndependentTag, isNewPackageMarker } from './tags'
 import { executeHook } from './utils'
 
 /**
  * Check if a tag is the first commit in the repository
  */
 function fromTagIsFirstCommit(fromTag: string, cwd: string) {
-  return fromTag === getFirstCommit(cwd)
+  return isNewPackageMarker(fromTag) || fromTag === getFirstCommit(cwd)
 }
 
 /**
@@ -47,7 +47,11 @@ export async function generateChangelog(
   const isFirstCommit = fromTagIsFirstCommit(fromTag, config.cwd)
 
   if (isFirstCommit) {
-    fromTag = config.monorepo?.versionMode === 'independent' ? getIndependentTag({ version: '0.0.0', name: pkg.name }) : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
+    fromTag = getBootstrapTag({
+      packageName: pkg.name,
+      versionMode: config.monorepo?.versionMode,
+      tagTemplate: config.templates.tagBody,
+    })
   }
 
   let toTag = config.to

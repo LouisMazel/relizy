@@ -9,19 +9,40 @@ export function getIndependentTag({ version, name }: { version: string, name: st
   return `${name}@${version}`
 }
 
-export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
-  const { stdout } = await execPromise(
-    `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
-    {
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function isRepoWideTag(tag: string): boolean {
+  return !tag.includes('@')
+}
+
+async function getSortedGitTags({
+  logLevel,
+  cwd,
+}: {
+  logLevel?: LogLevel
+  cwd?: string
+}): Promise<string[]> {
+  try {
+    const { stdout } = await execPromise('git tag --sort=-creatordate', {
       logLevel,
       noStderr: true,
       noStdout: true,
       noSuccess: true,
       cwd,
-    },
-  )
+    })
 
-  const lastTag = stdout.trim()
+    return stdout.trim().split('\n').map(tag => tag.trim()).filter(Boolean)
+  }
+  catch {
+    return []
+  }
+}
+
+export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
+  const tags = (await getSortedGitTags({ logLevel, cwd })).filter(isRepoWideTag)
+  const lastTag = tags.find(tag => /^\D*\d+\.\d+\.\d+$/.test(tag)) || ''
 
   logger.debug('Last stable tag:', lastTag || 'No stable tags found')
 
@@ -29,15 +50,8 @@ export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel,
 }
 
 export async function getLastTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
-  const { stdout } = await execPromise(`git tag --sort=-creatordate | head -n 1`, {
-    logLevel,
-    noStderr: true,
-    noStdout: true,
-    noSuccess: true,
-    cwd,
-  })
-
-  const lastTag = stdout.trim()
+  const tags = (await getSortedGitTags({ logLevel, cwd })).filter(isRepoWideTag)
+  const lastTag = tags[0] || ''
 
   logger.debug('Last tag:', lastTag || 'No tags found')
 
@@ -56,18 +70,12 @@ async function getAllRecentRepoTags(options?: {
   const limit = options?.limit || 50
 
   try {
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | head -n ${limit}`,
-      {
-        logLevel: options?.logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd: options?.cwd,
-      },
-    )
-
-    const tags = stdout.trim().split('\n').filter(tag => tag.length > 0)
+    const tags = (await getSortedGitTags({
+      logLevel: options?.logLevel,
+      cwd: options?.cwd,
+    }))
+      .filter(isRepoWideTag)
+      .slice(0, limit)
 
     logger.debug(`Retrieved ${tags.length} recent repo tags`)
 
@@ -94,20 +102,10 @@ async function getAllRecentPackageTags({
   cwd?: string
 }): Promise<string[]> {
   try {
-    const escapedPackageName = packageName.replace(/[@/]/g, '\\$&')
-
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | grep -E '^${escapedPackageName}@' | head -n ${limit}`,
-      {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd,
-      },
-    )
-
-    const tags = stdout.trim().split('\n').filter(tag => tag.length > 0)
+    const packageTagPattern = new RegExp(`^${escapeRegex(packageName)}@`)
+    const tags = (await getSortedGitTags({ logLevel, cwd }))
+      .filter(tag => packageTagPattern.test(tag))
+      .slice(0, limit)
 
     logger.debug(`Retrieved ${tags.length} recent tags for package ${packageName}`)
 
@@ -252,28 +250,11 @@ export async function getLastPackageTag({
 
   // Otherwise, use legacy behavior for backward compatibility
   try {
-    const escapedPackageName = pkg.name.replace(/[@/]/g, '\\$&')
-
-    let grepPattern: string
-    if (onlyStable) {
-      grepPattern = `^${escapedPackageName}@[0-9]+\\.[0-9]+\\.[0-9]+$`
-    }
-    else {
-      grepPattern = `^${escapedPackageName}@`
-    }
-
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | grep -E '${grepPattern}' | sed -n '1p'`,
-      {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd,
-      },
-    )
-
-    const tag = stdout.trim()
+    const packageTagPattern = onlyStable
+      ? new RegExp(`^${escapeRegex(pkg.name)}@[0-9]+\\.[0-9]+\\.[0-9]+$`)
+      : new RegExp(`^${escapeRegex(pkg.name)}@`)
+    const tag = (await getSortedGitTags({ logLevel, cwd }))
+      .find(currentTag => packageTagPattern.test(currentTag)) || ''
     return tag || null
   }
   catch {
@@ -343,6 +324,30 @@ export interface ResolvedTags {
  * of the repository (which would cause ENOBUFS errors on large repos).
  */
 export const NEW_PACKAGE_MARKER = '__NEW_PACKAGE__' as const
+
+export function isNewPackageMarker(tag?: string | null): tag is typeof NEW_PACKAGE_MARKER {
+  return tag === NEW_PACKAGE_MARKER
+}
+
+export function getBootstrapTag({
+  packageName,
+  versionMode,
+  tagTemplate,
+}: {
+  packageName?: string
+  versionMode?: VersionMode | 'standalone'
+  tagTemplate: string
+}): string {
+  if (versionMode === 'independent') {
+    if (!packageName) {
+      throw new Error('Package name is required to build an independent bootstrap tag')
+    }
+
+    return getIndependentTag({ version: '0.0.0', name: packageName })
+  }
+
+  return tagTemplate.replace('{{newVersion}}', '0.0.0')
+}
 
 async function resolveFromTagIndependent({
   cwd,

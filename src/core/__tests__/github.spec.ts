@@ -1,3 +1,4 @@
+import { logger } from '@maz-ui/node'
 import { createGithubRelease } from 'changelogen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -9,6 +10,17 @@ import { github } from '../github'
 vi.mock('changelogen', () => {
   return {
     createGithubRelease: vi.fn(),
+  }
+})
+
+vi.mock('@maz-ui/node', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@maz-ui/node')>()
+  return {
+    ...actual,
+    logger: {
+      ...actual.logger,
+      debug: vi.fn(),
+    },
   }
 })
 
@@ -29,6 +41,10 @@ vi.mock('../tags', () => {
   return {
     resolveTags: vi.fn(),
     getIndependentTag: vi.fn(),
+    getBootstrapTag: vi.fn(({ packageName, versionMode, tagTemplate }) => versionMode === 'independent'
+      ? `${packageName}@0.0.0`
+      : tagTemplate.replace('{{newVersion}}', '0.0.0')),
+    isNewPackageMarker: vi.fn(tag => tag === '__NEW_PACKAGE__'),
   }
 })
 
@@ -105,6 +121,12 @@ describe('Given github function', () => {
           prerelease: false,
         },
       )
+    })
+
+    it('Then logs token availability without mojibake', async () => {
+      await github({ force: false })
+
+      expect(logger.debug).toHaveBeenCalledWith('GitHub token: ✓ provided')
     })
 
     it('Then returns posted releases array', async () => {
@@ -279,6 +301,73 @@ describe('Given github function', () => {
       expect(generateChangelog).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
+    })
+
+    it('Then maps NEW_PACKAGE_MARKER to bootstrap baseline for GitHub release config', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '__NEW_PACKAGE__' },
+      ])
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'pkg-a@0.0.0', to: 'pkg-a@1.0.0' }),
+        expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
+      )
+    })
+
+    it('Then prefers config.from over bootstrap fallback for new packages', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        from: 'custom-from-tag',
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: {
+          provider: 'github',
+          domain: 'github.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          github: 'test-token',
+        },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '__NEW_PACKAGE__' },
+      ])
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'custom-from-tag', to: 'pkg-a@1.0.0' }),
+        expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
+      )
+    })
+
+    it('Then creates prerelease releases for new packages from bootstrap baseline', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          newVersion: '1.1.0-beta.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: '__NEW_PACKAGE__',
+        },
+      ])
+      vi.mocked(isBumpedPackage).mockReturnValue(true)
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'pkg-a@0.0.0', to: 'pkg-a@1.1.0-beta.0' }),
+        expect.objectContaining({
+          tag_name: 'pkg-a@1.1.0-beta.0',
+          prerelease: true,
+        }),
+      )
+      expect(logger.debug).toHaveBeenCalledWith('Creating release for pkg-a@1.1.0-beta.0 (prerelease)')
     })
 
     it('Then returns empty array when no packages to release', async () => {

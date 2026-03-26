@@ -1,10 +1,9 @@
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
+import { getBootstrapTag, isNewPackageMarker, NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
 const LAST_TAG = 'v1.0.0' // Simulates the most recent tag (could be stable or prerelease)
-const LAST_STABLE_TAG = 'v0.9.0' // Simulates the last stable tag
 
 vi.mock('../git', async (importActual) => {
   const actual = await importActual<typeof import('../git')>()
@@ -22,8 +21,7 @@ vi.mock('@maz-ui/node', async (importActual) => {
   return {
     ...actual,
     execPromise: vi.fn((param) => {
-      // Mock for getAllRecentRepoTags (returns multiple tags)
-      if (param === `git tag --sort=-creatordate | head -n 50`) {
+      if (param === 'git tag --sort=-creatordate') {
         // Simulate a realistic scenario:
         // - v2.0.0-beta.0 (newest, prerelease, major 2 - simulates future beta)
         // - v1.0.0 (LAST_TAG, stable, major 1)
@@ -31,20 +29,6 @@ vi.mock('@maz-ui/node', async (importActual) => {
         // - v0.8.0 (older stable)
         return Promise.resolve({
           stdout: 'v2.0.0-beta.0\nv1.0.0\nv0.9.0\nv0.8.0',
-        })
-      }
-
-      // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_STABLE_TAG, // v0.9.0
-        })
-      }
-
-      // Mock for getLastTag
-      if (param === `git tag --sort=-creatordate | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_TAG, // v1.0.0
         })
       }
 
@@ -56,6 +40,26 @@ vi.mock('@maz-ui/node', async (importActual) => {
 })
 
 describe('Given resolveTags function', () => {
+  describe('When using bootstrap helpers', () => {
+    it('Then identifies the new package marker', () => {
+      expect(isNewPackageMarker(NEW_PACKAGE_MARKER)).toBe(true)
+      expect(isNewPackageMarker('v1.0.0')).toBe(false)
+    })
+
+    it('Then builds bootstrap tags for independent and unified modes', () => {
+      expect(getBootstrapTag({
+        packageName: 'pkg-a',
+        versionMode: 'independent',
+        tagTemplate: 'v{{newVersion}}',
+      })).toBe('pkg-a@0.0.0')
+
+      expect(getBootstrapTag({
+        versionMode: 'unified',
+        tagTemplate: 'v{{newVersion}}',
+      })).toBe('v0.0.0')
+    })
+  })
+
   describe('When user provides tags', () => {
     it('Then returns user provided tags', async () => {
       const config = createMockConfig({ bump: { type: 'release' }, from: 'v1.0.0', to: 'v2.0.0', monorepo: { versionMode: 'selective' } })
@@ -72,6 +76,17 @@ describe('Given resolveTags function', () => {
 
   describe('When version mode is independent', () => {
     describe('And step is bump', () => {
+      it('Then throws when package name is missing in independent mode', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+
+        await expect(resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ name: undefined as any }),
+          newVersion: undefined,
+        })).rejects.toThrow('Package name is required for independent version mode')
+      })
+
       it('Then resolves tags with NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'bump'>({
@@ -125,6 +140,38 @@ describe('Given resolveTags function', () => {
         // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
         expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe('pkg-a@2.0.0')
+      })
+
+      it('Then throws when newVersion is missing for independent publish tags', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+
+        await expect(resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg: createMockPackageInfo({ name: 'pkg-a' }),
+          newVersion: undefined as any,
+        })).rejects.toThrow('New version is required for independent version mode')
+      })
+
+      it('Then throws when package name is unavailable while building independent publish tags', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const pkg = createMockPackageInfo({ name: 'pkg-a' }) as any
+        let accessCount = 0
+
+        Object.defineProperty(pkg, 'name', {
+          configurable: true,
+          get() {
+            accessCount += 1
+            return accessCount <= 4 ? 'pkg-a' : undefined
+          },
+        })
+
+        await expect(resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg,
+          newVersion: '1.1.0',
+        })).rejects.toThrow('Package name is required for independent version mode')
       })
     })
   })
