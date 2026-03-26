@@ -77,4 +77,29 @@ describe('Given NEW_PACKAGE_MARKER commit lookup', () => {
     expect(getGitDiff).toHaveBeenCalledWith('abc123^', 'HEAD', '/repo')
     expect(commits).toHaveLength(1)
   })
+
+  it('returns empty commits when the package history lookup is empty', async () => {
+    vi.mocked(execSync).mockReturnValueOnce('\n')
+
+    const commits = await getPackageCommits({
+      pkg: createMockPackageInfo({
+        name: 'pkg-a',
+        path: '/repo/packages/pkg-a',
+      }),
+      from: NEW_PACKAGE_MARKER,
+      to: 'HEAD',
+      config: createMockConfig({
+        cwd: '/repo',
+        bump: { type: 'patch' },
+        monorepo: {
+          versionMode: 'selective',
+          packages: undefined as any,
+        },
+      }),
+      changelog: false,
+    })
+
+    expect(getGitDiff).not.toHaveBeenCalled()
+    expect(commits).toEqual([])
+  })
 })

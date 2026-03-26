@@ -1,7 +1,7 @@
-import { execPromise } from '@maz-ui/node'
+import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockPackageInfo } from '../../../tests/mocks'
-import { getLastPackageTag, getLastRepoTag } from '../tags'
+import { getBootstrapTag, getLastPackageTag, getLastRepoTag } from '../tags'
 
 vi.mock('@maz-ui/node', async (importActual) => {
   const actual = await importActual<typeof import('@maz-ui/node')>()
@@ -9,6 +9,11 @@ vi.mock('@maz-ui/node', async (importActual) => {
   return {
     ...actual,
     execPromise: vi.fn(),
+    logger: {
+      ...actual.logger,
+      debug: vi.fn(),
+      info: vi.fn(),
+    },
   }
 })
 
@@ -57,5 +62,52 @@ describe('Given tag lookup on Windows-compatible paths', () => {
       'git tag --sort=-creatordate',
       expect.objectContaining({ cwd: '/repo' }),
     )
+  })
+
+  it('returns null for repo lookup when tag collection falls back to empty', async () => {
+    vi.mocked(execPromise).mockRejectedValueOnce(new Error('git failed'))
+
+    const tag = await getLastRepoTag({
+      onlyStable: true,
+      cwd: '/repo',
+    })
+
+    expect(tag).toBe('')
+  })
+
+  it('returns null for package lookup when a scoped package has no matching stable tags', async () => {
+    vi.mocked(execPromise).mockResolvedValueOnce({
+      stdout: '@scope/pkg@1.2.0-beta.0\npkg-a@1.0.0',
+      stderr: '',
+    } as Awaited<ReturnType<typeof execPromise>>)
+
+    const tag = await getLastPackageTag({
+      pkg: createMockPackageInfo({ name: '@scope/pkg', version: undefined as any }),
+      onlyStable: true,
+      cwd: '/repo',
+    })
+
+    expect(tag).toBeNull()
+  })
+
+  it('returns null when package tag collection catches downstream errors', async () => {
+    vi.mocked(logger.debug).mockImplementationOnce(() => {
+      throw new Error('logger failure')
+    })
+
+    const tag = await getLastPackageTag({
+      pkg: createMockPackageInfo({ name: 'pkg-a', version: '1.2.0' }),
+      onlyStable: false,
+      cwd: '/repo',
+    })
+
+    expect(tag).toBeNull()
+  })
+
+  it('throws when independent bootstrap tag is requested without package name', () => {
+    expect(() => getBootstrapTag({
+      versionMode: 'independent',
+      tagTemplate: 'v{{newVersion}}',
+    })).toThrow('Package name is required to build an independent bootstrap tag')
   })
 })
