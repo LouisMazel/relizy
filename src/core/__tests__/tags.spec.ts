@@ -76,6 +76,17 @@ describe('Given resolveTags function', () => {
 
   describe('When version mode is independent', () => {
     describe('And step is bump', () => {
+      it('Then throws when package name is missing in independent mode', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+
+        await expect(resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ name: undefined as any }),
+          newVersion: undefined,
+        })).rejects.toThrow('Package name is required for independent version mode')
+      })
+
       it('Then resolves tags with NEW_PACKAGE_MARKER when no tag exists', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'bump'>({
@@ -129,6 +140,38 @@ describe('Given resolveTags function', () => {
         // For new packages without tags, returns NEW_PACKAGE_MARKER to avoid ENOBUFS
         expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe('pkg-a@2.0.0')
+      })
+
+      it('Then throws when newVersion is missing for independent publish tags', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+
+        await expect(resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg: createMockPackageInfo({ name: 'pkg-a' }),
+          newVersion: undefined as any,
+        })).rejects.toThrow('New version is required for independent version mode')
+      })
+
+      it('Then throws when package name is unavailable while building independent publish tags', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const pkg = createMockPackageInfo({ name: 'pkg-a' }) as any
+        let accessCount = 0
+
+        Object.defineProperty(pkg, 'name', {
+          configurable: true,
+          get() {
+            accessCount += 1
+            return accessCount <= 4 ? 'pkg-a' : undefined
+          },
+        })
+
+        await expect(resolveTags<'publish'>({
+          config,
+          step: 'publish',
+          pkg,
+          newVersion: '1.1.0',
+        })).rejects.toThrow('Package name is required for independent version mode')
       })
     })
   })
