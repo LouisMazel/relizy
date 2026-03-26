@@ -316,6 +316,33 @@ describe('Given github function', () => {
       )
     })
 
+    it('Then creates prerelease releases for new packages from bootstrap baseline', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          newVersion: '1.1.0-beta.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: '__NEW_PACKAGE__',
+        },
+      ])
+      vi.mocked(isBumpedPackage).mockReturnValue(true)
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'pkg-a@0.0.0', to: 'pkg-a@1.1.0-beta.0' }),
+        expect.objectContaining({
+          tag_name: 'pkg-a@1.1.0-beta.0',
+          prerelease: true,
+        }),
+      )
+      expect(logger.debug).toHaveBeenCalledWith('Creating release for pkg-a@1.1.0-beta.0 (prerelease)')
+    })
+
     it('Then returns empty array when no packages to release', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
 

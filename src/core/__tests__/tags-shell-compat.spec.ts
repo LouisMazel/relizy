@@ -64,6 +64,14 @@ describe('Given tag lookup on Windows-compatible paths', () => {
     )
   })
 
+  it('returns the last repo-wide tag for legacy lookup without package metadata', async () => {
+    const tag = await getLastRepoTag({
+      cwd: '/repo',
+    })
+
+    expect(tag).toBe('v2.0.0-beta.0')
+  })
+
   it('returns null for repo lookup when tag collection falls back to empty', async () => {
     vi.mocked(execPromise).mockRejectedValueOnce(new Error('git failed'))
 
@@ -73,6 +81,21 @@ describe('Given tag lookup on Windows-compatible paths', () => {
     })
 
     expect(tag).toBe('')
+  })
+
+  it('returns null when repo tag collection finds no compatible tag for the current version', async () => {
+    vi.mocked(execPromise).mockResolvedValueOnce({
+      stdout: 'v3.0.0\nv2.1.0-beta.0',
+      stderr: '',
+    } as Awaited<ReturnType<typeof execPromise>>)
+
+    const tag = await getLastRepoTag({
+      pkg: createMockPackageInfo({ version: '1.0.0' }),
+      onlyStable: false,
+      cwd: '/repo',
+    })
+
+    expect(tag).toBeNull()
   })
 
   it('returns null for package lookup when a scoped package has no matching stable tags', async () => {
