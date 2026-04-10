@@ -19,6 +19,7 @@ import {
   getShortCommitSha,
   parseGitRemoteUrl,
   pushCommitAndTags,
+  rollbackModifiedFiles,
 } from '../git'
 import { executeHook } from '../utils'
 
@@ -1278,6 +1279,149 @@ describe('Given getShortCommitSha function', () => {
         'git rev-parse --short=5 HEAD',
         { cwd: '/project', encoding: 'utf8' },
       )
+    })
+  })
+})
+
+describe('Given rollbackModifiedFiles function', () => {
+  let config: ResolvedRelizyConfig
+
+  function setupExecSync({
+    gitStatus,
+    untracked = [],
+  }: {
+    gitStatus: string
+    untracked?: string[]
+  }) {
+    vi.mocked(execSync).mockImplementation((cmd: any) => {
+      const command = String(cmd)
+      if (command.includes('git status --porcelain')) {
+        return gitStatus as any
+      }
+      if (command.includes('git ls-files --error-unmatch')) {
+        const match = command.match(/"([^"]+)"/)
+        const file = match?.[1]
+        if (file && untracked.includes(file)) {
+          throw new Error(`not tracked: ${file}`)
+        }
+        return '' as any
+      }
+      if (command.startsWith('rm ')) {
+        return '' as any
+      }
+      return '' as any
+    })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    config = createMockConfig({ monorepo: { versionMode: 'selective' } })
+    config.cwd = '/project'
+    vi.mocked(join).mockImplementation((...args) => args.join('/'))
+    vi.mocked(existsSync).mockReturnValue(true)
+    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+  })
+
+  describe('When there are no modified files', () => {
+    it('Then does not call git checkout', async () => {
+      setupExecSync({ gitStatus: '' })
+
+      await rollbackModifiedFiles({ config })
+
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When all modified files are tracked', () => {
+    it('Then restores them with a single git checkout call', async () => {
+      setupExecSync({
+        gitStatus: ' M package.json\n M packages/a/package.json',
+      })
+
+      await rollbackModifiedFiles({ config })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(
+        'git checkout HEAD -- package.json packages/a/package.json',
+        expect.objectContaining({ cwd: '/project', noStderr: true }),
+      )
+    })
+  })
+
+  describe('When some modified files are untracked (new CHANGELOG.md)', () => {
+    it('Then only checks out tracked files and rm\'s untracked ones', async () => {
+      setupExecSync({
+        gitStatus: ' M package.json\n?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
+        untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
+      })
+
+      await rollbackModifiedFiles({ config })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(
+        'git checkout HEAD -- package.json',
+        expect.objectContaining({ cwd: '/project' }),
+      )
+      expect(execSync).toHaveBeenCalledWith(
+        'rm "/project/CHANGELOG.md"',
+        expect.objectContaining({ cwd: '/project' }),
+      )
+      expect(execSync).toHaveBeenCalledWith(
+        'rm "/project/packages/a/CHANGELOG.md"',
+        expect.objectContaining({ cwd: '/project' }),
+      )
+    })
+  })
+
+  describe('When all modified files are untracked', () => {
+    it('Then skips git checkout entirely and rm\'s each file', async () => {
+      setupExecSync({
+        gitStatus: '?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
+        untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
+      })
+
+      await rollbackModifiedFiles({ config })
+
+      expect(execPromise).not.toHaveBeenCalled()
+      expect(execSync).toHaveBeenCalledWith(
+        'rm "/project/CHANGELOG.md"',
+        expect.objectContaining({ cwd: '/project' }),
+      )
+      expect(execSync).toHaveBeenCalledWith(
+        'rm "/project/packages/a/CHANGELOG.md"',
+        expect.objectContaining({ cwd: '/project' }),
+      )
+    })
+  })
+
+  describe('When an untracked file no longer exists on disk', () => {
+    it('Then skips it without attempting rm', async () => {
+      setupExecSync({
+        gitStatus: '?? CHANGELOG.md',
+        untracked: ['CHANGELOG.md'],
+      })
+      vi.mocked(existsSync).mockReturnValue(false)
+
+      await rollbackModifiedFiles({ config })
+
+      expect(execPromise).not.toHaveBeenCalled()
+      const rmCalls = vi
+        .mocked(execSync)
+        .mock.calls.filter(([cmd]) => String(cmd).startsWith('rm '))
+      expect(rmCalls).toHaveLength(0)
+    })
+  })
+
+  describe('When git checkout fails', () => {
+    it('Then logs error and rethrows', async () => {
+      setupExecSync({ gitStatus: ' M package.json' })
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('checkout boom'))
+      const errorSpy = vi.spyOn(logger, 'error')
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      await expect(rollbackModifiedFiles({ config })).rejects.toThrow('checkout boom')
+      expect(errorSpy).toHaveBeenCalledWith('Failed to rollback modified files automatically')
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('package.json'))
     })
   })
 })

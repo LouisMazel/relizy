@@ -356,35 +356,43 @@ export async function rollbackModifiedFiles({
   logger.debug(`Files to rollback: ${modifiedFiles.join(', ')}`)
 
   try {
-    // Build file list for git commands
-    const fileList = modifiedFiles.join(' ')
+    const trackedFiles: string[] = []
+    const untrackedFiles: string[] = []
 
-    logger.debug(`Restoring specific files from HEAD: ${fileList}`)
-    await execPromise(`git checkout HEAD -- ${fileList}`, {
-      cwd: config.cwd,
-      logLevel: config.logLevel,
-      noStderr: true,
-    })
-
-    logger.debug('Checking for untracked release files to remove...')
     for (const file of modifiedFiles) {
       const filePath = join(config.cwd, file)
-      if (existsSync(filePath)) {
-        try {
-          execSync(`git ls-files --error-unmatch "${file}"`, {
-            cwd: config.cwd,
-            encoding: 'utf8',
-            stdio: 'pipe',
-          })
-        }
-        catch {
-          logger.debug(`Removing untracked file: ${file}`)
-          execSync(`rm "${filePath}"`, { cwd: config.cwd })
-        }
+      if (!existsSync(filePath)) {
+        continue
+      }
+      try {
+        execSync(`git ls-files --error-unmatch "${file}"`, {
+          cwd: config.cwd,
+          encoding: 'utf8',
+          stdio: 'pipe',
+        })
+        trackedFiles.push(file)
+      }
+      catch {
+        untrackedFiles.push(file)
       }
     }
 
-    logger.success(`Successfully rolled back ${modifiedFiles.length} release file(s)`)
+    if (trackedFiles.length > 0) {
+      const fileList = trackedFiles.join(' ')
+      logger.debug(`Restoring tracked files from HEAD: ${fileList}`)
+      await execPromise(`git checkout HEAD -- ${fileList}`, {
+        cwd: config.cwd,
+        logLevel: config.logLevel,
+        noStderr: true,
+      })
+    }
+
+    for (const file of untrackedFiles) {
+      logger.debug(`Removing untracked file: ${file}`)
+      execSync(`rm "${join(config.cwd, file)}"`, { cwd: config.cwd })
+    }
+
+    logger.success(`Successfully rolled back ${trackedFiles.length + untrackedFiles.length} release file(s)`)
   }
   catch (error) {
     logger.error('Failed to rollback modified files automatically')
