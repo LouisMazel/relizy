@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { BumpConfig, ChangelogConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -49,6 +49,9 @@ export function getDefaultConfig() {
       rootChangelog: true,
       includeCommitBody: true,
     } as Required<ChangelogConfig>,
+    monorepo: {
+      includePrivates: false,
+    } as MonorepoConfig,
     publish: {
       private: false,
       args: [],

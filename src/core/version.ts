@@ -461,6 +461,8 @@ function displayRootAndLernaUpdates({
   }
 }
 
+const PRIVATE_SUFFIX = ' 🔒 [private: bump only, not published]'
+
 function displayUnifiedModePackages({
   packages,
   newVersion,
@@ -472,7 +474,7 @@ function displayUnifiedModePackages({
 }) {
   logger.log(`${packages.length} package(s):`)
   packages.forEach((pkg) => {
-    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
+    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
   })
   logger.log('')
 }
@@ -489,7 +491,7 @@ function displaySelectiveModePackages({
   if (force) {
     logger.log(`${packages.length} package(s):`)
     packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (force)`)
+      logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (force)${pkg.private ? PRIVATE_SUFFIX : ''}`)
     })
     logger.log('')
   }
@@ -501,7 +503,7 @@ function displaySelectiveModePackages({
     if (packagesWithCommits.length > 0) {
       logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -509,7 +511,7 @@ function displaySelectiveModePackages({
     if (packagesAsDependents.length > 0) {
       logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -517,7 +519,7 @@ function displaySelectiveModePackages({
     if (packagesAsGraduation.length > 0) {
       logger.log(`${packagesAsGraduation.length} graduation package(s):`)
       packagesAsGraduation.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}`)
+        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -534,7 +536,7 @@ function displayIndependentModePackages({
   if (force) {
     logger.log(`${packages.length} package(s):`)
     packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (force)`)
+      logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (force)${pkg.private ? PRIVATE_SUFFIX : ''}`)
     })
     logger.log('')
   }
@@ -546,7 +548,7 @@ function displayIndependentModePackages({
     if (packagesWithCommits.length > 0) {
       logger.log(`${packagesWithCommits.length} package(s) with commits:`)
       packagesWithCommits.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -554,7 +556,7 @@ function displayIndependentModePackages({
     if (packagesAsDependents.length > 0) {
       logger.log(`${packagesAsDependents.length} dependent package(s):`)
       packagesAsDependents.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -562,7 +564,7 @@ function displayIndependentModePackages({
     if (packagesAsGraduation.length > 0) {
       logger.log(`${packagesAsGraduation.length} graduation package(s):`)
       packagesAsGraduation.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}`)
+        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
       })
       logger.log('')
     }
@@ -595,6 +597,10 @@ export async function confirmBump({
 
   logger.log('')
   logger.info(`${dryRun ? '[dry-run] ' : ''}The following packages will be updated:\n`)
+
+  if (packages.some(p => p.private)) {
+    logger.log('🔒 Private packages are versioned and get a CHANGELOG, but are never published to a registry, nor included in provider releases or PR comments.\n')
+  }
 
   displayRootAndLernaUpdates({
     versionMode,

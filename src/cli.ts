@@ -95,6 +95,7 @@ program
   .option('--force', 'Bump even if there are no commits')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--canary', 'Publish a canary release from the current commit')
+  .option('--include-private', 'Include private packages in the bump')
   .action(async (options) => {
     try {
       const result = await bump({
@@ -108,6 +109,7 @@ program
         suffix: options.suffix,
         configName: program.opts().config,
         canary: options.canary,
+        includePrivates: options.includePrivate || undefined,
       })
       if (!result.bumped) {
         process.exit(1)
@@ -126,6 +128,7 @@ program
   .option('--to <ref>', 'End commit reference')
   .option('--format-cmd <cmd>', 'Command to format CHANGELOG files after generation (e.g. "pnpm lint")')
   .option('--no-root-changelog', 'Skip generation of root changelog file')
+  .option('--include-private', 'Include private packages in changelog generation')
   .action(async (options) => {
     try {
       await changelog({
@@ -136,6 +139,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        includePrivates: options.includePrivate || undefined,
       })
     }
     catch (error) {
@@ -275,6 +279,7 @@ program
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .option('--canary', 'Publish a canary release from the current commit')
+  .option('--include-private', 'Include private packages in bump and changelog phases')
   .action(async (options) => {
     try {
       await release({
@@ -282,6 +287,7 @@ program
         preid: options.preid,
         suffix: options.suffix,
         canary: options.canary,
+        includePrivates: options.includePrivate || undefined,
         from: options.from,
         to: options.to,
         changelog: hasCliFlag('--no-changelog') ? false : undefined,

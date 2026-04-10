@@ -205,6 +205,13 @@ export interface MonorepoConfig {
    * @default []
    */
   ignorePackageNames?: string[]
+  /**
+   * Include private packages (with `"private": true` in package.json) in
+   * bump and changelog operations. Private packages remain excluded from
+   * publish, provider-release, and pr-comment regardless of this flag.
+   * @default false
+   */
+  includePrivates?: boolean
 }
 
 export type ConfigType = {
@@ -278,6 +285,11 @@ export interface BumpOptions extends BumpConfig {
    * @default false
    */
   canary?: boolean
+  /**
+   * Include private packages in the bump.
+   * @default false
+   */
+  includePrivates?: boolean
 }
 
 export interface ChangelogConfig {
@@ -336,6 +348,11 @@ export interface ChangelogOptions extends ChangelogConfig {
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
   suffix?: string
+  /**
+   * Include private packages in the changelog generation.
+   * @default false
+   */
+  includePrivates?: boolean
 }
 
 export interface ProviderReleaseOptions {
@@ -613,6 +630,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default false
    */
   canary?: boolean
+  /**
+   * Include private packages in bump and changelog operations.
+   * @default false
+   */
+  includePrivates?: boolean
 }
 
 export interface TwitterCredentials {

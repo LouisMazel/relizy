@@ -45,6 +45,26 @@ End changelog at specific version:
 relizy changelog --to v2.0.0
 ```
 
+### --include-private
+
+Generate changelogs for private packages (packages with `"private": true` in
+their `package.json`) in addition to public ones. By default, private packages
+are skipped.
+
+```bash
+relizy changelog --include-private
+```
+
+When enabled:
+
+- Each private package gets its own `CHANGELOG.md`.
+- Commits touching only private packages are included in the aggregated root
+  changelog (in `unified`, `selective`, and `independent` modes).
+
+This is equivalent to setting `monorepo.includePrivates: true` in
+`relizy.config.ts`. See
+[Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
+
 ## Examples
 
 ### Basic Usage

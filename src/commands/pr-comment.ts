@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectPullRequest, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { detectPullRequest, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -208,7 +208,7 @@ function buildSuccessComment({
   rootVersion,
 }: CommentBodyParams): string {
   const bumpResult = releaseContext?.bumpResult
-  const bumpedPackages = bumpResult?.bumpedPackages ?? []
+  const bumpedPackages = filterOutPrivatePackages(bumpResult?.bumpedPackages ?? [])
   const version = bumpResult?.newVersion ?? rootVersion ?? 'unknown'
   const tags = releaseContext?.tags ?? []
   const distTag = config.publish?.tag
@@ -308,11 +308,12 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
     }
     rootVersion = rootPackage.version
 
-    const readPkgs = readPackages({
+    const readPkgs = filterOutPrivatePackages(readPackages({
       cwd: config.cwd,
       patterns: config.monorepo?.packages,
       ignorePackageNames: config.monorepo?.ignorePackageNames,
-    })
+      includePrivates: config.monorepo?.includePrivates,
+    }))
     packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version }))
   }
 
