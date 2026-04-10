@@ -1,5 +1,60 @@
 # Changelog
 
+## v1.2.2-beta.2 (2026-04-10)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.1...v1.2.2-beta.2)
+
+### 🚀 Features
+
+- **relizy:** Support private packages in bump and changelog ([24a55ec](https://github.com/LouisMazel/relizy/commit/24a55ec))
+
+  Add a new `monorepo.includePrivates` option that lets internal, non-published
+  packages participate in versioning and changelog generation. Private packages
+  get bumped alongside public ones, receive their own `CHANGELOG.md`, and their
+  commits land in the aggregated root changelog.
+  They remain safely excluded from `publish`, `provider-release`, and
+  `pr-comment` — versioned and documented, never pushed to a registry or
+  announced.
+
+  ## Why
+
+  Monorepos often contain internal apps, examples, or private libraries that
+  still need proper version tracking and changelog history without ever being
+  published. Until now, relizy filtered those packages out of every pipeline
+  step. With `includePrivates`, you get full versioning and changelog coverage
+  for your private packages while keeping them out of the publish flow.
+
+  ## Usage
+
+  Enable it in `relizy.config.ts`:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      versionMode: 'selective',
+      packages: ['packages/*', 'apps/*'],
+      includePrivates: true,
+    },
+  })
+  ```
+
+  Or from the CLI on `bump`, `changelog`, or `release`:
+
+  ```bash
+  relizy release --minor --include-private
+  ```
+
+  ## Notes
+  - Opt-in: default behavior is unchanged.
+  - `ignorePackageNames` still takes precedence over `includePrivates`.
+  - The bump confirmation prompt marks private packages with a 🔒 badge.
+  - `publish`, `provider-release`, and `pr-comment` always ignore private
+    packages — this is a safety guarantee, not a toggle.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.2.2-beta.1 (2026-03-24)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.0...v1.2.2-beta.1)
