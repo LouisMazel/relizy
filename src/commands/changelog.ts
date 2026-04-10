@@ -146,6 +146,9 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
       from: options.from,
       to: options.to,
       logLevel: options.logLevel,
+      monorepo: options.includePrivates !== undefined
+        ? { includePrivates: options.includePrivates }
+        : undefined,
       changelog: {
         rootChangelog: options.rootChangelog,
         formatCmd: options.formatCmd,
@@ -170,7 +173,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
       force: options.force ?? false,
     })
 
-    if (config.changelog?.rootChangelog && config.monorepo) {
+    if (config.changelog?.rootChangelog && config.monorepo?.versionMode) {
       if (config.monorepo.versionMode === 'independent') {
         await generateIndependentRootChangelog({
           packages,

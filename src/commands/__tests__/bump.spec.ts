@@ -738,6 +738,20 @@ describe('Given bump command', () => {
     })
   })
 
+  describe('When includePrivates option is provided', () => {
+    it('Then forwards it to loadRelizyConfig overrides', async () => {
+      await bump({ includePrivates: true }).catch(() => undefined)
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrides: expect.objectContaining({
+            monorepo: expect.objectContaining({ includePrivates: true }),
+          }),
+        }),
+      )
+    })
+  })
+
   describe('When force flag is enabled', () => {
     it('Then bumps all packages regardless of commits', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValueOnce({

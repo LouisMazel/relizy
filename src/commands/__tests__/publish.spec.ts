@@ -177,6 +177,29 @@ describe('Given publish command', () => {
     })
   })
 
+  describe('When the discovered list contains private packages', () => {
+    it('Then excludes them from the publish flow even when includePrivates is enabled', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+        publish: { packageManager: 'npm' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+      }))
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        createMockPackageInfo({ name: '@scope/public', version: '1.0.0', path: '/pub', private: false, commits: [], dependencies: [] }),
+        createMockPackageInfo({ name: '@scope/private', version: '1.0.0', path: '/priv', private: true, commits: [], dependencies: [] }),
+      ])
+
+      await publish({})
+
+      expect(publishPackage).toHaveBeenCalledTimes(1)
+      expect(publishPackage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pkg: expect.objectContaining({ name: '@scope/public' }),
+        }),
+      )
+    })
+  })
+
   describe('When error occurs', () => {
     it('Then executes error hook', async () => {
       vi.mocked(publishPackage).mockRejectedValue(new Error('Publish failed'))

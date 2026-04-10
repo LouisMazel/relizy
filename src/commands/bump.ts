@@ -493,6 +493,9 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
         preid: options.preid,
         dependencyTypes: options.dependencyTypes,
       },
+      monorepo: options.includePrivates !== undefined
+        ? { includePrivates: options.includePrivates }
+        : undefined,
       logLevel: options.logLevel,
     },
   })
@@ -541,7 +544,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
         suffix: options.suffix,
       }
 
-      if (config.monorepo?.versionMode === 'unified' || !config.monorepo) {
+      if (config.monorepo?.versionMode === 'unified' || !config.monorepo?.versionMode) {
         result = await bumpUnifiedMode(payload)
       }
       else if (config.monorepo?.versionMode === 'selective') {

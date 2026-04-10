@@ -36,6 +36,7 @@ vi.mock('../utils', () => {
   return {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
+    filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
   }
 })
 
@@ -259,6 +260,28 @@ describe('Given github function', () => {
         name: 'pkg-a',
         version: '1.1.0',
       })
+    })
+
+    it('Then excludes private packages from GitHub releases even when includePrivates is enabled', async () => {
+      const configWithPrivates = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
+        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+      ])
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledTimes(1)
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({ tag_name: '@scope/public@1.0.0' }),
+      )
     })
 
     it('Then skips packages without from tag', async () => {

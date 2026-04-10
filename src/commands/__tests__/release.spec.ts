@@ -280,6 +280,27 @@ describe('Given release command', () => {
       )
     })
 
+    it('Then forwards includePrivates to config overrides, bump, and changelog', async () => {
+      const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
+      vi.mocked(bump).mockResolvedValue(bumpResult)
+
+      await release({ includePrivates: true })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrides: expect.objectContaining({
+            monorepo: expect.objectContaining({ includePrivates: true }),
+          }),
+        }),
+      )
+      expect(bump).toHaveBeenCalledWith(
+        expect.objectContaining({ includePrivates: true }),
+      )
+      expect(changelog).toHaveBeenCalledWith(
+        expect.objectContaining({ includePrivates: true }),
+      )
+    })
+
     it('Then passes bumpResult to subsequent steps', async () => {
       const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
       vi.mocked(bump).mockResolvedValue(bumpResult)

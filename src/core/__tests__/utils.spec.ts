@@ -2,7 +2,7 @@ import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { executeBuildCmd, executeFormatCmd, executeHook, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
+import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
 
 vi.mock('../repo', () => ({
   getPackages: vi.fn().mockResolvedValue([
@@ -814,6 +814,49 @@ describe('Given getPackagesOrBumpedPackages function', () => {
       })
 
       expect(getPackages).toHaveBeenCalled()
+    })
+  })
+})
+
+describe('Given filterOutPrivatePackages function', () => {
+  describe('When called with a mix of private and public packages', () => {
+    it('Then returns only the public packages', () => {
+      const packages = [
+        { name: 'a', private: false },
+        { name: 'b', private: true },
+        { name: 'c', private: false },
+      ]
+      const result = filterOutPrivatePackages(packages)
+      expect(result).toEqual([
+        { name: 'a', private: false },
+        { name: 'c', private: false },
+      ])
+    })
+  })
+
+  describe('When called with an empty array', () => {
+    it('Then returns an empty array', () => {
+      expect(filterOutPrivatePackages([])).toEqual([])
+    })
+  })
+
+  describe('When called with only private packages', () => {
+    it('Then returns an empty array', () => {
+      const packages = [
+        { name: 'a', private: true },
+        { name: 'b', private: true },
+      ]
+      expect(filterOutPrivatePackages(packages)).toEqual([])
+    })
+  })
+
+  describe('When called with only public packages', () => {
+    it('Then returns all of them unchanged', () => {
+      const packages = [
+        { name: 'a', private: false },
+        { name: 'b', private: false },
+      ]
+      expect(filterOutPrivatePackages(packages)).toEqual(packages)
     })
   })
 })
