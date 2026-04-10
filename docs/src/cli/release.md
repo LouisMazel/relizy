@@ -157,6 +157,30 @@ Skip npm publishing:
 relizy release --no-publish
 ```
 
+### --include-private
+
+Include private packages (packages with `"private": true` in their
+`package.json`) in the bump and changelog phases. By default, private packages
+are skipped entirely.
+
+```bash
+relizy release --minor --include-private
+```
+
+When enabled:
+
+- Private packages are bumped alongside public ones.
+- Private packages get their own `CHANGELOG.md`.
+- Their commits are included in the aggregated root changelog.
+
+Private packages **remain excluded** from `publish`, `provider-release`, and
+`pr-comment` — even with this flag. They are versioned and documented, but
+never published to a registry or announced.
+
+This is equivalent to setting `monorepo.includePrivates: true` in
+`relizy.config.ts`. See
+[Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
+
 ## Examples
 
 ### Basic Release

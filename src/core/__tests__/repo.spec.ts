@@ -4,7 +4,7 @@ import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
-import { getPackages } from '../repo'
+import { getPackages, readPackages } from '../repo'
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -408,6 +408,132 @@ describe('Given getPackages function', () => {
       })
 
       expect(packages.every(pkg => pkg.name !== 'pkg-a')).toBe(true)
+    })
+  })
+
+  describe('When includePrivates is enabled', () => {
+    it('Then includes private packages in the result', async () => {
+      vol.fromJSON({
+        [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+        [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({
+          name: 'pkg-a',
+          version: '1.0.0',
+        }),
+        [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({
+          name: 'pkg-b',
+          version: '1.0.0',
+          private: true,
+        }),
+      }, mockCwd)
+
+      setupMockCommits('default', [createMockCommit('feat', 'a change')])
+
+      const config = createMockConfig({
+        cwd: mockCwd,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          includePrivates: true,
+        },
+      })
+
+      const packages = await getPackages({
+        config,
+        suffix: undefined,
+        force: true,
+      })
+
+      expect(packages.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
+    })
+
+    it('Then still excludes packages listed in ignorePackageNames', async () => {
+      vol.fromJSON({
+        [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+        [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({
+          name: 'pkg-a',
+          version: '1.0.0',
+        }),
+        [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({
+          name: 'pkg-b',
+          version: '1.0.0',
+          private: true,
+        }),
+      }, mockCwd)
+
+      const config = createMockConfig({
+        cwd: mockCwd,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          includePrivates: true,
+          ignorePackageNames: ['pkg-b'],
+        },
+      })
+
+      const packages = await getPackages({
+        config,
+        suffix: undefined,
+        force: true,
+      })
+
+      expect(packages.map(p => p.name)).toEqual(['pkg-a'])
+    })
+  })
+
+  describe('Given readPackages function', () => {
+    beforeEach(() => {
+      vol.fromJSON({
+        [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+        [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({
+          name: 'pkg-a',
+          version: '1.0.0',
+        }),
+        [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({
+          name: 'pkg-b',
+          version: '1.0.0',
+          private: true,
+        }),
+      }, mockCwd)
+    })
+
+    describe('When includePrivates is not provided', () => {
+      it('Then excludes private packages', () => {
+        const result = readPackages({
+          cwd: mockCwd,
+          patterns: ['packages/*'],
+          ignorePackageNames: undefined,
+        })
+
+        expect(result.map(p => p.name)).toEqual(['pkg-a'])
+      })
+    })
+
+    describe('When includePrivates is true', () => {
+      it('Then includes private packages', () => {
+        const result = readPackages({
+          cwd: mockCwd,
+          patterns: ['packages/*'],
+          ignorePackageNames: undefined,
+          includePrivates: true,
+        })
+
+        expect(result.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
+      })
+    })
+
+    describe('When includePrivates is true but a private package is in ignorePackageNames', () => {
+      it('Then still excludes it via ignorePackageNames', () => {
+        const result = readPackages({
+          cwd: mockCwd,
+          patterns: ['packages/*'],
+          ignorePackageNames: ['pkg-b'],
+          includePrivates: true,
+        })
+
+        expect(result.map(p => p.name)).toEqual(['pkg-a'])
+      })
     })
   })
 

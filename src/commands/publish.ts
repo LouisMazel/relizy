@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PublishOptions, PublishResponse } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../core'
-import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
+import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
   if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
@@ -87,12 +87,18 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.start('Start publishing packages')
 
-    const packages = await getPackagesOrBumpedPackages({
+    const discoveredPackages = await getPackagesOrBumpedPackages({
       config,
       bumpResult: options.bumpResult,
       suffix: options.suffix,
       force: options.force ?? false,
     })
+
+    const packages = filterOutPrivatePackages(discoveredPackages)
+
+    if (discoveredPackages.length !== packages.length) {
+      logger.debug(`Filtered out ${discoveredPackages.length - packages.length} private package(s) from publish`)
+    }
 
     logger.debug(`Found ${packages.length} package(s)`)
 

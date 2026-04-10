@@ -13,6 +13,7 @@ vi.mock('../../core', () => ({
   readPackages: vi.fn(),
   getCurrentGitBranch: vi.fn(),
   PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
+  filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
 }))
 
 describe('Given prComment command', () => {
@@ -127,6 +128,65 @@ describe('Given prComment command', () => {
           body: expect.stringContaining('Release published'),
         }),
       )
+    })
+  })
+
+  describe('When the workspace contains private packages', () => {
+    it('Then excludes private packages from the standalone-mode comment body', async () => {
+      vi.mocked(readPackages).mockReturnValue([
+        { name: '@scope/public', version: '1.2.3', path: '/packages/public', private: false },
+        { name: '@scope/private', version: '1.2.3', path: '/packages/private', private: true },
+      ])
+
+      await prComment({})
+
+      const lastCall = vi.mocked(postPrComment).mock.calls.at(-1)
+      expect(lastCall?.[0].body).toContain('@scope/public')
+      expect(lastCall?.[0].body).not.toContain('@scope/private')
+    })
+
+    it('Then excludes private packages from the release-context comment body', async () => {
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      })
+      const bumpResult = {
+        bumped: true as const,
+        newVersion: '1.0.0',
+        bumpedPackages: [
+          {
+            name: '@scope/public',
+            version: '1.0.0',
+            newVersion: '1.1.0',
+            oldVersion: '1.0.0',
+            path: '/pub',
+            private: false,
+            commits: [],
+            dependencies: [],
+            fromTag: 'v0',
+          },
+          {
+            name: '@scope/private',
+            version: '1.0.0',
+            newVersion: '1.1.0',
+            oldVersion: '1.0.0',
+            path: '/priv',
+            private: true,
+            commits: [],
+            dependencies: [],
+            fromTag: 'v0',
+          },
+        ],
+      }
+
+      await prComment({
+        config,
+        releaseContext: { status: 'success', bumpResult: bumpResult as any },
+      })
+
+      const lastCall = vi.mocked(postPrComment).mock.calls.at(-1)
+      expect(lastCall?.[0].body).toContain('@scope/public')
+      expect(lastCall?.[0].body).not.toContain('@scope/private')
     })
   })
 

@@ -149,10 +149,12 @@ export function readPackages({
   cwd,
   patterns,
   ignorePackageNames,
+  includePrivates,
 }: {
   cwd: string
   patterns?: string[]
   ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
+  includePrivates?: boolean
 }) {
   const packages: ReadPackage[] = []
   const foundPaths = new Set<string>()
@@ -178,7 +180,7 @@ export function readPackages({
 
         const packageBase = readPackageJson(matchPath)
 
-        if (!packageBase || packageBase.private || ignorePackageNames?.includes(packageBase.name))
+        if (!packageBase || (packageBase.private && !includePrivates) || ignorePackageNames?.includes(packageBase.name))
           continue
 
         foundPaths.add(matchPath)
@@ -252,6 +254,7 @@ export async function getPackages({
     cwd: config.cwd,
     patterns,
     ignorePackageNames: config.monorepo?.ignorePackageNames,
+    includePrivates: config.monorepo?.includePrivates,
   })
 
   const packages = new Map<string, PackageBase>()
@@ -282,7 +285,7 @@ export async function getPackages({
         continue
       }
 
-      if (packageBase.private) {
+      if (packageBase.private && !config.monorepo?.includePrivates) {
         logger.debug(`${packageBase.name} is private and will be ignored`)
         continue
       }
@@ -422,6 +425,7 @@ function isCommitOfTrackedPackages({
     cwd: config.cwd,
     patterns: config.monorepo.packages,
     ignorePackageNames: config.monorepo?.ignorePackageNames,
+    includePrivates: config.monorepo?.includePrivates,
   })
 
   return packages.some((pkg) => {
