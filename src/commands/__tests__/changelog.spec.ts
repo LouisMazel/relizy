@@ -61,6 +61,20 @@ describe('Given changelog command', () => {
     })
   })
 
+  describe('When includePrivates option is provided', () => {
+    it('Then forwards it to loadRelizyConfig overrides', async () => {
+      await changelog({ includePrivates: true })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrides: expect.objectContaining({
+            monorepo: expect.objectContaining({ includePrivates: true }),
+          }),
+        }),
+      )
+    })
+  })
+
   describe('When using dry-run mode', () => {
     it('Then passes dryRun to hooks and functions', async () => {
       await changelog({ dryRun: true })

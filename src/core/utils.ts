@@ -213,6 +213,10 @@ export function isBumpedPackage(pkg: PackageBase): pkg is PackageBase & { oldVer
   return 'oldVersion' in pkg && !!pkg.oldVersion
 }
 
+export function filterOutPrivatePackages<T extends { private: boolean }>(packages: T[]): T[] {
+  return packages.filter(p => !p.private)
+}
+
 export async function getPackagesOrBumpedPackages({
   config,
   bumpResult,

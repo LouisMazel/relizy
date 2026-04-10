@@ -8,7 +8,7 @@ import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
-import { getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
+import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
 
 async function githubIndependentMode({
@@ -36,12 +36,12 @@ async function githubIndependentMode({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const packages = await getPackagesOrBumpedPackages({
+  const packages = filterOutPrivatePackages(await getPackagesOrBumpedPackages({
     config,
     bumpResult,
     suffix,
     force,
-  })
+  }))
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
 

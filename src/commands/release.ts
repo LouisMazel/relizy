@@ -51,6 +51,9 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         social: options.social,
         prComment: options.prComment,
       },
+      monorepo: options.includePrivates !== undefined
+        ? { includePrivates: options.includePrivates }
+        : undefined,
       safetyCheck: options.safetyCheck,
     },
   })
@@ -171,6 +174,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       configName: options.configName,
       suffix: options.suffix,
       canary: isCanary,
+      includePrivates: options.includePrivates,
     })
 
     if (!bumpResult.bumped) {
@@ -203,6 +207,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         configName: options.configName,
         force,
         suffix: options.suffix,
+        includePrivates: options.includePrivates,
       })
     }
     else {

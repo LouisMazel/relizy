@@ -64,6 +64,42 @@ export default defineConfig({
 })
 ```
 
+## includePrivates
+
+Include private packages (packages with `"private": true` in their `package.json`)
+in **bump** and **changelog** operations.
+
+By default, private packages are excluded from every pipeline step. When this
+option is enabled, they participate in version bumping and changelog generation:
+they get their own version bump, their own `CHANGELOG.md`, and their commits
+are included in the aggregated root changelog.
+
+Private packages **remain excluded** from:
+
+- `relizy publish` (they are never published to a registry)
+- `relizy provider-release` (no GitHub/GitLab releases are created for them)
+- `relizy pr-comment` (they are not listed in PR comments)
+
+This is useful for monorepos that contain internal-only packages (apps,
+examples, private libraries) that still need versioning and changelog tracking.
+
+```ts
+export default defineConfig({
+  monorepo: {
+    versionMode: 'selective',
+    packages: ['packages/*', 'apps/*'],
+    includePrivates: true,
+  },
+})
+```
+
+You can also enable it ad-hoc from the CLI with the `--include-private` flag on
+`relizy bump`, `relizy changelog`, and `relizy release`.
+
+> [!NOTE]
+> `ignorePackageNames` still takes precedence. A private package listed in
+> `ignorePackageNames` stays excluded even if `includePrivates` is `true`.
+
 ## Complete Example
 
 ```ts
@@ -72,6 +108,7 @@ export default defineConfig({
     versionMode: 'selective',
     packages: ['packages/*', 'apps/*'],
     ignorePackageNames: ['example-a', 'docs'],
+    includePrivates: false,
   },
 })
 ```

@@ -1,5 +1,11 @@
-import { createMockCommit, createMockConfig } from '../../../tests/mocks'
-import { determineReleaseType, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { logger } from '@maz-ui/node'
+import { afterEach, vi } from 'vitest'
+import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { confirmBump, determineReleaseType, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+
+vi.mock('@inquirer/prompts', () => ({
+  confirm: vi.fn(() => Promise.resolve(true)),
+}))
 
 describe('Given getPackageNewVersion function', () => {
   describe('When bumping with stable release types', () => {
@@ -1788,6 +1794,183 @@ describe('Given getCanaryVersion function', () => {
       })
 
       expect(result).toBe('99.99.100-canary.xyz7890.0')
+    })
+  })
+})
+
+describe('Given confirmBump function', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(logger, 'log').mockImplementation(() => undefined)
+    vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
+    vi.spyOn(logger, 'fail').mockImplementation(() => undefined)
+    logSpy.mockClear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function buildPackage(overrides: { name: string, isPrivate?: boolean, reason?: 'commits' | 'dependency' | 'graduation' }) {
+    return createMockPackageInfo({
+      name: overrides.name,
+      version: '1.0.0',
+      newVersion: '1.1.0',
+      path: `/tmp/${overrides.name}`,
+      private: overrides.isPrivate ?? false,
+      commits: [createMockCommit('feat', 'a change')],
+      dependencies: [],
+      reason: overrides.reason ?? 'commits',
+      fromTag: `${overrides.name}@1.0.0`,
+    })
+  }
+
+  describe('When called with no packages', () => {
+    it('Then returns early without prompting', async () => {
+      await confirmBump({
+        versionMode: 'unified',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })
+
+      expect(logSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When called in unified mode with private and public packages', () => {
+    it('Then displays the private notice and marks private packages', async () => {
+      await confirmBump({
+        versionMode: 'unified',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [
+          buildPackage({ name: '@scope/public' }),
+          buildPackage({ name: '@scope/private', isPrivate: true }),
+        ],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).toContain('🔒')
+      expect(logged).toContain('@scope/private')
+      expect(logged).toContain('@scope/public')
+      expect(logged).toContain('Private packages are versioned')
+    })
+  })
+
+  describe('When called in selective mode with force', () => {
+    it('Then displays packages with force suffix and private marker', async () => {
+      await confirmBump({
+        versionMode: 'selective',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [
+          buildPackage({ name: '@scope/public' }),
+          buildPackage({ name: '@scope/private', isPrivate: true }),
+        ],
+        force: true,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).toContain('(force)')
+      expect(logged).toContain('🔒')
+    })
+  })
+
+  describe('When called in selective mode with mixed reasons', () => {
+    it('Then groups packages by reason and keeps private markers', async () => {
+      await confirmBump({
+        versionMode: 'selective',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [
+          buildPackage({ name: '@scope/a', reason: 'commits' }),
+          buildPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
+          buildPackage({ name: '@scope/c', reason: 'graduation' }),
+        ],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).toContain('package(s) with commits')
+      expect(logged).toContain('dependent package(s)')
+      expect(logged).toContain('graduation package(s)')
+      expect(logged).toContain('🔒')
+    })
+  })
+
+  describe('When called in independent mode with force', () => {
+    it('Then displays each package with its own newVersion and private marker', async () => {
+      await confirmBump({
+        versionMode: 'independent',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [
+          buildPackage({ name: '@scope/public' }),
+          buildPackage({ name: '@scope/private', isPrivate: true }),
+        ],
+        force: true,
+        currentVersion: undefined,
+        newVersion: undefined,
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).toContain('(force)')
+      expect(logged).toContain('🔒')
+    })
+  })
+
+  describe('When called in independent mode with mixed reasons', () => {
+    it('Then groups packages by reason and keeps private markers', async () => {
+      await confirmBump({
+        versionMode: 'independent',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [
+          buildPackage({ name: '@scope/a', reason: 'commits' }),
+          buildPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
+          buildPackage({ name: '@scope/c', reason: 'graduation' }),
+        ],
+        force: false,
+        currentVersion: undefined,
+        newVersion: undefined,
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).toContain('package(s) with commits')
+      expect(logged).toContain('dependent package(s)')
+      expect(logged).toContain('graduation package(s)')
+      expect(logged).toContain('🔒')
+    })
+  })
+
+  describe('When only public packages are provided', () => {
+    it('Then does not display the private notice', async () => {
+      await confirmBump({
+        versionMode: 'unified',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [buildPackage({ name: '@scope/a' })],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })
+
+      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+      expect(logged).not.toContain('🔒')
+      expect(logged).not.toContain('Private packages are versioned')
     })
   })
 })
