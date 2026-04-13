@@ -1035,6 +1035,161 @@ describe('Given determineReleaseType function', () => {
     })
   })
 
+  describe('When type is prerelease with prerelease version same preid and commits imply higher base version', () => {
+    it('Then returns preminor when feat commit is added after a fix-based beta', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.2.2-beta.0',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [
+          createMockCommit('fix', 'fix bug'),
+          createMockCommit('feat', 'add feature'),
+        ],
+        force: false,
+      })
+
+      expect(result).toBe('preminor')
+    })
+
+    it('Then returns premajor when breaking change commit is added after a fix-based beta', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.2.2-beta.0',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [
+          { ...createMockCommit('feat', 'breaking feature'), isBreaking: true },
+        ],
+        force: false,
+      })
+
+      expect(result).toBe('premajor')
+    })
+
+    it('Then returns prerelease (counter increment) when only fix commits and base is already patch-level', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.2.2-beta.3',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [createMockCommit('fix', 'another fix')],
+        force: false,
+      })
+
+      expect(result).toBe('prerelease')
+    })
+
+    it('Then returns prerelease when only non-semver commits (chore, test, ci)', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.2.2-beta.0',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [createMockCommit('chore', 'update deps')],
+        force: false,
+      })
+
+      expect(result).toBe('prerelease')
+    })
+
+    it('Then returns preminor when feat commit after a prepatch-based beta', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.2.2-beta.5',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [
+          createMockCommit('fix', 'fix something'),
+          createMockCommit('feat', 'add something'),
+        ],
+        force: false,
+      })
+
+      expect(result).toBe('preminor')
+    })
+
+    it('Then returns premajor when breaking change after a preminor-based beta', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.3.0-beta.2',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [
+          createMockCommit('feat', 'add feature'),
+          { ...createMockCommit('feat', 'breaking change'), isBreaking: true },
+        ],
+        force: false,
+      })
+
+      expect(result).toBe('premajor')
+    })
+
+    it('Then returns prerelease when feat commits but base is already minor-level', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.3.0-beta.2',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [createMockCommit('feat', 'add feature')],
+        force: false,
+      })
+
+      expect(result).toBe('prerelease')
+    })
+
+    it('Then returns prerelease when fix commits and base is already minor-level', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+      const result = determineReleaseType({
+        currentVersion: '1.3.0-beta.1',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [createMockCommit('fix', 'fix something')],
+        force: false,
+      })
+
+      expect(result).toBe('prerelease')
+    })
+
+    it('Then returns premajor when breaking change and base is 0.x (pre-1.0)', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'alpha' } })
+      const result = determineReleaseType({
+        currentVersion: '0.5.1-alpha.0',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [
+          { ...createMockCommit('feat', 'breaking'), isBreaking: true },
+        ],
+        force: false,
+      })
+
+      expect(result).toBe('premajor')
+    })
+
+    it('Then returns preminor for feat in 0.x range', () => {
+      const config = createMockConfig({ bump: { type: 'prerelease', preid: 'alpha' } })
+      const result = determineReleaseType({
+        currentVersion: '0.5.1-alpha.0',
+        preid: config.bump.preid,
+        releaseType: config.bump.type,
+        types: config.types,
+        commits: [createMockCommit('feat', 'new feature')],
+        force: false,
+      })
+
+      expect(result).toBe('preminor')
+    })
+  })
+
   describe('When type is prerelease with prerelease version different preid upgrading', () => {
     it('Then returns preminor when changing from alpha to beta with feat', () => {
       const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
@@ -1795,6 +1950,160 @@ describe('Given getCanaryVersion function', () => {
 
       expect(result).toBe('99.99.100-canary.xyz7890.0')
     })
+  })
+})
+
+describe('Given prerelease lifecycle (determineReleaseType + getPackageNewVersion)', () => {
+  it('Then produces correct version for feat after patch-based beta', () => {
+    const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+    const releaseType = determineReleaseType({
+      currentVersion: '1.2.2-beta.0',
+      preid: config.bump.preid,
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('feat', 'add feature')],
+      force: false,
+    })
+
+    expect(releaseType).toBe('preminor')
+
+    const newVersion = getPackageNewVersion({
+      name: 'test',
+      currentVersion: '1.2.2-beta.0',
+      releaseType: releaseType!,
+      preid: 'beta',
+      suffix: undefined,
+    })
+
+    expect(newVersion).toBe('1.3.0-beta.0')
+  })
+
+  it('Then produces correct version for breaking change after minor-based beta', () => {
+    const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+    const releaseType = determineReleaseType({
+      currentVersion: '1.3.0-beta.2',
+      preid: config.bump.preid,
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [{ ...createMockCommit('feat', 'breaking'), isBreaking: true }],
+      force: false,
+    })
+
+    expect(releaseType).toBe('premajor')
+
+    const newVersion = getPackageNewVersion({
+      name: 'test',
+      currentVersion: '1.3.0-beta.2',
+      releaseType: releaseType!,
+      preid: 'beta',
+      suffix: undefined,
+    })
+
+    expect(newVersion).toBe('2.0.0-beta.0')
+  })
+
+  it('Then produces correct version for fix after patch-based beta (counter increment)', () => {
+    const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+    const releaseType = determineReleaseType({
+      currentVersion: '1.2.2-beta.3',
+      preid: config.bump.preid,
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('fix', 'fix bug')],
+      force: false,
+    })
+
+    expect(releaseType).toBe('prerelease')
+
+    const newVersion = getPackageNewVersion({
+      name: 'test',
+      currentVersion: '1.2.2-beta.3',
+      releaseType: releaseType!,
+      preid: 'beta',
+      suffix: undefined,
+    })
+
+    expect(newVersion).toBe('1.2.2-beta.4')
+  })
+
+  it('Then produces correct version for feat after feat-based beta (counter increment)', () => {
+    const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+    const releaseType = determineReleaseType({
+      currentVersion: '1.3.0-beta.1',
+      preid: config.bump.preid,
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('feat', 'another feature')],
+      force: false,
+    })
+
+    expect(releaseType).toBe('prerelease')
+
+    const newVersion = getPackageNewVersion({
+      name: 'test',
+      currentVersion: '1.3.0-beta.1',
+      releaseType: releaseType!,
+      preid: 'beta',
+      suffix: undefined,
+    })
+
+    expect(newVersion).toBe('1.3.0-beta.2')
+  })
+
+  it('Then handles the full beta lifecycle correctly', () => {
+    const config = createMockConfig({ bump: { type: 'prerelease', preid: 'beta' } })
+
+    // Step 2: Another fix -> 1.2.2-beta.1 (counter increment)
+    let releaseType = determineReleaseType({
+      currentVersion: '1.2.2-beta.0',
+      preid: 'beta',
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('fix', 'another fix')],
+      force: false,
+    })
+    expect(releaseType).toBe('prerelease')
+    let version = getPackageNewVersion({ name: 'test', currentVersion: '1.2.2-beta.0', releaseType: releaseType!, preid: 'beta', suffix: undefined })
+    expect(version).toBe('1.2.2-beta.1')
+
+    // Step 3: feat commit -> 1.3.0-beta.0 (base version bump!)
+    releaseType = determineReleaseType({
+      currentVersion: '1.2.2-beta.1',
+      preid: 'beta',
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('fix', 'fix'), createMockCommit('feat', 'new feature')],
+      force: false,
+    })
+    expect(releaseType).toBe('preminor')
+    version = getPackageNewVersion({ name: 'test', currentVersion: '1.2.2-beta.1', releaseType: releaseType!, preid: 'beta', suffix: undefined })
+    expect(version).toBe('1.3.0-beta.0')
+
+    // Step 4: Another feat -> 1.3.0-beta.1 (counter increment, base already minor-level)
+    releaseType = determineReleaseType({
+      currentVersion: '1.3.0-beta.0',
+      preid: 'beta',
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [createMockCommit('feat', 'yet another feature')],
+      force: false,
+    })
+    expect(releaseType).toBe('prerelease')
+    version = getPackageNewVersion({ name: 'test', currentVersion: '1.3.0-beta.0', releaseType: releaseType!, preid: 'beta', suffix: undefined })
+    expect(version).toBe('1.3.0-beta.1')
+
+    // Step 5: Breaking change -> 2.0.0-beta.0 (base version bump again!)
+    releaseType = determineReleaseType({
+      currentVersion: '1.3.0-beta.1',
+      preid: 'beta',
+      releaseType: config.bump.type,
+      types: config.types,
+      commits: [{ ...createMockCommit('feat', 'breaking'), isBreaking: true }],
+      force: false,
+    })
+    expect(releaseType).toBe('premajor')
+    version = getPackageNewVersion({ name: 'test', currentVersion: '1.3.0-beta.1', releaseType: releaseType!, preid: 'beta', suffix: undefined })
+    expect(version).toBe('2.0.0-beta.0')
   })
 })
 
