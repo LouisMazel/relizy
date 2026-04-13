@@ -1407,7 +1407,9 @@ describe('Given rollbackModifiedFiles function', () => {
       expect(execPromise).not.toHaveBeenCalled()
       const rmCalls = vi
         .mocked(execSync)
-        .mock.calls.filter(([cmd]) => String(cmd).startsWith('rm '))
+        .mock
+        .calls
+        .filter(([cmd]) => String(cmd).startsWith('rm '))
       expect(rmCalls).toHaveLength(0)
     })
   })
