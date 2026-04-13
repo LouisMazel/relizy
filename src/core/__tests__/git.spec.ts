@@ -1,7 +1,7 @@
 import type { BumpResultTruthy } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -458,7 +458,7 @@ describe('Given createCommitAndTags function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
+    config = createMockConfig({ bump: { type: 'patch' }, cwd: '/project' })
     config.templates = {
       commitMessage: 'chore(release): bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
@@ -760,9 +760,9 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add package.json')
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/CHANGELOG.md')
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json')
+      expect(execSync).toHaveBeenCalledWith('git add package.json', { cwd: '/project' })
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/CHANGELOG.md', { cwd: '/project' })
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json', { cwd: '/project' })
     })
 
     it('Then skips lerna.json when not present', async () => {
@@ -808,7 +808,7 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add lerna.json')
+      expect(execSync).toHaveBeenCalledWith('git add lerna.json', { cwd: '/project' })
     })
 
     it('Then ignores errors when pattern matches no files', async () => {
@@ -1349,7 +1349,7 @@ describe('Given rollbackModifiedFiles function', () => {
   })
 
   describe('When some modified files are untracked (new CHANGELOG.md)', () => {
-    it('Then only checks out tracked files and rm\'s untracked ones', async () => {
+    it('Then only checks out tracked files and removes untracked ones', async () => {
       setupExecSync({
         gitStatus: ' M package.json\n?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
         untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
@@ -1362,19 +1362,13 @@ describe('Given rollbackModifiedFiles function', () => {
         'git checkout HEAD -- package.json',
         expect.objectContaining({ cwd: '/project' }),
       )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/packages/a/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
+      expect(unlinkSync).toHaveBeenCalledWith('/project/CHANGELOG.md')
+      expect(unlinkSync).toHaveBeenCalledWith('/project/packages/a/CHANGELOG.md')
     })
   })
 
   describe('When all modified files are untracked', () => {
-    it('Then skips git checkout entirely and rm\'s each file', async () => {
+    it('Then skips git checkout entirely and removes each file', async () => {
       setupExecSync({
         gitStatus: '?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
         untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
@@ -1383,14 +1377,8 @@ describe('Given rollbackModifiedFiles function', () => {
       await rollbackModifiedFiles({ config })
 
       expect(execPromise).not.toHaveBeenCalled()
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/packages/a/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
+      expect(unlinkSync).toHaveBeenCalledWith('/project/CHANGELOG.md')
+      expect(unlinkSync).toHaveBeenCalledWith('/project/packages/a/CHANGELOG.md')
     })
   })
 

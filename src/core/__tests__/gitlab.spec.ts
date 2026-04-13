@@ -27,6 +27,10 @@ vi.mock('../tags', () => {
   return {
     resolveTags: vi.fn(),
     getIndependentTag: vi.fn(),
+    getBootstrapTag: vi.fn(({ packageName, versionMode, tagTemplate }) => versionMode === 'independent'
+      ? `${packageName}@0.0.0`
+      : tagTemplate.replace('{{newVersion}}', '0.0.0')),
+    isNewPackageMarker: vi.fn(tag => tag === '__NEW_PACKAGE__'),
   }
 })
 
@@ -720,6 +724,23 @@ describe('Given gitlab function', () => {
       expect(fetch).toHaveBeenCalledTimes(1)
       expect(result).toHaveLength(1)
       expect(result[0].name).toBe('pkg-b')
+    })
+
+    it('Then maps NEW_PACKAGE_MARKER to bootstrap baseline for GitLab releases', async () => {
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '__NEW_PACKAGE__' },
+      ])
+
+      await gitlab({ force: false })
+
+      expect(generateChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          pkg: expect.objectContaining({ fromTag: '__NEW_PACKAGE__' }),
+        }),
+      )
+      const call = vi.mocked(fetch).mock.calls[0]
+      const body = JSON.parse(call[1]?.body as string)
+      expect(body.tag_name).toBe('pkg-a@1.0.0')
     })
 
     it('Then returns empty array when no packages to release', async () => {

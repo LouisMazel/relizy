@@ -125,8 +125,8 @@ export async function getPackagesToPublishInIndependentMode(
   return packagesToPublish
 }
 
-function isYarnBerry() {
-  return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
+function isYarnBerry(cwd: string = process.cwd()) {
+  return existsSync(path.join(cwd, '.yarnrc.yml'))
 }
 
 function getCommandArgs<T extends 'auth' | 'publish'>({
@@ -190,7 +190,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   else if (packageManager === 'yarn') {
     args.push('--non-interactive')
     // Yarn Berry only
-    if (isYarnBerry())
+    if (isYarnBerry(config.cwd))
       args.push('--no-git-checks')
   }
   else if (packageManager === 'npm') {
@@ -351,7 +351,7 @@ function getPublishCommand({
     type: 'publish',
   })
 
-  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
+  const baseCommand = packageManager === 'yarn' && isYarnBerry(config.cwd) ? 'yarn npm' : packageManager
 
   return `${baseCommand} ${args.join(' ')}`
 }
@@ -385,8 +385,6 @@ export async function publishPackage({
         dryRun,
       })
 
-      process.chdir(pkg.path)
-
       await executePublishCommand({
         command,
         packageNameAndVersion,
@@ -414,9 +412,6 @@ export async function publishPackage({
         logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
         throw error
       }
-    }
-    finally {
-      process.chdir(config.cwd)
     }
   }
 }

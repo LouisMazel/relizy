@@ -71,7 +71,7 @@
     "test:unit": "vitest run",
     "test:unit:watch": "vitest watch",
     "test:unit:coverage": "vitest run --coverage",
-    "health": "pnpm typecheck && pnpm lint && pnpm test:unit:coverage",
+    "health": "pnpm typecheck && pnpm lint:all && pnpm test:unit:coverage",
     "pre-commit": "lint-staged"
   },
   "peerDependencies": {

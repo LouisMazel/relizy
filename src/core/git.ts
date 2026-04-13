@@ -3,7 +3,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { BumpResultTruthy, GitProvider } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
-import { existsSync } from 'node:fs'
+import { existsSync, unlinkSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
@@ -187,7 +187,7 @@ export async function createCommitAndTags({
 
       try {
         logger.debug(`git add ${pattern}`)
-        execSync(`git add ${pattern}`)
+        execSync(`git add ${pattern}`, { cwd: internalConfig.cwd })
       }
       catch {
         // Ignore errors if pattern doesn't match any files
@@ -389,7 +389,7 @@ export async function rollbackModifiedFiles({
 
     for (const file of untrackedFiles) {
       logger.debug(`Removing untracked file: ${file}`)
-      execSync(`rm "${join(config.cwd, file)}"`, { cwd: config.cwd })
+      unlinkSync(join(config.cwd, file))
     }
 
     logger.success(`Successfully rolled back ${trackedFiles.length + untrackedFiles.length} release file(s)`)

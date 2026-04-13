@@ -2,7 +2,6 @@ import type { PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
-import process from 'node:process'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -606,7 +605,6 @@ describe('Given publishPackage function', () => {
   let config: ResolvedRelizyConfig
   let pkg: PackageBase
   let cwdSpy: ReturnType<typeof vi.spyOn>
-  let chdirSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -632,7 +630,6 @@ describe('Given publishPackage function', () => {
     }
 
     cwdSpy = vi.spyOn(globalThis.process, 'cwd').mockReturnValue('/project')
-    chdirSpy = vi.spyOn(globalThis.process, 'chdir').mockImplementation(() => {})
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getIndependentTag).mockReturnValue('test-package@1.0.1')
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
@@ -642,7 +639,6 @@ describe('Given publishPackage function', () => {
 
   afterEach(() => {
     cwdSpy.mockRestore()
-    chdirSpy.mockRestore()
   })
 
   describe('When publishing successfully', () => {
@@ -660,7 +656,7 @@ describe('Given publishPackage function', () => {
       )
     })
 
-    it('Then changes to package directory', async () => {
+    it('Then executes publish in the package directory via cwd', async () => {
       await publishPackage({
         pkg,
         config,
@@ -668,18 +664,10 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(chdirSpy).toHaveBeenCalledWith('/packages/test')
-    })
-
-    it('Then restores original directory', async () => {
-      await publishPackage({
-        pkg,
-        config,
-        packageManager: 'npm',
-        dryRun: false,
-      })
-
-      expect(chdirSpy).toHaveBeenCalledWith('/project')
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringContaining('publish'),
+        expect.objectContaining({ cwd: '/packages/test' }),
+      )
     })
 
     it('Then logs publish start and completion', async () => {
@@ -923,7 +911,7 @@ describe('Given publishPackage function', () => {
       )
     })
 
-    it('Then restores directory even on error', async () => {
+    it('Then uses cwd option instead of process.chdir', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('Failed'))
 
       try {
@@ -938,7 +926,10 @@ describe('Given publishPackage function', () => {
         // Expected
       }
 
-      expect(process.chdir).toHaveBeenCalledWith('/project')
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ cwd: pkg.path }),
+      )
     })
   })
 
