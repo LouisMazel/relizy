@@ -1,5 +1,36 @@
 # Changelog
 
+## v1.3.0-beta.0 (2026-04-13)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.2...v1.3.0-beta.0)
+
+### 🚀 Features
+
+- Smart prerelease base version recalculation ([c518a14](https://github.com/LouisMazel/relizy/commit/c518a14))
+
+  When in a prerelease cycle, Relizy now analyzes conventional commits
+  to determine if the base version should increase.
+  Previously, prerelease bumps always incremented the counter
+  (e.g. 1.2.2-beta.0 → 1.2.2-beta.1) regardless of commit types.
+  Now, if a `feat` commit is pushed after a patch-based beta,
+  the base version correctly bumps to the next minor
+  (e.g. 1.2.2-beta.1 → 1.3.0-beta.0). Similarly, a breaking change
+  bumps to the next major (e.g. 1.3.0-beta.1 → 2.0.0-beta.0).
+  The base version only goes up, never down — a `fix` after a
+  minor-level beta simply increments the counter.
+
+### 🩹 Fixes
+
+- Rollback untracked files when publish fail ([3479f02](https://github.com/LouisMazel/relizy/commit/3479f02))
+
+### 📦 Build
+
+- Upgrade dependencies ([a9e82f3](https://github.com/LouisMazel/relizy/commit/a9e82f3))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.2.2-beta.2 (2026-04-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.1...v1.2.2-beta.2)
