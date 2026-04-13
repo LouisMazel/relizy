@@ -21,10 +21,12 @@ export function isGraduatingToStableBetweenVersion(version: string, newVersion: 
   return isSameBase && fromPrerelease && toStable
 }
 
+type SemverChangeType = 'major' | 'minor' | 'patch' | undefined
+
 export function determineSemverChange(
   commits: GitCommit[],
   types: NonNullable<RelizyConfig['types']>,
-): 'major' | 'minor' | 'patch' | undefined {
+): SemverChangeType {
   let [hasMajor, hasMinor, hasPatch] = [false, false, false]
   for (const commit of commits) {
     const commitType = types[commit.type]
@@ -126,12 +128,33 @@ function handlePrereleaseVersionToStable(
   return 'release'
 }
 
+function getSemverRank(type: 'major' | 'minor' | 'patch' | undefined): number {
+  switch (type) {
+    case 'major': return 3
+    case 'minor': return 2
+    case 'patch': return 1
+    default: return 0
+  }
+}
+
+function getImpliedBumpFromPrerelease(version: string): 'major' | 'minor' | 'patch' {
+  const patch = semver.patch(version)
+  const minor = semver.minor(version)
+
+  if (patch > 0)
+    return 'patch'
+  if (minor > 0)
+    return 'minor'
+  return 'major'
+}
+
 function handlePrereleaseVersionWithPrereleaseType(
-  { currentVersion, preid, commits, force }: {
+  { currentVersion, preid, commits, force, types }: {
     currentVersion: string
     preid: string | undefined
     commits: GitCommit[] | undefined
     force: boolean
+    types: NonNullable<RelizyConfig['types']>
   },
 ): ReleaseType | undefined {
   const currentPreid = getPreid(currentVersion)
@@ -156,6 +179,19 @@ function handlePrereleaseVersionWithPrereleaseType(
   if (!commits?.length && !force) {
     logger.debug('No commits found for prerelease version, skipping bump')
     return undefined
+  }
+
+  if (commits?.length) {
+    const detectedType = detectReleaseTypeFromCommits(commits, types)
+    const impliedBump = getImpliedBumpFromPrerelease(currentVersion)
+    const detectedRank = getSemverRank(detectedType)
+    const impliedRank = getSemverRank(impliedBump)
+
+    if (detectedRank > impliedRank) {
+      const prereleaseType = `pre${detectedType}` as ReleaseType
+      logger.debug(`Commits imply ${detectedType} bump, upgrading prerelease base from ${impliedBump}-level to ${prereleaseType}`)
+      return prereleaseType
+    }
   }
 
   logger.debug(`Incrementing prerelease version: ${currentVersion}`)
@@ -233,7 +269,7 @@ export function determineReleaseType({
   }
 
   if (releaseType === 'prerelease') {
-    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force })
+    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force, types })
   }
 
   return handleExplicitReleaseType({ releaseType, currentVersion })
