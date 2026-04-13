@@ -34,6 +34,11 @@ vi.mock('../git', () => {
 vi.mock('../tags', () => {
   return {
     getIndependentTag: vi.fn(),
+    getBootstrapTag: vi.fn(({ packageName, versionMode, tagTemplate }) => versionMode === 'independent'
+      ? `${packageName}@0.0.0`
+      : tagTemplate.replace('{{newVersion}}', '0.0.0')),
+    isNewPackageMarker: vi.fn(tag => tag === '__NEW_PACKAGE__'),
+    NEW_PACKAGE_MARKER: '__NEW_PACKAGE__',
   }
 })
 
@@ -205,7 +210,6 @@ describe('Given generateChangelog function', () => {
     it('Then uses independent tag for first commit', async () => {
       config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       vi.mocked(getFirstCommit).mockReturnValue('initial')
-      vi.mocked(getIndependentTag).mockReturnValue('pkg-a@0.0.0')
       const pkg = {
         name: 'pkg-a',
         commits: [createMockCommit('feat', 'initial')],
@@ -218,10 +222,36 @@ describe('Given generateChangelog function', () => {
         newVersion: '1.0.0',
       })
 
-      expect(getIndependentTag).toHaveBeenCalledWith({
-        version: '0.0.0',
+      expect(generateMarkDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'pkg-a@0.0.0',
+          isFirstCommit: true,
+        }),
+      )
+    })
+
+    it('Then uses independent bootstrap tag when fromTag is NEW_PACKAGE_MARKER', async () => {
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      vi.mocked(getIndependentTag).mockImplementation(({ version, name }) => `${name}@${version}`)
+      const pkg = {
         name: 'pkg-a',
+        fromTag: '__NEW_PACKAGE__',
+        commits: [createMockCommit('feat', 'initial release')],
+      }
+
+      await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.0.0',
       })
+
+      expect(generateMarkDown).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: 'pkg-a@0.0.0',
+          isFirstCommit: true,
+        }),
+      )
     })
   })
 

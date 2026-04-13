@@ -18,15 +18,15 @@ import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduatin
  * when using the first commit of the entire repo.
  */
 function getFirstPackageCommitHash(packagePath: string, cwd: string): string | null {
-  const relativePath = relative(cwd, packagePath)
+  const relativePath = relative(cwd, packagePath).split(sep).join('/')
 
   try {
     // Get the oldest commit that touched this package directory
     const result = execSync(
-      `git log --reverse --format="%H" -- "${relativePath}" | head -1`,
+      `git log --reverse --format="%H" -- "${relativePath}"`,
       { cwd, encoding: 'utf8' },
     )
-    const hash = result.trim()
+    const hash = result.trim().split(/\r?\n/u).find(Boolean) || ''
 
     if (hash) {
       logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)

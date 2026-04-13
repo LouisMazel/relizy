@@ -7,7 +7,7 @@ import { createGithubRelease } from 'changelogen'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getRootPackage, readPackageJson } from './repo'
-import { getIndependentTag, resolveTags } from './tags'
+import { getBootstrapTag, getIndependentTag, isNewPackageMarker, resolveTags } from './tags'
 import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
 
@@ -50,7 +50,13 @@ async function githubIndependentMode({
   for (const pkg of packages) {
     const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
 
-    const from = config.from || pkg.fromTag
+    const from = config.from || (isNewPackageMarker(pkg.fromTag)
+      ? getBootstrapTag({
+          packageName: pkg.name,
+          versionMode: 'independent',
+          tagTemplate: config.templates.tagBody,
+        })
+      : pkg.fromTag)
     const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
 
     if (!from) {
