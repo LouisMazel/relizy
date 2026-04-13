@@ -148,7 +148,6 @@ export default defineConfig({
           { text: 'CI/CD Setup', link: '/guide/ci-cd' },
           { text: 'GitHub Actions', link: '/guide/github-actions' },
           { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          { text: 'Migration', link: '/guide/migration-from-changelogen-monorepo' },
           { text: 'Contributing', link: '/guide/contributing' },
         ],
       },
@@ -203,10 +202,6 @@ export default defineConfig({
             link: '/changelog',
           },
           {
-            text: 'Migration from @maz-ui/changelogen-monorepo',
-            link: '/guide/migration-from-changelogen-monorepo',
-          },
-          {
             text: 'Contributing',
             link: '/guide/contributing',
           },
@@ -258,12 +253,6 @@ export default defineConfig({
             { text: 'CI/CD Setup', link: '/guide/ci-cd' },
             { text: 'GitHub Actions', link: '/guide/github-actions' },
             { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          ],
-        },
-        {
-          text: 'Migration',
-          items: [
-            { text: 'Migration from @maz-ui/changelogen-monorepo', link: '/guide/migration-from-changelogen-monorepo' },
           ],
         },
         {
