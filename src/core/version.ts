@@ -23,9 +23,35 @@ export function isGraduatingToStableBetweenVersion(version: string, newVersion: 
 
 type SemverChangeType = 'major' | 'minor' | 'patch' | undefined
 
+/**
+ * When the current version is in the `0.x.y` range (initial development per
+ * semver §4), breaking changes must not graduate to `1.0.0` automatically.
+ * This helper downgrades an auto-detected `major` change to `minor` in that
+ * case. Explicit CLI release types (major, premajor, ...) are NOT passed
+ * through this function — only commit-based detection is capped.
+ */
+export function capReleaseTypeForZeroMajor(
+  currentVersion: string,
+  detected: SemverChangeType,
+): SemverChangeType {
+  if (detected !== 'major')
+    return detected
+
+  try {
+    if (semver.major(currentVersion) === 0)
+      return 'minor'
+  }
+  catch {
+    return detected
+  }
+
+  return detected
+}
+
 export function determineSemverChange(
   commits: GitCommit[],
   types: NonNullable<RelizyConfig['types']>,
+  currentVersion?: string,
 ): SemverChangeType {
   let [hasMajor, hasMinor, hasPatch] = [false, false, false]
   for (const commit of commits) {
@@ -47,14 +73,22 @@ export function determineSemverChange(
     }
   }
 
-  return hasMajor ? 'major' : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
+  const detected: SemverChangeType = hasMajor
+    ? 'major'
+    : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
+
+  if (currentVersion)
+    return capReleaseTypeForZeroMajor(currentVersion, detected)
+
+  return detected
 }
 
 function detectReleaseTypeFromCommits(
   commits: GitCommit[],
   types: NonNullable<RelizyConfig['types']>,
+  currentVersion: string,
 ) {
-  return determineSemverChange(commits, types)
+  return determineSemverChange(commits, types, currentVersion)
 }
 
 function validatePrereleaseDowngrade(
@@ -75,6 +109,7 @@ function validatePrereleaseDowngrade(
 }
 
 function handleStableVersionWithReleaseType(
+  currentVersion: string,
   commits: GitCommit[] | undefined,
   types: NonNullable<RelizyConfig['types']>,
   force: boolean,
@@ -85,7 +120,7 @@ function handleStableVersionWithReleaseType(
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, types)
+    ? detectReleaseTypeFromCommits(commits, types, currentVersion)
     : undefined
 
   if (!detectedType && !force) {
@@ -98,6 +133,7 @@ function handleStableVersionWithReleaseType(
 }
 
 function handleStableVersionWithPrereleaseType(
+  currentVersion: string,
   commits: GitCommit[] | undefined,
   types: NonNullable<RelizyConfig['types']>,
   force: boolean,
@@ -108,7 +144,7 @@ function handleStableVersionWithPrereleaseType(
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, types)
+    ? detectReleaseTypeFromCommits(commits, types, currentVersion)
     : undefined
 
   if (!detectedType) {
@@ -182,7 +218,7 @@ function handlePrereleaseVersionWithPrereleaseType(
   }
 
   if (commits?.length) {
-    const detectedType = detectReleaseTypeFromCommits(commits, types)
+    const detectedType = detectReleaseTypeFromCommits(commits, types, currentVersion)
     const impliedBump = getImpliedBumpFromPrerelease(currentVersion)
     const detectedRank = getSemverRank(detectedType)
     const impliedRank = getSemverRank(impliedBump)
@@ -251,11 +287,11 @@ export function determineReleaseType({
    */
   if (!isCurrentPrerelease) {
     if (releaseType === 'release') {
-      return handleStableVersionWithReleaseType(commits, types, force)
+      return handleStableVersionWithReleaseType(currentVersion, commits, types, force)
     }
 
     if (releaseType === 'prerelease') {
-      return handleStableVersionWithPrereleaseType(commits, types, force)
+      return handleStableVersionWithPrereleaseType(currentVersion, commits, types, force)
     }
 
     return handleExplicitReleaseType({ releaseType, currentVersion })

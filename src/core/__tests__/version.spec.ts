@@ -1,7 +1,7 @@
 import { logger } from '@maz-ui/node'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { confirmBump, determineReleaseType, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 vi.mock('@inquirer/prompts', () => ({
   confirm: vi.fn(() => Promise.resolve(true)),
@@ -361,6 +361,30 @@ describe('Given getPackageNewVersion function', () => {
       })
 
       expect(result).toBe('0.1.0-beta.0')
+    })
+
+    it('Then bumps 0.5.2 with an explicit major to 1.0.0 (explicit graduation)', () => {
+      const result = getPackageNewVersion({
+        name: 'test',
+        currentVersion: '0.5.2',
+        releaseType: 'major',
+        preid: undefined,
+        suffix: undefined,
+      })
+
+      expect(result).toBe('1.0.0')
+    })
+
+    it('Then bumps 0.5.2 with minor to 0.6.0 (auto-detected from breaking)', () => {
+      const result = getPackageNewVersion({
+        name: 'test',
+        currentVersion: '0.5.2',
+        releaseType: 'minor',
+        preid: undefined,
+        suffix: undefined,
+      })
+
+      expect(result).toBe('0.6.0')
     })
   })
 
@@ -1159,7 +1183,7 @@ describe('Given determineReleaseType function', () => {
       expect(result).toBe('prerelease')
     })
 
-    it('Then returns premajor when breaking change and base is 0.x (pre-1.0)', () => {
+    it('Then returns preminor when breaking change and base is 0.x (pre-1.0, semver §4)', () => {
       const config = createMockConfig({ bump: { type: 'prerelease', preid: 'alpha' } })
       const result = determineReleaseType({
         currentVersion: '0.5.1-alpha.0',
@@ -1172,7 +1196,7 @@ describe('Given determineReleaseType function', () => {
         force: false,
       })
 
-      expect(result).toBe('premajor')
+      expect(result).toBe('preminor')
     })
 
     it('Then returns preminor for feat in 0.x range', () => {
@@ -2281,5 +2305,127 @@ describe('Given confirmBump function', () => {
       expect(logged).not.toContain('🔒')
       expect(logged).not.toContain('Private packages are versioned')
     })
+  })
+})
+
+describe('Given capReleaseTypeForZeroMajor', () => {
+  it('Then downgrades major to minor when major is 0', () => {
+    expect(capReleaseTypeForZeroMajor('0.5.2', 'major')).toBe('minor')
+  })
+
+  it('Then downgrades major to minor when major is 0 and minor is 0', () => {
+    expect(capReleaseTypeForZeroMajor('0.0.3', 'major')).toBe('minor')
+  })
+
+  it('Then keeps major when current major is >= 1', () => {
+    expect(capReleaseTypeForZeroMajor('1.0.0', 'major')).toBe('major')
+  })
+
+  it('Then keeps minor unchanged on 0.x', () => {
+    expect(capReleaseTypeForZeroMajor('0.5.2', 'minor')).toBe('minor')
+  })
+
+  it('Then keeps patch unchanged on 0.x', () => {
+    expect(capReleaseTypeForZeroMajor('0.5.2', 'patch')).toBe('patch')
+  })
+
+  it('Then returns undefined untouched', () => {
+    expect(capReleaseTypeForZeroMajor('0.5.2', undefined)).toBe(undefined)
+  })
+
+  it('Then returns detected unchanged when currentVersion cannot be parsed', () => {
+    expect(capReleaseTypeForZeroMajor('not-a-version', 'major')).toBe('major')
+  })
+})
+
+function makeBreakingCommit() {
+  const c = createMockCommit('feat', 'feat!: rewrite api')
+  c.isBreaking = true
+  return c
+}
+
+describe('Given determineSemverChange with a 0.x current version', () => {
+  const config = createMockConfig({})
+  const types = config.types
+
+  const breakingCommit = makeBreakingCommit
+
+  it('Then caps a breaking change to minor when major is 0', () => {
+    expect(determineSemverChange([breakingCommit()], types, '0.5.2')).toBe('minor')
+  })
+
+  it('Then keeps a breaking change as major when major is >= 1', () => {
+    expect(determineSemverChange([breakingCommit()], types, '1.0.0')).toBe('major')
+  })
+
+  it('Then keeps feat as minor on 0.x (unchanged)', () => {
+    expect(determineSemverChange([createMockCommit('feat', 'feat: add stuff')], types, '0.5.2')).toBe('minor')
+  })
+
+  it('Then keeps fix as patch on 0.x (unchanged)', () => {
+    expect(determineSemverChange([createMockCommit('fix', 'fix: small fix')], types, '0.5.2')).toBe('patch')
+  })
+
+  it('Then caps major on 0.0.x too', () => {
+    expect(determineSemverChange([breakingCommit()], types, '0.0.3')).toBe('minor')
+  })
+
+  it('Then preserves legacy behavior when currentVersion is omitted', () => {
+    expect(determineSemverChange([breakingCommit()], types)).toBe('major')
+  })
+})
+
+describe('Given determineReleaseType with breaking commits on 0.x', () => {
+  const config = createMockConfig({})
+  const types = config.types
+
+  const breakingCommit = makeBreakingCommit
+
+  it('Then returns minor for a stable 0.x version with a breaking commit', () => {
+    const result = determineReleaseType({
+      currentVersion: '0.5.2',
+      commits: [breakingCommit()],
+      releaseType: 'release',
+      preid: undefined,
+      types,
+      force: false,
+    })
+    expect(result).toBe('minor')
+  })
+
+  it('Then returns preminor for a stable 0.x version with breaking + prerelease', () => {
+    const result = determineReleaseType({
+      currentVersion: '0.5.2',
+      commits: [breakingCommit()],
+      releaseType: 'prerelease',
+      preid: 'beta',
+      types,
+      force: false,
+    })
+    expect(result).toBe('preminor')
+  })
+
+  it('Then respects an explicit --major flag even on 0.x (user intent to graduate)', () => {
+    const result = determineReleaseType({
+      currentVersion: '0.5.2',
+      commits: [],
+      releaseType: 'major',
+      preid: undefined,
+      types,
+      force: true,
+    })
+    expect(result).toBe('major')
+  })
+
+  it('Then still returns major for a breaking commit when version is >= 1.x', () => {
+    const result = determineReleaseType({
+      currentVersion: '1.2.3',
+      commits: [breakingCommit()],
+      releaseType: 'release',
+      preid: undefined,
+      types,
+      force: false,
+    })
+    expect(result).toBe('major')
   })
 })
