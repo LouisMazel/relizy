@@ -66,15 +66,15 @@ Customize the title used for each changelog section. By default, it shows `v1.0.
 
 - **Config key:** `templates.changelogTitle`
 - **Type:** `string`
-- **Default:** `'{{oldVersion}}...{{newVersion}}'`
+- **Default:** <code v-pre>'{{oldVersion}}...{{newVersion}}'</code>
 
 ### Available Variables
 
-| Variable         | Description                      | Example      |
-| ---------------- | -------------------------------- | ------------ |
-| `{{oldVersion}}` | Previous version tag (from)      | `v1.0.0`     |
-| `{{newVersion}}` | New version tag (to)             | `v1.1.0`     |
-| `{{date}}`       | Today's date (YYYY-MM-DD format) | `2026-03-14` |
+| Variable                          | Description                      | Example      |
+| --------------------------------- | -------------------------------- | ------------ |
+| <code v-pre>{{oldVersion}}</code> | Previous version tag (from)      | `v1.0.0`     |
+| <code v-pre>{{newVersion}}</code> | New version tag (to)             | `v1.1.0`     |
+| <code v-pre>{{date}}</code>       | Today's date (YYYY-MM-DD format) | `2026-03-14` |
 
 ### Examples
 

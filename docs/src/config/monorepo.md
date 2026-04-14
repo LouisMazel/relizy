@@ -32,6 +32,13 @@ export default defineConfig({
 
 Learn more: [Version Modes](../guide/version-modes.md)
 
+::: tip Independent mode commit messages
+In `independent` mode, Relizy uses shorter release commit titles by default
+and moves the full package list into the commit body so you stay under
+commitlint header limits. See [Commit Templates](./commit-templates.md) for
+placeholders and examples.
+:::
+
 ## packages
 
 Specify where packages are located:

@@ -77,10 +77,11 @@ describe('Given getDefaultConfig function', () => {
   })
 
   describe('When checking template defaults', () => {
-    it('Then includes default commit message template', () => {
+    it('Then leaves commit message template unset (resolved at load time based on versionMode)', () => {
       const config = getDefaultConfig()
 
-      expect(config.templates.commitMessage).toBe('chore(release): bump version to {{newVersion}}')
+      expect(config.templates.commitMessage).toBeUndefined()
+      expect(config.templates.commitBody).toBeUndefined()
     })
 
     it('Then includes default tag message template', () => {
@@ -802,6 +803,67 @@ describe('Given loadRelizyConfig function', () => {
       await loadRelizyConfig()
 
       expect(formatJson).toHaveBeenCalled()
+    })
+  })
+
+  describe('When resolving commit template defaults', () => {
+    it('Then falls back to the unified default when no versionMode is set', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', templates: {} },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.templates.commitMessage).toBe('chore(release): bump version to {{newVersion}}')
+      expect(result.templates.commitBody).toBeUndefined()
+    })
+
+    it('Then uses independent-specific defaults when versionMode is independent', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          templates: {},
+          monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.templates.commitMessage).toBe('chore(release): bump {{packageCount}} packages')
+      expect(result.templates.commitBody).toBe('{{packageList}}')
+    })
+
+    it('Then preserves user-provided commitMessage and commitBody', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          templates: { commitMessage: 'release: {{newVersion}}', commitBody: 'custom body' },
+          monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.templates.commitMessage).toBe('release: {{newVersion}}')
+      expect(result.templates.commitBody).toBe('custom body')
     })
   })
 })

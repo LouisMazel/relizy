@@ -217,7 +217,12 @@ const defaultConfig = {
     ci: { title: '🤖 CI' },
   },
   templates: {
-    commitMessage: 'chore(release): bump version to {{newVersion}}',
+    // commitMessage / commitBody are resolved based on monorepo.versionMode:
+    //   - independent      → 'chore(release): bump {{packageCount}} packages' + body '{{packageList}}'
+    //   - unified/selective → 'chore(release): bump version to {{newVersion}}' (no body)
+    // See: /config/commit-templates for placeholders and examples.
+    commitMessage: undefined,
+    commitBody: undefined,
     tagMessage: 'Bump version to {{newVersion}}',
     tagBody: 'v{{newVersion}}',
     emptyChangelogContent: 'No relevant changes for this release',
