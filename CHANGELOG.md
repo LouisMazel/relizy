@@ -1,5 +1,202 @@
 # Changelog
 
+## v1.3.0-beta.1 (2026-04-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.0...v1.3.0-beta.1)
+
+### 🚀 Features
+
+- **relizy:** Support private packages in bump and changelog ([d0f45a0](https://github.com/LouisMazel/relizy/commit/d0f45a0))
+
+  Add a new `monorepo.includePrivates` option that lets internal, non-published
+  packages participate in versioning and changelog generation. Private packages
+  get bumped alongside public ones, receive their own `CHANGELOG.md`, and their
+  commits land in the aggregated root changelog.
+  They remain safely excluded from `publish`, `provider-release`, and
+  `pr-comment` — versioned and documented, never pushed to a registry or
+  announced.
+
+  ## Why
+
+  Monorepos often contain internal apps, examples, or private libraries that
+  still need proper version tracking and changelog history without ever being
+  published. Until now, relizy filtered those packages out of every pipeline
+  step. With `includePrivates`, you get full versioning and changelog coverage
+  for your private packages while keeping them out of the publish flow.
+
+  ## Usage
+
+  Enable it in `relizy.config.ts`:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      versionMode: 'selective',
+      packages: ['packages/*', 'apps/*'],
+      includePrivates: true,
+    },
+  })
+  ```
+
+  Or from the CLI on `bump`, `changelog`, or `release`:
+
+  ```bash
+  relizy release --minor --include-private
+  ```
+
+  ## Notes
+  - Opt-in: default behavior is unchanged.
+  - `ignorePackageNames` still takes precedence over `includePrivates`.
+  - The bump confirmation prompt marks private packages with a 🔒 badge.
+  - `publish`, `provider-release`, and `pr-comment` always ignore private
+    packages — this is a safety guarantee, not a toggle.
+
+- **relizy:** Support private packages in bump and changelog ([24a55ec](https://github.com/LouisMazel/relizy/commit/24a55ec))
+
+  Add a new `monorepo.includePrivates` option that lets internal, non-published
+  packages participate in versioning and changelog generation. Private packages
+  get bumped alongside public ones, receive their own `CHANGELOG.md`, and their
+  commits land in the aggregated root changelog.
+  They remain safely excluded from `publish`, `provider-release`, and
+  `pr-comment` — versioned and documented, never pushed to a registry or
+  announced.
+
+  ## Why
+
+  Monorepos often contain internal apps, examples, or private libraries that
+  still need proper version tracking and changelog history without ever being
+  published. Until now, relizy filtered those packages out of every pipeline
+  step. With `includePrivates`, you get full versioning and changelog coverage
+  for your private packages while keeping them out of the publish flow.
+
+  ## Usage
+
+  Enable it in `relizy.config.ts`:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      versionMode: 'selective',
+      packages: ['packages/*', 'apps/*'],
+      includePrivates: true,
+    },
+  })
+  ```
+
+  Or from the CLI on `bump`, `changelog`, or `release`:
+
+  ```bash
+  relizy release --minor --include-private
+  ```
+
+  ## Notes
+  - Opt-in: default behavior is unchanged.
+  - `ignorePackageNames` still takes precedence over `includePrivates`.
+  - The bump confirmation prompt marks private packages with a 🔒 badge.
+  - `publish`, `provider-release`, and `pr-comment` always ignore private
+    packages — this is a safety guarantee, not a toggle.
+
+- Smart prerelease base version recalculation ([fadb1df](https://github.com/LouisMazel/relizy/commit/fadb1df))
+
+  When in a prerelease cycle, Relizy now analyzes conventional commits
+  to determine if the base version should increase.
+  Previously, prerelease bumps always incremented the counter
+  (e.g. 1.2.2-beta.0 → 1.2.2-beta.1) regardless of commit types.
+  Now, if a `feat` commit is pushed after a patch-based beta,
+  the base version correctly bumps to the next minor
+  (e.g. 1.2.2-beta.1 → 1.3.0-beta.0). Similarly, a breaking change
+  bumps to the next major (e.g. 1.3.0-beta.1 → 2.0.0-beta.0).
+  The base version only goes up, never down — a `fix` after a
+  minor-level beta simply increments the counter.
+
+- Smart prerelease base version recalculation ([c518a14](https://github.com/LouisMazel/relizy/commit/c518a14))
+
+  When in a prerelease cycle, Relizy now analyzes conventional commits
+  to determine if the base version should increase.
+  Previously, prerelease bumps always incremented the counter
+  (e.g. 1.2.2-beta.0 → 1.2.2-beta.1) regardless of commit types.
+  Now, if a `feat` commit is pushed after a patch-based beta,
+  the base version correctly bumps to the next minor
+  (e.g. 1.2.2-beta.1 → 1.3.0-beta.0). Similarly, a breaking change
+  bumps to the next major (e.g. 1.3.0-beta.1 → 2.0.0-beta.0).
+  The base version only goes up, never down — a `fix` after a
+  minor-level beta simply increments the counter.
+
+### 🩹 Fixes
+
+- **repo:** Normalize path separators to POSIX before commit body matching ([59f2984](https://github.com/LouisMazel/relizy/commit/59f2984))
+
+  On Windows, `path.relative()` returns backslash-separated paths (e.g.
+  `packages\admin`) while `git log --name-status` always outputs forward
+  slashes (e.g. `packages/admin/src/main.ts`). The `String.includes()`
+  check therefore always returned `false` on win32, causing every package's
+  commit list to be empty in independent monorepo mode and relizy to report
+  "No packages to bump, no relevant commits found".
+  Fix both affected sites in `isCommitOfTrackedPackages` and `getPackageCommits`
+  by normalizing the `path.relative()` result with `.split(sep).join('/')`
+  before the `includes` comparison.
+  Fixes #52
+
+- **repo:** Normalize path separators to POSIX before commit body matching ([5bd83d3](https://github.com/LouisMazel/relizy/commit/5bd83d3))
+
+  On Windows, `path.relative()` returns backslash-separated paths (e.g.
+  `packages\admin`) while `git log --name-status` always outputs forward
+  slashes (e.g. `packages/admin/src/main.ts`). The `String.includes()`
+  check therefore always returned `false` on win32, causing every package's
+  commit list to be empty in independent monorepo mode and relizy to report
+  "No packages to bump, no relevant commits found".
+  Fix both affected sites in `isCommitOfTrackedPackages` and `getPackageCommits`
+  by normalizing the `path.relative()` result with `.split(sep).join('/')`
+  before the `includes` comparison.
+  Fixes #52
+  Co-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>
+
+- **relizy:** Compute per-package canary versions in independent mode ([b293295](https://github.com/LouisMazel/relizy/commit/b293295))
+
+  Closes #51
+
+- **relizy:** Compute per-package canary versions in independent mode ([1e3df0d](https://github.com/LouisMazel/relizy/commit/1e3df0d))
+
+  Closes #51
+
+- Rollback untracked files when publish fail ([2fa73a2](https://github.com/LouisMazel/relizy/commit/2fa73a2))
+- Rollback untracked files when publish fail ([3479f02](https://github.com/LouisMazel/relizy/commit/3479f02))
+- Respect semver 0.x convention on breaking changes ([e3536e8](https://github.com/LouisMazel/relizy/commit/e3536e8))
+
+  Breaking changes on a `0.x.y` version no longer bump the package
+  to `1.0.0` automatically. They now bump the minor version instead,
+  following the semver convention for initial development.
+  **What changes for you**
+  - A commit like `feat!: rewrite api` on version `0.5.2` now produces `0.6.0`
+    (previously `1.0.0`).
+  - Same logic for prereleases: `0.5.2-beta.1` + breaking change → `0.6.0-beta.0`.
+  - Non-breaking commits are unchanged: `feat` still bumps the minor,
+    `fix` still bumps the patch.
+    **Graduating to `1.0.0` is now an explicit choice**
+    When your API is ready to be declared stable, graduate to `1.0.0` by
+    passing `--major` explicitly:
+
+  ```bash
+  relizy release --major
+  ```
+
+  This matches what established tools (changesets, semantic-release,
+  release-please) already do, and what the semver spec recommends for
+  packages still in their initial development phase.
+  Fix: #29
+
+### 📦 Build
+
+- Upgrade dependencies ([1f6c0c1](https://github.com/LouisMazel/relizy/commit/1f6c0c1))
+- Upgrade dependencies ([0b0d65c](https://github.com/LouisMazel/relizy/commit/0b0d65c))
+- Upgrade dependencies ([494b290](https://github.com/LouisMazel/relizy/commit/494b290))
+- Upgrade dependencies ([a9e82f3](https://github.com/LouisMazel/relizy/commit/a9e82f3))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+- Ruan-cat ([@ruan-cat](https://github.com/ruan-cat))
+
 ## v1.3.0-beta.0 (2026-04-13)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.2-beta.2...v1.3.0-beta.0)
