@@ -827,19 +827,43 @@ export interface SlackOptions {
 
 export interface TemplatesConfig {
   /**
-   * Commit message template
+   * Commit message template (title).
+   *
+   * Default in `unified`/`selective` modes: `'chore(release): bump version to {{newVersion}}'`.
+   * Default in `independent` mode (when not customized): `'chore(release): bump {{packageCount}} packages'`.
+   *
+   * Available variables:
+   * - `{{newVersion}}` — in `independent` mode, comma-separated list of bumped `name@version` (legacy behavior); otherwise the new version.
+   * - `{{packageCount}}` — number of bumped packages.
+   * - `{{packageNames}}` — comma-separated list of bumped package names.
+   * - `{{packageList}}` — comma-separated list of bumped `name@version`.
+   * - `{{rootVersion}}` — version from the root `package.json`.
    */
   commitMessage?: string
   /**
+   * Commit message body template. When defined, it is passed as the commit body.
+   *
+   * Default in `unified`/`selective` modes: `undefined` (no body).
+   * Default in `independent` mode (when `commitMessage` and `commitBody` are not customized): `'{{packageList}}'`.
+   *
+   * Same variables as `commitMessage`.
+   */
+  commitBody?: string
+  /**
    * Tag message template
+   * @default 'Bump version to {{newVersion}}'
+   * Available variables: {{newVersion}}
    */
   tagMessage?: string
   /**
    * Not used with "independent" version mode
+   * @default 'v{{newVersion}}'
+   * Available variables: {{newVersion}}
    */
   tagBody?: string
   /**
    * Empty changelog content
+   * @default 'No relevant changes for this release'
    */
   emptyChangelogContent?: string
   /**

@@ -194,11 +194,11 @@ export default defineConfig({
 
 ### Available Placeholders
 
-- `{{projectName}}` - Package name from package.json
-- `{{version}}` - New version number
-- `{{changelog}}` - Auto-generated changelog
-- `{{releaseUrl}}` - Link to the GitHub/GitLab release
-- `{{changelogUrl}}` - Link to the full changelog (from `social.changelogUrl`)
+- <code v-pre>{{projectName}}</code> - Package name from package.json
+- <code v-pre>{{version}}</code> - New version number
+- <code v-pre>{{changelog}}</code> - Auto-generated changelog
+- <code v-pre>{{releaseUrl}}</code> - Link to the GitHub/GitLab release
+- <code v-pre>{{changelogUrl}}</code> - Link to the full changelog (from `social.changelogUrl`)
 
 ## Markdown Support
 
