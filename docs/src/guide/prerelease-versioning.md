@@ -36,6 +36,18 @@ Starting from stable version `1.2.1`:
 3. **Counter increments** when the base version stays the same.
 4. **Non-semver commits** (chore, test, ci, etc.) always increment the counter without changing the base.
 
+### Behaviour on `0.x` versions
+
+When your package is in initial development (`0.x.y`), a breaking change does **not** graduate the base version to `1.0.0`. It bumps the minor instead. See [Semver Convention](./semver-convention#initial-development-versions-0-x-y) for the full rationale.
+
+| Step | Starting from  | Commits           | Result         |
+| ---- | -------------- | ----------------- | -------------- |
+| 1    | `0.5.2`        | `feat!: breaking` | `0.6.0-beta.0` |
+| 2    | `0.6.0-beta.0` | `feat: add foo`   | `0.6.0-beta.1` |
+| 3    | `0.6.0-beta.1` | `feat!: breaking` | `0.7.0-beta.0` |
+
+To explicitly graduate to `1.0.0`, use `--major` (or `--premajor` for a prerelease).
+
 ## Starting a Prerelease
 
 From a stable version, use `--prerelease` with `--preid`:

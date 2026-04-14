@@ -141,6 +141,7 @@ export default defineConfig({
           { text: 'Changelog Generation', link: '/guide/changelog' },
           { text: 'Canary Releases', link: '/guide/canary-releases' },
           { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
+          { text: 'Semver Convention', link: '/guide/semver-convention' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
           { text: 'Slack Integration', link: '/guide/slack-integration' },
@@ -231,6 +232,7 @@ export default defineConfig({
             { text: 'Changelog Generation', link: '/guide/changelog' },
             { text: 'Canary Releases', link: '/guide/canary-releases' },
             { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
+            { text: 'Semver Convention', link: '/guide/semver-convention' },
           ],
         },
         {
