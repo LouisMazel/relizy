@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.0-beta.2 (2026-04-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.1...v1.3.0-beta.2)
+
+### 🚀 Features
+
+- Customizable release commit message and body + smart defaults for independent ([3a164a5](https://github.com/LouisMazel/relizy/commit/3a164a5))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.0-beta.1 (2026-04-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.0...v1.3.0-beta.1)
