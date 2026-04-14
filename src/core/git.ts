@@ -202,23 +202,50 @@ export async function createCommitAndTags({
 
     newVersion = newVersion || rootPackage.version
 
-    const versionForMessage = internalConfig.monorepo?.versionMode === 'independent'
-      ? bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || 'unknown'
+    const isIndependent = internalConfig.monorepo?.versionMode === 'independent'
+
+    const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
+    const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
+    const packageCount = bumpedPackages?.length ?? 0
+
+    const versionForMessage = isIndependent
+      ? packageList || 'unknown'
       : newVersion || 'unknown'
 
-    const commitMessage = internalConfig.templates.commitMessage
-      ?.replaceAll('{{newVersion}}', versionForMessage)
-      || `chore(release): bump version to ${versionForMessage}`
+    const placeholders: Record<string, string> = {
+      newVersion: versionForMessage,
+      rootVersion: rootPackage.version || 'unknown',
+      packageCount: String(packageCount),
+      packageNames: packageNames || 'unknown',
+      packageList: packageList || 'unknown',
+    }
+
+    const applyPlaceholders = (template: string): string => {
+      let out = template
+      for (const [key, value] of Object.entries(placeholders)) {
+        out = out.replaceAll(`{{${key}}}`, value)
+      }
+      return out
+    }
+
+    const titleTemplate = internalConfig.templates.commitMessage ?? 'chore(release): bump version to {{newVersion}}'
+    const bodyTemplate = internalConfig.templates.commitBody
+
+    const commitMessage = applyPlaceholders(titleTemplate)
+    const commitBody = bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined
 
     const noVerifyFlag = (noVerify) ? '--no-verify ' : ''
     logger.debug(`No verify: ${noVerify}`)
 
+    const bodyFlag = commitBody ? ` -m "${commitBody.replaceAll('"', '\\"')}"` : ''
+    const fullCommitCmd = `git commit ${noVerifyFlag}-m "${commitMessage.replaceAll('"', '\\"')}"${bodyFlag}`
+
     if (dryRun) {
-      logger.info(`[dry-run] git commit ${noVerifyFlag}-m "${commitMessage}"`)
+      logger.info(`[dry-run] ${fullCommitCmd}`)
     }
     else {
-      logger.debug(`Executing: git commit ${noVerifyFlag}-m "${commitMessage}"`)
-      await execPromise(`git commit ${noVerifyFlag}-m "${commitMessage}"`, {
+      logger.debug(`Executing: ${fullCommitCmd}`)
+      await execPromise(fullCommitCmd, {
         logLevel,
         noStderr: true,
         noStdout: true,

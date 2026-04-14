@@ -45,6 +45,7 @@ describe('Given generateChangelog function', () => {
     config = createMockConfig({ bump: { type: 'patch' } })
     config.templates = {
       commitMessage: 'chore(release): {{newVersion}}',
+      commitBody: undefined,
       tagBody: 'v{{newVersion}}',
       tagMessage: 'Release {{newVersion}}',
       emptyChangelogContent: 'No significant changes',

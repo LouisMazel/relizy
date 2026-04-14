@@ -273,7 +273,7 @@ export default defineConfig({
 })
 ```
 
-Available variables: `{{oldVersion}}`, `{{newVersion}}`, `{{date}}`.
+Available variables: <code v-pre>{{oldVersion}}</code>, <code v-pre>{{newVersion}}</code>, <code v-pre>{{date}}</code>.
 
 See [Changelog Configuration](../config/changelog.md#changelog-title-template) for more details.
 

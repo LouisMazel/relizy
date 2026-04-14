@@ -100,11 +100,11 @@ export default defineConfig({
 
 Customize the tweet message template. Available variables:
 
-- `{{projectName}}` - Project name
-- `{{version}}` - Release version
-- `{{changelog}}` - Changelog summary (truncated to fit Twitter's limit)
-- `{{releaseUrl}}` - URL to GitHub/GitLab release
-- `{{changelogUrl}}` - URL to full changelog (if configured)
+- <code v-pre>{{projectName}}</code> - Project name
+- <code v-pre>{{version}}</code> - Release version
+- <code v-pre>{{changelog}}</code> - Changelog summary (truncated to fit Twitter's limit)
+- <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
+- <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
 
 ```ts
 export default defineConfig({
@@ -231,11 +231,11 @@ export default defineConfig({
 
 Customize the Slack message template. Available variables:
 
-- `{{projectName}}` - Project name
-- `{{version}}` - Release version
-- `{{changelog}}` - Changelog summary
-- `{{releaseUrl}}` - URL to GitHub/GitLab release
-- `{{changelogUrl}}` - URL to full changelog (if configured)
+- <code v-pre>{{projectName}}</code> - Project name
+- <code v-pre>{{version}}</code> - Release version
+- <code v-pre>{{changelog}}</code> - Changelog summary
+- <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
+- <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
 
 ```ts
 export default defineConfig({

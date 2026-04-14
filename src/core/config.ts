@@ -29,7 +29,9 @@ export function getDefaultConfig() {
       ci: { title: '🤖 CI' },
     } as NonNullable<RelizyConfig['types']>,
     templates: {
-      commitMessage: 'chore(release): bump version to {{newVersion}}',
+      // commitMessage & commitBody are resolved dynamically in loadRelizyConfig based on monorepo.versionMode.
+      commitMessage: undefined as string | undefined,
+      commitBody: undefined as string | undefined,
       tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
@@ -121,6 +123,27 @@ export function getDefaultConfig() {
   }
 }
 
+/**
+ * Resolves default commit templates based on the monorepo `versionMode`.
+ * - `independent` (no user override): title = `chore(release): bump {{packageCount}} packages`, body = `{{packageList}}`.
+ * - Other modes (no user override): title = `chore(release): bump version to {{newVersion}}`, no body.
+ * If the user set `templates.commitMessage` or `templates.commitBody`, their values are preserved.
+ */
+function resolveTemplateDefaults(config: ResolvedConfig): void {
+  const templates = config.templates ?? (config.templates = {} as typeof config.templates)
+  const isIndependent = config.monorepo?.versionMode === 'independent'
+
+  if (templates.commitMessage === undefined) {
+    templates.commitMessage = isIndependent
+      ? 'chore(release): bump {{packageCount}} packages'
+      : 'chore(release): bump version to {{newVersion}}'
+
+    if (isIndependent && templates.commitBody === undefined) {
+      templates.commitBody = '{{packageList}}'
+    }
+  }
+}
+
 function setupLogger(logLevel?: LogLevel) {
   if (logLevel) {
     logger.setLevel(logLevel)
@@ -187,6 +210,8 @@ export async function loadRelizyConfig(options?: {
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
   logger.verbose('User config:', formatJson(results.config.changelog))
+
+  resolveTemplateDefaults(results.config)
 
   const resolvedConfig = await resolveConfig(results.config, cwd)
 

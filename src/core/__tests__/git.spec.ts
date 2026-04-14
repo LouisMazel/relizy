@@ -461,6 +461,7 @@ describe('Given createCommitAndTags function', () => {
     config = createMockConfig({ bump: { type: 'patch' } })
     config.templates = {
       commitMessage: 'chore(release): bump version to {{newVersion}}',
+      commitBody: undefined,
       tagBody: 'v{{newVersion}}',
       tagMessage: 'Release {{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
@@ -865,6 +866,76 @@ describe('Given createCommitAndTags function', () => {
         expect.stringContaining('chore(release): bump version to 1.0.1'),
         expect.any(Object),
       )
+    })
+
+    it('Then replaces new placeholders {{packageCount}}, {{packageNames}}, {{packageList}}, {{rootVersion}}', async () => {
+      vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.templates.commitMessage = 'chore(release): bump {{packageCount}} packages (root {{rootVersion}}) - {{packageNames}}'
+      config.templates.commitBody = 'Packages: {{packageList}}'
+      bumpedPackages = [
+        createMockPackageInfo({ name: '@scope/a', version: '1.0.0', newVersion: '1.1.0' }),
+        createMockPackageInfo({ name: '@scope/b', version: '1.0.0', newVersion: '1.0.1' }),
+      ] as unknown as BumpResultTruthy['bumpedPackages']
+
+      await createCommitAndTags({
+        config,
+        noVerify: false,
+        bumpedPackages,
+        dryRun: false,
+        logLevel: 'normal',
+      })
+
+      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      expect(cmd).toContain('chore(release): bump 2 packages (root 1.0.0) - @scope/a, @scope/b')
+      expect(cmd).toContain('Packages: @scope/a@1.1.0, @scope/b@1.0.1')
+    })
+
+    it('Then renders the independent-mode resolved templates (title + body) end-to-end', async () => {
+      vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      // Simulate what loadRelizyConfig produces in independent mode.
+      config.templates.commitMessage = 'chore(release): bump {{packageCount}} packages'
+      config.templates.commitBody = '{{packageList}}'
+      bumpedPackages = [
+        createMockPackageInfo({ name: '@scope/a', version: '1.0.0', newVersion: '1.1.0' }),
+        createMockPackageInfo({ name: '@scope/b', version: '1.0.0', newVersion: '1.0.1' }),
+        createMockPackageInfo({ name: '@scope/c', version: '1.0.0', newVersion: '1.0.1' }),
+      ] as unknown as BumpResultTruthy['bumpedPackages']
+
+      await createCommitAndTags({
+        config,
+        noVerify: false,
+        bumpedPackages,
+        dryRun: false,
+        logLevel: 'normal',
+      })
+
+      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      expect(cmd).toContain('-m "chore(release): bump 3 packages"')
+      expect(cmd).toContain('-m "@scope/a@1.1.0, @scope/b@1.0.1, @scope/c@1.0.1"')
+    })
+
+    it('Then keeps user-customized commitMessage in independent mode', async () => {
+      vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.templates.commitMessage = 'release: {{packageCount}}'
+      bumpedPackages = [
+        createMockPackageInfo({ name: '@scope/a', version: '1.0.0', newVersion: '1.1.0' }),
+      ] as unknown as BumpResultTruthy['bumpedPackages']
+
+      await createCommitAndTags({
+        config,
+        noVerify: false,
+        bumpedPackages,
+        dryRun: false,
+        logLevel: 'normal',
+      })
+
+      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      expect(cmd).toContain('release: 1')
+      // No auto-body when user customized the title
+      expect(cmd).not.toContain('-m "@scope/a@1.1.0"')
     })
   })
 
