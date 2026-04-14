@@ -46,8 +46,6 @@ jobs:
           git config --global user.email "12446546+LouisMazel@users.noreply.github.com"
 
       - name: Version Packages (Canary)
-        id: release-step
-        continue-on-error: true
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
