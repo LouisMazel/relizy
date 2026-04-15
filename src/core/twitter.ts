@@ -172,7 +172,35 @@ export async function postReleaseToTwitter({
       throw new Error('Missing dependency: twitter-api-v2. Install it with: pnpm add twitter-api-v2', { cause: error })
     }
 
+    const httpCode = error?.code
+    const apiData = error?.data
+    const apiErrors = error?.errors
+    const rateLimit = error?.rateLimit
+
     logger.error('Failed to post tweet:', error.message || error)
+    if (httpCode) {
+      logger.error(`HTTP code: ${httpCode}`)
+    }
+    if (apiData) {
+      logger.error('Twitter response body:', JSON.stringify(apiData, null, 2))
+    }
+    if (apiErrors) {
+      logger.error('Twitter errors:', JSON.stringify(apiErrors, null, 2))
+    }
+    if (rateLimit) {
+      logger.error('Rate limit info:', JSON.stringify(rateLimit, null, 2))
+    }
+
+    if (httpCode === 402) {
+      logger.warn(
+        'Twitter/X returned 402 (Payment Required — likely `CreditsDepleted`).\n'
+        + 'Since February 2026, the X API runs on a pay-per-use model — there is no free tier anymore.\n'
+        + 'Each POST /2/tweets costs $0.010, debited from credits you top up in advance.\n'
+        + 'Top up your balance at https://developer.x.com → Billing, then retry.\n'
+        + 'Reference: https://docs.x.com/x-api/getting-started/pricing',
+      )
+    }
+
     throw error
   }
 }
