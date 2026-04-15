@@ -598,4 +598,93 @@ describe('Given postReleaseToTwitter function', () => {
       )
     })
   })
+
+  describe('When the API returns a 402 Payment Required', () => {
+    it('Then logs the pay-per-use guidance and response body', async () => {
+      const apiError: any = new Error('Request failed with code 402')
+      apiError.code = 402
+      apiError.data = { title: 'PaymentRequired', type: 'CreditsDepleted' }
+      apiError.errors = [{ message: 'Credits depleted' }]
+      apiError.rateLimit = { remaining: 0, reset: 1700000000 }
+
+      vi.doMock('twitter-api-v2', () => ({
+        TwitterApi: class {
+          readWrite = {
+            v2: { tweet: vi.fn().mockRejectedValue(apiError) },
+          }
+        },
+      }))
+
+      const { postReleaseToTwitter: postFresh } = await import('../twitter')
+
+      await expect(postFresh({
+        template: '{{changelog}}',
+        version: '1.0.0',
+        projectName: 'pkg',
+        changelog: 'Updates',
+        credentials: {
+          apiKey: 'key',
+          apiKeySecret: 'secret',
+          accessToken: 'token',
+          accessTokenSecret: 'token-secret',
+        },
+        dryRun: false,
+        postMaxLength: 280,
+      })).rejects.toBe(apiError)
+
+      expect(logger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('pay-per-use model'),
+      )
+      expect(logger.error).toHaveBeenCalledWith('HTTP code: 402')
+      expect(logger.error).toHaveBeenCalledWith(
+        'Twitter response body:',
+        expect.stringContaining('CreditsDepleted'),
+      )
+      expect(logger.error).toHaveBeenCalledWith(
+        'Twitter errors:',
+        expect.stringContaining('Credits depleted'),
+      )
+      expect(logger.error).toHaveBeenCalledWith(
+        'Rate limit info:',
+        expect.stringContaining('"remaining": 0'),
+      )
+    })
+  })
+
+  describe('When the API returns a non-402 error without extra metadata', () => {
+    it('Then re-throws without logging the pay-per-use warning', async () => {
+      const apiError: any = new Error('Request failed with code 500')
+      apiError.code = 500
+
+      vi.doMock('twitter-api-v2', () => ({
+        TwitterApi: class {
+          readWrite = {
+            v2: { tweet: vi.fn().mockRejectedValue(apiError) },
+          }
+        },
+      }))
+
+      const { postReleaseToTwitter: postFresh } = await import('../twitter')
+
+      await expect(postFresh({
+        template: '{{changelog}}',
+        version: '1.0.0',
+        projectName: 'pkg',
+        changelog: 'Updates',
+        credentials: {
+          apiKey: 'key',
+          apiKeySecret: 'secret',
+          accessToken: 'token',
+          accessTokenSecret: 'token-secret',
+        },
+        dryRun: false,
+        postMaxLength: 280,
+      })).rejects.toBe(apiError)
+
+      expect(logger.warn).not.toHaveBeenCalledWith(
+        expect.stringContaining('pay-per-use'),
+      )
+      expect(logger.error).toHaveBeenCalledWith('HTTP code: 500')
+    })
+  })
 })
