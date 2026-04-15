@@ -1,5 +1,27 @@
 # Changelog
 
+## v1.3.0-beta.4 (2026-04-15)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.3...v1.3.0-beta.4)
+
+### 🩹 Fixes
+
+- Detect missing claude CLI binary before spawn ([0a43432](https://github.com/LouisMazel/relizy/commit/0a43432))
+
+  Previously, when the `claude` CLI was not on PATH, the Node child process
+  emitted an unhandled `error` event and crashed the release mid-flight with
+  `spawn claude ENOENT`. The Claude Code provider's safety check now probes
+  the binary with `spawnSync` and throws an actionable error listing the
+  install paths (npm, brew, script), so the failure surfaces early and
+  points users to the fix.
+  Also installs `@anthropic-ai/claude-code` in the beta release workflow,
+  and documents the binary requirement in the Installation guide, Getting
+  Started, AI-Enhanced Changelogs guide, and AI config reference.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.0-beta.3 (2026-04-15)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.2...v1.3.0-beta.3)
