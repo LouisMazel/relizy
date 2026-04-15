@@ -338,9 +338,78 @@ With the default rich blocks format, your Slack messages will look like this:
 >
 > [View Release] [Full Changelog]
 
+## AI-Enhanced Slack Messages
+
+Relizy can use AI to format your changelog into polished Slack messages with proper Slack markdown (`*bold*`, `•` bullet points, `code`). Enable AI for Slack:
+
+```typescript
+export default defineConfig({
+  ai: {
+    social: {
+      slack: { enabled: true },
+    },
+  },
+  social: {
+    slack: {
+      enabled: true,
+      channel: '#releases',
+    },
+  },
+})
+```
+
+### Tuning with extraGuidelines
+
+Customize the AI's Slack message style:
+
+```typescript
+export default defineConfig({
+  ai: {
+    social: {
+      slack: { enabled: true },
+    },
+    extraGuidelines: 'Group changes by impact level. Highlight breaking changes with ⚠️ emoji. Keep messages scannable for busy developers.',
+  },
+})
+```
+
+### Before/After
+
+**Without AI:**
+
+```
+🚀 my-lib 3.0.0 is out!
+
+### 🚀 Enhancements
+- **core**: add streaming API support (abc123)
+- **auth**: implement OAuth2 PKCE (#45)
+
+### 🩹 Fixes
+- **cache**: fix TTL expiration (def456)
+```
+
+**With AI:**
+
+```
+🚀 *my-lib 3.0.0* is out!
+
+• *Streaming API* — new streaming support in core module
+• *OAuth2 PKCE* — improved auth flow security
+• *Cache TTL fix* — resolved expiration timing issue
+```
+
+You can also use `--ai` / `--no-ai` CLI flags to toggle AI per run:
+
+```bash
+relizy social --ai --from v2.0.0 --to v3.0.0
+```
+
+Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.
+
 ## Learn More
 
 - [Social Media Integration Overview](/guide/social-media)
+- [AI-Enhanced Changelogs](/guide/ai-changelog)
 - [Twitter Integration](/guide/twitter-integration)
 - [Slack API Documentation](https://api.slack.com/)
 - [Slack Block Kit](https://api.slack.com/block-kit)

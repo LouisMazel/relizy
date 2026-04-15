@@ -409,6 +409,11 @@ export interface ProviderReleaseOptions {
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
   suffix?: string
+  /**
+   * Override AI configuration for this run
+   * true = force-enable AI, false = force-disable AI, undefined = use config
+   */
+  ai?: boolean
 }
 
 export interface SocialOptions {
@@ -447,6 +452,11 @@ export interface SocialOptions {
    * @default true
    */
   safetyCheck?: boolean
+  /**
+   * Override AI configuration for this run
+   * true = force-enable AI, false = force-disable AI, undefined = use config
+   */
+  ai?: boolean
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {
@@ -635,6 +645,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default false
    */
   includePrivates?: boolean
+  /**
+   * Override AI configuration for this run
+   * true = force-enable AI, false = force-disable AI, undefined = use config
+   */
+  ai?: boolean
 }
 
 export interface TwitterCredentials {
@@ -718,6 +733,92 @@ export interface SlackSocialConfig {
    * Slack credentials (optional - falls back to environment variables)
    */
   credentials?: SlackCredentials
+}
+
+export type AIProviderName = 'claude-code'
+
+export interface ClaudeCodeProviderOptions {
+  /**
+   * Anthropic API key.
+   * Fallback env: `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`.
+   */
+  apiKey?: string
+  /**
+   * Claude Code OAuth token.
+   * Fallback env: `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`.
+   */
+  oauthToken?: string
+  /**
+   * Model id or alias (e.g. `haiku`, `sonnet`, `opus`, or a versioned id).
+   * @default 'haiku'
+   */
+  model?: string
+}
+
+export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
+export type AISystemPromptOverrides = Partial<Record<AIPromptTarget, string>>
+
+export interface AITargetConfig {
+  /**
+   * Enable AI for this target
+   * @default false
+   */
+  enabled?: boolean
+}
+
+export interface AISocialConfig {
+  /**
+   * Twitter-specific AI activation
+   */
+  twitter?: AITargetConfig
+  /**
+   * Slack-specific AI activation
+   */
+  slack?: AITargetConfig
+}
+
+export interface AIConfig {
+  /**
+   * AI provider name
+   * @default 'claude-code'
+   */
+  provider?: AIProviderName
+  /**
+   * Provider-specific options, keyed by provider name.
+   */
+  providers?: {
+    'claude-code'?: ClaudeCodeProviderOptions
+  }
+  /**
+   * Output language (ISO 639-1 code or plain English name).
+   * @default 'en'
+   */
+  language?: string
+  /**
+   * Behavior when the provider call fails.
+   * - `raw`: fall back to the unmodified changelog body.
+   * - `fail`: re-throw the error.
+   * @default 'raw'
+   */
+  fallback?: 'raw' | 'fail'
+  /**
+   * Extra directives appended to every built-in system prompt.
+   * @example 'Always use emojis in the changelog'
+   */
+  extraGuidelines?: string
+  /**
+   * Full replacement of the built-in system prompts.
+   * When set, the extraGuidelines and base prompts are ignored for that target.
+   */
+  systemPromptOverrides?: AISystemPromptOverrides
+  /**
+   * Enable AI rewriting for GitHub/GitLab release notes.
+   */
+  providerRelease?: AITargetConfig
+  /**
+   * Enable AI rewriting for social media posts.
+   */
+  social?: AISocialConfig
 }
 
 export interface SocialConfig {
@@ -944,6 +1045,15 @@ export interface TokensConfig {
    * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
    */
   slack?: string
+  /**
+   * AI provider credentials
+   */
+  ai?: {
+    'claude-code'?: {
+      apiKey?: string
+      oauthToken?: string
+    }
+  }
 }
 
 /**
@@ -1028,6 +1138,10 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * API tokens configuration
    */
   tokens?: TokensConfig
+  /**
+   * AI-powered changelog and release notes configuration
+   */
+  ai?: AIConfig
   /**
    * Hooks config
    */

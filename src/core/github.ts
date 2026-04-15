@@ -4,8 +4,10 @@ import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
-import { generateChangelog } from './changelog'
+import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { loadRelizyConfig } from './config'
+import { getFirstCommit } from './git'
+import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
@@ -62,14 +64,16 @@ async function githubIndependentMode({
 
     logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
 
-    const changelog = await generateChangelog({
-      pkg,
-      config,
-      dryRun,
-      newVersion,
-    })
+    const isFirstCommit = from === getFirstCommit(config.cwd)
+    const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
+    let body = buildChangelogBody({ commits: pkg.commits, config })
+    const contributors = await buildContributors({ commits: pkg.commits, config })
 
-    const releaseBody = changelog.split('\n').slice(2).join('\n')
+    if (isAIProviderReleaseEnabled(config)) {
+      body = await generateAIProviderReleaseBody({ config, rawBody: body })
+    }
+
+    const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
 
     const release = {
       tag_name: to,
@@ -152,14 +156,18 @@ async function githubUnified({
 
   const to = config.to || config.templates.tagBody.replace('{{newVersion}}', newVersion)
 
-  const changelog = await generateChangelog({
-    pkg: rootPackage,
-    config,
-    dryRun,
-    newVersion,
-  })
+  const firstCommit = getFirstCommit(config.cwd)
+  const from = config.from || rootPackage.fromTag || firstCommit
+  const isFirstCommit = from === firstCommit
+  const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
+  let body = buildChangelogBody({ commits: rootPackage.commits, config })
+  const contributors = await buildContributors({ commits: rootPackage.commits, config })
 
-  const releaseBody = changelog.split('\n').slice(2).join('\n')
+  if (isAIProviderReleaseEnabled(config)) {
+    body = await generateAIProviderReleaseBody({ config, rawBody: body })
+  }
+
+  const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
 
   const release = {
     tag_name: to,

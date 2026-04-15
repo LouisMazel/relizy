@@ -159,6 +159,7 @@ export default defineConfig({
 | [changelog](changelog.md)               | Changelog generation settings             |
 | [publish](publish.md)                   | NPM publishing options                    |
 | [release](release.md)                   | Release workflow settings                 |
+| [ai](ai.md)                             | AI-enhanced changelogs and announcements  |
 | [social](social.md)                     | Social media integration (Twitter, Slack) |
 | [prComment](pr-comment.md)              | PR comment settings                       |
 | [hooks](hooks.md)                       | Lifecycle hooks for custom scripts        |
@@ -265,6 +266,12 @@ const defaultConfig = {
     slack:
         process.env.RELIZY_SLACK_TOKEN
         || process.env.SLACK_TOKEN,
+    ai: {
+      'claude-code': {
+        apiKey: process.env.RELIZY_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
+        oauthToken: process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN,
+      },
+    },
   },
   scopeMap: {},
   social: {
@@ -279,6 +286,19 @@ const defaultConfig = {
   },
   prComment: {
     mode: 'append',
+  },
+  ai: {
+    provider: 'claude-code',
+    language: 'en',
+    fallback: 'raw',
+    providers: {
+      'claude-code': { model: 'haiku' },
+    },
+    providerRelease: { enabled: false },
+    social: {
+      twitter: { enabled: false },
+      slack: { enabled: false },
+    },
   },
   release: {
     commit: true,
@@ -305,6 +325,7 @@ Explore specific configuration sections:
 - [Bump Config](bump.md) - Version bump settings
 - [Publish Config](publish.md) - NPM publishing options
 - [Release Config](release.md) - Release workflow settings
+- [AI Config](ai.md) - AI-enhanced changelogs and announcements
 - [Social Config](social.md) - Social media integration (Twitter, Slack)
 - [PR Comment Config](pr-comment.md) - PR comment settings
 - [Hooks Config](hooks.md) - Lifecycle hooks for custom scripts

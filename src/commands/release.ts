@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
+import { applyAIOverride } from '../core/ai'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { prComment } from './pr-comment'
@@ -149,6 +150,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   logger.debug(`Force bump: ${force}`)
 
   const config = await getReleaseConfig(options)
+
+  applyAIOverride(config, options.ai)
 
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)

@@ -142,6 +142,7 @@ export default defineConfig({
           { text: 'Canary Releases', link: '/guide/canary-releases' },
           { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
           { text: 'Semver Convention', link: '/guide/semver-convention' },
+          { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
           { text: 'Slack Integration', link: '/guide/slack-integration' },
@@ -161,6 +162,7 @@ export default defineConfig({
           { text: 'Changelog Config', link: '/config/changelog' },
           { text: 'Bump Config', link: '/config/bump' },
           { text: 'Publish Config', link: '/config/publish' },
+          { text: 'AI Config', link: '/config/ai' },
           { text: 'Social Config', link: '/config/social' },
           { text: 'PR Comment Config', link: '/config/pr-comment' },
           { text: 'Commit Templates', link: '/config/commit-templates' },
@@ -237,6 +239,12 @@ export default defineConfig({
           ],
         },
         {
+          text: 'AI',
+          items: [
+            { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
+          ],
+        },
+        {
           text: 'Social Media',
           items: [
             { text: 'Overview', link: '/guide/social-media' },
@@ -307,6 +315,7 @@ export default defineConfig({
             { text: 'Changelog Config', link: '/config/changelog' },
             { text: 'Bump Config', link: '/config/bump' },
             { text: 'Publish Config', link: '/config/publish' },
+            { text: 'AI Config', link: '/config/ai' },
             { text: 'Social Config', link: '/config/social' },
             { text: 'PR Comment Config', link: '/config/pr-comment' },
             { text: 'Commit Templates', link: '/config/commit-templates' },

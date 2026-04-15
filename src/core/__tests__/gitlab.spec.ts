@@ -1,7 +1,8 @@
 import { execPromise } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
+import { buildChangelogBody, buildCompareLink, buildContributors, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
+import { generateAIProviderReleaseBody } from '../ai'
 import { createGitlabRelease, gitlab } from '../gitlab'
 
 vi.mock('changelogen', () => {
@@ -9,6 +10,10 @@ vi.mock('changelogen', () => {
     createGithubRelease: vi.fn(),
   }
 })
+
+vi.mock('convert-gitmoji', () => ({
+  convert: vi.fn((input: string) => input),
+}))
 
 vi.mock('../repo', () => {
   return {
@@ -46,13 +51,20 @@ vi.mock('../config', async (importOriginal) => {
   }
 })
 
-vi.mock('../changelog', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../changelog')>()
-  return {
-    ...actual,
-    generateChangelog: vi.fn(),
-  }
-})
+vi.mock('../markdown', () => ({
+  buildCompareLink: vi.fn().mockReturnValue(''),
+  buildChangelogBody: vi.fn().mockReturnValue('- Feature'),
+  buildContributors: vi.fn().mockResolvedValue(''),
+}))
+
+vi.mock('../git', () => ({
+  getFirstCommit: vi.fn().mockReturnValue('initial-commit'),
+}))
+
+vi.mock('../ai', () => ({
+  generateAIProviderReleaseBody: vi.fn(),
+  isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+}))
 
 globalThis.fetch = vi.fn()
 
@@ -479,7 +491,9 @@ describe('Given gitlab function', () => {
       private: false,
     })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(buildCompareLink).mockReturnValue('')
+    vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
+    vi.mocked(buildContributors).mockResolvedValue('')
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(execPromise).mockResolvedValue({ stdout: 'main', stderr: '' })
     vi.mocked(fetch).mockResolvedValue({
@@ -574,11 +588,9 @@ describe('Given gitlab function', () => {
         private: false,
       })
 
-      await gitlab({ force: false })
+      const result = await gitlab({ force: false })
 
-      expect(generateChangelog).toHaveBeenCalledWith(
-        expect.objectContaining({ newVersion: '1.1.0' }),
-      )
+      expect(result[0].version).toBe('v1.1.0')
     })
 
     it('Then marks as prerelease when version is prerelease', async () => {
@@ -707,13 +719,13 @@ describe('Given gitlab function', () => {
       expect(calls[0][1]?.body).toContain('"tag_name":"@scope/public@1.0.0"')
     })
 
-    it('Then skips packages with empty changelog', async () => {
+    it('Then skips packages with empty changelog body', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
         { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
       ])
-      vi.mocked(generateChangelog).mockResolvedValueOnce(null as any)
-      vi.mocked(generateChangelog).mockResolvedValueOnce('## v2.0.0\n\n- Feature')
+      vi.mocked(buildChangelogBody).mockReturnValueOnce('')
+      vi.mocked(buildChangelogBody).mockReturnValueOnce('- Feature')
 
       const result = await gitlab({ force: false })
 
@@ -871,16 +883,51 @@ describe('Given gitlab function', () => {
   })
 
   describe('When changelog generation succeeds', () => {
-    it('Then strips first two lines from changelog for release description', async () => {
-      vi.mocked(generateChangelog).mockResolvedValue(
-        '## v1.0.0\n\nRelease notes here\n- Feature A\n- Feature B',
-      )
+    it('Then uses buildChangelogBody output as release description', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValue('Release notes here\n- Feature A\n- Feature B')
 
       await gitlab({ force: false })
 
       const call = vi.mocked(fetch).mock.calls[0]
       const body = JSON.parse(call[1]?.body as string)
       expect(body.description).toBe('Release notes here\n- Feature A\n- Feature B')
+    })
+  })
+
+  describe('When AI is enabled for provider release', () => {
+    it('Then passes only body through AI, preserving compare link and contributors', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildCompareLink).mockReturnValue('[compare changes](https://gitlab.com/user/repo/-/compare/v0.9.0...v1.0.0)')
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+      vi.mocked(buildContributors).mockResolvedValue('### ❤️ Contributors\n\n- Test User')
+      vi.mocked(generateAIProviderReleaseBody).mockResolvedValue('### Features\n\n- AI-rewritten feature')
+
+      await gitlab({ force: false })
+
+      expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
+        config,
+        rawBody: '### Features\n\n- Original feature',
+      })
+      const call = vi.mocked(fetch).mock.calls[0]
+      const payload = JSON.parse(call[1]?.body as string)
+      expect(payload.description).toContain('[compare changes](https://gitlab.com/user/repo/-/compare/v0.9.0...v1.0.0)')
+      expect(payload.description).toContain('### ❤️ Contributors\n\n- Test User')
+      expect(payload.description).toContain('AI-rewritten feature')
+      expect(payload.description).not.toContain('Original feature')
+    })
+
+    it('Then does not call AI when providerRelease is not enabled', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+
+      await gitlab({ force: false })
+
+      expect(generateAIProviderReleaseBody).not.toHaveBeenCalled()
     })
   })
 

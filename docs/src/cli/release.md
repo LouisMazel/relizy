@@ -141,6 +141,20 @@ Useful in CI/CD where the PR number is available as an environment variable:
 relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
 ```
 
+### --ai / --no-ai
+
+Force-enable or force-disable AI enhancement for release notes and social media:
+
+```bash
+# Force AI for this release
+relizy release --patch --ai
+
+# Disable AI for this release
+relizy release --patch --no-ai
+```
+
+These flags override the `ai.providerRelease` and `ai.social` settings in your config file. See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
+
 ### --no-provider-release
 
 Skip provider release creation (GitHub/GitLab):
@@ -241,6 +255,7 @@ relizy release --canary --yes --pr-number 42
 
 ## See Also
 
+- [AI-Enhanced Changelogs](/guide/ai-changelog) - AI-powered release notes
 - [Canary Releases](/guide/canary-releases) - Full guide on canary releases
 - [bump](/cli/bump) - Version bumping only
 - [changelog](/cli/changelog) - Changelog generation only

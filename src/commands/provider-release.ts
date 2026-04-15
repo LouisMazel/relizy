@@ -2,8 +2,9 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
+import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 
-export function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
+export async function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
   if (!config.safetyCheck || !config.release.providerRelease) {
     logger.debug('Safety check disabled or provider release disabled')
     return
@@ -36,6 +37,10 @@ export function providerReleaseSafetyCheck({ config, provider }: { config: Resol
     throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://louismazel.github.io/relizy/guide/installation#environment-setup`)
   }
 
+  if (isAIProviderReleaseEnabled(config)) {
+    await aiSafetyCheck({ config })
+  }
+
   logger.info('provider release config checked successfully')
 }
 
@@ -57,6 +62,8 @@ export async function providerRelease(
     },
   })
 
+  applyAIOverride(config, options.ai)
+
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
@@ -66,7 +73,7 @@ export async function providerRelease(
 
   try {
     detectedProvider = options.provider || detectGitProvider()
-    providerReleaseSafetyCheck({ config, provider: detectedProvider })
+    await providerReleaseSafetyCheck({ config, provider: detectedProvider })
 
     await executeHook('before:provider-release', config, dryRun)
 
