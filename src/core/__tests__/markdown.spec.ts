@@ -6,7 +6,7 @@ import { fetch } from 'node-fetch-native'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
-import { generateMarkDown, parseChangelogMarkdown } from '../markdown'
+import { buildChangelogBody, buildCompareLink, buildContributors, generateMarkDown, parseChangelogMarkdown } from '../markdown'
 
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
@@ -838,7 +838,7 @@ describe('Given generateMarkDown function', () => {
       })
 
       expect(convert).toHaveBeenCalled()
-      expect(result).toBe('converted markdown')
+      expect(result).toContain('converted markdown')
     })
 
     it('Then passes commit mode to convert', async () => {
@@ -1062,5 +1062,264 @@ No releases yet`
 
       expect(result.releases).toHaveLength(0)
     })
+  })
+})
+
+describe('Given buildCompareLink function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(formatCompareChanges).mockReturnValue('[compare changes](https://github.com/user/repo/compare)')
+    vi.mocked(getFirstCommit).mockReturnValue('abc123')
+  })
+
+  it('Then returns compare link when repo config exists', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+
+    const result = buildCompareLink({ config, from: 'v1.0.0', to: 'v1.1.0', isFirstCommit: false })
+
+    expect(result).toBe('[compare changes](https://github.com/user/repo/compare)')
+    expect(formatCompareChanges).toHaveBeenCalledWith('v1.1.0', expect.objectContaining({ from: 'v1.0.0', to: 'v1.1.0' }))
+  })
+
+  it('Then uses first commit hash when isFirstCommit is true', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    vi.mocked(getFirstCommit).mockReturnValue('initial123')
+
+    buildCompareLink({ config, from: 'v1.0.0', to: 'v1.0.0', isFirstCommit: true })
+
+    expect(getFirstCommit).toHaveBeenCalledWith(config.cwd)
+    expect(formatCompareChanges).toHaveBeenCalledWith('v1.0.0', expect.objectContaining({ from: 'initial123' }))
+  })
+
+  it('Then returns empty string when no repo config', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = undefined as any
+
+    const result = buildCompareLink({ config, from: 'v1.0.0', to: 'v1.1.0', isFirstCommit: false })
+
+    expect(result).toBe('')
+  })
+
+  it('Then returns empty string when from is empty', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+
+    const result = buildCompareLink({ config, from: '', to: 'v1.1.0', isFirstCommit: false })
+
+    expect(result).toBe('')
+  })
+
+  it('Then returns empty string when to is empty', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+
+    const result = buildCompareLink({ config, from: 'v1.0.0', to: '', isFirstCommit: false })
+
+    expect(result).toBe('')
+  })
+})
+
+describe('Given buildChangelogBody function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(upperFirst).mockImplementation((str: string) => str.charAt(0).toUpperCase() + str.slice(1))
+    vi.mocked(formatReference).mockImplementation((ref: any) => `#${ref.value}`)
+  })
+
+  it('Then groups commits by type into sections', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature one'), type: 'feat' },
+      { ...createMockCommit('fix', 'bug fix'), type: 'fix' },
+    ]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).toContain('### 🚀 Enhancements')
+    expect(result).toContain('Feature one')
+    expect(result).toContain('### 🩹 Fixes')
+    expect(result).toContain('Bug fix')
+  })
+
+  it('Then includes breaking changes section when present', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'breaking feature'), isBreaking: true, type: 'feat' },
+    ]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).toContain('#### ⚠️ Breaking Changes')
+    expect(result).toContain('Breaking feature')
+  })
+
+  it('Then omits breaking changes section when none present', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      createMockCommit('feat', 'regular feature'),
+    ]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).not.toContain('⚠️ Breaking Changes')
+  })
+
+  it('Then skips boolean type configurations', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.types = { ...config.types, feat: true as any }
+    const commits: GitCommit[] = [createMockCommit('feat', 'feature')]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).not.toContain('feature')
+  })
+
+  it('Then skips types with no commits', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [createMockCommit('feat', 'feature')]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).not.toContain('### 🩹 Fixes')
+  })
+
+  it('Then includes references when not minified', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), references: [{ type: 'pull-request', value: '42' }], type: 'feat' },
+    ]
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).toContain('(#42)')
+  })
+
+  it('Then omits references when minified', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), references: [{ type: 'pull-request', value: '42' }], type: 'feat' },
+    ]
+
+    const result = buildChangelogBody({ commits, config, minify: true })
+
+    expect(result).not.toContain('#42')
+  })
+
+  it('Then returns empty string when no matching commits', () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = []
+
+    const result = buildChangelogBody({ commits, config })
+
+    expect(result).toBe('')
+  })
+})
+
+describe('Given buildContributors function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(fetch).mockResolvedValue({
+      json: vi.fn().mockResolvedValue({ user: null }),
+    } as any)
+  })
+
+  it('Then returns contributors block with author names', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toContain('### ❤️ Contributors')
+    expect(result).toContain('John Doe')
+  })
+
+  it('Then returns empty string when noAuthors is true', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toBe('')
+  })
+
+  it('Then returns empty string when all authors are bots', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'bot[bot]', email: 'bot@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toBe('')
+  })
+
+  it('Then excludes authors in excludeAuthors list', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    ;(config as any).excludeAuthors = ['ignored']
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'ignored user', email: 'ignored@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toBe('')
+  })
+
+  it('Then includes GitHub username when available', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    vi.mocked(fetch).mockResolvedValue({
+      json: vi.fn().mockResolvedValue({ user: { username: 'johndoe' } }),
+    } as any)
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toContain('[@johndoe](https://github.com/johndoe)')
+  })
+
+  it('Then includes email by default', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toContain('<john@example.com>')
+  })
+
+  it('Then hides email when hideAuthorEmail is true', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.hideAuthorEmail = true
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).not.toContain('<john@example.com>')
+    expect(result).toContain('John Doe')
+  })
+
+  it('Then merges commits from same author', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'feature one'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'feature two'), author: { name: 'john doe', email: 'john@work.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    const johnMatches = result.match(/John Doe/g)
+    expect(johnMatches).toHaveLength(1)
   })
 })

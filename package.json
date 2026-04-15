@@ -76,10 +76,14 @@
   },
   "peerDependencies": {
     "@slack/web-api": "^7.0.0",
+    "@yoloship/claude-sdk": "^0.1.0",
     "twitter-api-v2": "^1.20.0"
   },
   "peerDependenciesMeta": {
     "@slack/web-api": {
+      "optional": true
+    },
+    "@yoloship/claude-sdk": {
       "optional": true
     },
     "twitter-api-v2": {
@@ -109,6 +113,7 @@
     "@types/node": "^25.6.0",
     "@types/semver": "^7.7.1",
     "@vitest/coverage-v8": "^4.1.4",
+    "@yoloship/claude-sdk": "0.1.0-beta.3",
     "cross-env": "10.1.0",
     "eslint": "^10.2.0",
     "husky": "9.1.7",

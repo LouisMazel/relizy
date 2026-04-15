@@ -17,65 +17,48 @@ const CHANGELOG_RELEASE_HEAD_REGEX
 
 const VERSION_REGEX = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-export async function generateMarkDown({
-  commits,
-  config,
-  from,
-  to,
-  isFirstCommit,
-  minify,
-}: {
-  commits: GitCommit[]
+export function buildCompareLink({ config, from, to, isFirstCommit }: {
   config: ResolvedRelizyConfig
   from: string
   to: string
   isFirstCommit: boolean
+}): string {
+  if (!config.repo || !from || !to) {
+    return ''
+  }
+
+  return formatCompareChanges(to, {
+    ...config,
+    from: isFirstCommit ? getFirstCommit(config.cwd) : from,
+    to,
+  } as ResolvedChangelogConfig)
+}
+
+export function buildChangelogBody({ commits, config, minify }: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
   minify?: boolean
-}) {
+}): string {
   const typeGroups = groupBy(commits, 'type')
 
   const markdown: string[] = []
-  const breakingChanges = []
+  const breakingChanges: string[] = []
 
-  const updatedConfig = {
-    ...config,
-    from,
-    to,
-  }
-
-  // Version Title
-  const versionTitle = updatedConfig.to
-
-  const changelogTitle = (updatedConfig.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}')
-    .replace('{{oldVersion}}', updatedConfig.from)
-    .replace('{{newVersion}}', updatedConfig.to)
-    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
-  markdown.push('', `## ${changelogTitle}`, '')
-
-  if (updatedConfig.repo && updatedConfig.from && versionTitle && !minify) {
-    const formattedCompareLink = formatCompareChanges(versionTitle, {
-      ...updatedConfig,
-      from: isFirstCommit ? getFirstCommit(updatedConfig.cwd) : updatedConfig.from,
-    } as ResolvedChangelogConfig)
-    markdown.push(formattedCompareLink)
-  }
-
-  for (const type in updatedConfig.types) {
+  for (const type in config.types) {
     const group = typeGroups[type]
     if (!group || group.length === 0) {
       continue
     }
 
-    if (typeof updatedConfig.types[type] === 'boolean') {
+    if (typeof config.types[type] === 'boolean') {
       continue
     }
 
-    markdown.push('', `### ${updatedConfig.types[type]?.title}`, '')
+    markdown.push('', `### ${config.types[type]?.title}`, '')
     for (const commit of group.reverse()) {
       const line = formatCommit({
         commit,
-        config: updatedConfig,
+        config,
         minify,
       })
       markdown.push(line)
@@ -89,10 +72,21 @@ export async function generateMarkDown({
     markdown.push('', '#### ⚠️ Breaking Changes', '', ...breakingChanges)
   }
 
+  return convert(markdown.join('\n').trim(), true)
+}
+
+export async function buildContributors({ commits, config }: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
+}): Promise<string> {
+  if (config.noAuthors) {
+    return ''
+  }
+
   const _authors = new Map<string, { email: Set<string>, github?: string, name?: string }>()
 
   for (const commit of commits) {
-    if (!commit.author || minify) {
+    if (!commit.author) {
       continue
     }
 
@@ -102,8 +96,8 @@ export async function generateMarkDown({
     }
 
     if (
-      updatedConfig.excludeAuthors
-      && updatedConfig.excludeAuthors.some(
+      config.excludeAuthors
+      && config.excludeAuthors.some(
         v => name.includes(v) || commit.author.email?.includes(v),
       )
     ) {
@@ -119,7 +113,7 @@ export async function generateMarkDown({
     }
   }
 
-  if (updatedConfig.repo?.provider === 'github') {
+  if (config.repo?.provider === 'github') {
     await Promise.all(
       Array.from(_authors.keys(), async (authorName) => {
         const meta = _authors.get(authorName)
@@ -147,26 +141,63 @@ export async function generateMarkDown({
     ...e[1],
   }))
 
-  if (authors.length > 0 && !updatedConfig.noAuthors) {
-    markdown.push(
-      '',
-      '### ' + '❤️ Contributors',
-      '',
-      ...authors.map((i) => {
-        const _email = [...i.email].find(
-          e => !e.includes('noreply.github.com'),
-        )
-        const email
-          = updatedConfig.hideAuthorEmail !== true && _email ? ` <${_email}>` : ''
-        const github = i.github
-          ? ` ([@${i.github}](https://github.com/${i.github}))`
-          : ''
-        return `- ${i.name}${github || email || ''}`
-      }),
-    )
+  if (authors.length === 0) {
+    return ''
   }
 
-  return convert(markdown.join('\n').trim(), true)
+  const lines = [
+    '### ' + '❤️ Contributors',
+    '',
+    ...authors.map((i) => {
+      const _email = [...i.email].find(
+        e => !e.includes('noreply.github.com'),
+      )
+      const email
+        = config.hideAuthorEmail !== true && _email ? ` <${_email}>` : ''
+      const github = i.github
+        ? ` ([@${i.github}](https://github.com/${i.github}))`
+        : ''
+      return `- ${i.name}${github || email || ''}`
+    }),
+  ]
+
+  return lines.join('\n')
+}
+
+export async function generateMarkDown({
+  commits,
+  config,
+  from,
+  to,
+  isFirstCommit,
+  minify,
+}: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
+  from: string
+  to: string
+  isFirstCommit: boolean
+  minify?: boolean
+}) {
+  const updatedConfig = {
+    ...config,
+    from,
+    to,
+  }
+
+  const changelogTitle = (updatedConfig.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}')
+    .replace('{{oldVersion}}', updatedConfig.from)
+    .replace('{{newVersion}}', updatedConfig.to)
+    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+  const title = `## ${changelogTitle}`
+
+  const compareLink = minify ? '' : buildCompareLink({ config: updatedConfig, from, to, isFirstCommit })
+
+  const body = buildChangelogBody({ commits, config: updatedConfig, minify })
+
+  const contributors = minify ? '' : await buildContributors({ commits, config: updatedConfig })
+
+  return [title, compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
 }
 
 export function parseChangelogMarkdown(contents: string) {

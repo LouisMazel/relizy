@@ -2,7 +2,8 @@ import { createGithubRelease } from 'changelogen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 
-import { generateChangelog, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
+import { buildChangelogBody, buildCompareLink, buildContributors, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
+import { generateAIProviderReleaseBody } from '../ai'
 
 import { github } from '../github'
 
@@ -11,6 +12,10 @@ vi.mock('changelogen', () => {
     createGithubRelease: vi.fn(),
   }
 })
+
+vi.mock('convert-gitmoji', () => ({
+  convert: vi.fn((input: string) => input),
+}))
 
 vi.mock('../repo', () => {
   return {
@@ -48,13 +53,20 @@ vi.mock('../config', async (importOriginal) => {
   }
 })
 
-vi.mock('../changelog', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../changelog')>()
-  return {
-    ...actual,
-    generateChangelog: vi.fn(),
-  }
-})
+vi.mock('../markdown', () => ({
+  buildCompareLink: vi.fn().mockReturnValue(''),
+  buildChangelogBody: vi.fn().mockReturnValue('- Feature'),
+  buildContributors: vi.fn().mockResolvedValue(''),
+}))
+
+vi.mock('../git', () => ({
+  getFirstCommit: vi.fn().mockReturnValue('initial-commit'),
+}))
+
+vi.mock('../ai', () => ({
+  generateAIProviderReleaseBody: vi.fn(),
+  isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+}))
 
 describe('Given github function', () => {
   beforeEach(() => {
@@ -87,7 +99,9 @@ describe('Given github function', () => {
       private: false,
     })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(buildCompareLink).mockReturnValue('')
+    vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
+    vi.mocked(buildContributors).mockResolvedValue('')
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(createGithubRelease).mockResolvedValue(undefined)
   })
@@ -296,12 +310,10 @@ describe('Given github function', () => {
       expect(result).toHaveLength(1)
     })
 
-    it('Then uses HEAD as to tag in dry-run mode', async () => {
+    it('Then builds release body in dry-run mode', async () => {
       await github({ dryRun: true, force: false })
 
-      expect(generateChangelog).toHaveBeenCalledWith(
-        expect.objectContaining({ dryRun: true }),
-      )
+      expect(buildChangelogBody).toHaveBeenCalled()
     })
 
     it('Then returns empty array when no packages to release', async () => {
@@ -539,10 +551,8 @@ describe('Given github function', () => {
   })
 
   describe('When changelog generation succeeds', () => {
-    it('Then strips first two lines from changelog for release body', async () => {
-      vi.mocked(generateChangelog).mockResolvedValue(
-        '## v1.0.0\n\nRelease notes here\n- Feature A\n- Feature B',
-      )
+    it('Then uses buildChangelogBody output as release body', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValue('Release notes here\n- Feature A\n- Feature B')
 
       await github({ force: false })
 
@@ -550,6 +560,62 @@ describe('Given github function', () => {
         expect.anything(),
         expect.objectContaining({ body: 'Release notes here\n- Feature A\n- Feature B' }),
       )
+    })
+  })
+
+  describe('When AI is enabled for provider release', () => {
+    it('Then passes only body through AI, preserving compare link and contributors', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildCompareLink).mockReturnValue('[compare changes](https://github.com/user/repo/compare/v0.9.0...v1.0.0)')
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+      vi.mocked(buildContributors).mockResolvedValue('### ❤️ Contributors\n\n- Test User')
+      vi.mocked(generateAIProviderReleaseBody).mockResolvedValue('### Features\n\n- AI-rewritten feature')
+
+      await github({ force: false })
+
+      expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
+        config,
+        rawBody: '### Features\n\n- Original feature',
+      })
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: expect.stringContaining('[compare changes](https://github.com/user/repo/compare/v0.9.0...v1.0.0)'),
+        }),
+      )
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: expect.stringContaining('### ❤️ Contributors\n\n- Test User'),
+        }),
+      )
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: expect.stringContaining('AI-rewritten feature'),
+        }),
+      )
+      expect(createGithubRelease).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          body: expect.not.stringContaining('Original feature'),
+        }),
+      )
+    })
+
+    it('Then does not call AI when providerRelease is not enabled', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+
+      await github({ force: false })
+
+      expect(generateAIProviderReleaseBody).not.toHaveBeenCalled()
     })
   })
 })

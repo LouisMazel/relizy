@@ -74,6 +74,20 @@ relizy provider-release --provider gitlab --token your_token
 # https://gitlab.com/user/repo/-/releases/v1.0.0
 ```
 
+### --ai / --no-ai
+
+Force-enable or force-disable AI enhancement for release notes:
+
+```bash
+# Force AI-enhanced release notes
+relizy provider-release --ai --provider github --token your_token
+
+# Force disable AI (even if enabled in config)
+relizy provider-release --no-ai --provider github --token your_token
+```
+
+These flags override the `ai.providerRelease` setting in your config file. See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
+
 ### Pre-release
 
 ```bash
@@ -140,4 +154,6 @@ Create token at: Settings → Access Tokens
 ## See Also
 
 - [release](/cli/release) - Full release workflow
+- [AI-Enhanced Changelogs](/guide/ai-changelog) - AI-powered release notes
+- [AI Configuration](/config/ai) - AI settings reference
 - [CI/CD Setup](/guide/ci-cd) - Automate provider releases

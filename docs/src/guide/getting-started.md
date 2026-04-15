@@ -375,10 +375,36 @@ git push
 relizy release --minor
 ```
 
+## AI-Enhanced Release Notes
+
+Relizy can use AI to transform your raw changelogs into polished release notes and social media announcements. Enable it with a single config option:
+
+```ts
+// relizy.config.ts
+export default defineConfig({
+  ai: {
+    providerRelease: { enabled: true }, // AI-enhanced GitHub/GitLab release notes
+    social: {
+      twitter: { enabled: true },
+      slack: { enabled: true },
+    },
+  },
+})
+```
+
+Set your `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) environment variable and install the optional SDK:
+
+```bash
+pnpm add -D @yoloship/claude-sdk
+```
+
+Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.
+
 ## Next Steps
 
 Now that you understand the basics:
 
+- [AI-Enhanced Changelogs](/guide/ai-changelog) - Polish release notes with AI
 - [Version Modes](/guide/version-modes) - Learn about monorepo versioning strategies
 - [Canary Releases](/guide/canary-releases) - Publish test versions from pull requests
 - [CLI Commands](/cli/commands) - Explore all available commands

@@ -267,8 +267,80 @@ Install the Twitter API library:
 pnpm add -D twitter-api-v2
 ```
 
+## AI-Enhanced Tweets
+
+Relizy can use AI to transform your raw changelog into concise, impactful tweets that fit within Twitter's character limit. Enable AI for Twitter:
+
+```typescript
+export default defineConfig({
+  ai: {
+    social: {
+      twitter: { enabled: true },
+    },
+  },
+  social: {
+    twitter: {
+      enabled: true,
+    },
+  },
+})
+```
+
+### Tuning with extraGuidelines
+
+Customize the AI's tweet style with `extraGuidelines`:
+
+```typescript
+export default defineConfig({
+  ai: {
+    social: {
+      twitter: { enabled: true },
+    },
+    extraGuidelines: 'Focus on developer impact. Mention breaking changes first. Keep the tone technical but approachable.',
+  },
+})
+```
+
+### Before/After
+
+**Without AI:**
+
+```
+🚀 my-lib 3.0.0 is out!
+
+### 🚀 Enhancements
+- **core**: add streaming API support (abc123)
+- **auth**: implement OAuth2 PKCE (#45)
+
+### 🩹 Fixes
+- **cache**: fix TTL expiration (def456)
+
+https://github.com/user/my-lib/releases/tag/v3.0.0
+```
+
+**With AI:**
+
+```
+🚀 my-lib 3.0.0 is out!
+
+Streaming API support, OAuth2 PKCE auth, and a cache TTL fix.
+
+https://github.com/user/my-lib/releases/tag/v3.0.0
+```
+
+The AI respects the `postMaxLength` setting and automatically condenses content to fit.
+
+You can also use `--ai` / `--no-ai` CLI flags to toggle AI per run:
+
+```bash
+relizy social --ai --from v2.0.0 --to v3.0.0
+```
+
+Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.
+
 ## Learn More
 
 - [Social Media Integration Overview](/guide/social-media)
+- [AI-Enhanced Changelogs](/guide/ai-changelog)
 - [Slack Integration](/guide/slack-integration)
 - [Twitter API v2 Documentation](https://developer.twitter.com/en/docs/twitter-api)

@@ -99,6 +99,20 @@ Available levels:
 - `debug` - Detailed debugging information
 - `verbose` - Maximum verbosity
 
+### --ai / --no-ai
+
+Force-enable or force-disable AI enhancement for social media posts:
+
+```bash
+# Force AI-enhanced social posts
+relizy social --ai --from v1.0.0 --to v1.1.0
+
+# Force disable AI (even if enabled in config)
+relizy social --no-ai --from v1.0.0 --to v1.1.0
+```
+
+These flags override the `ai.social` setting in your config file. When AI is enabled, the changelog is transformed into platform-appropriate content (concise tweets, Slack-formatted messages). See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
+
 ### --no-safety-check
 
 Skip safety checks (credentials validation, configuration warnings):
@@ -441,6 +455,8 @@ You'll get:
 ## See Also
 
 - [release](/cli/release) - Full release workflow (includes social posting)
+- [AI-Enhanced Changelogs](/guide/ai-changelog) - AI-powered social announcements
+- [AI Configuration](/config/ai) - AI settings reference
 - [Configuration reference](../config/social.md) - Social media configuration
 - [API reference](../api/social.md) - Programmatic usage
 - [Twitter Integration Guide](../guide/twitter-integration.md) - Twitter setup

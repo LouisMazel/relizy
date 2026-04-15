@@ -184,6 +184,8 @@ program
   .option('--to <ref>', 'End commit reference')
   .option('--token <token>', 'Provider token')
   .option('--provider <provider>', 'Git provider (github or gitlab)')
+  .option('--ai', 'Force-enable AI for release notes')
+  .option('--no-ai', 'Force-disable AI for release notes')
   .action(async (options) => {
     try {
       await providerRelease({
@@ -195,6 +197,7 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
+        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
     }
     catch (error) {
@@ -208,6 +211,8 @@ program
   .description('Post release announcements to social media platforms')
   .option('--from <ref>', 'Start commit reference')
   .option('--to <ref>', 'End commit reference')
+  .option('--ai', 'Force-enable AI for social posts')
+  .option('--no-ai', 'Force-disable AI for social posts')
   .action(async (options) => {
     try {
       await social({
@@ -217,6 +222,7 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
+        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
     }
     catch {
@@ -280,6 +286,8 @@ program
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .option('--canary', 'Publish a canary release from the current commit')
   .option('--include-private', 'Include private packages in bump and changelog phases')
+  .option('--ai', 'Force-enable AI for release notes and social posts')
+  .option('--no-ai', 'Force-disable AI for release notes and social posts')
   .action(async (options) => {
     try {
       await release({
@@ -316,6 +324,7 @@ program
         social: hasCliFlag('--no-social') ? false : undefined,
         prComment: hasCliFlag('--no-pr-comment') ? false : undefined,
         prNumber: program.opts().prNumber,
+        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
     }
     catch (error) {
