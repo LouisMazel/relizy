@@ -1,5 +1,165 @@
 # Changelog
 
+## v1.3.0 (2026-04-15)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.1...v1.3.0)
+
+### 🚀 Features
+
+- **relizy:** Support private packages in bump and changelog ([c08ab50](https://github.com/LouisMazel/relizy/commit/c08ab50))
+
+  Add a new `monorepo.includePrivates` option that lets internal, non-published
+  packages participate in versioning and changelog generation. Private packages
+  get bumped alongside public ones, receive their own `CHANGELOG.md`, and their
+  commits land in the aggregated root changelog.
+  They remain safely excluded from `publish`, `provider-release`, and
+  `pr-comment` — versioned and documented, never pushed to a registry or
+  announced.
+
+  ## Why
+
+  Monorepos often contain internal apps, examples, or private libraries that
+  still need proper version tracking and changelog history without ever being
+  published. Until now, relizy filtered those packages out of every pipeline
+  step. With `includePrivates`, you get full versioning and changelog coverage
+  for your private packages while keeping them out of the publish flow.
+
+  ## Usage
+
+  Enable it in `relizy.config.ts`:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      versionMode: 'selective',
+      packages: ['packages/*', 'apps/*'],
+      includePrivates: true,
+    },
+  })
+  ```
+
+  Or from the CLI on `bump`, `changelog`, or `release`:
+
+  ```bash
+  relizy release --minor --include-private
+  ```
+
+  ## Notes
+  - Opt-in: default behavior is unchanged.
+  - `ignorePackageNames` still takes precedence over `includePrivates`.
+  - The bump confirmation prompt marks private packages with a 🔒 badge.
+  - `publish`, `provider-release`, and `pr-comment` always ignore private
+    packages — this is a safety guarantee, not a toggle.
+
+- Smart prerelease base version recalculation ([8eefe31](https://github.com/LouisMazel/relizy/commit/8eefe31))
+
+  When in a prerelease cycle, Relizy now analyzes conventional commits
+  to determine if the base version should increase.
+  Previously, prerelease bumps always incremented the counter
+  (e.g. 1.2.2-beta.0 → 1.2.2-beta.1) regardless of commit types.
+  Now, if a `feat` commit is pushed after a patch-based beta,
+  the base version correctly bumps to the next minor
+  (e.g. 1.2.2-beta.1 → 1.3.0-beta.0). Similarly, a breaking change
+  bumps to the next major (e.g. 1.3.0-beta.1 → 2.0.0-beta.0).
+  The base version only goes up, never down — a `fix` after a
+  minor-level beta simply increments the counter.
+
+- Customizable release commit message and body + smart defaults for independent ([ac2c9fc](https://github.com/LouisMazel/relizy/commit/ac2c9fc))
+- AI-enhanced release notes and social posts ([5f461f3](https://github.com/LouisMazel/relizy/commit/5f461f3))
+
+  Rewrite GitHub/GitLab release bodies and Twitter/Slack posts with Claude
+  via the optional `@yoloship/claude-sdk` integration. Opt-in per target.
+  The raw changelog stays the source of truth — AI never touches the
+  compare link, contributors, or PR/issue references.
+
+  ## Usage
+
+  ```ts
+  // relizy.config.ts
+  export default defineConfig({
+    ai: {
+      providerRelease: { enabled: true },
+      social: {
+        twitter: { enabled: true },
+        slack: { enabled: true },
+      },
+    },
+  })
+  ```
+
+  Set `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN`) and install the
+  SDK: `pnpm add -D @yoloship/claude-sdk`. Toggle at runtime with
+  `--ai` / `--no-ai` on `release`, `provider-release`, and `social`.
+  Defaults to Claude Haiku. Fails safely (`fallback: 'raw'`) and preserves
+  the release on AI errors.
+  Full guide: https://louismazel.github.io/relizy/guide/ai-changelog
+
+### 🩹 Fixes
+
+- **repo:** Normalize path separators to POSIX before commit body matching ([0253f7e](https://github.com/LouisMazel/relizy/commit/0253f7e))
+
+  On Windows, `path.relative()` returns backslash-separated paths (e.g.
+  `packages\admin`) while `git log --name-status` always outputs forward
+  slashes (e.g. `packages/admin/src/main.ts`). The `String.includes()`
+  check therefore always returned `false` on win32, causing every package's
+  commit list to be empty in independent monorepo mode and relizy to report
+  "No packages to bump, no relevant commits found".
+  Fix both affected sites in `isCommitOfTrackedPackages` and `getPackageCommits`
+  by normalizing the `path.relative()` result with `.split(sep).join('/')`
+  before the `includes` comparison.
+  Fixes #52
+
+- **relizy:** Compute per-package canary versions in independent mode ([a3fe0a5](https://github.com/LouisMazel/relizy/commit/a3fe0a5))
+
+  Closes #51
+
+- Rollback untracked files when publish fail ([5555aa3](https://github.com/LouisMazel/relizy/commit/5555aa3))
+- Respect semver 0.x convention on breaking changes ([0fca747](https://github.com/LouisMazel/relizy/commit/0fca747))
+
+  Breaking changes on a `0.x.y` version no longer bump the package
+  to `1.0.0` automatically. They now bump the minor version instead,
+  following the semver convention for initial development.
+  **What changes for you**
+  - A commit like `feat!: rewrite api` on version `0.5.2` now produces `0.6.0`
+    (previously `1.0.0`).
+  - Same logic for prereleases: `0.5.2-beta.1` + breaking change → `0.6.0-beta.0`.
+  - Non-breaking commits are unchanged: `feat` still bumps the minor,
+    `fix` still bumps the patch.
+    **Graduating to `1.0.0` is now an explicit choice**
+    When your API is ready to be declared stable, graduate to `1.0.0` by
+    passing `--major` explicitly:
+
+  ```bash
+  relizy release --major
+  ```
+
+  This matches what established tools (changesets, semantic-release,
+  release-please) already do, and what the semver spec recommends for
+  packages still in their initial development phase.
+  Fix: #29
+
+- Detect missing claude CLI binary before spawn ([9701f50](https://github.com/LouisMazel/relizy/commit/9701f50))
+
+  Previously, when the `claude` CLI was not on PATH, the Node child process
+  emitted an unhandled `error` event and crashed the release mid-flight with
+  `spawn claude ENOENT`. The Claude Code provider's safety check now probes
+  the binary with `spawnSync` and throws an actionable error listing the
+  install paths (npm, brew, script), so the failure surfaces early and
+  points users to the fix.
+  Also installs `@anthropic-ai/claude-code` in the beta release workflow,
+  and documents the binary requirement in the Installation guide, Getting
+  Started, AI-Enhanced Changelogs guide, and AI config reference.
+
+### 📦 Build
+
+- Upgrade dependencies ([2a55929](https://github.com/LouisMazel/relizy/commit/2a55929))
+- Upgrade dependencies ([bbc0e30](https://github.com/LouisMazel/relizy/commit/bbc0e30))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+- Ruan-cat ([@ruan-cat](https://github.com/ruan-cat))
+
 ## v1.3.0-beta.4 (2026-04-15)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.3...v1.3.0-beta.4)
