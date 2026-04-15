@@ -4,10 +4,38 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
-import { executeHook, generateChangelog, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { buildChangelogBody, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
+function computeTwitterChangelogBudget({
+  template,
+  projectName,
+  version,
+  releaseUrl,
+  changelogUrl,
+  postMaxLength,
+}: {
+  template: string
+  projectName: string
+  version: string
+  releaseUrl?: string
+  changelogUrl?: string
+  postMaxLength: number
+}): number {
+  const overhead = template
+    .replace('{{projectName}}', projectName)
+    .replace('{{newVersion}}', version)
+    .replace('{{releaseUrl}}', releaseUrl ?? '')
+    .replace('{{changelogUrl}}', changelogUrl ?? '')
+    .replace('{{changelog}}', '')
+    .length
+
+  return Math.max(0, postMaxLength - overhead)
+}
+
+// eslint-disable-next-line complexity
 export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
   try {
     const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
@@ -72,6 +100,10 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
 
         throw new Error('Slack channel not found')
       }
+    }
+
+    if (isAISocialEnabled(config, 'twitter') || isAISocialEnabled(config, 'slack')) {
+      await aiSafetyCheck({ config })
     }
 
     logger.info('Social config checked successfully')
@@ -278,7 +310,7 @@ async function handleSlackPost({
   }
 }
 
-// eslint-disable-next-line complexity
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
   try {
     const dryRun = options.dryRun ?? false
@@ -293,6 +325,8 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
         logLevel: options.logLevel,
       },
     })
+
+    applyAIOverride(config, options.ai)
 
     logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -333,17 +367,57 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       to,
     })
 
-    const changelog = await generateChangelog({
-      pkg: rootPackage,
-      config,
-      dryRun,
-      newVersion,
-      minify: true,
-    })
+    const minifiedBody = buildChangelogBody({ commits: rootPackage.commits, config, minify: true })
+    const richBody = buildChangelogBody({ commits: rootPackage.commits, config, minify: false })
+    const hasContent = !!minifiedBody.trim()
+
+    const twitterReleaseUrl = getReleaseUrl(config, to)
+    const twitterChangelogUrl = config.social?.changelogUrl
+
+    const prerelease = isPrerelease(newVersion)
+    const twitterWillPost = !!config.social?.twitter?.enabled && !(config.social.twitter.onlyStable && prerelease)
+    const slackWillPost = !!config.social?.slack?.enabled && !((config.social.slack.onlyStable ?? true) && prerelease)
+
+    let twitterChangelog = minifiedBody
+    if (hasContent && twitterWillPost && isAISocialEnabled(config, 'twitter')) {
+      const twitterTemplate = config.social.twitter.template || config.templates.twitterMessage
+      const twitterBudget = computeTwitterChangelogBudget({
+        template: twitterTemplate,
+        projectName: config.projectName || rootPackageRead.name,
+        version: newVersion,
+        releaseUrl: twitterReleaseUrl,
+        changelogUrl: twitterChangelogUrl,
+        postMaxLength: config.social.twitter.postMaxLength,
+      })
+
+      twitterChangelog = await generateAISocialChangelog({
+        config,
+        rawBody: richBody,
+        fallbackBody: minifiedBody,
+        platform: 'twitter',
+        maxLength: twitterBudget,
+      })
+      if (dryRun) {
+        logger.box('[dry-run] AI Twitter preview', `\n\n${twitterChangelog}`)
+      }
+    }
+
+    let slackChangelog = minifiedBody
+    if (hasContent && slackWillPost && isAISocialEnabled(config, 'slack')) {
+      slackChangelog = await generateAISocialChangelog({
+        config,
+        rawBody: richBody,
+        fallbackBody: minifiedBody,
+        platform: 'slack',
+      })
+      if (dryRun) {
+        logger.box('[dry-run] AI Slack preview', slackChangelog)
+      }
+    }
 
     const twitterResponse = await handleTwitterPost({
       config,
-      changelog,
+      changelog: twitterChangelog,
       dryRun,
       newVersion,
       tag: to,
@@ -351,7 +425,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
 
     const slackResponse = await handleSlackPost({
       config,
-      changelog,
+      changelog: slackChangelog,
       dryRun,
       newVersion,
       tag: to,

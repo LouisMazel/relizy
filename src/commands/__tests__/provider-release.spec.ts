@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
-import { providerRelease } from '../provider-release'
+import { aiSafetyCheck } from '../../core/ai'
+import { providerRelease, providerReleaseSafetyCheck } from '../provider-release'
 
 vi.mock('../../core/config', async () => {
   const actual = await vi.importActual('../../core/config')
@@ -25,6 +26,11 @@ vi.mock('../../core/utils', () => {
     executeHook: vi.fn(),
   }
 })
+vi.mock('../../core/ai', () => ({
+  aiSafetyCheck: vi.fn(),
+  applyAIOverride: vi.fn(),
+  isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+}))
 
 describe('Given providerRelease command', () => {
   beforeEach(() => {
@@ -106,6 +112,45 @@ describe('Given providerRelease command', () => {
       const result = await providerRelease({})
 
       expect(result.error).toBeDefined()
+    })
+  })
+})
+
+describe('Given providerReleaseSafetyCheck', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When AI provider release is enabled', () => {
+    it('Then calls aiSafetyCheck', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+
+      await providerReleaseSafetyCheck({ config, provider: 'github' })
+
+      expect(aiSafetyCheck).toHaveBeenCalledWith({ config })
+    })
+  })
+
+  describe('When AI provider release is not enabled', () => {
+    it('Then does not call aiSafetyCheck', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+      })
+
+      await providerReleaseSafetyCheck({ config, provider: 'github' })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })
 })

@@ -223,10 +223,55 @@ RELIZY_GITLAB_TOKEN=your_gitlab_token
 These environment variables are only needed if you want to publish packages or create provider releases. They're not required for basic version bumping and changelog generation.
 :::
 
+### AI-Enhanced Changelogs (Optional)
+
+To use AI for polishing release notes and social media announcements, set an Anthropic API key:
+
+```bash
+export ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+Or use the `RELIZY_` prefix:
+
+```bash
+export RELIZY_ANTHROPIC_API_KEY="sk-ant-..."
+```
+
+If you use Claude Code's OAuth flow instead of an API key:
+
+```bash
+export CLAUDE_CODE_OAUTH_TOKEN="..."
+# or with RELIZY_ prefix:
+export RELIZY_CLAUDE_CODE_OAUTH_TOKEN="..."
+```
+
+Install the optional Claude SDK peer dependency:
+
+::: code-group
+
+```bash [pnpm]
+pnpm add -D @yoloship/claude-sdk
+```
+
+```bash [npm]
+npm install -D @yoloship/claude-sdk
+```
+
+```bash [yarn]
+yarn add -D @yoloship/claude-sdk
+```
+
+:::
+
+::: tip
+The AI feature is completely optional. If the SDK is not installed or no API key is set, Relizy works normally without AI enhancement.
+:::
+
 ## Next Steps
 
 Now that Relizy is installed, learn how to use it:
 
 - [Getting Started](getting-started.md) - Run your first release
+- [AI-Enhanced Changelogs](ai-changelog.md) - Polish release notes with AI
 - [CLI Commands](../cli/commands.md) - Learn about available commands
 - [Configuration](../config/overview.md) - Customize Relizy's behavior

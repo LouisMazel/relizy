@@ -1,8 +1,16 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { buildChangelogBody, executeHook, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { aiSafetyCheck, generateAISocialChangelog } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
+
+vi.mock('../../core/ai', () => ({
+  aiSafetyCheck: vi.fn(),
+  generateAISocialChangelog: vi.fn(),
+  applyAIOverride: vi.fn(),
+  isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.ai?.social?.[platform]?.enabled),
+}))
 
 vi.mock('../../core', () => ({
   loadRelizyConfig: vi.fn(),
@@ -10,7 +18,7 @@ vi.mock('../../core', () => ({
   executeHook: vi.fn(),
   getRootPackage: vi.fn(),
   resolveTags: vi.fn(),
-  generateChangelog: vi.fn(),
+  buildChangelogBody: vi.fn(),
   isPrerelease: vi.fn(),
   getTwitterCredentials: vi.fn(),
   postReleaseToTwitter: vi.fn(),
@@ -130,7 +138,7 @@ describe('Given social command', () => {
       commits: [],
     })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getTwitterCredentials).mockReturnValue({
       apiKey: 'key',
@@ -369,6 +377,259 @@ describe('Given social command', () => {
       })
 
       expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('When AI social is enabled for Twitter', () => {
+    it('Then passes content through generateAISocialChangelog with maxLength', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true, postMaxLength: 280 },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A\n- Feature B')
+      vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten tweet')
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config,
+          rawBody: '- Feature A\n- Feature B',
+          platform: 'twitter',
+        }),
+      )
+      const [[call]] = vi.mocked(generateAISocialChangelog).mock.calls
+      expect(call.maxLength).toBeGreaterThan(0)
+      expect(call.maxLength).toBeLessThan(280)
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(
+        expect.objectContaining({ changelog: 'AI rewritten tweet' }),
+      )
+    })
+  })
+
+  describe('When AI social is enabled for Slack', () => {
+    it('Then passes content through generateAISocialChangelog without maxLength', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, channel: '#releases' },
+        },
+        tokens: { slack: 'slack-token' },
+        ai: { social: { slack: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten slack message')
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          config,
+          platform: 'slack',
+        }),
+      )
+      expect(postReleaseToSlack).toHaveBeenCalledWith(
+        expect.objectContaining({ changelog: 'AI rewritten slack message' }),
+      )
+    })
+  })
+
+  describe('When both Twitter and Slack AI are enabled', () => {
+    it('Then each platform triggers its own provider call', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true, postMaxLength: 280 },
+          slack: { enabled: true, onlyStable: true, channel: '#releases' },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          slack: 'slack-token',
+        },
+        ai: { social: { twitter: { enabled: true }, slack: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
+      vi.mocked(generateAISocialChangelog)
+        .mockResolvedValueOnce('AI tweet')
+        .mockResolvedValueOnce('AI slack')
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(generateAISocialChangelog).toHaveBeenCalledTimes(2)
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({ platform: 'twitter' }),
+      )
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({ platform: 'slack' }),
+      )
+    })
+  })
+
+  describe('When changelog body is empty', () => {
+    it('Then skips AI call entirely', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('')
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(generateAISocialChangelog).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When publishing a prerelease with onlyStable enabled', () => {
+    it('Then skips the Twitter AI call', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      await social({
+        bumpResult: {
+          bumped: true,
+          bumpedPackages: [],
+          newVersion: '1.0.0-beta.1',
+        },
+      })
+
+      expect(generateAISocialChangelog).not.toHaveBeenCalled()
+    })
+
+    it('Then skips the Slack AI call (onlyStable defaults to true)', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, channel: '#releases' },
+        },
+        tokens: { slack: 'slack-token' },
+        ai: { social: { slack: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      await social({
+        bumpResult: {
+          bumped: true,
+          bumpedPackages: [],
+          newVersion: '1.0.0-beta.1',
+        },
+      })
+
+      expect(generateAISocialChangelog).not.toHaveBeenCalled()
+    })
+
+    it('Then still runs the AI call for a platform where onlyStable is false', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: {
+          twitter: { enabled: true, onlyStable: false },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(isPrerelease).mockReturnValue(true)
+      vi.mocked(generateAISocialChangelog).mockResolvedValue('AI tweet')
+
+      await social({
+        bumpResult: {
+          bumped: true,
+          bumpedPackages: [],
+          newVersion: '1.0.0-beta.1',
+        },
+      })
+
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({ platform: 'twitter' }),
+      )
+    })
+  })
+
+  describe('When socialSafetyCheck with AI social enabled', () => {
+    it('Then calls aiSafetyCheck', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(getTwitterCredentials).mockReturnValue({
+        apiKey: 'key',
+        apiKeySecret: 'secret',
+        accessToken: 'token',
+        accessTokenSecret: 'secret',
+      })
+
+      await socialSafetyCheck({ config })
+
+      expect(aiSafetyCheck).toHaveBeenCalledWith({ config })
+    })
+  })
+
+  describe('When AI social is not enabled', () => {
+    it('Then does not call aiSafetyCheck', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+      })
+      vi.mocked(getTwitterCredentials).mockReturnValue({
+        apiKey: 'key',
+        apiKeySecret: 'secret',
+        accessToken: 'token',
+        accessTokenSecret: 'secret',
+      })
+
+      await socialSafetyCheck({ config })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })
 })

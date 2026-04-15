@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils'
 import type { ReleaseType } from 'semver'
-import type { BumpConfig, ChangelogConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
@@ -90,6 +90,16 @@ export function getDefaultConfig() {
       slack:
         process.env.RELIZY_SLACK_TOKEN
         || process.env.SLACK_TOKEN,
+      ai: {
+        'claude-code': {
+          apiKey:
+            process.env.RELIZY_ANTHROPIC_API_KEY
+            || process.env.ANTHROPIC_API_KEY,
+          oauthToken:
+            process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN
+            || process.env.CLAUDE_CODE_OAUTH_TOKEN,
+        },
+      },
     },
     scopeMap: {},
     release: {
@@ -118,6 +128,21 @@ export function getDefaultConfig() {
     prComment: {
       mode: 'append',
     } as Required<PrCommentConfig>,
+    ai: {
+      provider: 'claude-code',
+      language: 'en',
+      fallback: 'raw',
+      providers: {
+        'claude-code': {
+          model: 'haiku',
+        },
+      },
+      providerRelease: { enabled: false },
+      social: {
+        twitter: { enabled: false },
+        slack: { enabled: false },
+      },
+    } as AIConfig,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
   }
