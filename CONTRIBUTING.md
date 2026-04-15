@@ -422,7 +422,7 @@ open coverage/index.html
 ### Documentation
 
 - [README.md](https://github.com/LouisMazel/relizy/blob/main/README.md) - Project overview and usage
-- [Online Documentation](https://relizy.vercel.app/) - Full documentation site
+- [Online Documentation](https://louismazel.github.io/relizy) - Full documentation site
 
 ### Useful Links
 
