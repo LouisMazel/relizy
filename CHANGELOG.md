@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.3.0-beta.3 (2026-04-15)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.2...v1.3.0-beta.3)
+
+### 🚀 Features
+
+- AI-enhanced release notes and social posts ([f46b2aa](https://github.com/LouisMazel/relizy/commit/f46b2aa))
+
+  Rewrite GitHub/GitLab release bodies and Twitter/Slack posts with Claude
+  via the optional `@yoloship/claude-sdk` integration. Opt-in per target.
+  The raw changelog stays the source of truth — AI never touches the
+  compare link, contributors, or PR/issue references.
+
+  ## Usage
+
+  ```ts
+  // relizy.config.ts
+  export default defineConfig({
+    ai: {
+      providerRelease: { enabled: true },
+      social: {
+        twitter: { enabled: true },
+        slack: { enabled: true },
+      },
+    },
+  })
+  ```
+
+  Set `ANTHROPIC_API_KEY` (or `CLAUDE_CODE_OAUTH_TOKEN`) and install the
+  SDK: `pnpm add -D @yoloship/claude-sdk`. Toggle at runtime with
+  `--ai` / `--no-ai` on `release`, `provider-release`, and `social`.
+  Defaults to Claude Haiku. Fails safely (`fallback: 'raw'`) and preserves
+  the release on AI errors.
+  Full guide: https://louismazel.github.io/relizy/guide/ai-changelog
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.0-beta.2 (2026-04-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0-beta.1...v1.3.0-beta.2)
