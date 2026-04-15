@@ -2,6 +2,11 @@ import type { AIGenerateRequest } from '../ai/provider'
 import { createMockConfig } from '../../../tests/mocks'
 
 const mockClaudeRun = vi.fn()
+const mockSpawnSync = vi.fn<(...args: any[]) => { status: number | null }>(() => ({ status: 0 }))
+
+vi.mock('node:child_process', () => ({
+  spawnSync: (...args: any[]) => mockSpawnSync(...args),
+}))
 
 vi.mock('@yoloship/claude-sdk', () => ({
   claudeRun: (...args: unknown[]) => mockClaudeRun(...args),
@@ -13,6 +18,8 @@ describe('claudeCodeProvider', () => {
   beforeEach(() => {
     vi.unstubAllEnvs()
     mockClaudeRun.mockReset()
+    mockSpawnSync.mockReset()
+    mockSpawnSync.mockReturnValue({ status: 0 })
   })
 
   it('has name claude-code', () => {
@@ -63,6 +70,28 @@ describe('claudeCodeProvider', () => {
       const config = createMockConfig({})
       await expect(claudeCodeProvider.safetyCheck(config)).rejects.toThrow(
         'No authentication credential found for claude-code provider',
+      )
+    })
+
+    it('throws when the claude CLI binary is not on PATH', async () => {
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
+      mockSpawnSync.mockImplementation(() => {
+        throw new Error('ENOENT')
+      })
+
+      const config = createMockConfig({})
+      await expect(claudeCodeProvider.safetyCheck(config)).rejects.toThrow(
+        /`claude` CLI binary was not found/,
+      )
+    })
+
+    it('throws when the claude CLI binary exits non-zero', async () => {
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
+      mockSpawnSync.mockReturnValue({ status: 1 })
+
+      const config = createMockConfig({})
+      await expect(claudeCodeProvider.safetyCheck(config)).rejects.toThrow(
+        /`claude` CLI binary was not found/,
       )
     })
 
