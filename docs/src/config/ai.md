@@ -65,6 +65,8 @@ Relizy ships with sensible defaults that you can override selectively.
 
 The AI provider to use. Today only `'claude-code'` ships with Relizy, powered
 by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk).
+It requires both the SDK package (`pnpm add -D @yoloship/claude-sdk`) and the
+`claude` CLI binary on `PATH` (`npm install -g @anthropic-ai/claude-code`).
 The provider layer is pluggable — see [Adding a new provider](#adding-a-new-ai-provider).
 
 ## `providers['claude-code']`

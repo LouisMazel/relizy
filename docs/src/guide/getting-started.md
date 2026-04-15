@@ -392,10 +392,11 @@ export default defineConfig({
 })
 ```
 
-Set your `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) environment variable and install the optional SDK:
+Set your `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) environment variable and install the optional SDK plus the `claude` CLI:
 
 ```bash
 pnpm add -D @yoloship/claude-sdk
+npm install -g @anthropic-ai/claude-code
 ```
 
 Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.

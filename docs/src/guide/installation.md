@@ -263,8 +263,28 @@ yarn add -D @yoloship/claude-sdk
 
 :::
 
+The SDK spawns the `claude` CLI binary, which must be available on `PATH`. Install it with any of:
+
+```bash
+# npm (global)
+npm install -g @anthropic-ai/claude-code
+
+# Homebrew (macOS)
+brew install --cask claude-code
+
+# Native installer
+curl -fsSL https://claude.ai/install.sh | bash
+```
+
+In CI (GitHub Actions, GitLab CI…), add a step to install the CLI before running Relizy:
+
+```yaml
+- name: Install Claude Code CLI
+  run: npm install -g @anthropic-ai/claude-code
+```
+
 ::: tip
-The AI feature is completely optional. If the SDK is not installed or no API key is set, Relizy works normally without AI enhancement.
+The AI feature is completely optional. If the SDK or the `claude` binary is missing, or no credential is set, Relizy works normally without AI enhancement.
 :::
 
 ## Next Steps

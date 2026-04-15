@@ -1,6 +1,17 @@
 import type { ResolvedRelizyConfig } from '../../config'
 import type { AIGenerateRequest, AIProvider } from '../provider'
+import { spawnSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
+
+function claudeBinaryAvailable(): boolean {
+  try {
+    const result = spawnSync('claude', ['--version'], { stdio: 'ignore' })
+    return result.status === 0
+  }
+  catch {
+    return false
+  }
+}
 
 function resolveAuth(config: ResolvedRelizyConfig) {
   const providerOpts = config.ai?.providers?.['claude-code']
@@ -33,6 +44,16 @@ export const claudeCodeProvider: AIProvider = {
     catch {
       throw new Error(
         '@yoloship/claude-sdk is not installed. Install it with: pnpm add -D @yoloship/claude-sdk',
+      )
+    }
+
+    if (!claudeBinaryAvailable()) {
+      throw new Error(
+        'The `claude` CLI binary was not found on PATH. '
+        + 'Install it with one of:\n'
+        + '  • npm install -g @anthropic-ai/claude-code\n'
+        + '  • brew install --cask claude-code\n'
+        + '  • curl -fsSL https://claude.ai/install.sh | bash',
       )
     }
   },
