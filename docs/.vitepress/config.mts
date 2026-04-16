@@ -3,6 +3,8 @@ import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
+const SITE_URL = 'https://louismazel.github.io/relizy'
+
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   srcDir: 'src',
@@ -16,11 +18,47 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'author', content: 'Louis Mazel' }],
-    ['meta', { property: 'og:image', content: 'https://louismazel.github.io/relizy/social.jpg' }],
+    ['meta', { name: 'robots', content: 'index, follow' }],
+    ['meta', { name: 'theme-color', content: '#8b5cf6' }],
+    ['meta', { property: 'og:image', content: `${SITE_URL}/social.jpg` }],
+    ['meta', { property: 'og:image:width', content: '1200' }],
+    ['meta', { property: 'og:image:height', content: '630' }],
+    ['meta', { property: 'og:locale', content: 'en_US' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:image', content: 'https://louismazel.github.io/relizy/social.jpg' }],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: 'https://louismazel.github.io/relizy/logo.svg' }],
+    ['meta', { name: 'twitter:image', content: `${SITE_URL}/social.jpg` }],
+    ['meta', { name: 'twitter:site', content: '@mazeel' }],
     ['meta', { name: 'twitter:creator', content: '@mazeel' }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${SITE_URL}/logo.svg` }],
+    ['script', { type: 'application/ld+json' }, JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'WebSite',
+      'name': 'Relizy',
+      'url': SITE_URL,
+      'description': 'Seamless and automated release manager for monorepos and single packages',
+      'author': {
+        '@type': 'Person',
+        'name': 'Louis Mazel',
+        'url': 'https://github.com/LouisMazel',
+      },
+    })],
+    ['script', { type: 'application/ld+json' }, JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'SoftwareApplication',
+      'name': 'Relizy',
+      'applicationCategory': 'DeveloperApplication',
+      'operatingSystem': 'Cross-platform',
+      'url': SITE_URL,
+      'downloadUrl': 'https://www.npmjs.com/package/relizy',
+      'offers': {
+        '@type': 'Offer',
+        'price': '0',
+        'priceCurrency': 'USD',
+      },
+      'author': {
+        '@type': 'Person',
+        'name': 'Louis Mazel',
+      },
+    })],
   ],
 
   appearance: true,
@@ -65,29 +103,39 @@ export default defineConfig({
     const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
     const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
 
-    const currentUrl = `https://louismazel.github.io/relizy/${pageData.relativePath.replace('.md', '') === 'index' ? '' : pageData.relativePath.replace('.md', '')}`
+    const slug = pageData.relativePath.replace('.md', '')
+    const currentUrl = `${SITE_URL}/${slug === 'index' ? '' : slug}`
+    const isArticle = pageData.relativePath !== 'index.md'
+    const lastUpdatedISO = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString()
 
     const pageHead: HeadConfig[] = [
-      ['meta', { name: 'og:site_name', content: 'Relizy' }],
-      ['meta', { name: 'og:title', content: currentTitle }],
+      ['meta', { property: 'og:site_name', content: 'Relizy' }],
+      ['meta', { property: 'og:title', content: currentTitle }],
       ['link', { rel: 'canonical', href: currentUrl }],
-      ['meta', { name: 'og:url', content: currentUrl }],
-      ['meta', { name: 'og:type', content: pageData.relativePath === 'index.md' ? 'website' : 'article' }],
+      ['meta', { property: 'og:url', content: currentUrl }],
+      ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
       ['meta', { name: 'description', content: currentDescription }],
-      ['meta', { name: 'og:description', content: currentDescription }],
+      ['meta', { property: 'og:description', content: currentDescription }],
+      ['meta', { property: 'og:image', content: `${SITE_URL}/social.jpg` }],
+      ['meta', { property: 'og:image:alt', content: currentDescription }],
       ['meta', { name: 'twitter:title', content: currentTitle }],
       ['meta', { name: 'twitter:description', content: currentDescription }],
+      ['meta', { name: 'twitter:image', content: `${SITE_URL}/social.jpg` }],
       ['meta', { name: 'twitter:image:alt', content: currentDescription }],
-      ['meta', { name: 'og:image:alt', content: currentDescription }],
-      ['meta', { name: 'og:updated_time', content: pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString() }],
-      ['meta', { name: 'article:modified_time', content: pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString() }],
     ]
+
+    if (isArticle) {
+      pageHead.push(
+        ['meta', { property: 'article:modified_time', content: lastUpdatedISO }],
+        ['meta', { property: 'article:published_time', content: lastUpdatedISO }],
+        ['meta', { property: 'article:author', content: 'Louis Mazel' }],
+      )
+    }
 
     // Add keywords from frontmatter
     if (pageData.frontmatter.keywords) {
       const keywords = typeof pageData.frontmatter.keywords === 'string'
         ? pageData.frontmatter.keywords
-
         : Array.isArray(pageData.frontmatter.keywords)
           ? pageData.frontmatter.keywords.join(', ')
           : ''
@@ -98,7 +146,7 @@ export default defineConfig({
 
     // Add article category
     if (pageData.frontmatter.category) {
-      pageHead.push(['meta', { name: 'article:section', content: pageData.frontmatter.category }])
+      pageHead.push(['meta', { property: 'article:section', content: pageData.frontmatter.category }])
     }
 
     // Add article tags
@@ -106,6 +154,29 @@ export default defineConfig({
       for (const tag of pageData.frontmatter.tags) {
         pageHead.push(['meta', { property: 'article:tag', content: tag }])
       }
+    }
+
+    // Add JSON-LD BreadcrumbList for article pages
+    if (isArticle) {
+      const parts = slug.split('/')
+      const breadcrumbs = [
+        { name: 'Home', url: SITE_URL },
+        ...parts.map((part, i) => ({
+          name: part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
+          url: `${SITE_URL}/${parts.slice(0, i + 1).join('/')}`,
+        })),
+      ]
+
+      pageHead.push(['script', { type: 'application/ld+json' }, JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'BreadcrumbList',
+        'itemListElement': breadcrumbs.map((crumb, i) => ({
+          '@type': 'ListItem',
+          'position': i + 1,
+          'name': crumb.name,
+          'item': crumb.url,
+        })),
+      })])
     }
 
     return [...head, ...pageHead]

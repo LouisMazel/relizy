@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@10.20.0pn",
+  "packageManager": "pnpm@10.29.2",
   "description": "Documentation for relizy",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
