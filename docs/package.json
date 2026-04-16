@@ -21,7 +21,7 @@
   "dependencies": {
     "@maz-ui/icons": "^4.7.6",
     "@maz-ui/themes": "^4.9.0",
-    "maz-ui": "^4.9.0",
+    "maz-ui": "^4.9.1",
     "vue": "^3.5.32"
   },
   "devDependencies": {
