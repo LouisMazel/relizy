@@ -199,6 +199,25 @@ async function resolveConfig(
   return config
 }
 
+/**
+ * Merge user types with defaults: each user-defined entry replaces the default entirely.
+ * This prevents defu's deep merge from adding default sub-properties
+ * the user intentionally omitted (e.g. `docs: { title: '...' }` without `semver`).
+ */
+export function mergeTypes<T extends Record<string, unknown>>(
+  userTypes: T | undefined,
+  defaultTypes: T,
+): T {
+  if (!userTypes) {
+    return { ...defaultTypes }
+  }
+
+  return {
+    ...defaultTypes,
+    ...userTypes,
+  }
+}
+
 export async function loadRelizyConfig(options?: {
   baseConfig?: ResolvedRelizyConfig
   overrides?: DeepPartial<RelizyConfig>
@@ -212,6 +231,9 @@ export async function loadRelizyConfig(options?: {
 
   const defaultConfig = getDefaultConfig()
 
+  // Extract types from defaults to handle them separately
+  const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig
+
   const overridesConfig = defu(options?.overrides, options?.baseConfig)
 
   const results = await loadConfig<ResolvedConfig>({
@@ -219,9 +241,15 @@ export async function loadRelizyConfig(options?: {
     cwd,
     name: configFile,
     packageJson: true,
-    defaults: defaultConfig as ResolvedConfig,
+    defaults: defaultsWithoutTypes as ResolvedConfig,
     overrides: overridesConfig as ResolvedConfig,
   })
+
+  // Merge types: user entries replace defaults entirely (no deep merge)
+  results.config.types = mergeTypes(
+    results.config.types,
+    defaultTypes,
+  )
 
   if (typeof results._configFile !== 'string') {
     logger.debug(`No config file found with name "${configFile}"`)
