@@ -82,7 +82,7 @@ export default defineConfig({
       const modifyItems: typeof items = []
 
       for (const item of items) {
-        if (item.url.includes('404')) {
+        if (item.url.includes('404') || item.url.startsWith('typedoc')) {
           continue
         }
 
