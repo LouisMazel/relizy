@@ -934,6 +934,132 @@ describe('Given loadRelizyConfig function', () => {
   })
 })
 
+describe('Given loadRelizyConfig types resolution', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(process.cwd).mockReturnValue('/project')
+    vi.mocked(setupDotenv).mockResolvedValue({} as any)
+    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
+    vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
+  })
+
+  describe('When user defines no types', () => {
+    it('Then uses all default types', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project' },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+      const defaults = getDefaultConfig()
+
+      expect(result.types).toEqual(defaults.types)
+    })
+  })
+
+  describe('When user defines a type without semver', () => {
+    it('Then does not add semver from defaults', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          types: {
+            docs: { title: '📖 Documentation' },
+          },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.types.docs).toEqual({ title: '📖 Documentation' })
+      expect((result.types.docs as any).semver).toBeUndefined()
+      expect(result.types.feat).toEqual({ title: '🚀 Enhancements', semver: 'minor' })
+    })
+  })
+
+  describe('When user sets a type to false', () => {
+    it('Then keeps false and does not replace with default object', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          types: {
+            chore: false,
+            ci: false,
+          },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.types.chore).toBe(false)
+      expect(result.types.ci).toBe(false)
+    })
+  })
+
+  describe('When user overrides semver of a default type', () => {
+    it('Then uses user value entirely', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          types: {
+            docs: { title: '📖 Docs', semver: 'minor' },
+          },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect(result.types.docs).toEqual({ title: '📖 Docs', semver: 'minor' })
+    })
+  })
+
+  describe('When user adds a custom type not in defaults', () => {
+    it('Then includes the custom type alongside defaults', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          types: {
+            custom: { title: 'Custom', semver: 'patch' },
+          },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      const result = await loadRelizyConfig()
+
+      expect((result.types as any).custom).toEqual({ title: 'Custom', semver: 'patch' })
+      expect(result.types.feat).toEqual({ title: '🚀 Enhancements', semver: 'minor' })
+    })
+  })
+})
+
 describe('Given defineConfig function', () => {
   describe('When defining config', () => {
     it('Then returns the same config object', () => {

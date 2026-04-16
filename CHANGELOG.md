@@ -216,7 +216,6 @@
       providerRelease: { enabled: true },
       social: {
         twitter: { enabled: true },
-
         slack: { enabled: true },
       },
     },
