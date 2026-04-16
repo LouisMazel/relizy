@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://louismazel.github.io/relizy/sitemap.xml
+Sitemap: https://relizy.pages.dev/sitemap.xml

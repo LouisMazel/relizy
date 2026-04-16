@@ -3,14 +3,12 @@ import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
-const SITE_URL = 'https://louismazel.github.io/relizy'
+const SITE_URL = 'https://relizy.pages.dev'
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
   srcDir: 'src',
   lang: 'en-US',
-
-  base: '/relizy/',
 
   title: 'Seamless and automated release manager',
   titleTemplate: ':title | Relizy',
@@ -75,7 +73,7 @@ export default defineConfig({
   },
 
   sitemap: {
-    hostname: 'https://louismazel.github.io/relizy',
+    hostname: 'https://relizy.pages.dev',
     transformItems: (items) => {
       // add new items or modify/filter existing items
       const modifyItems: typeof items = []
@@ -85,7 +83,7 @@ export default defineConfig({
           continue
         }
 
-        const url = `relizy/${item.url}`
+        const url = item.url === 'index' ? '' : item.url
 
         modifyItems.push({
           ...item,

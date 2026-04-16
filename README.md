@@ -23,7 +23,7 @@
     </a>
   </p>
 
-<a href="https://louismazel.github.io/relizy/">Documentation</a>
+<a href="https://relizy.pages.dev">Documentation</a>
 
 </div>
 
@@ -61,7 +61,7 @@ Imagine you have multiple packages in your project (like a box with several toys
 
 ## 📚 Documentation
 
-You can [find the documentation here](https://louismazel.github.io/relizy/).
+You can [find the documentation here](https://relizy.pages.dev).
 
 ## 📦 Installation
 
@@ -140,7 +140,7 @@ relizy release --minor  # Automatically posts to configured social channels
 
 This README covers the basics to get you started quickly. For detailed documentation, configuration options, and advanced features, visit our full documentation:
 
-**[📚 Full Documentation](https://louismazel.github.io/relizy/)**
+**[📚 Full Documentation](https://relizy.pages.dev)**
 
 Topics covered in the documentation:
 
@@ -201,7 +201,7 @@ relizy release --patch --no-provider-release
 relizy release --patch --no-publish --no-push
 ```
 
-For detailed CLI reference, configuration options, and advanced features, check out the [full documentation](https://louismazel.github.io/relizy/).
+For detailed CLI reference, configuration options, and advanced features, check out the [full documentation](https://relizy.pages.dev).
 
 ## 🧑‍💻 Development & Contributing
 

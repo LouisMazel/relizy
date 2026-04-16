@@ -6,7 +6,7 @@
   "description": "Changelogen adapter for monorepo management with unified and independent versioning",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
-  "homepage": "https://louismazel.github.io/relizy",
+  "homepage": "https://relizy.pages.dev",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/LouisMazel/relizy.git"

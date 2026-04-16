@@ -284,7 +284,7 @@ Built with TypeScript on top of [changelogen](https://github.com/unjs/changeloge
 - What would make you switch from your current setup?
 
 The repo: [github.com/LouisMazel/relizy](https://github.com/LouisMazel/relizy)
-Docs: [louismazel.github.io/relizy](https://louismazel.github.io/relizy/)
+Docs: [relizy.pages.dev](https://relizy.pages.dev)
 
 Thanks for reading. Happy to answer any questions.
 

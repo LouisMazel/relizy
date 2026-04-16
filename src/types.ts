@@ -1071,7 +1071,7 @@ export type HookConfig = {
 
 /**
  * Relizy configuration
- * @see https://louismazel.github.io/relizy/config/overview
+ * @see https://relizy.pages.dev/config/overview
  */
 export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
   /**
