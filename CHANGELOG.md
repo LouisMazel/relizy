@@ -16,7 +16,7 @@
   `pr-comment` — versioned and documented, never pushed to a registry or
   announced.
 
-  ## Why
+  #### Why
 
   Monorepos often contain internal apps, examples, or private libraries that
   still need proper version tracking and changelog history without ever being
@@ -24,7 +24,7 @@
   step. With `includePrivates`, you get full versioning and changelog coverage
   for your private packages while keeping them out of the publish flow.
 
-  ## Usage
+  #### Usage
 
   Enable it in `relizy.config.ts`:
 
@@ -44,7 +44,7 @@
   relizy release --minor --include-private
   ```
 
-  ## Notes
+  #### Notes
   - Opt-in: default behavior is unchanged.
   - `ignorePackageNames` still takes precedence over `includePrivates`.
   - The bump confirmation prompt marks private packages with a 🔒 badge.
@@ -72,7 +72,7 @@
   The raw changelog stays the source of truth — AI never touches the
   compare link, contributors, or PR/issue references.
 
-  ## Usage
+  #### Usage
 
   ```ts
   // relizy.config.ts
@@ -195,7 +195,7 @@
   The raw changelog stays the source of truth — AI never touches the
   compare link, contributors, or PR/issue references.
 
-  ## Usage
+  #### Usage
 
   ```ts
   // relizy.config.ts
@@ -249,7 +249,7 @@
   `pr-comment` — versioned and documented, never pushed to a registry or
   announced.
 
-  ## Why
+  #### Why
 
   Monorepos often contain internal apps, examples, or private libraries that
   still need proper version tracking and changelog history without ever being
@@ -257,7 +257,7 @@
   step. With `includePrivates`, you get full versioning and changelog coverage
   for your private packages while keeping them out of the publish flow.
 
-  ## Usage
+  #### Usage
 
   Enable it in `relizy.config.ts`:
 
@@ -277,7 +277,7 @@
   relizy release --minor --include-private
   ```
 
-  ## Notes
+  #### Notes
   - Opt-in: default behavior is unchanged.
   - `ignorePackageNames` still takes precedence over `includePrivates`.
   - The bump confirmation prompt marks private packages with a 🔒 badge.
@@ -294,7 +294,7 @@
   `pr-comment` — versioned and documented, never pushed to a registry or
   announced.
 
-  ## Why
+  #### Why
 
   Monorepos often contain internal apps, examples, or private libraries that
   still need proper version tracking and changelog history without ever being
@@ -302,7 +302,7 @@
   step. With `includePrivates`, you get full versioning and changelog coverage
   for your private packages while keeping them out of the publish flow.
 
-  ## Usage
+  #### Usage
 
   Enable it in `relizy.config.ts`:
 
@@ -322,7 +322,7 @@
   relizy release --minor --include-private
   ```
 
-  ## Notes
+  #### Notes
   - Opt-in: default behavior is unchanged.
   - `ignorePackageNames` still takes precedence over `includePrivates`.
   - The bump confirmation prompt marks private packages with a 🔒 badge.
@@ -477,7 +477,7 @@
   `pr-comment` — versioned and documented, never pushed to a registry or
   announced.
 
-  ## Why
+  #### Why
 
   Monorepos often contain internal apps, examples, or private libraries that
   still need proper version tracking and changelog history without ever being
@@ -485,7 +485,7 @@
   step. With `includePrivates`, you get full versioning and changelog coverage
   for your private packages while keeping them out of the publish flow.
 
-  ## Usage
+  #### Usage
 
   Enable it in `relizy.config.ts`:
 
@@ -505,7 +505,7 @@
   relizy release --minor --include-private
   ```
 
-  ## Notes
+  #### Notes
   - Opt-in: default behavior is unchanged.
   - `ignorePackageNames` still takes precedence over `includePrivates`.
   - The bump confirmation prompt marks private packages with a 🔒 badge.
@@ -619,7 +619,7 @@
   package table, and install commands.
   Supports 3 statuses: ✅ success, ⏭️ no-release, ❌ failed.
 
-  ### Highlights
+  #### Highlights
   - **Two modes**: `append` (new comment each time) or `update`
     (finds and updates existing comment via hidden marker)
   - **GitHub & GitLab** support (including enterprise/self-hosted)
@@ -628,7 +628,7 @@
   - **Standalone command**: `relizy pr-comment`
   - **Integrated in release workflow** (enabled by default)
 
-  ### Configuration
+  #### Configuration
 
   ```ts
   // relizy.config.ts
@@ -642,7 +642,7 @@
   })
   ```
 
-  ### CLI
+  #### CLI
 
   ```bash
   # As part of release
@@ -736,14 +736,14 @@
   (e.g., `1.3.0-canary.a3f4b2c.0`). The next version is auto-detected
   from commits, then the canary suffix is appended.
 
-  ### What it does
+  #### What it does
   - Bumps all packages to a canary version
   - Publishes to npm with a `canary` dist-tag (or custom preid)
   - Posts a PR/MR comment with the canary version details
   - Skips changelog, git commit, git tag, git push, provider release,
     and social media posting
 
-  ### CLI
+  #### CLI
 
   ```bash
   # Canary release
