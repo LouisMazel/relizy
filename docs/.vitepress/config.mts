@@ -1,9 +1,12 @@
 import type { HeadConfig, UserConfig } from 'vitepress'
+import { unlinkSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
 const SITE_URL = 'https://relizy.pages.dev'
+const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
 // https://vitepress.dev/reference/site-config
 export default defineConfig({
@@ -16,7 +19,7 @@ export default defineConfig({
 
   head: [
     ['meta', { name: 'author', content: 'Louis Mazel' }],
-    ['meta', { name: 'robots', content: 'index, follow' }],
+    ['meta', { name: 'robots', content: isProduction ? 'index, follow' : 'noindex, nofollow' }],
     ['meta', { name: 'theme-color', content: '#8b5cf6' }],
     ['meta', { property: 'og:image', content: `${SITE_URL}/social.jpg` }],
     ['meta', { property: 'og:image:width', content: '1200' }],
@@ -399,6 +402,19 @@ export default defineConfig({
       pattern: 'https://github.com/LouisMazel/relizy/edit/main/docs/src/:path',
       text: 'Edit this page on GitHub',
     },
+  },
+
+  buildEnd: ({ outDir }) => {
+    if (!isProduction) {
+      // Overwrite robots.txt to block all crawlers on preview deployments
+      writeFileSync(resolve(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n')
+
+      // Remove sitemap to avoid indexing preview URLs
+      try {
+        unlinkSync(resolve(outDir, 'sitemap.xml'))
+      }
+      catch {}
+    }
   },
 
   vite: {
