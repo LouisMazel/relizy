@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.3 (2026-04-16)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.2...v1.3.3)
+
+### 💅 Refactors
+
+- Improve AI prompts for social and provider release posts ([b169432](https://github.com/LouisMazel/relizy/commit/b169432))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.2 (2026-04-16)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.1...v1.3.2)
