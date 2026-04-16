@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.3.2 (2026-04-16)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.1...v1.3.2)
+
+### 🩹 Fixes
+
+- Prevent defu deep merge from overriding user-defined commit types ([aabf96b](https://github.com/LouisMazel/relizy/commit/aabf96b))
+
+  User-defined `types` entries were deep-merged with defaults by defu.
+  Omitted properties like `semver` were filled from defaults, triggering
+  unwanted version bumps (e.g. `docs` without `semver` got `semver: 'patch'`).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.1 (2026-04-16)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0...v1.3.1)
