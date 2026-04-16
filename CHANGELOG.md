@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.3.1 (2026-04-16)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.0...v1.3.1)
+
+### 📖 Documentation
+
+- Update changelog ([f82f43f](https://github.com/LouisMazel/relizy/commit/f82f43f))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.0 (2026-04-15)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.2.1...v1.3.0)
