@@ -34,7 +34,7 @@ export async function providerReleaseSafetyCheck({ config, provider }: { config:
   }
 
   if (!token) {
-    throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://relizy.pages.dev/guide/installation#environment-setup`)
+    throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://relizy.dev/guide/installation#environment-setup`)
   }
 
   if (isAIProviderReleaseEnabled(config)) {

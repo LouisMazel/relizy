@@ -5,7 +5,7 @@ import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json'
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
 
-const SITE_URL = 'https://relizy.pages.dev'
+const SITE_URL = 'https://relizy.dev'
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
 // https://vitepress.dev/reference/site-config
@@ -76,7 +76,7 @@ export default defineConfig({
   },
 
   sitemap: {
-    hostname: 'https://relizy.pages.dev',
+    hostname: 'https://relizy.dev',
     transformItems: (items) => {
       // add new items or modify/filter existing items
       const modifyItems: typeof items = []
