@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://relizy.pages.dev/sitemap.xml
+Sitemap: https://relizy.dev/sitemap.xml

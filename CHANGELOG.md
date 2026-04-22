@@ -203,7 +203,7 @@
   `--ai` / `--no-ai` on `release`, `provider-release`, and `social`.
   Defaults to Claude Haiku. Fails safely (`fallback: 'raw'`) and preserves
   the release on AI errors.
-  Full guide: https://relizy.pages.dev/guide/ai-changelog
+  Full guide: https://relizy.dev/guide/ai-changelog
 
 ### 🩹 Fixes
 
@@ -326,7 +326,7 @@
   `--ai` / `--no-ai` on `release`, `provider-release`, and `social`.
   Defaults to Claude Haiku. Fails safely (`fallback: 'raw'`) and preserves
   the release on AI errors.
-  Full guide: https://relizy.pages.dev/guide/ai-changelog
+  Full guide: https://relizy.dev/guide/ai-changelog
 
 ### ❤️ Contributors
 
