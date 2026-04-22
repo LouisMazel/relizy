@@ -5,16 +5,21 @@ import { createMockConfig } from '../../../tests/mocks'
 import { detectPullRequest, getCurrentGitBranch, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
 import { buildCommentBody, prComment } from '../pr-comment'
 
-vi.mock('../../core', () => ({
-  loadRelizyConfig: vi.fn(),
-  detectPullRequest: vi.fn(),
-  postPrComment: vi.fn(),
-  readPackageJson: vi.fn(),
-  readPackages: vi.fn(),
-  getCurrentGitBranch: vi.fn(),
-  PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
-  filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-}))
+vi.mock('../../core', async () => {
+  const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
+  return {
+    loadRelizyConfig: vi.fn(),
+    detectPullRequest: vi.fn(),
+    postPrComment: vi.fn(),
+    readPackageJson: vi.fn(),
+    readPackages: vi.fn(),
+    getCurrentGitBranch: vi.fn(),
+    PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
+    filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
+    // Use the real collectPackageBumps so the package table renders in tests
+    collectPackageBumps: actual.collectPackageBumps,
+  }
+})
 
 describe('Given prComment command', () => {
   const mockPr: PullRequestInfo = {

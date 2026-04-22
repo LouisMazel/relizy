@@ -686,7 +686,7 @@ export interface TwitterSocialConfig {
   /**
    * Custom message template
    * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   template?: string
   /**
@@ -755,6 +755,11 @@ export interface SlackSocialConfig {
    * @default false
    */
   noAuthors?: boolean
+  /**
+   * Hide the packages block (list of bumped packages with their before → after versions).
+   * @default false
+   */
+  noPackages?: boolean
 }
 
 export type AIProviderName = 'claude-code'
@@ -955,10 +960,26 @@ export interface SlackOptions {
    */
   contributors?: string[]
   /**
+   * Packages bumped in this release. Empty array or undefined → no packages block.
+   */
+  packages?: SlackPackageEntry[]
+  /**
    * Run without side effects
    * @default false
    */
   dryRun?: boolean
+}
+
+/**
+ * A bumped-package entry in a Slack message (derived from PackageBumpEntry in src/core/packages.ts).
+ * Duplicated here to avoid a core→types back-import; kept in sync by design.
+ */
+export interface SlackPackageEntry {
+  name: string
+  oldVersion?: string
+  newVersion?: string
+  version: string
+  hasTransition: boolean
 }
 
 export interface TemplatesConfig {
@@ -1005,7 +1026,7 @@ export interface TemplatesConfig {
   /**
    * Twitter message template
    * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   twitterMessage?: string
   /**

@@ -102,7 +102,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      template: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
+      template: '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
     },
     slack: {
       enabled: true,

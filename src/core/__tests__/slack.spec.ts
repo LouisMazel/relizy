@@ -1,6 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { formatChangelogForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack } from '../slack'
+import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack } from '../slack'
 
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string, opts?: { maxLength?: number }) => changelog.substring(0, opts?.maxLength ?? 2500)),
@@ -222,16 +222,17 @@ Content`
       expect(result).toContain('*Fixes*')
     })
 
-    it('Then handles bullet points', () => {
+    it('Then converts markdown dash bullets to Slack mrkdwn bullets', () => {
       const changelog = `- Feature one
 - Feature two
 - Feature three`
 
       const result = formatChangelogForSlack(changelog, 1000)
 
-      expect(result).toContain('- Feature one')
-      expect(result).toContain('- Feature two')
-      expect(result).toContain('- Feature three')
+      expect(result).toContain('• Feature one')
+      expect(result).toContain('• Feature two')
+      expect(result).toContain('• Feature three')
+      expect(result).not.toContain('- Feature')
     })
   })
 
@@ -269,7 +270,7 @@ describe('Given formatSlackMessage function', () => {
         type: 'header',
         text: {
           type: 'plain_text',
-          text: '🚀 my-package 1.0.0 is out!',
+          text: '📣 my-package 1.0.0 is out!',
           emoji: true,
         },
       })
@@ -1062,6 +1063,144 @@ describe('Given postReleaseToSlack validation', () => {
         changelog: 'x',
         token: 'xoxb-test',
       })).rejects.toThrow(/channel is required/)
+    })
+  })
+})
+
+describe('Given formatChangelogForSlack bullet conversion', () => {
+  describe('When changelog contains markdown list items with -', () => {
+    it('Then converts leading "- " to "• "', () => {
+      const result = formatChangelogForSlack('- foo\n- bar', 500)
+      expect(result).toBe('• foo\n• bar')
+    })
+
+    it('Then preserves indentation for nested items', () => {
+      const result = formatChangelogForSlack('- top\n  - nested', 500)
+      expect(result).toContain('• top')
+      expect(result).toContain('  • nested')
+    })
+  })
+
+  describe('When - appears mid-word or mid-sentence', () => {
+    it('Then leaves non-bullet dashes intact', () => {
+      const result = formatChangelogForSlack('feat: add multi-step wizard', 500)
+      expect(result).toBe('feat: add multi-step wizard')
+    })
+
+    it('Then leaves --flag-style args intact', () => {
+      const result = formatChangelogForSlack('use --flag now', 500)
+      expect(result).toBe('use --flag now')
+    })
+  })
+})
+
+describe('Given formatPackagesForSlack function', () => {
+  describe('When packages have transitions', () => {
+    it('Then renders bullet list with old → new versions', () => {
+      const text = formatPackagesForSlack([
+        { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
+        { name: '@acme/b', oldVersion: '2.0.0', newVersion: '2.0.1', version: '2.0.1', hasTransition: true },
+      ])
+      expect(text).toBe('• `@acme/a`: `1.0.0` → `1.1.0`\n• `@acme/b`: `2.0.0` → `2.0.1`')
+    })
+  })
+
+  describe('When package has no transition', () => {
+    it('Then renders a plain `name: version` line', () => {
+      const text = formatPackagesForSlack([
+        { name: '@acme/a', version: '1.0.0', hasTransition: false },
+      ])
+      expect(text).toBe('• `@acme/a`: `1.0.0`')
+    })
+  })
+
+  describe('When input is empty', () => {
+    it('Then returns empty string', () => {
+      expect(formatPackagesForSlack([])).toBe('')
+    })
+  })
+})
+
+describe('Given formatSlackMessage with packages', () => {
+  describe('When packages array is non-empty (rich blocks mode)', () => {
+    it('Then appends a 📦 Packages section block after changelog and before contributors', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        packages: [
+          { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
+        ],
+        contributors: ['Alice'],
+      })
+
+      const types = blocks.map((b: any) => b.type)
+      // Expect header, changelog section, packages section, contributors section, divider, ...
+      const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
+      expect(pkgBlock).toBeDefined()
+      expect(pkgBlock.text.text).toContain('• `@acme/a`: `1.0.0` → `1.1.0`')
+
+      // Ordering: packages block must come before contributors block
+      const pkgIndex = blocks.findIndex((b: any) => b.text?.text?.includes('📦 Packages'))
+      const contribIndex = blocks.findIndex((b: any) => b.text?.text?.includes('❤️ Contributors'))
+      expect(pkgIndex).toBeGreaterThan(-1)
+      expect(contribIndex).toBeGreaterThan(pkgIndex)
+      expect(types).toContain('divider')
+    })
+  })
+
+  describe('When packages array is empty', () => {
+    it('Then does not append a packages block', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        packages: [],
+      })
+
+      const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
+      expect(pkgBlock).toBeUndefined()
+    })
+
+    it('Then does not append a packages block when not provided', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+      })
+
+      const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
+      expect(pkgBlock).toBeUndefined()
+    })
+  })
+
+  describe('When using template mode with {{packages}} placeholder', () => {
+    it('Then substitutes the bullet list', () => {
+      const blocks = formatSlackMessage({
+        template: '{{projectName}} {{newVersion}}\n\n{{packages}}',
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        packages: [
+          { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
+        ],
+      })
+
+      expect(blocks[0].text.text).toContain('• `@acme/a`: `1.0.0` → `1.1.0`')
+      expect(blocks[0].text.text).not.toContain('{{packages}}')
+    })
+
+    it('Then replaces with empty string when packages is empty', () => {
+      const blocks = formatSlackMessage({
+        template: '{{projectName}} {{newVersion}}\n{{packages}}',
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        packages: [],
+      })
+
+      expect(blocks[0].text.text).not.toContain('{{packages}}')
+      expect(blocks[0].text.text).not.toContain('•')
     })
   })
 })

@@ -52,6 +52,7 @@ interface SocialConfig {
     }
     postMaxLength?: number
     noAuthors?: boolean
+    noPackages?: boolean
   }
   changelogUrl?: string
 }
@@ -348,6 +349,27 @@ export default defineConfig({
   },
 })
 ```
+
+### slack.noPackages
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Hide the "📦 Packages" block (bulleted list of bumped packages with their before → after versions). In standalone (single-package) mode the block is skipped automatically.
+
+```ts
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      noPackages: true, // hide the 📦 Packages block
+    },
+  },
+})
+```
+
+The data shown in this block comes from the same internal helper (`collectPackageBumps`) that powers the PR comment package table, so the two views always stay in sync — only the rendering differs (GFM table vs Slack mrkdwn bullet list).
 
 ## changelogUrl
 
