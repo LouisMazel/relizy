@@ -1101,7 +1101,7 @@ describe('Given formatPackagesForSlack function', () => {
         { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
         { name: '@acme/b', oldVersion: '2.0.0', newVersion: '2.0.1', version: '2.0.1', hasTransition: true },
       ])
-      expect(text).toBe('• `@acme/a`: `1.0.0` → `1.1.0`\n• `@acme/b`: `2.0.0` → `2.0.1`')
+      expect(text).toBe('• **@acme/a** : `1.0.0` → `1.1.0`\n• **@acme/b** : `2.0.0` → `2.0.1`')
     })
   })
 
@@ -1110,7 +1110,7 @@ describe('Given formatPackagesForSlack function', () => {
       const text = formatPackagesForSlack([
         { name: '@acme/a', version: '1.0.0', hasTransition: false },
       ])
-      expect(text).toBe('• `@acme/a`: `1.0.0`')
+      expect(text).toBe('• **@acme/a** : `1.0.0`')
     })
   })
 
@@ -1138,7 +1138,7 @@ describe('Given formatSlackMessage with packages', () => {
       // Expect header, changelog section, packages section, contributors section, divider, ...
       const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
       expect(pkgBlock).toBeDefined()
-      expect(pkgBlock.text.text).toContain('• `@acme/a`: `1.0.0` → `1.1.0`')
+      expect(pkgBlock.text.text).toContain('• **@acme/a** : `1.0.0` → `1.1.0`')
 
       // Ordering: packages block must come before contributors block
       const pkgIndex = blocks.findIndex((b: any) => b.text?.text?.includes('📦 Packages'))
@@ -1186,7 +1186,7 @@ describe('Given formatSlackMessage with packages', () => {
         ],
       })
 
-      expect(blocks[0].text.text).toContain('• `@acme/a`: `1.0.0` → `1.1.0`')
+      expect(blocks[0].text.text).toContain('• **@acme/a** : `1.0.0` → `1.1.0`')
       expect(blocks[0].text.text).not.toContain('{{packages}}')
     })
 
