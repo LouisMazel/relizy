@@ -1,4 +1,5 @@
 import type { SlackCredentials, SlackOptions } from '../types'
+import type { PackageBumpEntry } from './packages'
 import { logger } from '@maz-ui/node'
 import { extractChangelogSummary } from './social'
 
@@ -50,6 +51,9 @@ export function formatChangelogForSlack(changelog: string, maxLength: number = 2
     .replace(/^# (.+)$/gm, '*$1*')
     // Convert markdown bold
     .replace(/\*\*(.+?)\*\*/g, '*$1*')
+    // Convert markdown list bullets (- at line start) to Slack's bullet character (•)
+    // so they render as real bullet points instead of literal dashes.
+    .replace(/^([ \t]*)-[ \t]+/gm, '$1• ')
 
   // Convert markdown links [text](url) to <url|text>
   // Use a safer approach without complex regex
@@ -66,9 +70,26 @@ export function formatChangelogForSlack(changelog: string, maxLength: number = 2
 }
 
 /**
+ * Render a list of bumped packages as a Slack mrkdwn bullet list.
+ * Each entry becomes `• \`name\`: \`old\` → \`new\`` when a transition is detected,
+ * otherwise falls back to `• \`name\`: \`version\``.
+ */
+export function formatPackagesForSlack(packages: PackageBumpEntry[]): string {
+  if (packages.length === 0) {
+    return ''
+  }
+  return packages
+    .map(pkg => pkg.hasTransition
+      ? `• \`${pkg.name}\`: \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
+      : `• \`${pkg.name}\`: \`${pkg.version}\``,
+    )
+    .join('\n')
+}
+
+/**
  * Format the Slack message using blocks
  */
-export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], postMaxLength = 2500 }: {
+export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], packages = [], postMaxLength = 2500 }: {
   template?: string
   projectName: string
   version: string
@@ -76,11 +97,13 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   releaseUrl?: string
   changelogUrl?: string
   contributors?: string[]
+  packages?: PackageBumpEntry[]
   postMaxLength?: number
 }): any[] {
   const contributorsLine = contributors.length > 0
     ? contributors.map(n => `• ${n}`).join('\n')
     : ''
+  const packagesLine = formatPackagesForSlack(packages)
 
   // Use template if provided, otherwise use blocks
   if (template) {
@@ -90,6 +113,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
       .replace('{{newVersion}}', version)
       .replace('{{changelog}}', summary)
       .replace('{{contributors}}', contributorsLine)
+      .replace('{{packages}}', packagesLine)
 
     if (releaseUrl) {
       message = message.replace('{{releaseUrl}}', releaseUrl)
@@ -123,7 +147,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
       type: 'header',
       text: {
         type: 'plain_text',
-        text: `🚀 ${projectName} ${version} is out!`,
+        text: `📣 ${projectName} ${version} is out!`,
         emoji: true,
       },
     },
@@ -137,6 +161,17 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
       text: {
         type: 'mrkdwn',
         text: formattedChangelog,
+      },
+    })
+  }
+
+  // Add packages section
+  if (packages.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*📦 Packages*\n\n${packagesLine}`,
       },
     })
   }
@@ -302,6 +337,7 @@ export async function postReleaseToSlack({
   webhookUrl,
   template,
   contributors,
+  packages,
   postMaxLength,
   dryRun = false,
 }: SlackOptions) {
@@ -325,6 +361,7 @@ export async function postReleaseToSlack({
     releaseUrl,
     changelogUrl,
     contributors,
+    packages,
     postMaxLength,
   })
   const fallbackText = `${projectName} ${version} is out!`

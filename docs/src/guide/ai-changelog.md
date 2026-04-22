@@ -342,7 +342,7 @@ this body — they never touch AI.
 Template:
 
 ```
-🚀 {{projectName}} {{newVersion}} is out!
+📣 {{projectName}} {{newVersion}} is out!
 
 {{changelog}}
 
@@ -352,7 +352,7 @@ Template:
 Result:
 
 ```
-🚀 my-app 2.1.0 is out!
+📣 my-app 2.1.0 is out!
 
 OAuth2 PKCE support for safer public-client login, rate-limiting to keep endpoints healthy, and a connection-pool memory leak is gone.
 

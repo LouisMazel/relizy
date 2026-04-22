@@ -208,7 +208,7 @@ export default defineConfig({
       enabled: true,
       onlyStable: false, // Post all releases
       channel: '#releases',
-      template: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
+      template: '📣 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
       credentials: {
         token: process.env.SLACK_TOKEN,
       },

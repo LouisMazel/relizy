@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectPullRequest, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -90,28 +90,18 @@ function buildPackageTableLines(
   bumpedPackages: BumpResultTruthy['bumpedPackages'],
   packages?: Array<{ name: string, version: string }>,
 ): string[] {
-  const lines: string[] = []
-  const header = ['', '### Packages', '', '| Package | Version |', '| --- | --- |']
-
-  if (bumpedPackages.length > 0) {
-    lines.push(...header)
-    for (const pkg of bumpedPackages) {
-      const hasTransition = pkg.newVersion && pkg.oldVersion !== pkg.newVersion
-      lines.push(hasTransition
-        ? `| \`${pkg.name}\` | \`${pkg.oldVersion}\` → \`${pkg.newVersion}\` |`
-        : `| \`${pkg.name}\` | \`${pkg.version}\` |`,
-      )
-    }
-    return lines
+  const entries = collectPackageBumps({ bumpedPackages, packages })
+  if (entries.length === 0) {
+    return []
   }
 
-  if (packages && packages.length > 0) {
-    lines.push(...header)
-    for (const pkg of packages) {
-      lines.push(`| \`${pkg.name}\` | \`${pkg.version}\` |`)
-    }
+  const lines = ['', '### Packages', '', '| Package | Version |', '| --- | --- |']
+  for (const entry of entries) {
+    lines.push(entry.hasTransition
+      ? `| \`${entry.name}\` | \`${entry.oldVersion}\` → \`${entry.newVersion}\` |`
+      : `| \`${entry.name}\` | \`${entry.version}\` |`,
+    )
   }
-
   return lines
 }
 

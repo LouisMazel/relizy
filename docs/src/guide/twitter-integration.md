@@ -150,7 +150,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
+      template: '📣 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
     },
   },
 })
@@ -230,7 +230,7 @@ release:
 With the default template, your tweets will look like this:
 
 ```
-🚀 my-awesome-package 2.1.0 is out!
+📣 my-awesome-package 2.1.0 is out!
 
 - Add new feature X
 - Fix bug in component Y
@@ -306,7 +306,7 @@ export default defineConfig({
 **Without AI:**
 
 ```
-🚀 my-lib 3.0.0 is out!
+📣 my-lib 3.0.0 is out!
 
 ### 🚀 Enhancements
 - **core**: add streaming API support (abc123)
@@ -321,7 +321,7 @@ https://github.com/user/my-lib/releases/tag/v3.0.0
 **With AI:**
 
 ```
-🚀 my-lib 3.0.0 is out!
+📣 my-lib 3.0.0 is out!
 
 Streaming API support, OAuth2 PKCE auth, and a cache TTL fix.
 

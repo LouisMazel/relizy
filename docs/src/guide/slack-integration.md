@@ -145,6 +145,39 @@ export default defineConfig({
 })
 ```
 
+## Packages Block
+
+In monorepo mode, Relizy appends a "📦 Packages" block listing every package bumped in the release with its before → after versions:
+
+```text
+📦 Packages
+
+• `@acme/ui-core`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/ui-mobile`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/ui-nuxt`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/utils`: `5.8.0` → `5.9.0-beta.0`
+```
+
+Slack mrkdwn does not support tables, so Relizy uses a bullet list with inline code (backticks) — it scales to any number of packages, renders consistently on desktop and mobile, and stays readable when package names are long.
+
+The data shared with the GitHub/GitLab PR comment table: Relizy uses the same internal helper (`collectPackageBumps`) to pick the data, so both views stay consistent — only the rendering differs (GFM table for PR comments, mrkdwn bullet list for Slack).
+
+To hide the packages block:
+
+```typescript
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      noPackages: true, // hide the 📦 Packages block
+    },
+  },
+})
+```
+
+In standalone (single-package) mode, the block is skipped automatically since the header already shows the new version.
+
 ## Contributors Block
 
 Relizy automatically appends a "❤️ Contributors" block to every Slack release message, listing the names of authors who contributed commits in the release range:
@@ -208,6 +241,7 @@ interface SlackConfig {
   template?: string // custom mrkdwn template
   postMaxLength?: number // default 2500
   noAuthors?: boolean // default false — Slack-specific contributor gate
+  noPackages?: boolean // default false — hide the 📦 Packages block
 }
 
 interface SlackCredentials {
@@ -259,19 +293,55 @@ Relizy sends rich, interactive messages using Slack Block Kit:
 
 ### Default Format
 
-```text
-🚀 my-awesome-package 2.1.0 is out!
+Monorepo example (what a real message looks like):
 
-✨ Features
-- Add new feature X
-- Improve component Y
+```text
+📣 my-awesome-lib 5.9.0-beta.0 is out!
+
+🚀 Features
+
+• [TICKET-1234] add loyalty variant to ListOption
+• [TICKET-1234] emit event when card is clicked
+• [TICKET-1234] propagate click event and improve a11y
 
 🩹 Fixes
-- Fix bug in module Z
+
+• [TICKET-1234] Fix showCounter on carousel
+• Correct histoire setup configuration
+
+📦 Packages
+
+• `@acme/ui-core`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/ui-mobile`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/ui-nuxt`: `5.8.0` → `5.9.0-beta.0`
+• `@acme/utils`: `5.8.0` → `5.9.0-beta.0`
 
 ❤️ Contributors
+
 • Alice Martin
 • Bob Dupont
+• Charlie Nguyen
+
+[View Release] [Full Changelog]
+```
+
+Standalone (single-package) example:
+
+```text
+📣 my-awesome-package 2.1.0 is out!
+
+✨ Features
+
+• Add new feature X
+• Improve component Y
+
+🩹 Fixes
+
+• Fix bug in module Z
+
+❤️ Contributors
+
+• Alice Martin
 
 [View Release] [Full Changelog]
 ```
@@ -286,7 +356,7 @@ export default defineConfig({
     slack: {
       enabled: true,
       webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      template: '🚀 *{{projectName}} {{newVersion}}* is out!\n\n{{changelog}}\n\n{{contributors}}\n\n📦 {{releaseUrl}}',
+      template: '📣 *{{projectName}} {{newVersion}}* is out!\n\n{{changelog}}\n\n{{contributors}}\n\n📦 {{releaseUrl}}',
     },
   },
 })
@@ -300,6 +370,7 @@ export default defineConfig({
 - <code v-pre>{{releaseUrl}}</code> — Link to the GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> — Link to the full changelog (from `social.changelogUrl`)
 - <code v-pre>{{contributors}}</code> — Bullet list of contributor names (empty when `noAuthors` is active or none detected)
+- <code v-pre>{{packages}}</code> — Bullet list of bumped packages with before → after versions (empty when `noPackages` is active or in standalone mode)
 
 ## Markdown Support
 
@@ -451,7 +522,7 @@ export default defineConfig({
 **Without AI:**
 
 ```text
-🚀 my-lib 3.0.0 is out!
+📣 my-lib 3.0.0 is out!
 
 ### 🚀 Enhancements
 - **core**: add streaming API support (abc123)
@@ -464,7 +535,7 @@ export default defineConfig({
 **With AI:**
 
 ```text
-🚀 *my-lib 3.0.0* is out!
+📣 *my-lib 3.0.0* is out!
 
 • *Streaming API* — new streaming support in core module
 • *OAuth2 PKCE* — improved auth flow security

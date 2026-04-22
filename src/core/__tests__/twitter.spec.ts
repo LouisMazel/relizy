@@ -192,7 +192,7 @@ describe('Given formatTweetMessage function', () => {
 
     it('Then formats with default template', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
+        template: '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}',
         projectName: 'relizy',
         version: '2.0.0',
         changelog: 'New features',
@@ -200,7 +200,7 @@ describe('Given formatTweetMessage function', () => {
         postMaxLength: 280,
       })
 
-      expect(result).toContain('🚀 relizy 2.0.0 is out!')
+      expect(result).toContain('📣 relizy 2.0.0 is out!')
       expect(result).toContain('New features')
       expect(result).toContain('📦 https://github.com/user/relizy/releases/tag/v2.0.0')
     })
@@ -265,7 +265,7 @@ describe('Given formatTweetMessage function', () => {
 
     it('Then reserves space for template and URLs', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}',
+        template: '📣 {{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}',
         projectName: 'my-awesome-package',
         version: '1.0.0',
         changelog: 'x'.repeat(200),
@@ -296,7 +296,7 @@ describe('Given formatTweetMessage function', () => {
     it('Then ensures truncated message ends with ellipsis', () => {
       const veryLongText = 'x'.repeat(400)
       const result = formatTweetMessage({
-        template: `🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
+        template: `📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
         projectName: 'pkg',
         changelogUrl: 'https://example.com/changelog',
         releaseUrl: 'https://example.com/releases',
@@ -344,20 +344,20 @@ describe('Given formatTweetMessage function', () => {
   describe('When handling special characters', () => {
     it('Then preserves emojis in template', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} 🎉 {{newVersion}}',
+        template: '📣 {{projectName}} 🎉 {{newVersion}}',
         projectName: 'pkg',
         version: '1.0.0',
         changelog: 'Updates',
         postMaxLength: 280,
       })
 
-      expect(result).toContain('🚀')
+      expect(result).toContain('📣')
       expect(result).toContain('🎉')
     })
 
     it('Then escapes @ mentions in changelog to prevent unintended Twitter mentions', () => {
       const result = formatTweetMessage({
-        template: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}',
+        template: '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}',
         projectName: 'maz-ui',
         version: '4.9.0',
         changelog: '- @maz-ui/mcp: Search engine improvements\n- @maz-ui/nuxt: Provide NuxtLink component',
