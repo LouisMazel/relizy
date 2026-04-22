@@ -46,7 +46,7 @@ export default defineConfig({
   },
 
   social: {
-    changelogUrl: 'https://relizy.pages.dev/changelog',
+    changelogUrl: 'https://relizy.dev/changelog',
     twitter: {
       enabled: true,
     },
