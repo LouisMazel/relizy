@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.4.0-beta.1 (2026-04-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.0-beta.0...v1.4.0-beta.1)
+
+### 🚀 Features
+
+- **relizy:** Add package list to slack release messages ([333ff34](https://github.com/LouisMazel/relizy/commit/333ff34))
+
+  Slack release messages now include a `📦 Packages` block listing every
+  bumped package with its before → after version.
+  Disable it with `social.slack.noPackages: true`:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    social: {
+      slack: {
+        enabled: true,
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+        noPackages: true,
+      },
+    },
+  })
+  ```
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.0-beta.0 (2026-04-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.3...v1.4.0-beta.0)
