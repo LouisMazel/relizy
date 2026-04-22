@@ -45,10 +45,13 @@ interface SocialConfig {
     enabled?: boolean
     onlyStable?: boolean
     channel?: string
+    webhookUrl?: string
     template?: string
     credentials?: {
       token?: string
     }
+    postMaxLength?: number
+    noAuthors?: boolean
   }
   changelogUrl?: string
 }
@@ -207,7 +210,7 @@ export default defineConfig({
 ### slack.channel
 
 - **Type:** `string`
-- **Required:** Yes (when Slack is enabled)
+- **Required:** Yes, in token mode. Ignored (with warning) in webhook mode — the channel is baked into the webhook URL.
 
 Slack channel ID or name where release notifications will be posted:
 
@@ -224,6 +227,31 @@ export default defineConfig({
 })
 ```
 
+### slack.webhookUrl
+
+- **Type:** `string`
+- **Default:** `undefined`
+
+Slack [Incoming Webhook URL](https://api.slack.com/messaging/webhooks). When set, takes **priority over token-based authentication** — the token and channel are ignored (with warnings) and `@slack/web-api` is not required.
+
+```ts
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+    },
+  },
+})
+```
+
+**Environment Variables:**
+
+- `RELIZY_SLACK_WEBHOOK_URL` (takes priority)
+- `SLACK_WEBHOOK_URL`
+
+See the [Slack Integration Guide](../guide/slack-integration.md) for setup steps.
+
 ### slack.template
 
 - **Type:** `string`
@@ -232,18 +260,19 @@ export default defineConfig({
 Customize the Slack message template. Available variables:
 
 - <code v-pre>{{projectName}}</code> - Project name
-- <code v-pre>{{version}}</code> - Release version
-- <code v-pre>{{changelog}}</code> - Changelog summary
+- <code v-pre>{{newVersion}}</code> - Release version
+- <code v-pre>{{changelog}}</code> - Changelog summary (truncated to `postMaxLength`)
 - <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
+- <code v-pre>{{contributors}}</code> - Bullet list of contributor names (empty when `noAuthors` is active or none detected)
 
 ```ts
 export default defineConfig({
   social: {
     slack: {
       enabled: true,
-      channel: '#releases',
-      template: '🚀 *{{projectName}} v{{version}}* is now available!\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      template: '🚀 *{{projectName}} v{{newVersion}}* is now available!\n\n{{changelog}}\n\n{{contributors}}\n\n<{{releaseUrl}}|View Release>',
     },
   },
 })
@@ -254,7 +283,7 @@ export default defineConfig({
 - **Type:** `SlackCredentials`
 - **Default:** Read from environment variables
 
-Slack Bot Token or User OAuth Token. If not provided, falls back to environment variables:
+Slack Bot Token or User OAuth Token. Ignored in webhook mode. If not provided, falls back to environment variables:
 
 ```ts
 export default defineConfig({
@@ -278,6 +307,47 @@ export default defineConfig({
 
 - `chat:write` - Post messages to channels
 - `chat:write.public` - Post to public channels (if using public channels)
+
+### slack.postMaxLength
+
+- **Type:** `number`
+- **Default:** `2500`
+
+Maximum number of characters for the changelog rendered in the Slack message. Slack's hard limit per section block is 3000 — the default leaves margin for mrkdwn conversion and formatting.
+
+```ts
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      postMaxLength: 1500,
+    },
+  },
+})
+```
+
+Lower this if you see `invalid_payload` errors from Slack.
+
+### slack.noAuthors
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Hide the "❤️ Contributors" block in Slack messages. The global `noAuthors` setting takes priority — if it is `true`, contributors are always hidden regardless of this setting.
+
+```ts
+export default defineConfig({
+  noAuthors: false, // global: show contributors everywhere (default)
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      noAuthors: true, // hide contributors on Slack only
+    },
+  },
+})
+```
 
 ## changelogUrl
 

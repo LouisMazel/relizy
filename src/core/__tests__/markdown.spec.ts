@@ -6,7 +6,7 @@ import { fetch } from 'node-fetch-native'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
-import { buildChangelogBody, buildCompareLink, buildContributors, generateMarkDown, parseChangelogMarkdown } from '../markdown'
+import { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames, generateMarkDown, parseChangelogMarkdown } from '../markdown'
 
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
@@ -1214,6 +1214,76 @@ describe('Given buildChangelogBody function', () => {
     const result = buildChangelogBody({ commits, config })
 
     expect(result).toBe('')
+  })
+})
+
+describe('Given collectContributorNames function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('Then returns unique formatted names', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: { name: 'alice martin', email: 'alice@example.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'b'), author: { name: 'alice martin', email: 'alice+ci@example.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'c'), author: { name: 'bob dupont', email: 'bob@example.com' }, type: 'feat' },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice Martin', 'Bob Dupont'])
+  })
+
+  it('Then filters bot authors', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'b'), author: { name: 'dependabot[bot]', email: 'bot@github.com' }, type: 'feat' },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice'])
+  })
+
+  it('Then applies excludeAuthors by name and email substring', () => {
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: ['bob', 'excluded-domain'],
+    })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'alice@x.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'b'), author: { name: 'bob', email: 'bob@x.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'c'), author: { name: 'charlie', email: 'c@excluded-domain.com' }, type: 'feat' },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice'])
+  })
+
+  it('Then returns empty array when noAuthors is true', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true, excludeAuthors: [] })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual([])
+  })
+
+  it('Then skips commits without author', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: null as any, type: 'feat' },
+      { ...createMockCommit('feat', 'b'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice'])
   })
 })
 

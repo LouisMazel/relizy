@@ -24,9 +24,24 @@ export function getSlackToken(options: {
 }
 
 /**
+ * Get Slack Incoming Webhook URL from config or environment variables.
+ * Priority: social.slack.webhookUrl > RELIZY_SLACK_WEBHOOK_URL > SLACK_WEBHOOK_URL.
+ */
+export function getSlackWebhookUrl(options: {
+  socialWebhookUrl?: string
+}): string | null {
+  return (
+    options.socialWebhookUrl
+    || process.env.RELIZY_SLACK_WEBHOOK_URL
+    || process.env.SLACK_WEBHOOK_URL
+    || null
+  )
+}
+
+/**
  * Format changelog for Slack (convert markdown to Slack's mrkdwn format)
  */
-export function formatChangelogForSlack(changelog: string, maxLength: number = 500): string {
+export function formatChangelogForSlack(changelog: string, maxLength: number = 2500): string {
   // Convert markdown to Slack's mrkdwn format
   let formatted = changelog
     // Convert markdown headers to bold
@@ -53,21 +68,28 @@ export function formatChangelogForSlack(changelog: string, maxLength: number = 5
 /**
  * Format the Slack message using blocks
  */
-export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template }: {
+export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], postMaxLength = 2500 }: {
   template?: string
   projectName: string
   version: string
   changelog: string
   releaseUrl?: string
   changelogUrl?: string
+  contributors?: string[]
+  postMaxLength?: number
 }): any[] {
+  const contributorsLine = contributors.length > 0
+    ? contributors.map(n => `• ${n}`).join('\n')
+    : ''
+
   // Use template if provided, otherwise use blocks
   if (template) {
-    const summary = extractChangelogSummary(changelog, { maxLength: 500 })
+    const summary = extractChangelogSummary(changelog, { maxLength: postMaxLength })
     let message = template
       .replace('{{projectName}}', projectName)
       .replace('{{newVersion}}', version)
       .replace('{{changelog}}', summary)
+      .replace('{{contributors}}', contributorsLine)
 
     if (releaseUrl) {
       message = message.replace('{{releaseUrl}}', releaseUrl)
@@ -108,13 +130,24 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   ]
 
   // Add changelog section
-  const formattedChangelog = formatChangelogForSlack(changelog, 500)
+  const formattedChangelog = formatChangelogForSlack(changelog, postMaxLength)
   if (formattedChangelog) {
     blocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
         text: formattedChangelog,
+      },
+    })
+  }
+
+  // Add contributors section
+  if (contributors.length > 0) {
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*❤️ Contributors*\n\n${contributorsLine}`,
       },
     })
   }
@@ -163,44 +196,51 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   return blocks
 }
 
-/**
- * Post a release announcement to Slack
- */
-export async function postReleaseToSlack({
-  version,
-  projectName,
-  changelog,
-  releaseUrl,
-  changelogUrl,
-  channel,
-  token,
-  template,
-  dryRun = false,
-}: SlackOptions) {
-  logger.debug('Preparing Slack post...')
+function mapWebhookError(status: number, body: string): string | null {
+  if (status === 404 || body.includes('no_service')) {
+    return 'The webhook URL is invalid or has been deactivated. Regenerate it in your Slack app settings.'
+  }
+  if (body.includes('invalid_payload')) {
+    return 'The message payload was rejected by Slack (likely exceeds 3000 chars per block). Lower social.slack.postMaxLength.'
+  }
+  if (body.includes('channel_not_found')) {
+    return 'The channel bound to this webhook was archived or removed. Create a new webhook.'
+  }
+  if (body.includes('action_prohibited')) {
+    return 'Your workspace has blocked the webhook. Check workspace settings.'
+  }
+  return null
+}
 
-  const blocks = formatSlackMessage({
-    template,
-    projectName,
-    version,
-    changelog,
-    releaseUrl,
-    changelogUrl,
+async function postViaWebhook({ url, blocks, text }: {
+  url: string
+  blocks: any[]
+  text: string
+}): Promise<{ ok: true, transport: 'webhook' }> {
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ blocks, text }),
   })
 
-  logger.debug(`Message blocks (${blocks.length} blocks)`)
-
-  if (dryRun) {
-    const preview = blocks
-      .filter((b: any) => b.type === 'header' || b.type === 'section')
-      .map((b: any) => b.text?.text ?? '')
-      .filter(Boolean)
-      .join('\n\n')
-
-    logger.box(`[dry-run] Slack Post Preview (channel: ${channel})\n\n${preview}`)
-    return
+  if (!response.ok) {
+    const body = await response.text().catch(() => '')
+    const hint = mapWebhookError(response.status, body)
+    const detail = body ? ` - ${body}` : ''
+    const hintLine = hint ? `\n  → ${hint}` : ''
+    throw new Error(`Slack webhook failed: ${response.status} ${response.statusText}${detail}${hintLine}`)
   }
 
+  logger.success('Message posted successfully via Slack webhook!')
+  return { ok: true, transport: 'webhook' }
+}
+
+async function postViaWebApi({ token, channel, blocks, text }: {
+  token: string
+  channel: string
+  blocks: any[]
+  text: string
+}) {
   try {
     // Dynamically import @slack/web-api to avoid issues if it's not installed
     const { WebClient } = await import('@slack/web-api')
@@ -209,11 +249,7 @@ export async function postReleaseToSlack({
 
     logger.debug(`Posting message to Slack channel: ${channel}`)
 
-    const result = await client.chat.postMessage({
-      channel,
-      blocks,
-      text: `${projectName} ${version} is out!`, // Fallback text for notifications
-    })
+    const result = await client.chat.postMessage({ channel, blocks, text })
 
     logger.success(`Message posted successfully! Channel: ${result.channel}, Timestamp: ${result.ts}`)
 
@@ -248,4 +284,66 @@ export async function postReleaseToSlack({
 
     throw error
   }
+}
+
+/**
+ * Post a release announcement to Slack.
+ * Dispatches to Incoming Webhook (if `webhookUrl` is set) or Web API (`token` + `channel`).
+ * When both are provided, the webhook takes priority.
+ */
+export async function postReleaseToSlack({
+  version,
+  projectName,
+  changelog,
+  releaseUrl,
+  changelogUrl,
+  channel,
+  token,
+  webhookUrl,
+  template,
+  contributors,
+  postMaxLength,
+  dryRun = false,
+}: SlackOptions) {
+  const useWebhook = Boolean(webhookUrl)
+
+  if (!useWebhook && !token) {
+    throw new Error('Slack: either webhookUrl or token must be provided')
+  }
+  if (!useWebhook && !channel) {
+    throw new Error('Slack: channel is required when using token-based authentication')
+  }
+
+  logger.debug(`Slack transport: ${useWebhook ? 'webhook' : 'web-api'}`)
+  logger.debug('Preparing Slack post...')
+
+  const blocks = formatSlackMessage({
+    template,
+    projectName,
+    version,
+    changelog,
+    releaseUrl,
+    changelogUrl,
+    contributors,
+    postMaxLength,
+  })
+  const fallbackText = `${projectName} ${version} is out!`
+
+  logger.debug(`Message blocks (${blocks.length} blocks)`)
+
+  if (dryRun) {
+    const preview = blocks
+      .filter((b: any) => b.type === 'header' || b.type === 'section')
+      .map((b: any) => b.text?.text ?? '')
+      .filter(Boolean)
+      .join('\n\n')
+    const target = useWebhook ? 'webhook' : `channel: ${channel}`
+    logger.box(`[dry-run] Slack Post Preview (${target})\n\n${preview}`)
+    return
+  }
+
+  if (useWebhook) {
+    return await postViaWebhook({ url: webhookUrl!, blocks, text: fallbackText })
+  }
+  return await postViaWebApi({ token: token!, channel: channel!, blocks, text: fallbackText })
 }

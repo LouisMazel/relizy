@@ -1,7 +1,7 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { buildChangelogBody, executeHook, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { buildChangelogBody, collectContributorNames, executeHook, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
@@ -23,6 +23,8 @@ vi.mock('../../core', () => ({
   getTwitterCredentials: vi.fn(),
   postReleaseToTwitter: vi.fn(),
   getSlackToken: vi.fn(),
+  getSlackWebhookUrl: vi.fn(),
+  collectContributorNames: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),
@@ -74,8 +76,75 @@ describe('Given socialSafetyCheck function', () => {
         },
       })
       vi.mocked(getSlackToken).mockReturnValue(null)
+      vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
 
       await expect(() => socialSafetyCheck({ config })).rejects.toThrow('Error during social safety check: Slack credentials not found')
+    })
+  })
+
+  describe('When Slack is enabled in webhook mode', () => {
+    it('Then passes without requiring channel or @slack/web-api', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/a/b/c' },
+        },
+      })
+      vi.mocked(getSlackToken).mockReturnValue(null)
+      vi.mocked(getSlackWebhookUrl).mockReturnValue('https://hooks.slack.com/a/b/c')
+
+      await expect(socialSafetyCheck({ config })).resolves.not.toThrow()
+    })
+
+    it('Then warns when channel is also configured', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/a/b/c', channel: '#releases' },
+        },
+      })
+      vi.mocked(getSlackToken).mockReturnValue(null)
+      vi.mocked(getSlackWebhookUrl).mockReturnValue('https://hooks.slack.com/a/b/c')
+
+      await socialSafetyCheck({ config })
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/channel is ignored.*webhookUrl/))
+    })
+
+    it('Then warns when token is also configured', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/a/b/c' },
+        },
+      })
+      vi.mocked(getSlackToken).mockReturnValue('xoxb-test')
+      vi.mocked(getSlackWebhookUrl).mockReturnValue('https://hooks.slack.com/a/b/c')
+
+      await socialSafetyCheck({ config })
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringMatching(/token is ignored.*webhook/))
+    })
+  })
+
+  describe('When Slack is enabled in token mode without channel', () => {
+    it('Then throws with channel-required message', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true },
+        },
+      })
+      vi.mocked(getSlackToken).mockReturnValue('xoxb-test')
+      vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+
+      await expect(() => socialSafetyCheck({ config })).rejects.toThrow('Error during social safety check: Slack channel not found')
     })
   })
 
@@ -147,6 +216,8 @@ describe('Given social command', () => {
       accessTokenSecret: 'secret',
     })
     vi.mocked(getSlackToken).mockReturnValue('slack-token')
+    vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+    vi.mocked(collectContributorNames).mockReturnValue([])
   })
 
   describe('When posting to Twitter', () => {

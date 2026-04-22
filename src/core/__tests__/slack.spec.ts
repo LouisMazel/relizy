@@ -1,9 +1,9 @@
 import { logger } from '@maz-ui/node'
-import { vi } from 'vitest'
-import { formatChangelogForSlack, formatSlackMessage, getSlackToken, postReleaseToSlack } from '../slack'
+import { afterEach, beforeEach, vi } from 'vitest'
+import { formatChangelogForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack } from '../slack'
 
 vi.mock('../social', () => ({
-  extractChangelogSummary: vi.fn((changelog: string) => changelog.substring(0, 500)),
+  extractChangelogSummary: vi.fn((changelog: string, opts?: { maxLength?: number }) => changelog.substring(0, opts?.maxLength ?? 2500)),
 }))
 
 logger.setLevel = vi.fn()
@@ -166,12 +166,12 @@ Content`
       expect(result).toMatch(/\.\.\.$/)
     })
 
-    it('Then uses default maxLength of 500', () => {
-      const longText = 'b'.repeat(600)
+    it('Then uses default maxLength of 2500', () => {
+      const longText = 'b'.repeat(3000)
 
       const result = formatChangelogForSlack(longText)
 
-      expect(result.length).toBe(500)
+      expect(result.length).toBe(2500)
     })
 
     it('Then truncates formatted text correctly', () => {
@@ -728,6 +728,340 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('C1234567890'))
+    })
+  })
+})
+
+describe('Given formatSlackMessage with contributors', () => {
+  describe('When contributors array is non-empty (rich blocks mode)', () => {
+    it('Then appends a contributors section block', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        contributors: ['Alice Martin', 'Bob Dupont'],
+      })
+
+      const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
+      expect(contribBlock).toBeDefined()
+      expect(contribBlock.text.text).toContain('*❤️ Contributors*')
+      expect(contribBlock.text.text).toContain('• Alice Martin')
+      expect(contribBlock.text.text).toContain('• Bob Dupont')
+    })
+  })
+
+  describe('When contributors array is empty (rich blocks mode)', () => {
+    it('Then does not append a contributors block', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        contributors: [],
+      })
+
+      const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
+      expect(contribBlock).toBeUndefined()
+    })
+
+    it('Then does not append a contributors block when not provided', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+      })
+
+      const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
+      expect(contribBlock).toBeUndefined()
+    })
+  })
+
+  describe('When using template mode with {{contributors}} placeholder', () => {
+    it('Then substitutes the bullet list', () => {
+      const blocks = formatSlackMessage({
+        template: '{{projectName}} {{newVersion}}\n\n{{contributors}}',
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        contributors: ['Alice', 'Bob'],
+      })
+
+      expect(blocks[0].text.text).toContain('• Alice')
+      expect(blocks[0].text.text).toContain('• Bob')
+      expect(blocks[0].text.text).not.toContain('{{contributors}}')
+    })
+
+    it('Then replaces with empty string when contributors is empty', () => {
+      const blocks = formatSlackMessage({
+        template: '{{projectName}} {{newVersion}}\n{{contributors}}',
+        projectName: 'proj',
+        version: '1.0.0',
+        changelog: 'feat: add X',
+        contributors: [],
+      })
+
+      expect(blocks[0].text.text).not.toContain('{{contributors}}')
+      expect(blocks[0].text.text).not.toContain('•')
+    })
+  })
+})
+
+describe('Given formatSlackMessage with postMaxLength', () => {
+  describe('When postMaxLength is provided', () => {
+    it('Then truncates the changelog at the given length', () => {
+      const longChangelog = 'a'.repeat(2000)
+      const blocks = formatSlackMessage({
+        projectName: 'p',
+        version: '1.0.0',
+        changelog: longChangelog,
+        postMaxLength: 100,
+      })
+
+      const section = blocks.find((b: any) => b.type === 'section' && b.text?.text?.startsWith('a'))
+      expect(section.text.text.length).toBeLessThanOrEqual(100)
+      expect(section.text.text.endsWith('...')).toBe(true)
+    })
+  })
+
+  describe('When postMaxLength is not provided', () => {
+    it('Then uses default of 2500', () => {
+      const longChangelog = 'a'.repeat(3000)
+      const blocks = formatSlackMessage({
+        projectName: 'p',
+        version: '1.0.0',
+        changelog: longChangelog,
+      })
+
+      const section = blocks.find((b: any) => b.type === 'section' && b.text?.text?.startsWith('a'))
+      expect(section.text.text.length).toBeLessThanOrEqual(2500)
+    })
+  })
+})
+
+describe('Given getSlackWebhookUrl function', () => {
+  const origEnv = { ...process.env }
+  beforeEach(() => {
+    delete process.env.SLACK_WEBHOOK_URL
+    delete process.env.RELIZY_SLACK_WEBHOOK_URL
+  })
+  afterEach(() => {
+    process.env = { ...origEnv }
+  })
+
+  describe('When config webhookUrl is provided', () => {
+    it('Then prioritizes config over env vars', () => {
+      process.env.SLACK_WEBHOOK_URL = 'https://env.slack.com/x'
+      process.env.RELIZY_SLACK_WEBHOOK_URL = 'https://relizy-env.slack.com/x'
+
+      const url = getSlackWebhookUrl({ socialWebhookUrl: 'https://cfg.slack.com/x' })
+
+      expect(url).toBe('https://cfg.slack.com/x')
+    })
+  })
+
+  describe('When only env vars are set', () => {
+    it('Then prefers RELIZY_SLACK_WEBHOOK_URL over SLACK_WEBHOOK_URL', () => {
+      process.env.SLACK_WEBHOOK_URL = 'https://env.slack.com/x'
+      process.env.RELIZY_SLACK_WEBHOOK_URL = 'https://relizy-env.slack.com/x'
+
+      const url = getSlackWebhookUrl({})
+
+      expect(url).toBe('https://relizy-env.slack.com/x')
+    })
+
+    it('Then falls back to SLACK_WEBHOOK_URL', () => {
+      process.env.SLACK_WEBHOOK_URL = 'https://env.slack.com/x'
+
+      const url = getSlackWebhookUrl({})
+
+      expect(url).toBe('https://env.slack.com/x')
+    })
+  })
+
+  describe('When nothing is set', () => {
+    it('Then returns null', () => {
+      expect(getSlackWebhookUrl({})).toBeNull()
+    })
+  })
+})
+
+describe('Given postReleaseToSlack with webhookUrl', () => {
+  const fetchMock = vi.fn()
+  const origFetch = globalThis.fetch
+
+  beforeEach(() => {
+    fetchMock.mockReset()
+    ;(globalThis as any).fetch = fetchMock
+    vi.mocked(logger.success).mockClear?.()
+  })
+
+  afterEach(() => {
+    ;(globalThis as any).fetch = origFetch
+  })
+
+  describe('When webhookUrl is provided and request succeeds', () => {
+    it('Then posts via fetch with blocks payload and returns webhook result', async () => {
+      fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
+
+      const result = await postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'proj',
+        changelog: 'feat: add X',
+        webhookUrl: 'https://hooks.slack.com/services/AAA/BBB/CCC',
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+      const call = fetchMock.mock.calls[0]
+      expect(call[0]).toBe('https://hooks.slack.com/services/AAA/BBB/CCC')
+      expect(call[1].method).toBe('POST')
+      expect(call[1].headers['Content-Type']).toBe('application/json')
+      const body = JSON.parse(call[1].body)
+      expect(body.text).toBe('proj 1.0.0 is out!')
+      expect(Array.isArray(body.blocks)).toBe(true)
+      expect(result).toEqual({ ok: true, transport: 'webhook' })
+    })
+  })
+
+  describe('When both webhookUrl and token are provided', () => {
+    it('Then uses webhook and skips WebClient', async () => {
+      fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
+
+      await postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'proj',
+        changelog: 'feat: add X',
+        webhookUrl: 'https://hooks.slack.com/services/AAA/BBB/CCC',
+        token: 'xoxb-should-be-ignored',
+        channel: '#anything',
+      })
+
+      expect(fetchMock).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('When webhook request fails with 404', () => {
+    it('Then throws with "regenerate webhook" hint', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: () => Promise.resolve('no_service'),
+      })
+
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      })).rejects.toThrow(/Slack webhook failed.*404.*Regenerate/s)
+    })
+  })
+
+  describe('When webhook response body indicates invalid_payload', () => {
+    it('Then throws with "lower postMaxLength" hint', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: () => Promise.resolve('invalid_payload'),
+      })
+
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      })).rejects.toThrow(/postMaxLength/)
+    })
+  })
+
+  describe('When webhook response body indicates channel_not_found', () => {
+    it('Then throws with archived/removed channel hint', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 400,
+        statusText: 'Bad Request',
+        text: () => Promise.resolve('channel_not_found'),
+      })
+
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      })).rejects.toThrow(/archived or removed|new webhook/)
+    })
+  })
+
+  describe('When webhook response body indicates action_prohibited', () => {
+    it('Then throws with workspace-blocked hint', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 403,
+        statusText: 'Forbidden',
+        text: () => Promise.resolve('action_prohibited'),
+      })
+
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      })).rejects.toThrow(/workspace.*blocked/)
+    })
+  })
+
+  describe('When webhook response text() itself rejects', () => {
+    it('Then still throws with the HTTP status', async () => {
+      fetchMock.mockResolvedValue({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        text: () => Promise.reject(new Error('network stream ended')),
+      })
+
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      })).rejects.toThrow(/Slack webhook failed.*500/)
+    })
+  })
+
+  describe('When dryRun is true in webhook mode', () => {
+    it('Then does not call fetch', async () => {
+      await postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        dryRun: true,
+      })
+
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+  })
+})
+
+describe('Given postReleaseToSlack validation', () => {
+  describe('When neither token nor webhookUrl is provided', () => {
+    it('Then throws', async () => {
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+      })).rejects.toThrow(/webhookUrl or token/)
+    })
+  })
+
+  describe('When token is provided without channel', () => {
+    it('Then throws', async () => {
+      await expect(postReleaseToSlack({
+        version: '1.0.0',
+        projectName: 'p',
+        changelog: 'x',
+        token: 'xoxb-test',
+      })).rejects.toThrow(/channel is required/)
     })
   })
 })
