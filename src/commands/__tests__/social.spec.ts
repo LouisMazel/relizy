@@ -25,6 +25,7 @@ vi.mock('../../core', () => ({
   getSlackToken: vi.fn(),
   getSlackWebhookUrl: vi.fn(),
   collectContributorNames: vi.fn().mockReturnValue([]),
+  collectPackageBumps: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),

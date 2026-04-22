@@ -227,7 +227,7 @@ const defaultConfig = {
     tagMessage: 'Bump version to {{newVersion}}',
     tagBody: 'v{{newVersion}}',
     emptyChangelogContent: 'No relevant changes for this release',
-    twitterMessage: '🚀 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+    twitterMessage: '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
     slackMessage: undefined,
     changelogTitle: '{{oldVersion}}...{{newVersion}}',
   },

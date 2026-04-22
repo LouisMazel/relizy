@@ -5,7 +5,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
-import { buildChangelogBody, collectContributorNames, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { buildChangelogBody, collectContributorNames, collectPackageBumps, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -227,6 +227,7 @@ async function handleSlackPost({
   newVersion,
   tag,
   commits,
+  bumpedPackages,
 }: {
   config: ResolvedRelizyConfig
   changelog: string
@@ -234,6 +235,7 @@ async function handleSlackPost({
   newVersion: string
   tag: string
   commits: GitCommit[]
+  bumpedPackages?: Array<{ name: string, version: string, oldVersion: string, newVersion?: string }>
 }): Promise<SocialNetworkResponse<ChatPostMessageResponse | { ok: true, transport: 'webhook' } | undefined>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
@@ -304,6 +306,12 @@ async function handleSlackPost({
         : collectContributorNames({ commits, config })
       logger.debug(`Contributors: ${contributors.length}`)
 
+      // Resolve bumped packages (list shown between changelog and contributors)
+      const packages = slackConfig.noPackages === true
+        ? []
+        : collectPackageBumps({ bumpedPackages: bumpedPackages as any })
+      logger.debug(`Packages: ${packages.length}`)
+
       const response = await postReleaseToSlack({
         version: newVersion,
         projectName: config.projectName || rootPackageBase.name,
@@ -315,6 +323,7 @@ async function handleSlackPost({
         webhookUrl: webhookUrl ?? undefined,
         template,
         contributors,
+        packages,
         postMaxLength: slackConfig.postMaxLength ?? 2500,
         dryRun,
       })
@@ -459,6 +468,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       newVersion,
       tag: to,
       commits: rootPackage.commits,
+      bumpedPackages: options.bumpResult?.bumpedPackages,
     })
 
     // Build results array, filtering out disabled platforms
