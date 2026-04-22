@@ -80,8 +80,8 @@ export function formatPackagesForSlack(packages: PackageBumpEntry[]): string {
   }
   return packages
     .map(pkg => pkg.hasTransition
-      ? `• \`${pkg.name}\`: \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
-      : `• \`${pkg.name}\`: \`${pkg.version}\``,
+      ? `• **${pkg.name}** : \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
+      : `• **${pkg.name}** : \`${pkg.version}\``,
     )
     .join('\n')
 }
