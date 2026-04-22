@@ -417,15 +417,22 @@ export default defineConfig({
       return
     }
 
-    // Cloudflare Pages _redirects: underscore-prefixed files aren't copied from
-    // the public dir by Vite, so we write it here for production builds.
+    // Cloudflare Pages worker: 301 redirect pages.dev and www.relizy.dev to
+    // the canonical apex. Cloudflare _redirects only supports relative paths,
+    // so we need a worker to match on hostname.
     writeFileSync(
-      resolve(outDir, '_redirects'),
-      [
-        'https://relizy.pages.dev/* https://relizy.dev/:splat 301',
-        'https://www.relizy.dev/* https://relizy.dev/:splat 301',
-        '',
-      ].join('\n'),
+      resolve(outDir, '_worker.js'),
+      `export default {
+  async fetch(request, env) {
+    const url = new URL(request.url)
+    if (url.hostname === 'relizy.pages.dev' || url.hostname === 'www.relizy.dev') {
+      url.hostname = 'relizy.dev'
+      return Response.redirect(url.toString(), 301)
+    }
+    return env.ASSETS.fetch(request)
+  },
+}
+`,
     )
   },
 
