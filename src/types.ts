@@ -702,8 +702,10 @@ export interface TwitterSocialConfig {
 
 export interface SlackCredentials {
   /**
-   * Slack Bot Token or User OAuth Token
-   * Required scopes: chat:write, chat:write.public (for public channels)
+   * Slack Bot Token or User OAuth Token (starts with `xoxb-`).
+   * Required scopes: chat:write (and chat:write.public for public channels without bot invite).
+   * Env fallback: SLACK_TOKEN, RELIZY_SLACK_TOKEN.
+   * Ignored when social.slack.webhookUrl is set (webhook takes priority).
    */
   token?: string
 }
@@ -721,18 +723,38 @@ export interface SlackSocialConfig {
    */
   onlyStable?: boolean
   /**
-   * Slack channel ID or name (e.g., "#releases" or "C1234567890")
+   * Slack channel ID or name (e.g., "#releases" or "C1234567890").
+   * Required when using token-based authentication.
+   * Ignored (with warning) when webhookUrl is set — the channel is baked into the webhook URL.
    */
-  channel: string
+  channel?: string
+  /**
+   * Slack Incoming Webhook URL. When set, takes priority over token-based auth.
+   * Env fallback: SLACK_WEBHOOK_URL, RELIZY_SLACK_WEBHOOK_URL.
+   * See: https://api.slack.com/messaging/webhooks
+   */
+  webhookUrl?: string
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}
    */
   template?: string
   /**
    * Slack credentials (optional - falls back to environment variables)
    */
   credentials?: SlackCredentials
+  /**
+   * Maximum length (in characters) of the changelog rendered inside the Slack message.
+   * Slack's per-section-block limit is 3000; default 2500 leaves margin for emoji/formatting.
+   * @default 2500
+   */
+  postMaxLength?: number
+  /**
+   * Hide the contributors block in Slack messages.
+   * If config.noAuthors is true globally, contributors are always hidden regardless of this setting.
+   * @default false
+   */
+  noAuthors?: boolean
 }
 
 export type AIProviderName = 'claude-code'
@@ -908,17 +930,30 @@ export interface SlackOptions {
    */
   changelogUrl?: string
   /**
-   * Slack channel ID or name
+   * Slack channel ID or name. Required when using token-based auth.
    */
-  channel: string
+  channel?: string
   /**
-   * Slack token (required)
+   * Slack Bot Token. Ignored if webhookUrl is set.
    */
-  token: string
+  token?: string
+  /**
+   * Slack Incoming Webhook URL. Takes priority over token.
+   */
+  webhookUrl?: string
   /**
    * Custom message template
    */
   template?: string
+  /**
+   * Maximum chars of the changelog rendered in the message.
+   * @default 2500
+   */
+  postMaxLength?: number
+  /**
+   * Contributor names (plain strings, no email/handle). Empty array or undefined → no contributors block.
+   */
+  contributors?: string[]
   /**
    * Run without side effects
    * @default false

@@ -1,102 +1,223 @@
 ---
 title: Slack Integration Guide
 description: Automatically send release notifications to Slack channels when you publish new versions with Relizy.
-keywords: slack integration, slack bot, release notifications, slack announcements, slack webhook, automated slack posting, relizy slack
+keywords: slack integration, slack bot, slack webhook, incoming webhook, release notifications, slack announcements, automated slack posting, relizy slack
 category: Guide
-tags: [slack, integration, notifications, social, automation, ci-cd]
+tags: [slack, integration, notifications, social, automation, ci-cd, webhook]
 ---
 
 # Slack Integration
 
 Automatically send release notifications to Slack channels when you publish new versions.
 
-## Prerequisites
+## Choosing Your Setup: Webhook vs Bot Token
 
-**Important:** Relizy requires the `@slack/web-api` library as a peer dependency. You must install it in your project:
+Relizy supports two ways to post to Slack. Pick whichever fits your needs:
 
-```bash
-pnpm add -D @slack/web-api
-# or
-npm install -D @slack/web-api
-# or
-yarn add -D @slack/web-api
-```
+|                             | Incoming Webhook                             | Bot Token                                         |
+| --------------------------- | -------------------------------------------- | ------------------------------------------------- |
+| Setup effort                | Paste a single URL                           | Create Slack app, add scopes, install, invite bot |
+| Channel                     | Baked into the URL (one channel per webhook) | Configurable per run                              |
+| `@slack/web-api` dependency | **Not required**                             | Required (peer dep)                               |
+| Multiple channels           | Multiple webhooks needed                     | One token, multiple runs                          |
+| Recommended for             | Simple use case, CI/CD announcements         | Flexibility, multi-channel setups                 |
 
-If not installed, Relizy will show an error message when attempting to post to Slack.
+Both modes support the same message formatting, contributors block, AI enhancement, and templates.
 
-## Setup
+## Option A: Incoming Webhook (Recommended)
 
-### 1. Create a Slack App
+### 1. Create a webhook URL
 
-1. Go to [Slack API Apps](https://api.slack.com/apps)
-2. Click "Create New App" → "From scratch"
-3. Give it a name (e.g., "Relizy Release Bot") and select your workspace
-4. Navigate to "OAuth & Permissions"
-5. Add the `chat:write` OAuth scope under "Bot Token Scopes"
-6. Click "Install to Workspace" at the top
-7. Copy the "Bot User OAuth Token" (starts with `xoxb-`)
+1. Go to [Slack API Apps](https://api.slack.com/apps) and pick (or create) an app for your workspace.
+2. Navigate to **Features → Incoming Webhooks**.
+3. Toggle **Activate Incoming Webhooks** ON.
+4. Click **Add New Webhook to Workspace** and pick the target channel.
+5. Copy the generated URL (looks like `https://hooks.slack.com/services/T.../B.../...`).
 
-### 2. Invite Bot to Channel
-
-In your Slack workspace:
-
-```
-/invite @YourBotName
-```
-
-Or add the bot through the channel settings.
-
-### 3. Configure Relizy
-
-Add Slack configuration to your `relizy.config.ts`:
+### 2. Configure Relizy
 
 ```typescript
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   social: {
-    changelogUrl: 'https://github.com/yourusername/yourrepo/blob/main/CHANGELOG.md',
-
     slack: {
       enabled: true,
-      channel: '#releases', // or channel ID like 'C1234567890'
-      onlyStable: true, // Only post stable releases (not prereleases)
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      // channel is NOT needed — it's baked into the URL
     },
   },
 })
 ```
 
-### 4. Set Environment Variable
+### 3. Set the environment variable
 
-The simplest way to provide the bot token:
+```bash
+export SLACK_WEBHOOK_URL="https://hooks.slack.com/services/..."
+```
+
+Also supported: `RELIZY_SLACK_WEBHOOK_URL` (takes priority over `SLACK_WEBHOOK_URL` when both are set).
+
+That's it — no bot to install, no scopes to manage, no channel invite required.
+
+## Option B: Bot Token
+
+Use this mode if you need to post to multiple channels from one config, or if your Slack workspace doesn't allow incoming webhooks.
+
+### 1. Install the peer dependency
+
+```bash
+pnpm add -D @slack/web-api
+# or npm install -D @slack/web-api
+# or yarn add -D @slack/web-api
+```
+
+This dependency is **not** required if you're only using webhook mode.
+
+### 2. Create a Slack App
+
+1. Go to [Slack API Apps](https://api.slack.com/apps) → **Create New App** → From scratch.
+2. Give it a name (e.g., "Relizy Release Bot") and pick your workspace.
+3. Navigate to **OAuth & Permissions**.
+4. Under **Scopes → Bot Token Scopes**, add:
+   - `chat:write` (required)
+   - `chat:write.public` (optional — only if you want to post in public channels without inviting the bot)
+5. Click **Install to Workspace** at the top.
+6. Copy the **Bot User OAuth Token** (starts with `xoxb-`).
+
+### 3. Invite the bot to your channel
+
+In your Slack channel:
+
+```
+/invite @YourBotName
+```
+
+### 4. Configure Relizy
+
+```typescript
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      channel: '#releases', // or a channel ID like 'C1234567890'
+      credentials: {
+        token: process.env.SLACK_TOKEN,
+      },
+    },
+  },
+})
+```
+
+### 5. Set the environment variable
 
 ```bash
 export SLACK_TOKEN="xoxb-your-bot-token"
 ```
 
-Or use the `RELIZY_` prefix:
+Also supported: `RELIZY_SLACK_TOKEN`, or `tokens.slack` at config root.
 
-```bash
-export RELIZY_SLACK_TOKEN="xoxb-your-bot-token"
+## Priority When Both Are Configured
+
+If **both** `webhookUrl` and `token` are resolved (from config or environment variables), **the webhook takes priority** and the token is ignored. A warning is logged at runtime:
+
+```
+⚠️  Slack token is ignored when webhookUrl is set (webhook takes priority).
 ```
 
-## Configuration Options
+This rule exists so that adding `SLACK_WEBHOOK_URL` to your CI environment is enough to switch from token mode to webhook mode — no config file change required.
 
-### Basic Options
+```typescript
+import { defineConfig } from 'relizy'
+
+// webhookUrl takes priority; token and channel are ignored (with warnings)
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL, //      ← used
+      credentials: { token: process.env.SLACK_TOKEN }, // ← ignored
+      channel: '#releases', //                           ← ignored
+    },
+  },
+})
+```
+
+## Contributors Block
+
+Relizy automatically appends a "❤️ Contributors" block to every Slack release message, listing the names of authors who contributed commits in the release range:
+
+```text
+❤️ Contributors
+
+• Alice Martin
+• Bob Dupont
+```
+
+Only names are shown — no emails, no GitHub handles. The block respects two gates:
+
+1. **Global `config.noAuthors`** — if `true`, contributors are hidden everywhere (including GitHub/GitLab releases).
+2. **Slack-specific `social.slack.noAuthors`** — if `true`, contributors are hidden **only** on Slack. This cannot override the global setting upward.
+
+```typescript
+export default defineConfig({
+  noAuthors: false, // global (default): show contributors everywhere
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      noAuthors: true, // hide contributors on Slack only
+    },
+  },
+})
+```
+
+If you use a custom `template`, include the `{{contributors}}` placeholder to render them (see [Custom Message Template](#custom-message-template)).
+
+## Message Length
+
+By default, the changelog rendered in the Slack message is truncated to **2500 characters**. Slack's hard per-section-block limit is 3000 characters; the default leaves margin for mrkdwn conversion and emoji.
+
+```typescript
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      postMaxLength: 1500, // shorter summary
+    },
+  },
+})
+```
+
+Lower this value if you see `invalid_payload` errors in webhook mode.
+
+## Configuration Reference
 
 ```typescript
 interface SlackConfig {
-  enabled?: boolean // Enable Slack posting (default: false)
-  channel?: string // Slack channel (#channel-name or ID)
-  onlyStable?: boolean // Only post stable releases (default: true)
-  credentials?: SlackCredentials // Alternative to env variables
-  template?: string // Custom message template
+  enabled?: boolean // default false
+  onlyStable?: boolean // default true — skip prereleases
+  channel?: string // required in token mode; ignored (with warning) in webhook mode
+  webhookUrl?: string // Incoming Webhook URL; takes priority over token
+  credentials?: SlackCredentials
+  template?: string // custom mrkdwn template
+  postMaxLength?: number // default 2500
+  noAuthors?: boolean // default false — Slack-specific contributor gate
+}
+
+interface SlackCredentials {
+  token?: string // Bot User OAuth Token (xoxb-...)
 }
 ```
 
-### Channel Format
+## Channel Format (Token Mode)
 
-You can specify the channel in two ways:
+In token mode, you can specify the channel in two ways:
 
 ```typescript
 // Channel name (must include #)
@@ -108,62 +229,37 @@ channel: 'C1234567890'
 
 To find a channel ID in Slack: Right-click channel → View channel details → Copy channel ID.
 
-### Credentials in Config
-
-Instead of environment variables, you can configure the token directly:
-
-```typescript
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      channel: '#releases',
-      credentials: {
-        token: process.env.SLACK_TOKEN,
-      },
-    },
-  },
-})
-```
-
-Or use global tokens:
-
-```typescript
-export default defineConfig({
-  tokens: {
-    slack: process.env.SLACK_TOKEN,
-  },
-
-  social: {
-    slack: {
-      enabled: true,
-      channel: '#releases',
-    },
-  },
-})
-```
-
 ## Credential Priority
 
-Credentials are resolved in this order:
+Credentials resolve in this order:
 
-1. `social.slack.credentials` - Highest priority
-2. `tokens.slack` - Global tokens
-3. Environment variables - Lowest priority
+**For the webhook URL:**
+
+1. `social.slack.webhookUrl` (config)
+2. `RELIZY_SLACK_WEBHOOK_URL` (env)
+3. `SLACK_WEBHOOK_URL` (env)
+
+**For the bot token:**
+
+1. `social.slack.credentials.token` (config)
+2. `tokens.slack` (global config)
+3. `RELIZY_SLACK_TOKEN` (env)
+4. `SLACK_TOKEN` (env)
+
+**Between modes:** if both a webhook URL and a token are resolved, the webhook wins.
 
 ## Message Formatting
 
-Relizy sends rich, interactive messages to Slack using Block Kit:
+Relizy sends rich, interactive messages using Slack Block Kit:
 
-- **Header** - Release version and project name
-- **Changelog** - Formatted changelog with markdown support
-- **Buttons** - Links to the GitHub/GitLab release and full changelog
+- **Header** — Release version and project name
+- **Changelog** — Formatted changelog with markdown converted to mrkdwn
+- **Contributors** — "❤️ Contributors" bullet list (unless hidden)
+- **Buttons** — Links to the GitHub/GitLab release and the full changelog
 
 ### Default Format
 
-The default message looks like this:
-
-```bash
+```text
 🚀 my-awesome-package 2.1.0 is out!
 
 ✨ Features
@@ -172,6 +268,10 @@ The default message looks like this:
 
 🩹 Fixes
 - Fix bug in module Z
+
+❤️ Contributors
+• Alice Martin
+• Bob Dupont
 
 [View Release] [Full Changelog]
 ```
@@ -185,8 +285,8 @@ export default defineConfig({
   social: {
     slack: {
       enabled: true,
-      channel: '#releases',
-      template: '🚀 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      template: '🚀 *{{projectName}} {{newVersion}}* is out!\n\n{{changelog}}\n\n{{contributors}}\n\n📦 {{releaseUrl}}',
     },
   },
 })
@@ -194,15 +294,16 @@ export default defineConfig({
 
 ### Available Placeholders
 
-- <code v-pre>{{projectName}}</code> - Package name from package.json
-- <code v-pre>{{version}}</code> - New version number
-- <code v-pre>{{changelog}}</code> - Auto-generated changelog
-- <code v-pre>{{releaseUrl}}</code> - Link to the GitHub/GitLab release
-- <code v-pre>{{changelogUrl}}</code> - Link to the full changelog (from `social.changelogUrl`)
+- <code v-pre>{{projectName}}</code> — Package name from `package.json`
+- <code v-pre>{{newVersion}}</code> — New version number
+- <code v-pre>{{changelog}}</code> — Auto-generated changelog (truncated to `postMaxLength`)
+- <code v-pre>{{releaseUrl}}</code> — Link to the GitHub/GitLab release
+- <code v-pre>{{changelogUrl}}</code> — Link to the full changelog (from `social.changelogUrl`)
+- <code v-pre>{{contributors}}</code> — Bullet list of contributor names (empty when `noAuthors` is active or none detected)
 
 ## Markdown Support
 
-Slack uses mrkdwn format. Relizy automatically converts:
+Slack uses mrkdwn. Relizy automatically converts:
 
 - `**bold**` → `*bold*`
 - `[link](url)` → `<url|link>`
@@ -211,40 +312,28 @@ Slack uses mrkdwn format. Relizy automatically converts:
 
 ## Skip Prereleases
 
-By default, Relizy only posts about stable releases. To post about prereleases too:
+By default, prereleases (alpha, beta, rc) are skipped. Override:
 
 ```typescript
 export default defineConfig({
   social: {
     slack: {
       enabled: true,
-      channel: '#releases',
-      onlyStable: false, // Post all releases including prereleases
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      onlyStable: false, // post all releases including prereleases
     },
   },
 })
 ```
 
-## Dependencies
-
-Relizy uses the `@slack/web-api` library for Slack integration. Install it as a peer dependency:
-
-```bash
-pnpm add -D @slack/web-api
-```
-
-The dependency is optional - if not installed, Relizy will show a helpful error message.
-
 ## CI/CD Setup
-
-In CI/CD environments, add your Slack token as a secret environment variable:
 
 ### GitHub Actions
 
 ```yaml
 - name: Release
   env:
-    SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+    SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
   run: pnpm relizy release --yes
 ```
 
@@ -255,12 +344,12 @@ release:
   script:
     - pnpm relizy release --yes
   variables:
-    SLACK_TOKEN: $SLACK_TOKEN
+    SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL
 ```
 
 ## Multiple Channels
 
-To post to multiple channels, use Slack's workflow or create multiple bots. Relizy currently supports one channel per configuration.
+To post to multiple channels, create multiple webhooks (one per channel) and use hooks to fan out, or combine webhook + token modes in separate runs. Relizy still supports a single channel per configuration.
 
 You can work around this with hooks:
 
@@ -274,69 +363,53 @@ export default defineConfig({
 
 ## Troubleshooting
 
-### Missing Token Error
+### "Slack credentials not found"
 
-If you see "Slack token not found", verify:
+Provide ONE of the following:
 
-- Environment variable is set: `echo $SLACK_TOKEN`
-- Variable name is correct (case-sensitive)
-- If using config credentials, they're not undefined
+- `social.slack.webhookUrl` (or `SLACK_WEBHOOK_URL` env var) — simpler setup
+- `social.slack.credentials.token` (or `SLACK_TOKEN` env var) + `social.slack.channel`
 
-### Channel Not Found Error
+### "Slack webhook failed: 404" / `no_service`
 
-This usually means:
+The webhook URL is invalid or has been deactivated. Regenerate it from your Slack app's **Incoming Webhooks** settings.
 
-- Channel doesn't exist
-- Bot hasn't been invited to the channel
-- Channel name is missing the `#` prefix (for channel names)
+### "Slack webhook failed: 400" / `invalid_payload`
 
-Solution: Invite the bot with `/invite @YourBotName`
+Usually means the message exceeds 3000 characters in a single block. Lower `social.slack.postMaxLength`.
 
-### Not in Channel Error
+### "Channel Not Found Error" (token mode)
 
-The bot needs to be a member of the channel:
+- Channel doesn't exist, or
+- Bot hasn't been invited to the channel, or
+- Channel name is missing the `#` prefix
+
+Solution: `/invite @YourBotName` in the target channel.
+
+### "Bot is not in the channel" (token mode)
 
 ```
 /invite @YourBotName
 ```
 
-### Missing Scope Error
+### "Missing Scope" (token mode)
 
-Your Slack app needs the `chat:write` scope:
-
-1. Go to Slack API Apps → Your App → OAuth & Permissions
-2. Add `chat:write` under "Bot Token Scopes"
+1. Go to Slack API Apps → Your App → **OAuth & Permissions**
+2. Add `chat:write` under **Bot Token Scopes**
 3. Reinstall the app to your workspace
 4. Use the new token
 
-### Dependency Not Found Error
-
-Install the Slack Web API library:
+### "@slack/web-api is not installed" (token mode only)
 
 ```bash
 pnpm add -D @slack/web-api
 ```
 
+Not needed in webhook mode.
+
 ## Enterprise Grid Support
 
-Relizy works with Slack Enterprise Grid workspaces. Use the same setup process, but ensure your bot has access to the target workspace.
-
-## Example Message
-
-With the default rich blocks format, your Slack messages will look like this:
-
-> **🚀 my-awesome-package 2.1.0 is out!**
->
-> **✨ Features**
->
-> - Add new feature X
-> - Improve component Y
->
-> **🩹 Fixes**
->
-> - Fix bug in module Z
->
-> [View Release] [Full Changelog]
+Relizy works with Slack Enterprise Grid workspaces in both modes. For token mode, ensure your bot has access to the target workspace. For webhook mode, create the webhook in the relevant workspace.
 
 ## AI-Enhanced Slack Messages
 
@@ -352,7 +425,7 @@ export default defineConfig({
   social: {
     slack: {
       enabled: true,
-      channel: '#releases',
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
     },
   },
 })
@@ -377,7 +450,7 @@ export default defineConfig({
 
 **Without AI:**
 
-```
+```text
 🚀 my-lib 3.0.0 is out!
 
 ### 🚀 Enhancements
@@ -390,7 +463,7 @@ export default defineConfig({
 
 **With AI:**
 
-```
+```text
 🚀 *my-lib 3.0.0* is out!
 
 • *Streaming API* — new streaming support in core module
@@ -409,7 +482,7 @@ Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.
 ## Learn More
 
 - [Social Media Integration Overview](/guide/social-media)
-- [AI-Enhanced Changelogs](/guide/ai-changelog)
 - [Twitter Integration](/guide/twitter-integration)
-- [Slack API Documentation](https://api.slack.com/)
+- [AI-Enhanced Changelogs](/guide/ai-changelog)
+- [Slack Incoming Webhooks](https://api.slack.com/messaging/webhooks)
 - [Slack Block Kit](https://api.slack.com/block-kit)

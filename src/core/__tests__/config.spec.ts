@@ -227,6 +227,18 @@ describe('Given getDefaultConfig function', () => {
 
       expect(config.social.slack.onlyStable).toBe(true)
     })
+
+    it('Then sets Slack postMaxLength to 2500 by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.social.slack.postMaxLength).toBe(2500)
+    })
+
+    it('Then sets Slack noAuthors to false by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.social.slack.noAuthors).toBe(false)
+    })
   })
 
   describe('When checking prComment defaults', () => {

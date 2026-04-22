@@ -75,26 +75,29 @@ export function buildChangelogBody({ commits, config, minify }: {
   return convert(markdown.join('\n').trim(), true)
 }
 
-export async function buildContributors({ commits, config }: {
+/**
+ * Collect unique contributor names from a set of commits.
+ * Respects `config.noAuthors`, filters `[bot]` authors, and applies `config.excludeAuthors`.
+ * Returns plain formatted names (no emails, no GitHub handles) — useful for lightweight
+ * rendering contexts like Slack messages.
+ */
+export function collectContributorNames({ commits, config }: {
   commits: GitCommit[]
   config: ResolvedRelizyConfig
-}): Promise<string> {
+}): string[] {
   if (config.noAuthors) {
-    return ''
+    return []
   }
 
-  const _authors = new Map<string, { email: Set<string>, github?: string, name?: string }>()
-
+  const names = new Set<string>()
   for (const commit of commits) {
     if (!commit.author) {
       continue
     }
-
     const name = formatName(commit.author.name)
     if (!name || name.includes('[bot]')) {
       continue
     }
-
     if (
       config.excludeAuthors
       && config.excludeAuthors.some(
@@ -103,13 +106,31 @@ export async function buildContributors({ commits, config }: {
     ) {
       continue
     }
+    names.add(name)
+  }
+  return Array.from(names)
+}
 
-    if (_authors.has(name)) {
-      const entry = _authors.get(name)
-      entry?.email.add(commit.author.email)
-    }
-    else {
-      _authors.set(name, { email: new Set([commit.author.email]), name })
+export async function buildContributors({ commits, config }: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
+}): Promise<string> {
+  const names = collectContributorNames({ commits, config })
+  if (names.length === 0) {
+    return ''
+  }
+
+  const _authors = new Map<string, { email: Set<string>, github?: string, name?: string }>()
+  for (const name of names) {
+    _authors.set(name, { email: new Set<string>(), name })
+  }
+  for (const commit of commits) {
+    if (!commit.author)
+      continue
+    const name = formatName(commit.author.name)
+    const entry = _authors.get(name)
+    if (entry && commit.author.email) {
+      entry.email.add(commit.author.email)
     }
   }
 

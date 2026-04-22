@@ -123,6 +123,8 @@ export function getDefaultConfig() {
       slack: {
         enabled: false,
         onlyStable: true,
+        postMaxLength: 2500,
+        noAuthors: false,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
     prComment: {

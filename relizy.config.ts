@@ -50,10 +50,6 @@ export default defineConfig({
     twitter: {
       enabled: true,
     },
-    slack: {
-      enabled: false,
-      channel: '#test-releases',
-    },
   },
   prComment: {
     mode: 'append',
