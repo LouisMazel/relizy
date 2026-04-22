@@ -1,10 +1,11 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
+import type { GitCommit } from 'changelogen'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
-import { buildChangelogBody, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { buildChangelogBody, collectContributorNames, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -35,7 +36,7 @@ function computeTwitterChangelogBudget({
   return Math.max(0, postMaxLength - overhead)
 }
 
-// eslint-disable-next-line complexity
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
   try {
     const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
@@ -72,33 +73,46 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
     // Check Slack configuration
     const slackConfig = config.social?.slack
     if (slackConfig?.enabled) {
+      const webhookUrl = getSlackWebhookUrl({ socialWebhookUrl: slackConfig.webhookUrl })
       const token = getSlackToken({
         socialCredentials: slackConfig.credentials,
         tokenCredential: config.tokens?.slack,
       })
 
-      // check if @slack/web-api is installed
-      try {
-        await import('@slack/web-api')
+      if (webhookUrl) {
+        // Webhook mode — priority. @slack/web-api is not required.
+        if (slackConfig.channel) {
+          logger.warn('social.slack.channel is ignored when webhookUrl is set (channel is baked into the webhook URL).')
+        }
+        if (token) {
+          logger.warn('Slack token is ignored when webhookUrl is set (webhook takes priority).')
+        }
       }
-      catch {
-        logger.fail('@slack/web-api is not installed, please install it')
-        throw new Error('@slack/web-api is not installed')
-      }
+      else if (token) {
+        // Token mode — check @slack/web-api and require channel
+        try {
+          await import('@slack/web-api')
+        }
+        catch {
+          logger.fail('@slack/web-api is not installed, please install it')
+          throw new Error('@slack/web-api is not installed')
+        }
 
-      if (!token) {
-        logger.fail('Slack is enabled but credentials are missing.')
-        logger.log('Set the following environment variables or configure them in social.slack.credentials or tokens.slack:')
-        logger.log('  - SLACK_TOKEN or RELIZY_SLACK_TOKEN')
+        if (!slackConfig.channel) {
+          logger.fail('Slack is enabled but no channel is configured.')
+          logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890") or switch to webhookUrl for a simpler setup.')
+
+          throw new Error('Slack channel not found')
+        }
+      }
+      else {
+        // Neither webhook nor token
+        logger.fail('Slack is enabled but no credentials are configured.')
+        logger.log('Provide ONE of the following:')
+        logger.log('  (a) social.slack.webhookUrl (or SLACK_WEBHOOK_URL / RELIZY_SLACK_WEBHOOK_URL env var) — simpler setup, channel baked in')
+        logger.log('  (b) social.slack.credentials.token (or SLACK_TOKEN / RELIZY_SLACK_TOKEN env var) + social.slack.channel — requires bot invite')
 
         throw new Error('Slack credentials not found')
-      }
-
-      if (!slackConfig.channel) {
-        logger.fail('Slack is enabled but no channel is configured.')
-        logger.log('Set the channel in social.slack.channel (e.g., "#releases" or "C1234567890")')
-
-        throw new Error('Slack channel not found')
       }
     }
 
@@ -205,19 +219,22 @@ async function handleTwitterPost({
   }
 }
 
+// eslint-disable-next-line complexity
 async function handleSlackPost({
   config,
   changelog,
   dryRun,
   newVersion,
   tag,
+  commits,
 }: {
   config: ResolvedRelizyConfig
   changelog: string
   dryRun: boolean
   newVersion: string
   tag: string
-}): Promise<SocialNetworkResponse<ChatPostMessageResponse>> {
+  commits: GitCommit[]
+}): Promise<SocialNetworkResponse<ChatPostMessageResponse | { ok: true, transport: 'webhook' } | undefined>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
   if (!slackConfig?.enabled) {
@@ -228,26 +245,26 @@ async function handleSlackPost({
   logger.debug('Slack posting is enabled')
 
   try {
+    const webhookUrl = getSlackWebhookUrl({ socialWebhookUrl: slackConfig.webhookUrl })
     const token = getSlackToken({
       socialCredentials: slackConfig.credentials,
       tokenCredential: config.tokens?.slack,
     })
 
-    if (!token) {
-      logger.warn('Slack token not found. Set SLACK_TOKEN or RELIZY_SLACK_TOKEN environment variable or configure it in social.slack.credentials or tokens.slack.')
+    if (!webhookUrl && !token) {
+      logger.warn('Neither Slack webhookUrl nor token is configured. Set SLACK_WEBHOOK_URL / SLACK_TOKEN or configure social.slack.webhookUrl / credentials.token.')
       logger.info('Skipping Slack post')
-      return { success: false, error: 'Slack token not found' }
+      return { success: false, error: 'Slack credentials not found' }
     }
 
-    logger.debug('Token found ✓')
-
-    if (!slackConfig.channel) {
-      logger.warn('Slack channel not configured. Set it in social.slack.channel.')
+    if (!webhookUrl && !slackConfig.channel) {
+      logger.warn('Slack channel not configured (required in token mode). Set it in social.slack.channel.')
       logger.info('Skipping Slack post')
       return { success: false, error: 'Slack channel not configured' }
     }
 
-    logger.debug(`Channel configured: ${slackConfig.channel}`)
+    const slackMode = webhookUrl ? 'webhook mode' : `token mode, channel: ${slackConfig.channel}`
+    logger.debug(`Slack: ${slackMode}`)
     logger.debug(`Preparing Slack message for release: ${tag} (${newVersion})`)
 
     // Check if this is a prerelease and if we should skip it
@@ -278,6 +295,15 @@ async function handleSlackPost({
 
       const template = slackConfig.template || config.templates.slackMessage
 
+      // Resolve contributors: global noAuthors is the gate, slack-specific can further restrict
+      const shouldHideContributors
+        = config.noAuthors === true
+          || slackConfig.noAuthors === true
+      const contributors = shouldHideContributors
+        ? []
+        : collectContributorNames({ commits, config })
+      logger.debug(`Contributors: ${contributors.length}`)
+
       const response = await postReleaseToSlack({
         version: newVersion,
         projectName: config.projectName || rootPackageBase.name,
@@ -285,8 +311,11 @@ async function handleSlackPost({
         releaseUrl,
         changelogUrl,
         channel: slackConfig.channel,
-        token,
+        token: token ?? undefined,
+        webhookUrl: webhookUrl ?? undefined,
         template,
+        contributors,
+        postMaxLength: slackConfig.postMaxLength ?? 2500,
         dryRun,
       })
 
@@ -429,6 +458,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       dryRun,
       newVersion,
       tag: to,
+      commits: rootPackage.commits,
     })
 
     // Build results array, filtering out disabled platforms
