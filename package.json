@@ -91,7 +91,7 @@
     }
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.4.1",
+    "@inquirer/prompts": "^8.4.2",
     "@maz-ui/node": "4.6.1",
     "@maz-ui/utils": "^4.7.6",
     "c12": "^3.3.3",
@@ -112,19 +112,19 @@
     "@slack/web-api": "7.15.1",
     "@types/node": "^25.6.0",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.1.4",
+    "@vitest/coverage-v8": "^4.1.5",
     "@yoloship/claude-sdk": "0.1.0-beta.3",
     "cross-env": "10.1.0",
-    "eslint": "^10.2.0",
+    "eslint": "^10.2.1",
     "husky": "9.1.7",
     "jiti": "2.6.1",
     "lint-staged": "^16.4.0",
-    "memfs": "^4.57.1",
+    "memfs": "^4.57.2",
     "tsx": "^4.21.0",
     "twitter-api-v2": "^1.29.0",
     "typescript": "^5.9.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.1.4"
+    "vitest": "^4.1.5"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
