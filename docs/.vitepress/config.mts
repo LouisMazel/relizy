@@ -414,7 +414,19 @@ export default defineConfig({
         unlinkSync(resolve(outDir, 'sitemap.xml'))
       }
       catch {}
+      return
     }
+
+    // Cloudflare Pages _redirects: underscore-prefixed files aren't copied from
+    // the public dir by Vite, so we write it here for production builds.
+    writeFileSync(
+      resolve(outDir, '_redirects'),
+      [
+        'https://relizy.pages.dev/* https://relizy.dev/:splat 301',
+        'https://www.relizy.dev/* https://relizy.dev/:splat 301',
+        '',
+      ].join('\n'),
+    )
   },
 
   vite: {
