@@ -410,30 +410,6 @@ function isAllowedCommit({
   return false
 }
 
-function isCommitOfTrackedPackages({
-  commit,
-  config,
-}: {
-  commit: GitCommit
-  config: ResolvedRelizyConfig
-}) {
-  if (!config.monorepo?.packages?.length) {
-    return true
-  }
-
-  const packages = readPackages({
-    cwd: config.cwd,
-    patterns: config.monorepo.packages,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
-    includePrivates: config.monorepo?.includePrivates,
-  })
-
-  return packages.some((pkg) => {
-    const path = relative(config.cwd, pkg.path).split(sep).join('/')
-    return commit.body.includes(path)
-  })
-}
-
 export async function getPackageCommits({
   pkg,
   from,
@@ -483,6 +459,8 @@ export async function getPackageCommits({
     throw new Error('Failed to read root package.json')
   }
 
+  const isRootPackage = pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name
+
   const commits = allCommits.filter((commit) => {
     const type = changelogConfig?.types[commit.type] as ConfigType | undefined
 
@@ -490,17 +468,15 @@ export async function getPackageCommits({
       return false
     }
 
-    const isTrackedPackage = isCommitOfTrackedPackages({ commit, config })
-
-    if ((pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name) && isTrackedPackage) {
+    // The root package represents the whole repository: it must include every
+    // allowed commit, including those that only touch root-level files
+    // (CI config, lockfile, build scripts…) and do not match any sub-package path.
+    if (isRootPackage) {
       return true
     }
 
     const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
-
-    const bodyContainsPath = commit.body.includes(packageRelativePath)
-
-    return bodyContainsPath && isTrackedPackage
+    return commit.body.includes(packageRelativePath)
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)
