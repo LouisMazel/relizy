@@ -1,5 +1,74 @@
 # Changelog
 
+## v1.4.0 (2026-04-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.3...v1.4.0)
+
+### 🚀 Features
+
+- **relizy:** Add Slack webhook support, contributors block, configurable truncation ([962603a](https://github.com/LouisMazel/relizy/commit/962603a))
+
+  Slack integration now supports two transports: Bot Token (existing) and
+  Incoming Webhook URL (new). When both are configured, the webhook takes
+  priority and @slack/web-api is not required at all. A contributors block
+  is auto-appended (names only, no emails, no GitHub handles) respecting the
+  global `noAuthors` gate and an optional Slack-specific override. The
+  hardcoded 500-char truncation is now configurable via `postMaxLength`
+  (default 2500). No breaking changes — existing token+channel configs
+  keep working.
+  Example (webhook mode, simplest setup):
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    social: {
+      slack: {
+        enabled: true,
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+        // postMaxLength: 2500   // optional, default 2500
+        // noAuthors: false      // optional, hide contributors on Slack only
+      },
+    },
+  })
+  ```
+
+- **relizy:** Add package list to slack release messages ([7958aac](https://github.com/LouisMazel/relizy/commit/7958aac))
+
+  Slack release messages now include a `📦 Packages` block listing every
+  bumped package with its before → after version.
+  Disable it with `social.slack.noPackages: true`:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    social: {
+      slack: {
+        enabled: true,
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+        noPackages: true,
+      },
+    },
+  })
+  ```
+
+### 🩹 Fixes
+
+- **relizy:** Include root-only commits in root package changelog ([2aeaf27](https://github.com/LouisMazel/relizy/commit/2aeaf27))
+
+### 📦 Build
+
+- Upgrade dependencies ([ada24b0](https://github.com/LouisMazel/relizy/commit/ada24b0))
+
+### 💄 Styles
+
+- **relizy:** Bold package names in slack release messages ([2f72640](https://github.com/LouisMazel/relizy/commit/2f72640))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.0-beta.1 (2026-04-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.0-beta.0...v1.4.0-beta.1)
