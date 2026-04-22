@@ -1,5 +1,46 @@
 # Changelog
 
+## v1.4.0-beta.0 (2026-04-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.3...v1.4.0-beta.0)
+
+### 🚀 Features
+
+- **relizy:** Add Slack webhook support, contributors block, configurable truncation ([6101168](https://github.com/LouisMazel/relizy/commit/6101168))
+
+  Slack integration now supports two transports: Bot Token (existing) and
+  Incoming Webhook URL (new). When both are configured, the webhook takes
+  priority and @slack/web-api is not required at all. A contributors block
+  is auto-appended (names only, no emails, no GitHub handles) respecting the
+  global `noAuthors` gate and an optional Slack-specific override. The
+  hardcoded 500-char truncation is now configurable via `postMaxLength`
+  (default 2500). No breaking changes — existing token+channel configs
+  keep working.
+  Example (webhook mode, simplest setup):
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    social: {
+      slack: {
+        enabled: true,
+        webhookUrl: process.env.SLACK_WEBHOOK_URL,
+        // postMaxLength: 2500   // optional, default 2500
+        // noAuthors: false      // optional, hide contributors on Slack only
+      },
+    },
+  })
+  ```
+
+### 📦 Build
+
+- Upgrade dependencies ([a31a8cc](https://github.com/LouisMazel/relizy/commit/a31a8cc))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.3.3 (2026-04-16)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.2...v1.3.3)
