@@ -1,5 +1,20 @@
 # Changelog
 
+## v1.4.1 (2026-04-24)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.0...v1.4.1)
+
+### 🩹 Fixes
+
+- **relizy:** Skip AI safety check when social platform is disabled ([6a69084](https://github.com/LouisMazel/relizy/commit/6a69084))
+
+  AI social credentials are no longer required when `ai.social.<platform>.enabled` is true
+  but the matching `social.<platform>.enabled` is false or unset.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.0 (2026-04-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.3.3...v1.4.0)
