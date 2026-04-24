@@ -63,7 +63,7 @@ export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolea
 }
 
 export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: 'twitter' | 'slack'): boolean {
-  return !!config.ai?.social?.[platform]?.enabled
+  return !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled
 }
 
 export async function aiSafetyCheck({ config }: { config: ResolvedRelizyConfig }): Promise<void> {

@@ -9,7 +9,7 @@ vi.mock('../../core/ai', () => ({
   aiSafetyCheck: vi.fn(),
   generateAISocialChangelog: vi.fn(),
   applyAIOverride: vi.fn(),
-  isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.ai?.social?.[platform]?.enabled),
+  isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled),
 }))
 
 vi.mock('../../core', () => ({
@@ -698,6 +698,24 @@ describe('Given social command', () => {
         accessToken: 'token',
         accessTokenSecret: 'secret',
       })
+
+      await socialSafetyCheck({ config })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When AI social platform is enabled but underlying social platform is disabled', () => {
+    it('Then does not call aiSafetyCheck', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/services/xxx' },
+        },
+        ai: { social: { twitter: { enabled: true }, slack: { enabled: false } } },
+      })
+      vi.mocked(getSlackWebhookUrl).mockReturnValue('https://hooks.slack.com/services/xxx')
 
       await socialSafetyCheck({ config })
 
