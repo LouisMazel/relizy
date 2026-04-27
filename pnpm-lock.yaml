@@ -110,7 +110,7 @@ importers:
     dependencies:
       '@maz-ui/icons':
         specifier: ^4.7.6
-        version: 4.7.6(vue@3.5.33(typescript@5.9.3))
+        version: 4.9.2(vue@3.5.33(typescript@5.9.3))
       '@maz-ui/themes':
         specifier: ^4.9.0
         version: 4.9.0(vue@3.5.33(typescript@5.9.3))
@@ -1248,6 +1248,17 @@ packages:
     resolution: {integrity: sha512-v3b/qyrANpGBud3m7IrZJyxtqsRwKEhTDh+djdiiNiTgkkeSg+YvEiCizkZmRpM4VyKS+Ghq5Vls0YVq3jtwDg==}
     peerDependencies:
       unplugin-vue-components: '>=28.0.0 <32.0.0'
+      vue: '>=3.5.0 <4.0.0'
+    peerDependenciesMeta:
+      unplugin-vue-components:
+        optional: true
+      vue:
+        optional: true
+
+  '@maz-ui/icons@4.9.2':
+    resolution: {integrity: sha512-ncunmNmTGQLW3W1mVc9bHpqIHFppHC0QrMpqXyWM6P96a6Gmv6KFDpCdzHDHeTW0Px5K+Xg1qLOhtGrmvgJCOg==}
+    peerDependencies:
+      unplugin-vue-components: '>=28.0.0 <33.0.0'
       vue: '>=3.5.0 <4.0.0'
     peerDependenciesMeta:
       unplugin-vue-components:
@@ -6249,6 +6260,10 @@ snapshots:
       - vitest
 
   '@maz-ui/icons@4.7.6(vue@3.5.33(typescript@5.9.3))':
+    optionalDependencies:
+      vue: 3.5.33(typescript@5.9.3)
+
+  '@maz-ui/icons@4.9.2(vue@3.5.33(typescript@5.9.3))':
     optionalDependencies:
       vue: 3.5.33(typescript@5.9.3)
 
