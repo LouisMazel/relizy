@@ -243,10 +243,12 @@ export async function getPackages({
   config,
   suffix,
   force,
+  includeAll = false,
 }: {
   config: ResolvedRelizyConfig
   suffix: string | undefined
   force: boolean
+  includeAll?: boolean
 }): Promise<PackageBase[]> {
   const patterns = config.monorepo?.packages
 
@@ -372,7 +374,8 @@ export async function getPackages({
     })
   }
 
-  const packagesToBump = Array.from(packages.values()).filter(p => p.reason || force)
+  const allPackages = Array.from(packages.values())
+  const packagesToBump = includeAll ? allPackages : allPackages.filter(p => p.reason || force)
 
   if (packagesToBump.length === 0) {
     logger.debug('No packages to bump')
