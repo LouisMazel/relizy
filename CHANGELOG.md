@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.4.2 (2026-05-04)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.1...v1.4.2)
+
+### 🩹 Fixes
+
+- **relizy:** Bump all packages in unified mode regardless of commits ([919705e](https://github.com/LouisMazel/relizy/commit/919705e))
+
+  Fixes: #81
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.1 (2026-04-24)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.0...v1.4.1)
