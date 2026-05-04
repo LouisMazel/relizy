@@ -234,6 +234,28 @@ describe('Given getPackages function', () => {
       expect(packages.length).toBe(0)
     })
 
+    it('Then returns all discovered packages when includeAll is true even without commits', async () => {
+      setupMockCommits('default', [])
+
+      const config = createMockConfig({
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+      })
+      config.cwd = mockCwd
+
+      const packages = await getPackages({
+        config,
+        suffix: undefined,
+        force: false,
+        includeAll: true,
+      })
+
+      expect(packages.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
+    })
+
     it('Then bumps all packages when force flag is enabled', async () => {
       setupMockCommits('default', [])
 

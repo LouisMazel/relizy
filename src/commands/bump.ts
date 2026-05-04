@@ -57,6 +57,7 @@ async function bumpUnifiedMode({
     config,
     suffix,
     force,
+    includeAll: true,
   })
 
   if (packages.length === 0) {
@@ -353,12 +354,15 @@ async function bumpCanaryMode({
   logger.info(`Canary version: ${canaryVersion}`)
 
   const versionMode = config.monorepo?.versionMode || 'unified'
+  const isUnified = versionMode === 'unified'
 
-  // Use getPackages to respect selective/independent filtering (only packages with commits + dependents)
+  // In unified mode, every package must receive the canary version regardless of commits.
+  // In selective mode, only packages with commits + dependents are bumped.
   const packages = await getPackages({
     config,
     suffix: undefined,
     force: false,
+    includeAll: isUnified,
   })
 
   if (packages.length === 0) {
