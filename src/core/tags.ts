@@ -392,12 +392,29 @@ async function resolveFromTagUnified({
   const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
-  return await getLastRepoTag({
+  const lastRepoTag = await getLastRepoTag({
     pkg,
     onlyStable,
     logLevel,
     cwd: config.cwd,
-  }) || getFirstCommit(config.cwd)
+  })
+
+  if (lastRepoTag) {
+    return lastRepoTag
+  }
+
+  // For new sub-packages without compatible tags (e.g. a fresh package at 0.0.0
+  // added to a repo whose existing tags are at higher majors), return the marker
+  // so getPackageCommits can scope the diff to the package's own first commit.
+  // Without this, getFirstCommit(repo) would make getGitDiff span the entire
+  // repo history and overflow execSync's buffer (ENOBUFS) on large repos.
+  const isRootPackage = pkg.path === config.cwd
+  if (!isRootPackage) {
+    logger.debug(`No compatible repo tag for new sub-package ${pkg.name}, marking as new package`)
+    return NEW_PACKAGE_MARKER
+  }
+
+  return getFirstCommit(config.cwd)
 }
 
 async function resolveFromTag({

@@ -1,3 +1,4 @@
+import { execPromise } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
@@ -176,6 +177,43 @@ describe('Given resolveTags function', () => {
         expect(result.from).toBe(LAST_TAG)
         expect(result.to).toBe('v1.2.0')
       })
+
+      it('Then returns NEW_PACKAGE_MARKER for a new sub-package when all repo tags are major-incompatible', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+
+        // Reproduces the maz-ui case: repo only has tags at major >= 3, while
+        // the new sub-package starts at 0.0.0 → all tags get filtered out by
+        // isTagVersionCompatibleWithCurrent. Without the marker, the resolver
+        // would fall back to getFirstCommit(repo) and overflow execSync's
+        // buffer (ENOBUFS) when getGitDiff spans the full history.
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v3.2.0\nv3.1.0\nv3.0.0' } as any)
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '0.0.0', path: '/some/cwd/packages/new-pkg' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
+      })
+
+      it('Then falls back to first commit for the root package when no compatible tag exists (fresh repo)', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+
+        // Root package on a fresh repo with no tags at all: legitimate fallback
+        // to the first commit (small history, no ENOBUFS risk).
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: '' } as any)
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '0.0.0', path: config.cwd }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: FIRST_COMMIT_HASH, to: TEST_BRANCH })
+      })
     })
   })
 
@@ -288,6 +326,25 @@ describe('Given resolveTags function', () => {
         // The most recent compatible tag would be v2.0.0-beta.0 itself
         expect(result.from).toBe('v2.0.0-beta.0')
         expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then returns NEW_PACKAGE_MARKER for a new sub-package at 0.0.0 in selective mode', async () => {
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+
+        // Reproduces the maz-ui case: a new sub-package at 0.0.0 is added to a
+        // monorepo whose tags are at higher majors. Without the marker, the
+        // unified resolver would fall back to getFirstCommit(repo) and overflow
+        // execSync's buffer (ENOBUFS) when getGitDiff spans the full history.
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v3.2.0\nv3.1.0\nv3.0.0' } as any)
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '0.0.0', path: '/some/cwd/packages/upgrade' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
       })
     })
   })
