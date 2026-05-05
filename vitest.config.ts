@@ -22,10 +22,10 @@ export default defineConfig({
       ],
       thresholds: {
         autoUpdate: !isInCI(),
-        statements: 87.7,
+        statements: 87.89,
         functions: 95.28,
-        branches: 83.1,
-        lines: 87.49,
+        branches: 83.29,
+        lines: 87.68,
       },
     },
     exclude: defaultExclude,
