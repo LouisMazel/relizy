@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.3 (2026-05-05)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.2...v1.4.3)
+
+### 🩹 Fixes
+
+- **relizy:** Prevent ENOBUFS for new sub-packages in unified/selective mode ([f9fcc87](https://github.com/LouisMazel/relizy/commit/f9fcc87))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.2 (2026-05-04)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.1...v1.4.2)
