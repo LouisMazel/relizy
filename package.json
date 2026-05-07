@@ -118,7 +118,7 @@
     "eslint": "^10.2.1",
     "husky": "9.1.7",
     "jiti": "2.6.1",
-    "lint-staged": "^16.4.0",
+    "lint-staged": "^17.0.2",
     "memfs": "^4.57.2",
     "tsx": "^4.21.0",
     "twitter-api-v2": "^1.29.0",
