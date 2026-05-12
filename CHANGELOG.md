@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.4 (2026-05-12)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.3...v1.4.4)
+
+### 🩹 Fixes
+
+- Use bumped version during npm/pnpm dry-run publish ([bde2272](https://github.com/LouisMazel/relizy/commit/bde2272))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.3 (2026-05-05)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.2...v1.4.3)
