@@ -193,6 +193,12 @@ export function getLastRepoTag(options?: {
  * 2. Filters out prerelease tags if onlyStable is true
  * 3. Filters out tags with major version > current version
  * 4. Returns the most recent compatible tag
+ *
+ * If onlyStable removes every candidate but the repo has prerelease tags with a
+ * compatible major (e.g. previous `git push --follow-tags` failed and only beta
+ * tags remain on disk while package.json was bumped manually to a stable
+ * version), falls back to the most recent major-compatible tag rather than
+ * treating the repo as if it had no history.
  */
 async function getLastRepoTagWithFiltering({
   pkg,
@@ -218,15 +224,30 @@ async function getLastRepoTagWithFiltering({
     onlyStable,
   })
 
-  if (compatibleTags.length === 0) {
-    logger.info(`No compatible tags found for version ${pkg.version}`)
-    return null
+  if (compatibleTags.length > 0) {
+    const lastTag = compatibleTags[0]
+    logger.debug(`Last compatible repo tag: ${lastTag}`)
+    return lastTag
   }
 
-  const lastTag = compatibleTags[0]
-  logger.debug(`Last compatible repo tag: ${lastTag}`)
+  if (onlyStable) {
+    const prereleaseFallback = filterCompatibleTags({
+      tags: recentTags,
+      pkg,
+      onlyStable: false,
+    })
 
-  return lastTag
+    if (prereleaseFallback.length > 0) {
+      const fallbackTag = prereleaseFallback[0]
+      logger.info(
+        `No stable repo tag found for version ${pkg.version}, falling back to last prerelease tag: ${fallbackTag}`,
+      )
+      return fallbackTag
+    }
+  }
+
+  logger.info(`No compatible tags found for version ${pkg.version}`)
+  return null
 }
 
 export async function getLastPackageTag({
@@ -288,6 +309,12 @@ export async function getLastPackageTag({
  * 2. Filters out prerelease tags if onlyStable is true
  * 3. Filters out tags with major version > current version
  * 4. Returns the most recent compatible tag
+ *
+ * If onlyStable removes every candidate but the package has prerelease tags
+ * with a compatible major (e.g. previous `git push --follow-tags` failed and
+ * only beta tags exist while package.json was bumped manually to a stable
+ * version), falls back to the most recent major-compatible tag rather than
+ * marking the package as new.
  */
 async function getLastPackageTagWithFiltering({
   pkg,
@@ -318,15 +345,30 @@ async function getLastPackageTagWithFiltering({
     onlyStable,
   })
 
-  if (compatibleTags.length === 0) {
-    logger.info(`No compatible tags found for package ${pkg.name} with version ${pkg.version}`)
-    return null
+  if (compatibleTags.length > 0) {
+    const lastTag = compatibleTags[0]
+    logger.debug(`Last compatible package tag for ${pkg.name}: ${lastTag}`)
+    return lastTag
   }
 
-  const lastTag = compatibleTags[0]
-  logger.debug(`Last compatible package tag for ${pkg.name}: ${lastTag}`)
+  if (onlyStable) {
+    const prereleaseFallback = filterCompatibleTags({
+      tags: recentTags,
+      pkg,
+      onlyStable: false,
+    })
 
-  return lastTag
+    if (prereleaseFallback.length > 0) {
+      const fallbackTag = prereleaseFallback[0]
+      logger.info(
+        `No stable tags found for package ${pkg.name} with version ${pkg.version}, falling back to last prerelease tag: ${fallbackTag}`,
+      )
+      return fallbackTag
+    }
+  }
+
+  logger.info(`No compatible tags found for package ${pkg.name} with version ${pkg.version}`)
+  return null
 }
 
 export type Step = 'bump' | 'changelog' | 'publish' | 'provider-release' | 'social'

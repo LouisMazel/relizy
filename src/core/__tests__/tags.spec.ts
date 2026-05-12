@@ -127,6 +127,64 @@ describe('Given resolveTags function', () => {
         expect(result.from).toBe(NEW_PACKAGE_MARKER)
         expect(result.to).toBe('pkg-a@2.0.0')
       })
+
+      it('Then falls back to last prerelease tag when only prerelease tags exist for the package', async () => {
+        // Real-world scenario: previous release left git tags only at @pkg/action@0.1.0-beta.{1..6}
+        // because `git push --follow-tags` failed, then package.json was manually bumped to 0.1.0
+        // to match what was published on npm. Without the fallback, the package would be flagged
+        // as __NEW_PACKAGE__ even though its tag history is intact.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-a@0.1.0-beta.6\npkg-a@0.1.0-beta.5\npkg-a@0.1.0-beta.4',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ name: 'pkg-a', version: '0.1.0' }),
+          newVersion: '0.2.0-beta.0',
+        })
+
+        expect(result.from).toBe('pkg-a@0.1.0-beta.6')
+        expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then prefers a stable tag over a prerelease when both exist for the package', async () => {
+        // Sanity check: the fallback should NOT kick in when a stable tag is available.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-a@0.1.0-beta.6\npkg-a@0.1.0\npkg-a@0.1.0-beta.5',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ name: 'pkg-a', version: '0.1.0' }),
+          newVersion: '0.2.0-beta.0',
+        })
+
+        expect(result.from).toBe('pkg-a@0.1.0')
+        expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then does not fall back to a prerelease tag from a higher major', async () => {
+        // Major-compatibility filter must still apply during the fallback: if every
+        // prerelease tag is from a future major (e.g. tags at 2.x while we are on 1.x),
+        // we treat the package as new rather than rewinding to an incompatible major.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-a@2.0.0-beta.0\npkg-a@2.0.0-beta.1',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ name: 'pkg-a', version: '1.0.0' }),
+          newVersion: '1.0.1',
+        })
+
+        expect(result.from).toBe(NEW_PACKAGE_MARKER)
+      })
     })
   })
 
@@ -196,6 +254,27 @@ describe('Given resolveTags function', () => {
         })
 
         expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
+      })
+
+      it('Then falls back to last prerelease repo tag when only prereleases exist (failed previous tag push)', async () => {
+        // Same scenario as the independent-mode test but at the repo level: tags only at
+        // v0.1.0-beta.{1..6} because the prior release left them un-pushed, package.json
+        // was manually bumped to 0.1.0. We should resume from the most recent prerelease
+        // tag instead of treating the package as new and skipping its history entirely.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'v0.1.0-beta.6\nv0.1.0-beta.5\nv0.1.0-beta.4',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ version: '0.1.0', path: '/some/cwd/packages/pkg-a' }),
+          newVersion: '0.2.0-beta.0',
+        })
+
+        expect(result.from).toBe('v0.1.0-beta.6')
+        expect(result.to).toBe(TEST_BRANCH)
       })
 
       it('Then falls back to first commit for the root package when no compatible tag exists (fresh repo)', async () => {
