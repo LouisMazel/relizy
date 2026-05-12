@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.4.5 (2026-05-12)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.4...v1.4.5)
+
+### 🩹 Fixes
+
+- Fall back to last prerelease tag when no stable tag exists ([8f8fce0](https://github.com/LouisMazel/relizy/commit/8f8fce0))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.4 (2026-05-12)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.3...v1.4.4)
