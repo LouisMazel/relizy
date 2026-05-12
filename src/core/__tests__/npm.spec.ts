@@ -1,6 +1,6 @@
 import type { PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
 import { input } from '@inquirer/prompts'
@@ -1030,6 +1030,158 @@ describe('Given publishPackage function', () => {
         expect.stringContaining('--yes'),
         expect.any(Object),
       )
+    })
+  })
+
+  describe('When restoring version after dry-run publish', () => {
+    beforeEach(() => {
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ name: 'test-package', version: '1.0.0' }))
+    })
+
+    it('Then temporarily writes new version before publish for pnpm', async () => {
+      const writeCalls: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        const parsed = JSON.parse((content as string).trim())
+        writeCalls.push(parsed.version)
+      })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(writeCalls[0]).toBe('1.0.1')
+    })
+
+    it('Then restores original version after publish succeeds for pnpm', async () => {
+      const writeCalls: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        const parsed = JSON.parse((content as string).trim())
+        writeCalls.push(parsed.version)
+      })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(writeCalls).toEqual(['1.0.1', '1.0.0'])
+    })
+
+    it('Then restores original version after publish succeeds for npm', async () => {
+      const writeCalls: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        const parsed = JSON.parse((content as string).trim())
+        writeCalls.push(parsed.version)
+      })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: true,
+      })
+
+      expect(writeCalls).toEqual(['1.0.1', '1.0.0'])
+    })
+
+    it('Then restores original version even when publish fails for pnpm', async () => {
+      const writeCalls: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        const parsed = JSON.parse((content as string).trim())
+        writeCalls.push(parsed.version)
+      })
+      vi.mocked(execPromise).mockRejectedValue(new Error('Publish failed'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })).rejects.toThrow('Publish failed')
+
+      expect(writeCalls).toEqual(['1.0.1', '1.0.0'])
+    })
+
+    it('Then restores original version even when publish fails for npm', async () => {
+      const writeCalls: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        const parsed = JSON.parse((content as string).trim())
+        writeCalls.push(parsed.version)
+      })
+      vi.mocked(execPromise).mockRejectedValue(new Error('Publish failed'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: true,
+      })).rejects.toThrow('Publish failed')
+
+      expect(writeCalls).toEqual(['1.0.1', '1.0.0'])
+    })
+
+    it('Then does not write package.json in non-dry-run mode for pnpm', async () => {
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: false,
+      })
+
+      expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('Then does not write package.json in dry-run for yarn', async () => {
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: true,
+      })
+
+      expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('Then does not write package.json in dry-run for bun', async () => {
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: true,
+      })
+
+      expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('Then does not write package.json when newVersion equals version', async () => {
+      pkg.newVersion = pkg.version
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('Then does not write package.json when newVersion is undefined', async () => {
+      pkg.newVersion = undefined
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(writeFileSync).not.toHaveBeenCalled()
     })
   })
 })
