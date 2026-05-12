@@ -5,7 +5,7 @@ inputs:
   node-version:
     description: Node.js version to use
     required: false
-    default: '22'
+    default: '24'
   registry-url:
     description: npm registry URL
     required: false
@@ -18,7 +18,7 @@ runs:
   using: composite
   steps:
     - name: Setup pnpm
-      uses: pnpm/action-setup@v4
+      uses: pnpm/action-setup@v6
 
     - name: Get pnpm store directory
       shell: bash
@@ -39,7 +39,7 @@ runs:
         registry-url: ${{ inputs.registry-url }}
 
     # - name: Setup Nx cache
-    #   uses: actions/cache@v4
+    #   uses: actions/cache@v5
     #   with:
     #     path: |
     #       .nx/cache

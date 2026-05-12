@@ -6,7 +6,7 @@ import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
-import { isPrerelease } from './version'
+import { isPrerelease, writeVersion } from './version'
 
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined
@@ -372,51 +372,78 @@ export async function publishPackage({
 
   logger.debug(`Building publish command for ${pkg.name}`)
 
-  let dynamicOtp: string | undefined
-  const maxAttempts = 2
+  // In dry-run mode, npm/pnpm publish reads the version directly from package.json on disk.
+  // Since bump --dry-run does not write to disk, the on-disk version is still the previously
+  // published one, and `publish --dry-run` fails with "You cannot publish over the previously
+  // published versions". To validate against the real new version, write it temporarily and
+  // restore the original after the publish attempt (always, even on failure).
+  const needsTempVersionWrite = dryRun
+    && (packageManager === 'npm' || packageManager === 'pnpm')
+    && !!pkg.newVersion
+    && pkg.newVersion !== pkg.version
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    try {
-      const command = getPublishCommand({
-        packageManager,
-        tag,
-        config,
-        otp: dynamicOtp,
-        dryRun,
-      })
+  let originalVersion: string | undefined
+  if (needsTempVersionWrite) {
+    const packageJsonPath = join(pkg.path, 'package.json')
+    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
+    originalVersion = packageJson.version
+    logger.debug(`[dry-run] Temporarily writing ${pkg.newVersion} to ${pkg.name} for publish --dry-run validation`)
+    writeVersion(pkg.path, pkg.newVersion!, false)
+  }
 
-      process.chdir(pkg.path)
+  try {
+    let dynamicOtp: string | undefined
+    const maxAttempts = 2
 
-      await executePublishCommand({
-        command,
-        packageNameAndVersion,
-        packageManager,
-        pkg,
-        config,
-        dryRun,
-        tag,
-      })
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const command = getPublishCommand({
+          packageManager,
+          tag,
+          config,
+          otp: dynamicOtp,
+          dryRun,
+        })
 
-      // Success - store OTP for next packages if it was prompted
-      if (dynamicOtp && !sessionOtp) {
-        sessionOtp = dynamicOtp
-        logger.debug('OTP stored for session')
+        process.chdir(pkg.path)
+
+        await executePublishCommand({
+          command,
+          packageNameAndVersion,
+          packageManager,
+          pkg,
+          config,
+          dryRun,
+          tag,
+        })
+
+        // Success - store OTP for next packages if it was prompted
+        if (dynamicOtp && !sessionOtp) {
+          sessionOtp = dynamicOtp
+          logger.debug('OTP stored for session')
+        }
+
+        return
       }
-
-      return
+      catch (error) {
+        // Check if it's an OTP error and we haven't exhausted retries
+        if (isOtpError(error) && attempt < maxAttempts - 1) {
+          dynamicOtp = await handleOtpError()
+        }
+        else {
+          logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
+          throw error
+        }
+      }
+      finally {
+        process.chdir(config.cwd)
+      }
     }
-    catch (error) {
-      // Check if it's an OTP error and we haven't exhausted retries
-      if (isOtpError(error) && attempt < maxAttempts - 1) {
-        dynamicOtp = await handleOtpError()
-      }
-      else {
-        logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
-        throw error
-      }
-    }
-    finally {
-      process.chdir(config.cwd)
+  }
+  finally {
+    if (needsTempVersionWrite && originalVersion) {
+      logger.debug(`[dry-run] Restoring ${pkg.name} version to ${originalVersion}`)
+      writeVersion(pkg.path, originalVersion, false)
     }
   }
 }
