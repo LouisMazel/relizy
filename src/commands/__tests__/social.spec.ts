@@ -1,7 +1,7 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { buildChangelogBody, collectContributorNames, executeHook, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { collectContributorNames, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
@@ -17,8 +17,9 @@ vi.mock('../../core', () => ({
   getPackagesOrBumpedPackages: vi.fn(),
   executeHook: vi.fn(),
   getRootPackage: vi.fn(),
+  getPackageCommits: vi.fn().mockResolvedValue([]),
+  generateChangelog: vi.fn().mockResolvedValue('- Feature'),
   resolveTags: vi.fn(),
-  buildChangelogBody: vi.fn(),
   isPrerelease: vi.fn(),
   getTwitterCredentials: vi.fn(),
   postReleaseToTwitter: vi.fn(),
@@ -208,7 +209,7 @@ describe('Given social command', () => {
       commits: [],
     })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
-    vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
+    vi.mocked(generateChangelog).mockResolvedValue('- Feature')
     vi.mocked(isPrerelease).mockReturnValue(false)
     vi.mocked(getTwitterCredentials).mockReturnValue({
       apiKey: 'key',
@@ -466,7 +467,7 @@ describe('Given social command', () => {
         ai: { social: { twitter: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A\n- Feature B')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A\n- Feature B')
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten tweet')
 
       await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
@@ -499,7 +500,7 @@ describe('Given social command', () => {
         ai: { social: { slack: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten slack message')
 
       await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
@@ -531,7 +532,7 @@ describe('Given social command', () => {
         ai: { social: { twitter: { enabled: true }, slack: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature')
       vi.mocked(generateAISocialChangelog)
         .mockResolvedValueOnce('AI tweet')
         .mockResolvedValueOnce('AI slack')
@@ -562,7 +563,7 @@ describe('Given social command', () => {
         ai: { social: { twitter: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('')
+      vi.mocked(generateChangelog).mockResolvedValue('')
 
       await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
 
@@ -584,7 +585,7 @@ describe('Given social command', () => {
         ai: { social: { twitter: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(isPrerelease).mockReturnValue(true)
 
       await social({
@@ -609,7 +610,7 @@ describe('Given social command', () => {
         ai: { social: { slack: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(isPrerelease).mockReturnValue(true)
 
       await social({
@@ -636,7 +637,7 @@ describe('Given social command', () => {
         ai: { social: { twitter: { enabled: true } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(buildChangelogBody).mockReturnValue('- Feature A')
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(isPrerelease).mockReturnValue(true)
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI tweet')
 

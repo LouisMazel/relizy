@@ -47,9 +47,8 @@ export default defineConfig({
 
   social: {
     changelogUrl: 'https://relizy.dev/changelog',
-    twitter: {
-      enabled: true,
-    },
+    twitter: { enabled: true },
+    slack: { enabled: false },
   },
   prComment: {
     mode: 'append',

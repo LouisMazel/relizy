@@ -4,9 +4,9 @@ import type { RootPackage } from './repo'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
+import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
-import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
@@ -167,21 +167,33 @@ async function gitlabIndependentMode({
 
     logger.debug(`Processing ${pkg.name}: ${from} → ${to}`)
 
-    const isFirstCommit = from === getFirstCommit(config.cwd)
-    const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
-    let body = buildChangelogBody({ commits: pkg.commits, config })
-    const contributors = await buildContributors({ commits: pkg.commits, config })
+    // Probe the body section first so we can skip empty releases — the
+    // assembled `releaseBody` below always contains at least the compare
+    // link, so it can't be used as the "is there anything to release"
+    // signal anymore.
+    const bodyOnly = await generateChangelog({
+      pkg: { ...pkg, fromTag: from },
+      config,
+      dryRun,
+      newVersion,
+      include: { title: false, compareLink: false, body: true, contributors: false },
+    })
 
-    if (!body) {
+    if (!bodyOnly.trim()) {
       logger.warn(`No changelog found for ${pkg.name}`)
       continue
     }
 
-    if (isAIProviderReleaseEnabled(config)) {
-      body = await generateAIProviderReleaseBody({ config, rawBody: body })
-    }
-
-    const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
+    const releaseBody = await generateChangelog({
+      pkg: { ...pkg, fromTag: from },
+      config,
+      dryRun,
+      newVersion,
+      include: { title: false, compareLink: true, body: true, contributors: true },
+      transformBody: isAIProviderReleaseEnabled(config)
+        ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+        : undefined,
+    })
 
     const release = {
       tag_name: to,
@@ -241,16 +253,17 @@ async function gitlabUnified({
 
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit
-  const isFirstCommit = from === firstCommit
-  const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
-  let body = buildChangelogBody({ commits: rootPackage.commits, config })
-  const contributors = await buildContributors({ commits: rootPackage.commits, config })
 
-  if (isAIProviderReleaseEnabled(config)) {
-    body = await generateAIProviderReleaseBody({ config, rawBody: body })
-  }
-
-  const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
+  const releaseBody = await generateChangelog({
+    pkg: { ...rootPackage, fromTag: from },
+    config,
+    dryRun,
+    newVersion,
+    include: { title: false, compareLink: true, body: true, contributors: true },
+    transformBody: isAIProviderReleaseEnabled(config)
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      : undefined,
+  })
 
   logger.debug('Getting current branch...')
   const { stdout: currentBranch } = await execPromise('git rev-parse --abbrev-ref HEAD', {

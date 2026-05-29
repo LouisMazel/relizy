@@ -5,13 +5,77 @@ import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils'
 import { createGithubRelease } from 'changelogen'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
+import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
-import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
+
+async function publishIndependentRelease({
+  pkg,
+  config,
+  dryRun,
+  repoConfig,
+}: {
+  pkg: import('../types').PackageBase
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  repoConfig: NonNullable<ResolvedRelizyConfig['repo']>
+}): Promise<PostedRelease | undefined> {
+  const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+
+  const from = config.from || pkg.fromTag
+  const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
+
+  if (!from) {
+    logger.warn(`No from tag found for ${pkg.name}, skipping release`)
+    return undefined
+  }
+
+  const toTag = dryRun ? 'HEAD' : to
+  logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
+
+  // Pass `from` via `pkg.fromTag` so `generateChangelog` resolves the right
+  // git range without us overriding `config.to` (which would otherwise leak
+  // the not-yet-created future tag into `git log`).
+  const releaseBody = await generateChangelog({
+    pkg: { ...pkg, fromTag: from },
+    config,
+    dryRun,
+    newVersion,
+    include: { title: false, compareLink: true, body: true, contributors: true },
+    transformBody: isAIProviderReleaseEnabled(config)
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      : undefined,
+  })
+
+  const release = {
+    tag_name: to,
+    name: to,
+    body: releaseBody,
+    prerelease: isPrerelease(newVersion),
+  }
+
+  logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
+
+  if (dryRun) {
+    logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
+    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+  }
+  else {
+    logger.debug(`Publishing release ${to} to GitHub...`)
+    await createGithubRelease({ ...config, from, to, repo: repoConfig }, release)
+  }
+
+  return {
+    name: pkg.name,
+    tag: release.tag_name,
+    version: newVersion,
+    prerelease: release.prerelease,
+  }
+}
 
 async function githubIndependentMode({
   config,
@@ -50,66 +114,9 @@ async function githubIndependentMode({
   const postedReleases: PostedRelease[] = []
 
   for (const pkg of packages) {
-    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
-
-    const from = config.from || pkg.fromTag
-    const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
-
-    if (!from) {
-      logger.warn(`No from tag found for ${pkg.name}, skipping release`)
-      continue
-    }
-
-    const toTag = dryRun ? 'HEAD' : to
-
-    logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
-
-    const isFirstCommit = from === getFirstCommit(config.cwd)
-    const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
-    let body = buildChangelogBody({ commits: pkg.commits, config })
-    const contributors = await buildContributors({ commits: pkg.commits, config })
-
-    if (isAIProviderReleaseEnabled(config)) {
-      body = await generateAIProviderReleaseBody({ config, rawBody: body })
-    }
-
-    const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
-
-    const release = {
-      tag_name: to,
-      name: to,
-      body: releaseBody,
-      prerelease: isPrerelease(newVersion),
-    }
-
-    logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
-
-    if (dryRun) {
-      logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: release.prerelease,
-      })
-      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
-    }
-    else {
-      logger.debug(`Publishing release ${to} to GitHub...`)
-
-      await createGithubRelease({
-        ...config,
-        from,
-        to,
-        repo: repoConfig,
-      }, release)
-
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: release.prerelease,
-      })
+    const posted = await publishIndependentRelease({ pkg, config, dryRun, repoConfig })
+    if (posted) {
+      postedReleases.push(posted)
     }
   }
 
@@ -158,16 +165,17 @@ async function githubUnified({
 
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit
-  const isFirstCommit = from === firstCommit
-  const compareLink = buildCompareLink({ config, from, to, isFirstCommit })
-  let body = buildChangelogBody({ commits: rootPackage.commits, config })
-  const contributors = await buildContributors({ commits: rootPackage.commits, config })
 
-  if (isAIProviderReleaseEnabled(config)) {
-    body = await generateAIProviderReleaseBody({ config, rawBody: body })
-  }
-
-  const releaseBody = [compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
+  const releaseBody = await generateChangelog({
+    pkg: { ...rootPackage, fromTag: from },
+    config,
+    dryRun,
+    newVersion,
+    include: { title: false, compareLink: true, body: true, contributors: true },
+    transformBody: isAIProviderReleaseEnabled(config)
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      : undefined,
+  })
 
   const release = {
     tag_name: to,

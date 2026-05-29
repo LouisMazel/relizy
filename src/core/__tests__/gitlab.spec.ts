@@ -19,6 +19,7 @@ vi.mock('../repo', () => {
   return {
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
+    getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
   }
 })
 
@@ -40,6 +41,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
+    executeHook: vi.fn(),
   }
 })
 
@@ -59,6 +61,7 @@ vi.mock('../markdown', () => ({
 
 vi.mock('../git', () => ({
   getFirstCommit: vi.fn().mockReturnValue('initial-commit'),
+  getCurrentGitRef: vi.fn().mockReturnValue('HEAD'),
 }))
 
 vi.mock('../ai', () => ({

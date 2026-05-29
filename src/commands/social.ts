@@ -5,7 +5,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
-import { buildChangelogBody, collectContributorNames, collectPackageBumps, executeHook, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { collectContributorNames, collectPackageBumps, executeHook, generateChangelog, getPackageCommits, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -405,8 +405,22 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       to,
     })
 
-    const minifiedBody = buildChangelogBody({ commits: rootPackage.commits, config, minify: true })
-    const richBody = buildChangelogBody({ commits: rootPackage.commits, config, minify: false })
+    const minifiedBody = await generateChangelog({
+      pkg: { ...rootPackage, fromTag },
+      config,
+      dryRun,
+      newVersion,
+      include: { title: false, compareLink: false, body: true, contributors: false },
+      minify: true,
+    })
+    const richBody = await generateChangelog({
+      pkg: { ...rootPackage, fromTag },
+      config,
+      dryRun,
+      newVersion,
+      include: { title: false, compareLink: false, body: true, contributors: false },
+      minify: false,
+    })
     const hasContent = !!minifiedBody.trim()
 
     const twitterReleaseUrl = getReleaseUrl(config, to)
@@ -461,13 +475,25 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       tag: to,
     })
 
+    // Fetch commits with `changelog: true` so contributors who only authored
+    // title-only commits (e.g. `docs:`) still appear in Slack notifications.
+    // `to` resolves to the future release tag (created later in the release
+    // flow), so `git log` must use HEAD instead.
+    const changelogCommits = await getPackageCommits({
+      pkg: rootPackage,
+      from: fromTag,
+      to: 'HEAD',
+      config,
+      changelog: true,
+    })
+
     const slackResponse = await handleSlackPost({
       config,
       changelog: slackChangelog,
       dryRun,
       newVersion,
       tag: to,
-      commits: rootPackage.commits,
+      commits: changelogCommits,
       bumpedPackages: options.bumpResult?.bumpedPackages,
     })
 
