@@ -5,20 +5,189 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils'
-import { getFirstCommit } from './git'
-import { generateMarkDown } from './markdown'
+import { getCurrentGitRef, getFirstCommit } from './git'
+import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
+import { getPackageCommits } from './repo'
 import { getIndependentTag } from './tags'
 import { executeHook } from './utils'
 
 /**
- * Check if a tag is the first commit in the repository
+ * Controls which sections of the rendered changelog are produced.
+ * Each flag defaults to `true`. `compareLink` and `contributors` are
+ * additionally suppressed when `minify: true` (see `generateChangelog`).
  */
-function fromTagIsFirstCommit(fromTag: string, cwd: string) {
-  return fromTag === getFirstCommit(cwd)
+export interface ChangelogInclude {
+  title?: boolean
+  compareLink?: boolean
+  body?: boolean
+  contributors?: boolean
+}
+
+interface ResolvedSections {
+  title: boolean
+  compareLink: boolean
+  body: boolean
+  contributors: boolean
+}
+
+function resolveSections(include?: ChangelogInclude): ResolvedSections {
+  return {
+    title: include?.title ?? true,
+    compareLink: include?.compareLink ?? true,
+    body: include?.body ?? true,
+    contributors: include?.contributors ?? true,
+  }
 }
 
 /**
- * Generate changelog for a specific package
+ * Resolve the two flavours of refs a changelog needs:
+ *
+ * - `gitFromRef` / `gitToRef`: actual refs passed to `git log`. The release
+ *   tag is created AFTER changelog generation, so by default `gitToRef`
+ *   falls back to the current HEAD/SHA. `config.to` overrides that (CLI
+ *   use case: re-render an old changelog between two existing tags).
+ * - `displayFromTag` / `displayToTag`: pretty names rendered in the title
+ *   and the compare link. Defaults to the templated future tag (e.g.
+ *   `v1.5.0`) so users see the new version they're about to publish.
+ *
+ * For first-release scenarios (no prior tag), `displayFromTag` is
+ * substituted with `v0.0.0` (or its independent-mode equivalent) so the
+ * title and compare link still look meaningful.
+ */
+function resolveChangelogTags({
+  pkg,
+  config,
+  newVersion,
+}: {
+  pkg: { name: string, fromTag?: string }
+  config: ResolvedRelizyConfig
+  newVersion: string
+}): {
+  gitFromRef: string
+  gitToRef: string
+  displayFromTag: string
+  displayToTag: string
+  isFirstCommit: boolean
+} {
+  const isIndependent = config.monorepo?.versionMode === 'independent'
+
+  const gitFromRef = config.from
+    || pkg.fromTag
+    || getFirstCommit(config.cwd)
+
+  const isFirstCommit = gitFromRef === getFirstCommit(config.cwd)
+
+  const displayFromTag = isFirstCommit
+    ? (isIndependent
+        ? getIndependentTag({ version: '0.0.0', name: pkg.name })
+        : config.templates.tagBody.replace('{{newVersion}}', '0.0.0'))
+    : gitFromRef
+
+  // The release tag does not exist yet at changelog time (it is created in
+  // the commit & tag step). Use the current git ref for `git log` so the
+  // diff resolves, while displaying the future templated tag in the title.
+  const gitToRef = config.to || getCurrentGitRef(config.cwd)
+
+  const displayToTag = config.to
+    || (isIndependent
+      ? getIndependentTag({ version: newVersion, name: pkg.name })
+      : config.templates.tagBody.replace('{{newVersion}}', newVersion))
+
+  if (!displayToTag) {
+    throw new Error(`No tag found for ${pkg.name}`)
+  }
+
+  return { gitFromRef, gitToRef, displayFromTag, displayToTag, isFirstCommit }
+}
+
+function renderTitle({
+  fromTag,
+  toTag,
+  config,
+}: {
+  fromTag: string
+  toTag: string
+  config: ResolvedRelizyConfig
+}): string {
+  const template = config.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}'
+  const changelogTitle = template
+    .replace('{{oldVersion}}', fromTag)
+    .replace('{{newVersion}}', toTag)
+    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+  return `## ${changelogTitle}`
+}
+
+async function renderChangelogParts({
+  commits,
+  config,
+  fromTag,
+  toTag,
+  isFirstCommit,
+  sections,
+  minify,
+  transformBody,
+}: {
+  commits: GitCommit[]
+  config: ResolvedRelizyConfig
+  fromTag: string
+  toTag: string
+  isFirstCommit: boolean
+  sections: ResolvedSections
+  minify?: boolean
+  transformBody?: (body: string) => Promise<string> | string
+}): Promise<string[]> {
+  const parts: string[] = []
+
+  if (sections.title) {
+    parts.push(renderTitle({ fromTag, toTag, config }))
+  }
+
+  if (sections.compareLink && !minify) {
+    const compareLink = buildCompareLink({ config, from: fromTag, to: toTag, isFirstCommit })
+    if (compareLink) {
+      parts.push(compareLink)
+    }
+  }
+
+  if (sections.body) {
+    let body = buildChangelogBody({ commits, config, minify })
+    if (transformBody && body) {
+      body = await transformBody(body)
+    }
+    if (body) {
+      parts.push(body)
+    }
+  }
+
+  if (sections.contributors && !minify) {
+    const contributors = await buildContributors({ commits, config })
+    if (contributors) {
+      parts.push(contributors)
+    }
+  }
+
+  return parts
+}
+
+function isFullChangelogOutput(sections: ResolvedSections, minify?: boolean): boolean {
+  return !minify
+    && sections.title
+    && sections.compareLink
+    && sections.body
+    && sections.contributors
+}
+
+/**
+ * Generate the changelog string for a single package.
+ *
+ * - Fetches commits internally using `changelog: true`, so types that only
+ *   declare a `title` (e.g. `docs: { title: '📖 Documentation' }`) are
+ *   included even though they don't trigger a version bump. Callers must
+ *   provide `pkg.path` — `pkg.commits` is no longer consumed.
+ * - `include` toggles which sections appear in the output. `compareLink`
+ *   and `contributors` are also skipped when `minify` is true.
+ * - `transformBody` is invoked between body rendering and final assembly,
+ *   used by provider releases to plug an AI rewrite step on the body only.
  */
 export async function generateChangelog(
   {
@@ -27,86 +196,91 @@ export async function generateChangelog(
     dryRun,
     newVersion,
     minify,
+    include,
+    transformBody,
   }: {
     pkg: {
       fromTag?: string
       name: string
+      path: string
       newVersion?: string
-      commits: GitCommit[]
     }
     config: ResolvedRelizyConfig
     dryRun: boolean
     newVersion: string
     minify?: boolean
+    include?: ChangelogInclude
+    transformBody?: (body: string) => Promise<string> | string
   },
 ) {
-  let fromTag = config.from
-    || pkg.fromTag
-    || getFirstCommit(config.cwd)
+  const sections = resolveSections(include)
+  const { gitFromRef, gitToRef, displayFromTag, displayToTag, isFirstCommit }
+    = resolveChangelogTags({ pkg, config, newVersion })
 
-  const isFirstCommit = fromTagIsFirstCommit(fromTag, config.cwd)
-
-  if (isFirstCommit) {
-    fromTag = config.monorepo?.versionMode === 'independent' ? getIndependentTag({ version: '0.0.0', name: pkg.name }) : config.templates.tagBody.replace('{{newVersion}}', '0.0.0')
-  }
-
-  let toTag = config.to
-
-  if (!toTag) {
-    toTag = config.monorepo?.versionMode === 'independent'
-      ? getIndependentTag({ version: newVersion, name: pkg.name })
-      : config.templates.tagBody.replace('{{newVersion}}', newVersion)
-  }
-
-  if (!toTag) {
-    throw new Error(`No tag found for ${pkg.name}`)
-  }
-
-  logger.debug(`Generating changelog for ${pkg.name} - from ${fromTag} to ${toTag}`)
+  logger.debug(`Generating changelog for ${pkg.name} - git ${gitFromRef}..${gitToRef} - display ${displayFromTag}...${displayToTag}`)
 
   try {
-    config = {
-      ...config,
-      from: fromTag,
-      to: toTag,
-    }
+    // `gitFromRef`/`gitToRef` drive `git log` (the release tag does not
+    // exist yet). `displayFromTag`/`displayToTag` drive the title and the
+    // compare link so users see the new version.
+    const commits = await getPackageCommits({
+      pkg: pkg as ReadPackage,
+      from: gitFromRef,
+      to: gitToRef,
+      config: { ...config, from: gitFromRef, to: gitToRef },
+      changelog: true,
+    })
 
-    const generatedChangelog = await generateMarkDown({
-      commits: pkg.commits,
-      config,
-      from: fromTag,
+    const displayConfig = { ...config, from: displayFromTag, to: displayToTag }
+
+    const parts = await renderChangelogParts({
+      commits,
+      config: displayConfig,
+      fromTag: displayFromTag,
+      toTag: displayToTag,
       isFirstCommit,
-      to: toTag,
+      sections,
       minify,
+      transformBody,
     })
 
-    let changelog = generatedChangelog
+    let changelog = parts.filter(Boolean).join('\n\n').trim()
 
-    if (pkg.commits.length === 0) {
-      changelog = `${changelog}\n\n${config.templates.emptyChangelogContent}`
+    const isFullOutput = isFullChangelogOutput(sections, minify)
+
+    // The "no relevant changes" placeholder only belongs in the canonical
+    // changelog file. Partial outputs (provider release notes, social
+    // posts, body-only probes) must stay literally empty when there are no
+    // commits, otherwise:
+    //   - GitLab would skip its empty-release guard and publish empty releases
+    //   - Social posts would see `hasContent=true` and post the placeholder
+    if (commits.length === 0 && sections.body && isFullOutput) {
+      changelog = `${changelog}\n\n${displayConfig.templates.emptyChangelogContent}`
     }
 
-    const changelogResult = await executeHook('generate:changelog', config, dryRun, {
-      commits: pkg.commits,
-      changelog,
-    })
-
-    changelog = changelogResult || changelog
+    // Only fire the `generate:changelog` hook for "full" outputs (the
+    // changelog file). Partial outputs used by provider releases / social
+    // posts skip the hook to avoid surprising users with extra firings.
+    if (isFullOutput) {
+      const changelogResult = await executeHook('generate:changelog', displayConfig, dryRun, {
+        commits,
+        changelog,
+      })
+      changelog = changelogResult || changelog
+    }
 
     logger.verbose(`Output changelog for ${pkg.name}:\n${changelog}`)
-
-    logger.debug(`Changelog generated for ${pkg.name} (${pkg.commits.length} commits)`)
-
+    logger.debug(`Changelog generated for ${pkg.name} (${commits.length} commits)`)
     logger.verbose(`Final changelog for ${pkg.name}:\n\n${changelog}\n\n`)
 
     if (dryRun) {
-      logger.info(`[dry-run] ${pkg.name} - Generate changelog ${fromTag}...${toTag}`)
+      logger.info(`[dry-run] ${pkg.name} - Generate changelog ${displayFromTag}...${displayToTag}`)
     }
 
     return changelog
   }
   catch (error) {
-    throw new Error(`Error generating changelog for ${pkg.name} (${fromTag}...${toTag}): ${getErrorMessage(error)}`, { cause: error })
+    throw new Error(`Error generating changelog for ${pkg.name}: ${getErrorMessage(error)}`, { cause: error })
   }
 }
 

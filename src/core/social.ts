@@ -8,10 +8,12 @@ export function extractChangelogSummary(changelog: string, { stripBoldMarkers = 
     return ''
   }
 
-  // Remove markdown headers
+  // Drop markdown headers AND the blank lines around them — otherwise the
+  // section spacing from the source changelog leaves runs of consecutive
+  // newlines (e.g. `- Item A\n\n\n- Item B`) in the social post output.
   let cleaned = changelog
     .split('\n')
-    .filter(line => !line.startsWith('#'))
+    .filter(line => !line.startsWith('#') && line.trim() !== '')
     .join('\n')
 
   if (stripBoldMarkers) {

@@ -22,11 +22,13 @@ async function generateIndependentRootChangelog({
   const packageChangelogs: string[] = []
 
   for (const pkg of packages) {
+    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+
     const changelog = await generateChangelog({
       pkg,
       config,
       dryRun,
-      newVersion: (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version,
+      newVersion,
     })
 
     if (changelog) {
@@ -204,14 +206,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
     for await (const pkg of packages) {
       const newVersion = options.bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
 
-      const { from, to } = await resolveTags<'changelog'>({
-        config,
-        step: 'changelog',
-        pkg,
-        newVersion,
-      })
-
-      logger.debug(`Processing ${pkg.name} (${from}...${to})`)
+      logger.debug(`Processing ${pkg.name}`)
 
       const changelog = await generateChangelog({
         pkg,

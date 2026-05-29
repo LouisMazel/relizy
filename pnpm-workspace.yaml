@@ -1,6 +1,7 @@
 # eslint-disable pnpm/yaml-enforce-settings
 
 packages:
+  - .
   - docs
 
 onlyBuiltDependencies:

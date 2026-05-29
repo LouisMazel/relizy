@@ -1,3 +1,4 @@
+import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
@@ -6,7 +7,8 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getFirstCommit, getIndependentTag } from '../../core'
 import { generateChangelog, writeChangelogToFile } from '../changelog'
-import { generateMarkDown } from '../markdown'
+import { buildChangelogBody, buildCompareLink, buildContributors } from '../markdown'
+import { getPackageCommits } from '../repo'
 import { executeHook } from '../utils'
 
 vi.mock('node:fs')
@@ -18,7 +20,14 @@ vi.mock('node:path', async () => {
     relative: vi.fn((from, to) => to),
   }
 })
-vi.mock('../markdown')
+vi.mock('../markdown', () => ({
+  buildChangelogBody: vi.fn(() => '- feat: feature'),
+  buildCompareLink: vi.fn(() => '[v1.0.0...v1.1.0](compare)'),
+  buildContributors: vi.fn(() => Promise.resolve('### ❤️ Contributors\n\n- Alice')),
+}))
+vi.mock('../repo', () => ({
+  getPackageCommits: vi.fn(() => Promise.resolve([] as GitCommit[])),
+}))
 vi.mock('../utils', async () => {
   const actual = await vi.importActual('../utils')
   return {
@@ -29,6 +38,7 @@ vi.mock('../utils', async () => {
 vi.mock('../git', () => {
   return {
     getFirstCommit: vi.fn(),
+    getCurrentGitRef: vi.fn(() => 'HEAD'),
   }
 })
 vi.mock('../tags', () => {
@@ -54,16 +64,16 @@ describe('Given generateChangelog function', () => {
       changelogTitle: '{{oldVersion}}...{{newVersion}}',
     }
     vi.mocked(getFirstCommit).mockReturnValue('abc123')
-    vi.mocked(generateMarkDown).mockResolvedValue('## v1.0.0...v1.1.0\n\n- Feature added')
+    vi.mocked(getPackageCommits).mockResolvedValue([createMockCommit('feat', 'feature')])
+    vi.mocked(buildChangelogBody).mockReturnValue('- feat: feature')
+    vi.mocked(buildCompareLink).mockReturnValue('[compare](url)')
+    vi.mocked(buildContributors).mockResolvedValue('### ❤️ Contributors\n\n- Alice')
     vi.mocked(executeHook).mockResolvedValue(undefined)
   })
 
   describe('When generating changelog for regular commit', () => {
-    it('Then generates markdown changelog', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'add feature')],
-      }
+    it('Then fetches commits with changelog: true', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -72,20 +82,14 @@ describe('Given generateChangelog function', () => {
         newVersion: '1.1.0',
       })
 
-      expect(generateMarkDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          commits: pkg.commits,
-          config: expect.any(Object),
-        }),
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ pkg, changelog: true }),
       )
     })
 
     it('Then uses from config when available', async () => {
       config.from = 'v1.0.0'
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -94,19 +98,13 @@ describe('Given generateChangelog function', () => {
         newVersion: '1.1.0',
       })
 
-      expect(generateMarkDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          from: 'v1.0.0',
-        }),
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'v1.0.0' }),
       )
     })
 
     it('Then uses pkg fromTag when config.from not available', async () => {
-      const pkg = {
-        name: 'test-package',
-        fromTag: 'v0.9.0',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test', fromTag: 'v0.9.0' }
 
       await generateChangelog({
         pkg,
@@ -115,19 +113,14 @@ describe('Given generateChangelog function', () => {
         newVersion: '1.0.0',
       })
 
-      expect(generateMarkDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          from: 'v0.9.0',
-        }),
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'v0.9.0' }),
       )
     })
 
     it('Then falls back to first commit when no fromTag', async () => {
       vi.mocked(getFirstCommit).mockReturnValue('initial123')
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -139,11 +132,8 @@ describe('Given generateChangelog function', () => {
       expect(getFirstCommit).toHaveBeenCalledWith(config.cwd)
     })
 
-    it('Then generates toTag from template', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+    it('Then uses HEAD as the git log `to` ref (release tag does not exist yet)', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -152,19 +142,16 @@ describe('Given generateChangelog function', () => {
         newVersion: '2.0.0',
       })
 
-      expect(generateMarkDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: 'v2.0.0',
-        }),
+      // `git log` must use HEAD since the future tag is created after the
+      // changelog step. The templated `v2.0.0` is only used for display.
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'HEAD' }),
       )
     })
 
-    it('Then uses config.to when provided', async () => {
+    it('Then uses config.to for the git log `to` ref when provided (CLI override)', async () => {
       config.to = 'v3.0.0'
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -173,11 +160,25 @@ describe('Given generateChangelog function', () => {
         newVersion: '3.0.0',
       })
 
-      expect(generateMarkDown).toHaveBeenCalledWith(
-        expect.objectContaining({
-          to: 'v3.0.0',
-        }),
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ to: 'v3.0.0' }),
       )
+    })
+
+    it('Then assembles title, compareLink, body and contributors by default', async () => {
+      const pkg = { name: 'test-package', path: '/p/test', fromTag: 'v1.0.0' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.1.0',
+      })
+
+      expect(result).toContain('## v1.0.0...v1.1.0')
+      expect(result).toContain('[compare](url)')
+      expect(result).toContain('- feat: feature')
+      expect(result).toContain('❤️ Contributors')
     })
   })
 
@@ -185,10 +186,7 @@ describe('Given generateChangelog function', () => {
     it('Then uses independent tag for toTag', async () => {
       config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@1.1.0')
-      const pkg = {
-        name: 'pkg-a',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a' }
 
       await generateChangelog({
         pkg,
@@ -207,10 +205,7 @@ describe('Given generateChangelog function', () => {
       config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
       vi.mocked(getFirstCommit).mockReturnValue('initial')
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@0.0.0')
-      const pkg = {
-        name: 'pkg-a',
-        commits: [createMockCommit('feat', 'initial')],
-      }
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a' }
 
       await generateChangelog({
         pkg,
@@ -228,10 +223,9 @@ describe('Given generateChangelog function', () => {
 
   describe('When changelog has no commits', () => {
     it('Then appends empty changelog content', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [],
-      }
+      vi.mocked(getPackageCommits).mockResolvedValueOnce([])
+      vi.mocked(buildChangelogBody).mockReturnValueOnce('')
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       const result = await generateChangelog({
         pkg,
@@ -242,30 +236,79 @@ describe('Given generateChangelog function', () => {
 
       expect(result).toContain('No significant changes')
     })
+  })
 
-    it('Then still generates markdown structure', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [],
-      }
+  describe('When using `include` to filter sections', () => {
+    it('Then omits title and contributors when only body+compareLink requested', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
 
-      await generateChangelog({
+      const result = await generateChangelog({
         pkg,
         config,
         dryRun: false,
-        newVersion: '1.0.1',
+        newVersion: '1.1.0',
+        include: { title: false, compareLink: true, body: true, contributors: false },
       })
 
-      expect(generateMarkDown).toHaveBeenCalled()
+      expect(result).not.toContain('## v1.0.0...v1.1.0')
+      expect(result).toContain('[compare](url)')
+      expect(result).toContain('- feat: feature')
+      expect(result).not.toContain('Contributors')
+    })
+
+    it('Then returns only the body when include.body is the sole flag', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.1.0',
+        include: { title: false, compareLink: false, body: true, contributors: false },
+      })
+
+      expect(result).toBe('- feat: feature')
+    })
+  })
+
+  describe('When using transformBody', () => {
+    it('Then passes the rendered body through the callback before assembly', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.1.0',
+        include: { title: false, compareLink: false, body: true, contributors: false },
+        transformBody: body => `AI(${body})`,
+      })
+
+      expect(result).toBe('AI(- feat: feature)')
+    })
+  })
+
+  describe('When in minify mode', () => {
+    it('Then skips compareLink and contributors even if included', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.1.0',
+        minify: true,
+      })
+
+      expect(result).not.toContain('[compare](url)')
+      expect(result).not.toContain('Contributors')
+      expect(result).toContain('- feat: feature')
     })
   })
 
   describe('When executing hooks', () => {
-    it('Then executes generate:changelog hook', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+    it('Then executes generate:changelog hook for full output', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -279,18 +322,29 @@ describe('Given generateChangelog function', () => {
         expect.any(Object),
         false,
         expect.objectContaining({
-          commits: pkg.commits,
+          commits: expect.any(Array),
           changelog: expect.any(String),
         }),
       )
     })
 
+    it('Then skips the hook when only a partial section is requested', async () => {
+      const pkg = { name: 'test-package', path: '/p/test' }
+
+      await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '1.1.0',
+        include: { title: false, compareLink: false, body: true, contributors: false },
+      })
+
+      expect(executeHook).not.toHaveBeenCalled()
+    })
+
     it('Then uses hook result when provided', async () => {
       vi.mocked(executeHook).mockResolvedValue('Custom changelog from hook')
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       const result = await generateChangelog({
         pkg,
@@ -303,10 +357,7 @@ describe('Given generateChangelog function', () => {
     })
 
     it('Then passes dryRun to hook', async () => {
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -327,10 +378,7 @@ describe('Given generateChangelog function', () => {
   describe('When in dry-run mode', () => {
     it('Then logs dry-run message', async () => {
       const loggerSpy = vi.spyOn(logger, 'info')
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await generateChangelog({
         pkg,
@@ -347,11 +395,8 @@ describe('Given generateChangelog function', () => {
 
   describe('When error occurs', () => {
     it('Then throws error with package name and tags', async () => {
-      vi.mocked(generateMarkDown).mockRejectedValue(new Error('Markdown error'))
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      vi.mocked(getPackageCommits).mockRejectedValue(new Error('commits error'))
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await expect(generateChangelog({
         pkg,
@@ -366,10 +411,7 @@ describe('Given generateChangelog function', () => {
     it('Then throws error', async () => {
       config.to = undefined
       config.templates.tagBody = ''
-      const pkg = {
-        name: 'test-package',
-        commits: [createMockCommit('feat', 'feature')],
-      }
+      const pkg = { name: 'test-package', path: '/p/test' }
 
       await expect(generateChangelog({
         pkg,

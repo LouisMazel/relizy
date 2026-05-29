@@ -5,7 +5,7 @@ export default defineConfig({
   typescript: true,
   sonarjs: true,
   vue: true,
-  ignores: ['src/typedoc/**'],
+  ignores: ['src/typedoc/**', '.vitepress/cache', '.vitepress/dist', 'node_modules'],
 }, {
   rules: {
     'sonarjs/no-os-command-from-path': 'off',
