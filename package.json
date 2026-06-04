@@ -106,7 +106,7 @@
   "devDependencies": {
     "@commitlint/cli": "^20.5.0",
     "@commitlint/config-conventional": "20.5.0",
-    "@commitlint/cz-commitlint": "^20.5.1",
+    "@commitlint/cz-commitlint": "^21.0.2",
     "@commitlint/types": "^20.5.0",
     "@maz-ui/eslint-config": "^4.9.1",
     "@slack/web-api": "7.15.1",
