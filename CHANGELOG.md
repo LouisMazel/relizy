@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.4.7 (2026-06-09)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.6...v1.4.7)
+
+### 🩹 Fixes
+
+- Detect and recover from rewritten (orphaned) release tags ([3000559](https://github.com/LouisMazel/relizy/commit/3000559))
+
+  When a branch is rebased after a release, its tag points to a commit
+  that is no longer in the history. The changelog then spanned everything
+  since the last stable release (with duplicated commits) and bumped every
+  package. Relizy now detects this and uses the right commit range, while
+  leaving the tag name in the changelog untouched.
+  In CI / non-interactive it auto-corrects for the run and warns; in a TTY
+  it prompts. No commit is ever rewritten and nothing is mutated in dry-run.
+
+  ## New config options
+
+  ```ts
+  export default defineConfig({
+    // Enabled by default. Set to false to opt out.
+    detectRewrittenTags: true,
+    // Override the auto behaviour (prompt on TTY, ephemeral on CI):
+    // 'prompt' | 'ephemeral' | 'rebind' | 'error'
+    onRewrittenTag: 'ephemeral',
+  })
+  ```
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.6 (2026-05-29)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.5...v1.4.6)
