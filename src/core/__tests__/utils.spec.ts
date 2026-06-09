@@ -768,6 +768,7 @@ describe('Given getPackagesOrBumpedPackages function', () => {
         config,
         suffix: undefined,
         force: false,
+        dryRun: false,
       })
       expect(result).toEqual([
         { name: 'pkg-a', version: '1.0.0' },
@@ -790,6 +791,7 @@ describe('Given getPackagesOrBumpedPackages function', () => {
         config,
         suffix: 'beta',
         force: true,
+        dryRun: false,
       })
     })
   })

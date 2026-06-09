@@ -9,6 +9,7 @@ import { getErrorMessage } from '@maz-ui/utils'
 import { getGitDiff, parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
+import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
 import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
 
@@ -83,6 +84,7 @@ export async function getRootPackage({
   to,
   suffix,
   changelog,
+  dryRun = false,
 }: {
   config: ResolvedRelizyConfig
   force: boolean
@@ -90,6 +92,7 @@ export async function getRootPackage({
   to: string
   suffix: string | undefined
   changelog: boolean
+  dryRun?: boolean
 }): Promise<RootPackage> {
   try {
     const packageJson = readPackageJson(config.cwd)
@@ -104,6 +107,7 @@ export async function getRootPackage({
       to,
       config,
       changelog,
+      dryRun,
     })
 
     let newVersion: string | undefined
@@ -244,11 +248,13 @@ export async function getPackages({
   suffix,
   force,
   includeAll = false,
+  dryRun = false,
 }: {
   config: ResolvedRelizyConfig
   suffix: string | undefined
   force: boolean
   includeAll?: boolean
+  dryRun?: boolean
 }): Promise<PackageBase[]> {
   const patterns = config.monorepo?.packages
 
@@ -313,6 +319,7 @@ export async function getPackages({
         to,
         config,
         changelog: false,
+        dryRun,
       })
 
       foundPaths.add(matchPath)
@@ -419,29 +426,36 @@ export async function getPackageCommits({
   to,
   config,
   changelog,
+  dryRun = false,
 }: {
   pkg: ReadPackage
   from: string
   to: string
   config: ResolvedRelizyConfig
   changelog: boolean
+  dryRun?: boolean
 }): Promise<GitCommit[]> {
   logger.debug(`Analyzing commits for ${pkg.name} since ${from} to ${to}`)
 
   // For new packages without any previous tags, find the first commit
   // that touched this package to avoid ENOBUFS errors.
-  let actualFrom = from
+  let actualFrom: string
   if (from === NEW_PACKAGE_MARKER) {
     const firstPackageCommit = getFirstPackageCommitHash(pkg.path, config.cwd)
-    if (firstPackageCommit) {
-      logger.debug(`${pkg.name} is a new package, using first package commit: ${firstPackageCommit.slice(0, 8)}`)
-      // Use the parent of the first commit to include it in the diff
-      actualFrom = `${firstPackageCommit}^`
-    }
-    else {
+    if (!firstPackageCommit) {
       logger.debug(`${pkg.name} has no commits yet, returning empty`)
       return []
     }
+    logger.debug(`${pkg.name} is a new package, using first package commit: ${firstPackageCommit.slice(0, 8)}`)
+    // Use the parent of the first commit to include it in the diff
+    actualFrom = `${firstPackageCommit}^`
+  }
+  else {
+    // Recover from a rewritten/orphaned `from` tag (e.g. a rebase moved the
+    // release commit). This only affects the range passed to `git log`; the
+    // tag name used elsewhere (changelog title, compare link, new tag) is left
+    // untouched. No-op for healthy tags, SHAs and the new-package marker.
+    actualFrom = await reconcileFromTag({ from, to, config, pkg, dryRun })
   }
 
   const changelogConfig = {
