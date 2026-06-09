@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.4.6 (2026-05-29)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.5...v1.4.6)
+
+### 🩹 Fixes
+
+- **relizy:** Include title-only commit types in changelog and release outputs ([b487aef](https://github.com/LouisMazel/relizy/commit/b487aef))
+
+  Commits whose configured type defines a `title` without a `semver`
+  (e.g. `docs: { title: '📖 Documentation' }`) now appear in the
+  CHANGELOG, GitHub/GitLab release notes, and Slack/Twitter posts.
+  Such types still do not trigger a version bump — only types with a
+  `semver` field do. Set the type to `false` to exclude it from both
+  the changelog and the bump.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.5 (2026-05-12)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.4...v1.4.5)
