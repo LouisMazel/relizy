@@ -107,6 +107,7 @@ async function githubIndependentMode({
     bumpResult,
     suffix,
     force,
+    dryRun,
   }))
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
@@ -267,6 +268,7 @@ export async function github(options: ProviderReleaseOptions) {
       changelog: true,
       from,
       to,
+      dryRun,
     })
 
     return await githubUnified({

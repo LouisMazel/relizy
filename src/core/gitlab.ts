@@ -140,6 +140,7 @@ async function gitlabIndependentMode({
     bumpResult,
     suffix,
     force,
+    dryRun,
   }))
 
   logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
@@ -360,6 +361,7 @@ export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Pro
       changelog: true,
       from,
       to,
+      dryRun,
     })
 
     logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: newVersion })}`)

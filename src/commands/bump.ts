@@ -39,6 +39,7 @@ async function bumpUnifiedMode({
     to,
     suffix,
     changelog: false,
+    dryRun,
   })
 
   const currentVersion = rootPackage.version
@@ -58,6 +59,7 @@ async function bumpUnifiedMode({
     suffix,
     force,
     includeAll: true,
+    dryRun,
   })
 
   if (packages.length === 0) {
@@ -141,6 +143,7 @@ async function bumpSelectiveMode({
     to,
     suffix,
     changelog: false,
+    dryRun,
   })
 
   const currentVersion = rootPackage.version
@@ -158,6 +161,7 @@ async function bumpSelectiveMode({
     config,
     suffix,
     force,
+    dryRun,
   })
 
   if (packages.length === 0) {
@@ -239,6 +243,7 @@ async function bumpIndependentMode({
     config,
     suffix,
     force,
+    dryRun,
   })
 
   if (packagesToBump.length === 0) {
@@ -307,7 +312,7 @@ async function bumpCanaryMode({
   // Branch early for independent mode — each package gets its own canary version
   if (config.monorepo?.versionMode === 'independent') {
     const sha = getShortCommitSha(config.cwd)
-    const packages = await getPackages({ config, suffix: undefined, force: false })
+    const packages = await getPackages({ config, suffix: undefined, force: false, dryRun })
 
     if (packages.length === 0) {
       logger.debug('No packages to bump')
@@ -338,6 +343,7 @@ async function bumpCanaryMode({
     to,
     config,
     changelog: false,
+    dryRun,
   })
 
   const releaseType = determineSemverChange(commits, config.types as Record<string, { title: string, semver?: import('changelogen').SemverBumpType }>)
@@ -363,6 +369,7 @@ async function bumpCanaryMode({
     suffix: undefined,
     force: false,
     includeAll: isUnified,
+    dryRun,
   })
 
   if (packages.length === 0) {

@@ -313,8 +313,28 @@ const defaultConfig = {
     prComment: true,
   },
   logLevel: 'default',
+  detectRewrittenTags: true,
 }
 ```
+
+## Detecting Rewritten Tags
+
+When a release tag is created and pushed, then the branch is later rebased, the
+tag keeps pointing to the old (now orphaned) commit. Resolving a changelog from
+an orphaned tag spans the whole divergent range (often the entire history since
+the last stable release, with duplicated commits) and over-bumps packages.
+
+Relizy detects this automatically and recovers safely. Two top-level options
+control the behavior:
+
+| Option                | Type      | Default | Description                                                                                       |
+| --------------------- | --------- | ------- | ------------------------------------------------------------------------------------------------- |
+| `detectRewrittenTags` | `boolean` | `true`  | Detect when the `from` tag is no longer reachable from `to` and recover.                          |
+| `onRewrittenTag`      | `string`  | auto    | `prompt` \| `ephemeral` \| `rebind` \| `error`. Auto = `prompt` (TTY) / `ephemeral` (CI/`--yes`). |
+
+A commit is **never** rewritten; the only possible mutation is moving a tag.
+See the [Rewritten Tags & Rebases](/guide/rewritten-tags) guide for the full
+explanation and the recommended git workflow.
 
 ## Next Steps
 
