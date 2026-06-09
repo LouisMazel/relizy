@@ -111,6 +111,7 @@ async function generateSimpleRootChangelog({
     changelog: true,
     from: fromTag,
     to,
+    dryRun,
   })
 
   logger.debug(`Generating ${rootPackage.name} changelog (${fromTag}...${to})`)
@@ -173,6 +174,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
       bumpResult: options.bumpResult,
       suffix: options.suffix,
       force: options.force ?? false,
+      dryRun,
     })
 
     if (config.changelog?.rootChangelog && config.monorepo?.versionMode) {

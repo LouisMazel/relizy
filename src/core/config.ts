@@ -148,6 +148,7 @@ export function getDefaultConfig() {
     } as AIConfig,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
+    detectRewrittenTags: true,
   }
 }
 

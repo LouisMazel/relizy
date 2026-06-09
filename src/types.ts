@@ -1129,6 +1129,8 @@ export type HookConfig = {
  * Relizy configuration
  * @see https://relizy.dev/config/overview
  */
+export type OnRewrittenTag = 'prompt' | 'ephemeral' | 'rebind' | 'error'
+
 export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
   /**
    * Project name
@@ -1212,4 +1214,22 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * @default true
    */
   safetyCheck?: boolean
+  /**
+   * Detect when the resolved `from` tag points to a commit that is no longer
+   * reachable from `to` (typically because the history was rebased after the
+   * tag was created). When enabled, relizy explains the situation and either
+   * prompts or auto-corrects, avoiding bloated changelogs and over-bumping.
+   * @default true
+   */
+  detectRewrittenTags?: boolean
+  /**
+   * Strategy applied when a rewritten/orphaned `from` tag is detected.
+   * Defaults to `prompt` interactively, or `ephemeral` when non-interactive
+   * (`--yes` / no TTY / CI).
+   * - `prompt`: interactive selection.
+   * - `ephemeral`: use the reachable equivalent commit for this run only.
+   * - `rebind`: move the local tag onto the equivalent commit (no push).
+   * - `error`: throw and stop.
+   */
+  onRewrittenTag?: OnRewrittenTag
 }

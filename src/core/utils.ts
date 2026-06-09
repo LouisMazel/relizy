@@ -222,11 +222,13 @@ export async function getPackagesOrBumpedPackages({
   bumpResult,
   suffix,
   force,
+  dryRun = false,
 }: {
   config: ResolvedRelizyConfig
   bumpResult: BumpResultTruthy | undefined
   suffix: string | undefined
   force: boolean
+  dryRun?: boolean
 }): Promise<PackageBase[]> {
   if (bumpResult?.bumpedPackages && bumpResult.bumpedPackages.length > 0) {
     return bumpResult.bumpedPackages
@@ -236,5 +238,6 @@ export async function getPackagesOrBumpedPackages({
     config,
     suffix,
     force,
+    dryRun,
   })
 }

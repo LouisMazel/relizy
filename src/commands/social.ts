@@ -403,6 +403,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       changelog: true,
       from: fromTag,
       to,
+      dryRun,
     })
 
     const minifiedBody = await generateChangelog({
@@ -485,6 +486,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       to: 'HEAD',
       config,
       changelog: true,
+      dryRun,
     })
 
     const slackResponse = await handleSlackPost({

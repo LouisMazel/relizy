@@ -92,6 +92,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
       bumpResult: options.bumpResult,
       suffix: options.suffix,
       force: options.force ?? false,
+      dryRun,
     })
 
     const packages = filterOutPrivatePackages(discoveredPackages)

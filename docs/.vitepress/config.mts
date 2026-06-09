@@ -214,6 +214,7 @@ export default defineConfig({
           { text: 'Canary Releases', link: '/guide/canary-releases' },
           { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
           { text: 'Semver Convention', link: '/guide/semver-convention' },
+          { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
           { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
@@ -308,6 +309,7 @@ export default defineConfig({
             { text: 'Canary Releases', link: '/guide/canary-releases' },
             { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
             { text: 'Semver Convention', link: '/guide/semver-convention' },
+            { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
           ],
         },
         {

@@ -229,6 +229,7 @@ export async function generateChangelog(
       to: gitToRef,
       config: { ...config, from: gitFromRef, to: gitToRef },
       changelog: true,
+      dryRun,
     })
 
     const displayConfig = { ...config, from: displayFromTag, to: displayToTag }
