@@ -76,7 +76,7 @@
   },
   "peerDependencies": {
     "@slack/web-api": "^7.0.0",
-    "@yoloship/claude-sdk": "^0.1.0",
+    "@yoloship/claude-sdk": "^0.2.0-beta.6",
     "twitter-api-v2": "^1.20.0"
   },
   "peerDependenciesMeta": {
@@ -91,40 +91,40 @@
     }
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.4.2",
+    "@inquirer/prompts": "^8.5.2",
     "@maz-ui/node": "4.6.1",
     "@maz-ui/utils": "^4.7.6",
     "c12": "^3.3.3",
     "changelogen": "^0.6.2",
-    "commander": "^14.0.3",
+    "commander": "^15.0.0",
     "convert-gitmoji": "^0.1.5",
     "defu": "6.1.7",
     "fast-glob": "^3.3.2",
     "node-fetch-native": "^1.6.7",
-    "semver": "^7.7.4"
+    "semver": "^7.8.3"
   },
   "devDependencies": {
-    "@commitlint/cli": "^20.5.0",
-    "@commitlint/config-conventional": "20.5.0",
-    "@commitlint/cz-commitlint": "^20.5.1",
-    "@commitlint/types": "^20.5.0",
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "21.0.2",
+    "@commitlint/cz-commitlint": "^21.0.2",
+    "@commitlint/types": "^21.0.1",
     "@maz-ui/eslint-config": "^4.9.1",
-    "@slack/web-api": "7.15.1",
-    "@types/node": "^25.6.0",
+    "@slack/web-api": "7.16.0",
+    "@types/node": "^25.9.2",
     "@types/semver": "^7.7.1",
-    "@vitest/coverage-v8": "^4.1.5",
-    "@yoloship/claude-sdk": "0.1.0-beta.3",
+    "@vitest/coverage-v8": "^4.1.8",
+    "@yoloship/claude-sdk": "0.2.0-beta.6",
     "cross-env": "10.1.0",
-    "eslint": "^10.2.1",
+    "eslint": "^10.4.1",
     "husky": "9.1.7",
-    "jiti": "2.6.1",
-    "lint-staged": "^16.4.0",
-    "memfs": "^4.57.2",
-    "tsx": "^4.21.0",
+    "jiti": "2.7.0",
+    "lint-staged": "^17.0.7",
+    "memfs": "^4.57.6",
+    "tsx": "^4.22.4",
     "twitter-api-v2": "^1.29.0",
-    "typescript": "^5.9.3",
+    "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.1.5"
+    "vitest": "^4.1.8"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
