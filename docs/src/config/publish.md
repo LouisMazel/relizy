@@ -26,7 +26,7 @@ export default defineConfig({
 
 ## registry
 
-Use custom npm registry:
+Use a custom npm registry:
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -37,6 +37,12 @@ export default defineConfig({
   },
 })
 ```
+
+::: tip Registry resolution
+When `registry` is **not** set, Relizy resolves the effective registry from your environment (`npm config get registry`), which respects the `registry=` value in your `.npmrc` and falls back to `https://registry.npmjs.org/`.
+
+This means a custom registry (for example a corporate proxy) configured in your `.npmrc` is honored automatically. Set `publish.registry` explicitly only when you want to force a specific registry regardless of your `.npmrc`.
+:::
 
 ## tag
 

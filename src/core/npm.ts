@@ -1,5 +1,6 @@
 import type { PackageBase, PackageManager } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
@@ -8,8 +9,34 @@ import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
 import { isPrerelease, writeVersion } from './version'
 
+const DEFAULT_REGISTRY = 'https://registry.npmjs.org/'
+
 // Store OTP for the session to avoid re-prompting for each package
 let sessionOtp: string | undefined
+
+/**
+ * Resolve the effective npm registry from the environment (`.npmrc` files, env
+ * variables, npm/pnpm defaults) via `npm config get registry`. Falls back to the
+ * public registry when npm is unavailable or returns nothing.
+ *
+ * Used when the user did not set `publish.registry`, so Relizy honors a custom
+ * registry (e.g. a corporate proxy) configured in the user's `.npmrc` instead of
+ * forcing the public registry.
+ */
+export function getNpmRegistry(cwd: string = process.cwd()): string {
+  try {
+    const output = execSync('npm config get registry', {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()
+
+    return output && output !== 'undefined' ? output : DEFAULT_REGISTRY
+  }
+  catch {
+    return DEFAULT_REGISTRY
+  }
+}
 
 export function detectPackageManager(cwd: string = process.cwd()): PackageManager {
   try {

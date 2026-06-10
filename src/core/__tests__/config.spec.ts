@@ -8,6 +8,7 @@ import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
+import { getNpmRegistry } from '../npm'
 
 vi.mock('node:process', () => ({
   default: {
@@ -16,6 +17,13 @@ vi.mock('node:process', () => ({
     exit: vi.fn(),
   },
 }))
+vi.mock('../npm', async (importActual) => {
+  const actual = await importActual<typeof import('../npm')>()
+  return {
+    ...actual,
+    getNpmRegistry: vi.fn(() => 'https://registry.npmjs.org/'),
+  }
+})
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
   return {
@@ -865,6 +873,32 @@ describe('Given loadRelizyConfig function', () => {
         'Resolved config:',
         expect.any(String),
       )
+    })
+
+    it('Then resolves the registry from npm config when publish.registry is not set', async () => {
+      vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', publish: { token: 'x' } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+
+      const config = await loadRelizyConfig()
+
+      expect(config.publish.registry).toBe('https://my-proxy.example/')
+    })
+
+    it('Then keeps an explicitly configured registry over the npm config one', async () => {
+      vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', publish: { registry: 'https://custom-registry/' } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+
+      const config = await loadRelizyConfig()
+
+      expect(config.publish.registry).toBe('https://custom-registry/')
     })
 
     it('Then redacts secrets in the resolved config dump', async () => {
