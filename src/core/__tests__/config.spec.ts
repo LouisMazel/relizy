@@ -867,6 +867,34 @@ describe('Given loadRelizyConfig function', () => {
       )
     })
 
+    it('Then redacts secrets in the resolved config dump', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          tokens: { github: 'github_pat_SECRET123', registry: 'npm_SECRET789' },
+          publish: { token: 'npm_SECRET456', registry: 'https://registry.npmjs.org/' },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      await loadRelizyConfig()
+
+      const dumpCall = vi.mocked(logger.debug).mock.calls.find(call => call[0] === 'Resolved config:')
+      const dumped = dumpCall?.[1] as string
+
+      expect(dumped).not.toContain('github_pat_SECRET123')
+      expect(dumped).not.toContain('npm_SECRET456')
+      expect(dumped).not.toContain('npm_SECRET789')
+      expect(dumped).toContain('[redacted]')
+      // Non-secret values stay readable
+      expect(dumped).toContain('https://registry.npmjs.org/')
+    })
+
     it('Then formats config objects with formatJson', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
         config: { cwd: '/project', changelog: { rootChangelog: true } },
