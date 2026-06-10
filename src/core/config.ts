@@ -10,6 +10,7 @@ import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { detectPackageManager } from './npm'
+import { redactSecrets } from './redact'
 
 export function getDefaultConfig() {
   return {
@@ -272,7 +273,7 @@ export async function loadRelizyConfig(options?: {
 
   const resolvedConfig = await resolveConfig(results.config, cwd)
 
-  logger.debug('Resolved config:', formatJson(resolvedConfig))
+  logger.debug('Resolved config:', formatJson(redactSecrets(resolvedConfig)))
 
   return resolvedConfig as ResolvedRelizyConfig
 }
