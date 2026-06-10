@@ -1,5 +1,6 @@
 import type { PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
+import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
@@ -11,6 +12,7 @@ import {
   detectPackageManager,
   determinePublishTag,
   getAuthCommand,
+  getNpmRegistry,
   getPackagesToPublishInIndependentMode,
   getPackagesToPublishInSelectiveMode,
   publishPackage,
@@ -19,6 +21,7 @@ import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
 import { isPrerelease } from '../version'
 
+vi.mock('node:child_process')
 vi.mock('node:fs')
 vi.mock('node:path', async () => {
   const actual = await vi.importActual('node:path')
@@ -598,6 +601,38 @@ describe('Given getAuthCommand function', () => {
       expect(loggerSpy).toHaveBeenCalledWith(
         'Publish token only supported for pnpm and npm',
       )
+    })
+  })
+})
+
+describe('Given getNpmRegistry function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When npm config returns a registry', () => {
+    it('Then returns it trimmed (e.g. a .npmrc proxy)', () => {
+      vi.mocked(execSync).mockReturnValue('https://my-proxy.example/\n' as any)
+
+      expect(getNpmRegistry('/project')).toBe('https://my-proxy.example/')
+    })
+  })
+
+  describe('When npm config fails', () => {
+    it('Then falls back to the public npm registry', () => {
+      vi.mocked(execSync).mockImplementation(() => {
+        throw new Error('npm not found')
+      })
+
+      expect(getNpmRegistry('/project')).toBe('https://registry.npmjs.org/')
+    })
+  })
+
+  describe('When npm config returns an empty value', () => {
+    it('Then falls back to the public npm registry', () => {
+      vi.mocked(execSync).mockReturnValue('\n' as any)
+
+      expect(getNpmRegistry('/project')).toBe('https://registry.npmjs.org/')
     })
   })
 })

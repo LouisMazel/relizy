@@ -9,7 +9,7 @@ import { formatJson } from '@maz-ui/utils'
 import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
-import { detectPackageManager } from './npm'
+import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
 
 export function getDefaultConfig() {
@@ -59,7 +59,9 @@ export function getDefaultConfig() {
       private: false,
       args: [],
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
-      registry: 'https://registry.npmjs.org/',
+      // registry is intentionally left undefined: it is resolved later from the
+      // user's npm config / .npmrc (see resolveConfig) so a custom registry
+      // (e.g. a corporate proxy) is honored instead of forcing the public one.
       safetyCheck: true,
       safetyCheckTimeout: 15000,
       packageManager: detectPackageManager(process.cwd()),
@@ -200,6 +202,12 @@ async function resolveConfig(
       ...resolvedRepoConfig,
       provider: resolvedRepoConfig.provider as GitProvider,
     }
+  }
+
+  // When the user did not set a registry, resolve the effective one from their
+  // npm config / .npmrc so a custom registry (e.g. a proxy) is respected.
+  if (config.publish && !config.publish.registry) {
+    config.publish.registry = getNpmRegistry(cwd)
   }
 
   return config
