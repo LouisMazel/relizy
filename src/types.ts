@@ -497,6 +497,13 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * @default true
    */
   safetyCheck?: boolean
+  /**
+   * Maximum time in milliseconds for the registry authentication safety check
+   * before it is aborted. Prevents the release from hanging indefinitely when
+   * the registry (or a proxy) never answers.
+   * @default 15000
+   */
+  safetyCheckTimeout?: number
 }
 
 export interface PublishOptions extends PublishConfig {

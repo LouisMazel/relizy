@@ -1,4 +1,4 @@
-import { execPromise } from '@maz-ui/node'
+import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
@@ -67,6 +67,53 @@ describe('Given publishSafetyCheck function', () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
       await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
+    })
+  })
+
+  describe('When the auth check times out', () => {
+    it('Then throws a clear timeout error mentioning --no-safety-check', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 30000 }, safetyCheck: true, release: { publish: true } })
+      // execPromise kills the command on timeout: error.killed is then true.
+      vi.mocked(execPromise).mockRejectedValue(Object.assign(new Error('killed'), { killed: true }))
+
+      await expect(() => publishSafetyCheck({ config })).rejects.toThrow(/timed out/i)
+      await expect(() => publishSafetyCheck({ config })).rejects.toThrow(/--no-safety-check/)
+    })
+
+    it('Then passes the configured timeout to execPromise', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 12345 }, safetyCheck: true, release: { publish: true } })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ timeout: 12345 }),
+      )
+    })
+  })
+
+  describe('When the registry is slow to respond', () => {
+    it('Then logs a patience message before the timeout', async () => {
+      vi.useFakeTimers()
+      try {
+        const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 15000 }, safetyCheck: true, release: { publish: true } })
+        let resolveExec: (value: { stdout: string, stderr: string }) => void = () => {}
+        vi.mocked(execPromise).mockReturnValue(new Promise((resolve) => {
+          resolveExec = resolve
+        }))
+
+        const promise = publishSafetyCheck({ config })
+        await vi.advanceTimersByTimeAsync(5000)
+
+        expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('longer than expected'))
+
+        resolveExec({ stdout: '', stderr: '' })
+        await promise
+      }
+      finally {
+        vi.useRealTimers()
+      }
     })
   })
 

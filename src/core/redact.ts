@@ -25,38 +25,6 @@ const SENSITIVE_KEYS = new Set([
  */
 const SECRET_CONTAINER_KEYS = new Set(['tokens'])
 
-/**
- * Patterns of well-known secret formats, masked inside free-form strings such
- * as shell commands or error messages. Each keeps a recognizable prefix so the
- * log stays useful for debugging without leaking the secret.
- */
-const TOKEN_PATTERNS: Array<{ regex: RegExp, replacement: string }> = [
-  // npm automation/granular tokens: npm_xxxxx
-  { regex: /npm_[A-Z0-9]{8,}/gi, replacement: 'npm_[redacted]' },
-  // GitHub PAT (fine-grained): github_pat_xxxxx
-  { regex: /github_pat_\w{8,}/gi, replacement: 'github_pat_[redacted]' },
-  // GitHub classic tokens: ghp_/gho_/ghs_/ghr_/ghu_
-  { regex: /gh[posru]_[A-Z0-9]{8,}/gi, replacement: 'gh_[redacted]' },
-  // GitLab personal access tokens: glpat-xxxxx
-  { regex: /glpat-[\w\-]{8,}/gi, replacement: 'glpat-[redacted]' },
-  // Slack tokens: xoxb-/xoxp-/xoxa-/xoxr-/xoxs- (keep the prefix via capture group)
-  { regex: /(xox[baprs]-)[A-Z0-9-]{6,}/gi, replacement: '$1[redacted]' },
-  // Any `_authToken=...` assignment (npm nerf-dart auth in commands / .npmrc)
-  { regex: /_authToken=\S+/gi, replacement: '_authToken=[redacted]' },
-]
-
-/**
- * Mask known secret patterns inside a free-form string (commands, error
- * messages, URLs). Leaves the rest of the string intact.
- */
-export function maskTokens(input: string): string {
-  let output = input
-  for (const { regex, replacement } of TOKEN_PATTERNS) {
-    output = output.replace(regex, replacement)
-  }
-  return output
-}
-
 function redactValue(value: unknown, inSecretContainer: boolean, keyIsSensitive: boolean): unknown {
   if (typeof value === 'string') {
     if (value === '') {
