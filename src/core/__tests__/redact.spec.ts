@@ -3,37 +3,47 @@ import { redactSecrets } from '../redact'
 
 describe('Given redactSecrets function', () => {
   describe('When values live under the tokens container', () => {
-    it('Then masks every token value regardless of the key name', () => {
+    it('Then masks every token value but keeps a recognizable extract', () => {
       const result = redactSecrets({
         tokens: {
           registry: 'npm_ZJLIEE5NB9oDZIqNrHqAbST62Hwk',
           github: 'github_pat_11ACYEURI0Az3sxaTxp0Ia',
-          twitter: { apiKey: 'tw-key', apiKeySecret: 'tw-secret' },
         },
       })
 
-      expect(result.tokens.registry).toBe('[redacted]')
-      expect(result.tokens.github).toBe('[redacted]')
-      expect(result.tokens.twitter.apiKey).toBe('[redacted]')
-      expect(result.tokens.twitter.apiKeySecret).toBe('[redacted]')
+      // long secrets keep their first/last 4 chars, the middle is masked
+      expect(result.tokens.registry).not.toContain('ZJLIEE5NB9oDZIqNrHqAbST62Hwk')
+      expect(result.tokens.registry).toBe('npm_***2Hwk')
+      expect(result.tokens.github).not.toContain('11ACYEURI0Az3sxaTxp0Ia')
+      expect(result.tokens.github).toBe('gith***p0Ia')
+    })
+
+    it('Then fully masks short secrets (no extract revealed)', () => {
+      const result = redactSecrets({
+        tokens: { twitter: { apiKey: 'tw-key', apiKeySecret: 'short-secret' } },
+      })
+
+      expect(result.tokens.twitter.apiKey).toBe('***')
+      expect(result.tokens.twitter.apiKeySecret).toBe('***')
     })
   })
 
   describe('When sensitive keys appear outside the tokens container', () => {
     it('Then masks them by key name', () => {
       const result = redactSecrets({
-        publish: { token: 'npm_secret', registry: 'https://registry.npmjs.org/' },
-        repo: { token: 'gh_secret', repo: 'owner/name' },
-        social: { slack: { credentials: { token: 'xoxb-secret' }, webhookUrl: 'https://hooks.slack.com/services/T/B/X' } },
-        ai: { providers: { 'claude-code': { oauthToken: 'oauth-secret', apiKey: 'ai-key' } } },
+        publish: { token: 'npm_FAKE000ZJLIEE5NB9oDZIqNr', registry: 'https://registry.npmjs.org/' },
+        repo: { token: 'short', repo: 'owner/name' },
+        social: { slack: { credentials: { token: 'xoxb-secret' }, webhookUrl: 'https://hooks.slack.com/services/AAAA/BBBB/CCCC' } },
+        ai: { providers: { 'claude-code': { oauthToken: 'sk-ant-oat01-abcdefghij', apiKey: 'ai-key' } } },
       })
 
-      expect(result.publish.token).toBe('[redacted]')
-      expect(result.repo.token).toBe('[redacted]')
-      expect(result.social.slack.credentials.token).toBe('[redacted]')
-      expect(result.social.slack.webhookUrl).toBe('[redacted]')
-      expect(result.ai.providers['claude-code'].oauthToken).toBe('[redacted]')
-      expect(result.ai.providers['claude-code'].apiKey).toBe('[redacted]')
+      expect(result.publish.token).not.toContain('FAKE000ZJLIEE5NB9oDZIqNr')
+      expect(result.publish.token).toBe('npm_***IqNr')
+      expect(result.repo.token).toBe('***')
+      expect(result.social.slack.credentials.token).toBe('***')
+      expect(result.social.slack.webhookUrl).not.toContain('AAAA')
+      expect(result.ai.providers['claude-code'].oauthToken).not.toContain('abcdefghij')
+      expect(result.ai.providers['claude-code'].apiKey).toBe('***')
     })
   })
 

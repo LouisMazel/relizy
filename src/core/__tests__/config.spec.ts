@@ -924,7 +924,9 @@ describe('Given loadRelizyConfig function', () => {
       expect(dumped).not.toContain('github_pat_SECRET123')
       expect(dumped).not.toContain('npm_SECRET456')
       expect(dumped).not.toContain('npm_SECRET789')
-      expect(dumped).toContain('[redacted]')
+      // Secrets are masked but keep a recognizable extract
+      expect(dumped).toContain('***')
+      expect(dumped).toContain('gith***T123')
       // Non-secret values stay readable
       expect(dumped).toContain('https://registry.npmjs.org/')
     })

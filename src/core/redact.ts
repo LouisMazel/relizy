@@ -1,4 +1,21 @@
-const REDACTED = '[redacted]'
+const MASK = '***'
+const VISIBLE_PREFIX = 4
+const VISIBLE_SUFFIX = 4
+// Below this length, revealing 4+4 chars would expose too much, so mask fully.
+const MIN_LENGTH_TO_REVEAL = 16
+
+/**
+ * Mask a secret string while keeping a recognizable extract: the first and last
+ * few characters stay visible (e.g. `npm_***2Hwk`) so the right credential can
+ * still be identified, while the secret itself is never fully exposed. Secrets
+ * shorter than {@link MIN_LENGTH_TO_REVEAL} are masked entirely.
+ */
+function maskSecretValue(value: string): string {
+  if (value.length < MIN_LENGTH_TO_REVEAL) {
+    return MASK
+  }
+  return `${value.slice(0, VISIBLE_PREFIX)}${MASK}${value.slice(-VISIBLE_SUFFIX)}`
+}
 
 /**
  * Key names whose value is always a secret, wherever they appear in the config.
@@ -31,7 +48,7 @@ function redactValue(value: unknown, inSecretContainer: boolean, keyIsSensitive:
       return value
     }
     if (inSecretContainer || keyIsSensitive) {
-      return REDACTED
+      return maskSecretValue(value)
     }
     return value
   }
