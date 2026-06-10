@@ -143,6 +143,27 @@ export default defineConfig({
 })
 ```
 
+## safetyCheckTimeout
+
+Maximum time, in milliseconds, allowed for the registry authentication safety check (`npm`/`pnpm whoami`) before it is aborted. This prevents the release from hanging indefinitely when the registry, or a proxy in front of it, never answers.
+
+- **Type:** `number`
+- **Default:** `15000`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    safetyCheckTimeout: 15000,
+  },
+})
+```
+
+::: tip
+If your registry is behind a slow proxy and you hit timeouts, increase this value. To skip the authentication check entirely, run the command with `--no-safety-check`.
+:::
+
 ## Complete Example
 
 ```ts
@@ -158,6 +179,7 @@ export default defineConfig({
     buildCmd: 'pnpm build',
     token: process.env.NPM_TOKEN,
     safetyCheck: true,
+    safetyCheckTimeout: 15000,
   },
 })
 ```

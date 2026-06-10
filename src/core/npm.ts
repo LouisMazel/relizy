@@ -296,7 +296,8 @@ async function executePublishCommand({
     return
   }
 
-  const { stdout, stderr } = await execPromise(command, {
+  // execPromise already logs stdout/stderr in debug with secrets masked.
+  await execPromise(command, {
     noStderr: true,
     noStdout: true,
     noSuccess: true,
@@ -304,9 +305,6 @@ async function executePublishCommand({
     logLevel: config.logLevel,
     cwd: pkg.path,
   })
-
-  logger.debug('Publish stdout:', stdout)
-  logger.debug('Publish stderr:', stderr)
 }
 
 export function getAuthCommand({

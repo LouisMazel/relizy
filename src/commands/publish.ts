@@ -14,30 +14,53 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
 
   const isPnpmOrNpm = config.publish.packageManager === 'pnpm' || config.publish.packageManager === 'npm'
 
-  if (isPnpmOrNpm) {
-    const authCommand = getAuthCommand({
-      packageManager: config.publish.packageManager,
-      config,
-      otp: config.publish.otp,
-    })
-
-    try {
-      logger.debug('Authenticating to package registry...')
-      await execPromise(authCommand, {
-        cwd: config.cwd,
-        noStderr: true,
-        noStdout: true,
-        logLevel: config.logLevel,
-        noSuccess: true,
-      })
-      logger.info('Successfully authenticated to package registry')
-    }
-    catch (error) {
-      throw new Error('Failed to authenticate to package registry', { cause: error })
-    }
-  }
-  else {
+  if (!isPnpmOrNpm) {
     logger.debug(`Skipping authentication to package registry because "${config.publish.packageManager}" is not supported`)
+    return
+  }
+
+  const authCommand = getAuthCommand({
+    packageManager: config.publish.packageManager,
+    config,
+    otp: config.publish.otp,
+  })
+  const timeoutMs = config.publish.safetyCheckTimeout ?? 15000
+
+  // Warn the user if the registry is slow, so a multi-second wait does not look
+  // like a freeze. Fires well before the timeout and is always cleared after.
+  const patienceDelay = Math.min(5000, Math.floor(timeoutMs / 2))
+  const patienceTimer = setTimeout(() => {
+    logger.info(`The package registry is taking longer than expected to respond (will time out at ${Math.round(timeoutMs / 1000)}s)...`)
+  }, patienceDelay)
+
+  try {
+    logger.info('Authenticating to package registry...')
+    // execPromise enforces the timeout, masks the token in its logs/errors,
+    // and kills the command on timeout (error.killed is then true).
+    await execPromise(authCommand, {
+      cwd: config.cwd,
+      timeout: timeoutMs,
+      noStdout: true,
+      noStderr: true,
+      noSuccess: true,
+      noError: true,
+      logLevel: config.logLevel,
+    })
+    logger.info('Successfully authenticated to package registry')
+  }
+  catch (error) {
+    if ((error as { killed?: boolean })?.killed) {
+      throw new Error(
+        `Authentication to package registry timed out after ${timeoutMs}ms. `
+        + 'The registry did not respond - check your network or registry access, '
+        + 'increase publish.safetyCheckTimeout, or skip this check with --no-safety-check.',
+        { cause: error },
+      )
+    }
+    throw new Error('Failed to authenticate to package registry', { cause: error })
+  }
+  finally {
+    clearTimeout(patienceTimer)
   }
 }
 
