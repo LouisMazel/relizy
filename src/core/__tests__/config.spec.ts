@@ -8,6 +8,7 @@ import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
+import { getNpmRegistry } from '../npm'
 
 vi.mock('node:process', () => ({
   default: {
@@ -16,6 +17,13 @@ vi.mock('node:process', () => ({
     exit: vi.fn(),
   },
 }))
+vi.mock('../npm', async (importActual) => {
+  const actual = await importActual<typeof import('../npm')>()
+  return {
+    ...actual,
+    getNpmRegistry: vi.fn(() => 'https://registry.npmjs.org/'),
+  }
+})
 vi.mock('@maz-ui/utils', async () => {
   const actual = await vi.importActual('@maz-ui/utils')
   return {
@@ -865,6 +873,62 @@ describe('Given loadRelizyConfig function', () => {
         'Resolved config:',
         expect.any(String),
       )
+    })
+
+    it('Then resolves the registry from npm config when publish.registry is not set', async () => {
+      vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', publish: { token: 'x' } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+
+      const config = await loadRelizyConfig()
+
+      expect(config.publish.registry).toBe('https://my-proxy.example/')
+    })
+
+    it('Then keeps an explicitly configured registry over the npm config one', async () => {
+      vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', publish: { registry: 'https://custom-registry/' } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+
+      const config = await loadRelizyConfig()
+
+      expect(config.publish.registry).toBe('https://custom-registry/')
+    })
+
+    it('Then redacts secrets in the resolved config dump', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          tokens: { github: 'github_pat_SECRET123', registry: 'npm_SECRET789' },
+          publish: { token: 'npm_SECRET456', registry: 'https://registry.npmjs.org/' },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({
+        provider: 'github',
+        domain: 'github.com',
+        repo: 'user/repo',
+      })
+
+      await loadRelizyConfig()
+
+      const dumpCall = vi.mocked(logger.debug).mock.calls.find(call => call[0] === 'Resolved config:')
+      const dumped = dumpCall?.[1] as string
+
+      expect(dumped).not.toContain('github_pat_SECRET123')
+      expect(dumped).not.toContain('npm_SECRET456')
+      expect(dumped).not.toContain('npm_SECRET789')
+      // Secrets are masked but keep a recognizable extract
+      expect(dumped).toContain('***')
+      expect(dumped).toContain('gith***T123')
+      // Non-secret values stay readable
+      expect(dumped).toContain('https://registry.npmjs.org/')
     })
 
     it('Then formats config objects with formatJson', async () => {

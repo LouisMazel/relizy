@@ -26,7 +26,7 @@ export default defineConfig({
 
 ## registry
 
-Use custom npm registry:
+Use a custom npm registry:
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -37,6 +37,12 @@ export default defineConfig({
   },
 })
 ```
+
+::: tip Registry resolution
+When `registry` is **not** set, Relizy resolves the effective registry from your environment (`npm config get registry`), which respects the `registry=` value in your `.npmrc` and falls back to `https://registry.npmjs.org/`.
+
+This means a custom registry (for example a corporate proxy) configured in your `.npmrc` is honored automatically. Set `publish.registry` explicitly only when you want to force a specific registry regardless of your `.npmrc`.
+:::
 
 ## tag
 
@@ -143,6 +149,27 @@ export default defineConfig({
 })
 ```
 
+## safetyCheckTimeout
+
+Maximum time, in milliseconds, allowed for the registry authentication safety check (`npm`/`pnpm whoami`) before it is aborted. This prevents the release from hanging indefinitely when the registry, or a proxy in front of it, never answers.
+
+- **Type:** `number`
+- **Default:** `15000`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    safetyCheckTimeout: 15000,
+  },
+})
+```
+
+::: tip
+If your registry is behind a slow proxy and you hit timeouts, increase this value. To skip the authentication check entirely, run the command with `--no-safety-check`.
+:::
+
 ## Complete Example
 
 ```ts
@@ -158,6 +185,7 @@ export default defineConfig({
     buildCmd: 'pnpm build',
     token: process.env.NPM_TOKEN,
     safetyCheck: true,
+    safetyCheckTimeout: 15000,
   },
 })
 ```

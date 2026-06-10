@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MazGithub } from '@maz-ui/icons'
-import { MazAvatar, MazCardSpotlight } from 'maz-ui/components'
+import MazAvatar from 'maz-ui/components/MazAvatar'
+import MazCardSpotlight from 'maz-ui/components/MazCardSpotlight'
 
 const {
   repo,
