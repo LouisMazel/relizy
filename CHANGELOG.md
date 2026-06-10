@@ -1,5 +1,75 @@
 # Changelog
 
+## v1.4.8-beta.0 (2026-06-10)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.7...v1.4.8-beta.0)
+
+### 🩹 Fixes
+
+- **relizy:** Include title-only commit types in changelog and release outputs ([cb3dc6a](https://github.com/LouisMazel/relizy/commit/cb3dc6a))
+
+  Commits whose configured type defines a `title` without a `semver`
+  (e.g. `docs: { title: '📖 Documentation' }`) now appear in the
+  CHANGELOG, GitHub/GitLab release notes, and Slack/Twitter posts.
+  Such types still do not trigger a version bump — only types with a
+  `semver` field do. Set the type to `false` to exclude it from both
+  the changelog and the bump.
+
+- Detect and recover from rewritten (orphaned) release tags ([b4d6478](https://github.com/LouisMazel/relizy/commit/b4d6478))
+
+  When a branch is rebased after a release, its tag points to a commit
+  that is no longer in the history. The changelog then spanned everything
+  since the last stable release (with duplicated commits) and bumped every
+  package. Relizy now detects this and uses the right commit range, while
+  leaving the tag name in the changelog untouched.
+  In CI / non-interactive it auto-corrects for the run and warns; in a TTY
+  it prompts. No commit is ever rewritten and nothing is mutated in dry-run.
+
+  ## New config options
+
+  ```ts
+  export default defineConfig({
+    // Enabled by default. Set to false to opt out.
+    detectRewrittenTags: true,
+    // Override the auto behaviour (prompt on TTY, ephemeral on CI):
+    // 'prompt' | 'ephemeral' | 'rebind' | 'error'
+    onRewrittenTag: 'ephemeral',
+  })
+  ```
+
+- Redact secrets in logs to prevent token leakage ([d2d9ed9](https://github.com/LouisMazel/relizy/commit/d2d9ed9))
+
+  Tokens (npm, GitHub and others) could appear in clear text in Relizy's
+  debug logs. They are now hidden, so sharing your logs no longer risks
+  exposing your secrets.
+
+- Prevent release hang on registry auth safety check ([52cc132](https://github.com/LouisMazel/relizy/commit/52cc132))
+
+  registry authentication when the registry did not respond.
+  It now stops after a short delay and shows a clear error instead of
+  hanging. You can adjust the delay with `publish.safetyCheckTimeout`
+  (15s by default) or skip the check with `--no-safety-check`.
+
+- Honor the registry from .npmrc instead of forcing the public one ([345f09b](https://github.com/LouisMazel/relizy/commit/345f09b))
+
+  Relizy always targeted the public npm registry for the authentication
+  check and publishing, ignoring a custom registry set in your `.npmrc`
+  (for example a corporate proxy). On networks where the public registry
+  is only reachable through that proxy, this caused the registry check to
+  hang.
+  When `publish.registry` is not set, Relizy now resolves the registry
+  from your npm config, so a proxy or private registry configured in
+  `.npmrc` is respected. Set `publish.registry` only to force a specific
+  registry.
+
+### 📦 Build
+
+- Upgrade maz-ui dependencies ([d827532](https://github.com/LouisMazel/relizy/commit/d827532))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.7 (2026-06-09)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.6...v1.4.7)
