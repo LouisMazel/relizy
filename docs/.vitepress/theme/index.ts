@@ -6,7 +6,7 @@ import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
 import Layout from './components/Layout.vue'
-import 'maz-ui/styles'
+import 'maz-ui/style.css'
 import './style.css'
 
 export default {
@@ -18,7 +18,7 @@ export default {
     app.use(MazUi, {
       theme: {
         darkModeStrategy: 'class',
-        strategy: 'hybrid',
+        strategy: 'runtime',
         overrides: {
           foundation: {
             'border-width': '1px',
