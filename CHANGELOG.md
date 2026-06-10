@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.4.8-beta.1 (2026-06-10)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.8-beta.0...v1.4.8-beta.1)
+
+### 🩹 Fixes
+
+- Keep a recognizable extract when masking secrets in logs ([216f5f8](https://github.com/LouisMazel/relizy/commit/216f5f8))
+
+  Masked secrets in the resolved-config debug output now keep their first
+  and last few characters (e.g. `npm_***2Hwk`) instead of being fully
+  replaced by `[redacted]`, so you can still tell which token is which
+  without exposing it. Secrets shorter than 16 characters are still masked
+  entirely.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.8-beta.0 (2026-06-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.7...v1.4.8-beta.0)
