@@ -1,6 +1,6 @@
 import type { GitCommit, ResolvedChangelogConfig } from 'changelogen'
 import type { ResolvedRelizyConfig } from './config'
-import { upperFirst } from '@maz-ui/utils'
+import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'

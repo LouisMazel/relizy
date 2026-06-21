@@ -1,5 +1,5 @@
 import type { GitCommit } from 'changelogen'
-import { upperFirst } from '@maz-ui/utils'
+import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
@@ -8,13 +8,9 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
 import { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames, generateMarkDown, parseChangelogMarkdown } from '../markdown'
 
-vi.mock('@maz-ui/utils', async () => {
-  const actual = await vi.importActual('@maz-ui/utils')
-  return {
-    ...actual,
-    upperFirst: vi.fn((str: string) => str.charAt(0).toUpperCase() + str.slice(1)),
-  }
-})
+vi.mock('@maz-ui/utils/helpers/upperFirst', () => ({
+  upperFirst: vi.fn((str: string) => str.charAt(0).toUpperCase() + str.slice(1)),
+}))
 vi.mock('changelogen')
 vi.mock('convert-gitmoji')
 vi.mock('node-fetch-native')

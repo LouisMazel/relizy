@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { RelizyConfig } from '../../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { formatJson } from '@maz-ui/utils'
+import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
@@ -24,13 +24,9 @@ vi.mock('../npm', async (importActual) => {
     getNpmRegistry: vi.fn(() => 'https://registry.npmjs.org/'),
   }
 })
-vi.mock('@maz-ui/utils', async () => {
-  const actual = await vi.importActual('@maz-ui/utils')
-  return {
-    ...actual,
-    formatJson: vi.fn(obj => JSON.stringify(obj)),
-  }
-})
+vi.mock('@maz-ui/utils/helpers/formatJson', () => ({
+  formatJson: vi.fn(obj => JSON.stringify(obj)),
+}))
 vi.mock('c12')
 vi.mock('changelogen')
 vi.mock('defu')
