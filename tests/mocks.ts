@@ -1,4 +1,4 @@
-import type { DeepPartial } from '@maz-ui/utils'
+import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../src/core/config'
 import type { PackageBase, RelizyConfig } from '../src/types'

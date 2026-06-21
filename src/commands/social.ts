@@ -4,7 +4,7 @@ import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { getErrorMessage } from '@maz-ui/utils'
+import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { collectContributorNames, collectPackageBumps, executeHook, generateChangelog, getPackageCommits, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 

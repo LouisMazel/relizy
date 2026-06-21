@@ -2,7 +2,7 @@ import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '..
 import type { ResolvedRelizyConfig } from './config'
 import type { RootPackage } from './repo'
 import { execPromise, logger } from '@maz-ui/node'
-import { formatJson } from '@maz-ui/utils'
+import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'

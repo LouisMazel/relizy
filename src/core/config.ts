@@ -1,10 +1,10 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { DeepPartial } from '@maz-ui/utils'
+import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
 import type { AIConfig, BumpConfig, ChangelogConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { formatJson } from '@maz-ui/utils'
+import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
