@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.4.9 (2026-06-21)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.8...v1.4.9)
+
+### 💅 Refactors
+
+- **relizy:** Use deep imports for @maz-ui/utils helpers ([#106](https://github.com/LouisMazel/relizy/pull/106))
+
+  Closes #100, #105
+
+### ❤️ Contributors
+
+- Mazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.8 (2026-06-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.7...v1.4.8)
