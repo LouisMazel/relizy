@@ -36,6 +36,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         access: options.access,
         otp: options.otp,
         registry: options.registry,
+        registries: options.registries,
         tag: options.tag,
         buildCmd: options.buildCmd,
         token: options.publishToken,

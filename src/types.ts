@@ -459,6 +459,38 @@ export interface SocialOptions {
   ai?: boolean
 }
 
+export interface RegistryTarget {
+  /**
+   * Optional label used in logs to identify this registry (e.g. `nexus-internal`)
+   */
+  name?: string
+  /**
+   * Registry URL (e.g. `https://registry.npmjs.org/`, a Nexus or JFrog URL)
+   */
+  registry: string
+  /**
+   * Registry token - only supported for pnpm and npm
+   */
+  token?: string
+  /**
+   * Publish tag (e.g. `latest`)
+   */
+  tag?: string
+  /**
+   * Publish access level (e.g. `public` or `restricted`)
+   */
+  access?: 'public' | 'restricted'
+  /**
+   * OTP for this registry (e.g. `123456`)
+   */
+  otp?: string
+  /**
+   * Glob pattern matching package names this registry applies to.
+   * Omitted or empty = applies to every publishable package (mirroring).
+   */
+  packages?: string[]
+}
+
 export type PublishConfig = IChangelogConfig['publish'] & {
   /**
    * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
@@ -504,6 +536,13 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * @default 15000
    */
   safetyCheckTimeout?: number
+  /**
+   * Additional registries to publish to, on top of `registry` (if set).
+   * Entries without `packages` apply to every package (mirroring); entries
+   * with `packages` only apply to packages matching one of the glob patterns.
+   * Fully additive: leaving this unset preserves the single-registry behavior.
+   */
+  registries?: RegistryTarget[]
 }
 
 export interface PublishOptions extends PublishConfig {

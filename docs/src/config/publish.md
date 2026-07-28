@@ -132,6 +132,77 @@ export default defineConfig({
 You can also configure the token in the `tokens.registry` field or via environment variables: `NPM_TOKEN`, `RELIZY_NPM_TOKEN`, or `NODE_AUTH_TOKEN`.
 :::
 
+## registries
+
+Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packages` filter are mirrored to every publishable package.
+
+This is fully opt-in and additive: leaving `registries` unset keeps the exact single-registry behavior described above.
+
+- **Type:** `RegistryTarget[]`
+
+```ts
+interface RegistryTarget {
+  name?: string // label used in logs, e.g. 'nexus'
+  registry: string // registry URL
+  token?: string
+  tag?: string
+  access?: 'public' | 'restricted'
+  otp?: string
+  packages?: string[] // glob patterns - omitted = applies to every package
+}
+```
+
+### Mirroring to every package
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    registry: 'https://registry.npmjs.org',
+    registries: [
+      {
+        name: 'nexus',
+        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
+        token: process.env.NEXUS_TOKEN,
+      },
+    ],
+  },
+})
+```
+
+Every package is published to `https://registry.npmjs.org` **and** to the internal Nexus registry.
+
+### Routing specific packages to a registry
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    registry: 'https://registry.npmjs.org',
+    registries: [
+      {
+        name: 'jfrog-internal',
+        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
+        token: process.env.JFROG_TOKEN,
+        packages: ['@internal/*'],
+      },
+    ],
+  },
+})
+```
+
+Here, only packages whose name matches `@internal/*` are additionally published to the JFrog registry; every package still goes to the default `registry`.
+
+::: tip Authentication safety check
+When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry declared in `registry` and `registries` before publishing starts (not just the ones matching a given package), so a misconfigured registry fails fast rather than mid-release.
+:::
+
+::: tip Failure behavior
+Publishing is fail-fast: if a package fails to publish to any of its resolved registries, the whole release stops immediately - it does not continue publishing the remaining registries or packages.
+:::
+
 ## safetyCheck
 
 Enable or disable the safety check before publishing. When enabled, Relizy will verify that the required tokens are set.
@@ -184,6 +255,13 @@ export default defineConfig({
     packages: ['packages/*'],
     buildCmd: 'pnpm build',
     token: process.env.NPM_TOKEN,
+    registries: [
+      {
+        name: 'nexus',
+        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
+        token: process.env.NEXUS_TOKEN,
+      },
+    ],
     safetyCheck: true,
     safetyCheckTimeout: 15000,
   },

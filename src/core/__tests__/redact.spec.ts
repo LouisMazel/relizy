@@ -47,6 +47,25 @@ describe('Given redactSecrets function', () => {
     })
   })
 
+  describe('When tokens live inside the publish.registries array', () => {
+    it('Then masks each registry entry token but keeps the registry URL', () => {
+      const result = redactSecrets({
+        publish: {
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-secret-token-abcdefgh' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+          ],
+        },
+      })
+
+      expect(result.publish.registries[0].token).not.toContain('secret-token-abcdefgh')
+      expect(result.publish.registries[0].registry).toBe('https://nexus.internal/repo/')
+      expect(result.publish.registries[1].token).toBeUndefined()
+      expect(result.publish.registries[1].packages).toEqual(['@scope/*'])
+    })
+  })
+
   describe('When values are not sensitive', () => {
     it('Then leaves them untouched', () => {
       const result = redactSecrets({

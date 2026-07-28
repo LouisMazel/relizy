@@ -147,6 +147,81 @@ describe('Given publishSafetyCheck function', () => {
       expect(processExitSpy).not.toHaveBeenCalled()
     })
   })
+
+  describe('When multiple registries are configured', () => {
+    it('Then authenticates against every distinct registry, once each', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          private: false,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+          ],
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(execPromise).toHaveBeenCalledTimes(3)
+      expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://nexus.internal/repo/'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(3, expect.stringContaining('--registry https://jfrog.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then deduplicates a registry declared both as legacy and explicit', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          private: false,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'duplicate', registry: 'https://registry.npmjs.org/' },
+          ],
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then stops at the first failing registry (fail-fast)', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          private: false,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+          ],
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
+
+      await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+    })
+  })
 })
 
 describe('Given publish command', () => {

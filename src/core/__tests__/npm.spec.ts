@@ -16,6 +16,8 @@ import {
   getPackagesToPublishInIndependentMode,
   getPackagesToPublishInSelectiveMode,
   publishPackage,
+  resolveAllConfiguredRegistryTargets,
+  resolveRegistryTargetsForPackage,
 } from '../npm'
 import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
@@ -637,6 +639,130 @@ describe('Given getNpmRegistry function', () => {
   })
 })
 
+describe('Given resolveRegistryTargetsForPackage function', () => {
+  let pkg: PackageBase
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    pkg = { ...createMockPackageInfo(), name: 'test-package' }
+  })
+
+  describe('When only the legacy registry is configured', () => {
+    it('Then returns a single target built from the legacy fields', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { private: false, args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toEqual([
+        { name: 'default', registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest', access: undefined, otp: undefined },
+      ])
+    })
+  })
+
+  describe('When an explicit registry has no packages filter', () => {
+    it('Then mirrors it to every package alongside the legacy registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'nexus'])
+    })
+  })
+
+  describe('When an explicit registry is scoped with a packages glob', () => {
+    it('Then includes it only for a package matching the pattern', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] }],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'jfrog'])
+    })
+
+    it('Then excludes it for a package not matching the pattern', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default'])
+    })
+  })
+
+  describe('When an explicit registry duplicates the legacy registry URL', () => {
+    it('Then keeps only the first occurrence (legacy wins)', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
+    })
+  })
+})
+
+describe('Given resolveAllConfiguredRegistryTargets function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When registries mix global and scoped entries', () => {
+    it('Then returns every distinct registry regardless of package scoping', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+          ],
+        },
+      })
+
+      const result = resolveAllConfiguredRegistryTargets(config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'nexus', 'jfrog'])
+    })
+  })
+})
+
 describe('Given publishPackage function', () => {
   let config: ResolvedRelizyConfig
   let pkg: PackageBase
@@ -1207,6 +1333,98 @@ describe('Given publishPackage function', () => {
       })
 
       expect(writeFileSync).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When multiple registries are configured', () => {
+    it('Then publishes to the legacy registry and every mirrored registry', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(2)
+      expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://nexus.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then only publishes to a scoped registry matching the package name', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+      ]
+
+      await publishPackage({
+        pkg, // name: 'test-package', does not match '@scope/*'
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+
+    it('Then publishes to a scoped registry when the package name matches', async () => {
+      pkg.name = '@scope/foo'
+      vi.mocked(getIndependentTag).mockReturnValue('@scope/foo@1.0.1')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(2)
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://jfrog.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then includes the registry name in the log when publishing to more than one', async () => {
+      const loggerSpy = vi.spyOn(logger, 'info')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[default]'))
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[nexus]'))
+    })
+
+    it('Then stops at the first failing registry and does not attempt the next one (fail-fast)', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+      vi.mocked(execPromise).mockRejectedValue(new Error('Publish failed'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow('Publish failed')
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
     })
   })
 })

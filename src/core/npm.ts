@@ -1,18 +1,19 @@
-import type { PackageBase, PackageManager } from '../types'
+import type { PackageBase, PackageManager, RegistryTarget } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
+import micromatch from 'micromatch'
 import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
 import { isPrerelease, writeVersion } from './version'
 
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org/'
 
-// Store OTP for the session to avoid re-prompting for each package
-let sessionOtp: string | undefined
+// Store OTP per registry for the session to avoid re-prompting for each package
+const sessionOtpByRegistry = new Map<string, string>()
 
 /**
  * Resolve the effective npm registry from the environment (`.npmrc` files, env
@@ -156,31 +157,101 @@ function isYarnBerry() {
   return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
 }
 
+/**
+ * Build the implicit registry target from the legacy single-registry config
+ * fields (`publish.registry`/`token`/`tag`/`access`/`otp`). Publishing to this
+ * target reproduces the exact pre-multi-registry behavior.
+ */
+function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): RegistryTarget {
+  return {
+    name: 'default',
+    registry: config.publish.registry ?? '',
+    token: config.publish.token || config.tokens.registry,
+    tag: config.publish.tag,
+    access: config.publish.access,
+    otp: config.publish.otp,
+  }
+}
+
+/**
+ * Deduplicate registry targets by registry URL, keeping the first occurrence
+ * (the legacy target takes priority over explicit `registries` entries).
+ */
+function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
+  const seen = new Set<string>()
+  const result: RegistryTarget[] = []
+
+  for (const target of targets) {
+    const key = target.registry || ''
+    if (seen.has(key)) {
+      logger.debug(`Skipping duplicate registry target "${target.name ?? target.registry}"`)
+      continue
+    }
+    seen.add(key)
+    result.push(target)
+  }
+
+  return result
+}
+
+/**
+ * Resolve every distinct registry referenced by the config (legacy `registry`
+ * plus every `registries` entry, regardless of package scoping). Used for the
+ * pre-publish authentication safety check, which runs before the package list
+ * is known.
+ */
+export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig): RegistryTarget[] {
+  const legacyTarget = buildLegacyRegistryTarget(config)
+  const explicitTargets = config.publish.registries ?? []
+
+  return dedupRegistryTargets([legacyTarget, ...explicitTargets])
+}
+
+/**
+ * Resolve the registry targets a given package should be published to: the
+ * legacy registry (if any) plus every `registries` entry that either has no
+ * `packages` filter (mirrored to all packages) or whose `packages` glob
+ * patterns match the package name.
+ */
+export function resolveRegistryTargetsForPackage(
+  pkg: PackageBase,
+  config: ResolvedRelizyConfig,
+): RegistryTarget[] {
+  const legacyTarget = buildLegacyRegistryTarget(config)
+  const explicitTargets = config.publish.registries ?? []
+
+  const applicableTargets = explicitTargets.filter(
+    target => !target.packages?.length || micromatch.isMatch(pkg.name, target.packages),
+  )
+
+  return dedupRegistryTargets([legacyTarget, ...applicableTargets])
+}
+
 function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
-  config,
+  registryTarget,
   otp,
   type,
   dryRun,
 }: {
   packageManager: PackageManager
   tag: T extends 'publish' ? string : undefined
-  config: ResolvedRelizyConfig
+  registryTarget: RegistryTarget
   otp?: string
   type: T
   dryRun?: boolean
 }) {
   const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
 
-  const registry = config.publish.registry
+  const registry = registryTarget.registry
   if (registry) {
     args.push('--registry', registry)
   }
 
   const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
 
-  const publishToken = config.publish.token || config.tokens.registry
+  const publishToken = registryTarget.token
   if (publishToken) {
     if (!registry) {
       logger.warn('Publish token provided but no registry specified')
@@ -195,8 +266,8 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
     }
   }
 
-  // Priority: dynamic OTP > session OTP > config OTP
-  const finalOtp = otp ?? sessionOtp ?? config.publish.otp
+  // Priority: dynamic OTP > session OTP for this registry > target OTP
+  const finalOtp = otp ?? sessionOtpByRegistry.get(registry) ?? registryTarget.otp
   if (finalOtp) {
     args.push('--otp', finalOtp)
   }
@@ -205,7 +276,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
     return args
   }
 
-  const access = config.publish.access
+  const access = registryTarget.access
   if (access) {
     args.push('--access', access)
   }
@@ -305,6 +376,7 @@ async function executePublishCommand({
   tag,
   dryRun,
   packageManager,
+  registryLabel,
 }: {
   command: string
   packageNameAndVersion: string
@@ -313,8 +385,9 @@ async function executePublishCommand({
   tag: string
   dryRun: boolean
   packageManager: PackageManager
+  registryLabel: string
 }): Promise<void> {
-  logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"`)
+  logger.info(`${dryRun ? '[dry-run] ' : ''}Publishing ${packageNameAndVersion} with tag "${tag}"${registryLabel}`)
 
   const dryRunPublish = dryRun && packageManager !== 'npm' && packageManager !== 'pnpm'
 
@@ -338,15 +411,17 @@ export function getAuthCommand({
   packageManager,
   config,
   otp,
+  registryTarget,
 }: {
   packageManager: PackageManager
   config: ResolvedRelizyConfig
   otp?: string
+  registryTarget?: RegistryTarget
 }): string {
   const args = getCommandArgs<'auth'>({
     packageManager,
     tag: undefined,
-    config,
+    registryTarget: registryTarget ?? buildLegacyRegistryTarget(config),
     otp,
     type: 'auth',
   })
@@ -357,20 +432,20 @@ export function getAuthCommand({
 function getPublishCommand({
   packageManager,
   tag,
-  config,
+  registryTarget,
   otp,
   dryRun,
 }: {
   packageManager: PackageManager
   tag: string
-  config: ResolvedRelizyConfig
+  registryTarget: RegistryTarget
   otp?: string
   dryRun: boolean
 }): string {
   const args = getCommandArgs<'publish'>({
     packageManager,
     tag,
-    config,
+    registryTarget,
     otp,
     dryRun,
     type: 'publish',
@@ -379,6 +454,79 @@ function getPublishCommand({
   const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
 
   return `${baseCommand} ${args.join(' ')}`
+}
+
+/**
+ * Publish a package to a single resolved registry target, retrying once with
+ * a prompted OTP if the registry requires one.
+ */
+async function publishToRegistryTarget({
+  pkg,
+  config,
+  packageManager,
+  dryRun,
+  registryTarget,
+  packageNameAndVersion,
+  registryLabel,
+}: {
+  pkg: PackageBase
+  config: ResolvedRelizyConfig
+  packageManager: PackageManager
+  dryRun: boolean
+  registryTarget: RegistryTarget
+  packageNameAndVersion: string
+  registryLabel: string
+}): Promise<void> {
+  const tag = determinePublishTag(pkg.newVersion || pkg.version, registryTarget.tag)
+
+  let dynamicOtp: string | undefined
+  const maxAttempts = 2
+
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const command = getPublishCommand({
+        packageManager,
+        tag,
+        registryTarget,
+        otp: dynamicOtp,
+        dryRun,
+      })
+
+      process.chdir(pkg.path)
+
+      await executePublishCommand({
+        command,
+        packageNameAndVersion,
+        packageManager,
+        pkg,
+        config,
+        dryRun,
+        tag,
+        registryLabel,
+      })
+
+      // Success - store OTP for this registry for next packages if it was prompted
+      if (dynamicOtp && !sessionOtpByRegistry.has(registryTarget.registry)) {
+        sessionOtpByRegistry.set(registryTarget.registry, dynamicOtp)
+        logger.debug('OTP stored for session')
+      }
+
+      return
+    }
+    catch (error) {
+      // Check if it's an OTP error and we haven't exhausted retries
+      if (isOtpError(error) && attempt < maxAttempts - 1) {
+        dynamicOtp = await handleOtpError()
+      }
+      else {
+        logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
+        throw error
+      }
+    }
+    finally {
+      process.chdir(config.cwd)
+    }
+  }
 }
 
 export async function publishPackage({
@@ -392,8 +540,8 @@ export async function publishPackage({
   packageManager: PackageManager
   dryRun: boolean
 }): Promise<void> {
-  const tag = determinePublishTag(pkg.newVersion || pkg.version, config.publish.tag)
   const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
+  const registryTargets = resolveRegistryTargetsForPackage(pkg, config)
 
   logger.debug(`Building publish command for ${pkg.name}`)
 
@@ -417,52 +565,24 @@ export async function publishPackage({
   }
 
   try {
-    let dynamicOtp: string | undefined
-    const maxAttempts = 2
+    // Only label the registry in logs when there is more than one target -
+    // keeps single-registry output identical to before this feature existed.
+    const showRegistryLabel = registryTargets.length > 1
 
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-      try {
-        const command = getPublishCommand({
-          packageManager,
-          tag,
-          config,
-          otp: dynamicOtp,
-          dryRun,
-        })
+    for (const registryTarget of registryTargets) {
+      const registryLabel = showRegistryLabel
+        ? ` [${registryTarget.name ?? registryTarget.registry ?? 'default'}]`
+        : ''
 
-        process.chdir(pkg.path)
-
-        await executePublishCommand({
-          command,
-          packageNameAndVersion,
-          packageManager,
-          pkg,
-          config,
-          dryRun,
-          tag,
-        })
-
-        // Success - store OTP for next packages if it was prompted
-        if (dynamicOtp && !sessionOtp) {
-          sessionOtp = dynamicOtp
-          logger.debug('OTP stored for session')
-        }
-
-        return
-      }
-      catch (error) {
-        // Check if it's an OTP error and we haven't exhausted retries
-        if (isOtpError(error) && attempt < maxAttempts - 1) {
-          dynamicOtp = await handleOtpError()
-        }
-        else {
-          logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
-          throw error
-        }
-      }
-      finally {
-        process.chdir(config.cwd)
-      }
+      await publishToRegistryTarget({
+        pkg,
+        config,
+        packageManager,
+        dryRun,
+        registryTarget,
+        packageNameAndVersion,
+        registryLabel,
+      })
     }
   }
   finally {
