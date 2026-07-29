@@ -733,6 +733,23 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       expect(result).toHaveLength(1)
       expect(result[0]?.name).toBe('default')
     })
+
+    it('Then still deduplicates when only the trailing slash differs', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org', // no trailing slash
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }], // trailing slash
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
+    })
   })
 
   describe('When a matching registry is marked exclusive', () => {
@@ -821,6 +838,25 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
       const result = resolveAllConfiguredRegistryTargets(config)
 
       expect(result.map(t => t.name)).toEqual(['default', 'nexus', 'jfrog'])
+    })
+  })
+
+  describe('When a registry duplicates the default with only a trailing slash difference', () => {
+    it('Then deduplicates it', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org',
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
+        },
+      })
+
+      const result = resolveAllConfiguredRegistryTargets(config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
     })
   })
 })
@@ -1549,6 +1585,38 @@ describe('Given publishPackage function', () => {
       const isolatedCalls = callsFor('otp-isolated.internal')
       expect(isolatedCalls).toHaveLength(1)
       expect(isolatedCalls[0]![0]).not.toContain('--otp')
+    })
+
+    it('Then still reuses the cached OTP when the registry URL only differs by a trailing slash', async () => {
+      config.publish.registries = [
+        { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo' }, // no trailing slash
+      ]
+
+      vi.mocked(input).mockResolvedValueOnce('555555')
+      vi.mocked(execPromise).mockImplementation((command) => {
+        if ((command as string).includes('otp-trailing-slash.internal') && !(command as string).includes('--otp 555555')) {
+          return Promise.reject(new Error('OTP required'))
+        }
+        return Promise.resolve({ stdout: '', stderr: '' })
+      })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).toHaveBeenCalledTimes(1)
+
+      // Same registry, but declared with a trailing slash this time (different package/config).
+      vi.mocked(execPromise).mockClear()
+      vi.mocked(input).mockClear()
+      config.publish.registries = [
+        { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo/' }, // trailing slash
+      ]
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).not.toHaveBeenCalled()
+      const calls = callsFor('otp-trailing-slash.internal')
+      expect(calls).toHaveLength(1)
+      expect(calls[0]![0]).toContain('--otp 555555')
     })
   })
 })

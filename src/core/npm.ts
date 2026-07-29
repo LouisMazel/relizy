@@ -174,6 +174,16 @@ function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): RegistryTarget
 }
 
 /**
+ * Normalize a registry URL for comparison purposes only (trims trailing
+ * slashes), so `https://registry.npmjs.org` and `https://registry.npmjs.org/`
+ * are recognized as the same registry when deduplicating targets. The
+ * original, non-normalized URL is still what gets published to.
+ */
+function normalizeRegistryKey(registry: string): string {
+  return registry.endsWith('/') ? registry.slice(0, -1) : registry
+}
+
+/**
  * Deduplicate registry targets by registry URL, keeping the first occurrence
  * (the legacy target takes priority over explicit `registries` entries).
  */
@@ -182,7 +192,7 @@ function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
   const result: RegistryTarget[] = []
 
   for (const target of targets) {
-    const key = target.registry || ''
+    const key = normalizeRegistryKey(target.registry || '')
     if (seen.has(key)) {
       logger.debug(`Skipping duplicate registry target "${target.name ?? target.registry}"`)
       continue
@@ -276,7 +286,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   }
 
   // Priority: dynamic OTP > session OTP for this registry > target OTP
-  const finalOtp = otp ?? sessionOtpByRegistry.get(registry) ?? registryTarget.otp
+  const finalOtp = otp ?? sessionOtpByRegistry.get(normalizeRegistryKey(registry)) ?? registryTarget.otp
   if (finalOtp) {
     args.push('--otp', finalOtp)
   }
@@ -515,8 +525,9 @@ async function publishToRegistryTarget({
       })
 
       // Success - store OTP for this registry for next packages if it was prompted
-      if (dynamicOtp && !sessionOtpByRegistry.has(registryTarget.registry)) {
-        sessionOtpByRegistry.set(registryTarget.registry, dynamicOtp)
+      const registryKey = normalizeRegistryKey(registryTarget.registry)
+      if (dynamicOtp && !sessionOtpByRegistry.has(registryKey)) {
+        sessionOtpByRegistry.set(registryKey, dynamicOtp)
         logger.debug('OTP stored for session')
       }
 
