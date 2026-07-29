@@ -485,10 +485,12 @@ export interface RegistryTarget {
    */
   otp?: string
   /**
-   * Glob pattern matching package names this registry applies to.
+   * Glob pattern matching package names this registry applies to. Distinct
+   * from `PublishConfig.packages` (which packages get published at all) -
+   * this only routes already-publishable packages to this registry.
    * Omitted or empty = applies to every publishable package (mirroring).
    */
-  packages?: string[]
+  packageFilter?: string[]
   /**
    * When true, packages matched by this target are published ONLY to this
    * (and any other matching) registry - the default `publish.registry` is
@@ -546,9 +548,10 @@ export type PublishConfig = IChangelogConfig['publish'] & {
   safetyCheckTimeout?: number
   /**
    * Additional registries to publish to, on top of `registry` (if set).
-   * Entries without `packages` apply to every package (mirroring); entries
-   * with `packages` only apply to packages matching one of the glob patterns.
-   * Fully additive: leaving this unset preserves the single-registry behavior.
+   * Entries without `packageFilter` apply to every package (mirroring);
+   * entries with `packageFilter` only apply to packages matching one of the
+   * glob patterns. Fully additive: leaving this unset preserves the
+   * single-registry behavior.
    */
   registries?: RegistryTarget[]
 }

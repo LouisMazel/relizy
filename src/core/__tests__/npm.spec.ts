@@ -688,7 +688,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] }],
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
         },
       })
 
@@ -706,7 +706,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] }],
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
         },
       })
 
@@ -761,7 +761,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
           ],
         },
       })
@@ -781,7 +781,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
           ],
         },
       })
@@ -800,7 +800,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
           ],
         },
       })
@@ -830,7 +830,7 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
           ],
         },
       })
@@ -1456,7 +1456,7 @@ describe('Given publishPackage function', () => {
     it('Then only publishes to a scoped registry matching the package name', async () => {
       config.publish.registry = 'https://registry.npmjs.org/'
       config.publish.registries = [
-        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
       ]
 
       await publishPackage({
@@ -1475,7 +1475,7 @@ describe('Given publishPackage function', () => {
       vi.mocked(getIndependentTag).mockReturnValue('@scope/foo@1.0.1')
       config.publish.registry = 'https://registry.npmjs.org/'
       config.publish.registries = [
-        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
       ]
 
       await publishPackage({

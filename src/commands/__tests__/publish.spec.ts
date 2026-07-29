@@ -160,7 +160,7 @@ describe('Given publishSafetyCheck function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
           ],
         },
         safetyCheck: true,
@@ -234,7 +234,7 @@ describe('Given publishSafetyCheck function', () => {
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@internal/*'] },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@internal/*'] },
           ],
         },
         safetyCheck: true,
@@ -261,7 +261,7 @@ describe('Given publishSafetyCheck function', () => {
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@internal/*'] },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@internal/*'] },
           ],
         },
         safetyCheck: true,

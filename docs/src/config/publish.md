@@ -134,7 +134,7 @@ You can also configure the token in the `tokens.registry` field or via environme
 
 ## registries
 
-Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packages` filter are mirrored to every publishable package.
+Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packageFilter` are mirrored to every publishable package.
 
 This is fully opt-in and additive: leaving `registries` unset keeps the exact single-registry behavior described above.
 
@@ -148,10 +148,14 @@ interface RegistryTarget {
   tag?: string
   access?: 'public' | 'restricted'
   otp?: string
-  packages?: string[] // glob patterns - omitted = applies to every package
+  packageFilter?: string[] // glob patterns - omitted = applies to every package
   exclusive?: boolean // skip the default `registry` for matching packages
 }
 ```
+
+::: tip Why `packageFilter` and not `packages`
+`publish.packages` (top-level) controls _which packages get published at all_. `RegistryTarget.packageFilter` is a different concern: it only routes already-publishable packages to this specific registry. Distinct names avoid confusing the two.
+:::
 
 ### Mirroring to every package
 
@@ -187,7 +191,7 @@ export default defineConfig({
         name: 'jfrog-internal',
         registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
         token: process.env.JFROG_TOKEN,
-        packages: ['@internal/*'],
+        packageFilter: ['@internal/*'],
       },
     ],
   },
@@ -211,7 +215,7 @@ export default defineConfig({
         name: 'jfrog-internal',
         registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
         token: process.env.JFROG_TOKEN,
-        packages: ['@internal/*'],
+        packageFilter: ['@internal/*'],
         exclusive: true,
       },
     ],
@@ -222,7 +226,7 @@ export default defineConfig({
 Here, `@internal/*` packages are published **only** to the JFrog registry; every other package still goes to `https://registry.npmjs.org` as usual. `exclusive` only suppresses the default registry - it has no effect on other, non-exclusive `registries` entries that also match the package (they still apply).
 
 ::: tip Authentication safety check
-When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry actually needed by the packages being published this release (including the default registry, even if some of those packages exclude it via `exclusive`), so a misconfigured registry fails fast rather than mid-release. A `registries` entry scoped to packages that are not part of this release (via `packages`) is **not** checked, so it cannot block an unrelated release.
+When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry actually needed by the packages being published this release (including the default registry, even if some of those packages exclude it via `exclusive`), so a misconfigured registry fails fast rather than mid-release. A `registries` entry scoped to packages that are not part of this release (via `packageFilter`) is **not** checked, so it cannot block an unrelated release.
 :::
 
 ::: tip Failure behavior is fail-fast, not atomic

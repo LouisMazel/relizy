@@ -54,7 +54,7 @@ describe('Given redactSecrets function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-secret-token-abcdefgh' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'] },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
           ],
         },
       })
@@ -62,7 +62,7 @@ describe('Given redactSecrets function', () => {
       expect(result.publish.registries[0].token).not.toContain('secret-token-abcdefgh')
       expect(result.publish.registries[0].registry).toBe('https://nexus.internal/repo/')
       expect(result.publish.registries[1].token).toBeUndefined()
-      expect(result.publish.registries[1].packages).toEqual(['@scope/*'])
+      expect(result.publish.registries[1].packageFilter).toEqual(['@scope/*'])
     })
   })
 

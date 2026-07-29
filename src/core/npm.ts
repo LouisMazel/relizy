@@ -222,7 +222,7 @@ export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig
 /**
  * Resolve the registry targets a given package should be published to: the
  * legacy registry (if any) plus every `registries` entry that either has no
- * `packages` filter (mirrored to all packages) or whose `packages` glob
+ * `packageFilter` (mirrored to all packages) or whose `packageFilter` glob
  * patterns match the package name.
  *
  * If any applicable entry is marked `exclusive`, the legacy/default registry
@@ -237,7 +237,7 @@ export function resolveRegistryTargetsForPackage(
   const explicitTargets = config.publish.registries ?? []
 
   const applicableTargets = explicitTargets.filter(
-    target => !target.packages?.length || micromatch.isMatch(pkg.name, target.packages),
+    target => !target.packageFilter?.length || micromatch.isMatch(pkg.name, target.packageFilter),
   )
 
   const skipDefaultRegistry = applicableTargets.some(target => target.exclusive)
