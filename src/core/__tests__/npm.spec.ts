@@ -1427,4 +1427,66 @@ describe('Given publishPackage function', () => {
       expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
     })
   })
+
+  describe('When OTP is required across multiple registries', () => {
+    // The legacy target (built from `publish.registry`) is always resolved alongside
+    // any explicit `registries` entry, so assertions filter execPromise calls by
+    // registry URL instead of relying on call order/count across all targets.
+    function callsFor(registryHost: string) {
+      return vi.mocked(execPromise).mock.calls.filter(([command]) => (command as string).includes(registryHost))
+    }
+
+    beforeEach(() => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      // Legacy target always succeeds immediately - it is not the target under test here.
+      config.publish.registry = 'https://registry.npmjs.org/'
+    })
+
+    it('Then caches the prompted OTP per registry and reuses it for the next package on that same registry', async () => {
+      config.publish.registries = [
+        { name: 'otp-reuse', registry: 'https://otp-reuse.internal/repo/' },
+      ]
+
+      vi.mocked(input).mockResolvedValueOnce('999999')
+      vi.mocked(execPromise).mockImplementation((command) => {
+        if ((command as string).includes('otp-reuse.internal') && !(command as string).includes('--otp 999999')) {
+          return Promise.reject(new Error('OTP required'))
+        }
+        return Promise.resolve({ stdout: '', stderr: '' })
+      })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      // First attempt failed (no otp yet), retry succeeded with the prompted otp.
+      expect(input).toHaveBeenCalledTimes(1)
+      expect(callsFor('otp-reuse.internal')).toHaveLength(2)
+      expect(callsFor('otp-reuse.internal')[1]![0]).toContain('--otp 999999')
+
+      // A second package published to the same registry should reuse the cached OTP:
+      // no further prompt, and the command carries it on the very first attempt.
+      vi.mocked(execPromise).mockClear()
+      vi.mocked(input).mockClear()
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).not.toHaveBeenCalled()
+      expect(callsFor('otp-reuse.internal')).toHaveLength(1)
+      expect(callsFor('otp-reuse.internal')[0]![0]).toContain('--otp 999999')
+    })
+
+    it('Then does not leak an OTP cached for one registry into a different, never-prompted registry', async () => {
+      // Distinct registry from the previous test - must not have any cached OTP.
+      config.publish.registries = [
+        { name: 'otp-isolated', registry: 'https://otp-isolated.internal/repo/' },
+      ]
+
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      const isolatedCalls = callsFor('otp-isolated.internal')
+      expect(isolatedCalls).toHaveLength(1)
+      expect(isolatedCalls[0]![0]).not.toContain('--otp')
+    })
+  })
 })
