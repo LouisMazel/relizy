@@ -206,9 +206,11 @@ function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
 
 /**
  * Resolve every distinct registry referenced by the config (legacy `registry`
- * plus every `registries` entry, regardless of package scoping). Used for the
- * pre-publish authentication safety check, which runs before the package list
- * is known.
+ * plus every `registries` entry, regardless of package scoping). Conservative
+ * fallback for the pre-publish authentication safety check when the package
+ * list to publish isn't known yet - prefer `resolveRegistryTargetsForPackages`
+ * once it is, so a registry scoped to packages outside this release doesn't
+ * needlessly block it.
  */
 export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig): RegistryTarget[] {
   const legacyTarget = buildLegacyRegistryTarget(config)
@@ -244,6 +246,22 @@ export function resolveRegistryTargetsForPackage(
     ...(skipDefaultRegistry ? [] : [legacyTarget]),
     ...applicableTargets,
   ])
+}
+
+/**
+ * Resolve every distinct registry actually needed to publish the given set of
+ * packages - the union of `resolveRegistryTargetsForPackage` across all of
+ * them, deduped by registry URL. Used for the pre-publish authentication
+ * safety check once the package list to publish is known, so a registry
+ * scoped to packages that are not part of this release does not block it.
+ */
+export function resolveRegistryTargetsForPackages(
+  packages: PackageBase[],
+  config: ResolvedRelizyConfig,
+): RegistryTarget[] {
+  const allTargets = packages.flatMap(pkg => resolveRegistryTargetsForPackage(pkg, config))
+
+  return dedupRegistryTargets(allTargets)
 }
 
 function getCommandArgs<T extends 'auth' | 'publish'>({

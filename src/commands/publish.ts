@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, resolveAllConfiguredRegistryTargets, topologicalSort } from '../core'
+import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, topologicalSort } from '../core'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 /**
@@ -63,7 +63,7 @@ async function checkRegistryAuth({
   }
 }
 
-export async function publishSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+export async function publishSafetyCheck({ config, packages }: { config: ResolvedRelizyConfig, packages?: PackageBase[] }) {
   if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
     logger.debug('Safety check disabled or publish disabled')
     return
@@ -78,7 +78,12 @@ export async function publishSafetyCheck({ config }: { config: ResolvedRelizyCon
     return
   }
 
-  const registryTargets = resolveAllConfiguredRegistryTargets(config)
+  // When the packages to publish are already known, only check the registries
+  // they actually need - a registry scoped to packages outside this release
+  // should not block it. Otherwise, conservatively check everything configured.
+  const registryTargets = packages
+    ? resolveRegistryTargetsForPackages(packages, config)
+    : resolveAllConfiguredRegistryTargets(config)
   const showRegistryLabel = registryTargets.length > 1
 
   for (const registryTarget of registryTargets) {
@@ -126,8 +131,6 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
   try {
     await executeHook('before:publish', config, dryRun)
-
-    await publishSafetyCheck({ config })
 
     const rootPackage = readPackageJson(config.cwd)
 
@@ -181,6 +184,10 @@ export async function publish(options: Partial<PublishOptions> = {}) {
       logger.fail('No packages need to be published')
       return
     }
+
+    // Only check the registries this specific set of packages actually needs -
+    // scoped `registries` entries for packages outside this release must not block it.
+    await publishSafetyCheck({ config, packages: publishedPackages })
 
     await executeBuildCmd({
       config,

@@ -222,7 +222,7 @@ export default defineConfig({
 Here, `@internal/*` packages are published **only** to the JFrog registry; every other package still goes to `https://registry.npmjs.org` as usual. `exclusive` only suppresses the default registry - it has no effect on other, non-exclusive `registries` entries that also match the package (they still apply).
 
 ::: tip Authentication safety check
-When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry declared in `registry` and `registries` before publishing starts (including the default registry, even if some packages ultimately exclude it), so a misconfigured registry fails fast rather than mid-release.
+When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry actually needed by the packages being published this release (including the default registry, even if some of those packages exclude it via `exclusive`), so a misconfigured registry fails fast rather than mid-release. A `registries` entry scoped to packages that are not part of this release (via `packages`) is **not** checked, so it cannot block an unrelated release.
 :::
 
 ::: tip Failure behavior is fail-fast, not atomic

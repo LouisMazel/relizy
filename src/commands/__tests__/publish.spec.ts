@@ -222,6 +222,61 @@ describe('Given publishSafetyCheck function', () => {
       expect(execPromise).toHaveBeenCalledTimes(1)
     })
   })
+
+  describe('When the packages to publish are known', () => {
+    it('Then only checks registries actually needed by those packages, skipping unmatched scoped ones', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          private: false,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@internal/*'] },
+          ],
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      // None of the packages being published this release match '@internal/*'.
+      const packages = [createMockPackageInfo({ name: 'public-pkg' })]
+
+      await publishSafetyCheck({ config, packages })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+
+    it('Then checks a scoped registry when one of the packages being published matches it', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          private: false,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@internal/*'] },
+          ],
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      const packages = [createMockPackageInfo({ name: '@internal/foo' })]
+
+      await publishSafetyCheck({ config, packages })
+
+      expect(execPromise).toHaveBeenCalledTimes(2)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://jfrog.internal/repo/'), expect.any(Object))
+    })
+  })
 })
 
 describe('Given publish command', () => {
