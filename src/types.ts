@@ -489,6 +489,14 @@ export interface RegistryTarget {
    * Omitted or empty = applies to every publishable package (mirroring).
    */
   packages?: string[]
+  /**
+   * When true, packages matched by this target are published ONLY to this
+   * (and any other matching) registry - the default `publish.registry` is
+   * skipped for them. Without this flag, `registries` is purely additive:
+   * matched packages are published to this registry ON TOP OF the default one.
+   * @default false
+   */
+  exclusive?: boolean
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {

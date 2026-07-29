@@ -212,6 +212,10 @@ export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig
  * legacy registry (if any) plus every `registries` entry that either has no
  * `packages` filter (mirrored to all packages) or whose `packages` glob
  * patterns match the package name.
+ *
+ * If any applicable entry is marked `exclusive`, the legacy/default registry
+ * is skipped for this package - it is published only to the matching
+ * registries instead of mirroring on top of the default one.
  */
 export function resolveRegistryTargetsForPackage(
   pkg: PackageBase,
@@ -224,7 +228,12 @@ export function resolveRegistryTargetsForPackage(
     target => !target.packages?.length || micromatch.isMatch(pkg.name, target.packages),
   )
 
-  return dedupRegistryTargets([legacyTarget, ...applicableTargets])
+  const skipDefaultRegistry = applicableTargets.some(target => target.exclusive)
+
+  return dedupRegistryTargets([
+    ...(skipDefaultRegistry ? [] : [legacyTarget]),
+    ...applicableTargets,
+  ])
 }
 
 function getCommandArgs<T extends 'auth' | 'publish'>({

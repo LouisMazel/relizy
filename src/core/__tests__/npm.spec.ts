@@ -734,6 +734,68 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       expect(result[0]?.name).toBe('default')
     })
   })
+
+  describe('When a matching registry is marked exclusive', () => {
+    it('Then skips the default registry and publishes only to the matching registries', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['jfrog'])
+    })
+
+    it('Then still publishes non-matching packages to the default registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config) // name: 'test-package'
+
+      expect(result.map(t => t.name)).toEqual(['default'])
+    })
+
+    it('Then keeps a non-exclusive global mirror alongside an exclusive scoped registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packages: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      // exclusive only suppresses the *default* registry, not other explicit mirrors.
+      expect(result.map(t => t.name)).toEqual(['nexus', 'jfrog'])
+    })
+  })
 })
 
 describe('Given resolveAllConfiguredRegistryTargets function', () => {

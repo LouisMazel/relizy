@@ -149,6 +149,7 @@ interface RegistryTarget {
   access?: 'public' | 'restricted'
   otp?: string
   packages?: string[] // glob patterns - omitted = applies to every package
+  exclusive?: boolean // skip the default `registry` for matching packages
 }
 ```
 
@@ -195,12 +196,37 @@ export default defineConfig({
 
 Here, only packages whose name matches `@internal/*` are additionally published to the JFrog registry; every package still goes to the default `registry`.
 
+### Excluding the default registry for specific packages
+
+By default, entries in `registries` are purely additive: a matching package is published to that registry **on top of** the default `registry`. Set `exclusive: true` on an entry when matching packages should be published **only** to it (and any other matching registry), and never to the default one:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    registry: 'https://registry.npmjs.org',
+    registries: [
+      {
+        name: 'jfrog-internal',
+        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
+        token: process.env.JFROG_TOKEN,
+        packages: ['@internal/*'],
+        exclusive: true,
+      },
+    ],
+  },
+})
+```
+
+Here, `@internal/*` packages are published **only** to the JFrog registry; every other package still goes to `https://registry.npmjs.org` as usual. `exclusive` only suppresses the default registry - it has no effect on other, non-exclusive `registries` entries that also match the package (they still apply).
+
 ::: tip Authentication safety check
-When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry declared in `registry` and `registries` before publishing starts (not just the ones matching a given package), so a misconfigured registry fails fast rather than mid-release.
+When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry declared in `registry` and `registries` before publishing starts (including the default registry, even if some packages ultimately exclude it), so a misconfigured registry fails fast rather than mid-release.
 :::
 
-::: tip Failure behavior
-Publishing is fail-fast: if a package fails to publish to any of its resolved registries, the whole release stops immediately - it does not continue publishing the remaining registries or packages.
+::: tip Failure behavior is fail-fast, not atomic
+If a package fails to publish to one of its resolved registries, Relizy stops immediately: no further registry or package is attempted. This bounds how much of a broken release can happen, but publishing to a single package's multiple registries is **not transactional** - if a package already succeeded on registry A and then fails on registry B, A's publish is not rolled back.
 :::
 
 ## safetyCheck
