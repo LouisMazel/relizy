@@ -21,6 +21,12 @@ function publish(options?: PublishOptions): Promise<void>
 ```ts
 interface PublishOptions {
   registry?: string
+  /**
+   * Additional registries to publish to, on top of `registry`. See the
+   * [publish config reference](../config/publish.md#registries) for details.
+   * @default undefined
+   */
+  registries?: RegistryTarget[]
   tag?: string
   access?: 'public' | 'restricted'
   otp?: string
