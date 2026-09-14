@@ -16,6 +16,8 @@ import {
   getPackagesToPublishInIndependentMode,
   getPackagesToPublishInSelectiveMode,
   publishPackage,
+  resolveAllConfiguredRegistryTargets,
+  resolveRegistryTargetsForPackage,
 } from '../npm'
 import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
@@ -637,6 +639,228 @@ describe('Given getNpmRegistry function', () => {
   })
 })
 
+describe('Given resolveRegistryTargetsForPackage function', () => {
+  let pkg: PackageBase
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    pkg = { ...createMockPackageInfo(), name: 'test-package' }
+  })
+
+  describe('When only the legacy registry is configured', () => {
+    it('Then returns a single target built from the legacy fields', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { private: false, args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toEqual([
+        { name: 'default', registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest', access: undefined, otp: undefined },
+      ])
+    })
+  })
+
+  describe('When an explicit registry has no packages filter', () => {
+    it('Then mirrors it to every package alongside the legacy registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'nexus'])
+    })
+  })
+
+  describe('When an explicit registry is scoped with a packages glob', () => {
+    it('Then includes it only for a package matching the pattern', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'jfrog'])
+    })
+
+    it('Then excludes it for a package not matching the pattern', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['default'])
+    })
+  })
+
+  describe('When an explicit registry duplicates the legacy registry URL', () => {
+    it('Then keeps only the first occurrence (legacy wins)', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
+    })
+
+    it('Then still deduplicates when only the trailing slash differs', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org', // no trailing slash
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }], // trailing slash
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
+    })
+  })
+
+  describe('When a matching registry is marked exclusive', () => {
+    it('Then skips the default registry and publishes only to the matching registries', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      expect(result.map(t => t.name)).toEqual(['jfrog'])
+    })
+
+    it('Then still publishes non-matching packages to the default registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const result = resolveRegistryTargetsForPackage(pkg, config) // name: 'test-package'
+
+      expect(result.map(t => t.name)).toEqual(['default'])
+    })
+
+    it('Then keeps a non-exclusive global mirror alongside an exclusive scoped registry', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+          ],
+        },
+      })
+
+      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+
+      const result = resolveRegistryTargetsForPackage(scopedPkg, config)
+
+      // exclusive only suppresses the *default* registry, not other explicit mirrors.
+      expect(result.map(t => t.name)).toEqual(['nexus', 'jfrog'])
+    })
+  })
+})
+
+describe('Given resolveAllConfiguredRegistryTargets function', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  describe('When registries mix global and scoped entries', () => {
+    it('Then returns every distinct registry regardless of package scoping', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+          ],
+        },
+      })
+
+      const result = resolveAllConfiguredRegistryTargets(config)
+
+      expect(result.map(t => t.name)).toEqual(['default', 'nexus', 'jfrog'])
+    })
+  })
+
+  describe('When a registry duplicates the default with only a trailing slash difference', () => {
+    it('Then deduplicates it', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          private: false,
+          args: [],
+          registry: 'https://registry.npmjs.org',
+          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
+        },
+      })
+
+      const result = resolveAllConfiguredRegistryTargets(config)
+
+      expect(result).toHaveLength(1)
+      expect(result[0]?.name).toBe('default')
+    })
+  })
+})
+
 describe('Given publishPackage function', () => {
   let config: ResolvedRelizyConfig
   let pkg: PackageBase
@@ -1207,6 +1431,192 @@ describe('Given publishPackage function', () => {
       })
 
       expect(writeFileSync).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When multiple registries are configured', () => {
+    it('Then publishes to the legacy registry and every mirrored registry', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(2)
+      expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://nexus.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then only publishes to a scoped registry matching the package name', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+      ]
+
+      await publishPackage({
+        pkg, // name: 'test-package', does not match '@scope/*'
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+
+    it('Then publishes to a scoped registry when the package name matches', async () => {
+      pkg.name = '@scope/foo'
+      vi.mocked(getIndependentTag).mockReturnValue('@scope/foo@1.0.1')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledTimes(2)
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://jfrog.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then includes the registry name in the log when publishing to more than one', async () => {
+      const loggerSpy = vi.spyOn(logger, 'info')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[default]'))
+      expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[nexus]'))
+    })
+
+    it('Then stops at the first failing registry and does not attempt the next one (fail-fast)', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'nexus', registry: 'https://nexus.internal/repo/' },
+      ]
+      vi.mocked(execPromise).mockRejectedValue(new Error('Publish failed'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow('Publish failed')
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+  })
+
+  describe('When OTP is required across multiple registries', () => {
+    // The legacy target (built from `publish.registry`) is always resolved alongside
+    // any explicit `registries` entry, so assertions filter execPromise calls by
+    // registry URL instead of relying on call order/count across all targets.
+    function callsFor(registryHost: string) {
+      return vi.mocked(execPromise).mock.calls.filter(([command]) => (command as string).includes(registryHost))
+    }
+
+    beforeEach(() => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      // Legacy target always succeeds immediately - it is not the target under test here.
+      config.publish.registry = 'https://registry.npmjs.org/'
+    })
+
+    it('Then caches the prompted OTP per registry and reuses it for the next package on that same registry', async () => {
+      config.publish.registries = [
+        { name: 'otp-reuse', registry: 'https://otp-reuse.internal/repo/' },
+      ]
+
+      vi.mocked(input).mockResolvedValueOnce('999999')
+      vi.mocked(execPromise).mockImplementation((command) => {
+        if ((command as string).includes('otp-reuse.internal') && !(command as string).includes('--otp 999999')) {
+          return Promise.reject(new Error('OTP required'))
+        }
+        return Promise.resolve({ stdout: '', stderr: '' })
+      })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      // First attempt failed (no otp yet), retry succeeded with the prompted otp.
+      expect(input).toHaveBeenCalledTimes(1)
+      expect(callsFor('otp-reuse.internal')).toHaveLength(2)
+      expect(callsFor('otp-reuse.internal')[1]![0]).toContain('--otp 999999')
+
+      // A second package published to the same registry should reuse the cached OTP:
+      // no further prompt, and the command carries it on the very first attempt.
+      vi.mocked(execPromise).mockClear()
+      vi.mocked(input).mockClear()
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).not.toHaveBeenCalled()
+      expect(callsFor('otp-reuse.internal')).toHaveLength(1)
+      expect(callsFor('otp-reuse.internal')[0]![0]).toContain('--otp 999999')
+    })
+
+    it('Then does not leak an OTP cached for one registry into a different, never-prompted registry', async () => {
+      // Distinct registry from the previous test - must not have any cached OTP.
+      config.publish.registries = [
+        { name: 'otp-isolated', registry: 'https://otp-isolated.internal/repo/' },
+      ]
+
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      const isolatedCalls = callsFor('otp-isolated.internal')
+      expect(isolatedCalls).toHaveLength(1)
+      expect(isolatedCalls[0]![0]).not.toContain('--otp')
+    })
+
+    it('Then still reuses the cached OTP when the registry URL only differs by a trailing slash', async () => {
+      config.publish.registries = [
+        { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo' }, // no trailing slash
+      ]
+
+      vi.mocked(input).mockResolvedValueOnce('555555')
+      vi.mocked(execPromise).mockImplementation((command) => {
+        if ((command as string).includes('otp-trailing-slash.internal') && !(command as string).includes('--otp 555555')) {
+          return Promise.reject(new Error('OTP required'))
+        }
+        return Promise.resolve({ stdout: '', stderr: '' })
+      })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).toHaveBeenCalledTimes(1)
+
+      // Same registry, but declared with a trailing slash this time (different package/config).
+      vi.mocked(execPromise).mockClear()
+      vi.mocked(input).mockClear()
+      config.publish.registries = [
+        { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo/' }, // trailing slash
+      ]
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(input).not.toHaveBeenCalled()
+      const calls = callsFor('otp-trailing-slash.internal')
+      expect(calls).toHaveLength(1)
+      expect(calls[0]![0]).toContain('--otp 555555')
     })
   })
 })
