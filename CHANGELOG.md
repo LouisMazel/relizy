@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.5.0-beta.1 (2026-09-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.0...v1.5.0-beta.1)
+
+### 🩹 Fixes
+
+- Omit implicit default registry when only `registries` is configured ([3ee4a1c](https://github.com/LouisMazel/relizy/commit/3ee4a1c))
+
+  You can now list every publish target in `registries` without setting a
+  top-level `registry`. When no default `registry` is configured, Relizy no
+  longer adds an implicit target pointing at the ambient `.npmrc` registry, so
+  packages are published only to the registries you declare.
+  Setting neither `registry` nor `registries` still falls back to the
+  `.npmrc`-resolved registry, and a package matched by no `registries` entry
+  falls back to it too.
+
+### 📖 Documentation
+
+- Document listing every registry without a default ([f0239a1](https://github.com/LouisMazel/relizy/commit/f0239a1))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0-beta.0 (2026-09-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.9...v1.5.0-beta.0)
