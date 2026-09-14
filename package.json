@@ -114,7 +114,7 @@
     "@types/micromatch": "^4.0.10",
     "@types/node": "^25.9.2",
     "@types/semver": "^7.8.0",
-    "@vitest/coverage-v8": "^4.1.8",
+    "@vitest/coverage-v8": "^5.0.0",
     "@yoloship/claude-sdk": "0.2.0-beta.6",
     "cross-env": "10.1.0",
     "eslint": "^10.10.0",
@@ -126,7 +126,7 @@
     "twitter-api-v2": "^1.29.1",
     "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
-    "vitest": "^4.1.8"
+    "vitest": "^5.0.0"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
