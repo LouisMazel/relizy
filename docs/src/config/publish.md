@@ -134,7 +134,7 @@ You can also configure the token in the `tokens.registry` field or via environme
 
 ## registries
 
-Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packageFilter` are mirrored to every publishable package.
+Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packageFilter` are mirrored to every publishable package. You can also omit `registry` and list every target here - see [Listing every registry explicitly](#listing-every-registry-explicitly-no-default).
 
 This is fully opt-in and additive: leaving `registries` unset keeps the exact single-registry behavior described above.
 
@@ -224,6 +224,36 @@ export default defineConfig({
 ```
 
 Here, `@internal/*` packages are published **only** to the JFrog registry; every other package still goes to `https://registry.npmjs.org` as usual. `exclusive` only suppresses the default registry - it has no effect on other, non-exclusive `registries` entries that also match the package (they still apply).
+
+### Listing every registry explicitly (no default)
+
+You can omit `registry` entirely and declare every target in `registries`. When no default `registry` is set but `registries` has entries, Relizy does **not** inject an implicit default target - packages are published only to their applicable `registries`. This makes "N registries, none of them the default" expressible directly, without having to mark one entry `exclusive` just to suppress the default.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    // no `registry` - both targets are equal peers
+    registries: [
+      {
+        name: 'nexus',
+        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
+        token: process.env.NEXUS_TOKEN,
+      },
+      {
+        name: 'jfrog',
+        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
+        token: process.env.JFROG_TOKEN,
+      },
+    ],
+  },
+})
+```
+
+::: tip `.npmrc` fallback is preserved
+Omitting `registry` when `registries` is **also** empty keeps the original single-registry behavior: Relizy resolves the effective registry from your environment (`.npmrc`). The implicit default is only dropped when explicit `registries` entries exist. Likewise, if a package is not covered by any `registries` entry (all of them are scoped via `packageFilter` and none match), that package still falls back to the `.npmrc`-resolved registry.
+:::
 
 ::: tip Authentication safety check
 When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry actually needed by the packages being published this release (including the default registry, even if some of those packages exclude it via `exclusive`), so a misconfigured registry fails fast rather than mid-release. A `registries` entry scoped to packages that are not part of this release (via `packageFilter`) is **not** checked, so it cannot block an unrelated release.
