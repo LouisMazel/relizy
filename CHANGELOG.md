@@ -1,5 +1,38 @@
 # Changelog
 
+## v1.5.0-beta.0 (2026-09-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.9...v1.5.0-beta.0)
+
+### 🚀 Features
+
+- Support publishing to multiple registries ([#113](https://github.com/LouisMazel/relizy/pull/113))
+  - refactor(relizy): use deep imports for @maz-ui/utils helpers
+    Closes #100, #105
+  - feat: support publishing to multiple registries (#112)
+  - feat(relizy): support publishing to multiple registries
+  - test(relizy): add per-registry OTP caching coverage
+  - feat(relizy): allow excluding the default registry per package
+  - fix(relizy): normalize registry URLs before deduplication and OTP caching
+  - fix(relizy): scope the publish safety check to registries actually needed by the release
+  - refactor(relizy): rename RegistryTarget.packages to packageFilter
+
+  ***
+
+### 🩹 Fixes
+
+- Aggregate per-package changelog for social posts in independent mode ([#114](https://github.com/LouisMazel/relizy/pull/114))
+
+### 📦 Build
+
+- Upgrade dependencies ([#116](https://github.com/LouisMazel/relizy/pull/116))
+  - build: upgrade dependencies minor
+  - build: upgrade vitest
+
+### ❤️ Contributors
+
+- Mazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.9 (2026-06-21)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.8...v1.4.9)
