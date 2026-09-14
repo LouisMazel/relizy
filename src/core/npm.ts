@@ -211,12 +211,23 @@ function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
  * list to publish isn't known yet - prefer `resolveRegistryTargetsForPackages`
  * once it is, so a registry scoped to packages outside this release doesn't
  * needlessly block it.
+ *
+ * When no default `registry` is configured but explicit `registries` are, the
+ * legacy target degrades to an empty URL that would target the ambient
+ * `.npmrc` registry with no managed auth. It is a phantom in that case and is
+ * excluded, so a config that lists every registry explicitly does not
+ * authenticate against a bogus empty registry.
  */
 export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig): RegistryTarget[] {
   const legacyTarget = buildLegacyRegistryTarget(config)
   const explicitTargets = config.publish.registries ?? []
 
-  return dedupRegistryTargets([legacyTarget, ...explicitTargets])
+  const skipEmptyDefault = !config.publish.registry && explicitTargets.length > 0
+
+  return dedupRegistryTargets([
+    ...(skipEmptyDefault ? [] : [legacyTarget]),
+    ...explicitTargets,
+  ])
 }
 
 /**
@@ -225,9 +236,15 @@ export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig
  * `packageFilter` (mirrored to all packages) or whose `packageFilter` glob
  * patterns match the package name.
  *
- * If any applicable entry is marked `exclusive`, the legacy/default registry
- * is skipped for this package - it is published only to the matching
- * registries instead of mirroring on top of the default one.
+ * The legacy/default registry is skipped for this package when either:
+ * - an applicable entry is marked `exclusive` - the package is published only
+ *   to the matching registries instead of mirroring on top of the default one;
+ * - no default `registry` is configured yet the package already has at least
+ *   one applicable explicit registry. Without a default, the legacy target
+ *   degrades to an empty URL that would publish to the ambient `.npmrc`
+ *   registry with no managed auth, so it is a phantom once real targets exist.
+ *   When nothing else covers the package, the empty legacy target is kept as
+ *   the historical `.npmrc` fallback.
  */
 export function resolveRegistryTargetsForPackage(
   pkg: PackageBase,
@@ -240,10 +257,11 @@ export function resolveRegistryTargetsForPackage(
     target => !target.packageFilter?.length || micromatch.isMatch(pkg.name, target.packageFilter),
   )
 
-  const skipDefaultRegistry = applicableTargets.some(target => target.exclusive)
+  const skipForExclusive = applicableTargets.some(target => target.exclusive)
+  const skipEmptyDefault = !config.publish.registry && applicableTargets.length > 0
 
   return dedupRegistryTargets([
-    ...(skipDefaultRegistry ? [] : [legacyTarget]),
+    ...(skipForExclusive || skipEmptyDefault ? [] : [legacyTarget]),
     ...applicableTargets,
   ])
 }
