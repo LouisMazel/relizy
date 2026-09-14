@@ -457,6 +457,16 @@ export interface SocialOptions {
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
+  /**
+   * Prerelease suffix, forwarded to package discovery in independent mode
+   * when no bump result is available (standalone `social` runs).
+   */
+  suffix?: string
+  /**
+   * Force package discovery to include all packages (independent standalone runs).
+   * @default false
+   */
+  force?: boolean
 }
 
 export interface RegistryTarget {
