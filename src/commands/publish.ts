@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, topologicalSort } from '../core'
+import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, topologicalSort, withRegistryNpmrc } from '../core'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 /**
@@ -35,15 +35,22 @@ async function checkRegistryAuth({
   try {
     logger.info(`Authenticating to package registry${registryLabel}...`)
     // execPromise enforces the timeout, masks the token in its logs/errors,
-    // and kills the command on timeout (error.killed is then true).
-    await execPromise(authCommand, {
-      cwd: config.cwd,
-      timeout: timeoutMs,
-      noStdout: true,
-      noStderr: true,
-      noSuccess: true,
-      noError: true,
-      logLevel: config.logLevel,
+    // and kills the command on timeout (error.killed is then true). The token
+    // is provided through a temporary `.npmrc` (restored right after), never as
+    // a CLI flag, so `whoami` parses on every package manager and version.
+    await withRegistryNpmrc({
+      config,
+      registryTarget,
+      packageManager: config.publish.packageManager,
+      fn: () => execPromise(authCommand, {
+        cwd: config.cwd,
+        timeout: timeoutMs,
+        noStdout: true,
+        noStderr: true,
+        noSuccess: true,
+        noError: true,
+        logLevel: config.logLevel,
+      }),
     })
     logger.info(`Successfully authenticated to package registry${registryLabel}`)
   }

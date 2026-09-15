@@ -12,7 +12,7 @@ export interface Reference {
 }
 
 const CHANGELOG_RELEASE_HEAD_REGEX
-  // eslint-disable-next-line sonarjs/slow-regex, regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
+  // eslint-disable-next-line sonarjs/super-linear-regex, regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
   = /^#{2,}\s+(?:\S.*)?(v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)).*$/gm
 
 const VERSION_REGEX = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/

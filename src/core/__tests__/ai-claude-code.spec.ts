@@ -41,20 +41,12 @@ describe('claudeCodeProvider', () => {
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
 
-    it('passes when ANTHROPIC_API_KEY env var is set', async () => {
-      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-env')
-      const config = createMockConfig({})
-      await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
-    })
-
-    it('passes when RELIZY_ANTHROPIC_API_KEY env var is set', async () => {
-      vi.stubEnv('RELIZY_ANTHROPIC_API_KEY', 'sk-env')
-      const config = createMockConfig({})
-      await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
-    })
-
-    it('passes when CLAUDE_CODE_OAUTH_TOKEN env var is set', async () => {
-      vi.stubEnv('CLAUDE_CODE_OAUTH_TOKEN', 'oauth-token')
+    it.each([
+      ['ANTHROPIC_API_KEY', 'sk-env'],
+      ['RELIZY_ANTHROPIC_API_KEY', 'sk-env'],
+      ['CLAUDE_CODE_OAUTH_TOKEN', 'oauth-token'],
+    ])('passes when %s env var is set', async (envVar, value) => {
+      vi.stubEnv(envVar, value)
       const config = createMockConfig({})
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })

@@ -1770,37 +1770,25 @@ describe('Given extractVersionFromTag function', () => {
   })
 
   describe('When tag is invalid', () => {
-    it('Then returns null for empty string', () => {
-      const result = extractVersionFromTag('')
-      expect(result).toBe(null)
-    })
-
-    it('Then returns null for invalid format', () => {
-      const result = extractVersionFromTag('invalid')
-      expect(result).toBe(null)
-    })
-
-    it('Then returns null for tag without version', () => {
-      const result = extractVersionFromTag('release')
-      expect(result).toBe(null)
+    it.each([
+      ['empty string', ''],
+      ['invalid format', 'invalid'],
+      ['tag without version', 'release'],
+    ])('Then returns null for %s', (_label, tag) => {
+      const result = extractVersionFromTag(tag)
+      expect(result).toBeNull()
     })
   })
 })
 
 describe('Given isTagVersionCompatibleWithCurrent function', () => {
   describe('When tag major version is same as current', () => {
-    it('Then returns true for same version', () => {
-      const result = isTagVersionCompatibleWithCurrent('4.1.1', '4.1.1')
-      expect(result).toBe(true)
-    })
-
-    it('Then returns true for same major, different minor/patch', () => {
-      const result = isTagVersionCompatibleWithCurrent('4.5.2', '4.1.1')
-      expect(result).toBe(true)
-    })
-
-    it('Then returns true for prerelease with same major', () => {
-      const result = isTagVersionCompatibleWithCurrent('4.1.0-beta.0', '4.1.1')
+    it.each([
+      ['same version', '4.1.1', '4.1.1'],
+      ['same major, different minor/patch', '4.5.2', '4.1.1'],
+      ['prerelease with same major', '4.1.0-beta.0', '4.1.1'],
+    ])('Then returns true for %s', (_label, tag, current) => {
+      const result = isTagVersionCompatibleWithCurrent(tag, current)
       expect(result).toBe(true)
     })
   })
@@ -1823,18 +1811,12 @@ describe('Given isTagVersionCompatibleWithCurrent function', () => {
   })
 
   describe('When tag major version is greater than current', () => {
-    it('Then returns false for newer major version', () => {
-      const result = isTagVersionCompatibleWithCurrent('5.0.0', '4.1.1')
-      expect(result).toBe(false)
-    })
-
-    it('Then returns false for prerelease of newer major', () => {
-      const result = isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1')
-      expect(result).toBe(false)
-    })
-
-    it('Then returns false for much newer version', () => {
-      const result = isTagVersionCompatibleWithCurrent('10.0.0', '4.1.1')
+    it.each([
+      ['newer major version', '5.0.0', '4.1.1'],
+      ['prerelease of newer major', '5.0.0-beta.0', '4.1.1'],
+      ['much newer version', '10.0.0', '4.1.1'],
+    ])('Then returns false for %s', (_label, tag, current) => {
+      const result = isTagVersionCompatibleWithCurrent(tag, current)
       expect(result).toBe(false)
     })
   })
@@ -2330,7 +2312,7 @@ describe('Given capReleaseTypeForZeroMajor', () => {
   })
 
   it('Then returns undefined untouched', () => {
-    expect(capReleaseTypeForZeroMajor('0.5.2', undefined)).toBe(undefined)
+    expect(capReleaseTypeForZeroMajor('0.5.2', undefined)).toBeUndefined()
   })
 
   it('Then returns detected unchanged when currentVersion cannot be parsed', () => {

@@ -1,7 +1,7 @@
 import type { PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync, writeFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
 import { input } from '@inquirer/prompts'
@@ -18,6 +18,7 @@ import {
   publishPackage,
   resolveAllConfiguredRegistryTargets,
   resolveRegistryTargetsForPackage,
+  withRegistryNpmrc,
 } from '../npm'
 import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
@@ -72,48 +73,18 @@ describe('Given detectPackageManager function', () => {
   })
 
   describe('When package.json has packageManager field', () => {
-    it('Then detects pnpm from packageManager field', () => {
+    it.each([
+      ['pnpm', 'pnpm@8.0.0'],
+      ['yarn', 'yarn@3.0.0'],
+      ['npm', 'npm@9.0.0'],
+      ['bun', 'bun@1.0.0'],
+    ])('Then detects %s from packageManager field', (expected, field) => {
       vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        packageManager: 'pnpm@8.0.0',
-      }))
+      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ packageManager: field }))
 
       const result = detectPackageManager()
 
-      expect(result).toBe('pnpm')
-    })
-
-    it('Then detects yarn from packageManager field', () => {
-      vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        packageManager: 'yarn@3.0.0',
-      }))
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('yarn')
-    })
-
-    it('Then detects npm from packageManager field', () => {
-      vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        packageManager: 'npm@9.0.0',
-      }))
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('npm')
-    })
-
-    it('Then detects bun from packageManager field', () => {
-      vi.mocked(existsSync).mockReturnValue(true)
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({
-        packageManager: 'bun@1.0.0',
-      }))
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('bun')
+      expect(result).toBe(expected)
     })
 
     it('Then ignores invalid package manager names', () => {
@@ -129,48 +100,18 @@ describe('Given detectPackageManager function', () => {
   })
 
   describe('When detecting from lockfiles', () => {
-    it('Then detects pnpm from pnpm-lock.yaml', () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
-        return p.includes('pnpm-lock.yaml')
-      })
+    it.each([
+      ['pnpm', 'pnpm-lock.yaml'],
+      ['yarn', 'yarn.lock'],
+      ['npm', 'package-lock.json'],
+      ['bun', 'bun.lockb'],
+    ])('Then detects %s from %s', (expected, lockfile) => {
+      vi.mocked(existsSync).mockImplementation((p: any) => p.includes(lockfile))
       vi.mocked(readFileSync).mockReturnValue('{}')
 
       const result = detectPackageManager()
 
-      expect(result).toBe('pnpm')
-    })
-
-    it('Then detects yarn from yarn.lock', () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
-        return p.includes('yarn.lock')
-      })
-      vi.mocked(readFileSync).mockReturnValue('{}')
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('yarn')
-    })
-
-    it('Then detects npm from package-lock.json', () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
-        return p.includes('package-lock.json')
-      })
-      vi.mocked(readFileSync).mockReturnValue('{}')
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('npm')
-    })
-
-    it('Then detects bun from bun.lockb', () => {
-      vi.mocked(existsSync).mockImplementation((p: any) => {
-        return p.includes('bun.lockb')
-      })
-      vi.mocked(readFileSync).mockReturnValue('{}')
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('bun')
+      expect(result).toBe(expected)
     })
 
     it('Then prioritizes pnpm lockfile over others', () => {
@@ -186,40 +127,18 @@ describe('Given detectPackageManager function', () => {
   })
 
   describe('When detecting from user agent', () => {
-    it('Then detects pnpm from npm_config_user_agent', () => {
+    it.each([
+      ['pnpm', 'pnpm/8.0.0 npm/? node/v18.0.0'],
+      ['yarn', 'yarn/3.0.0 npm/? node/v18.0.0'],
+      ['npm', 'npm/9.0.0 node/v18.0.0'],
+      ['bun', 'bun/1.0.0'],
+    ])('Then detects %s from npm_config_user_agent', (expected, userAgent) => {
       vi.mocked(existsSync).mockReturnValue(false)
-      globalThis.process.env.npm_config_user_agent = 'pnpm/8.0.0 npm/? node/v18.0.0'
+      globalThis.process.env.npm_config_user_agent = userAgent
 
       const result = detectPackageManager()
 
-      expect(result).toBe('pnpm')
-    })
-
-    it('Then detects yarn from npm_config_user_agent', () => {
-      vi.mocked(existsSync).mockReturnValue(false)
-      globalThis.process.env.npm_config_user_agent = 'yarn/3.0.0 npm/? node/v18.0.0'
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('yarn')
-    })
-
-    it('Then detects npm from npm_config_user_agent', () => {
-      vi.mocked(existsSync).mockReturnValue(false)
-      globalThis.process.env.npm_config_user_agent = 'npm/9.0.0 node/v18.0.0'
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('npm')
-    })
-
-    it('Then detects bun from npm_config_user_agent', () => {
-      vi.mocked(existsSync).mockReturnValue(false)
-      globalThis.process.env.npm_config_user_agent = 'bun/1.0.0'
-
-      const result = detectPackageManager()
-
-      expect(result).toBe('bun')
+      expect(result).toBe(expected)
     })
   })
 
@@ -563,46 +482,175 @@ describe('Given getAuthCommand function', () => {
     })
   })
 
-  describe('When using publish token', () => {
-    it('Then includes auth token for npm with registry', () => {
+  describe('When a publish token is configured', () => {
+    it('Then never puts the auth token in the command (it is injected via .npmrc)', () => {
       config.publish.registry = 'https://registry.example.com/npm/'
       config.publish.token = 'secret-token'
 
       const result = getAuthCommand({ packageManager: 'npm', config })
 
-      expect(result).toContain('//registry.example.com/npm/:_authToken=secret-token')
+      // pnpm 12+ rejects `--//host:_authToken=` as an unexpected argument, so
+      // the token must never be a CLI flag - it goes through withRegistryNpmrc.
+      expect(result).toBe('npm whoami --registry https://registry.example.com/npm/')
+      expect(result).not.toContain('secret-token')
+      expect(result).not.toContain('_authToken')
+    })
+  })
+})
+
+describe('Given withRegistryNpmrc function', () => {
+  const config = createMockConfig({
+    cwd: '/project',
+    bump: { type: 'patch' },
+    publish: { private: false, args: [] },
+  })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
+    vi.mocked(writeFileSync).mockReset()
+    vi.mocked(rmSync).mockReset()
+  })
+
+  describe('When a token is configured and the file does not exist', () => {
+    it('Then writes the auth token to .npmrc, runs fn, then removes the file it created', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+      let contentDuringFn: string | undefined
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        contentDuringFn = content as string
+      })
+
+      const result = await withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'tok-123' },
+        packageManager: 'pnpm',
+        fn: () => Promise.resolve('done'),
+      })
+
+      expect(result).toBe('done')
+      expect(contentDuringFn).toContain('//nexus.internal/repo/:_authToken=tok-123')
+      expect(rmSync).toHaveBeenCalledWith('/project/.npmrc', { force: true })
+    })
+  })
+
+  describe('When publishing a scoped package', () => {
+    it('Then writes both the scope registry override and the auth token', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+      let content = ''
+      vi.mocked(writeFileSync).mockImplementation((_path, c) => {
+        content = c as string
+      })
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'jfrog', registry: 'https://jfrog.internal/repo/', token: 't' },
+        packageName: '@accor/foo',
+        packageManager: 'pnpm',
+        fn: () => Promise.resolve(undefined),
+      })
+
+      expect(content).toContain('@accor:registry=https://jfrog.internal/repo/')
+      expect(content).toContain('//jfrog.internal/repo/:_authToken=t')
+    })
+  })
+
+  describe('When a .npmrc already exists', () => {
+    it('Then preserves unrelated user lines, overrides only managed keys, and restores the original afterwards', async () => {
+      const original = 'legacy-peer-deps=true\n@accor:registry=https://old.internal/\n'
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(original as any)
+      const writes: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, c) => {
+        writes.push(c as string)
+      })
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'jfrog', registry: 'https://jfrog.internal/repo/' },
+        packageName: '@accor/foo',
+        packageManager: 'pnpm',
+        fn: () => Promise.resolve(undefined),
+      })
+
+      // During fn: unrelated line kept, @accor:registry overridden to the target.
+      expect(writes[0]).toContain('legacy-peer-deps=true')
+      expect(writes[0]).toContain('@accor:registry=https://jfrog.internal/repo/')
+      expect(writes[0]).not.toContain('old.internal')
+      // Afterwards: restored to the exact original content, file not removed.
+      expect(writes[writes.length - 1]).toBe(original)
+      expect(rmSync).not.toHaveBeenCalled()
     })
 
-    it('Then includes auth token for pnpm with registry', () => {
-      config.publish.registry = 'https://registry.example.com/'
-      config.publish.token = 'token123'
+    it('Then restores the original .npmrc even when fn throws', async () => {
+      const original = 'registry=https://user.internal/\n'
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue(original as any)
+      const writes: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, c) => {
+        writes.push(c as string)
+      })
 
-      const result = getAuthCommand({ packageManager: 'pnpm', config })
+      await expect(withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'tok' },
+        packageManager: 'pnpm',
+        fn: () => Promise.reject(new Error('publish failed')),
+      })).rejects.toThrow('publish failed')
 
-      expect(result).toContain('//registry.example.com/:_authToken=token123')
+      expect(writes[writes.length - 1]).toBe(original)
     })
+  })
 
-    it('Then warns when token provided without registry', () => {
-      config.publish.token = 'token123'
-      const loggerSpy = vi.spyOn(logger, 'warn')
+  describe('When there is nothing to inject', () => {
+    it('Then leaves the .npmrc untouched and runs fn as-is', async () => {
+      vi.mocked(existsSync).mockReturnValue(true)
+      const fn = vi.fn().mockResolvedValue('ok')
 
-      getAuthCommand({ packageManager: 'npm', config })
+      const result = await withRegistryNpmrc({
+        config,
+        // Unscoped package, no token: nothing for relizy to inject.
+        registryTarget: { name: 'default', registry: 'https://registry.npmjs.org/' },
+        packageManager: 'pnpm',
+        fn,
+      })
 
-      expect(loggerSpy).toHaveBeenCalledWith(
-        'Publish token provided but no registry specified',
-      )
+      expect(result).toBe('ok')
+      expect(writeFileSync).not.toHaveBeenCalled()
+      expect(rmSync).not.toHaveBeenCalled()
     })
+  })
 
-    it('Then warns when token used with yarn', () => {
-      config.publish.registry = 'https://registry.example.com/'
-      config.publish.token = 'token123'
-      const loggerSpy = vi.spyOn(logger, 'warn')
+  describe('When the package manager does not read .npmrc (yarn)', () => {
+    it('Then does not touch .npmrc and warns that the token is unsupported', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+      const fn = vi.fn().mockResolvedValue(undefined)
 
-      getAuthCommand({ packageManager: 'yarn', config })
+      await withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'tok' },
+        packageManager: 'yarn',
+        fn,
+      })
 
-      expect(loggerSpy).toHaveBeenCalledWith(
-        'Publish token only supported for pnpm and npm',
-      )
+      expect(writeFileSync).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalledWith('Publish token only supported for npm, pnpm and bun')
+      expect(fn).toHaveBeenCalled()
+    })
+  })
+
+  describe('When a token is provided without a registry', () => {
+    it('Then warns and does not write .npmrc', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: { name: 'x', registry: '', token: 'tok' },
+        packageManager: 'pnpm',
+        fn: () => Promise.resolve(undefined),
+      })
+
+      expect(warnSpy).toHaveBeenCalledWith('Publish token provided but no registry specified')
+      expect(writeFileSync).not.toHaveBeenCalled()
     })
   })
 })
@@ -987,6 +1035,13 @@ describe('Given publishPackage function', () => {
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
+    // clearAllMocks keeps mock implementations; reset the fs mocks so a
+    // per-test implementation (e.g. the dry-run version-restore tests, or the
+    // withRegistryNpmrc tests) does not leak into this suite. readFileSync must
+    // return a valid package.json for the dry-run temp-version-write path.
+    vi.mocked(writeFileSync).mockReset()
+    vi.mocked(rmSync).mockReset()
+    vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ name: 'test-package', version: '1.0.0' }))
   })
 
   afterEach(() => {
@@ -1613,6 +1668,69 @@ describe('Given publishPackage function', () => {
 
       expect(execPromise).toHaveBeenCalledTimes(1)
       expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+
+    it('Then writes the scope registry to .npmrc per target so a scoped package reaches each target, not the ambient .npmrc registry', async () => {
+      pkg.name = '@accor/foo'
+      vi.mocked(getIndependentTag).mockReturnValue('@accor/foo@1.0.1')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/' },
+      ]
+
+      const npmrcWrites: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        npmrcWrites.push(content as string)
+      })
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      // No scope registry override leaks into the CLI command (pnpm 12 rejects it).
+      expect(execPromise).not.toHaveBeenCalledWith(expect.stringContaining(':registry='), expect.any(Object))
+      // Each target writes its own @accor:registry into .npmrc instead.
+      expect(npmrcWrites.some(c => c.includes('@accor:registry=https://registry.npmjs.org/'))).toBe(true)
+      expect(npmrcWrites.some(c => c.includes('@accor:registry=https://jfrog.internal/repo/'))).toBe(true)
+    })
+
+    it('Then does not write a scope registry override for an unscoped package', async () => {
+      // pkg.name is the unscoped 'test-package'
+      config.publish.registry = 'https://registry.npmjs.org/'
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      const command = vi.mocked(execPromise).mock.calls[0]![0] as string
+      expect(command).toContain('--registry https://registry.npmjs.org/')
+      expect(command).not.toContain(':registry=')
+      // No token/scope configured, so no .npmrc write happens at all.
+      expect(writeFileSync).not.toHaveBeenCalled()
+    })
+
+    it('Then propagates the global publish tag to explicit registries that have no tag of their own', async () => {
+      pkg.name = '@accor/foo'
+      vi.mocked(getIndependentTag).mockReturnValue('@accor/foo@1.0.1')
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.tag = 'canary'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/' },
+      ]
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--tag canary'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--tag canary'), expect.any(Object))
+    })
+
+    it('Then keeps a registry-specific tag over the global publish tag', async () => {
+      config.publish.registry = 'https://registry.npmjs.org/'
+      config.publish.tag = 'canary'
+      config.publish.registries = [
+        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', tag: 'beta' },
+      ]
+
+      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+
+      expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--tag canary'), expect.any(Object))
+      expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--tag beta'), expect.any(Object))
     })
   })
 

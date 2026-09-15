@@ -116,7 +116,7 @@ export default defineConfig({
 
 ## token
 
-NPM token for authentication. Only supported for pnpm and npm:
+NPM token for authentication. Supported for `npm`, `pnpm` and `bun`:
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -130,6 +130,12 @@ export default defineConfig({
 
 ::: tip
 You can also configure the token in the `tokens.registry` field or via environment variables: `NPM_TOKEN`, `RELIZY_NPM_TOKEN`, or `NODE_AUTH_TOKEN`.
+:::
+
+::: info How the token is applied
+Relizy writes the token (and, for scoped packages, the matching `@scope:registry`) to the project `.npmrc` only for the duration of each `whoami`/`publish`, then restores your `.npmrc` exactly as it was - creating no file if none existed. It never passes the token as a CLI flag, because the pnpm 10+ argument parser rejects rc-option flags like `--//host:_authToken=`. This makes authentication work identically across npm, pnpm (every version) and bun.
+
+Any auth or registry you already set in your own `.npmrc` keeps working untouched: if you do not configure `publish.token`/`publish.registry`, relizy leaves your `.npmrc` alone. Yarn is not covered (it uses `.yarnrc.yml`) - configure its auth yourself.
 :::
 
 ## registries

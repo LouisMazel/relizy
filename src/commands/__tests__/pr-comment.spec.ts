@@ -222,33 +222,17 @@ describe('Given prComment command', () => {
       expect(postPrComment).not.toHaveBeenCalled()
     })
 
-    it('Then shows detected PR number in preview', async () => {
+    it.each([
+      ['detected PR number', 'PR: #42'],
+      ['mode', 'Mode: append'],
+      ['status', 'Status: success'],
+    ])('Then shows %s in preview', async (_label, expected) => {
       const loggerSpy = vi.spyOn(logger, 'box')
 
       await prComment({ dryRun: true })
 
       expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('PR: #42'),
-      )
-    })
-
-    it('Then shows mode in preview', async () => {
-      const loggerSpy = vi.spyOn(logger, 'box')
-
-      await prComment({ dryRun: true })
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Mode: append'),
-      )
-    })
-
-    it('Then shows status in preview', async () => {
-      const loggerSpy = vi.spyOn(logger, 'box')
-
-      await prComment({ dryRun: true })
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('Status: success'),
+        expect.stringContaining(expected),
       )
     })
 
