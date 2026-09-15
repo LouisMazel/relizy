@@ -1,7 +1,7 @@
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { collectContributorNames, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { collectContributorNames, executeHook, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
@@ -31,7 +31,9 @@ vi.mock('../../core', () => ({
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),
   extractChangelogSummary: vi.fn().mockReturnValue('Summary of changes'),
-  getIndependentTag: vi.fn(),
+  getIndependentTag: vi.fn(({ name, version }: { name: string, version: string }) => `${name}@${version}`),
+  filterOutPrivatePackages: vi.fn((packages: Array<{ private?: boolean }>) => packages.filter(pkg => !pkg.private)),
+  isBumpedPackage: vi.fn((pkg: Record<string, unknown>) => 'oldVersion' in pkg),
 }))
 
 describe('Given socialSafetyCheck function', () => {
@@ -397,59 +399,143 @@ describe('Given social command', () => {
   })
 
   describe('When in independent mode', () => {
-    it('Then create a post for all packages', async () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-        social: {
-          twitter: { enabled: true, onlyStable: true },
-          slack: { enabled: false, onlyStable: true },
+    const independentConfig = () => createMockConfig({
+      bump: { type: 'patch' },
+      monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+      social: {
+        twitter: { enabled: true, onlyStable: true },
+        slack: { enabled: true, onlyStable: true, channel: '#releases' },
+      },
+      tokens: {
+        gitlab: undefined,
+        github: undefined,
+        twitter: {
+          apiKey: 'key',
+          apiKeySecret: 'secret',
+          accessToken: 'token',
+          accessTokenSecret: 'secret',
         },
-        tokens: {
-          gitlab: undefined,
-          github: undefined,
-          twitter: {
-            apiKey: 'key',
-            apiKeySecret: 'secret',
-            accessToken: 'token',
-            accessTokenSecret: 'secret',
-          },
-          slack: undefined,
-        },
-      })
-      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+        slack: 'slack-token',
+      },
+    })
 
-      await social({
-        bumpResult: {
-          bumped: true,
-          bumpedPackages: [
-            {
-              name: 'pkg-a',
-              version: '1.0.0',
-              path: '/pkg-a',
-              commits: [],
-              dependencies: [],
-              fromTag: 'v1.0.0',
-              oldVersion: '1.0.0',
-              newVersion: '1.0.1',
-              private: false,
-            },
-            {
-              name: 'pkg-b',
-              version: '2.0.0',
-              path: '/pkg-b',
-              commits: [],
-              dependencies: [],
-              fromTag: 'v2.0.0',
-              oldVersion: '2.0.0',
-              newVersion: '2.0.1',
-              private: false,
-            },
-          ],
-        },
-      })
+    const makePkg = (over: Record<string, unknown>) => ({
+      version: '1.0.0',
+      path: '/pkg',
+      commits: [],
+      dependencies: [],
+      fromTag: 'pkg@1.0.0',
+      private: false,
+      ...over,
+    })
+
+    it('Then aggregates a single post covering all packages without touching the root', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({ name: 'pkg-b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.0.1', fromTag: 'pkg-b@2.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      // The root package must never be used to resolve tags/changelog here.
+      expect(getRootPackage).not.toHaveBeenCalled()
+      expect(resolveTags).not.toHaveBeenCalled()
+      // One changelog section per package, per pass (minified + rich) => 2 * 2.
+      expect(generateChangelog).toHaveBeenCalledTimes(4)
+      // Contributors are collected per package.
+      expect(getPackageCommits).toHaveBeenCalledTimes(2)
+      // Single aggregated post per platform.
+      expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
+      expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then uses the package tag and release URL for a single-package release', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      expect(getIndependentTag).toHaveBeenCalledWith({ version: '1.0.1', name: 'pkg-a' })
+      expect(getReleaseUrl).toHaveBeenCalledWith(expect.anything(), 'pkg-a@1.0.1')
+      expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then skips onlyStable posts when every package is a prerelease', async () => {
+      vi.mocked(isPrerelease).mockReturnValue(true)
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1-beta.0', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1-beta.0', fromTag: 'pkg-b@2.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      expect(postReleaseToTwitter).not.toHaveBeenCalled()
+      expect(postReleaseToSlack).not.toHaveBeenCalled()
+    })
+
+    it('Then posts when at least one package is stable (mixed batch)', async () => {
+      vi.mocked(isPrerelease).mockImplementation((v?: string) => (v ?? '').includes('-'))
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1-beta.0', fromTag: 'pkg-b@2.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
 
       expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
+      expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then skips a package whose from tag cannot be resolved', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1', fromTag: undefined }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('pkg-b'))
+      // Only the resolvable package yields changelog sections (2 passes) and commits.
+      expect(generateChangelog).toHaveBeenCalledTimes(2)
+      expect(getPackageCommits).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then ignores empty changelog sections', async () => {
+      vi.mocked(generateChangelog).mockResolvedValue('   ')
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      // Whitespace-only sections are dropped, leaving an empty aggregated body.
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: '' }))
+    })
+
+    it('Then honors config.from and falls back to the commit message when shortHash is absent', async () => {
+      const config = independentConfig()
+      config.from = 'custom-base'
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackageCommits).mockResolvedValue([
+        { message: 'feat: no hash commit' } as any,
+      ])
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: undefined }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      // config.from resolves the range even though the package has no fromTag.
+      expect(getPackageCommits).toHaveBeenCalledWith(expect.objectContaining({ from: 'custom-base' }))
+      expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
     })
   })
 

@@ -231,7 +231,7 @@ describe('Given getPackages function', () => {
       })
 
       // In unified mode with no commits and no force, no packages should be bumped
-      expect(packages.length).toBe(0)
+      expect(packages).toHaveLength(0)
     })
 
     it('Then returns all discovered packages when includeAll is true even without commits', async () => {

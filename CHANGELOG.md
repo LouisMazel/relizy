@@ -1,5 +1,86 @@
 # Changelog
 
+## v1.5.0-beta.2 (2026-09-15)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.1...v1.5.0-beta.2)
+
+### 🩹 Fixes
+
+- Authenticate and publish through .npmrc for pnpm 10+ compatibility ([72876ad](https://github.com/LouisMazel/relizy/commit/72876ad))
+
+  The auth token (and, for scoped packages, the matching `@scope:registry`) is
+  now written to `.npmrc` for the duration of each publish/whoami instead of
+  being passed as CLI flags, which the pnpm 10+ parser rejects. Authentication
+  and multi-registry publishing now behave identically on npm, pnpm (every
+  version) and bun; your `.npmrc` is preserved and restored, and left untouched
+  when no token/registry is configured. Yarn is not covered (set its auth in
+  `.yarnrc.yml`).
+  Scoped packages are now published to their configured registry instead of the
+  one the ambient `.npmrc` points at, and additional `registries` without their
+  own `tag` inherit the global publish tag, so a canary release keeps its tag on
+  every registry.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
+## v1.5.0-beta.1 (2026-09-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.0...v1.5.0-beta.1)
+
+### 🩹 Fixes
+
+- Omit implicit default registry when only `registries` is configured ([3ee4a1c](https://github.com/LouisMazel/relizy/commit/3ee4a1c))
+
+  You can now list every publish target in `registries` without setting a
+  top-level `registry`. When no default `registry` is configured, Relizy no
+  longer adds an implicit target pointing at the ambient `.npmrc` registry, so
+  packages are published only to the registries you declare.
+  Setting neither `registry` nor `registries` still falls back to the
+  `.npmrc`-resolved registry, and a package matched by no `registries` entry
+  falls back to it too.
+
+### 📖 Documentation
+
+- Document listing every registry without a default ([f0239a1](https://github.com/LouisMazel/relizy/commit/f0239a1))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
+## v1.5.0-beta.0 (2026-09-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.9...v1.5.0-beta.0)
+
+### 🚀 Features
+
+- Support publishing to multiple registries ([#113](https://github.com/LouisMazel/relizy/pull/113))
+  - refactor(relizy): use deep imports for @maz-ui/utils helpers
+    Closes #100, #105
+  - feat: support publishing to multiple registries (#112)
+  - feat(relizy): support publishing to multiple registries
+  - test(relizy): add per-registry OTP caching coverage
+  - feat(relizy): allow excluding the default registry per package
+  - fix(relizy): normalize registry URLs before deduplication and OTP caching
+  - fix(relizy): scope the publish safety check to registries actually needed by the release
+  - refactor(relizy): rename RegistryTarget.packages to packageFilter
+
+  ***
+
+### 🩹 Fixes
+
+- Aggregate per-package changelog for social posts in independent mode ([#114](https://github.com/LouisMazel/relizy/pull/114))
+
+### 📦 Build
+
+- Upgrade dependencies ([#116](https://github.com/LouisMazel/relizy/pull/116))
+  - build: upgrade dependencies minor
+  - build: upgrade vitest
+
+### ❤️ Contributors
+
+- Mazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.4.9 (2026-06-21)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.8...v1.4.9)

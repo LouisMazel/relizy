@@ -6,3 +6,4 @@ docs/.vitepress/.temp
 .DS_Store
 .claude
 coverage
+.vitest/

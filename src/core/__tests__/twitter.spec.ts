@@ -289,7 +289,7 @@ describe('Given formatTweetMessage function', () => {
         postMaxLength: 280,
       })
 
-      expect(result.length).toBe(280)
+      expect(result).toHaveLength(280)
       expect(result).toContain('...')
     })
 
@@ -306,7 +306,7 @@ describe('Given formatTweetMessage function', () => {
       })
 
       expect(result).toContain('...')
-      expect(result.length).toBe(280)
+      expect(result).toHaveLength(280)
     })
   })
 

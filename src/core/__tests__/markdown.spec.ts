@@ -1022,7 +1022,7 @@ Content`
 
       const result = parseChangelogMarkdown(markdown)
 
-      expect(result.releases.length).toBe(0)
+      expect(result.releases).toHaveLength(0)
       expect(result.releases[0]?.version).toBeUndefined()
     })
 

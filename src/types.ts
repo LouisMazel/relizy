@@ -457,6 +457,59 @@ export interface SocialOptions {
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
+  /**
+   * Prerelease suffix, forwarded to package discovery in independent mode
+   * when no bump result is available (standalone `social` runs).
+   */
+  suffix?: string
+  /**
+   * Force package discovery to include all packages (independent standalone runs).
+   * @default false
+   */
+  force?: boolean
+}
+
+export interface RegistryTarget {
+  /**
+   * Optional label used in logs to identify this registry (e.g. `nexus-internal`)
+   */
+  name?: string
+  /**
+   * Registry URL (e.g. `https://registry.npmjs.org/`, a Nexus or JFrog URL)
+   */
+  registry: string
+  /**
+   * Registry token - supported for npm, pnpm and bun (injected via `.npmrc`).
+   * Yarn is not supported (it uses `.yarnrc.yml`); configure its auth yourself.
+   */
+  token?: string
+  /**
+   * Publish tag (e.g. `latest`)
+   */
+  tag?: string
+  /**
+   * Publish access level (e.g. `public` or `restricted`)
+   */
+  access?: 'public' | 'restricted'
+  /**
+   * OTP for this registry (e.g. `123456`)
+   */
+  otp?: string
+  /**
+   * Glob pattern matching package names this registry applies to. Distinct
+   * from `PublishConfig.packages` (which packages get published at all) -
+   * this only routes already-publishable packages to this registry.
+   * Omitted or empty = applies to every publishable package (mirroring).
+   */
+  packageFilter?: string[]
+  /**
+   * When true, packages matched by this target are published ONLY to this
+   * (and any other matching) registry - the default `publish.registry` is
+   * skipped for them. Without this flag, `registries` is purely additive:
+   * matched packages are published to this registry ON TOP OF the default one.
+   * @default false
+   */
+  exclusive?: boolean
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {
@@ -489,7 +542,8 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    */
   buildCmd?: string
   /**
-   * NPM token (e.g. `123456`) - only supported for pnpm and npm
+   * NPM token (e.g. `123456`) - supported for npm, pnpm and bun (injected via
+   * `.npmrc`). Yarn is not supported (it uses `.yarnrc.yml`).
    */
   token?: string
   /**
@@ -504,6 +558,14 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * @default 15000
    */
   safetyCheckTimeout?: number
+  /**
+   * Additional registries to publish to, on top of `registry` (if set).
+   * Entries without `packageFilter` apply to every package (mirroring);
+   * entries with `packageFilter` only apply to packages matching one of the
+   * glob patterns. Fully additive: leaving this unset preserves the
+   * single-registry behavior.
+   */
+  registries?: RegistryTarget[]
 }
 
 export interface PublishOptions extends PublishConfig {
