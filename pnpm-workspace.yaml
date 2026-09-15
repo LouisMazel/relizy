@@ -1,5 +1,8 @@
 # eslint-disable pnpm/yaml-enforce-settings
 
+minimumReleaseAgeExclude:
+  - '@maz-ui/eslint-config@5.0.0-beta.43'
+
 packages:
   - .
   - docs

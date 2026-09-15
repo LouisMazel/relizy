@@ -216,8 +216,8 @@ importers:
         specifier: ^21.2.0
         version: 21.2.0
       '@maz-ui/eslint-config':
-        specifier: 5.0.0-beta.25
-        version: 5.0.0-beta.25(@typescript-eslint/typescript-estree@8.70.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.70.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.42)(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.12.0)(supports-color@7.2.0)(tailwindcss@4.3.3)(typescript@6.0.3)(vitest@5.0.0)
+        specifier: 5.0.0-beta.43
+        version: 5.0.0-beta.43(@typescript-eslint/typescript-estree@8.70.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.70.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.42)(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.12.0)(supports-color@7.2.0)(tailwindcss@4.3.3)(typescript@6.0.3)(vitest@5.0.0)
       '@slack/web-api':
         specifier: 7.16.0
         version: 7.16.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
@@ -1403,8 +1403,8 @@ packages:
     resolution: {integrity: sha512-eoRWbuyR8Xwg8EnP0H4V+jEt7vBlzoPeI1VqAT1pExUxKvYH4Y0vBGE0K3Jr+SSsZ7fPIp3V1jouHBFHWVQEhg==}
     hasBin: true
 
-  '@maz-ui/eslint-config@5.0.0-beta.25':
-    resolution: {integrity: sha512-qFRRw0VdBKZ25F5QQgxNEqgERmxi82XHO7xyVfM7TuLQvPCRUeeE/7dsVno3res1HVgSdd4jnGvGytJw6bKjlw==}
+  '@maz-ui/eslint-config@5.0.0-beta.43':
+    resolution: {integrity: sha512-39dMKNWqO7kCVsD6PqAxl1vqWMwo2fOwcJHUwIAtVgWqnBTi9E/jWdsiYhdsvT9FMOj6W8C36NGuuiiwmnejjA==}
     engines: {node: '>=20.19.0'}
     peerDependencies:
       eslint: ^9.10.0 || ^10.0.0
@@ -6025,7 +6025,7 @@ snapshots:
     transitivePeerDependencies:
       - typescript
 
-  '@maz-ui/eslint-config@5.0.0-beta.25(@typescript-eslint/typescript-estree@8.70.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.70.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.42)(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.12.0)(supports-color@7.2.0)(tailwindcss@4.3.3)(typescript@6.0.3)(vitest@5.0.0)':
+  '@maz-ui/eslint-config@5.0.0-beta.43(@typescript-eslint/typescript-estree@8.70.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.70.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.42)(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.12.0)(supports-color@7.2.0)(tailwindcss@4.3.3)(typescript@6.0.3)(vitest@5.0.0)':
     dependencies:
       '@antfu/eslint-config': 9.5.1(@typescript-eslint/typescript-estree@8.70.0(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.70.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.42)(eslint-plugin-format@2.0.1(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0)))(eslint-plugin-sonarjs@4.2.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0)))(eslint-plugin-vuejs-accessibility@2.6.0(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.12.0)(supports-color@7.2.0))(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@5.0.0)
       consola: 3.4.2
