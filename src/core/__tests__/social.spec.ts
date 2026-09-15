@@ -406,43 +406,21 @@ describe('Given getReleaseUrl function', () => {
   })
 
   describe('When tag format varies', () => {
-    it('Then handles prerelease tags', () => {
+    it.each([
+      ['prerelease tags', 'user/repo', 'v1.0.0-beta.1', 'https://github.com/user/repo/releases/tag/v1.0.0-beta.1'],
+      ['custom tag formats', 'user/repo', 'release-1.0.0', 'https://github.com/user/repo/releases/tag/release-1.0.0'],
+      ['package-specific tags', 'user/monorepo', 'pkg-a@1.0.0', 'https://github.com/user/monorepo/releases/tag/pkg-a@1.0.0'],
+    ])('Then handles %s', (_description, repo, tag, expected) => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
-        repo: 'user/repo',
+        repo,
       }
 
-      const result = getReleaseUrl(config, 'v1.0.0-beta.1')
+      const result = getReleaseUrl(config, tag)
 
-      expect(result).toBe('https://github.com/user/repo/releases/tag/v1.0.0-beta.1')
-    })
-
-    it('Then handles custom tag formats', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      }
-
-      const result = getReleaseUrl(config, 'release-1.0.0')
-
-      expect(result).toBe('https://github.com/user/repo/releases/tag/release-1.0.0')
-    })
-
-    it('Then handles package-specific tags', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = {
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/monorepo',
-      }
-
-      const result = getReleaseUrl(config, 'pkg-a@1.0.0')
-
-      expect(result).toBe('https://github.com/user/monorepo/releases/tag/pkg-a@1.0.0')
+      expect(result).toBe(expected)
     })
   })
 })

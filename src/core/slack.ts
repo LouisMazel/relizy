@@ -57,7 +57,7 @@ export function formatChangelogForSlack(changelog: string, maxLength: number = 2
 
   // Convert markdown links [text](url) to <url|text>
   // Use a safer approach without complex regex
-  // eslint-disable-next-line sonarjs/slow-regex, regexp/strict
+  // eslint-disable-next-line sonarjs/super-linear-regex, regexp/strict
   const linkPattern = /\[([^\]]*)]\(([^)]*)\)/g
   formatted = formatted.replace(linkPattern, (_, text, url) => `<${url}|${text}>`)
 
