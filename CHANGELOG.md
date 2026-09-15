@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.5.0-beta.2 (2026-09-15)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.1...v1.5.0-beta.2)
+
+### 🩹 Fixes
+
+- Authenticate and publish through .npmrc for pnpm 10+ compatibility ([72876ad](https://github.com/LouisMazel/relizy/commit/72876ad))
+
+  The auth token (and, for scoped packages, the matching `@scope:registry`) is
+  now written to `.npmrc` for the duration of each publish/whoami instead of
+  being passed as CLI flags, which the pnpm 10+ parser rejects. Authentication
+  and multi-registry publishing now behave identically on npm, pnpm (every
+  version) and bun; your `.npmrc` is preserved and restored, and left untouched
+  when no token/registry is configured. Yarn is not covered (set its auth in
+  `.yarnrc.yml`).
+  Scoped packages are now published to their configured registry instead of the
+  one the ambient `.npmrc` points at, and additional `registries` without their
+  own `tag` inherit the global publish tag, so a canary release keeps its tag on
+  every registry.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0-beta.1 (2026-09-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.0...v1.5.0-beta.1)
