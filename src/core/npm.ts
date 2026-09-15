@@ -1,7 +1,7 @@
 import type { PackageBase, PackageManager, RegistryTarget } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
@@ -282,6 +282,135 @@ export function resolveRegistryTargetsForPackages(
   return dedupRegistryTargets(allTargets)
 }
 
+/**
+ * Package managers that read auth and registry configuration from `.npmrc`.
+ * Yarn (Berry) uses `.yarnrc.yml` instead, so relizy never writes `.npmrc`
+ * auth for it - preserving the historical "token only for npm/pnpm" behavior,
+ * now also covering bun, which honors `.npmrc` too.
+ */
+function readsNpmrc(packageManager: PackageManager): boolean {
+  return packageManager === 'npm' || packageManager === 'pnpm' || packageManager === 'bun'
+}
+
+/**
+ * Extract the npm scope of a package name (`@accor/foo` -> `@accor`), or
+ * `undefined` for an unscoped package.
+ */
+function getPackageScope(packageName: string | undefined): string | undefined {
+  if (!packageName?.startsWith('@') || !packageName.includes('/')) {
+    return undefined
+  }
+
+  return packageName.slice(0, packageName.indexOf('/'))
+}
+
+/**
+ * Build the `.npmrc` entries relizy needs to inject for a registry target so a
+ * command authenticates and targets the right registry, WITHOUT relying on CLI
+ * rc-option flags (`--//host:_authToken=`, `--@scope:registry=`) which the
+ * pnpm 10+ CLI parser rejects as "unexpected argument". Each entry carries its
+ * `key` (used to override any pre-existing line for that key) and the full
+ * `line` to write.
+ *
+ * - `@scope:registry=<registry>` forces scoped packages to this registry:
+ *   npm/pnpm resolve a scoped package's publish registry from `@scope:registry`
+ *   with priority over `--registry`, so without this a scoped package would be
+ *   published to whatever registry the ambient `.npmrc` points at.
+ * - `//host/path:_authToken=<token>` authenticates when a token is configured.
+ */
+function buildNpmrcEntries({
+  registryTarget,
+  scope,
+  packageManager,
+}: {
+  registryTarget: RegistryTarget
+  scope?: string
+  packageManager: PackageManager
+}): { key: string, line: string }[] {
+  const { registry, token } = registryTarget
+  const entries: { key: string, line: string }[] = []
+
+  if (registry && scope) {
+    entries.push({ key: `${scope}:registry`, line: `${scope}:registry=${registry}` })
+  }
+
+  if (token) {
+    if (!registry) {
+      logger.warn('Publish token provided but no registry specified')
+    }
+    else if (!readsNpmrc(packageManager)) {
+      logger.warn('Publish token only supported for npm, pnpm and bun')
+    }
+    else {
+      const url = new URL(registry)
+      const authKey = `//${url.host}${url.pathname}:_authToken`
+      entries.push({ key: authKey, line: `${authKey}=${token}` })
+    }
+  }
+
+  return entries
+}
+
+/**
+ * Run `fn` with the registry target's auth token and scope registry
+ * temporarily written to the project `.npmrc` (at `config.cwd`), then restore
+ * the original file - or remove it if it did not exist - ALWAYS, even on
+ * failure.
+ *
+ * This is the version-proof replacement for passing rc-options as CLI flags:
+ * the `.npmrc` contract is stable across npm/pnpm/bun and every version, so we
+ * never depend on the CLI argument parser (which pnpm changed in v10+). Only
+ * the keys relizy manages are overridden; every other line already in the
+ * user's `.npmrc` is preserved untouched. When there is nothing to inject (no
+ * token/scope, or a package manager that does not read `.npmrc` such as yarn),
+ * the `.npmrc` is left as-is and `fn` runs against the user's own config.
+ */
+export async function withRegistryNpmrc<T>({
+  config,
+  registryTarget,
+  packageName,
+  packageManager,
+  fn,
+}: {
+  config: ResolvedRelizyConfig
+  registryTarget: RegistryTarget
+  packageName?: string
+  packageManager: PackageManager
+  fn: () => Promise<T>
+}): Promise<T> {
+  const scope = getPackageScope(packageName)
+  const entries = buildNpmrcEntries({ registryTarget, scope, packageManager })
+
+  if (entries.length === 0) {
+    return fn()
+  }
+
+  const npmrcPath = join(config.cwd, '.npmrc')
+  const existed = existsSync(npmrcPath)
+  const original = existed ? readFileSync(npmrcPath, 'utf8') : ''
+
+  const managedKeys = new Set(entries.map(entry => entry.key))
+  const preservedLines = original.split('\n').filter((line) => {
+    const key = line.split('=')[0]?.trim()
+    return !key || !managedKeys.has(key)
+  })
+
+  const nextContent = `${[...preservedLines, ...entries.map(entry => entry.line)].filter(Boolean).join('\n')}\n`
+
+  try {
+    writeFileSync(npmrcPath, nextContent)
+    return await fn()
+  }
+  finally {
+    if (existed) {
+      writeFileSync(npmrcPath, original)
+    }
+    else {
+      rmSync(npmrcPath, { force: true })
+    }
+  }
+}
+
 function getCommandArgs<T extends 'auth' | 'publish'>({
   packageManager,
   tag,
@@ -304,22 +433,9 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
     args.push('--registry', registry)
   }
 
-  const isPnpmOrNpm = packageManager === 'pnpm' || packageManager === 'npm'
-
-  const publishToken = registryTarget.token
-  if (publishToken) {
-    if (!registry) {
-      logger.warn('Publish token provided but no registry specified')
-    }
-    else if (!isPnpmOrNpm) {
-      logger.warn('Publish token only supported for pnpm and npm')
-    }
-    else {
-      const registryUrl = new URL(registry)
-      const authTokenKey = `--//${registryUrl.host}${registryUrl.pathname}:_authToken=${publishToken}`
-      args.push(authTokenKey)
-    }
-  }
+  // The auth token and scope registry are injected via `.npmrc`
+  // (see withRegistryNpmrc), never as CLI flags: the pnpm 10+ parser rejects
+  // rc-option flags such as `--//host:_authToken=` and `--@scope:registry=`.
 
   // Priority: dynamic OTP > session OTP for this registry > target OTP
   const finalOtp = otp ?? sessionOtpByRegistry.get(normalizeRegistryKey(registry)) ?? registryTarget.otp
@@ -532,7 +648,10 @@ async function publishToRegistryTarget({
   packageNameAndVersion: string
   registryLabel: string
 }): Promise<void> {
-  const tag = determinePublishTag(pkg.newVersion || pkg.version, registryTarget.tag)
+  // A registry-specific `tag` wins; otherwise fall back to the global
+  // `publish.tag` (also set by `--tag`, and by canary mode to `canary`) so the
+  // resolved tag is consistent across every target, not just the default one.
+  const tag = determinePublishTag(pkg.newVersion || pkg.version, registryTarget.tag ?? config.publish.tag)
 
   let dynamicOtp: string | undefined
   const maxAttempts = 2
@@ -549,15 +668,25 @@ async function publishToRegistryTarget({
 
       process.chdir(pkg.path)
 
-      await executePublishCommand({
-        command,
-        packageNameAndVersion,
-        packageManager,
-        pkg,
+      // Inject this target's auth token and scope registry into `.npmrc` for
+      // the duration of the publish (restored afterwards), so scoped packages
+      // reach this exact registry and authentication works on every package
+      // manager and version - no CLI rc-option flags involved.
+      await withRegistryNpmrc({
         config,
-        dryRun,
-        tag,
-        registryLabel,
+        registryTarget,
+        packageName: pkg.name,
+        packageManager,
+        fn: () => executePublishCommand({
+          command,
+          packageNameAndVersion,
+          packageManager,
+          pkg,
+          config,
+          dryRun,
+          tag,
+          registryLabel,
+        }),
       })
 
       // Success - store OTP for this registry for next packages if it was prompted

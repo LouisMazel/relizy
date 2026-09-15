@@ -479,7 +479,8 @@ export interface RegistryTarget {
    */
   registry: string
   /**
-   * Registry token - only supported for pnpm and npm
+   * Registry token - supported for npm, pnpm and bun (injected via `.npmrc`).
+   * Yarn is not supported (it uses `.yarnrc.yml`); configure its auth yourself.
    */
   token?: string
   /**
@@ -541,7 +542,8 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    */
   buildCmd?: string
   /**
-   * NPM token (e.g. `123456`) - only supported for pnpm and npm
+   * NPM token (e.g. `123456`) - supported for npm, pnpm and bun (injected via
+   * `.npmrc`). Yarn is not supported (it uses `.yarnrc.yml`).
    */
   token?: string
   /**
