@@ -112,7 +112,7 @@
     "@maz-ui/eslint-config": "5.0.0-beta.43",
     "@slack/web-api": "7.16.0",
     "@types/micromatch": "^4.0.10",
-    "@types/node": "^25.9.2",
+    "@types/node": "^26.5.1",
     "@types/semver": "^7.8.0",
     "@vitest/coverage-v8": "^5.0.0",
     "@yoloship/claude-sdk": "0.2.0-beta.6",
