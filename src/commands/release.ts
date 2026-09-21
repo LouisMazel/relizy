@@ -40,6 +40,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         tag: options.tag,
         buildCmd: options.buildCmd,
         token: options.publishToken,
+        skipExistingVersions: options.skipExistingVersions,
       },
       release: {
         commit: options.commit,
