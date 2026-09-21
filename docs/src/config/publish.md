@@ -307,6 +307,47 @@ export default defineConfig({
 If your registry is behind a slow proxy and you hit timeouts, increase this value. To skip the authentication check entirely, run the command with `--no-safety-check`.
 :::
 
+## skipExistingVersions
+
+Skip a package (per registry) instead of failing when its version already exists on the registry.
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    skipExistingVersions: true,
+  },
+})
+```
+
+By default, if a package version is already published, the registry rejects the upload (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.) and Relizy fails the release.
+
+When `skipExistingVersions` is enabled, Relizy checks each package **before** publishing by querying the registry. If the version is already there, the package is skipped with a warning; only versions still missing from the registry are published.
+
+This makes re-running a release **idempotent**: retrying a job whose version is already published succeeds and only publishes what is still missing, instead of crashing.
+
+::: info How the check works
+The proactive check relies on the standard registry metadata endpoint that every npm-compatible registry (npm, Nexus, JFrog, Verdaccio, GitHub/GitLab Packages) implements to serve `install` - so it does not depend on the wording of any error message.
+
+The query works for **every package manager**: with npm/pnpm it uses the `view` command (inheriting your full `.npmrc` environment - proxy, CA, scoped auth), and for yarn/bun (which have no usable `view`) it falls back to a direct HTTPS request to the same metadata endpoint, authenticated with your configured registry token. The direct request is also used for npm/pnpm if `view` is inconclusive.
+
+If the check cannot get a definitive answer (auth, network, or an unreachable registry), Relizy does **not** skip on a guess: it attempts the publish, and a "version already exists" error is still caught there as a safety net (which also covers the rare race where a version is published between the check and the upload). The check only runs when `skipExistingVersions` is enabled, so it adds no round-trip otherwise, and never runs in `--dry-run`.
+:::
+
+::: tip Canary reruns
+This is especially useful for [canary releases](/guide/canary-releases): the canary version is derived from the commit hash, so re-running the pipeline on the **same commit** regenerates the exact same version. Without `skipExistingVersions`, that rerun fails on the first already-published package; with it, the rerun passes cleanly.
+:::
+
+::: info Clear error even when disabled
+When `skipExistingVersions` is **disabled** (the default), an already-published version still fails the release - but Relizy replaces the raw registry error with a clear, actionable message pointing you to this option, instead of surfacing the cryptic underlying error.
+:::
+
+You can also enable it per-run from the CLI with `--skip-existing-versions` on the [`publish`](/cli/publish) and [`release`](/cli/release) commands.
+
 ## Complete Example
 
 ```ts
@@ -330,6 +371,7 @@ export default defineConfig({
     ],
     safetyCheck: true,
     safetyCheckTimeout: 15000,
+    skipExistingVersions: false,
   },
 })
 ```

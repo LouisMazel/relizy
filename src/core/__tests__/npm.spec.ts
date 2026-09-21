@@ -15,6 +15,8 @@ import {
   getNpmRegistry,
   getPackagesToPublishInIndependentMode,
   getPackagesToPublishInSelectiveMode,
+  isVersionAlreadyPublishedError,
+  isVersionPublished,
   publishPackage,
   resolveAllConfiguredRegistryTargets,
   resolveRegistryTargetsForPackage,
@@ -999,6 +1001,196 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
   })
 })
 
+describe('Given isVersionAlreadyPublishedError function', () => {
+  it.each([
+    ['Nexus immutable asset (HTTP 400)', 'Repository does not allow updating assets: npm'],
+    ['npm EPUBLISHCONFLICT', 'code EPUBLISHCONFLICT'],
+    ['npm cannot publish over', 'You cannot publish over the previously published versions: 1.0.0.'],
+    ['generic already exists', 'Version already exists'],
+    ['Artifactory repository conflict', 'artifact already exists in the repository'],
+    ['bare HTTP 409', 'request failed with status 409 conflict'],
+  ])('Then returns true for %s', (_label, message) => {
+    expect(isVersionAlreadyPublishedError(new Error(message))).toBe(true)
+  })
+
+  it('Then returns false for an unrelated publish failure', () => {
+    expect(isVersionAlreadyPublishedError(new Error('ENEEDAUTH: authentication required'))).toBe(false)
+  })
+
+  it('Then returns false for non-error values', () => {
+    expect(isVersionAlreadyPublishedError(null)).toBe(false)
+    expect(isVersionAlreadyPublishedError(undefined)).toBe(false)
+    expect(isVersionAlreadyPublishedError('does not allow updating assets')).toBe(false)
+  })
+})
+
+describe('Given isVersionPublished function', () => {
+  let config: ResolvedRelizyConfig
+  let pkg: PackageBase
+  let fetchMock: ReturnType<typeof vi.fn>
+  const registryTarget = { name: 'default', registry: 'https://registry.npmjs.org/', token: 'token' }
+
+  function mockFetchResponse({ status = 200, ok = status < 400, body = {} }: { status?: number, ok?: boolean, body?: unknown } = {}) {
+    fetchMock.mockResolvedValue({ status, ok, json: () => Promise.resolve(body) })
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    config = createMockConfig({ cwd: '/project', publish: { private: false, args: [], safetyCheck: false } })
+    pkg = { ...createMockPackageInfo(), name: '@scope/pkg', path: '/packages/pkg', version: '1.0.0' }
+    vi.mocked(existsSync).mockReturnValue(false)
+    vi.mocked(readFileSync).mockReturnValue('')
+    fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  describe('When using npm/pnpm (view strategy)', () => {
+    it('Then returns true when the registry returns the version', async () => {
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '"1.0.1"', stderr: '' })
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'pnpm', registryTarget })
+
+      expect(result).toBe(true)
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringContaining('view @scope/pkg@1.0.1'),
+        expect.any(Object),
+      )
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('Then queries the target registry', async () => {
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '"1.0.1"', stderr: '' })
+
+      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'pnpm', registryTarget })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringContaining('--registry https://registry.npmjs.org/'),
+        expect.any(Object),
+      )
+    })
+
+    it('Then returns false when the package exists but not that version (empty stdout)', async () => {
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      const result = await isVersionPublished({ pkg, version: '9.9.9', config, packageManager: 'npm', registryTarget })
+
+      expect(result).toBe(false)
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('Then returns false when the package is not found (E404)', async () => {
+      vi.mocked(execPromise).mockRejectedValue(new Error('npm error code E404 - Not found'))
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'npm', registryTarget })
+
+      expect(result).toBe(false)
+      expect(fetchMock).not.toHaveBeenCalled()
+    })
+
+    it('Then falls back to a direct HTTP request when view is inconclusive', async () => {
+      vi.mocked(execPromise).mockRejectedValue(new Error('ENEEDAUTH: authentication required'))
+      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'npm', registryTarget })
+
+      expect(result).toBe(true)
+      expect(fetchMock).toHaveBeenCalled()
+    })
+  })
+
+  describe('When using yarn/bun (HTTP strategy)', () => {
+    it('Then never shells out to a view command', async () => {
+      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+
+      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(execPromise).not.toHaveBeenCalled()
+      expect(fetchMock).toHaveBeenCalled()
+    })
+
+    it('Then requests the packument with the scope slash encoded and a bearer token', async () => {
+      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+
+      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'yarn', registryTarget })
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'https://registry.npmjs.org/@scope%2Fpkg',
+        expect.objectContaining({ headers: expect.objectContaining({ authorization: 'Bearer token' }) }),
+      )
+    })
+
+    it('Then returns true when the packument lists the version', async () => {
+      mockFetchResponse({ body: { versions: { '1.0.0': {}, '1.0.1': {} } } })
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(result).toBe(true)
+    })
+
+    it('Then returns false when the packument does not list the version', async () => {
+      mockFetchResponse({ body: { versions: { '1.0.0': {} } } })
+
+      const result = await isVersionPublished({ pkg, version: '9.9.9', config, packageManager: 'bun', registryTarget })
+
+      expect(result).toBe(false)
+    })
+
+    it('Then returns false on a 404 (package absent)', async () => {
+      mockFetchResponse({ status: 404, ok: false })
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(result).toBe(false)
+    })
+
+    it('Then returns null (inconclusive) on a non-OK response (e.g. 401)', async () => {
+      mockFetchResponse({ status: 401, ok: false })
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(result).toBeNull()
+    })
+
+    it('Then returns null (inconclusive) on a network error', async () => {
+      fetchMock.mockRejectedValue(new Error('network down'))
+
+      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(result).toBeNull()
+    })
+
+    it('Then omits the Authorization header when no token is configured', async () => {
+      mockFetchResponse({ body: { versions: {} } })
+
+      await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget: { name: 'default', registry: 'https://registry.npmjs.org/' },
+      })
+
+      const headers = fetchMock.mock.calls[0]?.[1]?.headers as Record<string, string>
+      expect(headers.authorization).toBeUndefined()
+    })
+
+    it('Then guards the request with a timeout signal', async () => {
+      mockFetchResponse({ body: { versions: {} } })
+
+      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+      )
+    })
+  })
+})
+
 describe('Given publishPackage function', () => {
   let config: ResolvedRelizyConfig
   let pkg: PackageBase
@@ -1042,11 +1234,16 @@ describe('Given publishPackage function', () => {
     vi.mocked(writeFileSync).mockReset()
     vi.mocked(rmSync).mockReset()
     vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ name: 'test-package', version: '1.0.0' }))
+    // The proactive existence check may fall back to a direct HTTP request when
+    // `view` is inconclusive. Default it to inconclusive so tests exercising the
+    // error-matching safety net keep their behavior; specific tests override it.
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('fetch not configured')))
   })
 
   afterEach(() => {
     cwdSpy.mockRestore()
     chdirSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 
   describe('When publishing successfully', () => {
@@ -1333,6 +1530,141 @@ describe('Given publishPackage function', () => {
       }
 
       expect(process.chdir).toHaveBeenCalledWith('/project')
+    })
+  })
+
+  describe('When the version already exists on the registry', () => {
+    // Nexus phrases the immutable-asset conflict as an HTTP 400 with this body.
+    const alreadyPublishedError = new Error('(status 400 Bad Request): {"success":false,"error":"Repository does not allow updating assets: npm"}')
+
+    it('Then throws a clear, actionable error by default (skipExistingVersions disabled)', async () => {
+      vi.mocked(execPromise).mockRejectedValue(alreadyPublishedError)
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow(/already exists on the registry/)
+    })
+
+    it('Then mentions the skipExistingVersions option in the thrown error', async () => {
+      vi.mocked(execPromise).mockRejectedValue(alreadyPublishedError)
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow(/skipExistingVersions/)
+    })
+
+    it('Then skips the package without throwing when skipExistingVersions is enabled', async () => {
+      config.publish.skipExistingVersions = true
+      vi.mocked(execPromise).mockRejectedValue(alreadyPublishedError)
+      const loggerWarnSpy = vi.spyOn(logger, 'warn')
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).resolves.toBeUndefined()
+
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('version already exists on the registry'),
+      )
+    })
+
+    it('Then does not skip an unrelated publish failure even when skipExistingVersions is enabled', async () => {
+      config.publish.skipExistingVersions = true
+      vi.mocked(execPromise).mockRejectedValue(new Error('ENEEDAUTH: authentication required'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow('ENEEDAUTH')
+    })
+  })
+
+  describe('When skipExistingVersions queries the registry proactively', () => {
+    it('Then skips the publish entirely when the registry already has the version', async () => {
+      config.publish.skipExistingVersions = true
+      // The `view` query reports the version exists; publish must never run.
+      vi.mocked(execPromise).mockImplementation((command: string) =>
+        command.includes('view')
+          ? Promise.resolve({ stdout: '"1.0.1"', stderr: '' })
+          : Promise.reject(new Error('publish should not be called')),
+      )
+      const loggerWarnSpy = vi.spyOn(logger, 'warn')
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).resolves.toBeUndefined()
+
+      expect(execPromise).not.toHaveBeenCalledWith(
+        expect.stringContaining('publish'),
+        expect.any(Object),
+      )
+      expect(loggerWarnSpy).toHaveBeenCalledWith(
+        expect.stringContaining('version already exists on the registry'),
+      )
+    })
+
+    it('Then publishes normally when the registry does not have the version yet', async () => {
+      config.publish.skipExistingVersions = true
+      // Both the `view` query (empty = not published) and the publish succeed.
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringContaining('publish'),
+        expect.any(Object),
+      )
+    })
+
+    it('Then does not query the registry when skipExistingVersions is disabled', async () => {
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
+
+      expect(execPromise).not.toHaveBeenCalledWith(
+        expect.stringContaining('view'),
+        expect.any(Object),
+      )
+    })
+
+    it('Then does not query the registry in dry-run mode', async () => {
+      config.publish.skipExistingVersions = true
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: true,
+      })
+
+      expect(execPromise).not.toHaveBeenCalledWith(
+        expect.stringContaining('view'),
+        expect.any(Object),
+      )
     })
   })
 

@@ -566,6 +566,17 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * single-registry behavior.
    */
   registries?: RegistryTarget[]
+  /**
+   * Skip a package (per registry) instead of failing when its version already
+   * exists on the registry. Makes re-running a release idempotent: a retried
+   * job whose version is already published (e.g. a canary rerun on the same
+   * commit, or a partially completed publish) succeeds and only publishes what
+   * is missing, rather than crashing on the registry's "cannot overwrite"
+   * error. When disabled (the default), that situation still fails, but with a
+   * clear error message instead of the raw registry error.
+   * @default false
+   */
+  skipExistingVersions?: boolean
 }
 
 export interface PublishOptions extends PublishConfig {

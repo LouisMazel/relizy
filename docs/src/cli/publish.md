@@ -72,6 +72,16 @@ Provide custom registry URL:
 relizy publish --registry https://my-registry.com
 ```
 
+### --skip-existing-versions
+
+Skip packages whose version already exists on the registry instead of failing:
+
+```bash
+relizy publish --skip-existing-versions
+```
+
+Makes a re-run idempotent: already-published versions are skipped with a warning, and only missing packages are published. Without this flag, an already-published version fails the command with a clear error message. See [`publish.skipExistingVersions`](/config/publish#skipexistingversions) for details.
+
 ### --dry-run
 
 Test publish without actually publishing:

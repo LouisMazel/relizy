@@ -157,6 +157,7 @@ program
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .action(async (options) => {
     try {
       await publish({
@@ -166,6 +167,7 @@ program
         otp: options.otp,
         buildCmd: options.buildCmd,
         token: options.publishToken,
+        skipExistingVersions: options.skipExistingVersions,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
@@ -284,6 +286,7 @@ program
   .option('--no-pr-comment', 'Skip PR comment posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--canary', 'Publish a canary release from the current commit')
   .option('--include-private', 'Include private packages in bump and changelog phases')
   .option('--ai', 'Force-enable AI for release notes and social posts')
@@ -316,6 +319,7 @@ program
         rootChangelog: hasCliFlag('--no-root-changelog') ? false : undefined,
         token: options.token,
         publishToken: options.publishToken,
+        skipExistingVersions: options.skipExistingVersions,
         logLevel: program.opts().logLevel,
         force: options.force,
         yes: options.yes,

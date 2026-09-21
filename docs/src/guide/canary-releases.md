@@ -210,6 +210,24 @@ canary:
 Use `--no-clean` in CI to skip the git dirty check, since CI environments may have build artifacts or generated files.
 :::
 
+## Re-running a Canary on the Same Commit
+
+The canary version is derived from the commit SHA (`{nextVersion}-canary.{sha}.0`), so **re-running the pipeline on the same commit regenerates the exact same version**. Since that version is already on the registry, the publish fails - the registry refuses to overwrite an existing version (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.).
+
+This is a common source of confusion: a developer retries a job by hand without realizing the version was already published, and the rerun fails on the first already-published package.
+
+To make reruns safe, enable [`skipExistingVersions`](/config/publish#skipexistingversions):
+
+```bash
+relizy release --canary --yes --skip-existing-versions
+```
+
+With it, Relizy checks the registry before publishing each package: already-published packages are skipped with a warning and the release succeeds, publishing only what is still missing. Without it, Relizy still fails, but with a clear message telling you the version already exists and pointing you to this option (instead of surfacing the raw registry error).
+
+::: tip
+There is nothing to gain from republishing an unchanged commit: the artifact is already available. Enabling `--skip-existing-versions` in your canary job simply keeps retries green.
+:::
+
 ## Canary with the Bump Command
 
 You can also use `--canary` with just the `bump` command if you only want to update version numbers without publishing:

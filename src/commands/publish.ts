@@ -116,6 +116,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
         tag: options.tag,
         buildCmd: options.buildCmd,
         token: options.token,
+        skipExistingVersions: options.skipExistingVersions,
       },
       logLevel: options.logLevel,
       safetyCheck: options.safetyCheck,
