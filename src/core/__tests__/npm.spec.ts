@@ -1036,6 +1036,12 @@ describe('Given isVersionPublished function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+    // Neutralize registry token env vars so the config resolved by createMockConfig
+    // stays hermetic: getDefaultConfig reads these into tokens.registry, and CI sets
+    // them, which would otherwise leak an Authorization header into these tests.
+    vi.stubEnv('RELIZY_NPM_TOKEN', undefined)
+    vi.stubEnv('NPM_TOKEN', undefined)
+    vi.stubEnv('NODE_AUTH_TOKEN', undefined)
     config = createMockConfig({ cwd: '/project', publish: { private: false, args: [], safetyCheck: false } })
     pkg = { ...createMockPackageInfo(), name: '@scope/pkg', path: '/packages/pkg', version: '1.0.0' }
     vi.mocked(existsSync).mockReturnValue(false)
@@ -1046,6 +1052,7 @@ describe('Given isVersionPublished function', () => {
 
   afterEach(() => {
     vi.unstubAllGlobals()
+    vi.unstubAllEnvs()
   })
 
   describe('When using npm/pnpm (view strategy)', () => {
