@@ -30,7 +30,7 @@
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.13.1",
     "typedoc-vitepress-theme": "^1.1.4",
-    "vitepress": "2.0.0-alpha.12",
+    "vitepress": "2.0.0-alpha.20",
     "vue-router": "^5.3.1",
     "vue-tsc": "^3.3.11"
   },
