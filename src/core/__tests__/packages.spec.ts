@@ -39,6 +39,100 @@ describe('Given collectPackageBumps function', () => {
     })
   })
 
+  describe('When a bumped package graduates from prerelease to stable', () => {
+    it('Then oldVersion is derived from the last stable fromTag, not the package.json beta', () => {
+      const entries = collectPackageBumps({
+        bumpedPackages: [
+          {
+            name: '@acme/a',
+            version: '6.16.0-beta.5',
+            oldVersion: '6.16.0-beta.5',
+            newVersion: '6.16.0',
+            fromTag: 'v6.15.0',
+          } as any,
+        ],
+      })
+
+      expect(entries[0]).toEqual({
+        name: '@acme/a',
+        oldVersion: '6.15.0',
+        newVersion: '6.16.0',
+        version: '6.16.0',
+        hasTransition: true,
+      })
+    })
+
+    it('Then it supports independent-mode fromTags (name@version)', () => {
+      const entries = collectPackageBumps({
+        bumpedPackages: [
+          {
+            name: '@acme/a',
+            version: '6.16.0-beta.5',
+            oldVersion: '6.16.0-beta.5',
+            newVersion: '6.16.0',
+            fromTag: '@acme/a@6.15.0',
+          } as any,
+        ],
+      })
+
+      expect(entries[0].oldVersion).toBe('6.15.0')
+    })
+  })
+
+  describe('When a bumped package goes from prerelease to prerelease', () => {
+    it('Then oldVersion reflects the previous prerelease tag', () => {
+      const entries = collectPackageBumps({
+        bumpedPackages: [
+          {
+            name: '@acme/a',
+            version: '6.16.0-beta.3',
+            oldVersion: '6.16.0-beta.3',
+            newVersion: '6.16.0-beta.4',
+            fromTag: 'v6.16.0-beta.3',
+          } as any,
+        ],
+      })
+
+      expect(entries[0].oldVersion).toBe('6.16.0-beta.3')
+      expect(entries[0].hasTransition).toBe(true)
+    })
+  })
+
+  describe('When fromTag is not a version tag', () => {
+    it('Then falls back to oldVersion for a new-package marker', () => {
+      const entries = collectPackageBumps({
+        bumpedPackages: [
+          {
+            name: '@acme/a',
+            version: '1.0.0',
+            oldVersion: '1.0.0',
+            newVersion: '1.0.0',
+            fromTag: '__NEW_PACKAGE__',
+          } as any,
+        ],
+      })
+
+      expect(entries[0].oldVersion).toBe('1.0.0')
+    })
+
+    it('Then falls back to oldVersion for a commit SHA', () => {
+      const entries = collectPackageBumps({
+        bumpedPackages: [
+          {
+            name: '@acme/a',
+            version: '1.0.0',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+            fromTag: 'a1b2c3d',
+          } as any,
+        ],
+      })
+
+      expect(entries[0].oldVersion).toBe('1.0.0')
+      expect(entries[0].hasTransition).toBe(true)
+    })
+  })
+
   describe('When only standalone packages are provided', () => {
     it('Then returns entries with hasTransition=false', () => {
       const entries = collectPackageBumps({
