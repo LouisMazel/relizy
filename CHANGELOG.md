@@ -1,5 +1,43 @@
 # Changelog
 
+## v1.5.0-beta.4 (2026-09-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.3...v1.5.0-beta.4)
+
+### 🚀 Features
+
+- **relizy:** Add bump.capZeroMajor option to control 0.x graduation ([de74327](https://github.com/LouisMazel/relizy/commit/de74327))
+
+  By default relizy caps commit-detected `major` bumps to `minor` while the
+  current version is in the `0.x.y` range (semver §4), so a breaking change
+  never graduates a `0.x` package to `1.0.0` automatically.
+  `bump.capZeroMajor: false` opts out: a breaking commit then bumps `0.x.y`
+  straight to `1.0.0`, useful for a production-ready `0.x` package released via
+  CI without passing `--major`. It only affects commit-based detection (explicit
+  CLI release types are never capped) and is a no-op once the package is `1.x`.
+  Defaults to `true`, so existing behavior is unchanged. No breaking change.
+
+### 🩹 Fixes
+
+- **relizy:** Honor ignored packages in root bump and changelog ([50147a0](https://github.com/LouisMazel/relizy/commit/50147a0))
+
+  In unified/selective mode the root version and changelog aggregated every
+  commit, so a breaking change scoped to an ignored package (typically one
+  released independently) bumped the whole repository. `ignorePackageNames`
+  only removed the package from the published set, not from the root
+  aggregation.
+  Root commits are now filtered: a commit whose changed files all live inside
+  an ignored package is excluded from the root version bump and the root
+  changelog. Commits that mix ignored and released packages still count.
+  Also add `monorepo.ignored` (path globs, same syntax as `packages`) as the
+  recommended, path-based replacement for `ignorePackageNames`, which is now
+  deprecated. Both options are honored and merged, so migration is incremental.
+  No breaking change.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0-beta.3 (2026-09-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.2...v1.5.0-beta.3)
