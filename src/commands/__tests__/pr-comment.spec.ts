@@ -3,7 +3,7 @@ import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { detectPullRequest, getCurrentGitBranch, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
-import { buildCommentBody, prComment } from '../pr-comment'
+import { buildCommentBody, prComment, tryPostPrComment } from '../pr-comment'
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
@@ -546,6 +546,58 @@ describe('Given buildCommentBody', () => {
 
       expect(body).toContain('main')
       expect(body).toContain('2026-02-22 14:30 UTC')
+    })
+  })
+})
+
+describe('Given tryPostPrComment function', () => {
+  const releaseContext = {
+    status: 'success',
+    bumpResult: { bumped: true, bumpedPackages: [], newVersion: '2.0.0' },
+  } as any
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(getCurrentGitBranch).mockReturnValue('feature-branch')
+    vi.mocked(detectPullRequest).mockResolvedValue({
+      number: 42,
+      url: 'https://github.com/user/repo/pull/42',
+      provider: 'github',
+    })
+    vi.mocked(postPrComment).mockResolvedValue(true)
+  })
+
+  describe('When prComment is disabled in config', () => {
+    it('Then returns false without attempting to detect a PR', async () => {
+      const config = createMockConfig({ release: { prComment: false }, prComment: { mode: 'append' } })
+
+      const result = await tryPostPrComment({ config, releaseContext, dryRun: false })
+
+      expect(result).toBe(false)
+      expect(detectPullRequest).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When prComment is enabled', () => {
+    it('Then delegates to prComment, forwards prNumber and returns its result', async () => {
+      const config = createMockConfig({ release: { prComment: true }, prComment: { mode: 'append' } })
+
+      const result = await tryPostPrComment({ config, releaseContext, prNumber: 7, dryRun: false })
+
+      expect(result).toBe(true)
+      expect(detectPullRequest).toHaveBeenCalledWith(expect.objectContaining({ prNumber: 7 }))
+      expect(postPrComment).toHaveBeenCalled()
+    })
+  })
+
+  describe('When the underlying prComment throws', () => {
+    it('Then swallows the error and returns false', async () => {
+      const config = createMockConfig({ release: { prComment: true }, prComment: { mode: 'append' } })
+      vi.mocked(detectPullRequest).mockRejectedValue(new Error('network down'))
+
+      const result = await tryPostPrComment({ config, releaseContext, dryRun: false })
+
+      expect(result).toBe(false)
     })
   })
 })

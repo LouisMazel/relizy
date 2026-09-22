@@ -344,3 +344,44 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
 
   return await postPrComment({ config, pr, body })
 }
+
+/**
+ * Best-effort wrapper around {@link prComment} for the release flow: honours the
+ * `--no-pr-comment` gate and swallows errors so a failed PR comment never aborts
+ * an otherwise successful release.
+ */
+export async function tryPostPrComment({
+  config,
+  releaseContext,
+  prNumber,
+  dryRun,
+  logLevel,
+  configName,
+}: {
+  config: ResolvedRelizyConfig
+  releaseContext: ReleaseContext
+  prNumber?: number
+  dryRun: boolean
+  logLevel?: string
+  configName?: string
+}): Promise<boolean> {
+  if (!config.release.prComment) {
+    logger.info('Skipping PR comment (--no-pr-comment)')
+    return false
+  }
+
+  try {
+    return await prComment({
+      prNumber,
+      dryRun,
+      logLevel: logLevel as any,
+      configName,
+      config,
+      releaseContext,
+    })
+  }
+  catch (error) {
+    logger.warn('PR comment posting failed:', error)
+    return false
+  }
+}

@@ -7,7 +7,7 @@ import { changelog } from '../changelog'
 import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
 import { publish } from '../publish'
-import { release } from '../release'
+import { buildReleaseSummary, release } from '../release'
 import { social } from '../social'
 
 vi.mock('../../core', async () => {
@@ -41,9 +41,24 @@ vi.mock('../social', () => ({
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))
-vi.mock('../pr-comment', () => ({
-  prComment: vi.fn(),
-}))
+vi.mock('../pr-comment', () => {
+  const prComment = vi.fn()
+  // Test double mirroring the real gate + delegation so the assertions below can
+  // keep targeting `prComment`. The real `tryPostPrComment` logic is unit-tested
+  // in pr-comment.spec.ts.
+  const tryPostPrComment = vi.fn(async ({ config, releaseContext, prNumber, dryRun, logLevel, configName }: any) => {
+    if (!config.release.prComment) {
+      return false
+    }
+    try {
+      return await prComment({ prNumber, dryRun, logLevel, configName, config, releaseContext })
+    }
+    catch {
+      return false
+    }
+  })
+  return { prComment, tryPostPrComment }
+})
 
 describe('Given release command', () => {
   beforeEach(() => {
@@ -471,6 +486,103 @@ describe('Given release command', () => {
           }),
         }),
       )
+    })
+  })
+})
+
+describe('Given buildReleaseSummary function', () => {
+  const bumpResult = { bumped: true, newVersion: '2.0.0', bumpedPackages: [] } as any
+
+  function summaryConfig(release: Record<string, boolean> = {}) {
+    return createMockConfig({
+      release: {
+        commit: true,
+        changelog: true,
+        push: true,
+        publish: true,
+        providerRelease: true,
+        social: true,
+        prComment: true,
+        clean: true,
+        noVerify: false,
+        gitTag: true,
+        ...release,
+      },
+    })
+  }
+
+  describe('When every step ran successfully', () => {
+    it('Then renders each step outcome', () => {
+      const summary = buildReleaseSummary({
+        config: summaryConfig(),
+        bumpResult,
+        publishResponse: { publishedPackages: [{}, {}, {}] } as any,
+        createdTags: ['v2.0.0'],
+        provider: 'github',
+        postedReleases: [{}] as any,
+        socialResults: { hasErrors: false, results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true }] } as any,
+        prCommentPosted: true,
+      })
+
+      expect(summary).toContain('Version: 2.0.0')
+      expect(summary).toContain('Tag(s): v2.0.0')
+      expect(summary).toContain('Pushed: Yes')
+      expect(summary).toContain('Published packages: 3')
+      expect(summary).toContain('Provider release: 1 release')
+      expect(summary).toContain('Social media: 2 succeeded')
+      expect(summary).toContain('PR comment: Posted')
+      expect(summary).toContain('Git provider: github')
+    })
+  })
+
+  describe('When steps are disabled', () => {
+    it('Then marks them as Disabled and shows no tags', () => {
+      const summary = buildReleaseSummary({
+        config: summaryConfig({ push: false, publish: false, providerRelease: false, social: false, prComment: false }),
+        bumpResult,
+        createdTags: [],
+        postedReleases: [],
+        prCommentPosted: false,
+      })
+
+      expect(summary).toContain('Pushed: Disabled')
+      expect(summary).toContain('Published packages: Disabled')
+      expect(summary).toContain('Provider release: Disabled')
+      expect(summary).toContain('Social media: Disabled')
+      expect(summary).toContain('PR comment: Disabled')
+      expect(summary).toContain('Tag(s): None')
+    })
+  })
+
+  describe('When in independent version mode', () => {
+    it('Then summarizes the number of packages bumped', () => {
+      const summary = buildReleaseSummary({
+        config: createMockConfig({ versionMode: 'independent', release: { push: true, publish: true, providerRelease: true, social: true, prComment: true, commit: true, changelog: true, clean: true, noVerify: false, gitTag: true } }),
+        bumpResult: { bumped: true, newVersion: undefined, bumpedPackages: [{}, {}, {}] } as any,
+        createdTags: ['pkg-a@1.0.0'],
+        postedReleases: [],
+        prCommentPosted: true,
+      })
+
+      expect(summary).toContain('Version: 3 packages bumped independently')
+    })
+  })
+
+  describe('When provider, social and pr-comment reported failures', () => {
+    it('Then reflects each failure', () => {
+      const summary = buildReleaseSummary({
+        config: summaryConfig(),
+        bumpResult,
+        createdTags: ['v2.0.0'],
+        postedReleases: [],
+        providerError: 'boom',
+        socialResults: { hasErrors: true, results: [{ platform: 'slack', success: true }, { platform: 'twitter', success: false }] } as any,
+        prCommentPosted: false,
+      })
+
+      expect(summary).toContain('Provider release: Failed: boom')
+      expect(summary).toContain('Social media: 1 succeeded, 1 failed (twitter)')
+      expect(summary).toContain('PR comment: Failed')
     })
   })
 })
