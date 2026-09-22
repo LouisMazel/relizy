@@ -1,4 +1,5 @@
 import type { BumpResultTruthy } from '../types'
+import { extractVersionFromTag } from './version'
 
 /**
  * A package entry as consumed by release-summary renderers (PR comments, Slack messages, etc.).
@@ -33,10 +34,18 @@ export function collectPackageBumps({
 }): PackageBumpEntry[] {
   if (bumpedPackages && bumpedPackages.length > 0) {
     return bumpedPackages.map((pkg) => {
-      const hasTransition = Boolean(pkg.newVersion && pkg.oldVersion !== pkg.newVersion)
+      // `pkg.oldVersion` is the version currently in package.json, which for a
+      // graduation (e.g. `6.16.0-beta.5` → `6.16.0`) is the last prerelease.
+      // Announcements must instead show the previous *released* version we are
+      // comparing against - exactly what `pkg.fromTag` encodes (last stable tag
+      // for graduations, last prerelease tag for prerelease-to-prerelease). This
+      // mirrors the changelog compare link / title. Fall back to `oldVersion`
+      // when `fromTag` is not a version (new package marker, first-commit SHA).
+      const displayOldVersion = extractVersionFromTag(pkg.fromTag, pkg.name) || pkg.oldVersion
+      const hasTransition = Boolean(pkg.newVersion && displayOldVersion !== pkg.newVersion)
       return {
         name: pkg.name,
-        oldVersion: pkg.oldVersion,
+        oldVersion: displayOldVersion,
         newVersion: pkg.newVersion,
         version: pkg.newVersion || pkg.version,
         hasTransition,

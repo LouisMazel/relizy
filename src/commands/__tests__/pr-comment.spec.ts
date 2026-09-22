@@ -7,6 +7,7 @@ import { buildCommentBody, prComment } from '../pr-comment'
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
+  const versionActual = await vi.importActual<typeof import('../../core')>('../../core/version')
   return {
     loadRelizyConfig: vi.fn(),
     detectPullRequest: vi.fn(),
@@ -18,6 +19,8 @@ vi.mock('../../core', async () => {
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
     // Use the real collectPackageBumps so the package table renders in tests
     collectPackageBumps: actual.collectPackageBumps,
+    // Real implementation so the metadata "from" version is derived from fromTag
+    extractVersionFromTag: versionActual.extractVersionFromTag,
   }
 })
 
@@ -471,6 +474,31 @@ describe('Given buildCommentBody', () => {
       expect(body).toContain('`1.0.0` → `2.0.0`')
       expect(body).toContain('pkg-a')
       expect(body).toContain('v2.0.0')
+    })
+
+    it('Then a graduation shows the last stable version (from fromTag), not the package.json beta', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        releaseContext: {
+          status: 'success',
+          bumpResult: {
+            bumped: true,
+            newVersion: '6.16.0',
+            // package.json still holds the last prerelease at bump time
+            oldVersion: '6.16.0-beta.5',
+            fromTag: 'v6.15.0',
+            bumpedPackages: [
+              { name: 'pkg-a', oldVersion: '6.16.0-beta.5', newVersion: '6.16.0', version: '6.16.0', path: '/a', private: false, fromTag: 'v6.15.0', commits: [], dependencies: [] },
+            ],
+          },
+          tags: ['v6.16.0'],
+        },
+      })
+
+      // Both the metadata line and the package table must compare against the
+      // previous stable release, never the beta.
+      expect(body).toContain('`6.15.0` → `6.16.0`')
+      expect(body).not.toContain('6.16.0-beta.5')
     })
   })
 

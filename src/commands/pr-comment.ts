@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -206,9 +206,15 @@ function buildSuccessComment({
 
   const lines: string[] = [PR_COMMENT_MARKER, '', '## 🚀 Release published', '']
 
+  // Prefer the previous *released* version (from the resolved `fromTag`) over
+  // the raw package.json version so a graduation shows `6.15.0 → 6.16.0` rather
+  // than `6.16.0-beta.5 → 6.16.0`, consistent with the changelog and the
+  // per-package table below.
+  const previousVersion = extractVersionFromTag(bumpResult?.fromTag ?? '') || bumpResult?.oldVersion
+
   lines.push(...buildMetadataLines({
     version,
-    oldVersion: bumpResult?.oldVersion,
+    oldVersion: previousVersion,
     tags,
     distTag,
     date,
