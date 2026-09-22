@@ -124,7 +124,7 @@
     "memfs": "^4.78.1",
     "tsx": "^4.23.15",
     "twitter-api-v2": "^1.29.1",
-    "typescript": "^6.0.3",
+    "typescript": "^6.0.0",
     "unbuild": "^3.6.1",
     "vitest": "^5.0.1"
   },
