@@ -86,6 +86,36 @@ export default defineConfig({
 })
 ```
 
+## capZeroMajor
+
+Cap commit-detected `major` bumps to `minor` while the current version is in the
+`0.x.y` range (semver [§4](https://semver.org/#spec-item-4), initial
+development). This prevents a breaking change from graduating a `0.x` package to
+`1.0.0` automatically.
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    capZeroMajor: false, // a breaking change bumps 0.x.y straight to 1.0.0
+  },
+})
+```
+
+With the default (`true`), a breaking commit on `0.5.2` bumps to `0.6.0`. Set it
+to `false` when a `0.x` package is production-ready and you want breaking changes
+to follow strict semver (`0.5.2` → `1.0.0`).
+
+::: tip
+This only affects **commit-based** detection. Explicit CLI release types
+(`--major`, `--premajor`, …) always graduate and are never capped. Once the
+package reaches `1.x`, this option is a no-op.
+:::
+
 ## Canary Mode
 
 When using `--canary`, the `preid` option is used as the canary prerelease identifier. If not set, it defaults to `canary`.

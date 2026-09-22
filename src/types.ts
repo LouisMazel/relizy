@@ -267,6 +267,18 @@ export interface BumpConfig {
    * @default true
    */
   yes?: boolean
+  /**
+   * Cap commit-detected `major` bumps to `minor` while the current version is
+   * in the `0.x.y` range (semver §4, initial development), so a breaking change
+   * does not graduate a `0.x` package to `1.0.0` automatically.
+   *
+   * Set to `false` to opt out: a breaking commit then bumps `0.x.y` straight to
+   * `1.0.0`. This only affects **commit-based** detection; explicit CLI release
+   * types (`--major`, `--premajor`, …) are never capped. Once the package
+   * reaches `1.x`, this option is a no-op.
+   * @default true
+   */
+  capZeroMajor?: boolean
 }
 
 export interface BumpOptions extends BumpConfig {

@@ -53,6 +53,7 @@ export function determineSemverChange(
   commits: GitCommit[],
   types: NonNullable<RelizyConfig['types']>,
   currentVersion?: string,
+  capZeroMajor = true,
 ): SemverChangeType {
   let [hasMajor, hasMinor, hasPatch] = [false, false, false]
   for (const commit of commits) {
@@ -78,7 +79,7 @@ export function determineSemverChange(
     ? 'major'
     : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
 
-  if (currentVersion)
+  if (currentVersion && capZeroMajor)
     return capReleaseTypeForZeroMajor(currentVersion, detected)
 
   return detected
@@ -88,8 +89,9 @@ function detectReleaseTypeFromCommits(
   commits: GitCommit[],
   types: NonNullable<RelizyConfig['types']>,
   currentVersion: string,
+  capZeroMajor = true,
 ) {
-  return determineSemverChange(commits, types, currentVersion)
+  return determineSemverChange(commits, types, currentVersion, capZeroMajor)
 }
 
 function validatePrereleaseDowngrade(
@@ -114,6 +116,7 @@ function handleStableVersionWithReleaseType(
   commits: GitCommit[] | undefined,
   types: NonNullable<RelizyConfig['types']>,
   force: boolean,
+  capZeroMajor: boolean,
 ): ReleaseType | undefined {
   if (!commits?.length && !force) {
     logger.debug('No commits found for stable version with "release" type, skipping bump')
@@ -121,7 +124,7 @@ function handleStableVersionWithReleaseType(
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, types, currentVersion)
+    ? detectReleaseTypeFromCommits(commits, types, currentVersion, capZeroMajor)
     : undefined
 
   if (!detectedType && !force) {
@@ -138,6 +141,7 @@ function handleStableVersionWithPrereleaseType(
   commits: GitCommit[] | undefined,
   types: NonNullable<RelizyConfig['types']>,
   force: boolean,
+  capZeroMajor: boolean,
 ): ReleaseType | undefined {
   if (!commits?.length && !force) {
     logger.debug('No commits found for stable version with "prerelease" type, skipping bump')
@@ -145,7 +149,7 @@ function handleStableVersionWithPrereleaseType(
   }
 
   const detectedType = commits?.length
-    ? detectReleaseTypeFromCommits(commits, types, currentVersion)
+    ? detectReleaseTypeFromCommits(commits, types, currentVersion, capZeroMajor)
     : undefined
 
   if (!detectedType) {
@@ -186,12 +190,13 @@ function getImpliedBumpFromPrerelease(version: string): 'major' | 'minor' | 'pat
 }
 
 function handlePrereleaseVersionWithPrereleaseType(
-  { currentVersion, preid, commits, force, types }: {
+  { currentVersion, preid, commits, force, types, capZeroMajor }: {
     currentVersion: string
     preid: string | undefined
     commits: GitCommit[] | undefined
     force: boolean
     types: NonNullable<RelizyConfig['types']>
+    capZeroMajor: boolean
   },
 ): ReleaseType | undefined {
   const currentPreid = getPreid(currentVersion)
@@ -219,7 +224,7 @@ function handlePrereleaseVersionWithPrereleaseType(
   }
 
   if (commits?.length) {
-    const detectedType = detectReleaseTypeFromCommits(commits, types, currentVersion)
+    const detectedType = detectReleaseTypeFromCommits(commits, types, currentVersion, capZeroMajor)
     const impliedBump = getImpliedBumpFromPrerelease(currentVersion)
     const detectedRank = getSemverRank(detectedType)
     const impliedRank = getSemverRank(impliedBump)
@@ -262,6 +267,7 @@ export function determineReleaseType({
   preid,
   types,
   force,
+  capZeroMajor = true,
 }: {
   currentVersion: string
   commits?: GitCommit[]
@@ -269,6 +275,7 @@ export function determineReleaseType({
   preid: string | undefined
   types: ResolvedRelizyConfig['types']
   force: boolean
+  capZeroMajor?: boolean
 }): ReleaseType | undefined {
   if (releaseType === 'release' && preid) {
     throw new Error('You cannot use a "release" type with a "preid", to use a preid you must use a "prerelease" type')
@@ -288,11 +295,11 @@ export function determineReleaseType({
    */
   if (!isCurrentPrerelease) {
     if (releaseType === 'release') {
-      return handleStableVersionWithReleaseType(currentVersion, commits, types, force)
+      return handleStableVersionWithReleaseType(currentVersion, commits, types, force, capZeroMajor)
     }
 
     if (releaseType === 'prerelease') {
-      return handleStableVersionWithPrereleaseType(currentVersion, commits, types, force)
+      return handleStableVersionWithPrereleaseType(currentVersion, commits, types, force, capZeroMajor)
     }
 
     return handleExplicitReleaseType({ releaseType, currentVersion })
@@ -306,7 +313,7 @@ export function determineReleaseType({
   }
 
   if (releaseType === 'prerelease') {
-    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force, types })
+    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force, types, capZeroMajor })
   }
 
   return handleExplicitReleaseType({ releaseType, currentVersion })

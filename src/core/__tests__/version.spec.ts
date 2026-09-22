@@ -2411,3 +2411,90 @@ describe('Given determineReleaseType with breaking commits on 0.x', () => {
     expect(result).toBe('major')
   })
 })
+
+describe('Given the capZeroMajor option is disabled', () => {
+  const config = createMockConfig({})
+  const types = config.types
+
+  const breakingCommit = makeBreakingCommit
+
+  describe('When resolving a semver change on a 0.x version', () => {
+    it('Then keeps a breaking change as major (no cap)', () => {
+      expect(determineSemverChange([breakingCommit()], types, '0.5.2', false)).toBe('major')
+    })
+
+    it('Then still caps when capZeroMajor is true (explicit)', () => {
+      expect(determineSemverChange([breakingCommit()], types, '0.5.2', true)).toBe('minor')
+    })
+
+    it('Then leaves non-major detections unchanged', () => {
+      expect(determineSemverChange([createMockCommit('feat', 'feat: x')], types, '0.5.2', false)).toBe('minor')
+      expect(determineSemverChange([createMockCommit('fix', 'fix: x')], types, '0.5.2', false)).toBe('patch')
+    })
+  })
+
+  describe('When determining the release type on a 0.x version', () => {
+    it('Then returns major for a breaking commit (graduates to 1.0.0)', () => {
+      const result = determineReleaseType({
+        currentVersion: '0.3.7',
+        commits: [breakingCommit()],
+        releaseType: 'release',
+        preid: undefined,
+        types,
+        force: false,
+        capZeroMajor: false,
+      })
+      expect(result).toBe('major')
+    })
+
+    it('Then returns premajor for a breaking commit with a prerelease type', () => {
+      const result = determineReleaseType({
+        currentVersion: '0.3.7',
+        commits: [breakingCommit()],
+        releaseType: 'prerelease',
+        preid: 'beta',
+        types,
+        force: false,
+        capZeroMajor: false,
+      })
+      expect(result).toBe('premajor')
+    })
+
+    it('Then leaves >= 1.x behavior unchanged (still major)', () => {
+      const result = determineReleaseType({
+        currentVersion: '1.2.3',
+        commits: [breakingCommit()],
+        releaseType: 'release',
+        preid: undefined,
+        types,
+        force: false,
+        capZeroMajor: false,
+      })
+      expect(result).toBe('major')
+    })
+  })
+
+  describe('When combined with getPackageNewVersion (end to end)', () => {
+    it('Then a breaking commit graduates 0.3.7 to 1.0.0', () => {
+      const releaseType = determineReleaseType({
+        currentVersion: '0.3.7',
+        commits: [breakingCommit()],
+        releaseType: 'release',
+        preid: undefined,
+        types,
+        force: false,
+        capZeroMajor: false,
+      })
+
+      const newVersion = getPackageNewVersion({
+        name: '@scope/pkg',
+        currentVersion: '0.3.7',
+        releaseType: releaseType as 'major',
+        preid: undefined,
+        suffix: undefined,
+      })
+
+      expect(newVersion).toBe('1.0.0')
+    })
+  })
+})

@@ -213,6 +213,7 @@ export async function getRootPackage({
         preid: config.bump.preid,
         types: config.types,
         force,
+        capZeroMajor: config.bump.capZeroMajor,
       })
 
       if (!releaseType) {
@@ -320,6 +321,7 @@ function getPackageReleaseType({
       preid: config.bump.preid,
       types: config.types,
       force,
+      capZeroMajor: config.bump.capZeroMajor,
     })
   }
 
@@ -338,6 +340,7 @@ function getPackageReleaseType({
     preid: config.bump.preid,
     types: config.types,
     force,
+    capZeroMajor: config.bump.capZeroMajor,
   })
 }
 
