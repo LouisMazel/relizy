@@ -202,9 +202,26 @@ export interface MonorepoConfig {
   packages: string[]
   /**
    * Package names to ignore.
+   * @deprecated Use `ignored` (path globs) instead, for consistency with
+   * `packages`. Both options are still honored and merged together.
    * @default []
    */
   ignorePackageNames?: string[]
+  /**
+   * Glob patterns (relative to `cwd`, POSIX separators) of package directories
+   * to ignore - matched the same way as `packages`. Ignored packages are
+   * excluded from bump, changelog, publish, provider-release and pr-comment.
+   *
+   * In `unified`/`selective` mode, commits whose changed files all live inside
+   * ignored packages are also excluded from the root version bump and the root
+   * changelog (a breaking change in an ignored package no longer bumps the
+   * whole repository).
+   *
+   * Prefer this over `ignorePackageNames` for path-based configuration
+   * consistent with `packages`. Both options are honored and merged together.
+   * @default []
+   */
+  ignored?: string[]
   /**
    * Include private packages (with `"private": true` in package.json) in
    * bump and changelog operations. Private packages remain excluded from

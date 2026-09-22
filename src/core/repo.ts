@@ -71,6 +71,99 @@ export function readPackageJson(packagePath: string): ReadPackage | undefined {
   }
 }
 
+const GLOB_IGNORE = ['**/node_modules/**', '**/dist/**', '**/.git/**']
+
+/**
+ * Resolve a set of path globs (relative to `cwd`) to the absolute directories
+ * they match. Shared by package discovery and ignore resolution.
+ */
+export function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
+  const dirs = new Set<string>()
+
+  for (const pattern of globs ?? []) {
+    const matches = fastGlob.sync(pattern, {
+      cwd,
+      onlyDirectories: true,
+      absolute: true,
+      ignore: GLOB_IGNORE,
+    })
+
+    for (const match of matches) {
+      dirs.add(match)
+    }
+  }
+
+  return dirs
+}
+
+/**
+ * Relative POSIX paths of every package ignored by config, resolved from BOTH
+ * `monorepo.ignored` (path globs) and `monorepo.ignorePackageNames` (names).
+ *
+ * The name-based source is resolved against the configured `packages` globs so
+ * the two options behave identically downstream (path filtering + root commit
+ * exclusion).
+ */
+export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string[] {
+  const cwd = config.cwd
+  const paths = new Set<string>()
+
+  for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.ignored)) {
+    paths.add(relative(cwd, absolutePath).split(sep).join('/'))
+  }
+
+  const ignorePackageNames = config.monorepo?.ignorePackageNames ?? []
+  if (ignorePackageNames.length > 0) {
+    for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.packages)) {
+      const packageBase = readPackageJson(absolutePath)
+      if (packageBase && ignorePackageNames.includes(packageBase.name)) {
+        paths.add(relative(cwd, absolutePath).split(sep).join('/'))
+      }
+    }
+  }
+
+  return [...paths].filter(Boolean)
+}
+
+/**
+ * Extract the changed file paths (POSIX) from a commit body. `getGitDiff` runs
+ * `git log --name-status`, so the body carries lines like `M\tpath/to/file`
+ * (renames/copies use `R100\told\tnew` - the new path is the last field).
+ */
+export function getCommitChangedFiles(commit: GitCommit): string[] {
+  return commit.body
+    .split('\n')
+    .filter(line => /^[A-Z]\d*\t/.test(line))
+    .map((line) => {
+      const parts = line.split('\t')
+      return parts[parts.length - 1]?.trim()
+    })
+    .filter((path): path is string => Boolean(path))
+}
+
+function isUnderIgnoredPath(file: string, ignoredPaths: string[]): boolean {
+  return ignoredPaths.some(ignored => file === ignored || file.startsWith(`${ignored}/`))
+}
+
+/**
+ * True when EVERY changed file of the commit lives inside an ignored package.
+ * Such commits are excluded from the root (unified/selective) version bump and
+ * changelog so a breaking change scoped to an ignored package never bumps the
+ * whole repository. Commits with no detectable files are kept (fail-open).
+ */
+export function isCommitOnlyInIgnoredPackages(commit: GitCommit, ignoredPaths: string[]): boolean {
+  if (ignoredPaths.length === 0) {
+    return false
+  }
+
+  const files = getCommitChangedFiles(commit)
+  if (files.length === 0) {
+    return false
+  }
+
+  return files.every(file => isUnderIgnoredPath(file, ignoredPaths))
+}
+
 export interface RootPackage extends ReadPackage {
   fromTag: string
   commits: GitCommit[]
@@ -153,16 +246,19 @@ export function readPackages({
   cwd,
   patterns,
   ignorePackageNames,
+  ignored,
   includePrivates,
 }: {
   cwd: string
   patterns?: string[]
   ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
+  ignored?: NonNullable<ResolvedRelizyConfig['monorepo']>['ignored']
   includePrivates?: boolean
 }) {
   const packages: ReadPackage[] = []
   const foundPaths = new Set<string>()
   const patternsSet = new Set<string>(patterns)
+  const ignoredDirs = globDirsAbsolute(cwd, ignored)
 
   if (!patterns)
     patternsSet.add('.')
@@ -180,6 +276,9 @@ export function readPackages({
 
       for (const matchPath of matches) {
         if (foundPaths.has(matchPath))
+          continue
+
+        if (ignoredDirs.has(matchPath))
           continue
 
         const packageBase = readPackageJson(matchPath)
@@ -262,12 +361,14 @@ export async function getPackages({
     cwd: config.cwd,
     patterns,
     ignorePackageNames: config.monorepo?.ignorePackageNames,
+    ignored: config.monorepo?.ignored,
     includePrivates: config.monorepo?.includePrivates,
   })
 
   const packages = new Map<string, PackageBase>()
   const foundPaths = new Set<string>()
   const patternsSet = new Set<string>(patterns)
+  const ignoredDirs = globDirsAbsolute(config.cwd, config.monorepo?.ignored)
 
   if (!patterns)
     patternsSet.add('.')
@@ -285,6 +386,11 @@ export async function getPackages({
     for (const matchPath of matches) {
       if (foundPaths.has(matchPath))
         continue
+
+      if (ignoredDirs.has(matchPath)) {
+        logger.debug(`${matchPath} ignored by config (monorepo.ignored)`)
+        continue
+      }
 
       const packageBase = readPackageJson(matchPath)
 
@@ -478,6 +584,9 @@ export async function getPackageCommits({
 
   const isRootPackage = pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name
 
+  // Paths of ignored packages, resolved once for the root filter below.
+  const ignoredPackagePaths = isRootPackage ? resolveIgnoredPackagePaths(changelogConfig) : []
+
   const commits = allCommits.filter((commit) => {
     const type = changelogConfig?.types[commit.type] as ConfigType | undefined
 
@@ -489,6 +598,12 @@ export async function getPackageCommits({
     // allowed commit, including those that only touch root-level files
     // (CI config, lockfile, build scripts…) and do not match any sub-package path.
     if (isRootPackage) {
+      // …except commits whose changes live entirely inside an ignored package:
+      // those are released on their own and must not bump/changelog the root.
+      if (isCommitOnlyInIgnoredPackages(commit, ignoredPackagePaths)) {
+        logger.debug(`Commit "${commit.message}" only touches ignored packages, excluded from root`)
+        return false
+      }
       return true
     }
 
