@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.5.0-beta.3 (2026-09-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.2...v1.5.0-beta.3)
+
+### 🚀 Features
+
+- Skip or clearly report already-published versions on publish ([1442386](https://github.com/LouisMazel/relizy/commit/1442386))
+
+  Add `publish.skipExistingVersions` (and the `--skip-existing-versions` flag
+  on `publish` and `release`) to make re-running a release idempotent: packages
+  whose version already exists on the registry are skipped, and only what is
+  still missing gets published.
+  When enabled, Relizy checks each package before publishing by querying the
+  registry. This relies on the standard registry metadata endpoint that every
+  npm-compatible registry implements, so it does not depend on the wording of
+  any error message. The check works for every package manager: npm/pnpm use
+  the `view` command (reusing your `.npmrc` auth), and yarn/bun fall back to a
+  direct HTTPS request to the same endpoint. When the option is disabled (the
+  default), an already-published version still fails the release, but with a
+  clear message pointing to the option instead of the raw registry error.
+  Especially useful for canary reruns on the same commit, where the version is
+  regenerated identically.
+
+### 🩹 Fixes
+
+- Base release announcements on the previous stable version ([9647125](https://github.com/LouisMazel/relizy/commit/9647125))
+
+  Release announcements (Slack messages and PR comments) now compare against the
+  previous stable version instead of the last prerelease. A graduation is shown as
+  `6.15.0 → 6.16.0` instead of `6.16.0-beta.5 → 6.16.0`, matching the changelog.
+  Prereleases are unaffected.
+
+### 💅 Refactors
+
+- Relocate tryPostPrComment and extract the release summary builder ([3c700fa](https://github.com/LouisMazel/relizy/commit/3c700fa))
+
+### 📦 Build
+
+- **deps:** Upgrade minor and patch dependencies ([ce973e5](https://github.com/LouisMazel/relizy/commit/ce973e5))
+- **deps:** Upgrade typescript to v6 ([416f69a](https://github.com/LouisMazel/relizy/commit/416f69a))
+- **deps:** Upgrade @slack/web-api to v8 ([3695ac2](https://github.com/LouisMazel/relizy/commit/3695ac2))
+- **deps:** Upgrade vitepress to v2.0.0-alpha.20 ([256dbf2](https://github.com/LouisMazel/relizy/commit/256dbf2))
+- **deps:** Upgrade maz-ui deps ([6dc947e](https://github.com/LouisMazel/relizy/commit/6dc947e))
+
+### 🧪 Tests
+
+- **relizy:** Keep isVersionPublished tests hermetic from registry token env ([82ea63c](https://github.com/LouisMazel/relizy/commit/82ea63c))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0-beta.2 (2026-09-15)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.1...v1.5.0-beta.2)
