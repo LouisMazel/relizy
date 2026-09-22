@@ -308,6 +308,7 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
       cwd: config.cwd,
       patterns: config.monorepo?.packages,
       ignorePackageNames: config.monorepo?.ignorePackageNames,
+      ignored: config.monorepo?.ignored,
       includePrivates: config.monorepo?.includePrivates,
     }))
     packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version }))

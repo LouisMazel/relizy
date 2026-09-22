@@ -534,6 +534,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       cwd: config.cwd,
       patterns: config.monorepo?.packages,
       ignorePackageNames: config.monorepo?.ignorePackageNames,
+      ignored: config.monorepo?.ignored,
     })
 
     logger.debug(`Found ${packages.length} package(s)`)

@@ -47,6 +47,7 @@ export function getDefaultConfig() {
       clean: true,
       dependencyTypes: ['dependencies'],
       yes: false,
+      capZeroMajor: true,
     } as Required<Omit<BumpConfig, 'preid'>>,
     changelog: {
       rootChangelog: true,

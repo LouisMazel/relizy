@@ -4,7 +4,7 @@ import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
-import { getPackages, readPackages } from '../repo'
+import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -579,6 +579,244 @@ describe('Given getPackages function', () => {
       })
 
       expect(packages).toEqual([])
+    })
+  })
+})
+
+function commitWithFiles(
+  { type, message, files, isBreaking = false }: { type: string, message: string, files: string[], isBreaking?: boolean },
+): GitCommit {
+  const nameStatus = files.map(file => `M\t${file}`).join('\n')
+  return {
+    shortHash: 'abc1234',
+    author: { name: 'Test', email: 'test@example.com' },
+    message,
+    body: `\n\n${nameStatus}\n`,
+    type,
+    scope: '',
+    references: [],
+    description: message,
+    isBreaking,
+    authors: [],
+  } as GitCommit
+}
+
+describe('Given getCommitChangedFiles', () => {
+  it('Then extracts file paths from --name-status body lines', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['packages/pkg-a/src/index.ts', 'packages/pkg-a/package.json'],
+    })
+
+    expect(getCommitChangedFiles(commit)).toEqual([
+      'packages/pkg-a/src/index.ts',
+      'packages/pkg-a/package.json',
+    ])
+  })
+
+  it('Then keeps the new path for renames/copies (R100/C75)', () => {
+    const commit = {
+      body: '\n\nR100\tpackages/pkg-a/old.ts\tpackages/pkg-a/new.ts\nC75\tpackages/pkg-a/a.ts\tpackages/pkg-a/b.ts\n',
+    } as GitCommit
+
+    expect(getCommitChangedFiles(commit)).toEqual([
+      'packages/pkg-a/new.ts',
+      'packages/pkg-a/b.ts',
+    ])
+  })
+
+  it('Then ignores the human-readable body text (no tab)', () => {
+    const commit = {
+      body: '\n\nBREAKING CHANGE: dropped the old API\n\nM\tpackages/pkg-a/index.ts\n',
+    } as GitCommit
+
+    expect(getCommitChangedFiles(commit)).toEqual(['packages/pkg-a/index.ts'])
+  })
+
+  it('Then returns an empty array when the body has no file lines', () => {
+    expect(getCommitChangedFiles({ body: '' } as GitCommit)).toEqual([])
+  })
+})
+
+describe('Given isCommitOnlyInIgnoredPackages', () => {
+  const ignored = ['shared-components/navigation']
+
+  it('Then is true when every file lives inside an ignored package', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat(navigation)!: rework',
+      files: ['shared-components/navigation/src/index.ts', 'shared-components/navigation/package.json'],
+      isBreaking: true,
+    })
+
+    expect(isCommitOnlyInIgnoredPackages(commit, ignored)).toBe(true)
+  })
+
+  it('Then is false when the commit touches a non-ignored package', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat(components): x',
+      files: ['packages/components/src/x.ts'],
+    })
+
+    expect(isCommitOnlyInIgnoredPackages(commit, ignored)).toBe(false)
+  })
+
+  it('Then is false for a mixed commit (ignored + non-ignored files)', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: mixed',
+      files: ['shared-components/navigation/src/index.ts', 'packages/components/src/x.ts'],
+      isBreaking: true,
+    })
+
+    expect(isCommitOnlyInIgnoredPackages(commit, ignored)).toBe(false)
+  })
+
+  it('Then respects path boundaries (packages/components does not match packages/components-mcp)', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: sibling',
+      files: ['packages/components-mcp/src/x.ts'],
+    })
+
+    expect(isCommitOnlyInIgnoredPackages(commit, ['packages/components'])).toBe(false)
+  })
+
+  it('Then is false when there are no ignored paths', () => {
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat(navigation)!: rework',
+      files: ['shared-components/navigation/src/index.ts'],
+      isBreaking: true,
+    })
+
+    expect(isCommitOnlyInIgnoredPackages(commit, [])).toBe(false)
+  })
+
+  it('Then is false (fail-open) when no files can be detected', () => {
+    expect(isCommitOnlyInIgnoredPackages({ body: '' } as GitCommit, ignored)).toBe(false)
+  })
+})
+
+describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
+  const mockCwd = '/test-repo'
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    vol.fromJSON({
+      [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({ name: 'pkg-b', version: '1.1.0' }),
+    }, mockCwd)
+  })
+
+  afterEach(() => {
+    vol.reset()
+  })
+
+  describe('When resolving ignored packages from path globs', () => {
+    it('Then returns the relative POSIX path matched by monorepo.ignored', () => {
+      const config = createMockConfig({
+        cwd: mockCwd,
+        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+      })
+
+      expect(resolveIgnoredPackagePaths(config)).toEqual(['packages/pkg-a'])
+    })
+  })
+
+  describe('When resolving ignored packages from ignorePackageNames', () => {
+    it('Then resolves the name to its relative path via the packages globs', () => {
+      const config = createMockConfig({
+        cwd: mockCwd,
+        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignorePackageNames: ['pkg-a'] },
+      })
+
+      expect(resolveIgnoredPackagePaths(config)).toEqual(['packages/pkg-a'])
+    })
+  })
+
+  describe('When the root package aggregates commits with an ignored package', () => {
+    it('Then excludes commits that only touch an ignored package', async () => {
+      vi.mocked(changelogen.parseCommits).mockReturnValue([
+        commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
+        commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
+        commitWithFiles({ type: 'build', message: 'build: lockfile', files: ['pnpm-lock.yaml'] }),
+      ])
+
+      const config = createMockConfig({
+        cwd: mockCwd,
+        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+      })
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        from: 'root-package@1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: true,
+      })
+
+      const messages = commits.map(c => c.message)
+      expect(messages).toContain('feat(pkg-b): feature')
+      expect(messages).toContain('build: lockfile')
+      expect(messages).not.toContain('feat(pkg-a)!: breaking')
+    })
+
+    it('Then keeps every commit at root when nothing is ignored', async () => {
+      vi.mocked(changelogen.parseCommits).mockReturnValue([
+        commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
+        commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
+      ])
+
+      const config = createMockConfig({
+        cwd: mockCwd,
+        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+      })
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        from: 'root-package@1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: true,
+      })
+
+      expect(commits.map(c => c.message)).toContain('feat(pkg-a)!: breaking')
+    })
+  })
+
+  describe('When readPackages receives ignored path globs', () => {
+    it('Then skips packages whose directory matches monorepo.ignored', () => {
+      const result = readPackages({
+        cwd: mockCwd,
+        patterns: ['packages/*'],
+        ignorePackageNames: undefined,
+        ignored: ['packages/pkg-a'],
+      })
+
+      expect(result.map(p => p.name)).toEqual(['pkg-b'])
+    })
+  })
+
+  describe('When getPackages receives ignored path globs', () => {
+    it('Then never discovers or bumps a package matched by monorepo.ignored', async () => {
+      vi.mocked(changelogen.parseCommits).mockReturnValue([
+        commitWithFiles({ type: 'feat', message: 'feat: work', files: ['packages/pkg-b/src/x.ts'] }),
+      ])
+
+      const config = createMockConfig({
+        cwd: mockCwd,
+        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+      })
+
+      const packages = await getPackages({ config, suffix: undefined, force: false })
+
+      expect(packages.map(p => p.name)).not.toContain('pkg-a')
+      expect(packages.map(p => p.name)).toContain('pkg-b')
     })
   })
 })

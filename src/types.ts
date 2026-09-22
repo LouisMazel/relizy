@@ -202,9 +202,26 @@ export interface MonorepoConfig {
   packages: string[]
   /**
    * Package names to ignore.
+   * @deprecated Use `ignored` (path globs) instead, for consistency with
+   * `packages`. Both options are still honored and merged together.
    * @default []
    */
   ignorePackageNames?: string[]
+  /**
+   * Glob patterns (relative to `cwd`, POSIX separators) of package directories
+   * to ignore - matched the same way as `packages`. Ignored packages are
+   * excluded from bump, changelog, publish, provider-release and pr-comment.
+   *
+   * In `unified`/`selective` mode, commits whose changed files all live inside
+   * ignored packages are also excluded from the root version bump and the root
+   * changelog (a breaking change in an ignored package no longer bumps the
+   * whole repository).
+   *
+   * Prefer this over `ignorePackageNames` for path-based configuration
+   * consistent with `packages`. Both options are honored and merged together.
+   * @default []
+   */
+  ignored?: string[]
   /**
    * Include private packages (with `"private": true` in package.json) in
    * bump and changelog operations. Private packages remain excluded from
@@ -250,6 +267,18 @@ export interface BumpConfig {
    * @default true
    */
   yes?: boolean
+  /**
+   * Cap commit-detected `major` bumps to `minor` while the current version is
+   * in the `0.x.y` range (semver §4, initial development), so a breaking change
+   * does not graduate a `0.x` package to `1.0.0` automatically.
+   *
+   * Set to `false` to opt out: a breaking commit then bumps `0.x.y` straight to
+   * `1.0.0`. This only affects **commit-based** detection; explicit CLI release
+   * types (`--major`, `--premajor`, …) are never capped. Once the package
+   * reaches `1.x`, this option is a no-op.
+   * @default true
+   */
+  capZeroMajor?: boolean
 }
 
 export interface BumpOptions extends BumpConfig {
