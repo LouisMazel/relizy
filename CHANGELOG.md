@@ -1,5 +1,132 @@
 # Changelog
 
+## v1.5.0 (2026-09-25)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.9...v1.5.0)
+
+### 🚀 Features
+
+- Support publishing to multiple registries ([#113](https://github.com/LouisMazel/relizy/pull/113))
+
+  - refactor(relizy): use deep imports for @maz-ui/utils helpers
+    Closes #100, #105
+  - feat: support publishing to multiple registries (#112)
+  - feat(relizy): support publishing to multiple registries
+  - test(relizy): add per-registry OTP caching coverage
+  - feat(relizy): allow excluding the default registry per package
+  - fix(relizy): normalize registry URLs before deduplication and OTP caching
+  - fix(relizy): scope the publish safety check to registries actually needed by the release
+  - refactor(relizy): rename RegistryTarget.packages to packageFilter
+
+  ***
+
+- Skip or clearly report already-published versions on publish ([1442386](https://github.com/LouisMazel/relizy/commit/1442386))
+
+  Add `publish.skipExistingVersions` (and the `--skip-existing-versions` flag
+  on `publish` and `release`) to make re-running a release idempotent: packages
+  whose version already exists on the registry are skipped, and only what is
+  still missing gets published.
+  When enabled, Relizy checks each package before publishing by querying the
+  registry. This relies on the standard registry metadata endpoint that every
+  npm-compatible registry implements, so it does not depend on the wording of
+  any error message. The check works for every package manager: npm/pnpm use
+  the `view` command (reusing your `.npmrc` auth), and yarn/bun fall back to a
+  direct HTTPS request to the same endpoint. When the option is disabled (the
+  default), an already-published version still fails the release, but with a
+  clear message pointing to the option instead of the raw registry error.
+  Especially useful for canary reruns on the same commit, where the version is
+  regenerated identically.
+
+- **relizy:** Add bump.capZeroMajor option to control 0.x graduation ([de74327](https://github.com/LouisMazel/relizy/commit/de74327))
+
+  By default relizy caps commit-detected `major` bumps to `minor` while the
+  current version is in the `0.x.y` range (semver §4), so a breaking change
+  never graduates a `0.x` package to `1.0.0` automatically.
+  `bump.capZeroMajor: false` opts out: a breaking commit then bumps `0.x.y`
+  straight to `1.0.0`, useful for a production-ready `0.x` package released via
+  CI without passing `--major`. It only affects commit-based detection (explicit
+  CLI release types are never capped) and is a no-op once the package is `1.x`.
+  Defaults to `true`, so existing behavior is unchanged. No breaking change.
+
+### 🩹 Fixes
+
+- Aggregate per-package changelog for social posts in independent mode ([#114](https://github.com/LouisMazel/relizy/pull/114))
+- Omit implicit default registry when only `registries` is configured ([3ee4a1c](https://github.com/LouisMazel/relizy/commit/3ee4a1c))
+
+  You can now list every publish target in `registries` without setting a
+  top-level `registry`. When no default `registry` is configured, Relizy no
+  longer adds an implicit target pointing at the ambient `.npmrc` registry, so
+  packages are published only to the registries you declare.
+  Setting neither `registry` nor `registries` still falls back to the
+  `.npmrc`-resolved registry, and a package matched by no `registries` entry
+  falls back to it too.
+
+- Authenticate and publish through .npmrc for pnpm 10+ compatibility ([72876ad](https://github.com/LouisMazel/relizy/commit/72876ad))
+
+  The auth token (and, for scoped packages, the matching `@scope:registry`) is
+  now written to `.npmrc` for the duration of each publish/whoami instead of
+  being passed as CLI flags, which the pnpm 10+ parser rejects. Authentication
+  and multi-registry publishing now behave identically on npm, pnpm (every
+  version) and bun; your `.npmrc` is preserved and restored, and left untouched
+  when no token/registry is configured. Yarn is not covered (set its auth in
+  `.yarnrc.yml`).
+  Scoped packages are now published to their configured registry instead of the
+  one the ambient `.npmrc` points at, and additional `registries` without their
+  own `tag` inherit the global publish tag, so a canary release keeps its tag on
+  every registry.
+
+- Base release announcements on the previous stable version ([9647125](https://github.com/LouisMazel/relizy/commit/9647125))
+
+  Release announcements (Slack messages and PR comments) now compare against the
+  previous stable version instead of the last prerelease. A graduation is shown as
+  `6.15.0 → 6.16.0` instead of `6.16.0-beta.5 → 6.16.0`, matching the changelog.
+  Prereleases are unaffected.
+
+- **relizy:** Honor ignored packages in root bump and changelog ([50147a0](https://github.com/LouisMazel/relizy/commit/50147a0))
+
+  In unified/selective mode the root version and changelog aggregated every
+  commit, so a breaking change scoped to an ignored package (typically one
+  released independently) bumped the whole repository. `ignorePackageNames`
+  only removed the package from the published set, not from the root
+  aggregation.
+  Root commits are now filtered: a commit whose changed files all live inside
+  an ignored package is excluded from the root version bump and the root
+  changelog. Commits that mix ignored and released packages still count.
+  Also add `monorepo.ignored` (path globs, same syntax as `packages`) as the
+  recommended, path-based replacement for `ignorePackageNames`, which is now
+  deprecated. Both options are honored and merged, so migration is incremental.
+  No breaking change.
+
+### 💅 Refactors
+
+- Relocate tryPostPrComment and extract the release summary builder ([3c700fa](https://github.com/LouisMazel/relizy/commit/3c700fa))
+
+### 📖 Documentation
+
+- Document listing every registry without a default ([f0239a1](https://github.com/LouisMazel/relizy/commit/f0239a1))
+
+### 📦 Build
+
+- Upgrade dependencies ([#116](https://github.com/LouisMazel/relizy/pull/116))
+
+  - build: upgrade dependencies minor
+  - build: upgrade vitest
+
+- **deps:** Upgrade minor and patch dependencies ([ce973e5](https://github.com/LouisMazel/relizy/commit/ce973e5))
+- **deps:** Upgrade typescript to v6 ([416f69a](https://github.com/LouisMazel/relizy/commit/416f69a))
+- **deps:** Upgrade @slack/web-api to v8 ([3695ac2](https://github.com/LouisMazel/relizy/commit/3695ac2))
+- **deps:** Upgrade vitepress to v2.0.0-alpha.20 ([256dbf2](https://github.com/LouisMazel/relizy/commit/256dbf2))
+- **deps:** Upgrade maz-ui deps ([6dc947e](https://github.com/LouisMazel/relizy/commit/6dc947e))
+
+### 🧪 Tests
+
+- **relizy:** Keep isVersionPublished tests hermetic from registry token env ([82ea63c](https://github.com/LouisMazel/relizy/commit/82ea63c))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+- Mazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0-beta.4 (2026-09-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0-beta.3...v1.5.0-beta.4)
