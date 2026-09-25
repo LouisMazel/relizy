@@ -54,7 +54,7 @@ Imagine you have multiple packages in your project (like a box with several toys
 - 🔗 Automatic dependency bumping for workspace dependencies
 - 🐙 GitHub, GitLab & Bitbucket support
 - 🔐 2FA/OTP support for npm publishing
-- 🎛️ Custom registry support (private registries, GitHub Packages, etc.)
+- 🎛️ Custom registry support (private registries, GitHub Packages, etc.), with optional mirroring/routing to multiple registries (Nexus, JFrog, etc.)
 - ⚙️ Multiple configuration files support for different release workflows
 - 🔧 Support for npm, yarn, pnpm, and bun (auto-detected)
 - 📱 Social media integration (Twitter & Slack) for release announcements

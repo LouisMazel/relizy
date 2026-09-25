@@ -1,11 +1,11 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
+import type { BumpResultTruthy, GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { bump } from './bump'
 import { changelog } from './changelog'
-import { prComment } from './pr-comment'
+import { tryPostPrComment } from './pr-comment'
 import { providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
 
@@ -36,9 +36,11 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         access: options.access,
         otp: options.otp,
         registry: options.registry,
+        registries: options.registries,
         tag: options.tag,
         buildCmd: options.buildCmd,
         token: options.publishToken,
+        skipExistingVersions: options.skipExistingVersions,
       },
       release: {
         commit: options.commit,
@@ -89,40 +91,77 @@ async function releaseSafetyCheck({
   }
 }
 
-async function tryPostPrComment({
+/**
+ * Build the final "Release workflow completed!" summary box from the outcome of
+ * each release step. Pure formatting - no side effects - so it stays easy to read
+ * and to test in isolation, and keeps the `release()` orchestration lean.
+ */
+export function buildReleaseSummary({
   config,
-  releaseContext,
-  prNumber,
-  dryRun,
-  logLevel,
-  configName,
+  bumpResult,
+  publishResponse,
+  createdTags,
+  provider,
+  postedReleases,
+  providerError,
+  socialResults,
+  prCommentPosted,
 }: {
   config: ResolvedRelizyConfig
-  releaseContext: ReleaseContext
-  prNumber?: number
-  dryRun: boolean
-  logLevel?: string
-  configName?: string
-}): Promise<boolean> {
-  if (!config.release.prComment) {
-    logger.info('Skipping PR comment (--no-pr-comment)')
-    return false
+  bumpResult: BumpResultTruthy
+  publishResponse?: PublishResponse
+  createdTags: string[]
+  provider?: GitProvider
+  postedReleases: PostedRelease[]
+  providerError?: string
+  socialResults?: SocialResult
+  prCommentPosted: boolean
+}): string {
+  const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
+  const versionDisplay = config.monorepo?.versionMode === 'independent'
+    ? `${bumpResult.bumpedPackages.length} packages bumped independently`
+    : bumpResult.newVersion || readPackageJson(config.cwd)?.version
+
+  // Format provider-release display
+  let providerDisplay = 'Disabled'
+  if (config.release.providerRelease) {
+    if (providerError) {
+      providerDisplay = `Failed: ${providerError}`
+    }
+    else {
+      providerDisplay = `${postedReleases.length} release${postedReleases.length !== 1 ? 's' : ''}`
+    }
   }
 
-  try {
-    return await prComment({
-      prNumber,
-      dryRun,
-      logLevel: logLevel as any,
-      configName,
-      config,
-      releaseContext,
-    })
+  // Format social media display
+  let socialDisplay = 'Disabled'
+
+  if (config.release.social && socialResults) {
+    if (socialResults.hasErrors) {
+      const failed = socialResults.results.filter(r => !r.success).map(r => r.platform)
+      const succeeded = socialResults.results.filter(r => r.success).map(r => r.platform)
+      socialDisplay = `${succeeded.length} succeeded, ${failed.length} failed (${failed.join(', ')})`
+    }
+    else {
+      socialDisplay = `${socialResults.results.length} succeeded`
+    }
   }
-  catch (error) {
-    logger.warn('PR comment posting failed:', error)
-    return false
+
+  // Format PR comment display
+  let prCommentDisplay = 'Disabled'
+  if (config.release.prComment) {
+    prCommentDisplay = prCommentPosted ? 'Posted' : 'Failed'
   }
+
+  return 'Release workflow completed!\n\n'
+    + `Version: ${versionDisplay ?? 'Unknown'}\n`
+    + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
+    + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
+    + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
+    + `Provider release: ${providerDisplay}\n`
+    + `Social media: ${socialDisplay}\n`
+    + `PR comment: ${prCommentDisplay}\n`
+    + `Git provider: ${provider}`
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -351,51 +390,17 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       configName: options.configName,
     })
 
-    const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
-    const versionDisplay = config.monorepo?.versionMode === 'independent'
-      ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-      : bumpResult.newVersion || readPackageJson(config.cwd)?.version
-
-    // Format provider-release display
-    let providerDisplay = 'Disabled'
-    if (config.release.providerRelease) {
-      if (providerError) {
-        providerDisplay = `Failed: ${providerError}`
-      }
-      else {
-        providerDisplay = `${postedReleases.length} release${postedReleases.length !== 1 ? 's' : ''}`
-      }
-    }
-
-    // Format social media display
-    let socialDisplay = 'Disabled'
-
-    if (config.release.social && socialResults) {
-      if (socialResults.hasErrors) {
-        const failed = socialResults.results.filter(r => !r.success).map(r => r.platform)
-        const succeeded = socialResults.results.filter(r => r.success).map(r => r.platform)
-        socialDisplay = `${succeeded.length} succeeded, ${failed.length} failed (${failed.join(', ')})`
-      }
-      else {
-        socialDisplay = `${socialResults.results.length} succeeded`
-      }
-    }
-
-    // Format PR comment display
-    let prCommentDisplay = 'Disabled'
-    if (config.release.prComment) {
-      prCommentDisplay = prCommentPosted ? 'Posted' : 'Failed'
-    }
-
-    logger.box('Release workflow completed!\n\n'
-      + `Version: ${versionDisplay ?? 'Unknown'}\n`
-      + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
-      + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
-      + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
-      + `Provider release: ${providerDisplay}\n`
-      + `Social media: ${socialDisplay}\n`
-      + `PR comment: ${prCommentDisplay}\n`
-      + `Git provider: ${provider}`)
+    logger.box(buildReleaseSummary({
+      config,
+      bumpResult,
+      publishResponse,
+      createdTags,
+      provider,
+      postedReleases,
+      providerError,
+      socialResults,
+      prCommentPosted,
+    }))
 
     await executeHook('success:release', config, dryRun)
   }

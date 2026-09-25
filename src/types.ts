@@ -202,9 +202,26 @@ export interface MonorepoConfig {
   packages: string[]
   /**
    * Package names to ignore.
+   * @deprecated Use `ignored` (path globs) instead, for consistency with
+   * `packages`. Both options are still honored and merged together.
    * @default []
    */
   ignorePackageNames?: string[]
+  /**
+   * Glob patterns (relative to `cwd`, POSIX separators) of package directories
+   * to ignore - matched the same way as `packages`. Ignored packages are
+   * excluded from bump, changelog, publish, provider-release and pr-comment.
+   *
+   * In `unified`/`selective` mode, commits whose changed files all live inside
+   * ignored packages are also excluded from the root version bump and the root
+   * changelog (a breaking change in an ignored package no longer bumps the
+   * whole repository).
+   *
+   * Prefer this over `ignorePackageNames` for path-based configuration
+   * consistent with `packages`. Both options are honored and merged together.
+   * @default []
+   */
+  ignored?: string[]
   /**
    * Include private packages (with `"private": true` in package.json) in
    * bump and changelog operations. Private packages remain excluded from
@@ -250,6 +267,18 @@ export interface BumpConfig {
    * @default true
    */
   yes?: boolean
+  /**
+   * Cap commit-detected `major` bumps to `minor` while the current version is
+   * in the `0.x.y` range (semver §4, initial development), so a breaking change
+   * does not graduate a `0.x` package to `1.0.0` automatically.
+   *
+   * Set to `false` to opt out: a breaking commit then bumps `0.x.y` straight to
+   * `1.0.0`. This only affects **commit-based** detection; explicit CLI release
+   * types (`--major`, `--premajor`, …) are never capped. Once the package
+   * reaches `1.x`, this option is a no-op.
+   * @default true
+   */
+  capZeroMajor?: boolean
 }
 
 export interface BumpOptions extends BumpConfig {
@@ -457,6 +486,59 @@ export interface SocialOptions {
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
+  /**
+   * Prerelease suffix, forwarded to package discovery in independent mode
+   * when no bump result is available (standalone `social` runs).
+   */
+  suffix?: string
+  /**
+   * Force package discovery to include all packages (independent standalone runs).
+   * @default false
+   */
+  force?: boolean
+}
+
+export interface RegistryTarget {
+  /**
+   * Optional label used in logs to identify this registry (e.g. `nexus-internal`)
+   */
+  name?: string
+  /**
+   * Registry URL (e.g. `https://registry.npmjs.org/`, a Nexus or JFrog URL)
+   */
+  registry: string
+  /**
+   * Registry token - supported for npm, pnpm and bun (injected via `.npmrc`).
+   * Yarn is not supported (it uses `.yarnrc.yml`); configure its auth yourself.
+   */
+  token?: string
+  /**
+   * Publish tag (e.g. `latest`)
+   */
+  tag?: string
+  /**
+   * Publish access level (e.g. `public` or `restricted`)
+   */
+  access?: 'public' | 'restricted'
+  /**
+   * OTP for this registry (e.g. `123456`)
+   */
+  otp?: string
+  /**
+   * Glob pattern matching package names this registry applies to. Distinct
+   * from `PublishConfig.packages` (which packages get published at all) -
+   * this only routes already-publishable packages to this registry.
+   * Omitted or empty = applies to every publishable package (mirroring).
+   */
+  packageFilter?: string[]
+  /**
+   * When true, packages matched by this target are published ONLY to this
+   * (and any other matching) registry - the default `publish.registry` is
+   * skipped for them. Without this flag, `registries` is purely additive:
+   * matched packages are published to this registry ON TOP OF the default one.
+   * @default false
+   */
+  exclusive?: boolean
 }
 
 export type PublishConfig = IChangelogConfig['publish'] & {
@@ -489,7 +571,8 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    */
   buildCmd?: string
   /**
-   * NPM token (e.g. `123456`) - only supported for pnpm and npm
+   * NPM token (e.g. `123456`) - supported for npm, pnpm and bun (injected via
+   * `.npmrc`). Yarn is not supported (it uses `.yarnrc.yml`).
    */
   token?: string
   /**
@@ -504,6 +587,25 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * @default 15000
    */
   safetyCheckTimeout?: number
+  /**
+   * Additional registries to publish to, on top of `registry` (if set).
+   * Entries without `packageFilter` apply to every package (mirroring);
+   * entries with `packageFilter` only apply to packages matching one of the
+   * glob patterns. Fully additive: leaving this unset preserves the
+   * single-registry behavior.
+   */
+  registries?: RegistryTarget[]
+  /**
+   * Skip a package (per registry) instead of failing when its version already
+   * exists on the registry. Makes re-running a release idempotent: a retried
+   * job whose version is already published (e.g. a canary rerun on the same
+   * commit, or a partially completed publish) succeeds and only publishes what
+   * is missing, rather than crashing on the registry's "cannot overwrite"
+   * error. When disabled (the default), that situation still fails, but with a
+   * clear error message instead of the raw registry error.
+   * @default false
+   */
+  skipExistingVersions?: boolean
 }
 
 export interface PublishOptions extends PublishConfig {

@@ -2,8 +2,8 @@ import type { HeadConfig, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
-import packageJson from '../../package.json'
-import typedocSidebar from '../src/typedoc/typedoc-sidebar.json'
+import packageJson from '../../package.json' with { type: 'json' }
+import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 
 const SITE_URL = 'https://relizy.dev'
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES

@@ -162,7 +162,7 @@ Content`
 
       const result = formatChangelogForSlack(longText, 500)
 
-      expect(result.length).toBe(500)
+      expect(result).toHaveLength(500)
       expect(result).toMatch(/\.\.\.$/)
     })
 
@@ -171,7 +171,7 @@ Content`
 
       const result = formatChangelogForSlack(longText)
 
-      expect(result.length).toBe(2500)
+      expect(result).toHaveLength(2500)
     })
 
     it('Then truncates formatted text correctly', () => {
@@ -179,7 +179,7 @@ Content`
 
       const result = formatChangelogForSlack(longText, 100)
 
-      expect(result.length).toBe(100)
+      expect(result).toHaveLength(100)
       expect(result).toMatch(/\.\.\.$/)
     })
   })

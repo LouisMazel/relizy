@@ -55,9 +55,47 @@ export default defineConfig({
 })
 ```
 
+## ignored
+
+Exclude packages by **path**, using the same glob syntax as [`packages`](#packages).
+This is the recommended way to ignore packages, for consistency with `packages`.
+
+```ts
+export default defineConfig({
+  monorepo: {
+    packages: ['packages/*', 'shared-components/*'],
+    ignored: [
+      'shared-components/navigation', // a single package
+      'packages/internal-*', // or a glob
+    ],
+  },
+})
+```
+
+Ignored packages are excluded from **bump**, **changelog**, **publish**,
+**provider-release** and **pr-comment**.
+
+::: warning Root bump & changelog (unified / selective)
+In `unified` and `selective` mode the root version is derived from **all**
+commits in the repository. Commits whose changed files **all** live inside an
+ignored package are excluded from the root version bump and the root changelog.
+
+This means a **breaking change** scoped to an ignored package no longer bumps
+the whole repository - as long as that change lives in its own commit. Keep
+ignored-package changes in dedicated commits (do not mix them with changes to
+released packages in the same commit), otherwise the commit still counts for the
+root.
+:::
+
 ## ignorePackageNames
 
-Exclude specific packages:
+::: warning Deprecated
+`ignorePackageNames` is deprecated in favor of [`ignored`](#ignored) (path
+globs), for consistency with `packages`. Both options are still honored and
+**merged together**, so you can migrate incrementally.
+:::
+
+Exclude specific packages by their `package.json` **name**:
 
 ```ts
 export default defineConfig({
@@ -104,8 +142,9 @@ You can also enable it ad-hoc from the CLI with the `--include-private` flag on
 `relizy bump`, `relizy changelog`, and `relizy release`.
 
 > [!NOTE]
-> `ignorePackageNames` still takes precedence. A private package listed in
-> `ignorePackageNames` stays excluded even if `includePrivates` is `true`.
+> `ignored` / `ignorePackageNames` still take precedence. A private package
+> listed in `ignored` (or `ignorePackageNames`) stays excluded even if
+> `includePrivates` is `true`.
 
 ## Complete Example
 
@@ -114,7 +153,7 @@ export default defineConfig({
   monorepo: {
     versionMode: 'selective',
     packages: ['packages/*', 'apps/*'],
-    ignorePackageNames: ['example-a', 'docs'],
+    ignored: ['apps/docs'],
     includePrivates: false,
   },
 })

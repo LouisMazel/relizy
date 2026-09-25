@@ -47,6 +47,7 @@ export function getDefaultConfig() {
       clean: true,
       dependencyTypes: ['dependencies'],
       yes: false,
+      capZeroMajor: true,
     } as Required<Omit<BumpConfig, 'preid'>>,
     changelog: {
       rootChangelog: true,
@@ -64,6 +65,9 @@ export function getDefaultConfig() {
       // (e.g. a corporate proxy) is honored instead of forcing the public one.
       safetyCheck: true,
       safetyCheckTimeout: 15000,
+      // Annotated as `boolean` (not the inferred `false` literal) so the resolved
+      // config type stays assignable to true when overridden by config/CLI.
+      skipExistingVersions: false as boolean,
       packageManager: detectPackageManager(process.cwd()),
     } satisfies PublishConfig,
     tokens: {

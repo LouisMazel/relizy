@@ -263,24 +263,12 @@ describe('Given detectGitProvider function', () => {
   })
 
   describe('When remote URL is GitLab', () => {
-    it('Then returns gitlab for gitlab.com URL', () => {
-      vi.mocked(execSync).mockReturnValue('https://gitlab.com/group/project.git')
-
-      const result = detectGitProvider()
-
-      expect(result).toBe('gitlab')
-    })
-
-    it('Then returns gitlab for custom gitlab domain', () => {
-      vi.mocked(execSync).mockReturnValue('https://gitlab.company.com/team/repo.git')
-
-      const result = detectGitProvider()
-
-      expect(result).toBe('gitlab')
-    })
-
-    it('Then returns gitlab for SSH URL', () => {
-      vi.mocked(execSync).mockReturnValue('git@gitlab.com:group/project.git')
+    it.each([
+      ['gitlab.com URL', 'https://gitlab.com/group/project.git'],
+      ['custom gitlab domain', 'https://gitlab.company.com/team/repo.git'],
+      ['SSH URL', 'git@gitlab.com:group/project.git'],
+    ])('Then returns gitlab for %s', (_label, url) => {
+      vi.mocked(execSync).mockReturnValue(url)
 
       const result = detectGitProvider()
 
@@ -289,24 +277,12 @@ describe('Given detectGitProvider function', () => {
   })
 
   describe('When remote URL is Bitbucket', () => {
-    it('Then returns bitbucket for bitbucket.org URL', () => {
-      vi.mocked(execSync).mockReturnValue('https://bitbucket.org/workspace/repo.git')
-
-      const result = detectGitProvider()
-
-      expect(result).toBe('bitbucket')
-    })
-
-    it('Then returns bitbucket for custom bitbucket domain', () => {
-      vi.mocked(execSync).mockReturnValue('https://bitbucket.company.com/team/repo.git')
-
-      const result = detectGitProvider()
-
-      expect(result).toBe('bitbucket')
-    })
-
-    it('Then returns bitbucket for SSH URL', () => {
-      vi.mocked(execSync).mockReturnValue('git@bitbucket.org:workspace/repo.git')
+    it.each([
+      ['bitbucket.org URL', 'https://bitbucket.org/workspace/repo.git'],
+      ['custom bitbucket domain', 'https://bitbucket.company.com/team/repo.git'],
+      ['SSH URL', 'git@bitbucket.org:workspace/repo.git'],
+    ])('Then returns bitbucket for %s', (_label, url) => {
+      vi.mocked(execSync).mockReturnValue(url)
 
       const result = detectGitProvider()
 
@@ -426,26 +402,13 @@ describe('Given parseGitRemoteUrl function', () => {
   })
 
   describe('When URL format is invalid', () => {
-    it('Then returns null for malformed URL', () => {
-      const result = parseGitRemoteUrl('invalid-url')
-
-      expect(result).toBeNull()
-    })
-
-    it('Then returns null for local path', () => {
-      const result = parseGitRemoteUrl('/local/path/to/repo')
-
-      expect(result).toBeNull()
-    })
-
-    it('Then returns null for empty string', () => {
-      const result = parseGitRemoteUrl('')
-
-      expect(result).toBeNull()
-    })
-
-    it('Then returns null for URL without owner/repo', () => {
-      const result = parseGitRemoteUrl('https://github.com/')
+    it.each([
+      ['malformed URL', 'invalid-url'],
+      ['local path', '/local/path/to/repo'],
+      ['empty string', ''],
+      ['URL without owner/repo', 'https://github.com/'],
+    ])('Then returns null for %s', (_label, url) => {
+      const result = parseGitRemoteUrl(url)
 
       expect(result).toBeNull()
     })

@@ -171,6 +171,16 @@ Skip npm publishing:
 relizy release --no-publish
 ```
 
+### --skip-existing-versions
+
+Skip packages whose version already exists on the registry instead of failing:
+
+```bash
+relizy release --skip-existing-versions
+```
+
+Makes a re-run idempotent: already-published versions are skipped with a warning, and only missing packages are published. Particularly useful for [canary releases](/guide/canary-releases), where re-running a pipeline on the same commit regenerates the same version. Without this flag, an already-published version fails the release with a clear error message. See [`publish.skipExistingVersions`](/config/publish#skipexistingversions) for details.
+
 ### --include-private
 
 Include private packages (packages with `"private": true` in their

@@ -5,7 +5,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { collectContributorNames, collectPackageBumps, executeHook, generateChangelog, getPackageCommits, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -134,12 +134,17 @@ async function handleTwitterPost({
   dryRun,
   newVersion,
   tag,
+  prerelease,
 }: {
   config: ResolvedRelizyConfig
   changelog: string
   dryRun: boolean
   newVersion: string
   tag: string
+  // When provided, overrides the `isPrerelease(newVersion)` heuristic for the
+  // onlyStable skip. Independent mode passes it because `newVersion` may be an
+  // aggregate label (e.g. "3 packages") rather than a parsable semver string.
+  prerelease?: boolean
 }): Promise<SocialNetworkResponse<TweetV2PostTweetResult>> {
   // Check if Twitter is enabled specifically
   const twitterConfig = config.social?.twitter
@@ -165,7 +170,8 @@ async function handleTwitterPost({
 
     // Check if this is a prerelease and if we should skip it
     const onlyStable = twitterConfig.onlyStable
-    if (onlyStable && isPrerelease(newVersion)) {
+    const isPre = prerelease ?? isPrerelease(newVersion)
+    if (onlyStable && isPre) {
       logger.info(`Skipping Twitter post for prerelease version ${newVersion} (social.twitter.onlyStable is enabled)`)
       return { success: true, response: undefined }
     }
@@ -228,6 +234,7 @@ async function handleSlackPost({
   tag,
   commits,
   bumpedPackages,
+  prerelease,
 }: {
   config: ResolvedRelizyConfig
   changelog: string
@@ -236,6 +243,8 @@ async function handleSlackPost({
   tag: string
   commits: GitCommit[]
   bumpedPackages?: Array<{ name: string, version: string, oldVersion: string, newVersion?: string }>
+  // See handleTwitterPost: overrides the onlyStable prerelease heuristic when set.
+  prerelease?: boolean
 }): Promise<SocialNetworkResponse<ChatPostMessageResponse | { ok: true, transport: 'webhook' } | undefined>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
@@ -271,7 +280,8 @@ async function handleSlackPost({
 
     // Check if this is a prerelease and if we should skip it
     const onlyStable = slackConfig.onlyStable ?? true
-    if (onlyStable && isPrerelease(newVersion)) {
+    const isPre = prerelease ?? isPrerelease(newVersion)
+    if (onlyStable && isPre) {
       logger.info(`Skipping Slack post for prerelease version ${newVersion} (social.slack.onlyStable is enabled)`)
       return { success: true, response: undefined }
     }
@@ -385,49 +395,163 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       throw new Error('Failed to read root package.json')
     }
 
-    const newVersion = options.bumpResult?.newVersion || rootPackageRead.version
+    const isIndependent = config.monorepo?.versionMode === 'independent'
 
-    const { from, to } = await resolveTags<'social'>({
-      config,
-      step: 'social',
-      newVersion,
-      pkg: rootPackageRead,
-    })
+    let minifiedBody: string
+    let richBody: string
+    let newVersion: string
+    let tag: string
+    let changelogCommits: GitCommit[]
+    let prerelease: boolean
 
-    const fromTag = options.bumpResult?.fromTag || from
+    if (isIndependent) {
+      // Independent mode: aggregate one changelog section per bumped package,
+      // each resolved against its own `packagename@version` tags. The root
+      // package is never tagged in this mode, so it must never be used here
+      // (doing so is what produced the `git log <root@x>...<root@y>` crash).
+      const packages = filterOutPrivatePackages(await getPackagesOrBumpedPackages({
+        config,
+        bumpResult: options.bumpResult,
+        suffix: options.suffix,
+        force: options.force ?? false,
+        dryRun,
+      }))
 
-    const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
-      config,
-      force: false,
-      suffix: undefined,
-      changelog: true,
-      from: fromTag,
-      to,
-      dryRun,
-    })
+      const minifiedSections: string[] = []
+      const richSections: string[] = []
+      const commitsByHash = new Map<string, GitCommit>()
 
-    const minifiedBody = await generateChangelog({
-      pkg: { ...rootPackage, fromTag },
-      config,
-      dryRun,
-      newVersion,
-      include: { title: false, compareLink: false, body: true, contributors: false },
-      minify: true,
-    })
-    const richBody = await generateChangelog({
-      pkg: { ...rootPackage, fromTag },
-      config,
-      dryRun,
-      newVersion,
-      include: { title: false, compareLink: false, body: true, contributors: false },
-      minify: false,
-    })
+      for (const pkg of packages) {
+        const pkgVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
+        // `pkg.fromTag` is the previous `packagename@x` tag resolved at bump time
+        // (or the NEW_PACKAGE_MARKER for a brand-new package).
+        const from = config.from || pkg.fromTag
+
+        if (!from) {
+          logger.warn(`No from tag found for ${pkg.name}, skipping its changelog section`)
+          continue
+        }
+
+        const minSection = await generateChangelog({
+          pkg: { ...pkg, fromTag: from },
+          config,
+          dryRun,
+          newVersion: pkgVersion,
+          include: { title: true, compareLink: false, body: true, contributors: false },
+          minify: true,
+        })
+        const richSection = await generateChangelog({
+          pkg: { ...pkg, fromTag: from },
+          config,
+          dryRun,
+          newVersion: pkgVersion,
+          include: { title: true, compareLink: false, body: true, contributors: false },
+          minify: false,
+        })
+
+        if (minSection.trim()) {
+          minifiedSections.push(minSection)
+        }
+        if (richSection.trim()) {
+          richSections.push(richSection)
+        }
+
+        // Collect contributors across all packages. `to` is HEAD because the
+        // release tags do not exist yet at this stage of the release flow.
+        const pkgCommits = await getPackageCommits({
+          pkg,
+          from,
+          to: 'HEAD',
+          config,
+          changelog: true,
+          dryRun,
+        })
+        for (const commit of pkgCommits) {
+          commitsByHash.set(commit.shortHash || commit.message, commit)
+        }
+      }
+
+      minifiedBody = minifiedSections.join('\n\n')
+      richBody = richSections.join('\n\n')
+      changelogCommits = [...commitsByHash.values()]
+
+      // The batch is a prerelease only if every bumped package is a prerelease,
+      // so an onlyStable post is skipped only when there is nothing stable to announce.
+      prerelease = packages.length > 0
+        && packages.every(pkg => isPrerelease((isBumpedPackage(pkg) && pkg.newVersion) || pkg.version))
+
+      if (packages.length === 1) {
+        const only = packages[0]
+        newVersion = (isBumpedPackage(only) && only.newVersion) || only.version
+        tag = getIndependentTag({ version: newVersion, name: only.name })
+      }
+      else {
+        // No single version/tag represents the aggregated post.
+        newVersion = `${packages.length} packages`
+        tag = ''
+      }
+    }
+    else {
+      const resolvedNewVersion = options.bumpResult?.newVersion || rootPackageRead.version
+
+      const { from, to } = await resolveTags<'social'>({
+        config,
+        step: 'social',
+        newVersion: resolvedNewVersion,
+        pkg: rootPackageRead,
+      })
+
+      const fromTag = options.bumpResult?.fromTag || from
+
+      const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
+        config,
+        force: false,
+        suffix: undefined,
+        changelog: true,
+        from: fromTag,
+        to,
+        dryRun,
+      })
+
+      minifiedBody = await generateChangelog({
+        pkg: { ...rootPackage, fromTag },
+        config,
+        dryRun,
+        newVersion: resolvedNewVersion,
+        include: { title: false, compareLink: false, body: true, contributors: false },
+        minify: true,
+      })
+      richBody = await generateChangelog({
+        pkg: { ...rootPackage, fromTag },
+        config,
+        dryRun,
+        newVersion: resolvedNewVersion,
+        include: { title: false, compareLink: false, body: true, contributors: false },
+        minify: false,
+      })
+
+      newVersion = resolvedNewVersion
+      tag = to
+      // Fetch commits with `changelog: true` so contributors who only authored
+      // title-only commits (e.g. `docs:`) still appear in Slack notifications.
+      // `to` resolves to the future release tag (created later in the release
+      // flow), so `git log` must use HEAD instead.
+      changelogCommits = await getPackageCommits({
+        pkg: rootPackage,
+        from: fromTag,
+        to: 'HEAD',
+        config,
+        changelog: true,
+        dryRun,
+      })
+      prerelease = isPrerelease(newVersion)
+    }
+
     const hasContent = !!minifiedBody.trim()
 
-    const twitterReleaseUrl = getReleaseUrl(config, to)
+    const twitterReleaseUrl = getReleaseUrl(config, tag)
     const twitterChangelogUrl = config.social?.changelogUrl
 
-    const prerelease = isPrerelease(newVersion)
     const twitterWillPost = !!config.social?.twitter?.enabled && !(config.social.twitter.onlyStable && prerelease)
     const slackWillPost = !!config.social?.slack?.enabled && !((config.social.slack.onlyStable ?? true) && prerelease)
 
@@ -473,20 +597,8 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       changelog: twitterChangelog,
       dryRun,
       newVersion,
-      tag: to,
-    })
-
-    // Fetch commits with `changelog: true` so contributors who only authored
-    // title-only commits (e.g. `docs:`) still appear in Slack notifications.
-    // `to` resolves to the future release tag (created later in the release
-    // flow), so `git log` must use HEAD instead.
-    const changelogCommits = await getPackageCommits({
-      pkg: rootPackage,
-      from: fromTag,
-      to: 'HEAD',
-      config,
-      changelog: true,
-      dryRun,
+      tag,
+      prerelease,
     })
 
     const slackResponse = await handleSlackPost({
@@ -494,9 +606,10 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       changelog: slackChangelog,
       dryRun,
       newVersion,
-      tag: to,
+      tag,
       commits: changelogCommits,
       bumpedPackages: options.bumpResult?.bumpedPackages,
+      prerelease,
     })
 
     // Build results array, filtering out disabled platforms

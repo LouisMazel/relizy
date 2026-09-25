@@ -356,7 +356,7 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
       const names = result.map(p => p.name)
       const uniqueNames = new Set(names)
-      expect(names.length).toBe(uniqueNames.size)
+      expect(names).toHaveLength(uniqueNames.size)
     })
 
     it('Then handles multiple packages with commits', () => {
