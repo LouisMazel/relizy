@@ -225,66 +225,36 @@ These environment variables are only needed if you want to publish packages or c
 
 ### AI-Enhanced Changelogs (Optional)
 
-To use AI for polishing release notes and social media announcements, set an Anthropic API key:
+To use AI for polishing release notes and social media announcements, install `ai` and the adapter for your selected provider. This example uses Anthropic:
 
 ```bash
-export ANTHROPIC_API_KEY="sk-ant-..."
+export ANTHROPIC_AI_API_KEY="sk-ant-..."
 ```
 
 Or use the `RELIZY_` prefix:
 
 ```bash
-export RELIZY_ANTHROPIC_API_KEY="sk-ant-..."
+export RELIZY_ANTHROPIC_AI_API_KEY="sk-ant-..."
 ```
-
-If you use Claude Code's OAuth flow instead of an API key:
-
-```bash
-export CLAUDE_CODE_OAUTH_TOKEN="..."
-# or with RELIZY_ prefix:
-export RELIZY_CLAUDE_CODE_OAUTH_TOKEN="..."
-```
-
-Install the optional Claude SDK peer dependency:
 
 ::: code-group
 
 ```bash [pnpm]
-pnpm add -D @yoloship/claude-sdk
+pnpm add -D ai @ai-sdk/anthropic
 ```
 
 ```bash [npm]
-npm install -D @yoloship/claude-sdk
+npm install -D ai @ai-sdk/anthropic
 ```
 
 ```bash [yarn]
-yarn add -D @yoloship/claude-sdk
+yarn add -D ai @ai-sdk/anthropic
 ```
 
 :::
 
-The SDK spawns the `claude` CLI binary, which must be available on `PATH`. Install it with any of:
-
-```bash
-# npm (global)
-npm install -g @anthropic-ai/claude-code
-
-# Homebrew (macOS)
-brew install --cask claude-code
-
-# Native installer
-curl -fsSL https://claude.ai/install.sh | bash
-```
-
-In CI (GitHub Actions, GitLab CI…), add a step to install the CLI before running Relizy:
-
-```yaml
-- name: Install Claude Code CLI
-  run: npm install -g @anthropic-ai/claude-code
-```
-
 ::: tip
-The AI feature is completely optional. If the SDK or the `claude` binary is missing, or no credential is set, Relizy works normally without AI enhancement.
+AI enhancement is optional. Install an adapter and configure a provider, model, and credentials only when you enable an AI target.
 :::
 
 ## Next Steps

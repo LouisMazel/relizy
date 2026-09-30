@@ -383,6 +383,8 @@ Relizy can use AI to transform your raw changelogs into polished release notes a
 // relizy.config.ts
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     providerRelease: { enabled: true }, // AI-enhanced GitHub/GitLab release notes
     social: {
       twitter: { enabled: true },
@@ -392,11 +394,14 @@ export default defineConfig({
 })
 ```
 
-Set your `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) environment variable and install the optional SDK plus the `claude` CLI:
+Install the Vercel AI SDK and the selected provider adapter, then set the provider's API key environment variable:
 
 ```bash
-pnpm add -D @yoloship/claude-sdk
-npm install -g @anthropic-ai/claude-code
+pnpm add -D ai @ai-sdk/anthropic
+```
+
+```bash
+export RELIZY_ANTHROPIC_AI_API_KEY="sk-ant-..."
 ```
 
 Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.

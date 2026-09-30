@@ -24,7 +24,7 @@ hero:
 features:
   - icon: ✨
     title: AI-Enhanced Changelogs
-    details: Optional Claude-powered rewrite of release notes, Twitter, and Slack posts. Preserves references, compare links, and contributors — never invents changes.
+    details: Optional AI-powered rewrite of release notes, Twitter, and Slack posts using official Vercel AI SDK providers and your chosen model.
     link: /guide/ai-changelog
   - icon: 📦
     title: Monorepo Support
@@ -115,7 +115,7 @@ That's it! Relizy will:
 - ✅ Create a GitHub or GitLab release
 - ✅ Social media posts (X & Slack)
 - ✅ Post a comment on your PR/MR
-- ✨ Optional: rewrite release notes and social posts with Claude — see [AI-Enhanced Changelogs](/guide/ai-changelog)
+- ✨ Optional: rewrite release notes and social posts with your selected AI provider — see [AI-Enhanced Changelogs](/guide/ai-changelog)
 
 <br />
 

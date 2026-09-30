@@ -34,7 +34,7 @@ describe('Given redactSecrets function', () => {
         publish: { token: 'npm_FAKE000ZJLIEE5NB9oDZIqNr', registry: 'https://registry.npmjs.org/' },
         repo: { token: 'short', repo: 'owner/name' },
         social: { slack: { credentials: { token: 'xoxb-secret' }, webhookUrl: 'https://hooks.slack.com/services/AAAA/BBBB/CCCC' } },
-        ai: { providers: { 'claude-code': { oauthToken: 'sk-ant-oat01-abcdefghij', apiKey: 'ai-key' } } },
+        ai: { apiKey: 'sk-ant-oat01-abcdefghij', providerOptions: { apiKey: 'ai-key' } },
       })
 
       expect(result.publish.token).not.toContain('FAKE000ZJLIEE5NB9oDZIqNr')
@@ -42,8 +42,8 @@ describe('Given redactSecrets function', () => {
       expect(result.repo.token).toBe('***')
       expect(result.social.slack.credentials.token).toBe('***')
       expect(result.social.slack.webhookUrl).not.toContain('AAAA')
-      expect(result.ai.providers['claude-code'].oauthToken).not.toContain('abcdefghij')
-      expect(result.ai.providers['claude-code'].apiKey).toBe('***')
+      expect(result.ai.apiKey).not.toContain('abcdefghij')
+      expect(result.ai.providerOptions.apiKey).toBe('***')
     })
   })
 

@@ -1,9 +1,9 @@
 ---
 title: AI Configuration
-description: Full reference for configuring AI-enhanced changelogs, release notes, and social media announcements.
-keywords: ai config, ai configuration, claude config, ai provider, relizy ai settings, ai changelog config, ai release notes config
+description: Configure Vercel AI SDK providers for AI-enhanced changelogs, release notes, and social media announcements.
+keywords: ai config, ai configuration, vercel ai sdk, ai provider, relizy ai settings, ai changelog config, ai release notes config
 category: Configuration
-tags: [config, ai, claude, provider, release-notes, social-media]
+tags: [config, ai, provider, release-notes, social-media]
 ---
 
 # {{ $frontmatter.title }}
@@ -20,14 +20,10 @@ on every target) restores the original changelog output byte-for-byte.
 
 ```ts
 interface AIConfig {
-  provider?: 'claude-code'
-  providers?: {
-    'claude-code'?: {
-      apiKey?: string
-      oauthToken?: string
-      model?: string
-    }
-  }
+  provider?: AIProviderName
+  model?: string
+  apiKey?: string
+  providerOptions?: Record<string, unknown>
   language?: string
   fallback?: 'raw' | 'fail'
   extraGuidelines?: string
@@ -48,101 +44,76 @@ interface AIConfig {
 
 Relizy ships with sensible defaults that you can override selectively.
 
-| Field                            | Default         |
-| -------------------------------- | --------------- |
-| `provider`                       | `'claude-code'` |
-| `providers['claude-code'].model` | `'haiku'`       |
-| `language`                       | `'en'`          |
-| `fallback`                       | `'raw'`         |
-| `providerRelease.enabled`        | `false`         |
-| `social.twitter.enabled`         | `false`         |
-| `social.slack.enabled`           | `false`         |
+| Field                     | Default |
+| ------------------------- | ------- |
+| `provider`                | None    |
+| `model`                   | None    |
+| `language`                | `'en'`  |
+| `fallback`                | `'raw'` |
+| `providerRelease.enabled` | `false` |
+| `social.twitter.enabled`  | `false` |
+| `social.slack.enabled`    | `false` |
 
-## `provider`
+## `provider` and `model`
 
-- **Type:** `'claude-code'`
-- **Default:** `'claude-code'`
+Set both fields when you enable an AI target. `provider` selects an official
+Vercel AI SDK text provider, and `model` is the model ID accepted by that
+provider. Relizy passes model IDs through without maintaining a model list.
 
-The AI provider to use. Today only `'claude-code'` ships with Relizy, powered
-by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk).
-It requires both the SDK package (`pnpm add -D @yoloship/claude-sdk`) and the
-`claude` CLI binary on `PATH` (`npm install -g @anthropic-ai/claude-code`).
-The provider layer is pluggable — see [Adding a new provider](#adding-a-new-ai-provider).
+Supported provider IDs are `anthropic`, and `google`.
 
-## `providers['claude-code']`
+Install `ai` and the selected `@ai-sdk/*` adapter in your project. Both are
+optional peers of Relizy, and Relizy loads only the selected adapter.
+The current AI SDK 7 packages require Node.js 22 or newer; Relizy itself still
+runs on Node.js 20 when you do not enable AI.
 
-### `apiKey`
-
-- **Type:** `string`
-- **Default:** `process.env.RELIZY_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY`
-
-Anthropic API key. Usually supplied via environment variable — see
-[Credential resolution](#credential-resolution).
-
-### `oauthToken`
-
-- **Type:** `string`
-- **Default:** `process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN`
-
-Claude Code OAuth token, used when you are signed in with `claude login`
-rather than an API key.
-
-### `model`
-
-- **Type:** `string`
-- **Default:** `'haiku'`
-
-Claude model alias or id. The Claude CLI accepts short aliases:
-
-- `'haiku'` — fastest, cheapest (default, recommended)
-- `'sonnet'` — balanced quality/cost
-- `'opus'` — highest quality, slower, more expensive
-- Or a fully versioned id like `'claude-sonnet-4-6'`
+```bash
+pnpm add -D ai @ai-sdk/anthropic
+```
 
 ```ts
 export default defineConfig({
   ai: {
-    providers: {
-      'claude-code': { model: 'sonnet' },
-    },
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    providerRelease: { enabled: true },
   },
 })
 ```
 
-## Credential resolution
+## `apiKey` and credentials
 
-Credentials are resolved in this order; the **first match wins**:
-
-1. `config.ai.providers['claude-code'].apiKey` / `.oauthToken`
-2. `config.tokens.ai['claude-code'].apiKey` / `.oauthToken`
-3. `process.env.RELIZY_ANTHROPIC_API_KEY` → `process.env.ANTHROPIC_API_KEY`
-4. `process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN` → `process.env.CLAUDE_CODE_OAUTH_TOKEN`
-
-The `RELIZY_`-prefixed variants let you scope credentials without clashing
-with other tools that also read `ANTHROPIC_API_KEY`.
+`ai.apiKey` supplies the selected provider's API key. Relizy checks credentials
+in this order: `ai.apiKey`, `tokens.ai`, `ai.providerOptions.apiKey`,
+then provider environment variables. For each recognized environment variable,
+Relizy checks its `RELIZY_`-prefixed form first. Providers that use cloud
+identity or local runtimes can use their standard environment and
+`providerOptions` instead of an API key.
 
 ```ts
-// Option 1: inline in ai.providers
 export default defineConfig({
   ai: {
-    providers: {
-      'claude-code': { apiKey: 'sk-ant-...' },
-    },
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    apiKey: process.env.RELIZY_ANTHROPIC_AI_API_KEY,
   },
-})
-
-// Option 2: grouped with other tokens
-export default defineConfig({
   tokens: {
-    ai: {
-      'claude-code': { apiKey: 'sk-ant-...' },
-    },
+    ai: process.env.ANTHROPIC_AI_API_KEY,
   },
 })
-
-// Option 3 (recommended for CI): env var only, no config needed
-// export RELIZY_ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+For CI, use the provider's standard environment variable or the corresponding
+`RELIZY_`-prefixed name. This keeps secrets out of the config file.
+
+## `providerOptions`
+
+- **Type:** `Record<string, unknown>`
+- **Default:** `undefined`
+
+Pass provider factory settings such as a base URL, region, or project ID. The
+options depend on the selected adapter; check that adapter's Vercel AI SDK
+documentation for supported fields.
 
 ## `language`
 
@@ -171,7 +142,7 @@ How Relizy reacts when an AI call fails (network, quota, invalid credentials).
 | `'fail'` | Re-throw the error — the release stops              |
 
 `'raw'` is safe for most workflows — a release should not fail because
-Anthropic had a hiccup. Use `'fail'` in strict CI where AI-enhanced content
+the selected AI provider has an outage. Use `'fail'` in strict CI where AI-enhanced content
 is non-negotiable.
 
 ## `extraGuidelines`
@@ -235,6 +206,8 @@ the middle "changes" body.
 ```ts
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     providerRelease: { enabled: true },
   },
 })
@@ -252,6 +225,8 @@ Slack-flavored markdown block.
 ```ts
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     social: {
       twitter: { enabled: true },
       slack: { enabled: false }, // keep Slack raw
@@ -269,6 +244,8 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     providerRelease: { enabled: true },
     social: {
       twitter: { enabled: true },
@@ -278,8 +255,8 @@ export default defineConfig({
 })
 ```
 
-With `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) set in the
-environment, nothing else is required.
+With `ai`, the selected adapter, and the provider API key configured, Relizy
+rewrites enabled targets.
 
 ### GitHub + Twitter only, strict CI mode
 
@@ -288,6 +265,8 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     fallback: 'fail',
     providerRelease: { enabled: true },
     social: {
@@ -305,10 +284,9 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   ai: {
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
     language: 'fr',
-    providers: {
-      'claude-code': { model: 'sonnet' },
-    },
     providerRelease: { enabled: true },
     social: {
       slack: { enabled: true },
@@ -317,64 +295,12 @@ export default defineConfig({
 })
 ```
 
-## Adding a new AI provider
+## Provider support
 
-The `ai` system is a small registry of providers behind a single interface.
-Adding a second provider means:
-
-### 1. Implement `AIProvider`
-
-Create `src/core/ai/providers/my-provider.ts`:
-
-```ts
-import type { ResolvedRelizyConfig } from '../../config'
-import type { AIGenerateRequest, AIProvider } from '../provider'
-
-export const myProvider: AIProvider = {
-  name: 'my-provider',
-
-  async safetyCheck(config) {
-    // Throw an actionable error when auth or dependencies are missing.
-  },
-
-  async generate(config, request) {
-    // Call your model with request.systemPrompt + request.prompt.
-    // Honor request.maxLength for Twitter-like targets.
-    // Return the trimmed output.
-  },
-}
-```
-
-### 2. Register it
-
-In `src/core/ai/registry.ts`:
-
-```ts
-import { myProvider } from './providers/my-provider'
-
-const providers = {
-  'claude-code': claudeCodeProvider,
-  'my-provider': myProvider,
-}
-```
-
-### 3. Extend types
-
-In `src/types.ts`:
-
-```ts
-export type AIProviderName = 'claude-code' | 'my-provider'
-
-export interface AIConfig {
-  providers?: {
-    'claude-code'?: ClaudeCodeProviderOptions
-    'my-provider'?: MyProviderOptions
-  }
-  // ...
-}
-```
-
-That's it — the engine, call-sites, and CLI flags work unchanged.
+Relizy supports the official Vercel AI SDK text-provider adapters listed in
+[`provider` and `model`](#provider-and-model). Each adapter is an optional peer
+dependency; install only the adapter you select. Model availability and model
+IDs are managed by the provider, not by Relizy.
 
 ## See also
 

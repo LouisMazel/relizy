@@ -266,12 +266,6 @@ const defaultConfig = {
     slack:
         process.env.RELIZY_SLACK_TOKEN
         || process.env.SLACK_TOKEN,
-    ai: {
-      'claude-code': {
-        apiKey: process.env.RELIZY_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-        oauthToken: process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    },
   },
   scopeMap: {},
   social: {
@@ -288,12 +282,11 @@ const defaultConfig = {
     mode: 'append',
   },
   ai: {
-    provider: 'claude-code',
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    apiKey: process.env.RELIZY_ANTHROPIC_AI_API_KEY,
     language: 'en',
     fallback: 'raw',
-    providers: {
-      'claude-code': { model: 'haiku' },
-    },
     providerRelease: { enabled: false },
     social: {
       twitter: { enabled: false },

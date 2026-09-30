@@ -871,25 +871,9 @@ export interface SlackSocialConfig {
   noPackages?: boolean
 }
 
-export type AIProviderName = 'claude-code'
-
-export interface ClaudeCodeProviderOptions {
-  /**
-   * Anthropic API key.
-   * Fallback env: `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`.
-   */
-  apiKey?: string
-  /**
-   * Claude Code OAuth token.
-   * Fallback env: `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`.
-   */
-  oauthToken?: string
-  /**
-   * Model id or alias (e.g. `haiku`, `sonnet`, `opus`, or a versioned id).
-   * @default 'haiku'
-   */
-  model?: string
-}
+export type AIProviderName
+  = | 'anthropic'
+    | 'google'
 
 export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
 export type AISystemPromptOverrides = Partial<Record<AIPromptTarget, string>>
@@ -915,16 +899,21 @@ export interface AISocialConfig {
 
 export interface AIConfig {
   /**
-   * AI provider name
-   * @default 'claude-code'
+   * Official Vercel AI SDK provider. Required when an AI target is enabled.
    */
   provider?: AIProviderName
   /**
-   * Provider-specific options, keyed by provider name.
+   * Model ID supported by the selected provider. Required when an AI target is enabled.
    */
-  providers?: {
-    'claude-code'?: ClaudeCodeProviderOptions
-  }
+  model?: string
+  /**
+   * API key for the selected provider. Falls back to `tokens.ai[provider]` and standard environment variables.
+   */
+  apiKey?: string
+  /**
+   * Additional provider factory options, such as a base URL, region, or project ID.
+   */
+  providerOptions?: Record<string, unknown>
   /**
    * Output language (ISO 639-1 code or plain English name).
    * @default 'en'
@@ -1211,14 +1200,10 @@ export interface TokensConfig {
    */
   slack?: string
   /**
-   * AI provider credentials
+   * AI provider API key for generating changelog and release notes
+   * Environment variables: [PROVIDER NAME]_AI_API_KEY, RELIZY_[PROVIDER NAME]_AI_API_KEY
    */
-  ai?: {
-    'claude-code'?: {
-      apiKey?: string
-      oauthToken?: string
-    }
-  }
+  ai?: string
 }
 
 /**

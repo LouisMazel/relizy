@@ -45,9 +45,6 @@ jobs:
       - name: Test units
         run: pnpm test:unit:coverage
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Version Packages (Canary)
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}

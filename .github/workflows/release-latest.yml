@@ -51,9 +51,6 @@ jobs:
       - name: Test units
         run: pnpm test:unit:coverage
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Version Packages (Latest)
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -64,6 +61,6 @@ jobs:
           RELIZY_TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
           RELIZY_TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
           RELIZY_TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
-          RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          RELIZY_ANTHROPIC_AI_API_KEY: ${{ secrets.ANTHROPIC_AI_API_KEY }}
         run: |
           pnpm relizy release --tag latest --yes

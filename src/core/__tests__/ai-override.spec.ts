@@ -74,12 +74,12 @@ describe('Given applyAIOverride function', () => {
     it('Then preserves other AI config fields', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        ai: { provider: 'claude-code', language: 'fr', fallback: 'fail' },
+        ai: { provider: 'anthropic', model: 'claude-sonnet-4-6', language: 'fr', fallback: 'fail' },
       })
 
       applyAIOverride(config, true)
 
-      expect(config.ai?.provider).toBe('claude-code')
+      expect(config.ai?.provider).toBe('anthropic')
       expect(config.ai?.language).toBe('fr')
       expect(config.ai?.fallback).toBe('fail')
       expect(config.ai?.providerRelease).toEqual({ enabled: true })

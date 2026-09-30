@@ -436,9 +436,9 @@ describe('Given getDefaultConfig function', () => {
   })
 
   describe('When reading default AI config', () => {
-    it('Then defaults provider to claude-code', () => {
+    it('Then leaves provider unselected until AI is configured', () => {
       const config = getDefaultConfig()
-      expect(config.ai?.provider).toBe('claude-code')
+      expect(config.ai?.provider).toBeUndefined()
     })
 
     it('Then defaults language to en', () => {
@@ -451,9 +451,9 @@ describe('Given getDefaultConfig function', () => {
       expect(config.ai?.fallback).toBe('raw')
     })
 
-    it('Then defaults model to haiku', () => {
+    it('Then leaves model unselected until AI is configured', () => {
       const config = getDefaultConfig()
-      expect(config.ai?.providers?.['claude-code']?.model).toBe('haiku')
+      expect(config.ai?.model).toBeUndefined()
     })
 
     it('Then defaults all AI targets to disabled', () => {
@@ -466,38 +466,11 @@ describe('Given getDefaultConfig function', () => {
     })
   })
 
-  describe('When reading default AI credentials from env', () => {
-    beforeEach(() => {
-      delete process.env.RELIZY_ANTHROPIC_API_KEY
-      delete process.env.ANTHROPIC_API_KEY
-      delete process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN
-      delete process.env.CLAUDE_CODE_OAUTH_TOKEN
-    })
-
-    it('Then reads ANTHROPIC_API_KEY as apiKey', () => {
-      process.env.ANTHROPIC_API_KEY = 'sk-env'
+  describe('When reading AI credentials from env', () => {
+    it('Then does not copy provider credentials into the resolved token config', () => {
+      process.env.ANTHROPIC_AI_API_KEY = 'sk-env'
       const config = getDefaultConfig()
-      expect(config.tokens.ai?.['claude-code']?.apiKey).toBe('sk-env')
-    })
-
-    it('Then prioritizes RELIZY_ANTHROPIC_API_KEY over ANTHROPIC_API_KEY', () => {
-      process.env.RELIZY_ANTHROPIC_API_KEY = 'sk-relizy'
-      process.env.ANTHROPIC_API_KEY = 'sk-vendor'
-      const config = getDefaultConfig()
-      expect(config.tokens.ai?.['claude-code']?.apiKey).toBe('sk-relizy')
-    })
-
-    it('Then reads CLAUDE_CODE_OAUTH_TOKEN as oauthToken', () => {
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth-env'
-      const config = getDefaultConfig()
-      expect(config.tokens.ai?.['claude-code']?.oauthToken).toBe('oauth-env')
-    })
-
-    it('Then prioritizes RELIZY_CLAUDE_CODE_OAUTH_TOKEN', () => {
-      process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN = 'oauth-relizy'
-      process.env.CLAUDE_CODE_OAUTH_TOKEN = 'oauth-vendor'
-      const config = getDefaultConfig()
-      expect(config.tokens.ai?.['claude-code']?.oauthToken).toBe('oauth-relizy')
+      expect('ai' in config.tokens).toBe(false)
     })
   })
 })

@@ -17,12 +17,9 @@ export default defineConfig({
   },
 
   ai: {
-    provider: 'claude-code',
-    providers: {
-      'claude-code': {
-        oauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    },
+    provider: 'anthropic',
+    model: 'claude-sonnet-4-6',
+    apiKey: process.env.RELIZY_ANTHROPIC_AI_API_KEY,
     providerRelease: { enabled: true },
     social: { twitter: { enabled: true }, slack: { enabled: false } },
   },
