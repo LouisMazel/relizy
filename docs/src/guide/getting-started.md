@@ -154,7 +154,7 @@ Publish a temporary test version without any git side effects:
 
 ```bash
 relizy release --canary
-# 1.0.0 → 1.1.0-canary.a3f4b2c.0 (published to npm with "canary" dist-tag)
+# 1.0.0 → 1.1.0-0.canary-a3f4b2c (published to npm with "canary" dist-tag)
 ```
 
 Canary releases are perfect for testing packages from a pull request. They skip changelog, git commits, tags, push, provider releases, and social media — only publishing to npm and optionally posting a PR comment.

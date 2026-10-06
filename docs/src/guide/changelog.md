@@ -46,6 +46,8 @@ A typical generated changelog looks like this:
 - LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
 ```
 
+The **Contributors** section lists the authors of the commits and their co-authors, read from the `Co-authored-by:` trailers. Contributors of a squash-merged pull request are therefore credited even when the merge commit is authored by the maintainer.
+
 ## Commit Types
 
 Relizy organizes commits by type:

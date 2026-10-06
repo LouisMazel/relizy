@@ -225,7 +225,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
-This workflow publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details. Reviewers can then install the canary version to test the changes:
+This workflow publishes a canary version (e.g., `1.3.0-0.canary-a3f4b2c`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details. Reviewers can then install the canary version to test the changes:
 
 ```bash
 npm install my-package@canary
