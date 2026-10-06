@@ -78,7 +78,7 @@ interface BumpOptions {
 
   /**
    * Enable canary bump mode.
-   * Computes a canary version with format {nextVersion}-{preid}.{sha}.0
+   * Computes a canary version with format {nextVersion}-0.{preid}-{sha}
    * The next version is auto-detected from commits, then the canary suffix is appended.
    * @default false
    */
@@ -121,7 +121,7 @@ const result = await bump({
 })
 
 console.log(`Canary version: ${result.newVersion}`)
-// e.g., "1.3.0-snapshot.a3f4b2c.0"
+// e.g., "1.3.0-0.snapshot-a3f4b2c"
 ```
 
 ## See Also

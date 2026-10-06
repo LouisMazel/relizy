@@ -123,11 +123,11 @@ When using `--canary`, the `preid` option is used as the canary prerelease ident
 ```bash
 # Uses default preid "canary"
 relizy release --canary
-# → 1.3.0-canary.a3f4b2c.0
+# → 1.3.0-0.canary-a3f4b2c
 
 # Uses custom preid from config or CLI
 relizy release --canary --preid snapshot
-# → 1.3.0-snapshot.a3f4b2c.0
+# → 1.3.0-0.snapshot-a3f4b2c
 ```
 
 The `preid` value is also used as the npm dist-tag for canary releases. See the [Canary Releases guide](/guide/canary-releases) for full details.

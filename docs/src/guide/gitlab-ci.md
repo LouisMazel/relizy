@@ -180,7 +180,7 @@ canary:
     - merge_requests
 ```
 
-This publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the merge request with the version details. Reviewers can then install it:
+This publishes a canary version (e.g., `1.3.0-0.canary-a3f4b2c`) to npm with the `canary` dist-tag and posts a comment on the merge request with the version details. Reviewers can then install it:
 
 ```bash
 npm install my-package@canary

@@ -17,7 +17,7 @@ A canary release is a **temporary, throwaway version** of your packages. Think o
 For example, if your current version is `1.2.3` and you have a `feat` commit, a canary release would produce something like:
 
 ```
-1.3.0-canary.a3f4b2c.0
+1.3.0-0.canary-a3f4b2c
 ```
 
 This version:
@@ -60,25 +60,35 @@ A canary release asks you for confirmation before bumping, just like a normal re
 The canary version format is:
 
 ```
-{nextVersion}-{preid}.{sha}.0
+{nextVersion}-0.{preid}-{sha}
 ```
 
-| Part          | Description                                         | Example   |
-| ------------- | --------------------------------------------------- | --------- |
-| `nextVersion` | The next stable version, auto-detected from commits | `1.3.0`   |
-| `preid`       | The prerelease identifier (default: `canary`)       | `canary`  |
-| `sha`         | The first 7 characters of the current git commit    | `a3f4b2c` |
-| `0`           | A counter (always `0` for canary)                   | `0`       |
+| Part          | Description                                                          | Example   |
+| ------------- | -------------------------------------------------------------------- | --------- |
+| `nextVersion` | The next stable version, auto-detected from commits                  | `1.3.0`   |
+| `0`           | A numeric identifier that sorts the canary below every other version | `0`       |
+| `preid`       | The prerelease identifier (default: `canary`)                        | `canary`  |
+| `sha`         | The first 7 characters of the current git commit                     | `a3f4b2c` |
+
+### Why the leading `0`?
+
+In semver, a numeric prerelease identifier always sorts before an alphanumeric one. The leading `0` therefore places a canary **below** every alpha, beta, rc and stable release of the same version:
+
+```
+1.2.3 < 1.3.0-0.canary-a3f4b2c < 1.3.0-alpha.0 < 1.3.0-beta.0 < 1.3.0-rc.0 < 1.3.0
+```
+
+As a result, a canary is never picked by a semver range (`^1.3.0-beta.0` does not match it) and is never suggested by update tools like `pnpm outdated`, `pnpm update` or Renovate. A canary is only installed on purpose, by pinning its exact version or using the `canary` dist-tag.
 
 ### Examples
 
 | Current Version | Commits          | Canary Version                               |
 | --------------- | ---------------- | -------------------------------------------- |
-| `1.2.3`         | `feat: ...`      | `1.3.0-canary.a3f4b2c.0`                     |
-| `1.2.3`         | `fix: ...`       | `1.2.4-canary.a3f4b2c.0`                     |
-| `1.2.3`         | `feat!: ...`     | `2.0.0-canary.a3f4b2c.0`                     |
-| `1.2.3`         | No commits found | `1.2.4-canary.a3f4b2c.0` (defaults to patch) |
-| `2.0.0-beta.1`  | `feat: ...`      | `2.0.0-canary.a3f4b2c.0`                     |
+| `1.2.3`         | `feat: ...`      | `1.3.0-0.canary-a3f4b2c`                     |
+| `1.2.3`         | `fix: ...`       | `1.2.4-0.canary-a3f4b2c`                     |
+| `1.2.3`         | `feat!: ...`     | `2.0.0-0.canary-a3f4b2c`                     |
+| `1.2.3`         | No commits found | `1.2.4-0.canary-a3f4b2c` (defaults to patch) |
+| `2.0.0-beta.1`  | `feat: ...`      | `2.0.0-0.canary-a3f4b2c`                     |
 
 ## What Canary Disables
 
@@ -109,11 +119,11 @@ By default, the canary version uses `canary` as the prerelease identifier. You c
 ```bash
 # Use "snapshot" instead of "canary"
 relizy release --canary --preid snapshot
-# → 1.3.0-snapshot.a3f4b2c.0
+# → 1.3.0-0.snapshot-a3f4b2c
 
 # Use "nightly" instead of "canary"
 relizy release --canary --preid nightly
-# → 1.3.0-nightly.a3f4b2c.0
+# → 1.3.0-0.nightly-a3f4b2c
 ```
 
 The `--preid` value is also used as the npm dist-tag. So `--preid snapshot` publishes to the `snapshot` dist-tag, and users can install it with:
@@ -131,7 +141,7 @@ After a canary release is published, anyone can install it:
 npm install my-package@canary
 
 # Install a specific canary version
-npm install my-package@1.3.0-canary.a3f4b2c.0
+npm install my-package@1.3.0-0.canary-a3f4b2c
 ```
 
 The `latest` dist-tag on npm is **never affected** by canary releases. Users running `npm install my-package` will always get the last stable version.
@@ -212,7 +222,7 @@ Use `--no-clean` in CI to skip the git dirty check, since CI environments may ha
 
 ## Re-running a Canary on the Same Commit
 
-The canary version is derived from the commit SHA (`{nextVersion}-canary.{sha}.0`), so **re-running the pipeline on the same commit regenerates the exact same version**. Since that version is already on the registry, the publish fails - the registry refuses to overwrite an existing version (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.).
+The canary version is derived from the commit SHA (`{nextVersion}-0.canary-{sha}`), so **re-running the pipeline on the same commit regenerates the exact same version**. Since that version is already on the registry, the publish fails - the registry refuses to overwrite an existing version (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.).
 
 This is a common source of confusion: a developer retries a job by hand without realizing the version was already published, and the rerun fails on the first already-published package.
 
@@ -234,7 +244,7 @@ You can also use `--canary` with just the `bump` command if you only want to upd
 
 ```bash
 relizy bump --canary
-# Updates package.json to 1.3.0-canary.a3f4b2c.0 without publishing
+# Updates package.json to 1.3.0-0.canary-a3f4b2c without publishing
 ```
 
 This is useful if you want to control the publish step separately.
@@ -269,7 +279,7 @@ relizy release --canary --pr-number 42
 
 | Feature          | Canary (`--canary`)            | Pre-release (`--prerelease`)   |
 | ---------------- | ------------------------------ | ------------------------------ |
-| Version format   | `1.3.0-canary.a3f4b2c.0`       | `1.3.0-beta.0`                 |
+| Version format   | `1.3.0-0.canary-a3f4b2c`       | `1.3.0-beta.0`                 |
 | Git commit       | No                             | Yes                            |
 | Git tag          | No                             | Yes                            |
 | Changelog        | No                             | Yes                            |
@@ -283,7 +293,7 @@ Use **canary** for quick, throwaway test versions. Use **pre-release** for offic
 ## Summary
 
 - `relizy release --canary` publishes a temporary test version to npm
-- The version format is `{nextVersion}-canary.{sha}.0`
+- The version format is `{nextVersion}-0.canary-{sha}`
 - It skips changelog, git commits, tags, push, provider releases, and social media
 - It keeps publishing, PR comments, safety checks, and confirmation prompts active
 - Use `--preid` to customize the prerelease identifier (e.g., `snapshot`, `nightly`)

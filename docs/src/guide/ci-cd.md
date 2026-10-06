@@ -321,7 +321,7 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 ```
 
-This publishes a canary version (e.g., `1.3.0-canary.a3f4b2c.0`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details.
+This publishes a canary version (e.g., `1.3.0-0.canary-a3f4b2c`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details.
 
 ::: tip
 Use `--no-clean` in CI to skip the git dirty check, since CI environments may have build artifacts.

@@ -55,14 +55,14 @@ Compute and write a canary version without publishing:
 
 ```bash
 relizy bump --canary
-# 1.2.3 → 1.3.0-canary.a3f4b2c.0
+# 1.2.3 → 1.3.0-0.canary-a3f4b2c
 ```
 
 The canary version is based on the next version auto-detected from commits, with a canary suffix appended. Use `--preid` to customize the prerelease identifier:
 
 ```bash
 relizy bump --canary --preid snapshot
-# 1.2.3 → 1.3.0-snapshot.a3f4b2c.0
+# 1.2.3 → 1.3.0-0.snapshot-a3f4b2c
 ```
 
 See the [Canary Releases guide](/guide/canary-releases) for full details.
@@ -126,7 +126,7 @@ relizy bump --major --dry-run
 relizy bump --canary
 
 # Before: "version": "1.2.3"
-# After:  "version": "1.3.0-canary.a3f4b2c.0"
+# After:  "version": "1.3.0-0.canary-a3f4b2c"
 ```
 
 ## See Also
