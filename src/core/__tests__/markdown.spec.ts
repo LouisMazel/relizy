@@ -1281,6 +1281,42 @@ describe('Given collectContributorNames function', () => {
 
     expect(names).toEqual(['Alice'])
   })
+
+  it('Then includes co-authors from Co-authored-by trailers', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const author = { name: 'alice', email: 'alice@x.com' }
+    const commits: GitCommit[] = [
+      {
+        ...createMockCommit('feat', 'a'),
+        author,
+        authors: [author, { name: 'Raphaël', email: 'lestote@users.noreply.github.com' }],
+        type: 'feat',
+      },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice', 'Raphaël'])
+  })
+
+  it('Then filters bot and excluded co-authors', () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: ['bob'] })
+    const commits: GitCommit[] = [
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'alice', email: 'alice@x.com' },
+        authors: [
+          { name: 'dependabot[bot]', email: 'bot@github.com' },
+          { name: 'bob', email: 'bob@x.com' },
+        ],
+        type: 'feat',
+      },
+    ]
+
+    const names = collectContributorNames({ commits, config })
+
+    expect(names).toEqual(['Alice'])
+  })
 })
 
 describe('Given buildContributors function', () => {
@@ -1387,5 +1423,37 @@ describe('Given buildContributors function', () => {
 
     const johnMatches = result.match(/John Doe/g)
     expect(johnMatches).toHaveLength(1)
+  })
+
+  it('Then credits co-authors parsed from a squash-merged commit', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    const { parseGitCommit } = await vi.importActual<typeof import('changelogen')>('changelogen')
+    const commit = parseGitCommit({
+      message: 'feat: support publishing to multiple registries (#113)',
+      body: '* feat: support publishing to multiple registries (#112)\n\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>',
+      shortHash: 'f5bbc52',
+      author: { name: 'Mazel', email: 'me@example.com' },
+    }, config as any)
+
+    const result = await buildContributors({ commits: [commit as GitCommit], config })
+
+    expect(result).toContain('- Mazel')
+    expect(result).toContain('- Raphaël ([@lestote](https://github.com/lestote))')
+  })
+
+  it('Then resolves the GitHub username from a noreply email without a lookup', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    const commits: GitCommit[] = [
+      { ...createMockCommit('feat', 'a'), author: { name: 'jane', email: '7392338+janedoe@users.noreply.github.com' }, type: 'feat' },
+      { ...createMockCommit('feat', 'b'), author: { name: 'joe', email: 'joedoe@users.noreply.github.com' }, type: 'feat' },
+    ]
+
+    const result = await buildContributors({ commits, config })
+
+    expect(result).toContain('- Jane ([@janedoe](https://github.com/janedoe))')
+    expect(result).toContain('- Joe ([@joedoe](https://github.com/joedoe))')
+    expect(fetch).not.toHaveBeenCalled()
   })
 })

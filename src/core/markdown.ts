@@ -1,4 +1,4 @@
-import type { GitCommit, ResolvedChangelogConfig } from 'changelogen'
+import type { GitCommit, GitCommitAuthor, ResolvedChangelogConfig } from 'changelogen'
 import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatCompareChanges, formatReference } from 'changelogen'
@@ -16,6 +16,8 @@ const CHANGELOG_RELEASE_HEAD_REGEX
   = /^#{2,}\s+(?:\S.*)?(v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)).*$/gm
 
 const VERSION_REGEX = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
+
+const GITHUB_NOREPLY_EMAIL_REGEX = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/i
 
 export function buildCompareLink({ config, from, to, isFirstCommit }: {
   config: ResolvedRelizyConfig
@@ -90,18 +92,15 @@ export function collectContributorNames({ commits, config }: {
   }
 
   const names = new Set<string>()
-  for (const commit of commits) {
-    if (!commit.author) {
-      continue
-    }
-    const name = formatName(commit.author.name)
+  for (const author of commits.flatMap(getCommitAuthors)) {
+    const name = formatName(author.name)
     if (!name || name.includes('[bot]')) {
       continue
     }
     if (
       config.excludeAuthors
       && config.excludeAuthors.some(
-        v => name.includes(v) || commit.author.email?.includes(v),
+        v => name.includes(v) || author.email?.includes(v),
       )
     ) {
       continue
@@ -109,6 +108,18 @@ export function collectContributorNames({ commits, config }: {
     names.add(name)
   }
   return Array.from(names)
+}
+
+/**
+ * Commit author followed by the co-authors parsed by changelogen from the
+ * `Co-authored-by:` trailers, so squash-merged contributions are credited.
+ */
+function getCommitAuthors(commit: GitCommit): GitCommitAuthor[] {
+  return [commit.author, ...(commit.authors ?? [])].filter(Boolean)
+}
+
+function getGithubUsernameFromNoreplyEmail(email: string): string | undefined {
+  return GITHUB_NOREPLY_EMAIL_REGEX.exec(email)?.[1]
 }
 
 export async function buildContributors({ commits, config }: {
@@ -124,13 +135,11 @@ export async function buildContributors({ commits, config }: {
   for (const name of names) {
     _authors.set(name, { email: new Set<string>(), name })
   }
-  for (const commit of commits) {
-    if (!commit.author)
-      continue
-    const name = formatName(commit.author.name)
+  for (const author of commits.flatMap(getCommitAuthors)) {
+    const name = formatName(author.name)
     const entry = _authors.get(name)
-    if (entry && commit.author.email) {
-      entry.email.add(commit.author.email)
+    if (entry && author.email) {
+      entry.email.add(author.email)
     }
   }
 
@@ -140,6 +149,13 @@ export async function buildContributors({ commits, config }: {
         const meta = _authors.get(authorName)
 
         if (!meta) {
+          return
+        }
+
+        // A GitHub noreply email already contains the username, no lookup needed
+        const noreplyUsername = [...meta.email].map(getGithubUsernameFromNoreplyEmail).find(Boolean)
+        if (noreplyUsername) {
+          meta.github = noreplyUsername
           return
         }
 
