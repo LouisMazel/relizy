@@ -824,23 +824,24 @@ export function extractVersionFromTag(tag: string, packageName?: string): string
 }
 
 /**
- * Checks if a tag's version is compatible with the current version.
- * A tag is compatible if its major version is less than or equal to the current major version.
+ * Computes a canary version with format `{nextVersion}-0.{preid}-{sha}`.
  *
- * This prevents accidentally using tags from future major versions (e.g., v5.0.0-beta.0)
- * when bumping a current stable version (e.g., 4.1.1 → 4.1.2).
+ * The leading numeric `0` prerelease identifier makes the canary sort below
+ * every named prerelease (alpha, beta, rc...) and the stable release of the
+ * same version, so it never matches a range like `^5.0.0-beta.0` and is never
+ * suggested by update tools. Keeping preid and sha in a single identifier also
+ * keeps the version valid when the sha is all digits with a leading zero.
  *
- * @param payload - The payload to check
+ * @param payload - The payload to compute the canary version from
  * @param payload.currentVersion - The current package version
- * @param payload.releaseType - The release type
+ * @param payload.releaseType - The release type detected from commits (defaults to patch)
  * @param payload.preid - The pre-release identifier
- * @param payload.sha - The sha of the commit
- * @returns true if the tag version's major is <= current major version
+ * @param payload.sha - The short sha of the commit
+ * @returns The canary version
  *
  * @example
- * isTagVersionCompatibleWithCurrent('4.1.1', '4.1.0') // true - same major
- * isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1') // false - newer major
- * isTagVersionCompatibleWithCurrent('3.9.9', '4.1.1') // true - older major
+ * getCanaryVersion({ currentVersion: '1.2.3', releaseType: 'minor', sha: 'a3f4b2c' }) // '1.3.0-0.canary-a3f4b2c'
+ * getCanaryVersion({ currentVersion: '5.0.0-beta.44', releaseType: 'patch', sha: 'a3f4b2c' }) // '5.0.0-0.canary-a3f4b2c'
  */
 export function getCanaryVersion({
   currentVersion,
@@ -860,9 +861,25 @@ export function getCanaryVersion({
     throw new Error(`Unable to compute canary version from "${currentVersion}" with release type "${effectiveType}"`)
   }
 
-  return `${nextStable}-${preid}.${sha}.0`
+  return `${nextStable}-0.${preid}-${sha}`
 }
 
+/**
+ * Checks if a tag's version is compatible with the current version.
+ * A tag is compatible if its major version is less than or equal to the current major version.
+ *
+ * This prevents accidentally using tags from future major versions (e.g., v5.0.0-beta.0)
+ * when bumping a current stable version (e.g., 4.1.1 → 4.1.2).
+ *
+ * @param tagVersion - The version extracted from the tag
+ * @param currentVersion - The current package version
+ * @returns true if the tag version's major is <= current major version
+ *
+ * @example
+ * isTagVersionCompatibleWithCurrent('4.1.1', '4.1.0') // true - same major
+ * isTagVersionCompatibleWithCurrent('5.0.0-beta.0', '4.1.1') // false - newer major
+ * isTagVersionCompatibleWithCurrent('3.9.9', '4.1.1') // true - older major
+ */
 export function isTagVersionCompatibleWithCurrent(tagVersion: string, currentVersion: string): boolean {
   try {
     const tagMajor = semver.major(tagVersion)

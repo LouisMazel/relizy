@@ -1,4 +1,5 @@
 import { logger } from '@maz-ui/node'
+import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
@@ -1854,7 +1855,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('1.3.0-canary.a3f4b2c.0')
+      expect(result).toBe('1.3.0-0.canary-a3f4b2c')
     })
 
     it('Then computes canary version with patch bump', () => {
@@ -1864,7 +1865,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('1.2.4-canary.a3f4b2c.0')
+      expect(result).toBe('1.2.4-0.canary-a3f4b2c')
     })
 
     it('Then computes canary version with major bump', () => {
@@ -1874,7 +1875,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('2.0.0-canary.a3f4b2c.0')
+      expect(result).toBe('2.0.0-0.canary-a3f4b2c')
     })
   })
 
@@ -1886,7 +1887,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('1.2.4-canary.a3f4b2c.0')
+      expect(result).toBe('1.2.4-0.canary-a3f4b2c')
     })
   })
 
@@ -1899,7 +1900,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('1.3.0-snapshot.a3f4b2c.0')
+      expect(result).toBe('1.3.0-0.snapshot-a3f4b2c')
     })
 
     it('Then uses nightly preid', () => {
@@ -1910,7 +1911,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'abc1234',
       })
 
-      expect(result).toBe('2.0.1-nightly.abc1234.0')
+      expect(result).toBe('2.0.1-0.nightly-abc1234')
     })
   })
 
@@ -1922,7 +1923,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'a3f4b2c',
       })
 
-      expect(result).toBe('1.3.0-canary.a3f4b2c.0')
+      expect(result).toBe('1.3.0-0.canary-a3f4b2c')
     })
 
     it('Then computes canary from alpha version with patch bump', () => {
@@ -1932,7 +1933,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'def5678',
       })
 
-      expect(result).toBe('2.0.0-canary.def5678.0')
+      expect(result).toBe('2.0.0-0.canary-def5678')
     })
   })
 
@@ -1944,7 +1945,7 @@ describe('Given getCanaryVersion function', () => {
         sha: 'abc1234',
       })
 
-      expect(result).toBe('0.1.0-canary.abc1234.0')
+      expect(result).toBe('0.1.0-0.canary-abc1234')
     })
 
     it('Then handles high version numbers', () => {
@@ -1954,7 +1955,42 @@ describe('Given getCanaryVersion function', () => {
         sha: 'xyz7890',
       })
 
-      expect(result).toBe('99.99.100-canary.xyz7890.0')
+      expect(result).toBe('99.99.100-0.canary-xyz7890')
+    })
+
+    it('Then produces a valid version when the sha is all digits with a leading zero', () => {
+      const result = getCanaryVersion({
+        currentVersion: '1.2.3',
+        releaseType: 'patch',
+        sha: '0719500',
+      })
+
+      expect(result).toBe('1.2.4-0.canary-0719500')
+      expect(semver.valid(result)).toBe(result)
+    })
+  })
+
+  describe('When comparing the canary with other versions', () => {
+    const canary = getCanaryVersion({
+      currentVersion: '4.9.3',
+      releaseType: 'major',
+      sha: '07195c6',
+    })
+
+    it('Then sorts the canary below every prerelease and the stable release of the same version', () => {
+      for (const version of ['5.0.0-alpha.0', '5.0.0-beta.0', '5.0.0-beta.44', '5.0.0-rc.0', '5.0.0']) {
+        expect(semver.lt(canary, version)).toBe(true)
+      }
+    })
+
+    it('Then sorts the canary above the current version', () => {
+      expect(semver.gt(canary, '4.9.3')).toBe(true)
+    })
+
+    it('Then never matches a prerelease or stable range', () => {
+      for (const range of ['^5.0.0-beta.0', '^5.0.0-beta.44', '^4.9.0', '^5.0.0', '>=4.0.0']) {
+        expect(semver.satisfies(canary, range)).toBe(false)
+      }
     })
   })
 })

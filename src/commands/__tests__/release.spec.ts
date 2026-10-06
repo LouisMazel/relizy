@@ -436,7 +436,7 @@ describe('Given release command', () => {
 
     it('Then disables changelog, commit, push, providerRelease, social, and gitTag', async () => {
       setupCanaryConfig()
-      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
 
       await release({ canary: true })
 
@@ -450,7 +450,7 @@ describe('Given release command', () => {
 
     it('Then still publishes to npm in canary mode', async () => {
       setupCanaryConfig()
-      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
 
       await release({ canary: true })
 
@@ -459,7 +459,7 @@ describe('Given release command', () => {
 
     it('Then still posts PR comment in canary mode', async () => {
       setupCanaryConfig()
-      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-canary.abc1234.0', bumpedPackages: [], bumped: true })
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
 
       await release({ canary: true })
 
@@ -474,7 +474,7 @@ describe('Given release command', () => {
 
     it('Then uses custom preid when provided', async () => {
       setupCanaryConfig()
-      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-snapshot.abc1234.0', bumpedPackages: [], bumped: true })
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.snapshot-abc1234', bumpedPackages: [], bumped: true })
 
       await release({ canary: true, preid: 'snapshot' })
 

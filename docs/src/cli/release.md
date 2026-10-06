@@ -60,13 +60,13 @@ relizy release --canary
 
 When `--canary` is used, Relizy automatically disables: changelog generation, git commit, git tag, git push, provider release (GitHub/GitLab), and social media posting. Only publishing to npm and PR comments remain active.
 
-The canary version format is `{nextVersion}-canary.{sha}.0` (e.g., `1.3.0-canary.a3f4b2c.0`).
+The canary version format is `{nextVersion}-0.canary-{sha}` (e.g., `1.3.0-0.canary-a3f4b2c`).
 
 Use `--preid` to customize the prerelease identifier:
 
 ```bash
 relizy release --canary --preid snapshot
-# → 1.3.0-snapshot.a3f4b2c.0
+# → 1.3.0-0.snapshot-a3f4b2c
 ```
 
 See the [Canary Releases guide](/guide/canary-releases) for full details.

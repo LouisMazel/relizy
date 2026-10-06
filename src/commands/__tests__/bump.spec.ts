@@ -30,7 +30,7 @@ vi.mock('../../core', () => ({
   confirmBump: vi.fn(() => true),
   determineSemverChange: vi.fn(() => 'minor'),
   fetchGitTags: vi.fn(() => {}),
-  getCanaryVersion: vi.fn(() => '1.1.0-canary.abc1234.0'),
+  getCanaryVersion: vi.fn(() => '1.1.0-0.canary-abc1234'),
   getBumpedIndependentPackages: vi.fn((args) => {
     return args.packages.map((pkg: any) => ({
       ...pkg,
@@ -898,7 +898,7 @@ describe('Given bump command', () => {
 
       vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
       vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
-      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-canary.abc1234.0')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-0.canary-abc1234')
 
       const result = await bump({
         canary: true,
@@ -907,7 +907,7 @@ describe('Given bump command', () => {
 
       expect(result.bumped).toBe(true)
       if (result.bumped) {
-        expect(result.newVersion).toBe('1.1.0-canary.abc1234.0')
+        expect(result.newVersion).toBe('1.1.0-0.canary-abc1234')
         expect(result.oldVersion).toBe('1.0.0')
         expect(result.bumpedPackages).toHaveLength(1)
         expect(result.bumpedPackages?.[0].name).toBe('pkg-a')
@@ -957,7 +957,7 @@ describe('Given bump command', () => {
       ])
       vi.mocked(determineSemverChange).mockReturnValueOnce(undefined)
       vi.mocked(getShortCommitSha).mockReturnValueOnce('def5678')
-      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-snapshot.def5678.0')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-0.snapshot-def5678')
 
       const result = await bump({
         canary: true,
@@ -967,7 +967,7 @@ describe('Given bump command', () => {
 
       expect(result.bumped).toBe(true)
       if (result.bumped) {
-        expect(result.newVersion).toBe('1.0.1-snapshot.def5678.0')
+        expect(result.newVersion).toBe('1.0.1-0.snapshot-def5678')
       }
 
       expect(getCanaryVersion).toHaveBeenCalledWith({
@@ -1012,7 +1012,7 @@ describe('Given bump command', () => {
       ])
       vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
       vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
-      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-canary.abc1234.0')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-0.canary-abc1234')
 
       await bump({
         canary: true,
@@ -1021,7 +1021,7 @@ describe('Given bump command', () => {
       expect(confirmBump).toHaveBeenCalledWith(
         expect.objectContaining({
           currentVersion: '1.0.0',
-          newVersion: '1.1.0-canary.abc1234.0',
+          newVersion: '1.1.0-0.canary-abc1234',
           force: false,
         }),
       )
@@ -1045,7 +1045,7 @@ describe('Given bump command', () => {
       vi.mocked(getPackages).mockResolvedValueOnce([])
       vi.mocked(determineSemverChange).mockReturnValueOnce(undefined)
       vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
-      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-canary.abc1234.0')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.0.1-0.canary-abc1234')
 
       const result = await bump({
         canary: true,
@@ -1111,8 +1111,8 @@ describe('Given bump command', () => {
         .mockReturnValueOnce('patch') // @my-org/config has fix commit
 
       vi.mocked(getCanaryVersion)
-        .mockReturnValueOnce('9.2.0-canary.abc1234.0') // @my-org/ui
-        .mockReturnValueOnce('1.2.1-canary.abc1234.0') // @my-org/config
+        .mockReturnValueOnce('9.2.0-0.canary-abc1234') // @my-org/ui
+        .mockReturnValueOnce('1.2.1-0.canary-abc1234') // @my-org/config
 
       const result = await bump({
         canary: true,
@@ -1127,11 +1127,11 @@ describe('Given bump command', () => {
 
         expect(result.bumpedPackages).toHaveLength(2)
         expect(result.bumpedPackages[0].name).toBe('@my-org/ui')
-        expect(result.bumpedPackages[0].newVersion).toBe('9.2.0-canary.abc1234.0')
+        expect(result.bumpedPackages[0].newVersion).toBe('9.2.0-0.canary-abc1234')
         expect(result.bumpedPackages[0].oldVersion).toBe('9.1.0')
 
         expect(result.bumpedPackages[1].name).toBe('@my-org/config')
-        expect(result.bumpedPackages[1].newVersion).toBe('1.2.1-canary.abc1234.0')
+        expect(result.bumpedPackages[1].newVersion).toBe('1.2.1-0.canary-abc1234')
         expect(result.bumpedPackages[1].oldVersion).toBe('1.2.0')
       }
 
@@ -1156,8 +1156,8 @@ describe('Given bump command', () => {
 
       // writeVersion called once per package (no root)
       expect(writeVersion).toHaveBeenCalledTimes(2)
-      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/ui`, '9.2.0-canary.abc1234.0', false)
-      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/config`, '1.2.1-canary.abc1234.0', false)
+      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/ui`, '9.2.0-0.canary-abc1234', false)
+      expect(writeVersion).toHaveBeenCalledWith(`${mockCwd}/packages/config`, '1.2.1-0.canary-abc1234', false)
     })
 
     it('Then calls confirmBump with independent versionMode for canary independent mode', async () => {
@@ -1196,7 +1196,7 @@ describe('Given bump command', () => {
       ])
 
       vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
-      vi.mocked(getCanaryVersion).mockReturnValueOnce('2.1.0-canary.abc1234.0')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('2.1.0-0.canary-abc1234')
 
       await bump({
         canary: true,
