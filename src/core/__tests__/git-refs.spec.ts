@@ -1,7 +1,9 @@
+import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
 import {
   findReachableCommitBySubject,
   getCommitSubject,
+  getGitDiff,
   isAncestor,
   pushTagForce,
   retagAnnotatedLocal,
@@ -16,7 +18,16 @@ vi.mock('@maz-ui/node', async (importActual) => {
   }
 })
 
+vi.mock('node:child_process', async (importActual) => {
+  const actual = await importActual<typeof import('node:child_process')>()
+  return {
+    ...actual,
+    execSync: vi.fn(),
+  }
+})
+
 const mockExec = vi.mocked(execPromise)
+const mockExecSync = vi.mocked(execSync)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -121,5 +132,63 @@ describe('Given pushTagForce', () => {
       expect.objectContaining({ cwd: '/repo' }),
     )
     expect(mockExec.mock.calls[0]![0]).toContain('--force')
+  })
+})
+
+describe('Given getGitDiff', () => {
+  it('Then reads the log with record and field separators', () => {
+    mockExecSync.mockReturnValue('')
+
+    getGitDiff('v1.0.0', 'HEAD', '/repo')
+
+    expect(mockExecSync).toHaveBeenCalledWith(
+      'git --no-pager log "v1.0.0...HEAD" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status',
+      { cwd: '/repo', encoding: 'utf8' },
+    )
+  })
+
+  it('Then logs the whole history when there is no from ref', () => {
+    mockExecSync.mockReturnValue('')
+
+    getGitDiff(undefined, 'HEAD', '/repo')
+
+    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('log "HEAD"'), expect.anything())
+  })
+
+  it('Then keeps the co-author trailers and changed files of a GitHub squash merge', () => {
+    mockExecSync.mockReturnValue([
+      '\x1Efeat: support multiple registries (#113)\x1Ff5bbc52\x1FMazel\x1Fme@example.com',
+      '* feat: support multiple registries (#112)',
+      '',
+      '---------',
+      '',
+      'Co-authored-by: Raphaël <lestote@users.noreply.github.com>',
+      '',
+      'M\tsrc/core/npm.ts',
+      '\x1Efix: second commit\x1Fabc1234\x1FAlice\x1Falice@example.com',
+      '',
+      'M\tpackages/pkg-a/index.ts',
+    ].join('\n'))
+
+    const commits = getGitDiff('v1.0.0', 'HEAD', '/repo')
+
+    expect(commits).toHaveLength(2)
+    expect(commits[0]).toEqual({
+      message: 'feat: support multiple registries (#113)',
+      shortHash: 'f5bbc52',
+      author: { name: 'Mazel', email: 'me@example.com' },
+      body: '* feat: support multiple registries (#112)\n\n---------\n\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>\n\nM\tsrc/core/npm.ts\n',
+    })
+    expect(commits[1]?.shortHash).toBe('abc1234')
+    expect(commits[1]?.body).toContain('M\tpackages/pkg-a/index.ts')
+  })
+
+  it('Then keeps a subject containing a pipe', () => {
+    mockExecSync.mockReturnValue('\x1Efeat: support a | b\x1Fabc1234\x1FAlice\x1Falice@example.com\n')
+
+    const [commit] = getGitDiff('v1.0.0', 'HEAD', '/repo')
+
+    expect(commit?.message).toBe('feat: support a | b')
+    expect(commit?.shortHash).toBe('abc1234')
   })
 })

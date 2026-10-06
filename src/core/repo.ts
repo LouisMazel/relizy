@@ -6,9 +6,10 @@ import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { getGitDiff, parseCommits } from 'changelogen'
+import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
+import { getGitDiff } from './git-refs'
 import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
 import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
@@ -573,7 +574,7 @@ export async function getPackageCommits({
     to,
   }
 
-  const rawCommits = await getGitDiff(actualFrom, to, changelogConfig.cwd)
+  const rawCommits = getGitDiff(actualFrom, to, changelogConfig.cwd)
   const allCommits = parseCommits(rawCommits, changelogConfig)
 
   const hasBreakingChanges = allCommits.some(commit => commit.isBreaking)
