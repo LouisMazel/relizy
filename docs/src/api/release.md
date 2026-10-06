@@ -99,7 +99,7 @@ interface ReleaseOptions {
 
   /**
    * Enable canary release mode.
-   * Publishes a temporary version with format {nextVersion}-{preid}.{sha}.0
+   * Publishes a temporary version with format {nextVersion}-0.{preid}-{sha}
    * Automatically disables: commit, push, changelog, providerRelease, social, gitTag
    * Keeps active: publish, prComment, safetyCheck, clean check
    * @default false
