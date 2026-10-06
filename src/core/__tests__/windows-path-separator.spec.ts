@@ -82,8 +82,12 @@ vi.mock('../dependencies', () => ({
   getPackageDependencies: vi.fn(() => []),
 }))
 
+vi.mock('../git-refs', async importActual => ({
+  ...(await importActual<typeof import('../git-refs')>()),
+  getGitDiff: vi.fn(() => []),
+}))
+
 vi.mock('changelogen', () => ({
-  getGitDiff: vi.fn(() => 'mock diff'),
   parseCommits: vi.fn(() => []),
 }))
 

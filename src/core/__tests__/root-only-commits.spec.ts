@@ -46,8 +46,12 @@ vi.mock('../tags', () => ({
   })),
 }))
 
+vi.mock('../git-refs', async importActual => ({
+  ...(await importActual<typeof import('../git-refs')>()),
+  getGitDiff: vi.fn(() => []),
+}))
+
 vi.mock('changelogen', () => ({
-  getGitDiff: vi.fn(() => 'mock diff'),
   parseCommits: vi.fn(() => []),
 }))
 
@@ -106,7 +110,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
 
   describe('When generating commits for the root package', () => {
     it('Then a `build:` commit touching only root files IS included', async () => {
-      // Mirrors what changelogen's `getGitDiff` produces with `--name-status`
+      // Mirrors what `getGitDiff` produces with `--name-status`
       // for a root-only build commit (no `packages/…` path in the body).
       const rootOnlyBody = '\nM\t.gitlab/ci/release.yml\nM\tpackage.json\nM\tpnpm-lock.yaml\n'
 

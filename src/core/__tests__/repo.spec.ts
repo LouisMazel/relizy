@@ -4,6 +4,7 @@ import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
+import * as gitRefs from '../git-refs'
 import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
 
 // Mock file system
@@ -78,8 +79,12 @@ vi.mock('../version', () => ({
   isStableReleaseType: vi.fn(() => true),
 }))
 
+vi.mock('../git-refs', async importActual => ({
+  ...(await importActual<typeof import('../git-refs')>()),
+  getGitDiff: vi.fn(() => []),
+}))
+
 vi.mock('changelogen', () => ({
-  getGitDiff: vi.fn(() => 'mock git diff'),
   parseCommits: vi.fn((_diff: string, _config: any) => {
     // Return different commits based on context
     return []
@@ -179,7 +184,7 @@ describe('Given getPackages function', () => {
 
       expect(packages).toBeDefined()
       // Verify commits were processed
-      expect(vi.mocked(changelogen.getGitDiff)).toHaveBeenCalled()
+      expect(vi.mocked(gitRefs.getGitDiff)).toHaveBeenCalled()
     })
 
     it('Then calculates new versions based on configuration', async () => {

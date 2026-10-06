@@ -1,4 +1,6 @@
 import type { LogLevel } from '@maz-ui/node'
+import type { RawGitCommit } from 'changelogen'
+import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
 
 /**
@@ -121,4 +123,36 @@ export async function pushTagForce(tag: string, cwd?: string, logLevel?: LogLeve
     `git push origin ${shellSingleQuote(tag)} --force`,
     { cwd, logLevel, noStderr: true, noStdout: true },
   )
+}
+
+// ASCII record and unit separators: they never appear in a commit message,
+// unlike the `----` and `|` delimiters used by changelogen's `getGitDiff`.
+const COMMIT_SEPARATOR = '\x1E'
+const FIELD_SEPARATOR = '\x1F'
+
+/**
+ * Drop-in replacement for changelogen's `getGitDiff`, which splits the
+ * `git log` output on `----\n` and the subject line on `|`. A commit body
+ * containing a `----` line (GitHub adds `---------` before the
+ * `Co-authored-by:` trailers of a squash merge) then loses its trailers and its
+ * `--name-status` file list, and a subject containing `|` is truncated.
+ */
+export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string): RawGitCommit[] {
+  const range = from ? `${from}...${to}` : to
+  const output = execSync(
+    `git --no-pager log "${range}" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
+    { cwd, encoding: 'utf8' },
+  ).trim()
+
+  return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
+    const [firstLine = '', ...body] = record.split('\n')
+    const [message = '', shortHash = '', authorName = '', authorEmail = ''] = firstLine.split(FIELD_SEPARATOR)
+
+    return {
+      message,
+      shortHash,
+      author: { name: authorName, email: authorEmail },
+      body: body.join('\n'),
+    }
+  })
 }
