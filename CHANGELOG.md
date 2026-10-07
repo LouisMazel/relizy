@@ -1,5 +1,35 @@
 # Changelog
 
+## v1.5.1 (2026-10-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0...v1.5.1)
+
+### 🩹 Fixes
+
+- Sort canary versions below every prerelease and stable release ([cf939c9](https://github.com/LouisMazel/relizy/commit/cf939c9))
+
+  Canary versions now use the `{nextVersion}-0.{preid}-{sha}` format
+  (e.g. `5.0.0-0.canary-a3f4b2c` instead of `5.0.0-canary.a3f4b2c.0`).
+  They no longer match semver ranges like `^5.0.0-beta.0` and are never
+  suggested by `pnpm outdated`, `pnpm update` or Renovate. Install a canary
+  by pinning its exact version or using the `canary` dist-tag.
+
+- Keep co-author trailers and changed files of squash-merged commits ([45e0d78](https://github.com/LouisMazel/relizy/commit/45e0d78))
+
+  Commits whose body contains a `----` line, like the `---------` GitHub adds
+  before `Co-authored-by:` trailers when squash merging, lost their trailers and
+  their changed files. In a monorepo they could be left out of a package
+  changelog and bump. Commit subjects containing `|` are no longer truncated.
+
+- Credit co-authors in the changelog contributors ([caed2da](https://github.com/LouisMazel/relizy/commit/caed2da))
+
+  The contributors section now lists the co-authors read from `Co-authored-by:`
+  trailers, so contributors of a squash-merged pull request are credited.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.0 (2026-09-25)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.4.9...v1.5.0)
