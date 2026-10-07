@@ -62,7 +62,7 @@ function buildExplanation({
 }): string {
   const lines = [
     `⚠️  Tag "${from}" points to a commit that is no longer in the history of "${to}".`,
-    `It was most likely rewritten by a "git rebase" after the tag was created.`,
+    `It was most likely rewritten by a "git rebase" after the tag was created, or its release commit was never pushed to "${to}" (rejected push during a release).`,
     `Generating a changelog from it would span the whole divergent range (often the entire history since the last stable release, with duplicated commits) instead of the real changes.`,
   ]
   if (twin) {

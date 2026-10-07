@@ -964,7 +964,8 @@ async function publishToRegistryTarget({
 
         throw new Error(
           `Version ${packageNameAndVersion} already exists on the registry${registryLabel} and cannot be overwritten. `
-          + 'This usually happens when re-running a release on the same commit (e.g. a canary rerun). '
+          + 'This usually happens when re-running a release on the same commit (e.g. a canary rerun), '
+          + 'or after a release that published this version but failed to push its release commit (merge its tag into your branch to recover). '
           + 'Enable publish.skipExistingVersions (or pass --skip-existing-versions) to skip already-published versions instead of failing.',
           { cause: error },
         )

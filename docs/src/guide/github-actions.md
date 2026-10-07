@@ -584,6 +584,8 @@ concurrency:
   cancel-in-progress: false
 ```
 
+Concurrency only serializes workflow runs: it does not stop someone from pushing to the branch while a release is running. Relizy covers that case on its own, see [Branch Safety](/cli/release#branch-safety).
+
 ### 2. Add Approval Steps
 
 Require manual approval for production releases:
@@ -657,6 +659,8 @@ Use a PAT instead of `GITHUB_TOKEN`:
   with:
     token: ${{ secrets.PAT_TOKEN }}
 ```
+
+If the push is rejected as `non-fast-forward`, commits were pushed to the branch while the release was running. Relizy merges them into the release commit and pushes again; see [Branch Safety](/cli/release#branch-safety) for the details and the recovery command printed when the merge conflicts.
 
 ### Build Artifacts Missing
 

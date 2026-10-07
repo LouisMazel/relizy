@@ -1,6 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, executeHook, fetchGitTags, loadRelizyConfig } from '../../core'
+import {
+  assertBranchUpToDateWithRemote,
+  assertReleaseTagsAvailable,
+  checkGitStatusIfDirty,
+  createCommitAndTags,
+  executeHook,
+  fetchGitTags,
+  loadRelizyConfig,
+  pushCommitAndTags,
+  rollbackModifiedFiles,
+} from '../../core'
 import { bump } from '../bump'
 
 import { changelog } from '../changelog'
@@ -19,6 +29,9 @@ vi.mock('../../core', async () => {
     checkGitStatusIfDirty: vi.fn(),
     fetchGitTags: vi.fn(),
     pushCommitAndTags: vi.fn(),
+    assertBranchUpToDateWithRemote: vi.fn(),
+    assertReleaseTagsAvailable: vi.fn(),
+    rollbackModifiedFiles: vi.fn(),
     readPackageJson: vi.fn(),
     createCommitAndTags: vi.fn(),
   }
@@ -411,6 +424,86 @@ describe('Given release command', () => {
           prNumber: 123,
         }),
       )
+    })
+  })
+
+  describe('When guarding the release against a stale branch', () => {
+    beforeEach(() => {
+      vi.mocked(assertBranchUpToDateWithRemote).mockReset()
+      vi.mocked(assertReleaseTagsAvailable).mockReset()
+      vi.mocked(createCommitAndTags).mockReset()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.1', bumpedPackages: [], bumped: true })
+    })
+
+    it('Then checks the remote branch during safety checks and right before publishing', async () => {
+      await release({})
+
+      expect(assertBranchUpToDateWithRemote).toHaveBeenCalledTimes(2)
+      expect(vi.mocked(assertBranchUpToDateWithRemote).mock.invocationCallOrder[1]).toBeLessThan(vi.mocked(publish).mock.invocationCallOrder[0]!)
+    })
+
+    it('Then checks that the release tag is still available', async () => {
+      await release({})
+
+      expect(assertReleaseTagsAvailable).toHaveBeenCalledWith(expect.objectContaining({ tags: ['v1.0.1'] }))
+    })
+
+    it('Then passes the created tags to the push', async () => {
+      vi.mocked(createCommitAndTags).mockResolvedValue(['v1.0.1'])
+
+      await release({})
+
+      expect(pushCommitAndTags).toHaveBeenCalledWith(expect.objectContaining({ tags: ['v1.0.1'] }))
+    })
+
+    describe('When the branch is behind its remote right before publishing', () => {
+      beforeEach(() => {
+        vi.mocked(assertBranchUpToDateWithRemote)
+          .mockResolvedValueOnce(undefined)
+          .mockRejectedValueOnce(new Error('The current branch is behind "origin/main"'))
+      })
+
+      it('Then aborts before publishing and rolls back the release files', async () => {
+        await expect(release({})).rejects.toThrow('The current branch is behind "origin/main"')
+
+        expect(publish).not.toHaveBeenCalled()
+        expect(pushCommitAndTags).not.toHaveBeenCalled()
+        expect(rollbackModifiedFiles).toHaveBeenCalled()
+      })
+    })
+
+    describe('When the release tag already exists', () => {
+      beforeEach(() => {
+        vi.mocked(assertReleaseTagsAvailable).mockRejectedValue(new Error('Tag "v1.0.1" already exists'))
+      })
+
+      it('Then aborts before the changelog and rolls back the release files', async () => {
+        await expect(release({})).rejects.toThrow('Tag "v1.0.1" already exists')
+
+        expect(changelog).not.toHaveBeenCalled()
+        expect(publish).not.toHaveBeenCalled()
+        expect(rollbackModifiedFiles).toHaveBeenCalled()
+      })
+
+      it('Then does not roll back files in dry-run mode', async () => {
+        await expect(release({ dryRun: true })).rejects.toThrow('Tag "v1.0.1" already exists')
+
+        expect(rollbackModifiedFiles).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('When the push is disabled', () => {
+      it('Then skips the remote branch check', async () => {
+        const config = createMockConfig({
+          bump: { type: 'patch' },
+          release: { commit: true, push: false, publish: true, changelog: true, gitTag: true },
+        })
+        vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+        await release({})
+
+        expect(assertBranchUpToDateWithRemote).not.toHaveBeenCalled()
+      })
     })
   })
 

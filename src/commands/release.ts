@@ -1,7 +1,17 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { createCommitAndTags, executeHook, loadRelizyConfig, pushCommitAndTags, readPackageJson, rollbackModifiedFiles } from '../core'
+import {
+  assertBranchUpToDateWithRemote,
+  assertReleaseTagsAvailable,
+  createCommitAndTags,
+  executeHook,
+  getReleaseTagNames,
+  loadRelizyConfig,
+  pushCommitAndTags,
+  readPackageJson,
+  rollbackModifiedFiles,
+} from '../core'
 import { applyAIOverride } from '../core/ai'
 import { bump } from './bump'
 import { changelog } from './changelog'
@@ -62,6 +72,27 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   })
 }
 
+function shouldPushReleaseCommit(config: ResolvedRelizyConfig): boolean {
+  return Boolean(config.release.push && config.release.commit)
+}
+
+/**
+ * Run a pre-publish guard and restore the release files it leaves behind when
+ * it fails, so a re-run starts from a clean tree.
+ */
+async function guardBeforePublish({ config, dryRun, guard }: { config: ResolvedRelizyConfig, dryRun: boolean, guard: () => Promise<void> }) {
+  try {
+    await guard()
+  }
+  catch (error) {
+    if (!dryRun) {
+      logger.fail('Release aborted before publishing, rolling back modified files...')
+      await rollbackModifiedFiles({ config })
+    }
+    throw error
+  }
+}
+
 async function releaseSafetyCheck({
   config,
   provider,
@@ -81,6 +112,7 @@ async function releaseSafetyCheck({
       providerReleaseSafetyCheck({ config, provider }),
       publishSafetyCheck({ config }),
       socialSafetyCheck({ config }),
+      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd })] : []),
     ])
 
     logger.success('Safety checks passed')
@@ -235,6 +267,17 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       return
     }
 
+    if (config.release.commit) {
+      await guardBeforePublish({
+        config,
+        dryRun,
+        guard: () => assertReleaseTagsAvailable({
+          tags: getReleaseTagNames({ config, bumpedPackages: bumpResult.bumpedPackages, newVersion: bumpResult.newVersion }),
+          cwd: config.cwd,
+        }),
+      })
+    }
+
     logger.box('Generate changelogs')
     if (config.release.changelog) {
       await changelog({
@@ -254,6 +297,16 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     }
     else {
       logger.info('Skipping changelog generation (--no-changelog)')
+    }
+
+    // Packages are published before the push: make sure the release commit
+    // will be pushable, as new commits may have landed while the release ran.
+    if (shouldPushReleaseCommit(config)) {
+      await guardBeforePublish({
+        config,
+        dryRun,
+        guard: () => assertBranchUpToDateWithRemote({ cwd: config.cwd }),
+      })
     }
 
     logger.box('Publish packages to registry')
@@ -317,6 +370,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           dryRun,
           logLevel: config.logLevel,
           cwd: config.cwd,
+          tags: createdTags,
         })
 
         await executeHook('success:push', config, dryRun)
