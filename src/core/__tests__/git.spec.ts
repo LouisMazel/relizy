@@ -1059,6 +1059,7 @@ describe('Given pushCommitAndTags function', () => {
         {
           noStderr: true,
           noStdout: true,
+          noError: true,
           logLevel: 'normal',
           cwd: '/project',
         },

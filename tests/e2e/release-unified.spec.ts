@@ -21,6 +21,8 @@ vi.mock('../../src/core', async () => {
     writeChangelogToFile: vi.fn(),
     createCommitAndTags: vi.fn(),
     pushCommitAndTags: vi.fn(),
+    assertBranchUpToDateWithRemote: vi.fn(),
+    assertReleaseTagsAvailable: vi.fn(),
     publishPackages: vi.fn(),
     createGithubRelease: vi.fn(),
     postReleaseToTwitter: vi.fn(),
