@@ -1,5 +1,34 @@
 # Changelog
 
+## v1.6.0 (2026-10-07)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.1...v1.6.0)
+
+### 🚀 Features
+
+- **relizy:** Guard releases against commits pushed during the release ([812ee2c](https://github.com/LouisMazel/relizy/commit/812ee2c))
+
+  `relizy release` now protects the release commit when the branch moves while
+  the release runs:
+  - When `push` and `commit` are enabled, the release stops before publishing if
+    the upstream branch received new commits, and restores the release files.
+  - The release fails right after the bump if one of its tags already exists,
+    with the command to recover.
+  - A push rejected as non-fast-forward is recovered by merging the upstream
+    branch into the release commit, then pushing again.
+
+### 🩹 Fixes
+
+- **relizy:** Mention rejected pushes in orphan tag and already published errors ([ba3592a](https://github.com/LouisMazel/relizy/commit/ba3592a))
+
+### 📖 Documentation
+
+- **docs:** Document the release branch safety guards ([e504b9e](https://github.com/LouisMazel/relizy/commit/e504b9e))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.5.1 (2026-10-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.5.0...v1.5.1)
