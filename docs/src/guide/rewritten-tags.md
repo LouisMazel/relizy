@@ -119,3 +119,24 @@ git push origin v1.1.0 --force
 
 Force-pushing a tag rewrites already-published history; only do it on
 repositories where that is acceptable.
+
+## Tags orphaned by a rejected push
+
+A tag can also be orphaned without any rebase: a release publishes its packages
+and pushes its tag, but the push of the branch is rejected because new commits
+landed on it in the meantime. The release commit then only exists behind the
+tag, and the branch stays on the previous version, so the next release computes
+the same version again.
+
+Relizy now prevents this situation (see [Branch Safety](/cli/release#branch-safety))
+and stops a release whose tag already exists. If it still happens, there is no
+equivalent commit to re-bind the tag to: merge the release commit back instead.
+
+```bash
+git fetch --tags
+git merge v1.1.0
+git push
+```
+
+The branch gets the bumped versions and changelogs, and the tag becomes part of
+its history again.

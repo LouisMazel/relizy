@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
+import { isAncestor, tagExists } from './git-refs'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
 import { executeHook } from './utils'
@@ -346,7 +347,182 @@ export async function createCommitAndTags({
   }
 }
 
-export async function pushCommitAndTags({ config, dryRun, logLevel, cwd }: { config: ResolvedRelizyConfig, dryRun: boolean, logLevel?: LogLevel, cwd: string }) {
+export interface GitUpstream {
+  /** Remote name, e.g. `origin` */
+  remote: string
+  /** Remote branch ref, e.g. `refs/heads/main` */
+  mergeRef: string
+  /** Remote-tracking ref, e.g. `refs/remotes/origin/main` */
+  trackingRef: string
+  /** Short remote-tracking name, e.g. `origin/main` */
+  name: string
+}
+
+const quietExec = { noStderr: true, noStdout: true, noSuccess: true, noError: true } as const
+
+/**
+ * Resolve the upstream of the current branch. Returns null on a detached HEAD
+ * or when the branch has no upstream configured.
+ */
+export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
+  try {
+    const branch = getCurrentGitBranch(cwd)
+
+    if (!branch || branch === 'HEAD') {
+      return null
+    }
+
+    const [{ stdout: remote }, { stdout: mergeRef }, { stdout: trackingRef }] = await Promise.all([
+      execPromise(`git config --get branch.${branch}.remote`, { cwd, ...quietExec }),
+      execPromise(`git config --get branch.${branch}.merge`, { cwd, ...quietExec }),
+      execPromise('git rev-parse --symbolic-full-name @{upstream}', { cwd, ...quietExec }),
+    ])
+
+    if (!remote.trim() || !mergeRef.trim() || !trackingRef.trim()) {
+      return null
+    }
+
+    return {
+      remote: remote.trim(),
+      mergeRef: mergeRef.trim(),
+      trackingRef: trackingRef.trim(),
+      name: trackingRef.trim().replace(/^refs\/remotes\//, ''),
+    }
+  }
+  catch {
+    return null
+  }
+}
+
+async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> {
+  await execPromise(`git fetch ${upstream.remote} +${upstream.mergeRef}:${upstream.trackingRef}`, { cwd, ...quietExec })
+}
+
+/**
+ * Ensure the current branch contains every commit of its remote counterpart.
+ *
+ * A release commit created on a branch that is behind its remote can never be
+ * pushed. Since packages are published before the push, running this check
+ * right before publishing prevents shipping a version whose release commit is
+ * then rejected (leaving an orphan tag and the repository stuck on the
+ * previous version).
+ *
+ * Skipped (no error) on a detached HEAD, without upstream, or when the remote
+ * cannot be fetched.
+ */
+export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): Promise<void> {
+  const upstream = await getGitUpstream(cwd)
+
+  if (!upstream) {
+    logger.debug('No upstream branch configured, skipping remote sync check')
+    return
+  }
+
+  try {
+    await fetchUpstream(upstream, cwd)
+  }
+  catch (error) {
+    logger.warn(`Could not fetch "${upstream.name}", skipping remote sync check`)
+    logger.debug('Fetch error:', error)
+    return
+  }
+
+  const { stdout } = await execPromise(`git rev-list --count HEAD..${upstream.trackingRef}`, { cwd, ...quietExec })
+  const missingCommits = Number.parseInt(stdout.trim(), 10) || 0
+
+  if (missingCommits > 0) {
+    throw new Error(
+      `The current branch is behind "${upstream.name}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
+      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
+      + `Re-run the release from the latest commit of "${upstream.name}".`,
+    )
+  }
+
+  logger.debug(`Branch is up to date with "${upstream.name}"`)
+}
+
+function isPushRejectedAsBehind(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const { message, stderr } = error as { message?: unknown, stderr?: unknown }
+  const output = `${typeof message === 'string' ? message : ''}\n${typeof stderr === 'string' ? stderr : ''}`
+
+  return output.includes('(non-fast-forward)') || output.includes('(fetch first)')
+}
+
+/**
+ * Recover from a push rejected because the remote branch received new commits
+ * after the release started: merge the remote branch into the release commit
+ * and push again. A merge (not a rebase) keeps the tags on the exact commit
+ * that was published, and keeps the concurrent commits out of the released
+ * range so they show up in the next changelog.
+ */
+async function recoverRejectedPush({
+  config,
+  command,
+  tags,
+  pushError,
+  logLevel,
+  cwd,
+}: {
+  config: ResolvedRelizyConfig
+  command: string
+  tags: string[]
+  pushError: unknown
+  logLevel?: LogLevel
+  cwd: string
+}): Promise<void> {
+  const upstream = await getGitUpstream(cwd)
+
+  if (!upstream) {
+    throw pushError
+  }
+
+  logger.warn(`Push rejected: "${upstream.name}" received new commits during the release. Merging them into the release commit and retrying...`)
+
+  try {
+    await fetchUpstream(upstream, cwd)
+    const noVerifyFlag = config.release.noVerify ? ' --no-verify' : ''
+    await execPromise(`git merge --no-edit${noVerifyFlag} ${upstream.name}`, { cwd, ...quietExec })
+  }
+  catch (mergeError) {
+    await execPromise('git merge --abort', { cwd, ...quietExec }).catch(() => {})
+
+    if (tags.length > 0) {
+      const tagRefs = tags.map(tag => `refs/tags/${tag}`).join(' ')
+      await execPromise(`git push ${upstream.remote} ${tagRefs}`, { cwd, ...quietExec }).catch(() => {})
+    }
+
+    const recoverRef = tags[0] ?? 'HEAD'
+
+    throw new Error(
+      `Push rejected: "${upstream.name}" received new commits during the release, and they could not be merged automatically into the release commit.\n`
+      + 'The packages are already published, but the release commit is not on the branch.\n'
+      + `To recover, merge it manually: git fetch --tags && git merge ${recoverRef} && git push`,
+      { cause: mergeError },
+    )
+  }
+
+  await execPromise(command, { noStderr: true, noStdout: true, logLevel, cwd })
+
+  logger.success(`Merged "${upstream.name}" into the release commit and pushed`)
+}
+
+export async function pushCommitAndTags({
+  config,
+  dryRun,
+  logLevel,
+  cwd,
+  tags = [],
+}: {
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  logLevel?: LogLevel
+  cwd: string
+  tags?: string[]
+}) {
   logger.start('Start push changes and tags')
 
   const command = config.release.gitTag ? 'git push --follow-tags' : 'git push'
@@ -357,10 +533,73 @@ export async function pushCommitAndTags({ config, dryRun, logLevel, cwd }: { con
   else {
     logger.debug(`Executing: ${command}`)
 
-    await execPromise(command, { noStderr: true, noStdout: true, logLevel, cwd })
+    try {
+      await execPromise(command, { noStderr: true, noStdout: true, noError: true, logLevel, cwd })
+    }
+    catch (error) {
+      if (!isPushRejectedAsBehind(error)) {
+        logger.error(`${command} failed`, error)
+        throw error
+      }
+
+      await recoverRejectedPush({ config, command, tags, pushError: error, logLevel, cwd })
+    }
   }
 
   logger.success('Pushing changes and tags completed!')
+}
+
+/**
+ * Compute the git tag names a release will create, mirroring `createCommitAndTags`.
+ */
+export function getReleaseTagNames({
+  config,
+  bumpedPackages,
+  newVersion,
+}: {
+  config: ResolvedRelizyConfig
+  bumpedPackages?: BumpResultTruthy['bumpedPackages']
+  newVersion?: string
+}): string[] {
+  if (!config.release.gitTag) {
+    return []
+  }
+
+  if (config.monorepo?.versionMode === 'independent') {
+    return (bumpedPackages ?? [])
+      .filter(pkg => pkg.newVersion)
+      .map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion! }))
+  }
+
+  const version = newVersion || readPackageJson(config.cwd)?.version
+  const tagName = version ? config.templates.tagBody?.replaceAll('{{newVersion}}', version) : undefined
+
+  return tagName ? [tagName] : []
+}
+
+/**
+ * Fail early when a tag the release is about to create already exists.
+ *
+ * This typically happens after a release that published its packages and
+ * pushed its tag, but whose release commit was rejected: the branch is still
+ * on the previous version, so the next run computes the same version again.
+ */
+export async function assertReleaseTagsAvailable({ tags, cwd }: { tags: string[], cwd: string }): Promise<void> {
+  for (const tag of tags) {
+    if (!(await tagExists(tag, cwd))) {
+      continue
+    }
+
+    if (await isAncestor(tag, 'HEAD', cwd)) {
+      throw new Error(`Tag "${tag}" already exists. Check the versions in your package.json files, they are behind the latest release.`)
+    }
+
+    throw new Error(
+      `Tag "${tag}" already exists but is not part of the current branch history.\n`
+      + 'A previous release most likely published this version and pushed its tag, but its release commit was never pushed to the branch.\n'
+      + `To recover, merge the release commit, then re-run the release: git fetch --tags && git merge ${tag} && git push`,
+    )
+  }
 }
 
 /**
