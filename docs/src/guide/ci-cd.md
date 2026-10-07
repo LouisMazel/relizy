@@ -403,6 +403,8 @@ Ensure you have proper permissions:
     # token: ${{ secrets.PAT_TOKEN }}
 ```
 
+If the push is rejected as `non-fast-forward`, commits were pushed to the branch while the release was running. Relizy merges them into the release commit and pushes again; see [Branch Safety](/cli/release#branch-safety) for the details and the recovery command printed when the merge conflicts.
+
 ### NPM Publish Fails
 
 Verify your NPM token:

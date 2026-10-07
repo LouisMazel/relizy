@@ -29,6 +29,14 @@ The `release` command combines multiple operations:
 7. ✅ Posts to social media (optional)
 8. ✅ Posts a comment on the PR/MR (optional)
 
+## Branch Safety
+
+Packages are published **before** the release commit and tags are pushed, so a failed publish never leaves a tag behind. In return, Relizy makes sure the release commit can actually be pushed:
+
+- **Remote sync check**: when `push` and `commit` are enabled, Relizy fetches the upstream branch during the safety checks and again right before publishing. If new commits were pushed to the branch while the release was running (e.g. during a long CI build), the release stops before publishing and restores the release files. Re-run it from the latest commit. The check is skipped on a detached HEAD or when the branch has no upstream.
+- **Existing tag check**: right after the bump, Relizy fails if a tag it is about to create already exists. This catches a re-run after a release that published its packages but never got its release commit onto the branch, and prints how to recover (`git fetch --tags && git merge <tag> && git push`).
+- **Rejected push recovery**: if the push is still rejected because the remote branch moved in the meantime (non-fast-forward), Relizy merges the remote branch into the release commit and pushes again. A merge (not a rebase) keeps the tags on the exact commit that was published, and the concurrent commits show up in the next changelog. If the merge conflicts, Relizy aborts it, pushes the tags so the release commit is preserved, and prints the recovery command.
+
 ## Options
 
 ### Release Type
