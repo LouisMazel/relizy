@@ -22,6 +22,7 @@ vi.mock('../repo', () => {
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
     getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
+    getNewPackageCompareBase: vi.fn(() => null),
   }
 })
 
@@ -33,6 +34,7 @@ vi.mock('../version', () => {
 
 vi.mock('../tags', () => {
   return {
+    NEW_PACKAGE_MARKER: '__NEW_PACKAGE__',
     resolveTags: vi.fn(),
     getIndependentTag: vi.fn(),
   }

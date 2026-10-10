@@ -42,6 +42,40 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string): string | n
   }
 }
 
+/**
+ * Get the parent hash of a commit. Returns null for the repository root
+ * commit, which has no parent.
+ */
+function getCommitParentHash(hash: string, cwd: string): string | null {
+  try {
+    const parent = execSync(
+      `git rev-parse --verify --quiet "${hash}^"`,
+      { cwd, encoding: 'utf8' },
+    ).trim()
+
+    return parent || null
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Resolve the commit a new package's compare link starts from: the parent of
+ * the first commit that touched the package, so the link covers the whole
+ * package history. Falls back to that first commit when it is the repository
+ * root commit (no parent). Returns null when the package has no commits yet.
+ */
+export function getNewPackageCompareBase(packagePath: string, cwd: string): string | null {
+  const firstPackageCommit = getFirstPackageCommitHash(packagePath, cwd)
+
+  if (!firstPackageCommit) {
+    return null
+  }
+
+  return getCommitParentHash(firstPackageCommit, cwd) || firstPackageCommit
+}
+
 export function readPackageJson(packagePath: string): ReadPackage | undefined {
   const packageJsonPath = join(packagePath, 'package.json')
 
