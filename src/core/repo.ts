@@ -583,7 +583,7 @@ export async function getPackageCommits({
 
   // For new packages without any previous tags, find the first commit
   // that touched this package to avoid ENOBUFS errors.
-  let actualFrom: string
+  let actualFrom: string | undefined
   if (from === NEW_PACKAGE_MARKER) {
     const firstPackageCommit = getFirstPackageCommitHash(pkg.path, config.cwd)
     if (!firstPackageCommit) {
@@ -591,8 +591,11 @@ export async function getPackageCommits({
       return []
     }
     logger.debug(`${pkg.name} is a new package, using first package commit: ${firstPackageCommit.slice(0, 8)}`)
-    // Use the parent of the first commit to include it in the diff
-    actualFrom = `${firstPackageCommit}^`
+    // Start from the parent of the first commit to include it in the diff.
+    // When that commit is the repository root commit (no parent), drop the
+    // lower bound: `git log <to>` then covers the full history, which is the
+    // package history anyway.
+    actualFrom = getCommitParentHash(firstPackageCommit, config.cwd) ?? undefined
   }
   else {
     // Recover from a rewritten/orphaned `from` tag (e.g. a rebase moved the
@@ -604,7 +607,7 @@ export async function getPackageCommits({
 
   const changelogConfig = {
     ...config,
-    from: actualFrom,
+    from: actualFrom ?? '',
     to,
   }
 
