@@ -192,8 +192,8 @@ Makes a re-run idempotent: already-published versions are skipped with a warning
 ### --include-private
 
 Include private packages (packages with `"private": true` in their
-`package.json`) in the bump and changelog phases. By default, private packages
-are skipped entirely.
+`package.json`) in the release. By default, private packages are skipped
+entirely.
 
 ```bash
 relizy release --minor --include-private
@@ -204,10 +204,12 @@ When enabled:
 - Private packages are bumped alongside public ones.
 - Private packages get their own `CHANGELOG.md`.
 - Their commits are included in the aggregated root changelog.
+- In `independent` mode, they get their own git tag and GitHub/GitLab release.
+- They are listed in the PR comment, without install commands.
 
-Private packages **remain excluded** from `publish`, `provider-release`, and
-`pr-comment` — even with this flag. They are versioned and documented, but
-never published to a registry or announced.
+Private packages **are never published** to a registry, even with this flag.
+See [Private Projects & Apps](/guide/private-projects) to version a project
+that publishes nothing.
 
 This is equivalent to setting `monorepo.includePrivates: true` in
 `relizy.config.ts`. See

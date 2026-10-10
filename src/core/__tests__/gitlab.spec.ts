@@ -43,6 +43,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -704,10 +705,30 @@ describe('Given gitlab function', () => {
       expect(result).toHaveLength(1)
     })
 
-    it('Then excludes private packages from GitLab releases even when includePrivates is enabled', async () => {
+    it('Then creates GitLab releases for private packages when includePrivates is enabled', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
         monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'test-token' },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
+        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+      ])
+
+      await gitlab({ force: false })
+
+      expect(fetch).toHaveBeenCalledTimes(2)
+      const calls = vi.mocked(fetch).mock.calls
+      expect(calls[1][1]?.body).toContain('"tag_name":"@scope/private@1.0.0"')
+    })
+
+    it('Then excludes private packages from GitLab releases when includePrivates is disabled', async () => {
+      const configWithPrivates = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: false },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })

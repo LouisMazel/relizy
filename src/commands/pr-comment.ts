@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -21,7 +21,7 @@ interface CommentBodyParams {
   date: string
   releaseContext?: ReleaseContext
   /** Fallback packages for standalone CLI mode (no releaseContext) */
-  packages?: Array<{ name: string, version: string }>
+  packages?: Array<{ name: string, version: string, private: boolean }>
   /** Fallback root version for standalone CLI mode */
   rootVersion?: string
 }
@@ -57,7 +57,7 @@ function buildMetadataLines({
   date,
   branch,
 }: {
-  version: string
+  version?: string
   oldVersion?: string
   tags: string[]
   distTag?: string
@@ -66,11 +66,13 @@ function buildMetadataLines({
 }): string[] {
   const lines: string[] = []
 
-  const versionChanged = oldVersion && oldVersion !== version
-  lines.push(versionChanged
-    ? `- **Version**: \`${oldVersion}\` → \`${version}\``
-    : `- **Version**: \`${version}\``,
-  )
+  if (version) {
+    const versionChanged = oldVersion && oldVersion !== version
+    lines.push(versionChanged
+      ? `- **Version**: \`${oldVersion}\` → \`${version}\``
+      : `- **Version**: \`${version}\``,
+    )
+  }
 
   if (tags.length > 0) {
     lines.push(`- **Tag(s)**: ${formatTagsList(tags)}`)
@@ -130,7 +132,7 @@ function buildInstallPackages({
 }: {
   bumpedPackages: BumpResultTruthy['bumpedPackages']
   packages?: Array<{ name: string, version: string }>
-  version: string
+  version?: string
   rootPackageName?: string
 }): string[] {
   if (bumpedPackages.length > 0) {
@@ -143,7 +145,7 @@ function buildInstallPackages({
     return packages.map(p => `${p.name}@${p.version}`)
   }
 
-  if (rootPackageName) {
+  if (rootPackageName && version) {
     return [`${rootPackageName}@${version}`]
   }
 
@@ -189,6 +191,37 @@ function buildInstallLines({
   return lines
 }
 
+/**
+ * Install commands for the published packages only: private packages are
+ * never published, so they never get one.
+ */
+function buildPublishedInstallLines({
+  config,
+  bumpedPackages,
+  packages,
+  version,
+  distTag,
+}: {
+  config: ResolvedRelizyConfig
+  bumpedPackages: BumpResultTruthy['bumpedPackages']
+  packages?: Array<{ name: string, version: string, private: boolean }>
+  version?: string
+  distTag?: string
+}): string[] {
+  const publishedBumpedPackages = filterOutPrivatePackages(bumpedPackages)
+  const publishedPackages = packages && filterOutPrivatePackages(packages)
+  // The project name stands for a single-package repository only: never
+  // fall back to it when the packages exist but are all private.
+  const hasNoPackages = bumpedPackages.length === 0 && !packages?.length
+  const rootPackageName = hasNoPackages ? config.projectName : undefined
+
+  const installCmd = getInstallCommand(config.publish?.packageManager)
+  const installPkgs = buildInstallPackages({ bumpedPackages: publishedBumpedPackages, packages: publishedPackages, version, rootPackageName })
+  const pkgNames = resolvePackageNames(publishedBumpedPackages, publishedPackages, rootPackageName)
+
+  return buildInstallLines({ installCmd, installPkgs, distTag, pkgNames })
+}
+
 function buildSuccessComment({
   config,
   branch,
@@ -198,11 +231,17 @@ function buildSuccessComment({
   rootVersion,
 }: CommentBodyParams): string {
   const bumpResult = releaseContext?.bumpResult
-  const bumpedPackages = filterOutPrivatePackages(bumpResult?.bumpedPackages ?? [])
-  const version = bumpResult?.newVersion ?? rootVersion ?? 'unknown'
+  const includePrivates = config.monorepo?.includePrivates
+  const allBumpedPackages = bumpResult?.bumpedPackages ?? []
+  const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, includePrivates)
+  const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, includePrivates)
+  // Independent mode has no global version: each package has its own,
+  // listed in the packages table below.
+  const isIndependent = config.monorepo?.versionMode === 'independent'
+  const version = isIndependent ? undefined : (bumpResult?.newVersion ?? rootVersion)
   const tags = releaseContext?.tags ?? []
-  const distTag = config.publish?.tag
-  const installCmd = getInstallCommand(config.publish?.packageManager)
+  const isPublishing = config.release.publish !== false
+  const distTag = isPublishing ? config.publish?.tag : undefined
 
   const lines: string[] = [PR_COMMENT_MARKER, '', '## 🚀 Release published', '']
 
@@ -221,12 +260,11 @@ function buildSuccessComment({
     branch,
   }))
 
-  lines.push(...buildPackageTableLines(bumpedPackages, packages))
+  lines.push(...buildPackageTableLines(bumpedPackages, listedPackages))
 
-  const installPkgs = buildInstallPackages({ bumpedPackages, packages, version, rootPackageName: config.projectName })
-  const pkgNames = resolvePackageNames(bumpedPackages, packages, config.projectName)
-
-  lines.push(...buildInstallLines({ installCmd, installPkgs, distTag, pkgNames }))
+  if (isPublishing) {
+    lines.push(...buildPublishedInstallLines({ config, bumpedPackages: allBumpedPackages, packages, version, distTag }))
+  }
 
   return lines.join('\n')
 }
@@ -294,8 +332,8 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
   const date = getFormattedDate()
 
   // For standalone CLI (no releaseContext), read packages from disk as fallback
-  let packages: Array<{ name: string, version: string }> = []
-  let rootVersion = 'unknown'
+  let packages: Array<{ name: string, version: string, private: boolean }> = []
+  let rootVersion: string | undefined
 
   if (!options.releaseContext) {
     const rootPackage = readPackageJson(config.cwd)
@@ -304,14 +342,14 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
     }
     rootVersion = rootPackage.version
 
-    const readPkgs = filterOutPrivatePackages(readPackages({
+    const readPkgs = readPackages({
       cwd: config.cwd,
       patterns: config.monorepo?.packages,
       ignorePackageNames: config.monorepo?.ignorePackageNames,
       ignored: config.monorepo?.ignored,
       includePrivates: config.monorepo?.includePrivates,
-    }))
-    packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version }))
+    })
+    packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version, private: pkg.private }))
   }
 
   const body = buildCommentBody({

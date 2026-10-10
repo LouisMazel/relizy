@@ -17,6 +17,7 @@ vi.mock('../../core', async () => {
     getCurrentGitBranch: vi.fn(),
     PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
     // Use the real collectPackageBumps so the package table renders in tests
     collectPackageBumps: actual.collectPackageBumps,
     // Real implementation so the metadata "from" version is derived from fromTag
@@ -499,6 +500,113 @@ describe('Given buildCommentBody', () => {
       // previous stable release, never the beta.
       expect(body).toContain('`6.15.0` → `6.16.0`')
       expect(body).not.toContain('6.16.0-beta.5')
+    })
+  })
+
+  describe('When the release is in independent mode with private packages', () => {
+    const independentContext = {
+      status: 'success' as const,
+      bumpResult: {
+        bumped: true as const,
+        bumpedPackages: [
+          { name: '@scope/web', oldVersion: '0.0.0', newVersion: '0.1.0', version: '0.1.0', path: '/web', private: true, fromTag: '__NEW_PACKAGE__', commits: [], dependencies: [] },
+          { name: '@scope/lib', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', path: '/lib', private: false, fromTag: '@scope/lib@1.0.0', commits: [], dependencies: [] },
+        ],
+      },
+      tags: ['@scope/web@0.1.0', '@scope/lib@1.1.0'],
+    }
+
+    function createIndependentConfig(overrides: Parameters<typeof createMockConfig>[0] = {}) {
+      return createMockConfig({
+        prComment: { mode: 'append' },
+        publish: { packageManager: 'pnpm' },
+        projectName: 'my-project',
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        ...overrides,
+      })
+    }
+
+    it('Then omits the global version line since each package has its own', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        config: createIndependentConfig(),
+        releaseContext: independentContext,
+      })
+
+      expect(body).not.toContain('**Version**')
+      expect(body).not.toContain('unknown')
+    })
+
+    it('Then lists private packages in the packages table when includePrivates is enabled', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        config: createIndependentConfig(),
+        releaseContext: independentContext,
+      })
+
+      expect(body).toContain('| `@scope/web` | `0.0.0` → `0.1.0` |')
+      expect(body).toContain('| `@scope/lib` | `1.0.0` → `1.1.0` |')
+    })
+
+    it('Then only shows install commands for public packages', () => {
+      const body = buildCommentBody({
+        ...baseParams,
+        config: createIndependentConfig(),
+        releaseContext: independentContext,
+      })
+
+      expect(body).toContain('pnpm add @scope/lib@1.1.0')
+      expect(body).not.toContain('pnpm add @scope/web')
+    })
+  })
+
+  describe('When publishing is disabled', () => {
+    it('Then omits the installation section and the dist-tag', () => {
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+        publish: { packageManager: 'pnpm', tag: 'beta' },
+        projectName: 'my-lib',
+        release: { publish: false },
+      })
+      const body = buildCommentBody({
+        ...baseParams,
+        config,
+        rootVersion: '1.0.0',
+      })
+
+      expect(body).toContain('`1.0.0`')
+      expect(body).not.toContain('Installation')
+      expect(body).not.toContain('pnpm add')
+      expect(body).not.toContain('Dist-tag')
+    })
+  })
+
+  describe('When every released package is private', () => {
+    it('Then does not fall back to an install command for the project name', () => {
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+        publish: { packageManager: 'pnpm' },
+        projectName: 'my-project',
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+      })
+      const body = buildCommentBody({
+        ...baseParams,
+        config,
+        releaseContext: {
+          status: 'success',
+          bumpResult: {
+            bumped: true,
+            bumpedPackages: [
+              { name: '@scope/web', oldVersion: '0.0.0', newVersion: '0.1.0', version: '0.1.0', path: '/web', private: true, fromTag: '__NEW_PACKAGE__', commits: [], dependencies: [] },
+            ],
+          },
+          tags: ['@scope/web@0.1.0'],
+        },
+      })
+
+      expect(body).toContain('`@scope/web`')
+      expect(body).not.toContain('Installation')
+      expect(body).not.toContain('my-project@')
     })
   })
 
