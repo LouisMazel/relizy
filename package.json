@@ -110,7 +110,7 @@
     "@commitlint/cz-commitlint": "^21.2.3",
     "@commitlint/types": "^21.2.3",
     "@maz-ui/eslint-config": "5.0.0-beta.43",
-    "@slack/web-api": "8.1.1",
+    "@slack/web-api": "8.2.0",
     "@types/micromatch": "^4.0.10",
     "@types/node": "^26.6.2",
     "@types/semver": "^7.8.0",
