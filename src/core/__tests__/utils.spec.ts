@@ -2,7 +2,7 @@ import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
+import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
 
 vi.mock('../repo', () => ({
   getPackages: vi.fn().mockResolvedValue([
@@ -859,6 +859,26 @@ describe('Given filterOutPrivatePackages function', () => {
         { name: 'b', private: false },
       ]
       expect(filterOutPrivatePackages(packages)).toEqual(packages)
+    })
+  })
+})
+
+describe('Given filterPrivatePackagesUnlessIncluded function', () => {
+  const packages = [
+    { name: 'a', private: false },
+    { name: 'b', private: true },
+  ]
+
+  describe('When includePrivates is enabled', () => {
+    it('Then keeps private packages', () => {
+      expect(filterPrivatePackagesUnlessIncluded(packages, true)).toEqual(packages)
+    })
+  })
+
+  describe('When includePrivates is disabled or not set', () => {
+    it('Then removes private packages', () => {
+      expect(filterPrivatePackagesUnlessIncluded(packages, false)).toEqual([{ name: 'a', private: false }])
+      expect(filterPrivatePackagesUnlessIncluded(packages, undefined)).toEqual([{ name: 'a', private: false }])
     })
   })
 })
