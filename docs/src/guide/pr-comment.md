@@ -35,12 +35,16 @@ Relizy generates different comments depending on the release outcome:
 
 When the release succeeds, the comment includes:
 
-- Version transition (e.g., `1.0.0 → 1.1.0`)
+- Version transition (e.g., `1.0.0 → 1.1.0`), except in `independent` mode where each package has its own version in the package table
 - Git tags created
 - Dist-tag used
 - Date and branch
-- Package table with version transitions
+- Package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled)
 - Installation commands for each package manager
+
+::: info Projects that publish nothing
+Installation commands are only shown for packages that are actually published: they are omitted when `release.publish` is `false`, and never shown for private packages. See [Private Projects & Apps](/guide/private-projects).
+:::
 
 Example:
 

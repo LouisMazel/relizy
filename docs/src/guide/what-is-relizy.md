@@ -108,6 +108,22 @@ my-project/
 
 Relizy automatically handles dependency updates when one package depends on another.
 
+### Private Apps and Internal Projects
+
+Relizy is not only for packages published to npm. Web apps, APIs, workers and internal monorepos get the same versions, changelogs, git tags and GitHub/GitLab releases, with publishing turned off:
+
+```text
+my-platform/
+├── apps/
+│   ├── web/        (private)
+│   └── api/        (private)
+├── packages/
+│   └── shared/     (private)
+└── relizy.config.ts
+```
+
+Nothing is ever published: private packages are always skipped by the publish step. Learn more in [Private Projects & Apps](/guide/private-projects).
+
 ### Single Package Projects
 
 Works just as well for simple single-package projects:
@@ -148,6 +164,7 @@ Relizy is perfect for:
 - 👥 **Teams** following Conventional Commits
 - 📦 **Monorepo maintainers** managing multiple packages
 - 🔧 **Library authors** publishing to npm
+- 🔒 **Product teams** versioning private apps and services that are never published
 - 🤖 **DevOps engineers** building CI/CD pipelines
 - 🚀 **Projects** that want automated, consistent releases
 

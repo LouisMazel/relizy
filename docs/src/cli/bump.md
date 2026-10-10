@@ -86,7 +86,7 @@ relizy bump --minor --include-private
 
 This is equivalent to setting `monorepo.includePrivates: true` in
 `relizy.config.ts`. Private packages participate in version bumping but are
-still excluded from `publish` and `provider-release`. See
+never published. See
 [Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
 
 ## Examples
