@@ -1,5 +1,31 @@
 # Changelog
 
+## v1.7.0 (2026-10-10)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.6.0...v1.7.0)
+
+### 🚀 Features
+
+- Create GitHub and GitLab releases for private packages when `includePrivates` is enabled ([02d7c47](https://github.com/LouisMazel/relizy/commit/02d7c47))
+
+  Private packages versioned with `monorepo.includePrivates: true` now get their own GitHub or GitLab release in `independent` mode, next to their git tag. They are still never published to a registry.
+
+### 🩹 Fixes
+
+- Render a working compare link and title for new packages in the changelog ([a1e6c03](https://github.com/LouisMazel/relizy/commit/a1e6c03))
+- Read commits of a new package created in the repository root commit ([6700387](https://github.com/LouisMazel/relizy/commit/6700387))
+- Hide install commands and the unknown version in PR comments when nothing is published ([9ad58f1](https://github.com/LouisMazel/relizy/commit/9ad58f1))
+
+  The installation section is omitted when `release.publish` is `false` and never lists private packages. In `independent` mode, the global version line is replaced by the packages table, which also lists private packages when `monorepo.includePrivates` is enabled.
+
+### 📖 Documentation
+
+- **docs:** Document versioning private projects without publishing ([a825dab](https://github.com/LouisMazel/relizy/commit/a825dab))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.7.0-beta.0 (2026-10-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.6.0...v1.7.0-beta.0)
