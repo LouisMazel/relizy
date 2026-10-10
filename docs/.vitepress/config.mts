@@ -208,6 +208,7 @@ export default defineConfig({
           { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Installation', link: '/guide/installation' },
+          { text: 'Private Projects & Apps', link: '/guide/private-projects' },
           { text: 'Version Modes', link: '/guide/version-modes' },
           { text: 'Dependency Management', link: '/guide/dependency-management' },
           { text: 'Changelog Generation', link: '/guide/changelog' },
@@ -298,6 +299,7 @@ export default defineConfig({
             { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Private Projects & Apps', link: '/guide/private-projects' },
           ],
         },
         {

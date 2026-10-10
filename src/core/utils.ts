@@ -217,6 +217,18 @@ export function filterOutPrivatePackages<T extends { private: boolean }>(package
   return packages.filter(p => !p.private)
 }
 
+/**
+ * Keep private packages only when `monorepo.includePrivates` is enabled. They
+ * are then versioned and tagged like public ones, so they also get provider
+ * releases and appear in PR comments. Publishing ignores them regardless.
+ */
+export function filterPrivatePackagesUnlessIncluded<T extends { private: boolean }>(
+  packages: T[],
+  includePrivates: boolean | undefined,
+): T[] {
+  return includePrivates ? packages : filterOutPrivatePackages(packages)
+}
+
 export async function getPackagesOrBumpedPackages({
   config,
   bumpResult,

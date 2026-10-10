@@ -22,6 +22,10 @@ hero:
     alt: Relizy Logo
 
 features:
+  - icon: 🔒
+    title: Private Projects Too
+    details: Not only for npm packages. Version your private apps, services and internal monorepos with changelogs, git tags and GitHub or GitLab releases, without publishing anything.
+    link: /guide/private-projects
   - icon: ✨
     title: AI-Enhanced Changelogs
     details: Optional Claude-powered rewrite of release notes, Twitter, and Slack posts. Preserves references, compare links, and contributors — never invents changes.
@@ -79,10 +83,31 @@ Managing releases in modern JavaScript projects, especially monorepos, can be te
 
 - 📦 Monorepos with multiple packages
 - 🎯 Single package projects
+- 🔒 Private apps and internal projects that are never published
 - 🤖 Automated CI/CD pipelines
 - 👥 Teams following Conventional Commits
 
 Relizy brings powerful release automation with a delightful developer experience.
+
+## Not Just for npm Packages
+
+Your web app, your API, your worker or your internal monorepo deserve proper releases too. Relizy versions **private projects** exactly like published libraries: version bumps, changelogs, git tags, GitHub or GitLab releases and PR comments. Turn publishing off and nothing ever leaves your repository.
+
+```ts
+// relizy.config.ts
+export default defineConfig({
+  monorepo: {
+    versionMode: 'independent',
+    packages: ['apps/*', 'packages/*'],
+    includePrivates: true,
+  },
+  release: {
+    publish: false,
+  },
+})
+```
+
+Every deploy gets a version you can tag, ship and roll back to, with release notes your whole team can read. [Version your private projects →](/guide/private-projects)
 
 ## Run your first release
 
@@ -111,7 +136,7 @@ That's it! Relizy will:
 - ✅ Bump the version in package.json
 - ✅ Generate a beautiful changelog
 - ✅ Create a git commit and tag
-- ✅ Publish to npm
+- ✅ Publish to npm (optional, private projects never publish)
 - ✅ Create a GitHub or GitLab release
 - ✅ Social media posts (X & Slack)
 - ✅ Post a comment on your PR/MR

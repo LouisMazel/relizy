@@ -9,7 +9,7 @@ import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
-import { filterOutPrivatePackages, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
+import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { isPrerelease } from './version'
 
 export interface GitlabRelease {
@@ -135,13 +135,13 @@ async function gitlabIndependentMode({
 }): Promise<PostedRelease[]> {
   logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
 
-  const packages = filterOutPrivatePackages(await getPackagesOrBumpedPackages({
+  const packages = filterPrivatePackagesUnlessIncluded(await getPackagesOrBumpedPackages({
     config,
     bumpResult,
     suffix,
     force,
     dryRun,
-  }))
+  }), config.monorepo?.includePrivates)
 
   logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
 

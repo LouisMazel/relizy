@@ -7,8 +7,8 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
-import { getPackageCommits } from './repo'
-import { getIndependentTag } from './tags'
+import { getNewPackageCompareBase, getPackageCommits } from './repo'
+import { getIndependentTag, NEW_PACKAGE_MARKER } from './tags'
 import { executeHook } from './utils'
 
 /**
@@ -50,16 +50,21 @@ function resolveSections(include?: ChangelogInclude): ResolvedSections {
  *   and the compare link. Defaults to the templated future tag (e.g.
  *   `v1.5.0`) so users see the new version they're about to publish.
  *
- * For first-release scenarios (no prior tag), `displayFromTag` is
- * substituted with `v0.0.0` (or its independent-mode equivalent) so the
- * title and compare link still look meaningful.
+ * - `compareFromRef`: `from` ref of the compare link. Same as
+ *   `displayFromTag`, except for a new package where it is the commit
+ *   preceding the package's first commit. Null when no link can be built.
+ *
+ * For first-release scenarios (no prior tag, or a new package flagged with
+ * `NEW_PACKAGE_MARKER`), `displayFromTag` is substituted with `v0.0.0` (or
+ * its independent-mode equivalent) so the title still looks meaningful and
+ * the internal marker never leaks into the output.
  */
 function resolveChangelogTags({
   pkg,
   config,
   newVersion,
 }: {
-  pkg: { name: string, fromTag?: string }
+  pkg: { name: string, path: string, fromTag?: string }
   config: ResolvedRelizyConfig
   newVersion: string
 }): {
@@ -67,6 +72,7 @@ function resolveChangelogTags({
   gitToRef: string
   displayFromTag: string
   displayToTag: string
+  compareFromRef: string | null
   isFirstCommit: boolean
 } {
   const isIndependent = config.monorepo?.versionMode === 'independent'
@@ -75,13 +81,19 @@ function resolveChangelogTags({
     || pkg.fromTag
     || getFirstCommit(config.cwd)
 
-  const isFirstCommit = gitFromRef === getFirstCommit(config.cwd)
+  const isNewPackage = gitFromRef === NEW_PACKAGE_MARKER
+  const isFirstCommit = !isNewPackage && gitFromRef === getFirstCommit(config.cwd)
 
-  const displayFromTag = isFirstCommit
+  const displayFromTag = isFirstCommit || isNewPackage
     ? (isIndependent
         ? getIndependentTag({ version: '0.0.0', name: pkg.name })
         : config.templates.tagBody.replace('{{newVersion}}', '0.0.0'))
     : gitFromRef
+
+  // The marker is not a git ref: point the compare link at a real commit.
+  const compareFromRef = isNewPackage
+    ? getNewPackageCompareBase(pkg.path, config.cwd)
+    : displayFromTag
 
   // The release tag does not exist yet at changelog time (it is created in
   // the commit & tag step). Use the current git ref for `git log` so the
@@ -97,7 +109,7 @@ function resolveChangelogTags({
     throw new Error(`No tag found for ${pkg.name}`)
   }
 
-  return { gitFromRef, gitToRef, displayFromTag, displayToTag, isFirstCommit }
+  return { gitFromRef, gitToRef, displayFromTag, displayToTag, compareFromRef, isFirstCommit }
 }
 
 function renderTitle({
@@ -122,6 +134,7 @@ async function renderChangelogParts({
   config,
   fromTag,
   toTag,
+  compareFromRef,
   isFirstCommit,
   sections,
   minify,
@@ -131,6 +144,7 @@ async function renderChangelogParts({
   config: ResolvedRelizyConfig
   fromTag: string
   toTag: string
+  compareFromRef: string | null
   isFirstCommit: boolean
   sections: ResolvedSections
   minify?: boolean
@@ -142,8 +156,8 @@ async function renderChangelogParts({
     parts.push(renderTitle({ fromTag, toTag, config }))
   }
 
-  if (sections.compareLink && !minify) {
-    const compareLink = buildCompareLink({ config, from: fromTag, to: toTag, isFirstCommit })
+  if (sections.compareLink && !minify && compareFromRef) {
+    const compareLink = buildCompareLink({ config, from: compareFromRef, to: toTag, isFirstCommit })
     if (compareLink) {
       parts.push(compareLink)
     }
@@ -214,7 +228,7 @@ export async function generateChangelog(
   },
 ) {
   const sections = resolveSections(include)
-  const { gitFromRef, gitToRef, displayFromTag, displayToTag, isFirstCommit }
+  const { gitFromRef, gitToRef, displayFromTag, displayToTag, compareFromRef, isFirstCommit }
     = resolveChangelogTags({ pkg, config, newVersion })
 
   logger.debug(`Generating changelog for ${pkg.name} - git ${gitFromRef}..${gitToRef} - display ${displayFromTag}...${displayToTag}`)
@@ -239,6 +253,7 @@ export async function generateChangelog(
       config: displayConfig,
       fromTag: displayFromTag,
       toTag: displayToTag,
+      compareFromRef,
       isFirstCommit,
       sections,
       minify,
