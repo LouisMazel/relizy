@@ -27,6 +27,9 @@ interface AIConfig {
       oauthToken?: string
       model?: string
     }
+    'ai-sdk'?: {
+      model: LanguageModel
+    }
   }
   language?: string
   fallback?: 'raw' | 'fail'
@@ -60,7 +63,7 @@ Relizy ships with sensible defaults that you can override selectively.
 
 ## `provider`
 
-- **Type:** `'claude-code'`
+- **Type:** `'claude-code' | 'ai-sdk`
 - **Default:** `'claude-code'`
 
 The AI provider to use. Today only `'claude-code'` ships with Relizy, powered
@@ -68,6 +71,44 @@ by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk).
 It requires both the SDK package (`pnpm add -D @yoloship/claude-sdk`) and the
 `claude` CLI binary on `PATH` (`npm install -g @anthropic-ai/claude-code`).
 The provider layer is pluggable — see [Adding a new provider](#adding-a-new-ai-provider).
+
+## `provider`
+
+- **Type:** `'claude-code' | 'ai-sdk'`
+- **Default:** `'claude-code'`
+
+The AI provider to use. Relizy currently supports two providers: `claude-code` and `ai-sdk`.
+
+The provider layer is pluggable, so additional AI providers can be added in the future. See [Adding a new AI provider](#adding-a-new-ai-provider).
+
+### `claude-code`
+
+The `claude-code` provider is powered by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk). It requires both the SDK package and the `claude` CLI binary to be available on your `PATH`:
+
+```bash
+pnpm add -D @yoloship/claude-sdk
+npm install -g @anthropic-ai/claude-code
+```
+
+### `ai-sdk`
+
+The `ai-sdk` provider uses the [Vercel AI SDK](https://ai-sdk.dev/) and can be configured to use [AI SDK-compatible models and providers](https://ai-sdk.dev/providers/ai-sdk-providers).
+
+Install the required package(s) for your chosen AI SDK provider, then configure Relizy with `provider: 'ai-sdk'`.
+
+Examples:
+
+- Google
+
+```bash
+pnpm add -D ai @ai-sdk/google
+```
+
+- OpenAI
+
+```bash
+pnpm add -D ai @ai-sdk/openai
+```
 
 ## `providers['claude-code']`
 
@@ -109,7 +150,54 @@ export default defineConfig({
 })
 ```
 
+## `providers['ai-sdk']`
+
+### `model`
+
+- **Type:** `LanguageModel`
+- **Default:** `undefined`
+
+A provider language model instance which can be a:
+
+- Default instance:
+
+```ts
+import { google } from '@ai-sdk/google'
+
+export default defineConfig({
+  ai: {
+    providers: {
+      'ai-sdk': { model: google('gemini-2.5-flash') },
+    },
+  },
+})
+```
+
+or
+
+- Custom instance:
+
+```ts
+import { createGoogle } from '@ai-sdk/google'
+
+const google = createGoogle({
+  // custom settings
+})
+
+export default defineConfig({
+  ai: {
+    providers: {
+      'ai-sdk': { model: google('gemini-2.5-flash') },
+    },
+  },
+})
+```
+
+The settings API for custom instances vary by provider so check your [provider documentation](https://ai-sdk.dev/providers/ai-sdk-providers) for in-depth information
+
 ## Credential resolution
+
+### `claude-code`
 
 Credentials are resolved in this order; the **first match wins**:
 
@@ -143,6 +231,15 @@ export default defineConfig({
 // Option 3 (recommended for CI): env var only, no config needed
 // export RELIZY_ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+### `ai-sdk`
+
+For Vercel's AI SDKs credentials are not managed by relizy but by your selected provider.
+
+This credentials can be injected by default through default instanced models via default env keys or manually through custom instanced models which falls back to
+the default env keys when missing.
+
+Read on your [selected provider](https://ai-sdk.dev/providers/ai-sdk-providers) for better information how to setup its credentials.
 
 ## `language`
 

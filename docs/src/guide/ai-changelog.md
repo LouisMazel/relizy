@@ -48,6 +48,10 @@ before. You can also toggle AI per-target or globally via the CLI.
 
 ## Setup
 
+By default relizy uses Claude Code for AI changelogs.
+
+For how to set up and manage other providers or SDKs read [AI Config](/config/ai)
+
 ### 1. Install the Claude SDK
 
 It's an optional peer dependency — you only need it when AI is enabled.

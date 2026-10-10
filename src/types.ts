@@ -1,4 +1,5 @@
 import type { LogLevel } from '@maz-ui/node'
+import type { LanguageModel } from 'ai'
 import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
@@ -871,7 +872,7 @@ export interface SlackSocialConfig {
   noPackages?: boolean
 }
 
-export type AIProviderName = 'claude-code'
+export type AIProviderName = 'claude-code' | 'ai-sdk'
 
 export interface ClaudeCodeProviderOptions {
   /**
@@ -889,6 +890,14 @@ export interface ClaudeCodeProviderOptions {
    * @default 'haiku'
    */
   model?: string
+}
+
+export interface AiSdkProviderOptions {
+  /**
+   * The provider language model instance
+   * @see https://ai-sdk.dev/providers/ai-sdk-providers
+   */
+  model: LanguageModel
 }
 
 export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
@@ -924,6 +933,7 @@ export interface AIConfig {
    */
   providers?: {
     'claude-code'?: ClaudeCodeProviderOptions
+    'ai-sdk'?: AiSdkProviderOptions
   }
   /**
    * Output language (ISO 639-1 code or plain English name).
