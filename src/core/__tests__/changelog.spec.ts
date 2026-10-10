@@ -8,7 +8,7 @@ import { createMockCommit, createMockConfig, createMockPackageInfo } from '../..
 import { getFirstCommit, getIndependentTag } from '../../core'
 import { generateChangelog, writeChangelogToFile } from '../changelog'
 import { buildChangelogBody, buildCompareLink, buildContributors } from '../markdown'
-import { getPackageCommits } from '../repo'
+import { getNewPackageCompareBase, getPackageCommits } from '../repo'
 import { executeHook } from '../utils'
 
 vi.mock('node:fs')
@@ -27,6 +27,7 @@ vi.mock('../markdown', () => ({
 }))
 vi.mock('../repo', () => ({
   getPackageCommits: vi.fn(() => Promise.resolve([] as GitCommit[])),
+  getNewPackageCompareBase: vi.fn(() => null),
 }))
 vi.mock('../utils', async () => {
   const actual = await vi.importActual('../utils')
@@ -43,6 +44,7 @@ vi.mock('../git', () => {
 })
 vi.mock('../tags', () => {
   return {
+    NEW_PACKAGE_MARKER: '__NEW_PACKAGE__',
     getIndependentTag: vi.fn(),
   }
 })
@@ -218,6 +220,75 @@ describe('Given generateChangelog function', () => {
         version: '0.0.0',
         name: 'pkg-a',
       })
+    })
+  })
+
+  describe('When generating for a new package (no previous tag)', () => {
+    beforeEach(() => {
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      vi.mocked(getIndependentTag).mockImplementation(({ version, name }) => `${name}@${version}`)
+    })
+
+    it('Then never renders the internal marker in the title', async () => {
+      vi.mocked(getNewPackageCompareBase).mockReturnValueOnce('parent456')
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a', fromTag: '__NEW_PACKAGE__' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '0.1.0',
+      })
+
+      expect(result).toContain('## pkg-a@0.0.0...pkg-a@0.1.0')
+      expect(result).not.toContain('__NEW_PACKAGE__')
+    })
+
+    it('Then builds the compare link from the commit preceding the package first commit', async () => {
+      vi.mocked(getNewPackageCompareBase).mockReturnValueOnce('parent456')
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a', fromTag: '__NEW_PACKAGE__' }
+
+      await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '0.1.0',
+      })
+
+      expect(getNewPackageCompareBase).toHaveBeenCalledWith('/p/pkg-a', config.cwd)
+      expect(buildCompareLink).toHaveBeenCalledWith(
+        expect.objectContaining({ from: 'parent456', to: 'pkg-a@0.1.0', isFirstCommit: false }),
+      )
+    })
+
+    it('Then omits the compare link when no base commit can be resolved', async () => {
+      vi.mocked(getNewPackageCompareBase).mockReturnValueOnce(null)
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a', fromTag: '__NEW_PACKAGE__' }
+
+      const result = await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '0.1.0',
+      })
+
+      expect(buildCompareLink).not.toHaveBeenCalled()
+      expect(result).not.toContain('[compare](url)')
+    })
+
+    it('Then still passes the marker to getPackageCommits to scope the git range', async () => {
+      const pkg = { name: 'pkg-a', path: '/p/pkg-a', fromTag: '__NEW_PACKAGE__' }
+
+      await generateChangelog({
+        pkg,
+        config,
+        dryRun: false,
+        newVersion: '0.1.0',
+      })
+
+      expect(getPackageCommits).toHaveBeenCalledWith(
+        expect.objectContaining({ from: '__NEW_PACKAGE__' }),
+      )
     })
   })
 
