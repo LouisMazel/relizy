@@ -48,6 +48,8 @@ before. You can also toggle AI per-target or globally via the CLI.
 
 ## Setup
 
+Relizy uses Claude Code by default. To use another model through the Vercel AI SDK (OpenAI, Google, Mistral, ...), see the [`ai-sdk` provider](/config/ai#ai-sdk).
+
 ### 1. Install the Claude SDK
 
 It's an optional peer dependency — you only need it when AI is enabled.

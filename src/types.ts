@@ -1,4 +1,5 @@
 import type { LogLevel } from '@maz-ui/node'
+import type { CallSettings, LanguageModel } from 'ai'
 import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
@@ -871,7 +872,7 @@ export interface SlackSocialConfig {
   noPackages?: boolean
 }
 
-export type AIProviderName = 'claude-code'
+export type AIProviderName = 'claude-code' | 'ai-sdk'
 
 export interface ClaudeCodeProviderOptions {
   /**
@@ -889,6 +890,20 @@ export interface ClaudeCodeProviderOptions {
    * @default 'haiku'
    */
   model?: string
+}
+
+export interface AiSdkProviderOptions {
+  /**
+   * Language model: an instance from a provider package (e.g. `openai('gpt-5-mini')`
+   * from `@ai-sdk/openai`), or a model id of the Vercel AI Gateway (e.g. `'openai/gpt-5-mini'`).
+   * @see https://ai-sdk.dev/providers/ai-sdk-providers
+   */
+  model: LanguageModel
+  /**
+   * Reasoning effort, for the models that support it.
+   * Not sent when unset: the default of the provider applies.
+   */
+  reasoning?: CallSettings['reasoning']
 }
 
 export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
@@ -924,6 +939,7 @@ export interface AIConfig {
    */
   providers?: {
     'claude-code'?: ClaudeCodeProviderOptions
+    'ai-sdk'?: AiSdkProviderOptions
   }
   /**
    * Output language (ISO 639-1 code or plain English name).

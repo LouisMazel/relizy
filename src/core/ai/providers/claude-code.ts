@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from '../../config'
 import type { AIGenerateRequest, AIProvider } from '../provider'
 import { spawnSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
+import { wrapChangelogPrompt } from '../prompts'
 
 function claudeBinaryAvailable(): boolean {
   try {
@@ -63,13 +64,11 @@ export const claudeCodeProvider: AIProvider = {
     const auth = resolveAuth(config)
     const model = config.ai?.providers?.['claude-code']?.model
 
-    const wrappedPrompt = `<changelog>\n${request.prompt}\n</changelog>\n\nRewrite the content inside the <changelog> tag per the rules in the system prompt. Output ONLY the rewritten content, with no preamble, no explanation, no surrounding tags.`
-
     const hasAuth = !!(auth.apiKey || auth.oauthToken)
     const result = await claudeRun(
       {
         systemPrompt: request.systemPrompt,
-        prompt: wrappedPrompt,
+        prompt: wrapChangelogPrompt(request.prompt),
         maxTurns: 1,
         effort: 'low',
         disableSlashCommands: true,
