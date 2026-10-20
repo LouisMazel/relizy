@@ -2,6 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ReadPackage, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
+import * as semver from 'semver'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { extractVersionFromTag, isGraduating, isGraduatingToStableBetweenVersion, isPrerelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from './version'
 
@@ -11,7 +12,7 @@ export function getIndependentTag({ version, name }: { version: string, name: st
 
 export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
   const { stdout } = await execPromise(
-    `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
+    `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
     {
       logLevel,
       noStderr: true,
@@ -118,6 +119,31 @@ async function getAllRecentPackageTags({
   }
 }
 
+const NEW_VERSION_PLACEHOLDER = '{{newVersion}}'
+
+/**
+ * Returns the version of a repository tag built from `templates.tagBody` (e.g. `v{{newVersion}}`),
+ * or null when the tag does not follow the template. This keeps the tags of other packages
+ * (e.g. `@scope/pkg@1.2.3` from an independent release in the same repository) out of the
+ * repository range.
+ */
+export function extractVersionFromRepoTag(tag: string, tagBody: string): string | null {
+  const index = tagBody.indexOf(NEW_VERSION_PLACEHOLDER)
+
+  if (index === -1) {
+    return null
+  }
+
+  const prefix = tagBody.slice(0, index)
+  const suffix = tagBody.slice(index + NEW_VERSION_PLACEHOLDER.length)
+
+  if (!tag.startsWith(prefix) || !tag.endsWith(suffix) || tag.length <= prefix.length + suffix.length) {
+    return null
+  }
+
+  return semver.valid(tag.slice(prefix.length, tag.length - suffix.length))
+}
+
 /**
  * Filters tags based on compatibility criteria:
  * 1. Filters out prerelease tags if onlyStable is true
@@ -127,14 +153,16 @@ function filterCompatibleTags({
   tags,
   pkg,
   onlyStable,
+  extractVersion = tag => extractVersionFromTag(tag, pkg.name),
 }: {
   tags: string[]
   pkg: ReadPackage
   onlyStable: boolean
+  extractVersion?: (tag: string) => string | null
 }): string[] {
   const filtered = tags.filter((tag) => {
     // Extract version from tag
-    const tagVersion = extractVersionFromTag(tag, pkg.name)
+    const tagVersion = extractVersion(tag)
 
     if (!tagVersion) {
       logger.debug(`Skipping tag ${tag}: cannot extract version`)
@@ -165,6 +193,8 @@ function filterCompatibleTags({
 export function getLastRepoTag(options?: {
   onlyStable?: boolean
   pkg?: ReadPackage
+  /** Template of the repository tags (`templates.tagBody`): only the tags following it are considered. */
+  tagBody?: string
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
@@ -173,6 +203,7 @@ export function getLastRepoTag(options?: {
     return getLastRepoTagWithFiltering({
       pkg: options.pkg,
       onlyStable: options.onlyStable ?? false,
+      tagBody: options.tagBody,
       logLevel: options.logLevel,
       cwd: options.cwd,
     })
@@ -199,29 +230,50 @@ export function getLastRepoTag(options?: {
  * tags remain on disk while package.json was bumped manually to a stable
  * version), falls back to the most recent major-compatible tag rather than
  * treating the repo as if it had no history.
+ *
+ * With `tagBody`, only the tags following the repository tag template are
+ * considered, so a more recent tag of another package (`@scope/pkg@1.2.3`) never
+ * becomes the start of the range. When no recent tag follows the template (e.g.
+ * the template was just changed), every recent tag is considered, as before.
  */
 async function getLastRepoTagWithFiltering({
   pkg,
   onlyStable,
+  tagBody,
   logLevel,
   cwd,
 }: {
   pkg: ReadPackage
   onlyStable: boolean
+  tagBody?: string
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
-  const recentTags = await getAllRecentRepoTags({ limit: 50, logLevel, cwd })
+  const allRecentTags = await getAllRecentRepoTags({ limit: 50, logLevel, cwd })
 
-  if (recentTags.length === 0) {
+  if (allRecentTags.length === 0) {
     logger.info('No tags found in repository')
     return null
+  }
+
+  const templateTags = tagBody
+    ? allRecentTags.filter(tag => extractVersionFromRepoTag(tag, tagBody) !== null)
+    : []
+  const useTemplate = templateTags.length > 0
+  const recentTags = useTemplate ? templateTags : allRecentTags
+  const extractVersion = useTemplate && tagBody
+    ? (tag: string) => extractVersionFromRepoTag(tag, tagBody)
+    : undefined
+
+  if (tagBody && !useTemplate) {
+    logger.debug(`No recent tag follows the template "${tagBody}", considering every recent tag`)
   }
 
   const compatibleTags = filterCompatibleTags({
     tags: recentTags,
     pkg,
     onlyStable,
+    extractVersion,
   })
 
   if (compatibleTags.length > 0) {
@@ -235,6 +287,7 @@ async function getLastRepoTagWithFiltering({
       tags: recentTags,
       pkg,
       onlyStable: false,
+      extractVersion,
     })
 
     if (prereleaseFallback.length > 0) {
@@ -437,6 +490,7 @@ async function resolveFromTagUnified({
   const lastRepoTag = await getLastRepoTag({
     pkg,
     onlyStable,
+    tagBody: config.templates.tagBody,
     logLevel,
     cwd: config.cwd,
   })

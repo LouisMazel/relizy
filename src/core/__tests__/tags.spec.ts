@@ -1,6 +1,6 @@
 import { execPromise } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
+import { extractVersionFromRepoTag, NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
@@ -36,7 +36,7 @@ vi.mock('@maz-ui/node', async (importActual) => {
       }
 
       // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
+      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
         return Promise.resolve({
           stdout: LAST_STABLE_TAG, // v0.9.0
         })
@@ -277,6 +277,22 @@ describe('Given resolveTags function', () => {
         expect(result.to).toBe(TEST_BRANCH)
       })
 
+      it('Then ignores a more recent tag of another package when falling back to a prerelease tag', async () => {
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-b@0.5.0\nv1.0.0-beta.1\nv1.0.0-beta.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ version: '1.0.0', path: config.cwd }),
+          newVersion: '1.0.1',
+        })
+
+        expect(result.from).toBe('v1.0.0-beta.1')
+      })
+
       it('Then falls back to first commit for the root package when no compatible tag exists (fresh repo)', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
 
@@ -407,6 +423,45 @@ describe('Given resolveTags function', () => {
         expect(result.to).toBe(TEST_BRANCH)
       })
 
+      it('Then ignores a more recent tag of an independently released package', async () => {
+        // Reproduces the accor-core-library case: the selective release tags v6.18.0, then an
+        // independent release of another package in the same repository tags
+        // @scope/ah-navigation@1.0.0. Its major (1) is compatible with 6.18.0, so without the
+        // template filter it became the start of the next repository range and the commits
+        // between v6.18.0 and it were lost from the bump and the changelog.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: '@scope/ah-navigation@1.0.0\nv6.18.0\nv6.17.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
+      it('Then considers every recent tag when none follows the tag template', async () => {
+        // The template was just changed (e.g. from `v{{newVersion}}` to `release-{{newVersion}}`):
+        // the previous tags keep their range instead of the repository being treated as new.
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v6.18.0\nv6.17.0' } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        config.templates = { ...config.templates, tagBody: 'release-{{newVersion}}' }
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
       it('Then returns NEW_PACKAGE_MARKER for a new sub-package at 0.0.0 in selective mode', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
 
@@ -425,6 +480,32 @@ describe('Given resolveTags function', () => {
 
         expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
       })
+    })
+  })
+})
+
+describe('Given extractVersionFromRepoTag function', () => {
+  describe('When the tag follows the template', () => {
+    it('Then returns its version, prereleases included', () => {
+      expect(extractVersionFromRepoTag('v6.18.0', 'v{{newVersion}}')).toBe('6.18.0')
+      expect(extractVersionFromRepoTag('v7.0.0-beta.1', 'v{{newVersion}}')).toBe('7.0.0-beta.1')
+      expect(extractVersionFromRepoTag('release-1.2.3-final', 'release-{{newVersion}}-final')).toBe('1.2.3')
+      expect(extractVersionFromRepoTag('1.2.3', '{{newVersion}}')).toBe('1.2.3')
+    })
+  })
+
+  describe('When the tag does not follow the template', () => {
+    it('Then returns null', () => {
+      expect(extractVersionFromRepoTag('@scope/pkg@1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('pkg@1.2.3', '{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v-next@1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v', 'v{{newVersion}}')).toBeNull()
+    })
+  })
+
+  describe('When the template has no version placeholder', () => {
+    it('Then returns null', () => {
+      expect(extractVersionFromRepoTag('v1.2.3', 'latest')).toBeNull()
     })
   })
 })
