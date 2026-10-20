@@ -1,9 +1,11 @@
 import type { ResolvedRelizyConfig } from '../config'
 import type { AIProvider } from './provider'
+import { aiSdkProvider } from './providers/ai-sdk'
 import { claudeCodeProvider } from './providers/claude-code'
 
 const providers: Record<string, AIProvider> = {
   'claude-code': claudeCodeProvider,
+  'ai-sdk': aiSdkProvider,
 }
 
 export function getAIProvider(config: ResolvedRelizyConfig): AIProvider {

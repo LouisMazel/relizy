@@ -20,12 +20,16 @@ on every target) restores the original changelog output byte-for-byte.
 
 ```ts
 interface AIConfig {
-  provider?: 'claude-code'
+  provider?: 'claude-code' | 'ai-sdk'
   providers?: {
     'claude-code'?: {
       apiKey?: string
       oauthToken?: string
       model?: string
+    }
+    'ai-sdk'?: {
+      model: LanguageModel
+      reasoning?: 'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
     }
   }
   language?: string
@@ -60,14 +64,27 @@ Relizy ships with sensible defaults that you can override selectively.
 
 ## `provider`
 
-- **Type:** `'claude-code'`
+- **Type:** `'claude-code' | 'ai-sdk'`
 - **Default:** `'claude-code'`
 
-The AI provider to use. Today only `'claude-code'` ships with Relizy, powered
-by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk).
-It requires both the SDK package (`pnpm add -D @yoloship/claude-sdk`) and the
-`claude` CLI binary on `PATH` (`npm install -g @anthropic-ai/claude-code`).
-The provider layer is pluggable — see [Adding a new provider](#adding-a-new-ai-provider).
+The AI provider to use. The provider layer is pluggable, see [Adding a new AI provider](#adding-a-new-ai-provider).
+
+### `claude-code`
+
+Powered by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk). It requires both the SDK package and the `claude` CLI binary on your `PATH`:
+
+```bash
+pnpm add -D @yoloship/claude-sdk
+npm install -g @anthropic-ai/claude-code
+```
+
+### `ai-sdk`
+
+Uses any model of the [Vercel AI SDK](https://ai-sdk.dev/) (OpenAI, Google, Mistral, Anthropic, ...). Install `ai` and the package of your [provider](https://ai-sdk.dev/providers/ai-sdk-providers), then set its [`model`](#model-1):
+
+```bash
+pnpm add -D ai @ai-sdk/openai
+```
 
 ## `providers['claude-code']`
 
@@ -109,7 +126,68 @@ export default defineConfig({
 })
 ```
 
+## `providers['ai-sdk']`
+
+### `model`
+
+- **Type:** `LanguageModel`
+- **Required** with `provider: 'ai-sdk'`
+
+The model, created by the package of your provider:
+
+```ts
+import { openai } from '@ai-sdk/openai'
+
+export default defineConfig({
+  ai: {
+    provider: 'ai-sdk',
+    providers: {
+      'ai-sdk': { model: openai('gpt-5-mini') },
+    },
+  },
+})
+```
+
+To configure the provider (API key, base URL, headers), create your own instance. The options depend on the provider, see its [documentation](https://ai-sdk.dev/providers/ai-sdk-providers):
+
+```ts
+import { createOpenAI } from '@ai-sdk/openai'
+
+const openai = createOpenAI({ apiKey: process.env.MY_OPENAI_API_KEY })
+
+export default defineConfig({
+  ai: {
+    provider: 'ai-sdk',
+    providers: {
+      'ai-sdk': { model: openai('gpt-5-mini') },
+    },
+  },
+})
+```
+
+A model id of the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) also works without any provider package (e.g. `model: 'openai/gpt-5-mini'`, with the `AI_GATEWAY_API_KEY` environment variable).
+
+### `reasoning`
+
+- **Type:** `'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'`
+- **Default:** `undefined` (the default of the provider applies)
+
+Reasoning effort, for the models that support it. A lower effort makes the rewrite faster and cheaper.
+
+```ts
+export default defineConfig({
+  ai: {
+    provider: 'ai-sdk',
+    providers: {
+      'ai-sdk': { model: openai('gpt-5-mini'), reasoning: 'low' },
+    },
+  },
+})
+```
+
 ## Credential resolution
+
+### `claude-code`
 
 Credentials are resolved in this order; the **first match wins**:
 
@@ -143,6 +221,10 @@ export default defineConfig({
 // Option 3 (recommended for CI): env var only, no config needed
 // export RELIZY_ANTHROPIC_API_KEY=sk-ant-...
 ```
+
+### `ai-sdk`
+
+Relizy does not handle the credentials of the `ai-sdk` provider: the package of your provider reads them, usually from its environment variable (e.g. `OPENAI_API_KEY` for `@ai-sdk/openai`, `GOOGLE_GENERATIVE_AI_API_KEY` for `@ai-sdk/google`), or from the options of a custom instance (see [`model`](#model-1)).
 
 ## `language`
 
@@ -320,7 +402,7 @@ export default defineConfig({
 ## Adding a new AI provider
 
 The `ai` system is a small registry of providers behind a single interface.
-Adding a second provider means:
+Adding a provider means:
 
 ### 1. Implement `AIProvider`
 
