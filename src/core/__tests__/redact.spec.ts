@@ -91,6 +91,26 @@ describe('Given redactSecrets function', () => {
     })
   })
 
+  describe('When an object references one of its ancestors', () => {
+    it('Then replaces the reference instead of recursing forever, and the result is serializable', () => {
+      // e.g. a model instance of ai.providers['ai-sdk'] whose client points back to it
+      const model: Record<string, any> = { modelId: 'gpt-5-mini', config: { provider: 'openai', apiKey: 'sk-1234567890abcdef' } }
+      model.config.client = model
+
+      const result = redactSecrets({ ai: { providers: { 'ai-sdk': { model } } } }) as any
+
+      expect(result.ai.providers['ai-sdk'].model.config.client).toBe('[Circular]')
+      expect(result.ai.providers['ai-sdk'].model.config.apiKey).toBe('sk-1***cdef')
+      expect(() => JSON.stringify(result)).not.toThrow()
+    })
+
+    it('Then keeps an object referenced twice without a cycle', () => {
+      const shared = { url: 'https://example.com' }
+
+      expect(redactSecrets({ a: shared, b: [shared] })).toEqual({ a: shared, b: [shared] })
+    })
+  })
+
   describe('When empty or nullish values are present', () => {
     it('Then keeps them as-is', () => {
       const result = redactSecrets({

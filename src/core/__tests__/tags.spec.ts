@@ -1,6 +1,6 @@
 import { execPromise } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
+import { extractVersionFromRepoTag, NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
@@ -23,8 +23,8 @@ vi.mock('@maz-ui/node', async (importActual) => {
   return {
     ...actual,
     execPromise: vi.fn((param) => {
-      // Mock for getAllRecentRepoTags (returns multiple tags)
-      if (param === `git tag --sort=-creatordate | head -n 50`) {
+      // Mock for the repository tags
+      if (param === `git tag --sort=-creatordate`) {
         // Simulate a realistic scenario:
         // - v2.0.0-beta.0 (newest, prerelease, major 2 - simulates future beta)
         // - v1.0.0 (LAST_TAG, stable, major 1)
@@ -36,7 +36,7 @@ vi.mock('@maz-ui/node', async (importActual) => {
       }
 
       // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
+      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
         return Promise.resolve({
           stdout: LAST_STABLE_TAG, // v0.9.0
         })
@@ -57,6 +57,10 @@ vi.mock('@maz-ui/node', async (importActual) => {
 })
 
 describe('Given resolveTags function', () => {
+  beforeEach(() => {
+    vi.mocked(execPromise).mockClear()
+  })
+
   describe('When user provides tags', () => {
     it('Then returns user provided tags', async () => {
       const config = createMockConfig({ bump: { type: 'release' }, from: 'v1.0.0', to: 'v2.0.0', monorepo: { versionMode: 'selective' } })
@@ -185,6 +189,39 @@ describe('Given resolveTags function', () => {
 
         expect(result.from).toBe(NEW_PACKAGE_MARKER)
       })
+
+      it('Then picks the highest version of the package, not the most recent tag', async () => {
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-a@1.0.1\npkg-a@1.1.0\npkg-a@1.0.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ name: 'pkg-a', version: '1.1.0' }),
+          newVersion: '1.2.0',
+        })
+
+        expect(result.from).toBe('pkg-a@1.1.0')
+        expect(execPromise).toHaveBeenCalledWith(`git tag --list 'pkg-a@*' --sort=-creatordate`, expect.anything())
+      })
+
+      it('Then ignores the tags of another package starting with the same name', async () => {
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'pkg-a@utils@2.0.0\npkg-a@1.1.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ name: 'pkg-a', version: '1.1.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result.from).toBe('pkg-a@1.1.0')
+      })
     })
   })
 
@@ -275,6 +312,23 @@ describe('Given resolveTags function', () => {
 
         expect(result.from).toBe('v0.1.0-beta.6')
         expect(result.to).toBe(TEST_BRANCH)
+      })
+
+      it('Then ignores a more recent tag of another package matching the template glob when falling back to a prerelease tag', async () => {
+        // `vue-utils@0.5.0` is listed by `git tag --list 'v*'` but does not follow `v{{newVersion}}`
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'vue-utils@0.5.0\nv1.0.0-beta.1\nv1.0.0-beta.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const result = await resolveTags<'changelog'>({
+          config,
+          step: 'changelog',
+          pkg: createMockPackageInfo({ version: '1.0.0', path: config.cwd }),
+          newVersion: '1.0.1',
+        })
+
+        expect(result.from).toBe('v1.0.0-beta.1')
       })
 
       it('Then falls back to first commit for the root package when no compatible tag exists (fresh repo)', async () => {
@@ -407,6 +461,87 @@ describe('Given resolveTags function', () => {
         expect(result.to).toBe(TEST_BRANCH)
       })
 
+      it('Then ignores a more recent tag of another package matching the template glob', async () => {
+        // A package released independently in the same repository tagged `vue-utils@1.0.0`
+        // after `v6.18.0`: its major is compatible with 6.18.0, so it must not become the start
+        // of the repository range, otherwise the commits since `v6.18.0` are lost.
+        vi.mocked(execPromise).mockResolvedValueOnce({
+          stdout: 'vue-utils@1.0.0\nv6.18.0\nv6.17.0',
+        } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
+      it('Then lists the tags of a custom template', async () => {
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'release/6.18.0-final\nrelease/6.17.0-final' } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        config.templates = { ...config.templates, tagBody: 'release/{{newVersion}}-final' }
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'release/6.18.0-final', to: TEST_BRANCH })
+      })
+
+      it('Then still recognizes the v1.2.3 tags when the template was changed', async () => {
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: '@scope/pkg@1.0.0\nv6.18.0\nv6.17.0' } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        config.templates = { ...config.templates, tagBody: 'release-{{newVersion}}' }
+
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
+      it('Then picks the highest version, not the most recent tag', async () => {
+        // v6.17.1 is a hotfix of an older version, tagged after v6.18.0 on a maintenance branch
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v6.17.1\nv6.18.0\nv6.17.0' } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
+      it('Then ignores the tags above the current version', async () => {
+        // v6.19.0 was released from another branch that is not merged yet
+        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v6.19.0\nv6.18.0' } as any)
+
+        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const result = await resolveTags<'bump'>({
+          config,
+          step: 'bump',
+          pkg: createMockPackageInfo({ version: '6.18.0' }),
+          newVersion: undefined,
+        })
+
+        expect(result).toEqual({ from: 'v6.18.0', to: TEST_BRANCH })
+      })
+
       it('Then returns NEW_PACKAGE_MARKER for a new sub-package at 0.0.0 in selective mode', async () => {
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
 
@@ -425,6 +560,38 @@ describe('Given resolveTags function', () => {
 
         expect(result).toEqual({ from: NEW_PACKAGE_MARKER, to: TEST_BRANCH })
       })
+    })
+  })
+})
+
+describe('Given extractVersionFromRepoTag function', () => {
+  describe('When the tag follows the template', () => {
+    it('Then returns its version, prereleases included', () => {
+      expect(extractVersionFromRepoTag('v6.18.0', 'v{{newVersion}}')).toBe('6.18.0')
+      expect(extractVersionFromRepoTag('v7.0.0-beta.1', 'v{{newVersion}}')).toBe('7.0.0-beta.1')
+      expect(extractVersionFromRepoTag('release-1.2.3-final', 'release-{{newVersion}}-final')).toBe('1.2.3')
+      expect(extractVersionFromRepoTag('1.2.3', '{{newVersion}}')).toBe('1.2.3')
+    })
+  })
+
+  describe('When the tag does not follow the template', () => {
+    it('Then returns null', () => {
+      expect(extractVersionFromRepoTag('@scope/pkg@1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('pkg@1.2.3', '{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v-next@1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('vue-utils@1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('vv1.2.3', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v1.2.3', '{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('=1.2.3', '{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('v1.2', 'v{{newVersion}}')).toBeNull()
+      expect(extractVersionFromRepoTag('release-1.2.3', 'release-{{newVersion}}-final')).toBeNull()
+    })
+  })
+
+  describe('When the template has no version placeholder', () => {
+    it('Then returns null', () => {
+      expect(extractVersionFromRepoTag('v1.2.3', 'latest')).toBeNull()
     })
   })
 })

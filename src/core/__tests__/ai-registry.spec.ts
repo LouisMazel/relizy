@@ -14,10 +14,16 @@ describe('getAIProvider', () => {
     expect(provider.name).toBe('claude-code')
   })
 
+  it('returns ai-sdk provider when configured', () => {
+    const config = createMockConfig({ ai: { provider: 'ai-sdk' } })
+    const provider = getAIProvider(config)
+    expect(provider.name).toBe('ai-sdk')
+  })
+
   it('throws with available providers for unknown provider', () => {
     const config = createMockConfig({ ai: { provider: 'unknown' as any } })
     expect(() => getAIProvider(config)).toThrow('Unknown AI provider "unknown"')
-    expect(() => getAIProvider(config)).toThrow('Available providers: claude-code')
+    expect(() => getAIProvider(config)).toThrow('Available providers: claude-code, ai-sdk')
   })
 
   it('falls back to claude-code when ai config is absent', () => {

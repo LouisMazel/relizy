@@ -1,9 +1,9 @@
 ---
 title: AI-Enhanced Changelogs
-description: Use Claude to turn raw commit-based changelogs into polished release notes and social media posts.
-keywords: ai changelog, ai release notes, claude ai, ai social media, intelligent changelog, relizy ai, automated release notes
+description: Use AI (Claude Code or any Vercel AI SDK model) to turn raw commit-based changelogs into polished release notes and social media posts.
+keywords: ai changelog, ai release notes, claude ai, ai sdk, openai, gemini, ai social media, intelligent changelog, relizy ai, automated release notes
 category: Guide
-tags: [ai, changelog, release-notes, claude, social-media, automation]
+tags: [ai, changelog, release-notes, claude, ai-sdk, social-media, automation]
 ---
 
 # {{ $frontmatter.title }}
@@ -12,8 +12,9 @@ tags: [ai, changelog, release-notes, claude, social-media, automation]
 
 ## What it does
 
-Relizy can pass your commit-based changelog through Claude to produce
-cleaner, more readable content for:
+Relizy can pass your commit-based changelog through an AI model (Claude
+Code by default, or any model of the Vercel AI SDK) to produce cleaner,
+more readable content for:
 
 - **GitHub / GitLab release notes** — commits get rewritten into
   end-user-facing prose while the compare link and contributor list stay
@@ -26,7 +27,7 @@ cleaner, more readable content for:
 Under the hood, Relizy:
 
 1. Builds the raw changelog from your commits (as before).
-2. Sends **only the body** to Claude with a target-specific system prompt.
+2. Sends **only the body** to the model with a target-specific system prompt.
 3. Reassembles the final output: compare link + AI body + contributors
    (for provider releases), or pipes AI output into your template (for
    social).
@@ -48,7 +49,18 @@ before. You can also toggle AI per-target or globally via the CLI.
 
 ## Setup
 
-### 1. Install the Claude SDK
+Relizy supports two AI providers:
+
+| Provider                | Models                                                                                  | Requirements                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| `claude-code` (default) | Claude (Haiku by default)                                                               | `@yoloship/claude-sdk`, the `claude` CLI, an Anthropic credential |
+| `ai-sdk`                | Any [Vercel AI SDK](https://ai-sdk.dev/) model: OpenAI, Google, Mistral, Anthropic, ... | `ai` and the package of your provider                             |
+
+Set up one of them, then [enable AI](#enable-ai-in-your-config).
+
+### Option A: Claude Code (default)
+
+#### 1. Install the Claude SDK
 
 It's an optional peer dependency — you only need it when AI is enabled.
 
@@ -68,7 +80,7 @@ yarn add -D @yoloship/claude-sdk
 
 :::
 
-### 2. Install the `claude` CLI binary
+#### 2. Install the `claude` CLI binary
 
 The SDK spawns the `claude` CLI under the hood, so the binary must be on `PATH`.
 
@@ -90,7 +102,7 @@ In CI, add a step before running Relizy:
   run: npm install -g @anthropic-ai/claude-code
 ```
 
-### 3. Provide credentials
+#### 3. Provide credentials
 
 Export your Anthropic API key (recommended for CI):
 
@@ -111,7 +123,58 @@ export CLAUDE_CODE_OAUTH_TOKEN="..."
 Credentials can also live in your config file — see
 [Credential resolution](/config/ai#credential-resolution).
 
-### 4. Enable AI in your config
+### Option B: Vercel AI SDK
+
+#### 1. Install the AI SDK and your provider
+
+Both are optional peer dependencies, only needed when AI is enabled. Pick the [package of your provider](https://ai-sdk.dev/providers/ai-sdk-providers) (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/mistral`, ...):
+
+::: code-group
+
+```bash [pnpm]
+pnpm add -D ai @ai-sdk/openai
+```
+
+```bash [npm]
+npm install -D ai @ai-sdk/openai
+```
+
+```bash [yarn]
+yarn add -D ai @ai-sdk/openai
+```
+
+:::
+
+#### 2. Set the model
+
+```ts
+// relizy.config.ts
+import { openai } from '@ai-sdk/openai'
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  ai: {
+    provider: 'ai-sdk',
+    providers: {
+      'ai-sdk': { model: openai('gpt-5-mini') },
+    },
+  },
+})
+```
+
+Every provider works the same way, e.g. `google('gemini-2.5-flash')` from `@ai-sdk/google`. A model id of the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) also works without any provider package: `model: 'openai/gpt-5-mini'`.
+
+#### 3. Provide credentials
+
+Relizy does not handle the credentials of the AI SDK: the package of your provider reads its own environment variable, e.g. `OPENAI_API_KEY` for `@ai-sdk/openai`, `GOOGLE_GENERATIVE_AI_API_KEY` for `@ai-sdk/google`, or `AI_GATEWAY_API_KEY` for a gateway model id.
+
+```bash
+export OPENAI_API_KEY="sk-..."
+```
+
+To pass the key explicitly, create the provider instance yourself, see [`providers['ai-sdk'].model`](/config/ai#model-1).
+
+### Enable AI in your config
 
 ```ts
 // relizy.config.ts
@@ -132,6 +195,8 @@ That's all — your next release will have AI-rewritten notes.
 
 ## Model
 
+### With `claude-code`
+
 By default Relizy uses the `haiku` alias — fast and cheap, which is the
 right profile for short rewrites. Pick a different alias or a fully
 versioned id if you want more depth:
@@ -147,6 +212,23 @@ export default defineConfig({
 ```
 
 See the full reference in [AI Configuration](/config/ai#model).
+
+### With `ai-sdk`
+
+The model is the one you set in `providers['ai-sdk'].model`. A small, fast model is enough for these short rewrites. For the models that support reasoning, you can lower the effort to make the rewrite faster and cheaper:
+
+```ts
+export default defineConfig({
+  ai: {
+    provider: 'ai-sdk',
+    providers: {
+      'ai-sdk': { model: openai('gpt-5-mini'), reasoning: 'low' },
+    },
+  },
+})
+```
+
+See [`reasoning`](/config/ai#reasoning).
 
 ## Preview with `--dry-run`
 
@@ -286,9 +368,10 @@ content is contractual.
 
 ## Cost and latency
 
-Claude Haiku (the default) is fast and inexpensive. A typical call for
-release notes processes a few hundred tokens and completes in 1–3
-seconds.
+With `claude-code`, Claude Haiku (the default) is fast and inexpensive. A
+typical call for release notes processes a few hundred tokens and
+completes in 1–3 seconds. With `ai-sdk`, cost and latency depend on the
+model you choose.
 
 Counts per release:
 
@@ -371,7 +454,7 @@ https://github.com/user/my-app/releases/tag/v2.1.0
 
 ### "No authentication credential found"
 
-No API key or OAuth token reached the provider. Check:
+With `claude-code`, no API key or OAuth token reached the provider. Check:
 
 ```bash
 echo $RELIZY_ANTHROPIC_API_KEY
@@ -400,10 +483,30 @@ npm install -g @anthropic-ai/claude-code
 
 In CI, add it as a step before running Relizy. See [Installation](/guide/installation#ai-enhanced-changelogs-optional).
 
+### "No model configured for the ai-sdk provider"
+
+With `provider: 'ai-sdk'`, set the model in `ai.providers['ai-sdk'].model`,
+see [Option B: Vercel AI SDK](#option-b-vercel-ai-sdk).
+
+### "ai is not installed"
+
+Install the AI SDK, along with the package of your provider:
+
+```bash
+pnpm add -D ai @ai-sdk/openai
+```
+
+### The ai-sdk provider fails at runtime
+
+The error of the provider package is in the warning (or in the error with
+`fallback: 'fail'`). The most common cause is a missing API key: check
+the environment variable read by your provider package (e.g.
+`OPENAI_API_KEY`). Preview with `--dry-run` to see it before releasing.
+
 ### "Unknown AI provider"
 
-You set `ai.provider` to something Relizy doesn't know. Today only
-`'claude-code'` ships by default. See
+You set `ai.provider` to something Relizy doesn't know: use `'claude-code'`
+or `'ai-sdk'`. See
 [Adding a new AI provider](/config/ai#adding-a-new-ai-provider) if you
 want to plug your own.
 

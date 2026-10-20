@@ -89,6 +89,38 @@ export async function tagExists(tag: string, cwd?: string): Promise<boolean> {
   }
 }
 
+// Large enough for every tag of a repository with a long release history: the
+// default 1 MB of `exec` is reached around 40k tags.
+const LIST_TAGS_MAX_BUFFER = 64 * 1024 * 1024
+
+/**
+ * Returns the local tags, most recent first (`--sort=-creatordate`). With
+ * `pattern` (a `git tag --list` glob, e.g. `v*`), only the tags matching it are
+ * listed. Any error returns an empty list.
+ */
+export async function listTags({
+  pattern,
+  cwd,
+  logLevel,
+}: {
+  pattern?: string
+  cwd?: string
+  logLevel?: LogLevel
+} = {}): Promise<string[]> {
+  const list = pattern ? ` --list ${shellSingleQuote(pattern)}` : ''
+
+  try {
+    const { stdout } = await execPromise(
+      `git tag${list} --sort=-creatordate`,
+      { cwd, logLevel, noStderr: true, noStdout: true, noSuccess: true, maxBuffer: LIST_TAGS_MAX_BUFFER },
+    )
+    return stdout.trim().split('\n').filter(tag => tag.length > 0)
+  }
+  catch {
+    return []
+  }
+}
+
 /**
  * Move an annotated tag to a different commit locally (force). Never rewrites
  * any commit; only the tag pointer moves.

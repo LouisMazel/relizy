@@ -42,7 +42,14 @@ const SENSITIVE_KEYS = new Set([
  */
 const SECRET_CONTAINER_KEYS = new Set(['tokens'])
 
-function redactValue(value: unknown, inSecretContainer: boolean, keyIsSensitive: boolean): unknown {
+const CIRCULAR = '[Circular]'
+
+/**
+ * `ancestors` holds the objects being redacted above the current value: a value
+ * referencing one of them (e.g. a model instance of `ai.providers['ai-sdk']`
+ * whose client points back to it) is replaced instead of recursing forever.
+ */
+function redactValue(value: unknown, inSecretContainer: boolean, keyIsSensitive: boolean, ancestors: WeakSet<object>): unknown {
   if (typeof value === 'string') {
     if (value === '') {
       return value
@@ -53,24 +60,32 @@ function redactValue(value: unknown, inSecretContainer: boolean, keyIsSensitive:
     return value
   }
 
-  if (Array.isArray(value)) {
-    return value.map(item => redactValue(item, inSecretContainer, false))
+  if (!value || typeof value !== 'object') {
+    return value
   }
 
-  if (value && typeof value === 'object') {
-    return redactObject(value as Record<string, unknown>, inSecretContainer)
+  if (ancestors.has(value)) {
+    return CIRCULAR
   }
 
-  return value
+  ancestors.add(value)
+
+  const result = Array.isArray(value)
+    ? value.map(item => redactValue(item, inSecretContainer, false, ancestors))
+    : redactObject(value as Record<string, unknown>, inSecretContainer, ancestors)
+
+  ancestors.delete(value)
+
+  return result
 }
 
-function redactObject(obj: Record<string, unknown>, inSecretContainer: boolean): Record<string, unknown> {
+function redactObject(obj: Record<string, unknown>, inSecretContainer: boolean, ancestors: WeakSet<object>): Record<string, unknown> {
   const result: Record<string, unknown> = {}
   for (const [key, value] of Object.entries(obj)) {
     const lowerKey = key.toLowerCase()
     const childInContainer = inSecretContainer || SECRET_CONTAINER_KEYS.has(lowerKey)
     const keyIsSensitive = SENSITIVE_KEYS.has(lowerKey)
-    result[key] = redactValue(value, childInContainer, keyIsSensitive)
+    result[key] = redactValue(value, childInContainer, keyIsSensitive, ancestors)
   }
   return result
 }
@@ -81,5 +96,5 @@ function redactObject(obj: Record<string, unknown>, inSecretContainer: boolean):
  * secret container (e.g. `tokens.*`).
  */
 export function redactSecrets<T>(value: T): T {
-  return redactValue(value, false, false) as T
+  return redactValue(value, false, false, new WeakSet()) as T
 }

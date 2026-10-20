@@ -25,7 +25,7 @@ vi.mock('@maz-ui/node', (importActual) => {
   return {
     ...importActual<typeof import('@maz-ui/node')>(),
     execPromise: vi.fn((param) => {
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
+      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
         return Promise.resolve({
           stdout: 'LAST_STABLE_TAG',
         })

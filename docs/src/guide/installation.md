@@ -225,6 +225,8 @@ These environment variables are only needed if you want to publish packages or c
 
 ### AI-Enhanced Changelogs (Optional)
 
+Relizy uses Claude Code by default, set up below. To use another model (OpenAI, Google, Mistral, ...) through the Vercel AI SDK instead, install `ai` and the package of your provider: see [Option B: Vercel AI SDK](/guide/ai-changelog#option-b-vercel-ai-sdk).
+
 To use AI for polishing release notes and social media announcements, set an Anthropic API key:
 
 ```bash

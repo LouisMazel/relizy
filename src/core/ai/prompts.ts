@@ -27,3 +27,10 @@ export const SLACK_PROMPT = `Format with Slack-compatible markdown: *bold*, _ita
 Keep it concise — 3 to 8 bullets maximum.
 If any breaking changes are present, lead with them.
 Tone: factual, oriented toward an internal team audience.`
+
+/**
+ * Wraps the changelog sent to the model in the <changelog> tag the system prompt refers to.
+ */
+export function wrapChangelogPrompt(prompt: string): string {
+  return `<changelog>\n${prompt}\n</changelog>\n\nRewrite the content inside the <changelog> tag per the rules in the system prompt. Output ONLY the rewritten content, with no preamble, no explanation, no surrounding tags.`
+}

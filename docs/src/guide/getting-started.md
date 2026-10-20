@@ -399,6 +399,8 @@ pnpm add -D @yoloship/claude-sdk
 npm install -g @anthropic-ai/claude-code
 ```
 
+To use another model (OpenAI, Google, Mistral, ...) through the Vercel AI SDK, see [Option B: Vercel AI SDK](/guide/ai-changelog#option-b-vercel-ai-sdk).
+
 Learn more in the [AI-Enhanced Changelogs](/guide/ai-changelog) guide.
 
 ## Next Steps
