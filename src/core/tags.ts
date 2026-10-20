@@ -1,10 +1,13 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { ReadPackage, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { getCurrentGitRef, getFirstCommit } from './git'
-import { extractVersionFromTag, isGraduating, isGraduatingToStableBetweenVersion, isPrerelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from './version'
+import { listTags } from './git-refs'
+import { isGraduating, isGraduatingToStableBetweenVersion, isPrerelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from './version'
 
 export function getIndependentTag({ version, name }: { version: string, name: string }) {
   return `${name}@${version}`
@@ -45,156 +48,252 @@ export async function getLastTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?:
   return lastTag
 }
 
-/**
- * Retrieves recent git tags from the repository.
- * Returns up to `limit` tags sorted by creation date (most recent first).
- */
-async function getAllRecentRepoTags(options?: {
-  limit?: number
-  logLevel?: LogLevel
-  cwd?: string
-}): Promise<string[]> {
-  const limit = options?.limit || 50
-
-  try {
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | head -n ${limit}`,
-      {
-        logLevel: options?.logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd: options?.cwd,
-      },
-    )
-
-    const tags = stdout.trim().split('\n').filter(tag => tag.length > 0)
-
-    logger.debug(`Retrieved ${tags.length} recent repo tags`)
-
-    return tags
-  }
-  catch {
-    return []
-  }
-}
-
-/**
- * Retrieves recent git tags for a specific package (independent mode).
- * Returns up to `limit` tags matching the package name pattern.
- */
-async function getAllRecentPackageTags({
-  packageName,
-  limit = 50,
-  logLevel,
-  cwd,
-}: {
-  packageName: string
-  limit?: number
-  logLevel?: LogLevel
-  cwd?: string
-}): Promise<string[]> {
-  try {
-    const escapedPackageName = packageName.replace(/[@/]/g, '\\$&')
-
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | grep -E '^${escapedPackageName}@' | head -n ${limit}`,
-      {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd,
-      },
-    )
-
-    const tags = stdout.trim().split('\n').filter(tag => tag.length > 0)
-
-    logger.debug(`Retrieved ${tags.length} recent tags for package ${packageName}`)
-
-    return tags
-  }
-  catch {
-    return []
-  }
-}
-
 const NEW_VERSION_PLACEHOLDER = '{{newVersion}}'
 
 /**
- * Returns the version of a repository tag built from `templates.tagBody` (e.g. `v{{newVersion}}`),
- * or null when the tag does not follow the template. This keeps the tags of other packages
- * (e.g. `@scope/pkg@1.2.3` from an independent release in the same repository) out of the
- * repository range.
+ * A tag and the version it was released at.
  */
-export function extractVersionFromRepoTag(tag: string, tagBody: string): string | null {
+interface VersionedTag {
+  tag: string
+  version: string
+}
+
+/**
+ * Returns the version written in a tag, or null when it is not a strict semver
+ * version. `semver.valid` also accepts a leading `v` or `=`, which a version
+ * written by relizy never has.
+ */
+function parseTagVersion(value: string): string | null {
+  return /^\d/.test(value) ? semver.valid(value) : null
+}
+
+/**
+ * Splits `templates.tagBody` around its `{{newVersion}}` placeholder, or returns
+ * null when the template has no placeholder.
+ */
+function splitTagBody(tagBody: string): { prefix: string, suffix: string } | null {
   const index = tagBody.indexOf(NEW_VERSION_PLACEHOLDER)
 
   if (index === -1) {
     return null
   }
 
-  const prefix = tagBody.slice(0, index)
-  const suffix = tagBody.slice(index + NEW_VERSION_PLACEHOLDER.length)
-
-  if (!tag.startsWith(prefix) || !tag.endsWith(suffix) || tag.length <= prefix.length + suffix.length) {
-    return null
+  return {
+    prefix: tagBody.slice(0, index),
+    suffix: tagBody.slice(index + NEW_VERSION_PLACEHOLDER.length),
   }
-
-  return semver.valid(tag.slice(prefix.length, tag.length - suffix.length))
 }
 
 /**
- * Filters tags based on compatibility criteria:
- * 1. Filters out prerelease tags if onlyStable is true
- * 2. Filters out tags with major version > current version's major
+ * Returns the version of a repository tag built from `templates.tagBody` (e.g. `v{{newVersion}}`),
+ * or null when the tag does not follow the template. This keeps the tags of other packages
+ * (e.g. `@scope/pkg@1.2.3` or `vue-utils@1.2.3` from an independent release in the same
+ * repository) out of the repository range.
  */
-function filterCompatibleTags({
-  tags,
-  pkg,
-  onlyStable,
-  extractVersion = tag => extractVersionFromTag(tag, pkg.name),
+export function extractVersionFromRepoTag(tag: string, tagBody: string): string | null {
+  const parts = splitTagBody(tagBody)
+
+  if (!parts || !tag.startsWith(parts.prefix) || !tag.endsWith(parts.suffix)) {
+    return null
+  }
+
+  return parseTagVersion(tag.slice(parts.prefix.length, tag.length - parts.suffix.length))
+}
+
+/**
+ * Returns the version of a tag in the historical repository formats (`v1.2.3`,
+ * `1.2.3`), or null. A package tag (`name@1.2.3`) never matches.
+ */
+function extractVersionFromLegacyRepoTag(tag: string): string | null {
+  return parseTagVersion(tag.startsWith('v') ? tag.slice(1) : tag)
+}
+
+/**
+ * Returns the version of a package tag (`name@1.2.3`, see `getIndependentTag`),
+ * or null when the tag belongs to another package.
+ */
+function extractVersionFromPackageTag(tag: string, packageName: string): string | null {
+  const prefix = `${packageName}@`
+
+  return tag.startsWith(prefix) ? parseTagVersion(tag.slice(prefix.length)) : null
+}
+
+/**
+ * Returns the repository tags with their version.
+ *
+ * A repository tag follows `templates.tagBody`, or one of the historical
+ * formats `v1.2.3` and `1.2.3` (so the previous tags stay recognized when the
+ * template is changed). The tags of the packages released independently in the
+ * same repository (`@scope/pkg@1.2.3`, `vue-utils@1.2.3`) never match. For the
+ * same version, the tag following the template comes first.
+ *
+ * Also returns the other tags that look like a release (they contain a version
+ * but are neither repository nor package tags), to warn about them.
+ */
+async function getRepoTags({
+  tagBody,
+  logLevel,
+  cwd,
 }: {
-  tags: string[]
-  pkg: ReadPackage
+  tagBody?: string
+  logLevel?: LogLevel
+  cwd?: string
+}): Promise<{ tags: VersionedTag[], unrecognizedTags: string[] }> {
+  const templateTags: VersionedTag[] = []
+  const legacyTags: VersionedTag[] = []
+  const unrecognizedTags: string[] = []
+
+  for (const tag of await listTags({ logLevel, cwd })) {
+    const templateVersion = tagBody ? extractVersionFromRepoTag(tag, tagBody) : null
+
+    if (templateVersion) {
+      templateTags.push({ tag, version: templateVersion })
+      continue
+    }
+
+    const legacyVersion = extractVersionFromLegacyRepoTag(tag)
+
+    if (legacyVersion) {
+      legacyTags.push({ tag, version: legacyVersion })
+    }
+    else if (!tag.includes('@') && tag.split(/[^\d.]/).some(part => semver.valid(part))) {
+      unrecognizedTags.push(tag)
+    }
+  }
+
+  logger.debug(`Retrieved ${templateTags.length} repo tags following "${tagBody}" and ${legacyTags.length} in the v1.2.3 or 1.2.3 format`)
+
+  return { tags: [...templateTags, ...legacyTags], unrecognizedTags }
+}
+
+/**
+ * Returns the tags of a package released independently, with their version.
+ */
+async function getPackageTags({
+  packageName,
+  logLevel,
+  cwd,
+}: {
+  packageName: string
+  logLevel?: LogLevel
+  cwd?: string
+}): Promise<VersionedTag[]> {
+  const tags: VersionedTag[] = []
+
+  for (const tag of await listTags({ pattern: `${packageName}@*`, logLevel, cwd })) {
+    const version = extractVersionFromPackageTag(tag, packageName)
+
+    if (version) {
+      tags.push({ tag, version })
+    }
+  }
+
+  logger.debug(`Retrieved ${tags.length} tags for package ${packageName}`)
+
+  return tags
+}
+
+/**
+ * Picks the tag of the previous release, deterministically: the highest version
+ * that is not above `maxVersion` (the version before the bump) nor above the
+ * major of the current version. It does not depend on the creation date of the
+ * tags, so a tag created later on another branch (a hotfix of an older version,
+ * a release of a branch not merged yet) is never picked over the actual
+ * previous release.
+ *
+ * With onlyStable, prereleases are skipped. If that removes every candidate but
+ * prerelease tags exist (e.g. a previous `git push --follow-tags` failed and only
+ * beta tags remain while package.json was bumped manually to a stable version),
+ * falls back to the highest prerelease rather than treating the history as new.
+ *
+ * For equal versions, the first tag of the list is picked.
+ */
+function selectPreviousTag({
+  tags,
+  currentVersion,
+  maxVersion,
+  onlyStable,
+  label,
+}: {
+  tags: VersionedTag[]
+  currentVersion: string
+  maxVersion: string
   onlyStable: boolean
-  extractVersion?: (tag: string) => string | null
-}): string[] {
-  const filtered = tags.filter((tag) => {
-    // Extract version from tag
-    const tagVersion = extractVersion(tag)
-
-    if (!tagVersion) {
-      logger.debug(`Skipping tag ${tag}: cannot extract version`)
+  label: string
+}): string | null {
+  const candidates = tags.filter(({ tag, version }) => {
+    if (!isTagVersionCompatibleWithCurrent(version, currentVersion)) {
+      logger.debug(`Skipping tag ${tag}: version ${version} has higher major than current ${currentVersion}`)
       return false
     }
 
-    // Filter out prerelease tags if only stable versions are requested
-    if (onlyStable && isPrerelease(tagVersion)) {
-      logger.debug(`Skipping tag ${tag}: prerelease version ${tagVersion} (onlyStable=${onlyStable})`)
+    if (semver.valid(maxVersion) && semver.gt(version, maxVersion)) {
+      logger.debug(`Skipping tag ${tag}: version ${version} is higher than ${maxVersion}`)
       return false
     }
 
-    // Filter out tags with incompatible major versions (major > current major)
-    if (!isTagVersionCompatibleWithCurrent(tagVersion, pkg.version)) {
-      logger.debug(`Skipping tag ${tag}: version ${tagVersion} has higher major than current ${pkg.version}`)
-      return false
-    }
-
-    logger.debug(`Tag ${tag} with version ${tagVersion} is compatible`)
     return true
   })
 
-  logger.debug(`Filtered ${tags.length} tags down to ${filtered.length} compatible tags`)
+  const highest = (list: VersionedTag[]) => list.reduce<VersionedTag | null>(
+    (best, candidate) => (!best || semver.gt(candidate.version, best.version) ? candidate : best),
+    null,
+  )
 
-  return filtered
+  if (onlyStable) {
+    const stable = highest(candidates.filter(({ version }) => !isPrerelease(version)))
+
+    if (stable) {
+      logger.debug(`Previous ${label} tag: ${stable.tag}`)
+      return stable.tag
+    }
+  }
+
+  const previous = highest(candidates)
+
+  if (previous) {
+    if (onlyStable) {
+      logger.info(`No stable ${label} tag found for version ${currentVersion}, falling back to last prerelease tag: ${previous.tag}`)
+    }
+    else {
+      logger.debug(`Previous ${label} tag: ${previous.tag}`)
+    }
+
+    return previous.tag
+  }
+
+  logger.info(`No compatible ${label} tag found for version ${currentVersion}`)
+  return null
+}
+
+/**
+ * Warns once per repository and template about the tags that look like a
+ * previous release but follow neither `templates.tagBody` nor `v1.2.3`.
+ */
+const warnedUnrecognizedTags = new Set<string>()
+
+function warnUnrecognizedTags({ tags, tagBody, cwd }: { tags: string[], tagBody?: string, cwd?: string }) {
+  const key = `${cwd}:${tagBody}`
+
+  if (tags.length === 0 || warnedUnrecognizedTags.has(key)) {
+    return
+  }
+
+  warnedUnrecognizedTags.add(key)
+
+  logger.warn(
+    `No previous release tag follows templates.tagBody "${tagBody}", but some tags look like one (${tags.slice(0, 3).join(', ')}). `
+    + 'If the template was changed, pass the tag of the previous release with --from.',
+  )
 }
 
 export function getLastRepoTag(options?: {
   onlyStable?: boolean
   pkg?: ReadPackage
-  /** Template of the repository tags (`templates.tagBody`): only the tags following it are considered. */
+  /** Template of the repository tags (`templates.tagBody`) */
   tagBody?: string
+  /** Version before the bump, when higher than `pkg.version` (e.g. the root version for a sub-package) */
+  currentVersion?: string
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
@@ -204,6 +303,7 @@ export function getLastRepoTag(options?: {
       pkg: options.pkg,
       onlyStable: options.onlyStable ?? false,
       tagBody: options.tagBody,
+      maxVersion: options.currentVersion ?? options.pkg.version,
       logLevel: options.logLevel,
       cwd: options.cwd,
     })
@@ -218,89 +318,39 @@ export function getLastRepoTag(options?: {
 }
 
 /**
- * Gets the last compatible repository tag using intelligent filtering.
- * This function:
- * 1. Retrieves recent tags
- * 2. Filters out prerelease tags if onlyStable is true
- * 3. Filters out tags with major version > current version
- * 4. Returns the most recent compatible tag
- *
- * If onlyStable removes every candidate but the repo has prerelease tags with a
- * compatible major (e.g. previous `git push --follow-tags` failed and only beta
- * tags remain on disk while package.json was bumped manually to a stable
- * version), falls back to the most recent major-compatible tag rather than
- * treating the repo as if it had no history.
- *
- * With `tagBody`, only the tags following the repository tag template are
- * considered, so a more recent tag of another package (`@scope/pkg@1.2.3`) never
- * becomes the start of the range. When no recent tag follows the template (e.g.
- * the template was just changed), every recent tag is considered, as before.
+ * Gets the tag of the previous repository release: the repository tags (see
+ * `getRepoTags`) are filtered and picked by `selectPreviousTag`.
  */
 async function getLastRepoTagWithFiltering({
   pkg,
   onlyStable,
   tagBody,
+  maxVersion,
   logLevel,
   cwd,
 }: {
   pkg: ReadPackage
   onlyStable: boolean
   tagBody?: string
+  maxVersion: string
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
-  const allRecentTags = await getAllRecentRepoTags({ limit: 50, logLevel, cwd })
+  const { tags, unrecognizedTags } = await getRepoTags({ tagBody, logLevel, cwd })
 
-  if (allRecentTags.length === 0) {
-    logger.info('No tags found in repository')
+  if (tags.length === 0) {
+    logger.info('No release tags found in repository')
+    warnUnrecognizedTags({ tags: unrecognizedTags, tagBody, cwd })
     return null
   }
 
-  const templateTags = tagBody
-    ? allRecentTags.filter(tag => extractVersionFromRepoTag(tag, tagBody) !== null)
-    : []
-  const useTemplate = templateTags.length > 0
-  const recentTags = useTemplate ? templateTags : allRecentTags
-  const extractVersion = useTemplate && tagBody
-    ? (tag: string) => extractVersionFromRepoTag(tag, tagBody)
-    : undefined
-
-  if (tagBody && !useTemplate) {
-    logger.debug(`No recent tag follows the template "${tagBody}", considering every recent tag`)
-  }
-
-  const compatibleTags = filterCompatibleTags({
-    tags: recentTags,
-    pkg,
+  return selectPreviousTag({
+    tags,
+    currentVersion: pkg.version,
+    maxVersion,
     onlyStable,
-    extractVersion,
+    label: 'repo',
   })
-
-  if (compatibleTags.length > 0) {
-    const lastTag = compatibleTags[0]
-    logger.debug(`Last compatible repo tag: ${lastTag}`)
-    return lastTag
-  }
-
-  if (onlyStable) {
-    const prereleaseFallback = filterCompatibleTags({
-      tags: recentTags,
-      pkg,
-      onlyStable: false,
-      extractVersion,
-    })
-
-    if (prereleaseFallback.length > 0) {
-      const fallbackTag = prereleaseFallback[0]
-      logger.info(
-        `No stable repo tag found for version ${pkg.version}, falling back to last prerelease tag: ${fallbackTag}`,
-      )
-      return fallbackTag
-    }
-  }
-
-  logger.info(`No compatible tags found for version ${pkg.version}`)
-  return null
 }
 
 export async function getLastPackageTag({
@@ -356,18 +406,8 @@ export async function getLastPackageTag({
 }
 
 /**
- * Gets the last compatible package tag using intelligent filtering.
- * This function:
- * 1. Retrieves recent package tags
- * 2. Filters out prerelease tags if onlyStable is true
- * 3. Filters out tags with major version > current version
- * 4. Returns the most recent compatible tag
- *
- * If onlyStable removes every candidate but the package has prerelease tags
- * with a compatible major (e.g. previous `git push --follow-tags` failed and
- * only beta tags exist while package.json was bumped manually to a stable
- * version), falls back to the most recent major-compatible tag rather than
- * marking the package as new.
+ * Gets the tag of the previous release of a package released independently:
+ * its tags (see `getPackageTags`) are filtered and picked by `selectPreviousTag`.
  */
 async function getLastPackageTagWithFiltering({
   pkg,
@@ -380,48 +420,20 @@ async function getLastPackageTagWithFiltering({
   logLevel?: LogLevel
   cwd?: string
 }): Promise<string | null> {
-  const recentTags = await getAllRecentPackageTags({
-    packageName: pkg.name,
-    limit: 50,
-    logLevel,
-    cwd,
-  })
+  const tags = await getPackageTags({ packageName: pkg.name, logLevel, cwd })
 
-  if (recentTags.length === 0) {
+  if (tags.length === 0) {
     logger.info(`No tags found for package ${pkg.name}`)
     return null
   }
 
-  const compatibleTags = filterCompatibleTags({
-    tags: recentTags,
-    pkg,
+  return selectPreviousTag({
+    tags,
+    currentVersion: pkg.version,
+    maxVersion: pkg.version,
     onlyStable,
+    label: `${pkg.name} package`,
   })
-
-  if (compatibleTags.length > 0) {
-    const lastTag = compatibleTags[0]
-    logger.debug(`Last compatible package tag for ${pkg.name}: ${lastTag}`)
-    return lastTag
-  }
-
-  if (onlyStable) {
-    const prereleaseFallback = filterCompatibleTags({
-      tags: recentTags,
-      pkg,
-      onlyStable: false,
-    })
-
-    if (prereleaseFallback.length > 0) {
-      const fallbackTag = prereleaseFallback[0]
-      logger.info(
-        `No stable tags found for package ${pkg.name} with version ${pkg.version}, falling back to last prerelease tag: ${fallbackTag}`,
-      )
-      return fallbackTag
-    }
-  }
-
-  logger.info(`No compatible tags found for package ${pkg.name} with version ${pkg.version}`)
-  return null
 }
 
 export type Step = 'bump' | 'changelog' | 'publish' | 'provider-release' | 'social'
@@ -472,6 +484,29 @@ async function resolveFromTagIndependent({
   return lastPackageTag
 }
 
+/**
+ * Returns the version of the repository before the bump: the root version, or
+ * the version of the package when higher. In unified and selective modes, a
+ * sub-package that was not bumped by the last releases keeps an older version
+ * but its range still starts at the last repository release.
+ */
+function getRepoCurrentVersion({ cwd, pkg }: { cwd: string, pkg: ReadPackage }): string {
+  let rootVersion: string | null = null
+
+  try {
+    rootVersion = semver.valid((JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')) as { version?: string }).version)
+  }
+  catch {
+    logger.debug(`Cannot read the root version in ${cwd}, using the version of ${pkg.name}`)
+  }
+
+  if (!rootVersion || !semver.valid(pkg.version)) {
+    return rootVersion || pkg.version
+  }
+
+  return semver.gt(rootVersion, pkg.version) ? rootVersion : pkg.version
+}
+
 async function resolveFromTagUnified({
   config,
   pkg,
@@ -491,6 +526,7 @@ async function resolveFromTagUnified({
     pkg,
     onlyStable,
     tagBody: config.templates.tagBody,
+    currentVersion: getRepoCurrentVersion({ cwd: config.cwd, pkg }),
     logLevel,
     cwd: config.cwd,
   })

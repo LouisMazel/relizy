@@ -207,7 +207,20 @@ This is useful for:
 
 ## Version Range
 
-By default, Relizy generates the changelog from the last tag to HEAD. You can customize this:
+By default, Relizy generates the changelog from the tag of the previous release to HEAD.
+
+The previous release is resolved from the versions, not from the creation date of the tags:
+
+- In `unified` and `selective` modes (and for a single package), the release tags are the ones following [`templates.tagBody`](/config/overview) (`v{{newVersion}}` by default), plus the `v1.2.3` and `1.2.3` formats. The tags of the packages released independently in the same repository (`name@1.2.3`) are never used, so a selective and an independent config can release the same monorepo.
+- In `independent` mode, the release tags of a package are its `name@1.2.3` tags.
+- The previous release is the highest version strictly below the version being released (or up to the current version before the bump), and not above its major. A tag created later on another branch, such as the hotfix of an older version or a prerelease of the next one, is never picked instead.
+- A stable release starts at the previous stable release: a graduation from `2.0.0-beta.3` to `2.0.0` starts at `v1.x`, not at the last beta.
+
+::: tip Changing the tag template
+After changing `templates.tagBody`, the previous `v1.2.3` tags are still recognized. If the previous tags followed another custom template, Relizy warns about it: pass the tag of the previous release with `--from` for the first release with the new template.
+:::
+
+You can customize the range:
 
 ```bash
 # From specific version to HEAD
