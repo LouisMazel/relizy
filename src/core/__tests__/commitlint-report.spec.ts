@@ -396,6 +396,7 @@ describe('Given shouldUseColors function', () => {
     ['NO_COLOR in a terminal', { NO_COLOR: '1' }, true, false],
     ['FORCE_COLOR without terminal', { FORCE_COLOR: '1' }, false, true],
     ['FORCE_COLOR=0 in a terminal', { FORCE_COLOR: '0' }, true, false],
+    ['an empty FORCE_COLOR without terminal', { FORCE_COLOR: '' }, false, false],
   ])('Then decides for %s', (_, env, isTTY, expected) => {
     Object.assign(process.env, env)
 

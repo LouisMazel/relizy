@@ -69,8 +69,9 @@ export function shouldUseColors(stream: { isTTY?: boolean } = process.stdout): b
   if (process.env.NO_COLOR) {
     return false
   }
-  if (process.env.FORCE_COLOR !== undefined) {
-    return process.env.FORCE_COLOR !== '0' && process.env.FORCE_COLOR !== 'false'
+  const force = process.env.FORCE_COLOR
+  if (force) {
+    return force !== '0' && force !== 'false'
   }
   return Boolean(stream.isTTY || process.env.GITHUB_ACTIONS || process.env.GITLAB_CI)
 }
