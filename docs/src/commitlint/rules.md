@@ -18,7 +18,7 @@ export default defineConfig({
     rules: {
       'header-max-length': ['error', 100],
       'scope-required': ['error', 'when-bumping'],
-      'subject-case': 'warn',
+      'subject-case': 'error',
       'scope-matches-files': 'off',
     },
   },
@@ -37,7 +37,7 @@ The levels `0`, `1` and `2` and the commitlint tuples `[2, 'always', value]` are
 | [`scope-enum`](#scope-enum)                     | `error` |                                  |
 | [`scope-required`](#scope-required)             | `off`   | `'always'`                       |
 | [`scope-matches-files`](#scope-matches-files)   | `warn`  |                                  |
-| [`subject-case`](#subject-case)                 | `error` |                                  |
+| [`subject-case`](#subject-case)                 | `off`   |                                  |
 | [`subject-full-stop`](#subject-full-stop)       | `error` |                                  |
 | [`subject-meaningful`](#subject-meaningful)     | `error` | `{ minWords: 2, minLength: 15 }` |
 | [`body-leading-blank`](#body-leading-blank)     | `error` |                                  |
@@ -53,7 +53,7 @@ The rules of the header, the type, the scope and the subject only run on convent
 
 ### `header-format`
 
-The header must follow `type(scope)!: subject`: a lowercase type, an optional scope without spaces, an optional `!`, a colon followed by a space, and a subject. No leading emoji, and no whitespace at the start or the end.
+The header must follow `type(scope)!: subject`: a lowercase type, an optional scope without spaces, an optional `!`, a colon followed by a space, and a subject. Extra spaces after the colon are accepted, the changelog removes them. No leading emoji, and no whitespace at the start or the end.
 
 ```text
 ✔ feat(core): add the commitlint command
@@ -101,7 +101,7 @@ export default defineConfig({
 
 The scope must designate something. The allowed scopes are:
 
-- the workspace packages, private and ignored ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`. Add directories Relizy does not release, such as apps, with [`commitlint.packages`](./config.md#packages);
+- the workspace packages, private and ignored ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`. The packages come from [`monorepo.packages`](/config/monorepo) and from the workspace of your tools: the `workspaces` of the `package.json` (npm, yarn, bun, Turborepo, Nx), `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and `deno.json`. Add other directories with [`commitlint.packages`](./config.md#packages);
 - the keys of [`scopeMap`](/config/overview);
 - the scopes listed in [`commitlint.scopes`](./config.md#scopes).
 
@@ -142,7 +142,7 @@ The changed files are the staged files with `--edit` and `--message`, and the fi
 
 ### `subject-case`
 
-The subject must not start with an uppercase letter: Relizy capitalizes it in the changelog. Acronyms such as `API` are allowed.
+The subject must not start with an uppercase letter. Off by default: Relizy capitalizes the subject in the changelog anyway, and names such as `MazChart` are legitimate. Enable it for a lowercase style. Acronyms such as `API` are allowed. When it is enabled, the suggested header starts lowercase.
 
 ### `subject-full-stop`
 
@@ -187,7 +187,9 @@ The markdown of the body must be valid: code blocks closed, links with a URL.
 Renders the commit as in your changelogs and checks it like your release formats them:
 
 - **with the ESLint of your project**, when it is installed and lints the `CHANGELOG.md` files: the entry is linted with your config, the fixable problems are ignored and the remaining errors are reported;
-- **otherwise, with a built-in parser**: the `js`, `ts`, `jsx`, `tsx` and `json` code blocks must be valid code.
+- **otherwise, with a built-in parser** ([oxc](https://oxc.rs)): the `js`, `ts`, `jsx`, `tsx` and `json` code blocks must be valid code.
+
+Force one of them with [`commitlint.codeBlocksLinter`](./config.md#codeblockslinter).
 
 ```text
 ✖ feat: scope the AI guidelines per target

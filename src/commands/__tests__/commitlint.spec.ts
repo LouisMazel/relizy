@@ -37,6 +37,8 @@ describe('Given commitlint command', () => {
       monorepo: { versionMode: 'selective', packages: ['packages/*'] },
       templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' },
       ...overrides,
+      // Off by default, the examples of these tests use it
+      commitlint: { ...overrides.commitlint, rules: { 'subject-case': 'error', ...overrides.commitlint?.rules } },
     })
   }
 

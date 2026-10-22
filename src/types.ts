@@ -1347,8 +1347,9 @@ export interface CommitlintBuiltInRules {
    */
   'scope-matches-files': never
   /**
-   * The subject starts with a lowercase letter.
-   * @default 'error'
+   * The subject starts with a lowercase letter. Off by default: the changelog
+   * capitalizes the subject anyway.
+   * @default 'off'
    */
   'subject-case': never
   /**
@@ -1455,6 +1456,14 @@ export type CommitlintCustomRule = (
 
 export type CommitlintCustomRuleOutcome = boolean | string | [boolean, string?]
 
+/**
+ * Tool checking the code blocks of the commit bodies (`body-changelog-lint`):
+ * - `auto`: the ESLint of the project when it lints the CHANGELOG.md files, otherwise `oxc`;
+ * - `eslint`: the ESLint of the project, an error when it does not lint the CHANGELOG.md files;
+ * - `oxc`: a syntax check of the JavaScript, TypeScript and JSON code blocks.
+ */
+export type CommitlintCodeBlocksLinter = 'auto' | 'eslint' | 'oxc'
+
 export interface CommitlintConfig {
   /**
    * Glob patterns of directories to treat as workspace packages for the scopes,
@@ -1496,6 +1505,12 @@ export interface CommitlintConfig {
    * @default false
    */
   title?: boolean
+  /**
+   * Tool checking the code blocks of the commit bodies, rendered as in the
+   * changelogs (`body-changelog-lint`).
+   * @default 'auto'
+   */
+  codeBlocksLinter?: CommitlintCodeBlocksLinter
   /**
    * URL printed with the errors, e.g. the commit guidelines of the team.
    */

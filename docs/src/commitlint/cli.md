@@ -46,9 +46,11 @@ relizy commitlint --message "feat(core): add the parser"
 
 Lint the commits after this ref. Without it:
 
-- in a GitHub Actions pull request: the merge-base with the target branch (`GITHUB_BASE_REF`). Fetch the history of the base branch, e.g. with `fetch-depth: 0` on `actions/checkout`;
+- in a GitHub Actions pull request: the merge-base with the target branch (`GITHUB_BASE_REF`);
 - in a GitLab CI merge request: the base of the merge request (`CI_MERGE_REQUEST_DIFF_BASE_SHA`);
 - otherwise: the last tag, or the whole history without tag.
+
+In a shallow clone, the history, the tags and the target branch are fetched from `origin` when the start of the range is missing.
 
 ```bash
 relizy commitlint --from origin/main

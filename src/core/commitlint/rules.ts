@@ -44,8 +44,11 @@ export interface RuleDefinition {
   check: (context: RuleContext) => RuleProblem[] | Promise<RuleProblem[]>
 }
 
-/** `type(scope)!: subject`, lowercase type, a space after the colon */
-export const STRICT_HEADER_PATTERN = /^(?<type>[a-z]+)(?:\((?<scope>[^()\s]+)\))?(?<breaking>!)?: (?<subject>\S.*)$/
+/**
+ * `type(scope)!: subject`, lowercase type, a space after the colon. Extra spaces
+ * are accepted: the changelog trims them.
+ */
+export const STRICT_HEADER_PATTERN = /^(?<type>[a-z]+)(?:\((?<scope>[^()\s]+)\))?(?<breaking>!)?: +(?<subject>\S.*)$/
 
 /** Subjects that do not describe anything */
 const GENERIC_SUBJECTS = new Set(['wip', 'fix', 'fixes', 'fixed', 'update', 'updates', 'updated', 'change', 'changes', 'changed', 'misc', 'stuff', 'tmp', 'temp', 'test', 'tests', 'cleanup', 'clean', 'refactor', 'minor', 'typo', 'typos', 'improvements', 'tweaks'])
@@ -215,8 +218,10 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
       return [{ message: `The scope "${commit.scope}" designates ${pkg.path}, but ${touched.message}`, fix: touched.fix }]
     },
   },
+  // Off by default: the changelog capitalizes the subject anyway, and names
+  // such as "MazChart" are legitimate
   'subject-case': {
-    severity: 'error',
+    severity: 'off',
     conventionalOnly: true,
     check: ({ commit }) =>
       // An uppercase first letter followed by a non uppercase one: acronyms ("API ...") are fine
@@ -299,7 +304,7 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
       if (!entry) {
         return []
       }
-      const linter = await getChangelogLinter(config.cwd)
+      const linter = await getChangelogLinter(config.cwd, config.commitlint?.codeBlocksLinter)
       const problems = await linter.lint(`# Changelog\n\n## v0.0.0\n\n${entry}\n`)
       const fix = linter.name === 'eslint'
         ? 'fix the code block: the body is linted like the CHANGELOG.md files by the ESLint of the project'

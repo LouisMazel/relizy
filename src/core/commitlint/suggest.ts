@@ -62,22 +62,22 @@ function suggestScope(scope: string, allowedScopes: string[] | undefined): strin
   return findClosest(cleaned, allowedScopes) ?? cleaned
 }
 
-function suggestSubject(subject: string): string {
+function suggestSubject(subject: string, lowercase: boolean): string {
   let suggested = subject.trim()
   if (suggested.endsWith('.') && !suggested.endsWith('...')) {
     suggested = suggested.slice(0, -1)
   }
   // An uppercase first letter followed by a lowercase one: acronyms are kept
-  return /^[A-Z][^A-Z]/.test(suggested) ? `${suggested[0]!.toLowerCase()}${suggested.slice(1)}` : suggested
+  return lowercase && /^[A-Z][^A-Z]/.test(suggested) ? `${suggested[0]!.toLowerCase()}${suggested.slice(1)}` : suggested
 }
 
 /**
  * The header with the mistakes that can be fixed safely: case and spacing of
- * the type, the scope and the colon, typos in the type and the scope, case and
- * final period of the subject, and the default revert message of git.
- * `undefined` when nothing can be fixed.
+ * the type, the scope and the colon, typos in the type and the scope, final
+ * period of the subject (and its case with `lowercaseSubject`, for `subject-case`),
+ * and the default revert message of git. `undefined` when nothing can be fixed.
  */
-export function suggestHeader(header: string, { types, allowedScopes }: { types: string[], allowedScopes?: string[] }): string | undefined {
+export function suggestHeader(header: string, { types, allowedScopes, lowercaseSubject = false }: { types: string[], allowedScopes?: string[], lowercaseSubject?: boolean }): string | undefined {
   const trimmed = header.trim()
 
   const revert = /^Revert "(?<reverted>.+)"$/.exec(trimmed)?.groups?.reverted
@@ -92,6 +92,6 @@ export function suggestHeader(header: string, { types, allowedScopes }: { types:
 
   const type = suggestType(groups.type!, types)
   const scope = groups.scope === undefined || groups.scope.trim() === '' ? '' : `(${suggestScope(groups.scope, allowedScopes)})`
-  const suggested = `${type}${scope}${groups.breaking ?? ''}: ${suggestSubject(groups.subject!)}`
+  const suggested = `${type}${scope}${groups.breaking ?? ''}: ${suggestSubject(groups.subject!, lowercaseSubject)}`
   return suggested === header ? undefined : suggested
 }

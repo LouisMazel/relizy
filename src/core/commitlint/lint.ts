@@ -259,7 +259,9 @@ async function getSuggestion(message: string, result: CommitlintResult, options:
     return undefined
   }
 
-  const header = suggestHeader(result.commit.header, { types: Object.keys(options.config.types ?? {}), allowedScopes })
+  // Without subject-case, the case of the subject is kept: "MazChart" is a name
+  const lowercaseSubject = errors.includes('subject-case')
+  const header = suggestHeader(result.commit.header, { types: Object.keys(options.config.types ?? {}), allowedScopes, lowercaseSubject })
   if (!header) {
     return undefined
   }

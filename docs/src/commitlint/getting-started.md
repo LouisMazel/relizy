@@ -86,7 +86,7 @@ A valid commit prints one line, with its effect on the next release:
 ✔ feat(nuxt) → minor bump, 🚀 Enhancements
 ```
 
-An invalid commit prints each problem with how to fix it, a corrected header when the mistakes can be fixed safely (case, spacing, typos in the type or the scope, final period), the documentation of the failing rules, and how to commit again. The hook stops the commit:
+An invalid commit prints each problem with how to fix it, a corrected header when the mistakes can be fixed safely (spacing, typos in the type or the scope, final period), the documentation of the failing rules, and how to commit again. The hook stops the commit:
 
 ```text
 ✖ fix(nuxtt): Typo.
@@ -94,20 +94,17 @@ An invalid commit prints each problem with how to fix it, a corrected header whe
   ✖ scope-enum          The scope "nuxtt" is not allowed
                         → did you mean "nuxt"? use a workspace package or one of: nuxt,
                           @maz-ui/nuxt, core, @maz-ui/core
-  ✖ subject-case        The subject starts with an uppercase letter
-                        → start it lowercase, relizy capitalizes it in the changelog
   ✖ subject-full-stop   The subject ends with a period
                         → remove the final period
   ✖ subject-meaningful  The subject "Typo." does not describe the change
                         → describe what changed, in at least 2 words or 15 characters
 
-  Suggested header: fix(nuxt): typo
+  Suggested header: fix(nuxt): Typo
                     still to fix: subject-meaningful
 
 ────────────────────────────────────────────────────────────────────────
-✖ The commit message is invalid: 4 errors, 0 warnings
+✖ The commit message is invalid: 3 errors, 0 warnings
   Rules: scope-enum          https://relizy.dev/commitlint/rules#scope-enum
-         subject-case        https://relizy.dev/commitlint/rules#subject-case
          subject-full-stop   https://relizy.dev/commitlint/rules#subject-full-stop
          subject-meaningful  https://relizy.dev/commitlint/rules#subject-meaningful
   Fix:   edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:
@@ -151,8 +148,8 @@ When a commit is invalid, the summary ends with how to fix it:
 ```text
 ────────────────────────────────────────────────────────────────────────
 ✖ 1 of 3 commits and the merge request title are invalid: 2 errors, 0 warnings
-  Rules: subject-case   https://relizy.dev/commitlint/rules#subject-case
-         header-format  https://relizy.dev/commitlint/rules#header-format
+  Rules: subject-full-stop  https://relizy.dev/commitlint/rules#subject-full-stop
+         header-format      https://relizy.dev/commitlint/rules#header-format
   Fix:   reword 1a2b3c4: mark it as "reword" in the rebase, then force-push:
            $ git rebase -i 9f8e7d6
            $ git push --force-with-lease
@@ -161,8 +158,8 @@ When a commit is invalid, the summary ends with how to fix it:
 
 Add `--quiet` to only print the commits with problems on large pull requests. In GitHub Actions, each problem is also reported as an annotation, visible in the summary of the job and on the pull request.
 
-::: warning Full history
-The CI must fetch the history of the base branch, otherwise the start of the range cannot be found: `fetch-depth: 0` on `actions/checkout`, `GIT_DEPTH: 0` on GitLab CI. Relizy tells you so when it runs in a shallow clone.
+::: tip Shallow clones
+The default checkout of the CI only has the last commits. Relizy fetches what it needs: the history and the target branch of the pull request. To skip this fetch, check out the full history: `fetch-depth: 0` on `actions/checkout`, `GIT_DEPTH: 0` on GitLab CI.
 :::
 
 ::: code-group
@@ -179,8 +176,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # The history of the base branch is needed for the merge-base
 
       - uses: actions/setup-node@v6
         with:
@@ -197,8 +192,6 @@ commitlint:
   image: node:22
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  variables:
-    GIT_DEPTH: 0
   script:
     - npm ci
     - npx relizy commitlint

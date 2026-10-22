@@ -129,14 +129,12 @@ $ git commit -m "fix(nuxtt): Typo."
   ✖ scope-enum          The scope "nuxtt" is not allowed
                         → did you mean "nuxt"? use a workspace package or one of: nuxt,
                           @maz-ui/nuxt, core, @maz-ui/core
-  ✖ subject-case        The subject starts with an uppercase letter
-                        → start it lowercase, relizy capitalizes it in the changelog
   ✖ subject-full-stop   The subject ends with a period
                         → remove the final period
   ✖ subject-meaningful  The subject "Typo." does not describe the change
                         → describe what changed, in at least 2 words or 15 characters
 
-  Suggested header: fix(nuxt): typo
+  Suggested header: fix(nuxt): Typo
                     still to fix: subject-meaningful
 ```
 

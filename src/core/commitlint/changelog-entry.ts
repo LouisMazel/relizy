@@ -1,5 +1,6 @@
 import type { GitCommit } from 'changelogen'
 import type { Code } from 'mdast'
+import type { CommitlintCodeBlocksLinter } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -50,45 +51,65 @@ function getLine(text: string, line: number): string {
   return (text.split('\n')[line - 1] ?? '').trim()
 }
 
+/** What the linter uses of the ESLint class of the project */
+interface ProjectEslint {
+  isPathIgnored: (filePath: string) => Promise<boolean>
+  calculateConfigForFile: (filePath: string) => Promise<unknown>
+  lintText: (text: string, options: { filePath: string }) => Promise<Array<{
+    output?: string
+    messages: Array<{ severity: number, message: string, ruleId: string | null, line: number }>
+  }>>
+}
+
 /**
  * The ESLint of the project, when it is installed and lints the CHANGELOG.md
  * files (markdown support, file not ignored).
  */
-async function loadProjectEslint(cwd: string): Promise<ChangelogLinter | undefined> {
+async function loadProjectEslint(cwd: string, required = false): Promise<ChangelogLinter | undefined> {
+  // `codeBlocksLinter: 'eslint'`: an error rather than a silent fallback
+  const unavailable = (reason: string, error?: unknown) => {
+    if (required) {
+      throw new Error(`commitlint: codeBlocksLinter is "eslint" but ${reason}`)
+    }
+    logger.debug(`commitlint: ${reason}, using the built-in parser`, ...(error ? [error] : []))
+    return undefined
+  }
+
   let eslintPath: string
   try {
     eslintPath = createRequire(join(cwd, 'package.json')).resolve('eslint')
   }
   catch {
-    return undefined
+    return unavailable('ESLint is not installed in the project')
   }
 
+  const filePath = join(cwd, CHANGELOG_FILE)
+  let eslint: ProjectEslint
+  let lintsChangelogs: boolean
   try {
     const { ESLint } = await import(pathToFileURL(eslintPath).href)
-    const eslint = new ESLint({ cwd, fix: true })
-    const filePath = join(cwd, CHANGELOG_FILE)
-    if (await eslint.isPathIgnored(filePath) || !await eslint.calculateConfigForFile(filePath)) {
-      logger.debug('commitlint: ESLint does not lint the changelogs, using the built-in parser')
-      return undefined
-    }
-
-    return {
-      name: 'eslint',
-      async lint(markdown) {
-        const [result] = await eslint.lintText(markdown, { filePath })
-        const output: string = result?.output ?? markdown
-        return (result?.messages ?? [])
-          .filter((message: { severity: number }) => message.severity === 2)
-          .map((message: { message: string, ruleId: string | null, line: number }) => {
-            const rule = message.ruleId ? ` (${message.ruleId})` : ''
-            return `${message.message.replace(/\.$/, '')}${rule}, on "${getLine(output, message.line)}"`
-          })
-      },
-    }
+    eslint = new ESLint({ cwd, fix: true })
+    lintsChangelogs = !await eslint.isPathIgnored(filePath) && Boolean(await eslint.calculateConfigForFile(filePath))
   }
   catch (error) {
-    logger.debug('commitlint: ESLint could not be loaded, using the built-in parser', error)
-    return undefined
+    return unavailable('ESLint could not be loaded', error)
+  }
+  if (!lintsChangelogs) {
+    return unavailable(`the ESLint config of the project does not lint ${CHANGELOG_FILE}`)
+  }
+
+  return {
+    name: 'eslint',
+    async lint(markdown) {
+      const [result] = await eslint.lintText(markdown, { filePath })
+      const output = result?.output ?? markdown
+      return (result?.messages ?? [])
+        .filter(message => message.severity === 2)
+        .map((message) => {
+          const rule = message.ruleId ? ` (${message.ruleId})` : ''
+          return `${message.message.replace(/\.$/, '')}${rule}, on "${getLine(output, message.line)}"`
+        })
+    },
   }
 }
 
@@ -170,14 +191,18 @@ function createBuiltInLinter(): ChangelogLinter {
 const linters = new Map<string, Promise<ChangelogLinter>>()
 
 /**
- * The linter of the changelog entries of a project: its ESLint when it lints the
- * CHANGELOG.md files, otherwise a syntax check of the code blocks. Loaded once per cwd.
+ * The linter of the changelog entries of a project. With `auto`, its ESLint when
+ * it lints the CHANGELOG.md files, otherwise a syntax check of the code blocks
+ * with oxc. Loaded once per cwd and choice.
  */
-export function getChangelogLinter(cwd: string): Promise<ChangelogLinter> {
-  let linter = linters.get(cwd)
+export function getChangelogLinter(cwd: string, choice: CommitlintCodeBlocksLinter = 'auto'): Promise<ChangelogLinter> {
+  const key = `${choice}:${cwd}`
+  let linter = linters.get(key)
   if (!linter) {
-    linter = loadProjectEslint(cwd).then(eslint => eslint ?? createBuiltInLinter())
-    linters.set(cwd, linter)
+    linter = choice === 'oxc'
+      ? Promise.resolve(createBuiltInLinter())
+      : loadProjectEslint(cwd, choice === 'eslint').then(eslint => eslint ?? createBuiltInLinter())
+    linters.set(key, linter)
   }
   return linter
 }
