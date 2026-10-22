@@ -458,6 +458,29 @@ describe('Given generateMarkDown function', () => {
       expect(result).not.toContain('A new-file.ts')
     })
 
+    it('Then keeps a single blank line between body paragraphs', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
+      const commits: GitCommit[] = [
+        {
+          ...createMockCommit('feat', 'feature'),
+          body: '\n\nFirst paragraph\n- item\n\n\n   \nSecond paragraph\n\nM src/file.ts\n\n',
+          type: 'feat',
+        },
+      ]
+
+      const result = await generateMarkDown({
+        commits,
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      expect(result).toContain('  First paragraph\n  - item\n\n  Second paragraph\n')
+      expect(result).not.toContain('Second paragraph\n\n\n')
+    })
+
     it('Then handles empty body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
