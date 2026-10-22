@@ -279,7 +279,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
     }))
   }
   else {
-    const formattedChangelog = formatChangelogForSlack(changelog, Math.min(maxLength ?? SLACK_SUMMARY_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH))
+    const formattedChangelog = formatChangelogForSlack(changelog, Math.min(postMaxLength ?? SLACK_SUMMARY_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH))
     if (formattedChangelog) {
       changelogBlocks.push({
         type: 'section',
