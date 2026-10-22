@@ -113,6 +113,20 @@ relizy social --no-ai --from v1.0.0 --to v1.1.0
 
 These flags override the `ai.social` setting in your config file. When AI is enabled, the changelog is transformed into platform-appropriate content (concise tweets, Slack-formatted messages). See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
 
+### --slack-format
+
+Choose how much of the changelog the Slack message shows, overriding `social.slack.changelogFormat`:
+
+```bash
+# Complete changelog: commit bodies and PR links, rendered as Slack rich text
+relizy social --slack-format full --from v1.0.0 --to v1.1.0
+
+# Short changelog: commit titles only
+relizy social --slack-format summary --from v1.0.0 --to v1.1.0
+```
+
+See the [Slack Integration](/guide/slack-integration#full-changelog) guide for the rendering details.
+
 ### --no-safety-check
 
 Skip safety checks (credentials validation, configuration warnings):

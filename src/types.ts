@@ -488,6 +488,10 @@ export interface SocialOptions {
    */
   ai?: boolean
   /**
+   * Override `social.slack.changelogFormat` for this run
+   */
+  slackFormat?: SlackChangelogFormat
+  /**
    * Prerelease suffix, forwarded to package discovery in independent mode
    * when no bump result is available (standalone `social` runs).
    */
@@ -760,6 +764,10 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
+  /**
+   * Override `social.slack.changelogFormat` for this run
+   */
+  slackFormat?: SlackChangelogFormat
 }
 
 export interface TwitterCredentials {
@@ -820,6 +828,13 @@ export interface SlackCredentials {
   token?: string
 }
 
+/**
+ * Slack changelog rendering:
+ * - `summary`: short changelog (commit titles only) in a single mrkdwn section.
+ * - `full`: complete changelog (commit bodies and PR/issue links) rendered as rich text blocks.
+ */
+export type SlackChangelogFormat = 'summary' | 'full'
+
 export interface SlackSocialConfig {
   /**
    * Enable Slack posting
@@ -854,9 +869,19 @@ export interface SlackSocialConfig {
    */
   credentials?: SlackCredentials
   /**
+   * Changelog rendering of the Slack message.
+   * - `summary`: commit titles only, in a single section capped at `postMaxLength`.
+   * - `full`: commit bodies and PR/issue links included, rendered as rich text blocks
+   *   (one per changelog section). Commit bodies follow `changelog.includeCommitBody`.
+   * Can be overridden with the `--slack-format` CLI flag.
+   * @default 'summary'
+   */
+  changelogFormat?: SlackChangelogFormat
+  /**
    * Maximum length (in characters) of the changelog rendered inside the Slack message.
-   * Slack's per-section-block limit is 3000; default 2500 leaves margin for emoji/formatting.
-   * @default 2500
+   * When exceeded, the last commits are replaced with an "… and N more changes" line.
+   * Defaults to 2500 in `summary` format (Slack's section limit is 3000) and to no limit
+   * in `full` format, where the message is only bounded by Slack's 50 blocks.
    */
   postMaxLength?: number
   /**
@@ -1077,9 +1102,14 @@ export interface SlackOptions {
   template?: string
   /**
    * Maximum chars of the changelog rendered in the message.
-   * @default 2500
+   * Defaults to 2500 in `summary` format and to no limit in `full` format.
    */
   postMaxLength?: number
+  /**
+   * Changelog rendering of the message
+   * @default 'summary'
+   */
+  changelogFormat?: SlackChangelogFormat
   /**
    * Contributor names (plain strings, no email/handle). Empty array or undefined → no contributors block.
    */

@@ -257,6 +257,15 @@ describe('Given release command', () => {
     })
   })
 
+  describe('When a Slack changelog format is given', () => {
+    it('Then forwards it to the social step', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+      await release({ slackFormat: 'full' })
+
+      expect(social).toHaveBeenCalledWith(expect.objectContaining({ slackFormat: 'full' }))
+    })
+  })
+
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to all steps', async () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })

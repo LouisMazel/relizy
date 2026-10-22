@@ -428,6 +428,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         dryRun,
         logLevel: config.logLevel,
         safetyCheck: false, // Already checked in releaseSafetyCheck
+        slackFormat: options.slackFormat,
       })
     }
     else {

@@ -209,9 +209,46 @@ export default defineConfig({
 
 If you use a custom `template`, include the `{{contributors}}` placeholder to render them (see [Custom Message Template](#custom-message-template)).
 
+## Full Changelog
+
+By default, the Slack message shows a short changelog: the commit titles only. Set `changelogFormat: 'full'` to post the complete changelog, with the commit bodies and the PR/issue links:
+
+```typescript
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      changelogFormat: 'full',
+    },
+  },
+})
+```
+
+Or for a single run:
+
+```bash
+relizy release --minor --slack-format full
+relizy social --slack-format full
+```
+
+The full changelog is rendered as native Slack rich text, not raw markdown:
+
+- one block per changelog section, with its title in bold
+- each commit as a bullet, with its scope in bold and its PR/issue links
+- body paragraphs as quotes under their commit, body lists as nested lists and code as code blocks
+
+Commit bodies follow [`changelog.includeCommitBody`](../config/changelog.md) (enabled by default). With a custom `template`, <code v-pre>{{changelog}}</code> receives the complete changelog in mrkdwn, fitted to the 3000 characters of the template's section.
+
+::: tip Large releases
+Slack rejects messages with rich text above about 13,200 characters and messages of more than 50 blocks. Relizy keeps every post under these limits: when the changelog does not fit, the last commits are replaced with an "_… and N more changes_" line. Set [`social.changelogUrl`](../config/social.md#changelogurl) so the **Full Changelog** button links to the rest.
+:::
+
 ## Message Length
 
-By default, the changelog rendered in the Slack message is truncated to **2500 characters**. Slack's hard per-section-block limit is 3000 characters; the default leaves margin for mrkdwn conversion and emoji.
+In `summary` format, the changelog rendered in the Slack message is truncated to **2500 characters** by default (Slack's limit for a section block is 3000). In `full` format there is no limit by default other than Slack's own limits. In both formats, `postMaxLength` sets an explicit budget, and the commits beyond it are replaced with an "_… and N more changes_" line.
 
 ```typescript
 import { defineConfig } from 'relizy'
@@ -227,7 +264,7 @@ export default defineConfig({
 })
 ```
 
-Lower this value if you see `invalid_payload` errors in webhook mode.
+Lower this value for shorter posts.
 
 ## Configuration Reference
 
@@ -239,7 +276,8 @@ interface SlackConfig {
   webhookUrl?: string // Incoming Webhook URL; takes priority over token
   credentials?: SlackCredentials
   template?: string // custom mrkdwn template
-  postMaxLength?: number // default 2500
+  changelogFormat?: 'summary' | 'full' // default 'summary'
+  postMaxLength?: number // default 2500 in summary format, no limit in full format
   noAuthors?: boolean // default false — Slack-specific contributor gate
   noPackages?: boolean // default false — hide the 📦 Packages block
 }
@@ -366,7 +404,7 @@ export default defineConfig({
 
 - <code v-pre>{{projectName}}</code> — Package name from `package.json`
 - <code v-pre>{{newVersion}}</code> — New version number
-- <code v-pre>{{changelog}}</code> — Auto-generated changelog (truncated to `postMaxLength`)
+- <code v-pre>{{changelog}}</code> - Auto-generated changelog (truncated to `postMaxLength`, complete with `changelogFormat: 'full'`)
 - <code v-pre>{{releaseUrl}}</code> — Link to the GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> — Link to the full changelog (from `social.changelogUrl`)
 - <code v-pre>{{contributors}}</code> — Bullet list of contributor names (empty when `noAuthors` is active or none detected)
@@ -374,12 +412,15 @@ export default defineConfig({
 
 ## Markdown Support
 
-Slack uses mrkdwn. Relizy automatically converts:
+Slack uses mrkdwn. Relizy parses the changelog markdown and automatically converts:
 
-- `**bold**` → `*bold*`
-- `[link](url)` → `<url|link>`
-- `# Header` → `*Header*`
-- `## Subheader` → `*Subheader*`
+- `**bold**` → `*bold*`, `_italic_` → `_italic_`, `~~strike~~` → `~strike~`
+- `[link](url)` → `<url|link>` (relative links such as `./README.md` are kept as plain text)
+- `# Header` and `## Subheader` → `*Header*`
+- `- item` → `• item`, nested items → `◦ item`
+- `&`, `<` and `>` are escaped as Slack requires
+
+In `full` format, the changelog is converted to Slack rich text blocks instead (see [Full Changelog](#full-changelog)).
 
 ## Skip Prereleases
 
@@ -447,7 +488,7 @@ The webhook URL is invalid or has been deactivated. Regenerate it from your Slac
 
 ### "Slack webhook failed: 400" / `invalid_payload`
 
-Usually means the message exceeds 3000 characters in a single block. Lower `social.slack.postMaxLength`.
+Slack rejected the message payload. Relizy keeps every block within Slack's limits, so lower `social.slack.postMaxLength` or switch `social.slack.changelogFormat` to `'summary'` if a custom template produces an oversized message.
 
 ### "Channel Not Found Error" (token mode)
 

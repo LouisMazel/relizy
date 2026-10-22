@@ -1,6 +1,8 @@
-import type { SlackCredentials, SlackOptions } from '../types'
+import type { SlackChangelogFormat, SlackCredentials, SlackOptions } from '../types'
 import type { PackageBumpEntry } from './packages'
+import type { SlackRichTextBlock } from './slack-markdown'
 import { logger } from '@maz-ui/node'
+import { markdownToSlackMrkdwn, markdownToSlackRichText, richTextToPlainText, SLACK_HEADER_MAX_LENGTH, SLACK_MAX_BLOCKS, SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH, sliceSlackText } from './slack-markdown'
 import { extractChangelogSummary } from './social'
 
 /**
@@ -39,34 +41,26 @@ export function getSlackWebhookUrl(options: {
   )
 }
 
+/** Default changelog budget of the `summary` format. */
+export const SLACK_SUMMARY_MAX_LENGTH = 2500
+
+/**
+ * Resolve the changelog budget of a Slack post: `postMaxLength` when set,
+ * otherwise 2500 chars in `summary` format and no limit in `full` format
+ * (the message is then only bounded by Slack's 50 blocks).
+ */
+export function resolveSlackPostMaxLength({ changelogFormat = 'summary', postMaxLength }: {
+  changelogFormat?: SlackChangelogFormat
+  postMaxLength?: number
+}): number | undefined {
+  return postMaxLength ?? (changelogFormat === 'full' ? undefined : SLACK_SUMMARY_MAX_LENGTH)
+}
+
 /**
  * Format changelog for Slack (convert markdown to Slack's mrkdwn format)
  */
-export function formatChangelogForSlack(changelog: string, maxLength: number = 2500): string {
-  // Convert markdown to Slack's mrkdwn format
-  let formatted = changelog
-    // Convert markdown headers to bold
-    .replace(/^### (.+)$/gm, '*$1*')
-    .replace(/^## (.+)$/gm, '*$1*')
-    .replace(/^# (.+)$/gm, '*$1*')
-    // Convert markdown bold
-    .replace(/\*\*(.+?)\*\*/g, '*$1*')
-    // Convert markdown list bullets (- at line start) to Slack's bullet character (•)
-    // so they render as real bullet points instead of literal dashes.
-    .replace(/^([ \t]*)-[ \t]+/gm, '$1• ')
-
-  // Convert markdown links [text](url) to <url|text>
-  // Use a safer approach without complex regex
-  // eslint-disable-next-line sonarjs/super-linear-regex, regexp/strict
-  const linkPattern = /\[([^\]]*)]\(([^)]*)\)/g
-  formatted = formatted.replace(linkPattern, (_, text, url) => `<${url}|${text}>`)
-
-  // Truncate if too long
-  if (formatted.length > maxLength) {
-    formatted = `${formatted.substring(0, maxLength - 3)}...`
-  }
-
-  return formatted
+export function formatChangelogForSlack(changelog: string, maxLength: number = SLACK_SUMMARY_MAX_LENGTH): string {
+  return markdownToSlackMrkdwn(changelog, { maxLength })
 }
 
 /**
@@ -86,10 +80,76 @@ export function formatPackagesForSlack(packages: PackageBumpEntry[]): string {
     .join('\n')
 }
 
+function truncateSlackText(text: string, maxLength: number): string {
+  return text.length > maxLength ? `${sliceSlackText(text, maxLength - 1)}…` : text
+}
+
 /**
- * Format the Slack message using blocks
+ * Render a titled list as a section text within Slack's 3000 chars limit,
+ * replacing the overflowing lines with an "… and N more" line.
  */
-export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], packages = [], postMaxLength = 2500 }: {
+function formatListSection(title: string, lines: string[], noun: string): string {
+  const render = (count: number) => {
+    const omitted = lines.length - count
+    const kept = lines.slice(0, count)
+    if (omitted > 0) {
+      kept.push(`_… and ${omitted} more ${noun}_`)
+    }
+    return `${title}\n\n${kept.join('\n')}`
+  }
+
+  for (let count = lines.length; count > 0; count--) {
+    const text = render(count)
+    if (text.length <= SLACK_SECTION_MAX_LENGTH) {
+      return text
+    }
+  }
+  return truncateSlackText(render(0), SLACK_SECTION_MAX_LENGTH)
+}
+
+function renderSlackTemplate({ template, projectName, version, changelog, contributorsLine, packagesLine, releaseUrl, changelogUrl }: {
+  template: string
+  projectName: string
+  version: string
+  changelog: string
+  contributorsLine: string
+  packagesLine: string
+  releaseUrl?: string
+  changelogUrl?: string
+}): string {
+  let message = template
+    .replace('{{projectName}}', projectName)
+    .replace('{{newVersion}}', version)
+    .replace('{{changelog}}', changelog)
+    .replace('{{contributors}}', contributorsLine)
+    .replace('{{packages}}', packagesLine)
+
+  if (releaseUrl) {
+    message = message.replace('{{releaseUrl}}', releaseUrl)
+  }
+  else {
+    message = message.replace('{{releaseUrl}}', '').trim()
+  }
+
+  if (changelogUrl) {
+    message = message.replace('{{changelogUrl}}', changelogUrl)
+  }
+  else {
+    message = message.replace('{{changelogUrl}}', '').trim()
+  }
+
+  return message
+}
+
+/**
+ * Format the Slack message using blocks.
+ * - `summary` format: the changelog is a single mrkdwn section (2500 chars by default).
+ * - `full` format: the changelog is rendered as rich_text blocks, commit bodies
+ *   included, split per section. It is bounded by `postMaxLength` when set and
+ *   always by Slack's limits (50 blocks, ~13,200 chars for rich text messages).
+ * Every block is kept within Slack's limits so the post is never rejected.
+ */
+export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary' }: {
   template?: string
   projectName: string
   version: string
@@ -99,34 +159,25 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   contributors?: string[]
   packages?: PackageBumpEntry[]
   postMaxLength?: number
+  changelogFormat?: SlackChangelogFormat
 }): any[] {
   const contributorsLine = contributors.length > 0
     ? contributors.map(n => `• ${n}`).join('\n')
     : ''
   const packagesLine = formatPackagesForSlack(packages)
+  const maxLength = resolveSlackPostMaxLength({ changelogFormat, postMaxLength })
 
   // Use template if provided, otherwise use blocks
   if (template) {
-    const summary = extractChangelogSummary(changelog, { maxLength: postMaxLength })
-    let message = template
-      .replace('{{projectName}}', projectName)
-      .replace('{{newVersion}}', version)
-      .replace('{{changelog}}', summary)
-      .replace('{{contributors}}', contributorsLine)
-      .replace('{{packages}}', packagesLine)
-
-    if (releaseUrl) {
-      message = message.replace('{{releaseUrl}}', releaseUrl)
+    const templateContext = { template, projectName, version, contributorsLine, packagesLine, releaseUrl, changelogUrl }
+    let changelogText: string
+    if (changelogFormat === 'full') {
+      // A template is a single section: the changelog gets what the template leaves of its limit.
+      const overhead = renderSlackTemplate({ ...templateContext, changelog: '' }).length
+      changelogText = formatChangelogForSlack(changelog, maxLength ?? Math.max(0, SLACK_SECTION_MAX_LENGTH - overhead))
     }
     else {
-      message = message.replace('{{releaseUrl}}', '').trim()
-    }
-
-    if (changelogUrl) {
-      message = message.replace('{{changelogUrl}}', changelogUrl)
-    }
-    else {
-      message = message.replace('{{changelogUrl}}', '').trim()
+      changelogText = extractChangelogSummary(changelog, { maxLength })
     }
 
     // Return simple text blocks if using template
@@ -135,60 +186,48 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: message,
+          text: truncateSlackText(renderSlackTemplate({ ...templateContext, changelog: changelogText }), SLACK_SECTION_MAX_LENGTH),
         },
       },
     ]
   }
 
   // Default rich blocks format
-  const blocks: any[] = [
-    {
-      type: 'header',
-      text: {
-        type: 'plain_text',
-        text: `📣 ${projectName} ${version} is out!`,
-        emoji: true,
-      },
+  const headerBlock = {
+    type: 'header',
+    text: {
+      type: 'plain_text',
+      text: truncateSlackText(`📣 ${projectName} ${version} is out!`, SLACK_HEADER_MAX_LENGTH),
+      emoji: true,
     },
-  ]
-
-  // Add changelog section
-  const formattedChangelog = formatChangelogForSlack(changelog, postMaxLength)
-  if (formattedChangelog) {
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: formattedChangelog,
-      },
-    })
   }
+
+  const trailingBlocks: any[] = []
 
   // Add packages section
   if (packages.length > 0) {
-    blocks.push({
+    trailingBlocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*📦 Packages*\n\n${packagesLine}`,
+        text: formatListSection('*📦 Packages*', packagesLine.split('\n'), 'packages'),
       },
     })
   }
 
   // Add contributors section
   if (contributors.length > 0) {
-    blocks.push({
+    trailingBlocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*❤️ Contributors*\n\n${contributorsLine}`,
+        text: formatListSection('*❤️ Contributors*', contributorsLine.split('\n'), 'contributors'),
       },
     })
   }
 
   // Add divider
-  blocks.push({
+  trailingBlocks.push({
     type: 'divider',
   })
 
@@ -222,13 +261,37 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   }
 
   if (elements.length > 0) {
-    blocks.push({
+    trailingBlocks.push({
       type: 'actions',
       elements,
     })
   }
 
-  return blocks
+  // Add changelog blocks
+  const changelogBlocks: any[] = []
+  if (changelogFormat === 'full') {
+    // Messages with rich_text blocks are capped by Slack: the changelog gets what the other blocks leave.
+    const surroundingBlocks = [headerBlock, ...trailingBlocks]
+    changelogBlocks.push(...markdownToSlackRichText(changelog, {
+      maxLength,
+      maxBlocks: SLACK_MAX_BLOCKS - surroundingBlocks.length,
+      maxPayloadLength: SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH - JSON.stringify(surroundingBlocks).length,
+    }))
+  }
+  else {
+    const formattedChangelog = formatChangelogForSlack(changelog, Math.min(maxLength ?? SLACK_SUMMARY_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH))
+    if (formattedChangelog) {
+      changelogBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: formattedChangelog,
+        },
+      })
+    }
+  }
+
+  return [headerBlock, ...changelogBlocks, ...trailingBlocks]
 }
 
 function mapWebhookError(status: number, body: string): string | null {
@@ -236,7 +299,7 @@ function mapWebhookError(status: number, body: string): string | null {
     return 'The webhook URL is invalid or has been deactivated. Regenerate it in your Slack app settings.'
   }
   if (body.includes('invalid_payload')) {
-    return 'The message payload was rejected by Slack (likely exceeds 3000 chars per block). Lower social.slack.postMaxLength.'
+    return 'The message payload was rejected by Slack (likely exceeds its block limits). Lower social.slack.postMaxLength or switch social.slack.changelogFormat to "summary".'
   }
   if (body.includes('channel_not_found')) {
     return 'The channel bound to this webhook was archived or removed. Create a new webhook.'
@@ -339,6 +402,7 @@ export async function postReleaseToSlack({
   contributors,
   packages,
   postMaxLength,
+  changelogFormat,
   dryRun = false,
 }: SlackOptions) {
   const useWebhook = Boolean(webhookUrl)
@@ -363,6 +427,7 @@ export async function postReleaseToSlack({
     contributors,
     packages,
     postMaxLength,
+    changelogFormat,
   })
   const fallbackText = `${projectName} ${version} is out!`
 
@@ -370,8 +435,7 @@ export async function postReleaseToSlack({
 
   if (dryRun) {
     const preview = blocks
-      .filter((b: any) => b.type === 'header' || b.type === 'section')
-      .map((b: any) => b.text?.text ?? '')
+      .map((b: any) => b.type === 'rich_text' ? richTextToPlainText(b as SlackRichTextBlock) : b.text?.text ?? '')
       .filter(Boolean)
       .join('\n\n')
     const target = useWebhook ? 'webhook' : `channel: ${channel}`

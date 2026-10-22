@@ -28,6 +28,7 @@ vi.mock('../../core', () => ({
   collectContributorNames: vi.fn().mockReturnValue([]),
   collectPackageBumps: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
+  resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full' ? undefined : 2500)),
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),
   extractChangelogSummary: vi.fn().mockReturnValue('Summary of changes'),
@@ -539,6 +540,56 @@ describe('Given social command', () => {
     })
   })
 
+  describe('When choosing the Slack changelog format', () => {
+    const slackConfig = (changelogFormat?: 'summary' | 'full') => createMockConfig({
+      bump: { type: 'patch' },
+      social: {
+        twitter: { enabled: false, onlyStable: true },
+        slack: { enabled: true, onlyStable: true, channel: '#releases', changelogFormat },
+      },
+      tokens: { slack: 'slack-token' },
+    })
+
+    beforeEach(() => {
+      vi.mocked(getSlackToken).mockReturnValue('slack-token')
+      vi.mocked(generateChangelog).mockImplementation(({ minify }) => Promise.resolve(minify ? '- Feature A' : '- Feature A ([#1](https://x/1))\n\n  Body'))
+    })
+
+    it('Then posts the minified changelog in summary format (default)', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig())
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+        changelog: '- Feature A',
+        changelogFormat: 'summary',
+        postMaxLength: undefined,
+      }))
+    })
+
+    it('Then posts the rich changelog in full format', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig('full'))
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+        changelog: '- Feature A ([#1](https://x/1))\n\n  Body',
+        changelogFormat: 'full',
+      }))
+    })
+
+    it('Then lets the slackFormat option override the config', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig('summary'))
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] }, slackFormat: 'full' })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+        changelog: '- Feature A ([#1](https://x/1))\n\n  Body',
+        changelogFormat: 'full',
+      }))
+    })
+  })
+
   describe('When AI social is enabled for Twitter', () => {
     it('Then passes content through generateAISocialChangelog with maxLength', async () => {
       const config = createMockConfig({
@@ -575,7 +626,7 @@ describe('Given social command', () => {
   })
 
   describe('When AI social is enabled for Slack', () => {
-    it('Then passes content through generateAISocialChangelog without maxLength', async () => {
+    it('Then passes content through generateAISocialChangelog with the summary budget', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         social: {
@@ -595,10 +646,37 @@ describe('Given social command', () => {
         expect.objectContaining({
           config,
           platform: 'slack',
+          maxLength: 2500,
         }),
       )
       expect(postReleaseToSlack).toHaveBeenCalledWith(
         expect.objectContaining({ changelog: 'AI rewritten slack message' }),
+      )
+    })
+
+    it('Then falls back to the rich body without budget in full format', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: false, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, channel: '#releases', changelogFormat: 'full' },
+        },
+        tokens: { slack: 'slack-token' },
+        ai: { social: { slack: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(generateChangelog).mockImplementation(({ minify }) => Promise.resolve(minify ? '- Feature A' : '- Feature A ([#1](https://x/1))\n\n  Body'))
+      vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten slack message')
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(generateAISocialChangelog).toHaveBeenCalledWith(
+        expect.objectContaining({
+          platform: 'slack',
+          rawBody: '- Feature A ([#1](https://x/1))\n\n  Body',
+          fallbackBody: '- Feature A ([#1](https://x/1))\n\n  Body',
+          maxLength: undefined,
+        }),
       )
     })
   })

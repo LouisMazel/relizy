@@ -6,7 +6,7 @@ import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
-import { Command } from 'commander'
+import { Command, Option } from 'commander'
 import { bump, changelog, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/utils'
 
@@ -67,6 +67,10 @@ function getReleaseType(options: any) {
     type = 'prepatch'
 
   return type
+}
+
+function slackFormatOption() {
+  return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
 }
 
 program
@@ -215,6 +219,7 @@ program
   .option('--to <ref>', 'End commit reference')
   .option('--ai', 'Force-enable AI for social posts')
   .option('--no-ai', 'Force-disable AI for social posts')
+  .addOption(slackFormatOption())
   .action(async (options) => {
     try {
       await social({
@@ -225,6 +230,7 @@ program
         configName: program.opts().config,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
+        slackFormat: options.slackFormat,
       })
     }
     catch {
@@ -291,6 +297,7 @@ program
   .option('--include-private', 'Include private packages in bump and changelog phases')
   .option('--ai', 'Force-enable AI for release notes and social posts')
   .option('--no-ai', 'Force-disable AI for release notes and social posts')
+  .addOption(slackFormatOption())
   .action(async (options) => {
     try {
       await release({
@@ -329,6 +336,7 @@ program
         prComment: hasCliFlag('--no-pr-comment') ? false : undefined,
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
+        slackFormat: options.slackFormat,
       })
     }
     catch (error) {
