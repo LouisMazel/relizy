@@ -95,7 +95,7 @@
     }
   },
   "dependencies": {
-    "@inquirer/prompts": "^8.7.2",
+    "@inquirer/prompts": "^8.7.4",
     "@maz-ui/node": "5.0.0-beta.26",
     "@maz-ui/utils": "5.0.0-beta.39",
     "c12": "^3.3.3",
@@ -112,30 +112,30 @@
     "semver": "^7.8.5"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.3",
-    "@commitlint/config-conventional": "21.2.3",
-    "@commitlint/cz-commitlint": "^21.2.3",
+    "@commitlint/cli": "^21.2.4",
+    "@commitlint/config-conventional": "21.2.4",
+    "@commitlint/cz-commitlint": "^21.2.4",
     "@commitlint/types": "^21.2.3",
     "@maz-ui/eslint-config": "5.0.0-beta.43",
-    "@slack/web-api": "8.1.1",
+    "@slack/web-api": "8.2.0",
     "@types/mdast": "^4.0.4",
     "@types/micromatch": "^4.0.10",
-    "@types/node": "^26.6.2",
+    "@types/node": "^26.6.5",
     "@types/semver": "^7.8.0",
-    "@vitest/coverage-v8": "^5.0.1",
+    "@vitest/coverage-v8": "^5.0.5",
     "@yoloship/claude-sdk": "0.2.0-beta.6",
-    "ai": "^7.0.128",
+    "ai": "^7.0.148",
     "cross-env": "10.1.0",
-    "eslint": "^10.11.0",
+    "eslint": "^10.13.0",
     "husky": "9.1.7",
     "jiti": "2.7.0",
-    "lint-staged": "^17.5.1",
-    "memfs": "^4.78.1",
+    "lint-staged": "^17.6.0",
+    "memfs": "^4.80.0",
     "tsx": "^4.23.15",
     "twitter-api-v2": "^1.29.1",
     "typescript": "^6.0.0",
     "unbuild": "^3.6.1",
-    "vitest": "^5.0.1"
+    "vitest": "^5.0.5"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
