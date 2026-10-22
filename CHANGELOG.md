@@ -1,5 +1,37 @@
 # Changelog
 
+## v1.11.0 (2026-10-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.10.0...v1.11.0)
+
+### 🚀 Features
+
+- Read the workspaces of the monorepo tools for the scopes of relizy commitlint ([c0d9e2b](https://github.com/LouisMazel/relizy/commit/c0d9e2b))
+
+  The packages declared by the tools of the monorepo become valid scopes, without `commitlint.packages`, e.g. apps that relizy never releases. Relizy reads the `workspaces` of the `package.json` (npm, yarn, bun, and Turborepo or Nx on top of them), `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and the `workspace` of `deno.json`.
+
+- Add the codeBlocksLinter option to relizy commitlint ([a5a3e5f](https://github.com/LouisMazel/relizy/commit/a5a3e5f))
+
+  `commitlint.codeBlocksLinter` chooses the tool checking the code blocks of the commit bodies (`body-changelog-lint`): `auto` by default (the ESLint of the project when it lints the `CHANGELOG.md` files, otherwise oxc), `eslint` to fail instead of falling back to oxc, or `oxc` for a faster syntax check.
+
+- Disable subject-case by default in relizy commitlint ([3079c2d](https://github.com/LouisMazel/relizy/commit/3079c2d))
+
+  Relizy capitalizes the subject in the changelog, so its case changes nothing, and names such as `MazChart` were rejected. The rule stays available for a lowercase style. The suggested header only lowercases the subject when the rule is enabled.
+
+### 🩹 Fixes
+
+- Fetch the missing history of the shallow clones of the CI in relizy commitlint ([ef69cf5](https://github.com/LouisMazel/relizy/commit/ef69cf5))
+
+  The default checkout of GitHub Actions and GitLab CI only has the last commits, so `relizy commitlint` could not find the start of the range. In a shallow clone, it now fetches the history and the target branch of the pull request from `origin`, and the tags for `--from`. `fetch-depth: 0` and `GIT_DEPTH: 0` are no longer required.
+
+- Accept extra spaces after the colon of the header in relizy commitlint ([d99867e](https://github.com/LouisMazel/relizy/commit/d99867e))
+
+  `chore:  upgrade dependencies` was rejected by `header-format`, while the changelog removes the extra spaces. A missing space is still an error.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.10.0 (2026-10-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.9.0...v1.10.0)
