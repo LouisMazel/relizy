@@ -188,11 +188,13 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
     })
 
     it('Then generates the Slack post with its rules', async () => {
-      const model = createModel('*New release*')
-      const result = await generateAISocialChangelog({ config: createConfig(model), rawBody: RAW_BODY, platform: 'slack' })
+      const model = createModel('**New release**')
+      const result = await generateAISocialChangelog({ config: createConfig(model), rawBody: RAW_BODY, platform: 'slack', maxLength: 2500 })
 
-      expect(result).toBe('*New release*')
-      expect(lastMessages(model).system).toContain('Slack-compatible markdown')
+      const { system } = lastMessages(model)
+      expect(result).toBe('**New release**')
+      expect(system).toContain('standard markdown')
+      expect(system).toContain('Hard maximum: 2500 characters')
     })
 
     it('Then returns the fallback body when the model fails', async () => {

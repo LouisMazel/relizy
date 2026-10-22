@@ -275,8 +275,9 @@ function getCommitBody(commit: GitCommit) {
   const contentLines = lines.filter((line) => {
     const trimmedLine = line.trim()
 
+    // Blank lines are kept to separate paragraphs, they are normalized below
     if (!trimmedLine) {
-      return false
+      return true
     }
 
     /**
@@ -300,12 +301,20 @@ function getCommitBody(commit: GitCommit) {
     return !isFileLine
   })
 
-  if (contentLines.length === 0) {
+  // Keep a single blank line between paragraphs, none around the body
+  // (a blank line is only kept after a content line, so none can lead)
+  const paragraphLines = contentLines
+    .filter((line, index) => line.trim() || contentLines[index - 1]?.trim())
+  while (paragraphLines.length > 0 && !paragraphLines.at(-1)?.trim()) {
+    paragraphLines.pop()
+  }
+
+  if (paragraphLines.length === 0) {
     return ''
   }
 
-  const indentedBody = contentLines
-    .map(line => `  ${line}`)
+  const indentedBody = paragraphLines
+    .map(line => line.trim() ? `  ${line}` : '')
     .join('\n')
 
   return `\n\n${indentedBody}\n`

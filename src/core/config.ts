@@ -131,7 +131,7 @@ export function getDefaultConfig() {
       slack: {
         enabled: false,
         onlyStable: true,
-        postMaxLength: 2500,
+        changelogFormat: 'summary',
         noAuthors: false,
         noPackages: false,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,

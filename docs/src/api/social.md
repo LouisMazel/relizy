@@ -87,6 +87,12 @@ interface SocialOptions {
    * @default false
    */
   safetyCheck?: boolean
+
+  /**
+   * Override `social.slack.changelogFormat` for this run
+   * @default undefined
+   */
+  slackFormat?: 'summary' | 'full'
 }
 ```
 

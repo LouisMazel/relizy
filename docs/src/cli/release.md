@@ -163,6 +163,20 @@ relizy release --patch --no-ai
 
 These flags override the `ai.providerRelease` and `ai.social` settings in your config file. See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
 
+### --slack-format
+
+Choose how much of the changelog the Slack message shows, overriding `social.slack.changelogFormat`:
+
+```bash
+# Complete changelog: commit bodies and PR links, rendered as Slack rich text
+relizy release --slack-format full --minor
+
+# Short changelog: commit titles only
+relizy release --slack-format summary --minor
+```
+
+See the [Slack Integration](/guide/slack-integration#full-changelog) guide for the rendering details.
+
 ### --no-provider-release
 
 Skip provider release creation (GitHub/GitLab):

@@ -1,7 +1,7 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
-import { BASE_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
 const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
@@ -20,6 +20,21 @@ function substitutePlaceholders(prompt: string, vars: Record<string, string | un
   return result
 }
 
+/**
+ * Extra guidelines of a target: a string applies to every target, an object
+ * adds its `global` guidelines followed by the target-specific ones.
+ */
+function getExtraGuidelines(config: ResolvedRelizyConfig, target: AIPromptTarget): string[] {
+  const guidelines = config.ai?.extraGuidelines
+  if (!guidelines) {
+    return []
+  }
+  if (typeof guidelines === 'string') {
+    return [guidelines]
+  }
+  return [guidelines.global, guidelines[target]].filter((guideline): guideline is string => !!guideline?.trim())
+}
+
 function assemblePrompt(
   config: ResolvedRelizyConfig,
   target: AIPromptTarget,
@@ -36,9 +51,10 @@ function assemblePrompt(
   }
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
-  if (config.ai?.extraGuidelines) {
-    parts.push(config.ai.extraGuidelines)
+  if (maxLength !== undefined) {
+    parts.push(MAX_LENGTH_PROMPT)
   }
+  parts.push(...getExtraGuidelines(config, target))
 
   return substitutePlaceholders(parts.join('\n\n'), vars)
 }
