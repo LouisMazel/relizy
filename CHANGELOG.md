@@ -1,5 +1,56 @@
 # Changelog
 
+## v1.9.0 (2026-10-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.8.0...v1.9.0)
+
+### 🚀 Features
+
+- Add a full changelog format to the Slack posts ([c46107d](https://github.com/LouisMazel/relizy/commit/c46107d))
+
+  New `social.slack.changelogFormat` option, `'summary'` by default (unchanged posts). Set it to `'full'` to post the complete changelog, with the commit bodies and the PR/issue links, rendered as native Slack rich text: a block per changelog section, commits as bullets, body paragraphs as quotes, body lists as nested lists and code as code blocks. With a custom template, `{{changelog}}` receives the complete changelog in mrkdwn.
+
+  Override it for a single run with `relizy release --slack-format full` or `relizy social --slack-format full`. Commit bodies follow `changelog.includeCommitBody`.
+
+  `social.slack.postMaxLength` now defaults to 2500 characters in `summary` format and to no limit in `full` format. Every post stays within the Slack limits (50 blocks, 3000 characters per section, about 13,200 characters for a message with rich text, 150 for the header): the commits that do not fit are replaced with an "… and N more changes" line, and long packages or contributors lists with an "… and N more" line, instead of a rejected post.
+
+- Refine the AI prompts of the social posts ([70ee3db](https://github.com/LouisMazel/relizy/commit/70ee3db))
+
+  The AI now writes the Slack posts in standard markdown, rendered with the chosen `social.slack.changelogFormat`, and keeps the PR/issue links and the package headings of independent releases. Breaking changes come first in both Slack and Twitter posts. The Twitter posts drop the scope markers, and the Slack posts in `summary` format get the 2500 characters budget.
+
+  The prompts also use the commit bodies to describe each change instead of listing them as separate changes.
+
+- Scope the AI extra guidelines per target ([22035e0](https://github.com/LouisMazel/relizy/commit/22035e0))
+
+  `ai.extraGuidelines` still accepts a string applied to every target, and now also an object to add directives per target: `{ global, providerRelease, twitter, slack }`. The `global` directives come first, then the ones of the target.
+
+  ```ts
+  export default defineConfig({
+    ai: {
+      extraGuidelines: {
+        global: 'Never mention the internal codename.',
+        slack: 'Mention the team owning each change.',
+      },
+    },
+  })
+  ```
+
+### 🩹 Fixes
+
+- Keep the paragraphs of the commit bodies in the changelog ([e2369e0](https://github.com/LouisMazel/relizy/commit/e2369e0))
+
+  The blank lines of a commit body were dropped, so its paragraphs were merged into one block and a paragraph following a list was glued to its last item. A single blank line is now kept between the paragraphs of a body, in the CHANGELOG files, the provider releases and the social posts.
+
+- Cut the full Slack changelog where its limit is reached ([d3a24b5](https://github.com/LouisMazel/relizy/commit/d3a24b5))
+
+  In `full` format, a changelog longer than `social.slack.postMaxLength` or than the Slack limits was truncated by whole commits: when the first commit and its body did not fit, the post only showed "… and N more changes". The changelog is now shown up to the limit, commit bodies included, cut with "…" where the limit is reached, even inside a commit body, and the commits left out entirely are still announced with "… and N more changes". The limit counts the characters of the post as shown by the `--dry-run` preview, bullets included.
+
+  The `summary` format still drops whole commits.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.8.0 (2026-10-20)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.7.0...v1.8.0)
