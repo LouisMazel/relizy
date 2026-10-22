@@ -134,6 +134,14 @@ describe('Given formatSlackMessage against the Slack limits', () => {
     })
   })
 
+  describe('When a single list line exceeds the section limit', () => {
+    it('Then replaces it with the omitted count', () => {
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: '- a', contributors: ['x'.repeat(4000)] })
+
+      expect(blocks.find((block: any) => block.text?.text?.startsWith('*❤️ Contributors*')).text.text).toBe('*❤️ Contributors*\n\n_… and 1 more contributors_')
+    })
+  })
+
   describe('When the full changelog is truncated', () => {
     it('Then announces the omitted changes', () => {
       const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: hugeChangelog(), changelogFormat: 'full' })

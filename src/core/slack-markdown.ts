@@ -1,4 +1,4 @@
-import type { BlockContent, DefinitionContent, Heading, List, ListItem, Nodes, PhrasingContent, Root, RootContent, Table } from 'mdast'
+import type { BlockContent, DefinitionContent, Heading, Image, ImageReference, List, ListItem, Nodes, PhrasingContent, Root, RootContent, Table } from 'mdast'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
@@ -162,12 +162,20 @@ function getListItemNumber(list: List, index: number): number {
   return (list.start ?? 1) + index
 }
 
+/** The parser always sets `alt`, mdast types it as nullable. */
+function getAltText(node: Image | ImageReference): string {
+  return node.alt ?? ''
+}
+
 function toPlainText(node: Nodes): string {
   if ('value' in node && typeof node.value === 'string') {
     return node.value
   }
   if (node.type === 'image' || node.type === 'imageReference') {
-    return node.alt ?? ''
+    return getAltText(node)
+  }
+  if (node.type === 'break') {
+    return ' '
   }
   if ('children' in node) {
     return (node.children as Nodes[]).map(toPlainText).join('')
@@ -261,17 +269,15 @@ function renderInlineNodeMrkdwn(node: PhrasingContent, active: ReadonlySet<strin
     case 'link':
       return formatMrkdwnLink(node.url, toPlainText(node))
     case 'image':
-      return formatMrkdwnLink(node.url, node.alt ?? '')
+      return formatMrkdwnLink(node.url, getAltText(node))
     case 'linkReference':
       return renderInlineMrkdwn(node.children, active)
     case 'imageReference':
-      return escapeMrkdwn(node.alt ?? '')
+      return escapeMrkdwn(getAltText(node))
     case 'html':
       return escapeMrkdwn(node.value)
     case 'footnoteReference':
       return `[^${escapeMrkdwn(node.identifier)}]`
-    default:
-      return ''
   }
 }
 
@@ -444,21 +450,19 @@ function appendInlineRichText(elements: SlackRichTextInline[], node: PhrasingCon
       pushLink(elements, node.url, toPlainText(node), style)
       break
     case 'image':
-      pushLink(elements, node.url, node.alt ?? '', style)
+      pushLink(elements, node.url, getAltText(node), style)
       break
     case 'linkReference':
       node.children.forEach(child => appendInlineRichText(elements, child, style))
       break
     case 'imageReference':
-      pushText(elements, node.alt ?? '', style)
+      pushText(elements, getAltText(node), style)
       break
     case 'html':
       pushText(elements, node.value, style)
       break
     case 'footnoteReference':
       pushText(elements, `[^${node.identifier}]`, style)
-      break
-    default:
       break
   }
 }

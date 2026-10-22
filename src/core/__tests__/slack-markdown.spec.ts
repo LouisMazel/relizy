@@ -247,3 +247,148 @@ describe('Given sliceSlackText function', () => {
     expect(sliceSlackText('abc', 2)).toBe('ab')
   })
 })
+
+describe('Given the less common markdown constructs', () => {
+  const REFERENCES = '\n\n[docs]: https://x.dev/docs\n\n[logo]: https://x.dev/l.png\n\n[^1]: A footnote.'
+
+  describe('When rendering them as mrkdwn', () => {
+    it('Then turns hard breaks into line breaks', () => {
+      expect(markdownToSlackMrkdwn('a  \nb')).toBe('a\nb')
+    })
+
+    it('Then links absolute images and keeps the alt of the relative ones', () => {
+      expect(markdownToSlackMrkdwn('![logo](https://x.dev/l.png) ![rel](./r.png)')).toBe('<https://x.dev/l.png|logo> rel')
+    })
+
+    it('Then renders references, inline html and footnotes as text', () => {
+      expect(markdownToSlackMrkdwn(`[ref][docs] ![img][logo] <kbd>K</kbd> a[^1]${REFERENCES}`)).toBe('ref img &lt;kbd&gt;K&lt;/kbd&gt; a[^1]')
+    })
+
+    it('Then combines styles and drops the markers of an empty styled text', () => {
+      expect(markdownToSlackMrkdwn('**[bold](https://x.dev)** ***both*** **![](./e.png)**')).toBe('*<https://x.dev|bold>* _*both*_ ')
+    })
+
+    it('Then flattens the label of a link', () => {
+      expect(markdownToSlackMrkdwn('[a ![i](https://x.dev/i.png) b\\\nc](https://x.dev/p)')).toBe('<https://x.dev/p|a i b c>')
+    })
+
+    it('Then does not repeat the bold marker of a heading', () => {
+      expect(markdownToSlackMrkdwn('### **Bold** title')).toBe('*Bold title*')
+    })
+
+    it('Then skips empty headings', () => {
+      expect(markdownToSlackMrkdwn('#\n\nText')).toBe('Text')
+    })
+
+    it('Then renders quotes, code, html blocks and tables, and skips thematic breaks', () => {
+      const markdown = '> quoted\n> - item\n\n```\nx < y\n```\n\n<div>raw</div>\n\n| a | b |\n| - | - |\n| 1 | 2 |\n\n---\n\nend'
+
+      expect(markdownToSlackMrkdwn(markdown)).toBe([
+        '> quoted\n> • item',
+        '```\nx &lt; y\n```',
+        '&lt;div&gt;raw&lt;/div&gt;',
+        'a | b\n1 | 2',
+        'end',
+      ].join('\n\n'))
+    })
+  })
+
+  describe('When truncating content without commits', () => {
+    it('Then counts the omitted paragraphs as changes', () => {
+      expect(markdownToSlackMrkdwn('first paragraph\n\nsecond paragraph\n\nthird paragraph', { maxLength: 40 }))
+        .toBe('first paragraph\n\n_… and 2 more changes_')
+    })
+
+    it('Then adds no note when only empty sections are left out', () => {
+      expect(markdownToSlackMrkdwn('Some text\n\n# Heading', { maxLength: 12 })).toBe('Some text')
+      expect(markdownToSlackRichText('Some text\n\n# Heading', { maxLength: 10 })).toEqual([
+        { type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'Some text' }] }] },
+      ])
+    })
+  })
+
+  describe('When rendering them as rich text', () => {
+    const elementsOf = (markdown: string) => markdownToSlackRichText(markdown).flatMap(block => block.elements)
+
+    it('Then turns hard breaks into line breaks', () => {
+      expect(elementsOf('a  \nb')).toEqual([{ type: 'rich_text_section', elements: [{ type: 'text', text: 'a\nb' }] }])
+    })
+
+    it('Then renders images, references, inline html and footnotes', () => {
+      expect(elementsOf(`![logo](https://x.dev/l.png) ![rel](./r.png) [ref][docs] ![img][logo] <kbd>K</kbd> a[^1]${REFERENCES}`)).toEqual([{
+        type: 'rich_text_section',
+        elements: [
+          { type: 'link', url: 'https://x.dev/l.png', text: 'logo' },
+          { type: 'text', text: ' rel ref img <kbd>K</kbd> a[^1]' },
+        ],
+      }])
+    })
+
+    it('Then styles links and combines styles', () => {
+      expect(elementsOf('**[bold](https://x.dev)** ***both***')).toEqual([{
+        type: 'rich_text_section',
+        elements: [
+          { type: 'link', url: 'https://x.dev', text: 'bold', style: { bold: true } },
+          { type: 'text', text: ' ' },
+          { type: 'text', text: 'both', style: { bold: true, italic: true } },
+        ],
+      }])
+    })
+
+    it('Then renders every child of a blockquote in one quote', () => {
+      expect(elementsOf('> quoted\n>\n> # Title\n>\n> ```\n> code\n> ```')).toEqual([{
+        type: 'rich_text_quote',
+        elements: [
+          { type: 'text', text: 'quoted\n' },
+          { type: 'text', text: 'Title', style: { bold: true } },
+          { type: 'text', text: '\ncode' },
+        ],
+      }])
+    })
+
+    it('Then drops the thematic breaks of a blockquote', () => {
+      expect(elementsOf('> a\n>\n> ***')).toEqual([{ type: 'rich_text_quote', elements: [{ type: 'text', text: 'a\n' }] }])
+    })
+
+    it('Then skips empty code blocks, quotes and headings', () => {
+      expect(markdownToSlackRichText('```\n```\n\n>\n\n#')).toEqual([])
+    })
+
+    it('Then renders html blocks as text and tables as preformatted text', () => {
+      expect(elementsOf('<div>raw</div>\n\n| a | b |\n| - | - |\n| 1 | 2 |')).toEqual([
+        { type: 'rich_text_section', elements: [{ type: 'text', text: '<div>raw</div>' }] },
+        { type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'a | b\n1 | 2' }] },
+      ])
+    })
+
+    it('Then skips thematic breaks and joins the surrounding paragraphs', () => {
+      expect(elementsOf('a\n\n---\n\nb')).toEqual([{ type: 'rich_text_section', elements: [{ type: 'text', text: 'a\nb' }] }])
+    })
+
+    it('Then joins a paragraph after one ending with a link', () => {
+      expect(elementsOf('see https://x.dev\n\nnext')).toEqual([{
+        type: 'rich_text_section',
+        elements: [
+          { type: 'text', text: 'see ' },
+          { type: 'link', url: 'https://x.dev' },
+          { type: 'text', text: '\nnext' },
+        ],
+      }])
+    })
+
+    it('Then renders the quotes, html, tables and headings of a commit body', () => {
+      const markdown = '- item\n\n  > quoted\n\n  <details>x</details>\n\n  | a |\n  | - |\n  | 1 |\n\n  ### Title\n\n  ---'
+
+      expect(elementsOf(markdown)).toEqual([
+        { type: 'rich_text_list', style: 'bullet', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'item' }] }] },
+        { type: 'rich_text_quote', elements: [{ type: 'text', text: 'quoted\n\n<details>x</details>' }] },
+        { type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'a\n1' }] },
+        { type: 'rich_text_section', elements: [{ type: 'text', text: 'Title', style: { bold: true } }] },
+      ])
+    })
+
+    it('Then previews a link without label as its url', () => {
+      expect(richTextToPlainText(markdownToSlackRichText('see https://x.dev')[0]!)).toBe('see https://x.dev')
+    })
+  })
+})

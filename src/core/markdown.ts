@@ -302,11 +302,9 @@ function getCommitBody(commit: GitCommit) {
   })
 
   // Keep a single blank line between paragraphs, none around the body
+  // (a blank line is only kept after a content line, so none can lead)
   const paragraphLines = contentLines
     .filter((line, index) => line.trim() || contentLines[index - 1]?.trim())
-  while (paragraphLines.length > 0 && !paragraphLines[0]?.trim()) {
-    paragraphLines.shift()
-  }
   while (paragraphLines.length > 0 && !paragraphLines.at(-1)?.trim()) {
     paragraphLines.pop()
   }
