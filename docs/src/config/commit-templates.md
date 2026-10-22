@@ -159,6 +159,8 @@ export default defineConfig({
 
 ## Tips for commitlint users
 
+[`relizy commitlint`](/commitlint/) ignores the release commits matching `commitMessage`, whatever their length.
+
 If your project uses commitlint with `header-max-length`, the independent-mode
 default is designed to stay well under 72 characters. If you customize
 `commitMessage`, double-check with:

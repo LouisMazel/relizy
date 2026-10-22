@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
@@ -122,6 +122,14 @@ export function getDefaultConfig() {
       social: true,
       prComment: true,
     } as Required<ReleaseConfig>,
+    commitlint: {
+      packages: [],
+      scopes: [],
+      rules: {},
+      customRules: {},
+      ignores: [],
+      defaultIgnores: true,
+    } as Required<Omit<CommitlintConfig, 'helpUrl'>> & Pick<CommitlintConfig, 'helpUrl'>,
     social: {
       twitter: {
         enabled: false,

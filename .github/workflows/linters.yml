@@ -10,9 +10,15 @@ jobs:
 
     steps:
       - uses: actions/checkout@v6
+        with:
+          # The commits of the pull request are linted from the merge-base with the base branch
+          fetch-depth: 0
 
       - name: Setup Node.js, pnpm # and Nx cache
         uses: ./.github/actions/setup
 
       - name: Run linters
         run: pnpm lint:all
+
+      - name: Lint commit messages
+        run: pnpm relizy commitlint

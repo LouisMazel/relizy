@@ -12,7 +12,7 @@ tags: [cli, commands, reference, documentation]
 
 ## Overview
 
-Relizy provides seven main commands:
+Relizy provides eight main commands:
 
 | Command                                     | Description                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -23,6 +23,7 @@ Relizy provides seven main commands:
 | [`provider-release`](/cli/provider-release) | Create GitHub or GitLab releases                                                         |
 | [`social`](/cli/social)                     | Post release announcements to social media                                               |
 | [`pr-comment`](/cli/pr-comment)             | Post release information as a PR/MR comment                                              |
+| [`commitlint`](/commitlint/cli)             | Lint commit messages with the Relizy config                                              |
 
 ## Global Options
 
@@ -304,3 +305,4 @@ Dive deeper into each command:
 - [provider-release](provider-release.md) - GitHub/GitLab releases
 - [social](social.md) - Social media posting
 - [pr-comment](pr-comment.md) - PR/MR comments
+- [commitlint](../commitlint/cli.md) - Commit message linting

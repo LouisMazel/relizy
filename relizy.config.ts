@@ -53,5 +53,8 @@ export default defineConfig({
   prComment: {
     mode: 'append',
   },
+  commitlint: {
+    scopes: ['docs', 'release', 'deps'],
+  },
   safetyCheck: true,
 })

@@ -1,4 +1,5 @@
 export * from './changelog'
+export * from './commitlint'
 export * from './config'
 export * from './dependencies'
 export * from './git'

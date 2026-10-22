@@ -109,13 +109,10 @@
     "micromark-extension-gfm": "^3.0.0",
     "micromatch": "^4.0.8",
     "node-fetch-native": "^1.6.7",
+    "oxc-parser": "^0.155.0",
     "semver": "^7.8.5"
   },
   "devDependencies": {
-    "@commitlint/cli": "^21.2.4",
-    "@commitlint/config-conventional": "21.2.4",
-    "@commitlint/cz-commitlint": "^21.2.4",
-    "@commitlint/types": "^21.2.3",
     "@maz-ui/eslint-config": "5.0.0-beta.43",
     "@slack/web-api": "8.2.0",
     "@types/mdast": "^4.0.4",

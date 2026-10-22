@@ -345,17 +345,49 @@ function renderUnitMrkdwn(unit: ChangelogUnit): string {
   return renderBlockMrkdwn(unit.node)
 }
 
+/** Line break after a heading and between the items of a list, blank line otherwise */
+function getMrkdwnSeparator(previous: RenderedUnit<string> | undefined, current: RenderedUnit<string>): string {
+  if (!previous) {
+    return ''
+  }
+  const sameList = previous.unit.type === 'item' && current.unit.type === 'item' && previous.unit.list === current.unit.list
+  return previous.unit.type === 'heading' || sameList ? '\n' : '\n\n'
+}
+
 function joinMrkdwnUnits(rendered: RenderedUnit<string>[]): string {
-  let text = ''
-  rendered.forEach((current, index) => {
-    const previous = rendered[index - 1]
-    if (previous) {
-      const sameList = previous.unit.type === 'item' && current.unit.type === 'item' && previous.unit.list === current.unit.list
-      text += previous.unit.type === 'heading' || sameList ? '\n' : '\n\n'
-    }
-    text += current.output
-  })
-  return text
+  return rendered.map((current, index) => `${getMrkdwnSeparator(rendered[index - 1], current)}${current.output}`).join('')
+}
+
+/** The first `count` units, without the headings ending them: their content was dropped */
+function countWithoutTrailingHeadings(rendered: RenderedUnit<unknown>[], count: number): number {
+  let kept = count
+  while (kept > 0 && rendered[kept - 1]!.unit.type === 'heading') {
+    kept--
+  }
+  return kept
+}
+
+/**
+ * Precomputed once, so that trying every count of kept units stays linear on
+ * long changelogs: the separators, the length of the first units, and the note
+ * announcing the changes of the units from an index.
+ */
+function indexMrkdwnUnits(rendered: RenderedUnit<string>[]) {
+  const separators = rendered.map((current, index) => getMrkdwnSeparator(rendered[index - 1], current))
+  const prefixLengths = [0]
+  rendered.forEach((current, index) => prefixLengths.push(prefixLengths[index]! + separators[index]!.length + current.output.length))
+
+  const itemsFrom = Array.from<number>({ length: rendered.length + 1 }).fill(0)
+  const changesFrom = Array.from<number>({ length: rendered.length + 1 }).fill(0)
+  for (let index = rendered.length - 1; index >= 0; index--) {
+    const type = rendered[index]!.unit.type
+    itemsFrom[index] = itemsFrom[index + 1]! + (type === 'item' ? 1 : 0)
+    changesFrom[index] = changesFrom[index + 1]! + (type === 'heading' ? 0 : 1)
+  }
+
+  // Commits first, other blocks otherwise
+  const omittedNote = (index: number) => formatOmittedChanges(itemsFrom[index]! > 0 ? itemsFrom[index]! : changesFrom[index]!)
+  return { separators, prefixLengths, omittedNote }
 }
 
 /**
@@ -382,27 +414,29 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength, cutCommits 
     return full
   }
 
+  const { separators, prefixLengths, omittedNote } = indexMrkdwnUnits(rendered)
+
   for (let count = rendered.length - 1; count >= 0; count--) {
     const next = rendered[count]!
     if (cutCommits && next.unit.type !== 'heading') {
-      const note = formatOmittedChanges(countOmittedChanges(rendered.slice(count + 1).map(({ unit }) => unit)))
+      const note = omittedNote(count + 1)
       const suffix = note ? `\n\n_${note}_` : ''
       // The units kept whole, followed by the separator of the cut one
-      const prefix = joinMrkdwnUnits([...rendered.slice(0, count), { ...next, output: '' }])
-      const cut = cutMrkdwn(next.output, maxLength - prefix.length - suffix.length - ELLIPSIS.length)
+      const prefixLength = prefixLengths[count]! + separators[count]!.length
+      const cut = cutMrkdwn(next.output, maxLength - prefixLength - suffix.length - ELLIPSIS.length)
       if (cut) {
-        return `${prefix}${cut}${ELLIPSIS}${suffix}`
+        return `${joinMrkdwnUnits(rendered.slice(0, count))}${separators[count]}${cut}${ELLIPSIS}${suffix}`
       }
     }
 
-    const kept = dropTrailingHeadings(rendered.slice(0, count))
-    if (kept.length === 0) {
+    const kept = countWithoutTrailingHeadings(rendered, count)
+    if (kept === 0) {
       continue
     }
-    const note = formatOmittedChanges(countOmittedChanges(rendered.slice(kept.length).map(({ unit }) => unit)))
-    const candidate = note ? `${joinMrkdwnUnits(kept)}\n\n_${note}_` : joinMrkdwnUnits(kept)
-    if (candidate.length <= maxLength) {
-      return candidate
+    const note = omittedNote(kept)
+    const suffix = note ? `\n\n_${note}_` : ''
+    if (prefixLengths[kept]! + suffix.length <= maxLength) {
+      return `${joinMrkdwnUnits(rendered.slice(0, kept))}${suffix}`
     }
   }
 
@@ -875,8 +909,10 @@ export function markdownToSlackRichText(markdown: string, {
 
   // Every limit grows with the number of kept characters: binary search the largest count that fits.
   let best = truncate(0)
+  // No need to search beyond the limits: the JSON is longer than the text, and the
+  // length of the units (a line break per element) is less than twice the text
   let low = 1
-  let high = totalLength(rendered) - 1
+  let high = Math.min(totalLength(rendered) - 1, (maxLength ?? Infinity) * 2, maxPayloadLength ?? Infinity)
   while (low <= high) {
     const chars = Math.floor((low + high) / 2)
     const candidate = truncate(chars)
