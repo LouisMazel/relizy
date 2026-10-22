@@ -1,6 +1,7 @@
 import type { ResolvedRelizyConfig } from '../config'
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
+import { parseJSONC, parseYAML } from 'confbox'
 import fastGlob from 'fast-glob'
 
 /**
@@ -20,15 +21,64 @@ function getShortName(name: string): string {
   return name.startsWith('@') ? name.slice(name.indexOf('/') + 1) : name
 }
 
+function readFile(path: string): string | undefined {
+  try {
+    return readFileSync(path, 'utf8')
+  }
+  catch {
+    return undefined
+  }
+}
+
+function toStrings(value: unknown): string[] {
+  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+}
+
+/** A config file of the repository root, `undefined` when it is missing or invalid */
+function readConfigFile(cwd: string, file: string): Record<string, any> | undefined {
+  const content = readFile(join(cwd, file))
+  if (content === undefined) {
+    return undefined
+  }
+  try {
+    const parsed = file.endsWith('.yaml') ? parseYAML(content) : parseJSONC(content)
+    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Package globs declared by the tools of the monorepo: the `workspaces` of the
+ * package.json (npm, yarn, bun, and Turborepo or Nx on top of them),
+ * `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and the `workspace` of `deno.json`.
+ */
+export function getPackageManagerWorkspaces(cwd: string): string[] {
+  const workspaces = readConfigFile(cwd, 'package.json')?.workspaces
+  return [...new Set([
+    ...toStrings(Array.isArray(workspaces) ? workspaces : workspaces?.packages),
+    ...toStrings(readConfigFile(cwd, 'pnpm-workspace.yaml')?.packages),
+    ...toStrings(readConfigFile(cwd, 'lerna.json')?.packages),
+    ...toStrings((readConfigFile(cwd, 'rush.json')?.projects ?? []).map((project: { projectFolder?: unknown }) => project?.projectFolder)),
+    ...toStrings((readConfigFile(cwd, 'deno.json') ?? readConfigFile(cwd, 'deno.jsonc'))?.workspace),
+  ])]
+}
+
 /**
  * Packages of the monorepo, private ones included: a commit can touch a package
- * that is never published. `commitlint.packages` adds directories that relizy
+ * that is never published. Besides `monorepo.packages`, the workspace of the
+ * package manager and `commitlint.packages` add the directories that relizy
  * does not release (e.g. apps). `monorepo.ignored` is not applied: an ignored
  * package is released by another config, it is still a valid scope.
  * Empty in standalone mode without them.
  */
 export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePackage[] {
-  const patterns = [...new Set([...(config.monorepo?.packages ?? []), ...(config.commitlint?.packages ?? [])])]
+  const patterns = [...new Set([
+    ...(config.monorepo?.packages ?? []),
+    ...getPackageManagerWorkspaces(config.cwd),
+    ...(config.commitlint?.packages ?? []),
+  ].map(pattern => pattern.replace(/^\.\//, '')))]
   if (patterns.length === 0) {
     return []
   }

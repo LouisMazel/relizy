@@ -36,7 +36,7 @@ With [multiple configs](/config/multiple-configs), select one with `relizy commi
 - **Type:** `string[]`
 - **Default:** `[]`
 
-Glob patterns of directories to treat as workspace packages, in addition to [`monorepo.packages`](/config/monorepo), e.g. apps or playgrounds that Relizy never releases. Their packages become valid scopes, and count for [`scope-required`](./rules.md#scope-required) and [`scope-matches-files`](./rules.md#scope-matches-files).
+Glob patterns of directories to treat as workspace packages, in addition to [`monorepo.packages`](/config/monorepo) and to the workspace of your tools (`workspaces` of the `package.json`, `pnpm-workspace.yaml`, `lerna.json`, `rush.json`, `deno.json`), which Relizy reads already. Use it for the directories none of them declares, e.g. apps or playgrounds that Relizy never releases. Their packages become valid scopes, and count for [`scope-required`](./rules.md#scope-required) and [`scope-matches-files`](./rules.md#scope-matches-files).
 
 ```ts
 import { defineConfig } from 'relizy'

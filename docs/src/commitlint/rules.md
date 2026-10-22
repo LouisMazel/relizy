@@ -101,7 +101,7 @@ export default defineConfig({
 
 The scope must designate something. The allowed scopes are:
 
-- the workspace packages, private and ignored ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`. Add directories Relizy does not release, such as apps, with [`commitlint.packages`](./config.md#packages);
+- the workspace packages, private and ignored ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`. The packages come from [`monorepo.packages`](/config/monorepo) and from the workspace of your tools: the `workspaces` of the `package.json` (npm, yarn, bun, Turborepo, Nx), `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and `deno.json`. Add other directories with [`commitlint.packages`](./config.md#packages);
 - the keys of [`scopeMap`](/config/overview);
 - the scopes listed in [`commitlint.scopes`](./config.md#scopes).
 

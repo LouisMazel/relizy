@@ -2,7 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createMockConfig } from '../../../tests/mocks'
-import { findPackageByScope, getAllowedScopes, getPackagesOfFiles, getWorkspacePackages } from '../commitlint/workspace'
+import { findPackageByScope, getAllowedScopes, getPackageManagerWorkspaces, getPackagesOfFiles, getWorkspacePackages } from '../commitlint/workspace'
 
 describe('Given the commitlint workspace helpers', () => {
   let cwd: string
@@ -72,6 +72,49 @@ describe('Given the commitlint workspace helpers', () => {
       const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'], ignored: ['packages/core-lib'] } })
 
       expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core'])
+    })
+
+    it('Then adds the packages of pnpm-workspace.yaml, e.g. apps that are never released', () => {
+      writeFileSync(join(cwd, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\n  - \'apps/*\'\n  - \'!apps/web\'\ncatalog:\n  vue: ^3.5.0\n')
+      const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'] } })
+
+      expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core', 'playground'])
+    })
+
+    it('Then reads the members of a deno workspace, written with ./', () => {
+      writeFileSync(join(cwd, 'deno.json'), '{ "workspace": ["./apps/web"] }')
+      const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'] } })
+
+      expect(getWorkspacePackages(config)).toEqual(expect.arrayContaining([{ name: 'web-app', path: 'apps/web', scopes: ['web-app', 'web'] }]))
+    })
+
+    it.each([
+      ['an array', ['apps/*']],
+      ['an object', { packages: ['apps/*'] }],
+    ])('Then adds the workspaces of the package.json, as %s', (_, workspaces) => {
+      writePackage('.', { name: 'root', private: true, workspaces })
+      const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'] } })
+
+      expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core', 'playground', 'web-app'])
+    })
+
+    it.each([
+      ['no workspace', {}, []],
+      ['a pnpm-workspace.yaml without packages', { 'pnpm-workspace.yaml': 'catalog:\n  vue: ^3.5.0\n' }, []],
+      ['an empty pnpm-workspace.yaml', { 'pnpm-workspace.yaml': '' }, []],
+      ['an invalid pnpm-workspace.yaml', { 'pnpm-workspace.yaml': 'packages: [' }, []],
+      ['the package.json and pnpm-workspace.yaml', { 'pnpm-workspace.yaml': 'packages: [packages/*]', 'package.json': '{ "workspaces": ["apps/*", "packages/*"] }' }, ['apps/*', 'packages/*']],
+      ['an invalid package.json', { 'package.json': '{' }, []],
+      ['lerna.json', { 'lerna.json': '{ "packages": ["libs/*"] }' }, ['libs/*']],
+      ['rush.json', { 'rush.json': '// Rush config\n{ "projects": [{ "packageName": "web", "projectFolder": "apps/web" }, {}] }' }, ['apps/web']],
+      ['deno.json', { 'deno.json': '{ "workspace": ["./add", "./subtract"] }' }, ['./add', './subtract']],
+      ['deno.jsonc', { 'deno.jsonc': '{\n  // Members\n  "workspace": ["./add"],\n}' }, ['./add']],
+    ])('Then reads the workspace of the package manager with %s', (_, files, expected) => {
+      for (const [name, content] of Object.entries(files)) {
+        writeFileSync(join(cwd, name), content)
+      }
+
+      expect(getPackageManagerWorkspaces(cwd)).toEqual(expected)
     })
 
     it('Then returns no package in standalone mode', () => {

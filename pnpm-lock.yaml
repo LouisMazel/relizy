@@ -184,6 +184,9 @@ importers:
       commander:
         specifier: ^15.0.0
         version: 15.0.0
+      confbox:
+        specifier: ^0.2.4
+        version: 0.2.4
       convert-gitmoji:
         specifier: ^0.1.5
         version: 0.1.5
