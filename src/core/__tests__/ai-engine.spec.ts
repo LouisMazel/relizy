@@ -2,7 +2,7 @@ import type { AIGenerateRequest, AIProvider } from '../ai/provider'
 import type { ResolvedRelizyConfig } from '../config'
 import { createMockConfig } from '../../../tests/mocks'
 import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog } from '../ai/index'
-import { BASE_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from '../ai/prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from '../ai/prompts'
 
 let fakeProvider: AIProvider & { lastRequest?: AIGenerateRequest, safetyCheckCalled: boolean }
 
@@ -87,7 +87,7 @@ describe('generateAISocialChangelog', () => {
     const config = createMockConfig({})
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280 })
 
-    const expected = `${BASE_PROMPT}\n\n${TWITTER_PROMPT}`
+    const expected = `${BASE_PROMPT}\n\n${TWITTER_PROMPT}\n\n${MAX_LENGTH_PROMPT}`
       .replaceAll('{{language}}', 'en')
       .replaceAll('{{maxLength}}', '280')
     expect(fakeProvider.lastRequest?.systemPrompt).toBe(expected)
@@ -97,7 +97,13 @@ describe('generateAISocialChangelog', () => {
   it('assembles base + slack prompt', async () => {
     const config = createMockConfig({})
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
-    expect(fakeProvider.lastRequest?.systemPrompt).toContain(SLACK_PROMPT)
+    expect(fakeProvider.lastRequest?.systemPrompt).toBe(`${BASE_PROMPT}\n\n${SLACK_PROMPT}`.replaceAll('{{language}}', 'en'))
+  })
+
+  it('adds the length budget to the slack prompt when provided', async () => {
+    const config = createMockConfig({})
+    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack', maxLength: 2500 })
+    expect(fakeProvider.lastRequest?.systemPrompt).toContain('Hard maximum: 2500 characters')
   })
 
   it('uses systemPromptOverrides per platform', async () => {

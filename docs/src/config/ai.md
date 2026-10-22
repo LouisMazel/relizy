@@ -285,8 +285,9 @@ Fully replace the built-in prompt for a single target. When set for a
 target, the base prompt, platform prompt, and `extraGuidelines` are all
 ignored for that target — the override owns the full instruction.
 
-Supports the same placeholders as built-in prompts: `{{language}}` and,
-for Twitter, `{{maxLength}}`.
+Supports the same placeholders as built-in prompts: `{{language}}` and
+`{{maxLength}}` (the length budget of Twitter posts and of Slack posts in
+`summary` format).
 
 ```ts
 export default defineConfig({

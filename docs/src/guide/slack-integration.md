@@ -525,7 +525,7 @@ Relizy works with Slack Enterprise Grid workspaces in both modes. For token mode
 
 ## AI-Enhanced Slack Messages
 
-Relizy can use AI to format your changelog into polished Slack messages with proper Slack markdown (`*bold*`, `•` bullet points, `code`). Enable AI for Slack:
+Relizy can use AI to rewrite your changelog into a polished Slack message. The AI writes standard markdown, then relizy renders it with the chosen [`changelogFormat`](#full-changelog), so the PR links and the breaking changes are kept. Enable AI for Slack:
 
 ```typescript
 export default defineConfig({

@@ -1,7 +1,7 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
-import { BASE_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
 const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
@@ -36,6 +36,9 @@ function assemblePrompt(
   }
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
+  if (maxLength !== undefined) {
+    parts.push(MAX_LENGTH_PROMPT)
+  }
   if (config.ai?.extraGuidelines) {
     parts.push(config.ai.extraGuidelines)
   }
