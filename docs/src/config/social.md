@@ -50,6 +50,7 @@ interface SocialConfig {
     credentials?: {
       token?: string
     }
+    changelogFormat?: 'summary' | 'full'
     postMaxLength?: number
     noAuthors?: boolean
     noPackages?: boolean
@@ -262,7 +263,7 @@ Customize the Slack message template. Available variables:
 
 - <code v-pre>{{projectName}}</code> - Project name
 - <code v-pre>{{newVersion}}</code> - Release version
-- <code v-pre>{{changelog}}</code> - Changelog summary (truncated to `postMaxLength`)
+- <code v-pre>{{changelog}}</code> - Changelog summary, or the complete changelog in mrkdwn with `changelogFormat: 'full'` (commit bodies as quotes, fitted to Slack's 3000 characters section limit)
 - <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
 - <code v-pre>{{contributors}}</code> - Bullet list of contributor names (empty when `noAuthors` is active or none detected)
@@ -309,12 +310,42 @@ export default defineConfig({
 - `chat:write` - Post messages to channels
 - `chat:write.public` - Post to public channels (if using public channels)
 
+### slack.changelogFormat
+
+- **Type:** `'summary' | 'full'`
+- **Default:** `'summary'`
+- **CLI:** `--slack-format <summary|full>` on `relizy social` and `relizy release`
+
+How much of the changelog the Slack message shows:
+
+- `summary`: commit titles only, in a single block capped at `postMaxLength` (2500 characters by default).
+- `full`: the complete changelog. Commit bodies and PR/issue links are included and rendered as native Slack rich text: one block per section, commits as bullets, body paragraphs as quotes, body lists as nested lists and code as code blocks.
+
+```ts
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      webhookUrl: process.env.SLACK_WEBHOOK_URL,
+      changelogFormat: 'full',
+    },
+  },
+})
+```
+
+Commit bodies follow [`changelog.includeCommitBody`](./changelog.md): when it is `false`, the full format only adds the PR/issue links. With AI enabled for Slack, the AI rewrite is used and rendered with the chosen format.
+
+Slack rejects messages with rich text above about 13,200 characters. In `full` format, relizy keeps the whole message under that limit and the 50 blocks limit: when the changelog does not fit, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line, and the **Full Changelog** button (see [`changelogUrl`](#changelogurl)) links to the rest.
+
 ### slack.postMaxLength
 
 - **Type:** `number`
-- **Default:** `2500`
+- **Default:** `2500` in `summary` format, no limit in `full` format
 
-Maximum number of characters for the changelog rendered in the Slack message. Slack's hard limit per section block is 3000 — the default leaves margin for mrkdwn conversion and formatting.
+Maximum number of characters for the changelog rendered in the Slack message (as shown by the `--dry-run` preview). When it is exceeded:
+
+- in `summary` format, the last commits are replaced with an "_… and N more changes_" line;
+- in `full` format, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line.
 
 ```ts
 export default defineConfig({
@@ -328,7 +359,7 @@ export default defineConfig({
 })
 ```
 
-Lower this if you see `invalid_payload` errors from Slack.
+In `summary` format the value is capped at 3000 characters, Slack's limit for a section block. In `full` format, Slack's own limits always apply on top of it (see `slack.changelogFormat` above).
 
 ### slack.noAuthors
 

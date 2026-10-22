@@ -21,8 +21,8 @@ more readable content for:
   untouched.
 - **Twitter** — a short, plain-text announcement that fits within the
   character limit.
-- **Slack** — a concise Slack-flavored markdown summary for your release
-  channel.
+- **Slack** - a concise summary for your release channel, written in
+  standard markdown and rendered with the Slack `changelogFormat`.
 
 Under the hood, Relizy:
 
