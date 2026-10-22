@@ -106,6 +106,23 @@ describe('generateAISocialChangelog', () => {
     expect(fakeProvider.lastRequest?.systemPrompt).toContain('Hard maximum: 2500 characters')
   })
 
+  it('appends the global then the target extraGuidelines when given per target', async () => {
+    const config = createMockConfig({
+      ai: { extraGuidelines: { global: 'Global rule.', slack: 'Slack rule.', twitter: 'Twitter rule.' } },
+    })
+    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
+
+    const systemPrompt = fakeProvider.lastRequest?.systemPrompt ?? ''
+    expect(systemPrompt.endsWith('Global rule.\n\nSlack rule.')).toBe(true)
+    expect(systemPrompt).not.toContain('Twitter rule.')
+  })
+
+  it('appends only the target extraGuidelines when no global ones are set', async () => {
+    const config = createMockConfig({ ai: { extraGuidelines: { twitter: 'Twitter rule.' } } })
+    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280 })
+    expect(fakeProvider.lastRequest?.systemPrompt?.endsWith(`${MAX_LENGTH_PROMPT.replace('{{maxLength}}', '280')}\n\nTwitter rule.`)).toBe(true)
+  })
+
   it('uses systemPromptOverrides per platform', async () => {
     const config = createMockConfig({
       ai: { systemPromptOverrides: { twitter: 'Twitter override {{maxLength}}' } },

@@ -934,6 +934,13 @@ export interface AiSdkProviderOptions {
 export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
 export type AISystemPromptOverrides = Partial<Record<AIPromptTarget, string>>
 
+export interface AIExtraGuidelines extends Partial<Record<AIPromptTarget, string>> {
+  /**
+   * Directives appended to every target, before the target-specific ones
+   */
+  global?: string
+}
+
 export interface AITargetConfig {
   /**
    * Enable AI for this target
@@ -979,10 +986,13 @@ export interface AIConfig {
    */
   fallback?: 'raw' | 'fail'
   /**
-   * Extra directives appended to every built-in system prompt.
+   * Extra directives appended to the built-in system prompts.
+   * A string applies to every target; an object adds directives per target,
+   * appended after the `global` ones.
    * @example 'Always use emojis in the changelog'
+   * @example { global: 'Keep package names in English.', slack: 'Mention the owning team.' }
    */
-  extraGuidelines?: string
+  extraGuidelines?: string | AIExtraGuidelines
   /**
    * Full replacement of the built-in system prompts.
    * When set, the extraGuidelines and base prompts are ignored for that target.

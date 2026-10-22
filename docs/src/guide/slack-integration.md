@@ -545,7 +545,7 @@ export default defineConfig({
 
 ### Tuning with extraGuidelines
 
-Customize the AI's Slack message style:
+Customize the AI's Slack message style. Guidelines set under `slack` only apply to Slack posts:
 
 ```typescript
 export default defineConfig({
@@ -553,7 +553,9 @@ export default defineConfig({
     social: {
       slack: { enabled: true },
     },
-    extraGuidelines: 'Group changes by impact level. Highlight breaking changes with ⚠️ emoji. Keep messages scannable for busy developers.',
+    extraGuidelines: {
+      slack: 'Group changes by impact level. Highlight breaking changes with ⚠️ emoji. Keep messages scannable for busy developers.',
+    },
   },
 })
 ```
