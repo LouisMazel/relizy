@@ -255,6 +255,19 @@ export default defineConfig({
           { text: 'provider-release', link: '/cli/provider-release' },
           { text: 'social', link: '/cli/social' },
           { text: 'pr-comment', link: '/cli/pr-comment' },
+          { text: 'commitlint', link: '/commitlint/cli' },
+        ],
+      },
+      {
+        text: 'Commitlint',
+        items: [
+          { text: 'Introduction', link: '/commitlint/' },
+          { text: 'Getting Started', link: '/commitlint/getting-started' },
+          { text: 'Rules', link: '/commitlint/rules' },
+          { text: 'Custom Rules', link: '/commitlint/custom-rules' },
+          { text: 'Configuration', link: '/commitlint/config' },
+          { text: 'CLI', link: '/commitlint/cli' },
+          { text: 'Migrating from commitlint', link: '/commitlint/migration' },
         ],
       },
       {
@@ -361,6 +374,21 @@ export default defineConfig({
             { text: 'provider-release', link: '/cli/provider-release' },
             { text: 'social', link: '/cli/social' },
             { text: 'pr-comment', link: '/cli/pr-comment' },
+            { text: 'commitlint', link: '/commitlint/cli' },
+          ],
+        },
+      ],
+      '/commitlint/': [
+        {
+          text: 'Commit Linting',
+          items: [
+            { text: 'Introduction', link: '/commitlint/' },
+            { text: 'Getting Started', link: '/commitlint/getting-started' },
+            { text: 'Rules', link: '/commitlint/rules' },
+            { text: 'Custom Rules', link: '/commitlint/custom-rules' },
+            { text: 'Configuration', link: '/commitlint/config' },
+            { text: 'CLI', link: '/commitlint/cli' },
+            { text: 'Migrating from commitlint', link: '/commitlint/migration' },
           ],
         },
       ],

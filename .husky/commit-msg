@@ -1,1 +1,1 @@
-npx --no-install commitlint --edit "$1"
+pnpm relizy commitlint --edit "$1"

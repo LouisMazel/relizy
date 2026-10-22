@@ -22,6 +22,10 @@ hero:
     alt: Relizy Logo
 
 features:
+  - icon: 🧹
+    title: Commit Linting
+    details: Lint your commits with your Relizy config, a built-in commitlint replacement. Same parser, types and packages as your releases, and commit bodies checked as they will appear in your changelogs.
+    link: /commitlint/
   - icon: 🔒
     title: Private Projects Too
     details: Not only for npm packages. Version your private apps, services and internal monorepos with changelogs, git tags and GitHub or GitLab releases, without publishing anything.
@@ -108,6 +112,35 @@ export default defineConfig({
 ```
 
 Every deploy gets a version you can tag, ship and roll back to, with release notes your whole team can read. [Version your private projects →](/guide/private-projects)
+
+## Lint Commits the Way Relizy Reads Them
+
+Your commits are the source of your versions and changelogs. `relizy commitlint` checks them with **your Relizy config**: the same parser, types and packages as your releases, no commitlint config to keep in sync.
+
+```bash
+$ npx relizy commitlint --install
+
+$ git commit -m "feat(nuxt): add the module options"
+✔ feat(nuxt) → minor bump, 🚀 Enhancements
+
+$ git commit -m "fix(nuxtt): Typo."
+✖ fix(nuxtt): Typo.
+
+  ✖ scope-enum          The scope "nuxtt" is not allowed
+                        → did you mean "nuxt"? use a workspace package or one of: nuxt,
+                          @maz-ui/nuxt, core, @maz-ui/core
+  ✖ subject-case        The subject starts with an uppercase letter
+                        → start it lowercase, relizy capitalizes it in the changelog
+  ✖ subject-full-stop   The subject ends with a period
+                        → remove the final period
+  ✖ subject-meaningful  The subject "Typo." does not describe the change
+                        → describe what changed, in at least 2 words or 15 characters
+
+  Suggested header: fix(nuxt): typo
+                    still to fix: subject-meaningful
+```
+
+Every commit shows its effect on your next release, every problem comes with how to fix it, scopes are checked against the packages it really touches, and commit bodies are rendered and linted like your changelogs, so a broken snippet can never break a release again. A JSON output is available for AI agents. [Lint your commits →](/commitlint/)
 
 ## Run your first release
 
