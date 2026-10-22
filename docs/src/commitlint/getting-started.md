@@ -132,7 +132,17 @@ Without `--from`, Relizy lints:
 - in a GitLab CI merge request, the commits after the base of the merge request;
 - otherwise, the commits after the last tag.
 
-In a pull or merge request, its **title** is linted too: it becomes the commit message of a squash merge. The draft markers of GitLab (`Draft:`, `[Draft]`) are removed, and `--no-title` disables it.
+If your pull or merge requests are **squash merged**, lint their **title** too: it becomes the message of the commit that lands on the target branch, the one Relizy reads for the bump and the changelog. Enable it with [`commitlint.title`](./config.md#title) or `--title`. The draft markers of GitLab (`Draft:`, `[Draft]`) are removed.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    title: true,
+  },
+})
+```
 
 Merge commits, `fixup!`, `squash!` and `amend!` commits and the release commits of Relizy are ignored. See [CLI](./cli.md) for every option.
 

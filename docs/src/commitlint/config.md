@@ -23,6 +23,7 @@ export default defineConfig({
     },
     customRules: {},
     ignores: [/^Initial commit$/],
+    title: true,
     helpUrl: 'https://example.com/our-commit-guidelines',
   },
 })
@@ -115,6 +116,25 @@ export default defineConfig({
 - **Default:** `true`
 
 Ignore the merge commits, the `fixup!`, `squash!` and `amend!` commits, and the release commits of Relizy.
+
+## `title`
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+In the CI of a pull or merge request, also lint its title. Enable it when your pull or merge requests are **squash merged**: the title becomes the message of the commit that lands on the target branch, so it is the one Relizy reads for the bump and the changelog. With merge commits or rebases, the commits are what count, and the title can stay free.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    title: true,
+  },
+})
+```
+
+`--title` and `--no-title` override it for a run. See [Lint the commits of a pull request](./getting-started.md#lint-the-commits-of-a-pull-request).
 
 ## `helpUrl`
 

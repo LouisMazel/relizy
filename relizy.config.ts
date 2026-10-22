@@ -55,6 +55,7 @@ export default defineConfig({
   },
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
+    title: false,
   },
   safetyCheck: true,
 })

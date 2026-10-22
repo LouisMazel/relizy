@@ -220,13 +220,13 @@ describe('Given commitlint command', () => {
       ])
     })
 
-    it('Then lints the title of the merge request first, with every file of the range', async () => {
+    it('Then lints the title of the merge request first with commitlint.title, with every file of the range', async () => {
       git('tag', 'v1.0.0')
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
       commitFiles('fix(core): correct the helper', { 'packages/core/helper.ts': 'b' })
       vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'Draft: feat(nuxt): Add the module options')
 
-      const result = await commitlint({ from: 'v1.0.0', config: createConfig() })
+      const result = await commitlint({ from: 'v1.0.0', config: createConfig({ commitlint: { title: true } }) })
 
       expect(result.results[0]?.commit).toEqual(expect.objectContaining({
         header: 'feat(nuxt): Add the module options',
@@ -250,12 +250,22 @@ describe('Given commitlint command', () => {
       ])
     })
 
-    it('Then does not lint the title with title: false', async () => {
+    it.each([
+      ['does not lint', 'by default', undefined, undefined, false],
+      ['lints', 'with commitlint.title', undefined, true, true],
+      ['lints', 'with title: true', true, undefined, true],
+      ['does not lint', 'with title: false over commitlint.title', false, true, false],
+      ['lints', 'with title: true over commitlint.title: false', true, false, true],
+    ])('Then %s the title of the merge request %s', async (_, __, title, configTitle, linted) => {
       git('tag', 'v1.0.0')
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
       vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'wip')
 
-      expect((await commitlint({ from: 'v1.0.0', title: false, config: createConfig() })).results).toHaveLength(1)
+      const config = createConfig(configTitle === undefined ? {} : { commitlint: { title: configTitle } })
+      const { results, report } = await commitlint({ from: 'v1.0.0', title, config })
+
+      expect(results).toHaveLength(linted ? 2 : 1)
+      expect(report?.titleKind).toBe(linted ? 'merge request' : undefined)
     })
 
     it('Then lints the whole history without tag and explains how to fix it', async () => {

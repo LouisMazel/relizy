@@ -20,7 +20,7 @@ The command lints, in this order of precedence:
 
 1. the commit being created with `--edit`, in a `commit-msg` hook;
 2. the message given with `--message`;
-3. otherwise, a range of commits (`--from` / `--to`), and the title of the pull or merge request in CI.
+3. otherwise, a range of commits (`--from` / `--to`), and the title of the pull or merge request in CI when [`commitlint.title`](./config.md#title) or `--title` enables it.
 
 It exits with `1` when a commit has an error, `0` otherwise. Warnings never fail.
 
@@ -58,9 +58,11 @@ relizy commitlint --from origin/main
 
 Last commit of the range. Default: `HEAD`.
 
-### --no-title
+### --title, --no-title
 
-In the CI of a pull or merge request, Relizy also lints its title, which becomes the commit message of a squash merge: `CI_MERGE_REQUEST_TITLE` on GitLab (without the `Draft:` marker), the title of the pull request event on GitHub Actions. `--no-title` disables it.
+In the CI of a pull or merge request, also lint its title (`--title`) or not (`--no-title`): `CI_MERGE_REQUEST_TITLE` on GitLab (without the `Draft:` marker), the title of the pull request event on GitHub Actions. Default: [`commitlint.title`](./config.md#title), `false` unless set.
+
+Enable it when your pull or merge requests are squash merged: the title becomes the commit message on the target branch.
 
 When a range has errors, the output ends with how to fix them: the `git rebase -i` command to reword the commits, and how to update the title.
 

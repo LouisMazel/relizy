@@ -46,7 +46,7 @@ export interface CommitlintOptions {
   /**
    * In the CI of a pull/merge request, also lint its title, which becomes the
    * commit message of a squash merge
-   * @default true
+   * @default config.commitlint.title
    */
   title?: boolean
   /** Print the changelog entry of each commit */
@@ -117,7 +117,7 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
   const entries: ReportEntry[] = []
 
   // The title becomes the commit message of a squash merge, with every file of the pull request
-  const pullRequest = options.title === false ? undefined : getPullRequestTitle()
+  const pullRequest = (options.title ?? config.commitlint?.title) ? getPullRequestTitle() : undefined
   if (pullRequest) {
     const files = [...new Set(commits.flatMap(commit => commit.files))]
     entries.push({

@@ -1491,6 +1491,12 @@ export interface CommitlintConfig {
    */
   defaultIgnores?: boolean
   /**
+   * In the CI of a pull/merge request, also lint its title, which becomes the
+   * commit message of a squash merge. Overridden by `--title` and `--no-title`.
+   * @default false
+   */
+  title?: boolean
+  /**
    * URL printed with the errors, e.g. the commit guidelines of the team.
    */
   helpUrl?: string

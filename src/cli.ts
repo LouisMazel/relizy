@@ -247,6 +247,7 @@ program
   .option('--message <message>', 'Lint this message')
   .option('--from <ref>', 'Lint the commits after this ref (default: merge-base of the pull/merge request in CI, otherwise the last tag)')
   .option('--to <ref>', 'Last commit of the range (default: HEAD)')
+  .option('--title', 'Also lint the title of the pull/merge request in CI (default: commitlint.title)')
   .option('--no-title', 'Do not lint the title of the pull/merge request in CI')
   .option('--preview', 'Print the changelog entry of each commit')
   .option('--quiet', 'Only print the commits with problems, and the summary')

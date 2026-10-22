@@ -129,6 +129,7 @@ export function getDefaultConfig() {
       customRules: {},
       ignores: [],
       defaultIgnores: true,
+      title: false,
     } as Required<Omit<CommitlintConfig, 'helpUrl'>> & Pick<CommitlintConfig, 'helpUrl'>,
     social: {
       twitter: {
