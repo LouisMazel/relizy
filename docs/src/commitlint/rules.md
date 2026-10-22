@@ -53,7 +53,7 @@ The rules of the header, the type, the scope and the subject only run on convent
 
 ### `header-format`
 
-The header must follow `type(scope)!: subject`: a lowercase type, an optional scope without spaces, an optional `!`, a colon followed by a space, and a subject. No leading emoji, and no whitespace at the start or the end.
+The header must follow `type(scope)!: subject`: a lowercase type, an optional scope without spaces, an optional `!`, a colon followed by a space, and a subject. Extra spaces after the colon are accepted, the changelog removes them. No leading emoji, and no whitespace at the start or the end.
 
 ```text
 ✔ feat(core): add the commitlint command

@@ -310,6 +310,13 @@ describe('Given lintCommitMessage function', () => {
       expect(await rulesOf('feat: Add a new thing', { config: { commitlint: { rules: { 'subject-case': 'error' } } } })).toEqual(['subject-case'])
     })
 
+    it('Then accepts extra spaces after the colon, the changelog trims them', async () => {
+      const result = await lint('chore:  upgrade the dependencies')
+
+      expect(result.problems).toEqual([])
+      expect(result.commit.subject).toBe('upgrade the dependencies')
+    })
+
     it.each([
       ['feat: add a new thing.', ['subject-full-stop']],
       ['feat: API changes for the parser', []],

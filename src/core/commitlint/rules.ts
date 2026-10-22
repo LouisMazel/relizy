@@ -44,8 +44,11 @@ export interface RuleDefinition {
   check: (context: RuleContext) => RuleProblem[] | Promise<RuleProblem[]>
 }
 
-/** `type(scope)!: subject`, lowercase type, a space after the colon */
-export const STRICT_HEADER_PATTERN = /^(?<type>[a-z]+)(?:\((?<scope>[^()\s]+)\))?(?<breaking>!)?: (?<subject>\S.*)$/
+/**
+ * `type(scope)!: subject`, lowercase type, a space after the colon. Extra spaces
+ * are accepted: the changelog trims them.
+ */
+export const STRICT_HEADER_PATTERN = /^(?<type>[a-z]+)(?:\((?<scope>[^()\s]+)\))?(?<breaking>!)?: +(?<subject>\S.*)$/
 
 /** Subjects that do not describe anything */
 const GENERIC_SUBJECTS = new Set(['wip', 'fix', 'fixes', 'fixed', 'update', 'updates', 'updated', 'change', 'changes', 'changed', 'misc', 'stuff', 'tmp', 'temp', 'test', 'tests', 'cleanup', 'clean', 'refactor', 'minor', 'typo', 'typos', 'improvements', 'tweaks'])
