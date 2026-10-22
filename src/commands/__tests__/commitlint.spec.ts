@@ -9,6 +9,9 @@ import { commitlint } from '../commitlint'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
+/** Variables of the CI running these tests, which change the output of the command */
+const CI_VARIABLES = ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA', 'FORCE_COLOR', 'NO_COLOR']
+
 describe('Given commitlint command', () => {
   let cwd: string
   let output: string[]
@@ -49,8 +52,8 @@ describe('Given commitlint command', () => {
     write('packages/core/package.json', '{ "name": "@maz-ui/core", "version": "1.0.0" }')
     commitFiles('chore: init the repository', {})
 
-    // The CI running these tests may itself be a pull request
-    for (const name of ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA']) {
+    // The CI running these tests may itself be a pull request, and colors its output
+    for (const name of CI_VARIABLES) {
       vi.stubEnv(name, '')
     }
 
@@ -399,7 +402,13 @@ describe('Given commitlint command', () => {
 
 describe('Given the commitlint CLI', () => {
   function run(...args: string[]) {
-    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), 'commitlint', ...args], { cwd: process.cwd(), encoding: 'utf8' })
+    // Plain output, whatever the CI running these tests
+    const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !CI_VARIABLES.includes(name)))
+    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), 'commitlint', ...args], {
+      cwd: process.cwd(),
+      encoding: 'utf8',
+      env: { ...env, NO_COLOR: '1' },
+    })
   }
 
   it('Then exits with 0 on a valid message, without the banner', () => {
