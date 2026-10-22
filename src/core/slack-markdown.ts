@@ -21,6 +21,8 @@ export const SLACK_RICH_TEXT_BLOCK_MAX_LENGTH = 3000
 export const SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH = 11000
 /** Maximum length of the text of a Slack header block. */
 export const SLACK_HEADER_MAX_LENGTH = 150
+/** Marks where a truncated text was cut. */
+const ELLIPSIS = '…'
 /** Maximum indent level of a rich_text_list. */
 const SLACK_MAX_LIST_INDENT = 8
 
@@ -362,7 +364,11 @@ function joinMrkdwnUnits(rendered: RenderedUnit<string>[]): string {
  * replaced with an "… and N more changes" line; a single block longer than
  * the budget is cut instead.
  */
-export function markdownToSlackMrkdwn(markdown: string, { maxLength }: { maxLength?: number } = {}): string {
+export function markdownToSlackMrkdwn(markdown: string, { maxLength, cutCommits = false }: {
+  maxLength?: number
+  /** Cut the first commit that does not fit where the limit is reached, instead of dropping it whole */
+  cutCommits?: boolean
+} = {}): string {
   if (!markdown.trim()) {
     return ''
   }
@@ -376,10 +382,22 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength }: { maxLeng
     return full
   }
 
-  for (let count = rendered.length - 1; count > 0; count--) {
+  for (let count = rendered.length - 1; count >= 0; count--) {
+    const next = rendered[count]!
+    if (cutCommits && next.unit.type !== 'heading') {
+      const note = formatOmittedChanges(countOmittedChanges(rendered.slice(count + 1).map(({ unit }) => unit)))
+      const suffix = note ? `\n\n_${note}_` : ''
+      // The units kept whole, followed by the separator of the cut one
+      const prefix = joinMrkdwnUnits([...rendered.slice(0, count), { ...next, output: '' }])
+      const cut = cutMrkdwn(next.output, maxLength - prefix.length - suffix.length - ELLIPSIS.length)
+      if (cut) {
+        return `${prefix}${cut}${ELLIPSIS}${suffix}`
+      }
+    }
+
     const kept = dropTrailingHeadings(rendered.slice(0, count))
     if (kept.length === 0) {
-      break
+      continue
     }
     const note = formatOmittedChanges(countOmittedChanges(rendered.slice(kept.length).map(({ unit }) => unit)))
     const candidate = note ? `${joinMrkdwnUnits(kept)}\n\n_${note}_` : joinMrkdwnUnits(kept)
@@ -389,6 +407,28 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength }: { maxLeng
   }
 
   return `${sliceSlackText(full, maxLength - 3)}...`
+}
+
+/**
+ * Keep the first `budget` characters of a mrkdwn text, without ending inside
+ * a `<url|label>` link or an `&amp;` entity.
+ */
+function cutMrkdwn(text: string, budget: number): string {
+  if (budget <= 0) {
+    return ''
+  }
+  let cut = sliceSlackText(text, budget)
+  const linkStart = cut.lastIndexOf('<')
+  if (linkStart > cut.lastIndexOf('>')) {
+    cut = cut.slice(0, linkStart)
+  }
+  const entityStart = cut.lastIndexOf('&')
+  if (entityStart > cut.lastIndexOf(';')) {
+    cut = cut.slice(0, entityStart)
+  }
+  cut = cut.trimEnd()
+  // A bare bullet or quote marker is not worth showing
+  return /[^\s•◦>]/.test(cut) ? cut : ''
 }
 
 // ---------------------------------------------------------------------------
@@ -584,11 +624,14 @@ function inlineLength(elements: SlackRichTextInline[]): number {
   return elements.reduce((total, element) => total + (element.type === 'text' ? element.text.length : (element.text ?? element.url).length), 0)
 }
 
+/** Length of an element in the plain-text preview (bullets and quote markers included), plus its line break. */
 function elementLength(element: SlackRichTextElement): number {
-  if (element.type === 'rich_text_list') {
-    return element.elements.reduce((total, section) => total + inlineLength(section.elements) + 1, 0)
-  }
-  return inlineLength(element.elements) + 1
+  return richTextToPlainText({ type: 'rich_text', elements: [element] }).length + 1
+}
+
+/** Length of blocks as shown by the plain-text preview, which `maxLength` bounds. */
+function blocksLength(blocks: SlackRichTextBlock[]): number {
+  return blocks.map(richTextToPlainText).join('\n\n').length
 }
 
 /**
@@ -657,12 +700,110 @@ function assembleRichTextBlocks(rendered: RenderedUnit<SlackRichTextElement[]>[]
   return blocks
 }
 
+/** Keep the first `count` characters of inline elements; links are kept whole or dropped. */
+function takeInlineCharacters(elements: SlackRichTextInline[], count: number): SlackRichTextInline[] {
+  const kept: SlackRichTextInline[] = []
+  let remaining = count
+  for (const element of elements) {
+    const length = inlineLength([element])
+    if (length <= remaining) {
+      kept.push(structuredClone(element))
+      remaining -= length
+      continue
+    }
+    if (element.type === 'text') {
+      pushText(kept, sliceSlackText(element.text, remaining), element.style ?? {})
+    }
+    break
+  }
+  return kept
+}
+
+/** Keep the first `count` characters of the text of an element. */
+function takeElementCharacters(element: SlackRichTextElement, count: number): SlackRichTextElement | undefined {
+  // A rendered list item holds a single section
+  const inlines = element.type === 'rich_text_list' ? element.elements[0]!.elements : element.elements
+  const elements = takeInlineCharacters(inlines, count)
+  if (elements.length === 0) {
+    return undefined
+  }
+  return element.type === 'rich_text_list'
+    ? { ...element, elements: [{ type: 'rich_text_section', elements }] }
+    : { ...element, elements }
+}
+
+/** End an element with an ellipsis, right after its last visible character. */
+function withEllipsis(element: SlackRichTextElement): SlackRichTextElement {
+  const result = structuredClone(element)
+  const inlines = result.type === 'rich_text_list' ? result.elements.at(-1)!.elements : result.elements
+  const last = inlines.at(-1)
+  if (last?.type === 'text') {
+    last.text = last.text.trimEnd()
+    if (!last.text) {
+      inlines.pop()
+    }
+  }
+  pushText(inlines, ELLIPSIS, {})
+  return result
+}
+
+/** The longest beginning of an element that fits `budget` with its ellipsis. */
+function cutRichTextElement(element: SlackRichTextElement, budget: number): SlackRichTextElement | undefined {
+  const characters = element.type === 'rich_text_list'
+    ? element.elements.reduce((total, section) => total + inlineLength(section.elements), 0)
+    : inlineLength(element.elements)
+
+  let best: SlackRichTextElement | undefined
+  let low = 1
+  let high = characters - 1
+  while (low <= high) {
+    const count = Math.floor((low + high) / 2)
+    const taken = takeElementCharacters(element, count)
+    const candidate = taken && withEllipsis(taken)
+    if (candidate && elementLength(candidate) <= budget) {
+      best = candidate
+      low = count + 1
+    }
+    else {
+      high = count - 1
+    }
+  }
+  return best
+}
+
+/**
+ * Keep the beginning of a unit (a commit and its body) that fits `budget`,
+ * ending with an ellipsis. Returns no element when nothing fits.
+ */
+function cutRichTextElements(elements: SlackRichTextElement[], budget: number): SlackRichTextElement[] {
+  const kept: SlackRichTextElement[] = []
+  let remaining = budget
+  for (const element of elements) {
+    const length = elementLength(element)
+    // One character stays available for the ellipsis of the last kept element
+    if (length + ELLIPSIS.length <= remaining) {
+      kept.push(structuredClone(element))
+      remaining -= length
+      continue
+    }
+    const cut = cutRichTextElement(element, remaining)
+    if (cut) {
+      return [...kept, cut]
+    }
+    break
+  }
+
+  const last = kept.pop()
+  return last ? [...kept, withEllipsis(last)] : []
+}
+
 /**
  * Render a markdown changelog as Slack rich_text blocks.
  * Commit bodies are rendered under their bullet: paragraphs as quotes, nested
  * lists as indented lists, code as preformatted blocks.
- * When `maxLength`, `maxBlocks` or `maxPayloadLength` is exceeded, whole commits
- * are dropped from the end and replaced with an "… and N more changes" line.
+ * When `maxLength`, `maxBlocks` or `maxPayloadLength` is exceeded, the changelog
+ * is cut where the limit is reached, even inside a commit body, with an ellipsis,
+ * and the commits left out entirely are announced with an "… and N more changes" line.
  */
 export function markdownToSlackRichText(markdown: string, {
   maxLength,
@@ -691,20 +832,34 @@ export function markdownToSlackRichText(markdown: string, {
     .filter(({ output }) => output.length > 0)
 
   const totalLength = (units: RenderedUnit<unknown>[]) => units.reduce((total, { length }) => total + length, 0)
-  const fits = (candidate: SlackRichTextBlock[], textLength: number) => candidate.length <= maxBlocks
-    && (maxLength === undefined || textLength <= maxLength)
+  const fits = (candidate: SlackRichTextBlock[]) => candidate.length <= maxBlocks
+    && (maxLength === undefined || blocksLength(candidate) <= maxLength)
     && (maxPayloadLength === undefined || JSON.stringify(candidate).length <= maxPayloadLength)
 
   const blocks = assembleRichTextBlocks(rendered, blockMaxLength)
-  if (fits(blocks, totalLength(rendered))) {
+  if (fits(blocks)) {
     return blocks
   }
 
-  // Keep the first `count` units, then announce the omitted changes in the last block.
-  const truncate = (count: number) => {
-    const kept = dropTrailingHeadings(rendered.slice(0, count))
-    const note = formatOmittedChanges(countOmittedChanges(rendered.slice(kept.length).map(({ unit }) => unit)))
-    const truncated = assembleRichTextBlocks(kept, blockMaxLength)
+  // Keep `chars` characters of the changelog: the units that fit whole, then the
+  // beginning of the next one, cut with an ellipsis, then the omitted changes.
+  const truncate = (chars: number) => {
+    let remaining = chars
+    let index = 0
+    const kept: RenderedUnit<SlackRichTextElement[]>[] = []
+    for (; index < rendered.length && rendered[index]!.length <= remaining; index++) {
+      kept.push(rendered[index]!)
+      remaining -= rendered[index]!.length
+    }
+
+    const next = rendered[index]
+    const cut = next && next.unit.type !== 'heading' ? cutRichTextElements(next.output, remaining) : []
+    const visible = cut.length > 0
+      ? [...kept, { unit: next!.unit, output: cut, length: cut.reduce((total, element) => total + elementLength(element), 0) }]
+      : dropTrailingHeadings(kept)
+    const note = formatOmittedChanges(countOmittedChanges(rendered.slice(cut.length > 0 ? index + 1 : visible.length).map(({ unit }) => unit)))
+
+    const truncated = assembleRichTextBlocks(visible, blockMaxLength)
     if (note) {
       const noteSection: SlackRichTextSection = { type: 'rich_text_section', elements: [{ type: 'text', text: note, style: { italic: true } }] }
       const last = truncated.at(-1)
@@ -715,26 +870,26 @@ export function markdownToSlackRichText(markdown: string, {
         truncated.push({ type: 'rich_text', elements: [noteSection] })
       }
     }
-    return { blocks: truncated, length: totalLength(kept) + note.length }
+    return truncated
   }
 
-  // Every limit grows with the number of kept units: binary search the largest count that fits.
-  let best: SlackRichTextBlock[] | undefined
+  // Every limit grows with the number of kept characters: binary search the largest count that fits.
+  let best = truncate(0)
   let low = 1
-  let high = rendered.length - 1
+  let high = totalLength(rendered) - 1
   while (low <= high) {
-    const count = Math.floor((low + high) / 2)
-    const candidate = truncate(count)
-    if (fits(candidate.blocks, candidate.length)) {
-      best = candidate.blocks
-      low = count + 1
+    const chars = Math.floor((low + high) / 2)
+    const candidate = truncate(chars)
+    if (fits(candidate)) {
+      best = candidate
+      low = chars + 1
     }
     else {
-      high = count - 1
+      high = chars - 1
     }
   }
 
-  return best ?? truncate(0).blocks
+  return best
 }
 
 function inlineToPlainText(elements: SlackRichTextInline[]): string {

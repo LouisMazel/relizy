@@ -335,14 +335,17 @@ export default defineConfig({
 
 Commit bodies follow [`changelog.includeCommitBody`](./changelog.md): when it is `false`, the full format only adds the PR/issue links. With AI enabled for Slack, the AI rewrite is used and rendered with the chosen format.
 
-Slack rejects messages with rich text above about 13,200 characters. In `full` format, relizy keeps the whole message under that limit and the 50 blocks limit: when the changelog does not fit, the last commits are replaced with an "_… and N more changes_" line, and the **Full Changelog** button (see [`changelogUrl`](#changelogurl)) links to the rest.
+Slack rejects messages with rich text above about 13,200 characters. In `full` format, relizy keeps the whole message under that limit and the 50 blocks limit: when the changelog does not fit, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line, and the **Full Changelog** button (see [`changelogUrl`](#changelogurl)) links to the rest.
 
 ### slack.postMaxLength
 
 - **Type:** `number`
 - **Default:** `2500` in `summary` format, no limit in `full` format
 
-Maximum number of characters for the changelog rendered in the Slack message. When it is exceeded, the last commits are replaced with an "_… and N more changes_" line.
+Maximum number of characters for the changelog rendered in the Slack message (as shown by the `--dry-run` preview). When it is exceeded:
+
+- in `summary` format, the last commits are replaced with an "_… and N more changes_" line;
+- in `full` format, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line.
 
 ```ts
 export default defineConfig({

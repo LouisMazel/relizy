@@ -1,6 +1,7 @@
 import type { PackageBumpEntry } from '../packages'
 import { validateSlackBlocks } from '../../../tests/slack-block-kit'
 import { formatSlackMessage } from '../slack'
+import { richTextToPlainText } from '../slack-markdown'
 
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string, opts?: { maxLength?: number }) => changelog.substring(0, opts?.maxLength ?? 2500)),
@@ -131,6 +132,37 @@ describe('Given formatSlackMessage against the Slack limits', () => {
       const blocks = formatSlackMessage({ ...input, changelogFormat })
 
       expect(validateSlackBlocks(blocks)).toEqual([])
+    })
+
+    it.each(SCENARIOS.filter(({ input }) => input.changelog.split('\n').some(line => !line.startsWith('#') && /\w/.test(line)) && (input.postMaxLength ?? Infinity) >= 100))('Then shows the beginning of the changelog for $name', ({ input }) => {
+      const blocks = formatSlackMessage({ ...input, changelogFormat })
+
+      const changelogText = blocks
+        .map((block: any) => block.type === 'rich_text' ? richTextToPlainText(block) : block.type === 'section' ? block.text.text : '')
+        .join('\n')
+      // Never a message reduced to the omitted changes note
+      expect(changelogText.replace(/_?… and \d+ more changes?_?/g, '').trim().length).toBeGreaterThan(20)
+    })
+  })
+
+  describe('When a realistic postMaxLength bounds the full changelog', () => {
+    it.each([1000, 2000])('Then fills the changelog up to %i characters, commit bodies included', (postMaxLength) => {
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: hugeChangelog(), changelogFormat: 'full', postMaxLength })
+
+      const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n\n')
+      expect(text.length).toBeLessThanOrEqual(postMaxLength)
+      expect(text.length).toBeGreaterThan(postMaxLength * 0.95)
+      expect(text).toContain('> A paragraph hard-wrapped at seventy-two columns')
+      expect(text).toMatch(/…\n… and \d+ more changes$/)
+    })
+
+    it('Then fills the message up to the Slack payload limit when it is reached first', () => {
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: hugeChangelog(), changelogFormat: 'full', postMaxLength: 5000 })
+
+      const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n\n')
+      expect(text.length).toBeLessThan(5000)
+      expect(JSON.stringify(blocks).length).toBeGreaterThan(10500)
+      expect(text).toMatch(/…\n… and \d+ more changes$/)
     })
   })
 

@@ -392,3 +392,113 @@ describe('Given the less common markdown constructs', () => {
     })
   })
 })
+
+describe('Given a full changelog cut at its limit', () => {
+  const LONG_BODY = Array.from({ length: 40 }, (_, i) => `Sentence ${i} of the body explains the change.`).join(' ')
+  const COMMITS = Array.from({ length: 12 }, (_, i) => `- **scope:** Change ${i} ([#${i}](https://github.com/o/r/pull/${i}))\n\n  ${LONG_BODY}\n\n  - detail of change ${i}\n`).join('\n')
+  const CHANGELOG = `### 🚀 Features\n\n${COMMITS}`
+  const textOf = (blocks: ReturnType<typeof markdownToSlackRichText>) => blocks.map(richTextToPlainText).join('\n')
+
+  describe('When rendering it as rich text with a realistic postMaxLength', () => {
+    const blocks = markdownToSlackRichText(CHANGELOG, { maxLength: 2000 })
+    const text = textOf(blocks)
+
+    it('Then shows the beginning of the changelog with the commit bodies', () => {
+      expect(text.startsWith('🚀 Features\n• scope: Change 0 (#0)\n> Sentence 0 of the body explains the change. Sentence 1')).toBe(true)
+      expect(text).toContain('    • detail of change 0')
+    })
+
+    it('Then fills the message up to the limit, cutting inside a commit body', () => {
+      expect(text.length).toBeLessThanOrEqual(2000)
+      expect(text.length).toBeGreaterThan(1900)
+      expect(text).toMatch(/[a-z0-9]…\n… and \d+ more changes$/)
+    })
+
+    it('Then announces the commits left out entirely', () => {
+      const shown = (text.match(/• scope: Change \d+/g) ?? []).length
+      expect(text.endsWith(`… and ${12 - shown} more changes`)).toBe(true)
+    })
+  })
+
+  describe('When the first commit alone exceeds the limit', () => {
+    it('Then still shows its beginning instead of an empty message', () => {
+      const text = textOf(markdownToSlackRichText(CHANGELOG, { maxLength: 250 }))
+
+      expect(text.startsWith('🚀 Features\n• scope: Change 0 (#0)\n> Sentence 0 of the body')).toBe(true)
+      expect(text).toMatch(/…\n… and 11 more changes$/)
+      expect(text.length).toBeLessThanOrEqual(250)
+    })
+  })
+
+  describe('When the cut falls on a link, a list or a code block', () => {
+    it('Then never cuts a link, drops it and ends with an ellipsis', () => {
+      const [block] = markdownToSlackRichText('- see [a very long link label](https://x.dev/page) after', { maxLength: 12 })
+
+      expect(block?.elements).toEqual([
+        { type: 'rich_text_list', style: 'bullet', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'see…' }] }] },
+      ])
+    })
+
+    it('Then cuts inside a nested list item, bullets and indentation included in the limit', () => {
+      const [block] = markdownToSlackRichText('- item\n\n  - first detail\n  - second detail that is long', { maxLength: 45 })
+
+      expect(block?.elements.at(-1)).toEqual({
+        type: 'rich_text_list',
+        style: 'bullet',
+        indent: 1,
+        elements: [
+          { type: 'rich_text_section', elements: [{ type: 'text', text: 'first detail' }] },
+          { type: 'rich_text_section', elements: [{ type: 'text', text: 'second detai…' }] },
+        ],
+      })
+    })
+
+    it('Then cuts inside a code block', () => {
+      const [block] = markdownToSlackRichText('- item\n\n  ```\n  const value = computeSomething()\n  ```', { maxLength: 32 })
+
+      expect(block?.elements.at(-1)).toEqual({ type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'const value = co…' }] })
+    })
+
+    it('Then never cuts a section title', () => {
+      const text = textOf(markdownToSlackRichText('- first change\n\n### 🩹 A very long fixes section title\n\n- fix', { maxLength: 40 }))
+
+      expect(text).toBe('• first change\n… and 1 more change')
+    })
+  })
+
+  describe('When Slack payload limit is the bound', () => {
+    it('Then fills the message up to the payload budget', () => {
+      const changelog = `### 🚀 Features\n\n${Array.from({ length: 10 }).fill(COMMITS).join('\n')}`
+      const blocks = markdownToSlackRichText(changelog, { maxPayloadLength: 11000 })
+
+      expect(JSON.stringify(blocks).length).toBeLessThanOrEqual(11000)
+      expect(JSON.stringify(blocks).length).toBeGreaterThan(10500)
+      expect(textOf(blocks)).toMatch(/…\n… and \d+ more changes$/)
+    })
+  })
+
+  describe('When rendering it as mrkdwn for a template', () => {
+    it('Then cuts inside the commit body with an ellipsis', () => {
+      const text = markdownToSlackMrkdwn(CHANGELOG, { maxLength: 2000, cutCommits: true })
+
+      expect(text.length).toBeLessThanOrEqual(2000)
+      expect(text.length).toBeGreaterThan(1900)
+      expect(text.startsWith('*🚀 Features*\n• *scope:* Change 0 (<https://github.com/o/r/pull/0|#0>)\n> Sentence 0')).toBe(true)
+      expect(text).toMatch(/…\n\n_… and \d+ more changes_$/)
+    })
+
+    it('Then never ends inside a link or an entity', () => {
+      expect(markdownToSlackMrkdwn('- a [label](https://x.dev/long/url) b\n- c', { maxLength: 30, cutCommits: true })).toBe('• a…\n\n_… and 1 more change_')
+      expect(markdownToSlackMrkdwn('- a & b & c d e f g h i j\n- c', { maxLength: 31, cutCommits: true })).toBe('• a…\n\n_… and 1 more change_')
+      expect(markdownToSlackMrkdwn('- a & b & c d e f g h i j\n- c', { maxLength: 35, cutCommits: true })).toBe('• a &amp; b…\n\n_… and 1 more change_')
+    })
+
+    it('Then cuts the text bluntly when only a bare bullet would fit', () => {
+      expect(markdownToSlackMrkdwn('- abcdefghijklmnopqrstuvwxyz\n- k', { maxLength: 26, cutCommits: true })).toBe('• abcdefghijklmnopqrstu...')
+    })
+
+    it('Then keeps dropping whole commits without cutCommits', () => {
+      expect(markdownToSlackMrkdwn(CHANGELOG, { maxLength: 2000 })).not.toContain('…\n')
+    })
+  })
+})

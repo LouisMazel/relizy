@@ -243,12 +243,12 @@ The full changelog is rendered as native Slack rich text, not raw markdown:
 Commit bodies follow [`changelog.includeCommitBody`](../config/changelog.md) (enabled by default). With a custom `template`, <code v-pre>{{changelog}}</code> receives the complete changelog in mrkdwn, fitted to the 3000 characters of the template's section.
 
 ::: tip Large releases
-Slack rejects messages with rich text above about 13,200 characters and messages of more than 50 blocks. Relizy keeps every post under these limits: when the changelog does not fit, the last commits are replaced with an "_… and N more changes_" line. Set [`social.changelogUrl`](../config/social.md#changelogurl) so the **Full Changelog** button links to the rest.
+Slack rejects messages with rich text above about 13,200 characters and messages of more than 50 blocks. Relizy keeps every post under these limits: when the changelog does not fit, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line. Set [`social.changelogUrl`](../config/social.md#changelogurl) so the **Full Changelog** button links to the rest.
 :::
 
 ## Message Length
 
-In `summary` format, the changelog rendered in the Slack message is truncated to **2500 characters** by default (Slack's limit for a section block is 3000). In `full` format there is no limit by default other than Slack's own limits. In both formats, `postMaxLength` sets an explicit budget, and the commits beyond it are replaced with an "_… and N more changes_" line.
+In `summary` format, the changelog rendered in the Slack message is truncated to **2500 characters** by default (Slack's limit for a section block is 3000). In `full` format there is no limit by default other than Slack's own limits. In both formats, `postMaxLength` sets an explicit budget (e.g. `2000` to keep posts short). Beyond it, `summary` drops the last commits, while `full` keeps the commit bodies: the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line.
 
 ```typescript
 import { defineConfig } from 'relizy'

@@ -173,8 +173,12 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
     let changelogText: string
     if (changelogFormat === 'full') {
       // A template is a single section: the changelog gets what the template leaves of its limit.
-      const overhead = renderSlackTemplate({ ...templateContext, changelog: '' }).length
-      changelogText = formatChangelogForSlack(changelog, maxLength ?? Math.max(0, SLACK_SECTION_MAX_LENGTH - overhead))
+      // Measured with a 1 char placeholder the template trimming cannot remove
+      const overhead = renderSlackTemplate({ ...templateContext, changelog: '\u0000' }).length - 1
+      changelogText = markdownToSlackMrkdwn(changelog, {
+        maxLength: Math.max(0, Math.min(maxLength ?? Infinity, SLACK_SECTION_MAX_LENGTH - overhead)),
+        cutCommits: true,
+      })
     }
     else {
       changelogText = extractChangelogSummary(changelog, { maxLength })
