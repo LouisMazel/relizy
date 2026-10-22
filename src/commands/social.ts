@@ -5,7 +5,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveTags } from '../core'
+import { collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -334,7 +334,8 @@ async function handleSlackPost({
         template,
         contributors,
         packages,
-        postMaxLength: slackConfig.postMaxLength ?? 2500,
+        postMaxLength: slackConfig.postMaxLength,
+        changelogFormat: slackConfig.changelogFormat ?? 'summary',
         dryRun,
       })
 
@@ -375,6 +376,10 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
     })
 
     applyAIOverride(config, options.ai)
+
+    if (options.slackFormat) {
+      config.social.slack = { ...config.social.slack, changelogFormat: options.slackFormat }
+    }
 
     logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -579,13 +584,16 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       }
     }
 
-    let slackChangelog = minifiedBody
+    const slackChangelogFormat = config.social?.slack?.changelogFormat ?? 'summary'
+    const slackBody = slackChangelogFormat === 'full' ? richBody : minifiedBody
+    let slackChangelog = slackBody
     if (hasContent && slackWillPost && isAISocialEnabled(config, 'slack')) {
       slackChangelog = await generateAISocialChangelog({
         config,
         rawBody: richBody,
-        fallbackBody: minifiedBody,
+        fallbackBody: slackBody,
         platform: 'slack',
+        maxLength: resolveSlackPostMaxLength({ changelogFormat: slackChangelogFormat, postMaxLength: config.social.slack.postMaxLength }),
       })
       if (dryRun) {
         logger.box('[dry-run] AI Slack preview', slackChangelog)

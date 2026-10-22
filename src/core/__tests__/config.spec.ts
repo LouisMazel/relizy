@@ -232,10 +232,16 @@ describe('Given getDefaultConfig function', () => {
       expect(config.social.slack.onlyStable).toBe(true)
     })
 
-    it('Then sets Slack postMaxLength to 2500 by default', () => {
+    it('Then sets Slack changelogFormat to summary by default', () => {
       const config = getDefaultConfig()
 
-      expect(config.social.slack.postMaxLength).toBe(2500)
+      expect(config.social.slack.changelogFormat).toBe('summary')
+    })
+
+    it('Then leaves Slack postMaxLength unset so it is resolved per changelog format', () => {
+      const config = getDefaultConfig()
+
+      expect(config.social.slack).not.toHaveProperty('postMaxLength')
     })
 
     it('Then sets Slack noAuthors to false by default', () => {

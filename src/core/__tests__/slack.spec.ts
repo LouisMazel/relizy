@@ -1,12 +1,20 @@
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, vi } from 'vitest'
-import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack } from '../slack'
+import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack, resolveSlackPostMaxLength } from '../slack'
 
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string, opts?: { maxLength?: number }) => changelog.substring(0, opts?.maxLength ?? 2500)),
 }))
 
 logger.setLevel = vi.fn()
+
+function bulletList(count: number, label: string): string {
+  return Array.from({ length: count }, (_, i) => `- ${label} ${i}`).join('\n')
+}
+
+function sectionWithOneChange(index: number): string {
+  return `### Section ${index}\n\n- Change ${index}`
+}
 
 describe('Given getSlackToken function', () => {
   describe('When token is provided in socialCredentials', () => {
@@ -120,10 +128,10 @@ Content`
       expect(result).toBe('*First* and *Second* bold')
     })
 
-    it('Then preserves single asterisks', () => {
-      const result = formatChangelogForSlack('This is *already* mrkdwn', 1000)
+    it('Then converts markdown emphasis to Slack italic', () => {
+      const result = formatChangelogForSlack('This is *emphasized* text', 1000)
 
-      expect(result).toContain('*already*')
+      expect(result).toBe('This is _emphasized_ text')
     })
   })
 
@@ -152,7 +160,29 @@ Content`
     it('Then handles empty link text', () => {
       const result = formatChangelogForSlack('[](https://example.com)', 1000)
 
-      expect(result).toBe('<https://example.com|>')
+      expect(result).toBe('<https://example.com>')
+    })
+  })
+
+  describe('When a list exceeds maxLength', () => {
+    it('Then drops whole commits and announces how many were left out', () => {
+      const changelog = `### Features\n\n${bulletList(30, 'Feature number')}`
+
+      const result = formatChangelogForSlack(changelog, 200)
+
+      expect(result.length).toBeLessThanOrEqual(200)
+      expect(result.startsWith('*Features*\n• Feature number 0\n')).toBe(true)
+      expect(result).toMatch(/_… and \d+ more changes_$/)
+      expect(result).not.toMatch(/Feature number 29/)
+    })
+
+    it('Then never ends on a heading whose commits were dropped', () => {
+      const changelog = `### Features\n\n- ${'a'.repeat(60)}\n\n### Fixes\n\n- ${'b'.repeat(200)}`
+
+      const result = formatChangelogForSlack(changelog, 120)
+
+      expect(result).not.toContain('Fixes')
+      expect(result).toContain('_… and 1 more change_')
     })
   })
 
@@ -246,7 +276,13 @@ Content`
     it('Then handles whitespace only', () => {
       const result = formatChangelogForSlack('   \n\n  ', 500)
 
-      expect(result).toBe('   \n\n  ')
+      expect(result).toBe('')
+    })
+
+    it('Then escapes the characters Slack reserves', () => {
+      const result = formatChangelogForSlack('Use <T> & friends', 500)
+
+      expect(result).toBe('Use &lt;T&gt; &amp; friends')
     })
 
     it('Then handles text without markdown', () => {
@@ -838,6 +874,131 @@ describe('Given formatSlackMessage with postMaxLength', () => {
   })
 })
 
+describe('Given resolveSlackPostMaxLength function', () => {
+  it('Then defaults to 2500 in summary format', () => {
+    expect(resolveSlackPostMaxLength({})).toBe(2500)
+    expect(resolveSlackPostMaxLength({ changelogFormat: 'summary' })).toBe(2500)
+  })
+
+  it('Then has no limit in full format', () => {
+    expect(resolveSlackPostMaxLength({ changelogFormat: 'full' })).toBeUndefined()
+  })
+
+  it('Then always honors an explicit postMaxLength', () => {
+    expect(resolveSlackPostMaxLength({ changelogFormat: 'full', postMaxLength: 4000 })).toBe(4000)
+    expect(resolveSlackPostMaxLength({ changelogFormat: 'summary', postMaxLength: 1000 })).toBe(1000)
+  })
+})
+
+describe('Given formatSlackMessage with the full changelog format', () => {
+  const richChangelog = `### 🚀 Features
+
+- **slack:** Add the full format ([#12](https://github.com/o/r/pull/12))
+
+  Commit bodies are now rendered.
+
+### 🩹 Fixes
+
+- Fix a bug`
+
+  describe('When using the default blocks layout', () => {
+    it('Then renders one rich_text block per changelog section, bodies included', () => {
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: richChangelog, changelogFormat: 'full' })
+
+      const richTextBlocks = blocks.filter((b: any) => b.type === 'rich_text')
+      expect(richTextBlocks).toHaveLength(2)
+      expect(blocks.some((b: any) => b.type === 'section' && b.text?.type === 'mrkdwn')).toBe(false)
+      expect(JSON.stringify(richTextBlocks[0])).toContain('Commit bodies are now rendered.')
+      expect(richTextBlocks[0].elements).toContainEqual({
+        type: 'rich_text_quote',
+        elements: [{ type: 'text', text: 'Commit bodies are now rendered.' }],
+      })
+    })
+
+    it('Then keeps the header, packages, contributors and actions around the changelog', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'p',
+        version: '1.0.0',
+        changelog: richChangelog,
+        changelogFormat: 'full',
+        releaseUrl: 'https://example.com/release',
+        contributors: ['Alice'],
+        packages: [{ name: 'a', version: '1.0.0', hasTransition: false } as any],
+      })
+
+      expect(blocks.map((b: any) => b.type)).toEqual(['header', 'rich_text', 'rich_text', 'section', 'section', 'divider', 'actions'])
+    })
+
+    it('Then stays within the 50 blocks of a Slack message', () => {
+      const changelog = Array.from({ length: 80 }, (_, i) => sectionWithOneChange(i)).join('\n\n')
+
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', releaseUrl: 'https://example.com/release' })
+
+      expect(blocks.length).toBeLessThanOrEqual(50)
+      expect(JSON.stringify(blocks.at(-3))).toContain('more changes')
+    })
+
+    it('Then truncates by commits when postMaxLength is set', () => {
+      const changelog = `### Features\n\n${bulletList(20, 'Feature number')}`
+
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', postMaxLength: 100 })
+
+      const serialized = JSON.stringify(blocks)
+      expect(serialized).toContain('Feature number 0')
+      expect(serialized).not.toContain('Feature number 19')
+      expect(serialized).toMatch(/… and \d+ more changes/)
+    })
+  })
+
+  describe('When using a template', () => {
+    it('Then injects the complete changelog as mrkdwn with bodies quoted', () => {
+      const blocks = formatSlackMessage({
+        projectName: 'p',
+        version: '1.0.0',
+        changelog: richChangelog,
+        changelogFormat: 'full',
+        template: '*{{projectName}} {{newVersion}}*\n{{changelog}}',
+      })
+
+      expect(blocks).toHaveLength(1)
+      expect(blocks[0].text.text).toBe([
+        '*p 1.0.0*',
+        '*🚀 Features*',
+        '• *slack:* Add the full format (<https://github.com/o/r/pull/12|#12>)',
+        '> Commit bodies are now rendered.',
+        '',
+        '*🩹 Fixes*',
+        '• Fix a bug',
+      ].join('\n'))
+    })
+
+    it('Then fits the changelog in what the template leaves of the 3000 chars section limit', () => {
+      const changelog = `### Features\n\n${bulletList(300, 'Feature number')}`
+      const template = `${'x'.repeat(1000)}\n{{changelog}}`
+
+      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', template })
+
+      expect(blocks[0].text.text.length).toBeLessThanOrEqual(3000)
+      expect(blocks[0].text.text).toMatch(/more changes_$/)
+    })
+  })
+})
+
+describe('Given postReleaseToSlack in full format and dry run', () => {
+  it('Then previews the rich text blocks as plain text', async () => {
+    await postReleaseToSlack({
+      version: '1.0.0',
+      projectName: 'pkg',
+      changelog: '### Features\n\n- Add a thing\n\n  With a body',
+      webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+      changelogFormat: 'full',
+      dryRun: true,
+    })
+
+    expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('Features\n• Add a thing\n> With a body'))
+  })
+})
+
 describe('Given getSlackWebhookUrl function', () => {
   const origEnv = { ...process.env }
   beforeEach(() => {
@@ -1074,10 +1235,9 @@ describe('Given formatChangelogForSlack bullet conversion', () => {
       expect(result).toBe('• foo\n• bar')
     })
 
-    it('Then preserves indentation for nested items', () => {
+    it('Then indents nested items with a hollow bullet', () => {
       const result = formatChangelogForSlack('- top\n  - nested', 500)
-      expect(result).toContain('• top')
-      expect(result).toContain('  • nested')
+      expect(result).toBe('• top\n    ◦ nested')
     })
   })
 
