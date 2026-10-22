@@ -41,6 +41,16 @@ describe('Given the commitlint git helpers on a real repository', () => {
     return git('rev-parse', 'HEAD')
   }
 
+  const shallowClones: string[] = []
+
+  /** A clone of the last commit of a branch, like the default checkout of the CI */
+  function cloneShallow(branch = 'main') {
+    const shallow = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-shallow-')))
+    shallowClones.push(shallow)
+    execFileSync('git', ['clone', '--quiet', '--depth', '1', '--no-tags', '--single-branch', '--branch', branch, `file://${cwd}`, shallow])
+    return shallow
+  }
+
   beforeEach(() => {
     // Real path: git resolves the symbolic links of the temporary directory (e.g. /var on macOS)
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-git-')))
@@ -57,6 +67,7 @@ describe('Given the commitlint git helpers on a real repository', () => {
 
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true })
+    shallowClones.splice(0).forEach(shallow => rmSync(shallow, { recursive: true, force: true }))
     vi.unstubAllEnvs()
   })
 
@@ -132,6 +143,19 @@ describe('Given the commitlint git helpers on a real repository', () => {
       expect(await resolveDefaultRangeStart({ cwd })).toEqual({ from: base, reason: 'merge-base with origin/main' })
     })
 
+    it('Then fetches the target branch and the history of the shallow checkout of a pull request', async () => {
+      const base = commitFiles('chore: init the repository', { 'README.md': 'readme' })
+      git('checkout', '-b', 'feature')
+      commitFiles('feat: add the parser', { 'index.ts': 'a' })
+      commitFiles('fix: correct the parser', { 'index.ts': 'b' })
+      // Like actions/checkout: only the last commit of the pull request, without the base branch
+      const shallow = cloneShallow('feature')
+      vi.stubEnv('GITHUB_BASE_REF', 'main')
+
+      expect(await resolveDefaultRangeStart({ cwd: shallow })).toEqual({ from: base, reason: 'merge-base with origin/main' })
+      expect(getCommitsInRange({ from: base, cwd: shallow }).map(commit => commit.message)).toEqual(['feat: add the parser', 'fix: correct the parser'])
+    })
+
     it('Then explains how to fetch the target branch when it is missing', async () => {
       commitFiles('chore: init the repository', { 'README.md': 'readme' })
       vi.stubEnv('GITHUB_BASE_REF', 'main')
@@ -176,24 +200,30 @@ describe('Given the commitlint git helpers on a real repository', () => {
       expect(() => assertRefAvailable('origin/main', cwd)).toThrow('Cannot find "origin/main": fetch it before linting')
     })
 
+    it('Then fetches the history and the tags of a shallow clone', () => {
+      commitFiles('chore: init the repository', { 'README.md': 'readme' })
+      git('tag', 'v1.0.0')
+      commitFiles('feat: add the parser', { 'index.ts': 'a' })
+      const base = git('rev-parse', 'HEAD~1')
+      const shallow = cloneShallow()
+
+      expect(() => assertRefAvailable('v1.0.0', shallow)).not.toThrow()
+      expect(getCommitsInRange({ from: base, cwd: shallow }).map(commit => commit.message)).toEqual(['feat: add the parser'])
+    })
+
     it.each([
       [{ GITLAB_CI: 'true' }, 'set "GIT_DEPTH: 0" on the job'],
       [{ GITHUB_ACTIONS: 'true' }, 'set "fetch-depth: 0" on actions/checkout'],
       [{}, 'run "git fetch --unshallow"'],
-    ])('Then explains how to fetch the history of a shallow clone (%j)', (env, hint) => {
+    ])('Then explains how to fetch the history of a shallow clone it cannot fetch (%j)', (env, hint) => {
       commitFiles('chore: init the repository', { 'README.md': 'readme' })
       commitFiles('feat: add the parser', { 'index.ts': 'a' })
       const base = git('rev-parse', 'HEAD~1')
-      const shallow = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-shallow-')))
-      execFileSync('git', ['clone', '--quiet', '--depth', '1', `file://${cwd}`, shallow])
+      const shallow = cloneShallow()
+      execFileSync('git', ['remote', 'remove', 'origin'], { cwd: shallow })
       Object.entries(env).forEach(([name, value]) => vi.stubEnv(name, value))
 
-      try {
-        expect(() => assertRefAvailable(base, shallow)).toThrow(`Cannot find "${base}": the repository is a shallow clone: fetch the full history (${hint})`)
-      }
-      finally {
-        rmSync(shallow, { recursive: true, force: true })
-      }
+      expect(() => assertRefAvailable(base, shallow)).toThrow(`Cannot find "${base}": the repository is a shallow clone: fetch the full history (${hint})`)
     })
   })
 

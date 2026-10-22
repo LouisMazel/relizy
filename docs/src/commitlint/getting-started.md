@@ -161,8 +161,8 @@ When a commit is invalid, the summary ends with how to fix it:
 
 Add `--quiet` to only print the commits with problems on large pull requests. In GitHub Actions, each problem is also reported as an annotation, visible in the summary of the job and on the pull request.
 
-::: warning Full history
-The CI must fetch the history of the base branch, otherwise the start of the range cannot be found: `fetch-depth: 0` on `actions/checkout`, `GIT_DEPTH: 0` on GitLab CI. Relizy tells you so when it runs in a shallow clone.
+::: tip Shallow clones
+The default checkout of the CI only has the last commits. Relizy fetches what it needs: the history and the target branch of the pull request. To skip this fetch, check out the full history: `fetch-depth: 0` on `actions/checkout`, `GIT_DEPTH: 0` on GitLab CI.
 :::
 
 ::: code-group
@@ -179,8 +179,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # The history of the base branch is needed for the merge-base
 
       - uses: actions/setup-node@v6
         with:
@@ -197,8 +195,6 @@ commitlint:
   image: node:22
   rules:
     - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  variables:
-    GIT_DEPTH: 0
   script:
     - npm ci
     - npx relizy commitlint

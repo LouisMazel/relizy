@@ -3,6 +3,7 @@ import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import process from 'node:process'
+import { logger } from '@maz-ui/node'
 import { getLastTag } from '../tags'
 
 function git(args: string[], cwd: string): string {
@@ -100,11 +101,38 @@ function isShallowRepository(cwd: string): boolean {
 }
 
 /**
- * Throws a helpful error when the start of the range is not in the local
- * history, e.g. in a shallow clone of the CI.
+ * Fetch what the range needs from `origin`: the full history in a shallow clone
+ * (the default checkout of GitHub Actions and GitLab CI only has the last
+ * commits), and the given refs. `false` when nothing could be fetched.
+ */
+function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?: string[], tags?: boolean } = {}): boolean {
+  const shallow = isShallowRepository(cwd)
+  if (!shallow && refspecs.length === 0 && !tags) {
+    return false
+  }
+  const args = ['fetch', '--quiet', ...(tags ? ['--tags'] : ['--no-tags']), ...(shallow ? ['--unshallow'] : []), 'origin', ...refspecs]
+  logger.debug(`commitlint: git ${args.join(' ')}`)
+  try {
+    git(args, cwd)
+    return true
+  }
+  catch (error) {
+    logger.debug(`commitlint: the fetch failed: ${error instanceof Error ? error.message : String(error)}`)
+    return false
+  }
+}
+
+function isRefAvailable(ref: string, cwd: string): boolean {
+  return Boolean(gitOrUndefined(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd))
+}
+
+/**
+ * Makes sure the start of the range is in the local history: in a shallow
+ * clone of the CI, the history and the tags are fetched. Throws a helpful
+ * error when it is still missing.
  */
 export function assertRefAvailable(ref: string, cwd: string): void {
-  if (gitOrUndefined(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd)) {
+  if (isRefAvailable(ref, cwd) || (isShallowRepository(cwd) && fetchHistory(cwd, { tags: true }) && isRefAvailable(ref, cwd))) {
     return
   }
   const reason = isShallowRepository(cwd)
@@ -157,7 +185,10 @@ export interface DefaultRangeStart {
 export async function resolveDefaultRangeStart({ cwd, logLevel }: { cwd: string, logLevel?: LogLevel }): Promise<DefaultRangeStart> {
   const githubBase = process.env.GITHUB_BASE_REF
   if (githubBase) {
-    const mergeBase = gitOrUndefined(['merge-base', `origin/${githubBase}`, 'HEAD'], cwd)
+    const getMergeBase = () => gitOrUndefined(['merge-base', `origin/${githubBase}`, 'HEAD'], cwd)
+    // The default checkout of a pull request has neither the base branch nor the history
+    const mergeBase = getMergeBase()
+      ?? (fetchHistory(cwd, { refspecs: [`+refs/heads/${githubBase}:refs/remotes/origin/${githubBase}`] }) ? getMergeBase() : undefined)
     if (!mergeBase) {
       throw new Error(`Cannot find the merge-base of HEAD and origin/${githubBase}: fetch the history of the base branch (${getFetchHistoryHint()}), or pass --from`)
     }
