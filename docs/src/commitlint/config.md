@@ -136,6 +136,27 @@ export default defineConfig({
 
 `--title` and `--no-title` override it for a run. See [Lint the commits of a pull request](./getting-started.md#lint-the-commits-of-a-pull-request).
 
+## `codeBlocksLinter`
+
+- **Type:** `'auto' | 'eslint' | 'oxc'`
+- **Default:** `'auto'`
+
+Tool checking the code blocks of the commit bodies, rendered as in your changelogs. See [`body-changelog-lint`](./rules.md#body-changelog-lint).
+
+- `auto`: the ESLint of your project when it lints the `CHANGELOG.md` files, otherwise `oxc`;
+- `eslint`: the ESLint of your project. Relizy fails when it is not installed or does not lint the `CHANGELOG.md` files, instead of falling back to `oxc`;
+- `oxc`: a syntax check of the `js`, `ts`, `jsx`, `tsx` and `json` code blocks, faster than ESLint.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    codeBlocksLinter: 'oxc',
+  },
+})
+```
+
 ## `helpUrl`
 
 - **Type:** `string`

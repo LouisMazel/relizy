@@ -128,6 +128,24 @@ describe('Given getChangelogLinter function', () => {
     }, 30_000)
   })
 
+  describe('When the linter is forced with commitlint.codeBlocksLinter', () => {
+    it('Then uses oxc even when the project ESLint lints the changelogs', async () => {
+      expect((await getChangelogLinter(process.cwd(), 'oxc')).name).toBe('oxc')
+    })
+
+    it('Then uses the project ESLint with eslint', async () => {
+      expect((await getChangelogLinter(process.cwd(), 'eslint')).name).toBe('eslint')
+    }, 60_000)
+
+    it.each([
+      ['is not installed', () => createProject(), 'ESLint is not installed in the project'],
+      ['does not lint the changelogs', () => createProject({ 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' }, { withEslint: true }), 'the ESLint config of the project does not lint CHANGELOG.md'],
+      ['cannot be loaded', () => createProject({ 'eslint.config.mjs': 'throw new Error(\'broken config\')' }, { withEslint: true }), 'ESLint could not be loaded'],
+    ])('Then fails with eslint when the project ESLint %s', async (_, project, reason) => {
+      await expect(getChangelogLinter(project(), 'eslint')).rejects.toThrow(`commitlint: codeBlocksLinter is "eslint" but ${reason}`)
+    }, 30_000)
+  })
+
   describe('When oxc-parser cannot be loaded', () => {
     beforeEach(() => {
       vi.resetModules()

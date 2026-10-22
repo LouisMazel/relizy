@@ -299,7 +299,7 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
       if (!entry) {
         return []
       }
-      const linter = await getChangelogLinter(config.cwd)
+      const linter = await getChangelogLinter(config.cwd, config.commitlint?.codeBlocksLinter)
       const problems = await linter.lint(`# Changelog\n\n## v0.0.0\n\n${entry}\n`)
       const fix = linter.name === 'eslint'
         ? 'fix the code block: the body is linted like the CHANGELOG.md files by the ESLint of the project'
