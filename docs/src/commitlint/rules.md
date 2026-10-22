@@ -18,7 +18,7 @@ export default defineConfig({
     rules: {
       'header-max-length': ['error', 100],
       'scope-required': ['error', 'when-bumping'],
-      'subject-case': 'warn',
+      'subject-case': 'error',
       'scope-matches-files': 'off',
     },
   },
@@ -37,7 +37,7 @@ The levels `0`, `1` and `2` and the commitlint tuples `[2, 'always', value]` are
 | [`scope-enum`](#scope-enum)                     | `error` |                                  |
 | [`scope-required`](#scope-required)             | `off`   | `'always'`                       |
 | [`scope-matches-files`](#scope-matches-files)   | `warn`  |                                  |
-| [`subject-case`](#subject-case)                 | `error` |                                  |
+| [`subject-case`](#subject-case)                 | `off`   |                                  |
 | [`subject-full-stop`](#subject-full-stop)       | `error` |                                  |
 | [`subject-meaningful`](#subject-meaningful)     | `error` | `{ minWords: 2, minLength: 15 }` |
 | [`body-leading-blank`](#body-leading-blank)     | `error` |                                  |
@@ -142,7 +142,7 @@ The changed files are the staged files with `--edit` and `--message`, and the fi
 
 ### `subject-case`
 
-The subject must not start with an uppercase letter: Relizy capitalizes it in the changelog. Acronyms such as `API` are allowed.
+The subject must not start with an uppercase letter. Off by default: Relizy capitalizes the subject in the changelog anyway, and names such as `MazChart` are legitimate. Enable it for a lowercase style. Acronyms such as `API` are allowed. When it is enabled, the suggested header starts lowercase.
 
 ### `subject-full-stop`
 

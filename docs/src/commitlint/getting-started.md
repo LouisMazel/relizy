@@ -86,7 +86,7 @@ A valid commit prints one line, with its effect on the next release:
 ✔ feat(nuxt) → minor bump, 🚀 Enhancements
 ```
 
-An invalid commit prints each problem with how to fix it, a corrected header when the mistakes can be fixed safely (case, spacing, typos in the type or the scope, final period), the documentation of the failing rules, and how to commit again. The hook stops the commit:
+An invalid commit prints each problem with how to fix it, a corrected header when the mistakes can be fixed safely (spacing, typos in the type or the scope, final period), the documentation of the failing rules, and how to commit again. The hook stops the commit:
 
 ```text
 ✖ fix(nuxtt): Typo.
@@ -94,20 +94,17 @@ An invalid commit prints each problem with how to fix it, a corrected header whe
   ✖ scope-enum          The scope "nuxtt" is not allowed
                         → did you mean "nuxt"? use a workspace package or one of: nuxt,
                           @maz-ui/nuxt, core, @maz-ui/core
-  ✖ subject-case        The subject starts with an uppercase letter
-                        → start it lowercase, relizy capitalizes it in the changelog
   ✖ subject-full-stop   The subject ends with a period
                         → remove the final period
   ✖ subject-meaningful  The subject "Typo." does not describe the change
                         → describe what changed, in at least 2 words or 15 characters
 
-  Suggested header: fix(nuxt): typo
+  Suggested header: fix(nuxt): Typo
                     still to fix: subject-meaningful
 
 ────────────────────────────────────────────────────────────────────────
-✖ The commit message is invalid: 4 errors, 0 warnings
+✖ The commit message is invalid: 3 errors, 0 warnings
   Rules: scope-enum          https://relizy.dev/commitlint/rules#scope-enum
-         subject-case        https://relizy.dev/commitlint/rules#subject-case
          subject-full-stop   https://relizy.dev/commitlint/rules#subject-full-stop
          subject-meaningful  https://relizy.dev/commitlint/rules#subject-meaningful
   Fix:   edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:
@@ -151,8 +148,8 @@ When a commit is invalid, the summary ends with how to fix it:
 ```text
 ────────────────────────────────────────────────────────────────────────
 ✖ 1 of 3 commits and the merge request title are invalid: 2 errors, 0 warnings
-  Rules: subject-case   https://relizy.dev/commitlint/rules#subject-case
-         header-format  https://relizy.dev/commitlint/rules#header-format
+  Rules: subject-full-stop  https://relizy.dev/commitlint/rules#subject-full-stop
+         header-format      https://relizy.dev/commitlint/rules#header-format
   Fix:   reword 1a2b3c4: mark it as "reword" in the rebase, then force-push:
            $ git rebase -i 9f8e7d6
            $ git push --force-with-lease

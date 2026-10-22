@@ -1347,8 +1347,9 @@ export interface CommitlintBuiltInRules {
    */
   'scope-matches-files': never
   /**
-   * The subject starts with a lowercase letter.
-   * @default 'error'
+   * The subject starts with a lowercase letter. Off by default: the changelog
+   * capitalizes the subject anyway.
+   * @default 'off'
    */
   'subject-case': never
   /**

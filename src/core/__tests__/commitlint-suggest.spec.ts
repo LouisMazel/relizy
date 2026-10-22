@@ -43,15 +43,19 @@ describe('Given suggestHeader function', () => {
     ['feat: API of the parser', undefined],
     ['feat: wait...', undefined],
   ])('Then fixes "%s" as "%s"', (header, expected) => {
-    expect(suggestHeader(header, { types: TYPES, allowedScopes: ['nuxt', 'core', 'my-scope'] })).toBe(expected)
+    expect(suggestHeader(header, { types: TYPES, allowedScopes: ['nuxt', 'core', 'my-scope'], lowercaseSubject: true })).toBe(expected)
+  })
+
+  it('Then keeps the case of the subject without lowercaseSubject, e.g. a component name', () => {
+    expect(suggestHeader('feat: MazChart - expose the chart.', { types: TYPES })).toBe('feat: MazChart - expose the chart')
   })
 
   it('Then keeps an unknown scope without allowed scopes', () => {
-    expect(suggestHeader('fix(Anything): Correct it', { types: TYPES })).toBe('fix(Anything): correct it')
+    expect(suggestHeader('fix(Anything): correct it.', { types: TYPES })).toBe('fix(Anything): correct it')
   })
 
   it('Then keeps a type it cannot recognize', () => {
-    expect(suggestHeader('banana: Add it', { types: TYPES })).toBe('banana: add it')
+    expect(suggestHeader('banana: add it.', { types: TYPES })).toBe('banana: add it')
   })
 
   it('Then rewrites the default revert message when a revert type exists', () => {

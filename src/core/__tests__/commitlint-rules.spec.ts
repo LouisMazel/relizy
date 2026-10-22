@@ -74,11 +74,17 @@ describe('Given lintCommitMessage function', () => {
     it('Then suggests a fixed header, linted again', async () => {
       const result = await lint('Fix(nuxtt): Correct the module options.')
 
+      expect(result.suggestion).toEqual({ header: 'fix(nuxt): Correct the module options', remainingRules: [] })
+    })
+
+    it('Then lowercases the subject when subject-case is enabled', async () => {
+      const result = await lint('fix(nuxtt): Correct the module options', { config: { commitlint: { rules: { 'subject-case': 'error' } } } })
+
       expect(result.suggestion).toEqual({ header: 'fix(nuxt): correct the module options', remainingRules: [] })
     })
 
     it('Then lists the errors the suggestion does not fix', async () => {
-      expect((await lint('fix(nuxtt): Typo.')).suggestion).toEqual({ header: 'fix(nuxt): typo', remainingRules: ['subject-meaningful'] })
+      expect((await lint('fix(nuxtt): Typo.')).suggestion).toEqual({ header: 'fix(nuxt): Typo', remainingRules: ['subject-meaningful'] })
     })
 
     it.each([
@@ -299,8 +305,12 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When checking the subject', () => {
+    it('Then does not check the case of the subject by default, the changelog capitalizes it', async () => {
+      expect(await rulesOf('feat: MazChart - expose a named chart')).toEqual([])
+      expect(await rulesOf('feat: Add a new thing', { config: { commitlint: { rules: { 'subject-case': 'error' } } } })).toEqual(['subject-case'])
+    })
+
     it.each([
-      ['feat: Add a new thing', ['subject-case']],
       ['feat: add a new thing.', ['subject-full-stop']],
       ['feat: API changes for the parser', []],
       ['feat: `parse` handles the emojis', []],

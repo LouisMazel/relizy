@@ -215,8 +215,10 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
       return [{ message: `The scope "${commit.scope}" designates ${pkg.path}, but ${touched.message}`, fix: touched.fix }]
     },
   },
+  // Off by default: the changelog capitalizes the subject anyway, and names
+  // such as "MazChart" are legitimate
   'subject-case': {
-    severity: 'error',
+    severity: 'off',
     conventionalOnly: true,
     check: ({ commit }) =>
       // An uppercase first letter followed by a non uppercase one: acronyms ("API ...") are fine
