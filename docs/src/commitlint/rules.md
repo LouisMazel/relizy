@@ -60,7 +60,7 @@ The header must follow `type(scope)!: subject`: a lowercase type, an optional sc
 ✖ Feat(core): add the commitlint command    → the type must be lowercase
 ✖ feat(core):add the commitlint command     → a space is required after the colon
 ✖ ✨ feat: add the commitlint command        → no emoji before the type
-✖ Revert "feat: add the commitlint command" → write "revert: ..." instead
+✖ Revert "feat: add the commitlint command" → write "revert: ..." (with a "revert" type)
 ```
 
 ### `header-max-length`
@@ -101,7 +101,7 @@ export default defineConfig({
 
 The scope must designate something. The allowed scopes are:
 
-- the workspace packages, private ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`;
+- the workspace packages, private and ignored ones included, by short name, full name or folder: `nuxt`, `@maz-ui/nuxt` or the name of its folder in `packages/`. Add directories Relizy does not release, such as apps, with [`commitlint.packages`](./config.md#packages);
 - the keys of [`scopeMap`](/config/overview);
 - the scopes listed in [`commitlint.scopes`](./config.md#scopes).
 

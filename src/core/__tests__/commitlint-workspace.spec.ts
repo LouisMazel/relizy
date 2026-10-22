@@ -18,6 +18,9 @@ describe('Given the commitlint workspace helpers', () => {
     writePackage('packages/nuxt', { name: '@maz-ui/nuxt', version: '1.0.0' })
     writePackage('packages/core-lib', { name: 'core', version: '1.0.0' })
     writePackage('apps/web', { name: 'web-app', version: '1.0.0', private: true })
+    writePackage('apps/playground', { name: 'playground', private: true })
+    mkdirSync(join(cwd, 'apps/assets'))
+    writePackage('apps/broken', { private: true })
   })
 
   afterEach(() => {
@@ -32,8 +35,31 @@ describe('Given the commitlint workspace helpers', () => {
         { name: '@maz-ui/nuxt', path: 'packages/nuxt', scopes: ['nuxt', '@maz-ui/nuxt'] },
         { name: 'core', path: 'packages/core-lib', scopes: ['core', 'core-lib'] },
         { name: 'web-app', path: 'apps/web', scopes: ['web-app', 'web'] },
+        { name: 'playground', path: 'apps/playground', scopes: ['playground'] },
       ]))
-      expect(getWorkspacePackages(config)).toHaveLength(3)
+      expect(getWorkspacePackages(config)).toHaveLength(4)
+    })
+
+    it('Then adds the directories of commitlint.packages, e.g. apps that are never released', () => {
+      const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'] }, commitlint: { packages: ['apps/*', 'packages/*'] } })
+
+      expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core', 'playground', 'web-app'])
+    })
+
+    it('Then accepts the packages without version and skips the directories without package name', () => {
+      const config = createMockConfig({ cwd, monorepo: { packages: ['apps/*'] } })
+
+      expect(getWorkspacePackages(config)).toEqual([
+        { name: 'playground', path: 'apps/playground', scopes: ['playground'] },
+        { name: 'web-app', path: 'apps/web', scopes: ['web-app', 'web'] },
+      ])
+    })
+
+    it('Then reads commitlint.packages in standalone mode', () => {
+      const config = createMockConfig({ cwd, commitlint: { packages: ['apps/*'] } })
+      delete (config as Partial<typeof config>).monorepo
+
+      expect(getWorkspacePackages(config).map(pkg => pkg.name)).toEqual(['playground', 'web-app'])
     })
 
     it('Then never lists the root package', () => {
@@ -42,10 +68,10 @@ describe('Given the commitlint workspace helpers', () => {
       expect(getWorkspacePackages(config).map(pkg => pkg.name)).not.toContain('root')
     })
 
-    it('Then skips the ignored directories', () => {
+    it('Then keeps the ignored directories, released by another config', () => {
       const config = createMockConfig({ cwd, monorepo: { packages: ['packages/*'], ignored: ['packages/core-lib'] } })
 
-      expect(getWorkspacePackages(config).map(pkg => pkg.name)).toEqual(['@maz-ui/nuxt'])
+      expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core'])
     })
 
     it('Then returns no package in standalone mode', () => {

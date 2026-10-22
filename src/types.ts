@@ -1362,6 +1362,12 @@ export type CommitlintCustomRuleOutcome = boolean | string | [boolean, string?]
 
 export interface CommitlintConfig {
   /**
+   * Glob patterns of directories to treat as workspace packages for the scopes,
+   * in addition to `monorepo.packages`, e.g. apps that are never released.
+   * @example ['apps/*']
+   */
+  packages?: string[]
+  /**
    * Scopes allowed in addition to the workspace packages (short name, full name
    * or folder) and the `scopeMap` keys. In standalone mode, scopes are free
    * unless this list is set.

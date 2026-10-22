@@ -123,6 +123,7 @@ export function getDefaultConfig() {
       prComment: true,
     } as Required<ReleaseConfig>,
     commitlint: {
+      packages: [],
       scopes: [],
       rules: {},
       customRules: {},

@@ -86,17 +86,37 @@ A valid commit prints one line, with its effect on the next release:
 ✔ feat(nuxt) → minor bump, 🚀 Enhancements
 ```
 
-An invalid commit prints its problems, and the hook stops the commit:
+An invalid commit prints each problem with how to fix it, a corrected header when the mistakes can be fixed safely (case, spacing, typos in the type or the scope, final period), the documentation of the failing rules, and how to commit again. The hook stops the commit:
 
 ```text
-✖ feat(nuxtt): Add the module options.
-  ✖ The scope "nuxtt" is not allowed. Use a workspace package or one of: nuxt, @maz-ui/nuxt, core [scope-enum]
-  ✖ The subject must not start with an uppercase letter, relizy capitalizes it in the changelog [subject-case]
-  ✖ The subject must not end with a period [subject-full-stop]
-✖ 3 problems (3 errors, 0 warnings)
+✖ fix(nuxtt): Typo.
+
+  ✖ scope-enum          The scope "nuxtt" is not allowed
+                        → did you mean "nuxt"? use a workspace package or one of: nuxt,
+                          @maz-ui/nuxt, core, @maz-ui/core
+  ✖ subject-case        The subject starts with an uppercase letter
+                        → start it lowercase, relizy capitalizes it in the changelog
+  ✖ subject-full-stop   The subject ends with a period
+                        → remove the final period
+  ✖ subject-meaningful  The subject "Typo." does not describe the change
+                        → describe what changed, in at least 2 words or 15 characters
+
+  Suggested header: fix(nuxt): typo
+                    still to fix: subject-meaningful
+
+────────────────────────────────────────────────────────────────────────
+✖ The commit message is invalid: 4 errors, 0 warnings
+  Rules: scope-enum          https://relizy.dev/commitlint/rules#scope-enum
+         subject-case        https://relizy.dev/commitlint/rules#subject-case
+         subject-full-stop   https://relizy.dev/commitlint/rules#subject-full-stop
+         subject-meaningful  https://relizy.dev/commitlint/rules#subject-meaningful
+  Fix:   edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:
+           $ git commit --edit --file .git/COMMIT_EDITMSG
 ```
 
 Warnings are printed but never stop the commit. Add `--preview` to also print the changelog entry of the commit.
+
+The output is colored in a terminal and in GitHub Actions or GitLab CI, and plain text otherwise, e.g. when an AI agent runs the command. Set `NO_COLOR=1` or `FORCE_COLOR=1` to choose. For programs and AI agents, `--format json` prints the same report as JSON (see [CLI](./cli.md#format-lt-format-gt)).
 
 ## Lint the commits of a pull request
 
@@ -112,7 +132,28 @@ Without `--from`, Relizy lints:
 - in a GitLab CI merge request, the commits after the base of the merge request;
 - otherwise, the commits after the last tag.
 
+In a pull or merge request, its **title** is linted too: it becomes the commit message of a squash merge. The draft markers of GitLab (`Draft:`, `[Draft]`) are removed, and `--no-title` disables it.
+
 Merge commits, `fixup!`, `squash!` and `amend!` commits and the release commits of Relizy are ignored. See [CLI](./cli.md) for every option.
+
+When a commit is invalid, the summary ends with how to fix it:
+
+```text
+────────────────────────────────────────────────────────────────────────
+✖ 1 of 3 commits and the merge request title are invalid: 2 errors, 0 warnings
+  Rules: subject-case   https://relizy.dev/commitlint/rules#subject-case
+         header-format  https://relizy.dev/commitlint/rules#header-format
+  Fix:   reword 1a2b3c4: mark it as "reword" in the rebase, then force-push:
+           $ git rebase -i 9f8e7d6
+           $ git push --force-with-lease
+         edit the merge request title, then run a new pipeline (a retry keeps the old title)
+```
+
+Add `--quiet` to only print the commits with problems on large pull requests. In GitHub Actions, each problem is also reported as an annotation, visible in the summary of the job and on the pull request.
+
+::: warning Full history
+The CI must fetch the history of the base branch, otherwise the start of the range cannot be found: `fetch-depth: 0` on `actions/checkout`, `GIT_DEPTH: 0` on GitLab CI. Relizy tells you so when it runs in a shallow clone.
+:::
 
 ::: code-group
 

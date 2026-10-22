@@ -15,6 +15,7 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   commitlint: {
+    packages: ['apps/*'],
     scopes: ['ci', 'deps', 'release'],
     rules: {
       'header-max-length': ['error', 200],
@@ -28,6 +29,29 @@ export default defineConfig({
 ```
 
 With [multiple configs](/config/multiple-configs), select one with `relizy commitlint --config <name>`.
+
+## `packages`
+
+- **Type:** `string[]`
+- **Default:** `[]`
+
+Glob patterns of directories to treat as workspace packages, in addition to [`monorepo.packages`](/config/monorepo), e.g. apps or playgrounds that Relizy never releases. Their packages become valid scopes, and count for [`scope-required`](./rules.md#scope-required) and [`scope-matches-files`](./rules.md#scope-matches-files).
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    versionMode: 'selective',
+    packages: ['packages/*'],
+  },
+  commitlint: {
+    packages: ['apps/*'],
+  },
+})
+```
+
+A workspace package only needs a `package.json` with a `name`. The packages excluded with `monorepo.ignored` stay workspace packages for the linter: they are usually released by [another config](/config/multiple-configs).
 
 ## `scopes`
 

@@ -37,6 +37,11 @@ async function messagesOf(message: string, options?: Parameters<typeof lint>[1])
   return (await lint(message, options)).problems.map(problem => problem.message)
 }
 
+/** What is wrong and how to fix it */
+async function problemsOf(message: string, options?: Parameters<typeof lint>[1]) {
+  return (await lint(message, options)).problems.map(({ message, fix }) => ({ message, fix }))
+}
+
 describe('Given lintCommitMessage function', () => {
   describe('When the message is valid', () => {
     it('Then reports no problem and parses it like relizy', async () => {
@@ -62,6 +67,26 @@ describe('Given lintCommitMessage function', () => {
 
       expect(result.commit.scope).toBe('ui')
       expect(result.valid).toBe(true)
+    })
+  })
+
+  describe('When some errors of the header can be fixed', () => {
+    it('Then suggests a fixed header, linted again', async () => {
+      const result = await lint('Fix(nuxtt): Correct the module options.')
+
+      expect(result.suggestion).toEqual({ header: 'fix(nuxt): correct the module options', remainingRules: [] })
+    })
+
+    it('Then lists the errors the suggestion does not fix', async () => {
+      expect((await lint('fix(nuxtt): Typo.')).suggestion).toEqual({ header: 'fix(nuxt): typo', remainingRules: ['subject-meaningful'] })
+    })
+
+    it.each([
+      ['the errors are not in the header', 'feat: add a new thing\nThe body.'],
+      ['nothing can be fixed', 'wip'],
+      ['the fix changes nothing', 'fix: wip'],
+    ])('Then suggests nothing when %s', async (_, message) => {
+      expect((await lint(message)).suggestion).toBeUndefined()
     })
   })
 
@@ -104,19 +129,33 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When checking the header format', () => {
+    const FORMAT = 'write "type(scope): subject", e.g. "feat(core): add the parser"'
+
     it.each([
-      [' feat: add a new thing', 'The header must not start or end with whitespace'],
-      ['feat: add a new thing ', 'The header must not start or end with whitespace'],
-      ['Revert "feat: add a new thing"', 'Reverts must follow the format "revert: <reverted header>", not the default git message'],
-      ['feat:add a new thing', 'A space is required after the colon, e.g. "feat(core): add the commitlint command"'],
-      ['Feat: add a new thing', 'The type must be lowercase, e.g. "feat(core): add the commitlint command"'],
-      ['fEat: add a new thing', 'The type must be lowercase, e.g. "feat(core): add the commitlint command"'],
-      ['feat(): add a new thing', 'The scope must not be empty or contain spaces, e.g. "feat(core): add the commitlint command"'],
-      ['feat(my scope): add a new thing', 'The scope must not be empty or contain spaces, e.g. "feat(core): add the commitlint command"'],
-      ['✨ feat: add a new thing', 'The header must follow the format "type(scope)!: subject", e.g. "feat(core): add the commitlint command"'],
-      ['add a new thing', 'The header must follow the format "type(scope)!: subject", e.g. "feat(core): add the commitlint command"'],
-    ])('Then rejects "%s"', async (message, expected) => {
-      expect(await messagesOf(message)).toContain(expected)
+      [' feat: add a new thing', 'The header starts or ends with whitespace', 'remove the spaces around the header'],
+      ['feat: add a new thing ', 'The header starts or ends with whitespace', 'remove the spaces around the header'],
+      ['Revert "feat: add a new thing"', 'The header is the default revert message of git', 'rewrite it as a conventional commit, e.g. "fix(core): revert the parser change", or add a "revert" type to the relizy types'],
+      ['feat:add a new thing', 'A space is missing after the colon', FORMAT],
+      ['feat : add a new thing', 'There is a space before the colon', FORMAT],
+      ['Feat: add a new thing', 'The type "Feat" is not lowercase', 'write "feat"'],
+      ['fEat(core): add a new thing', 'The type "fEat" is not lowercase', 'write "feat"'],
+      ['feat(): add a new thing', 'The scope is empty or contains spaces', 'use a single word, e.g. "feat(core): add the parser"'],
+      ['feat(my scope): add a new thing', 'The scope is empty or contains spaces', 'use a single word, e.g. "feat(core): add the parser"'],
+      ['✨ feat: add a new thing', 'The header is not a conventional commit', FORMAT],
+      ['add a new thing', 'The header is not a conventional commit', FORMAT],
+    ])('Then rejects "%s"', async (message, expected, fix) => {
+      expect(await problemsOf(message)).toContainEqual({ message: expected, fix })
+    })
+
+    it('Then reports a type in the wrong case once', async () => {
+      expect(await rulesOf('Feat: add a new thing')).toEqual(['header-format'])
+    })
+
+    it('Then advises "revert:" when the relizy types have a revert type', async () => {
+      const types = { revert: { title: 'Reverts', semver: 'patch' as const } }
+
+      expect((await problemsOf('Revert "feat: add a new thing"', { config: { types } }))[0])
+        .toEqual({ message: 'The header is the default revert message of git', fix: 'write it as "revert: <reverted header>"' })
     })
 
     it('Then accepts the breaking marker', async () => {
@@ -131,16 +170,21 @@ describe('Given lintCommitMessage function', () => {
     })
 
     it('Then uses the configured length', async () => {
-      expect(await messagesOf('feat: add a rather long description', { config: { commitlint: { rules: { 'header-max-length': ['error', 20] } } } }))
-        .toEqual(['The header must not be longer than 20 characters (35)'])
+      expect(await problemsOf('feat: add a rather long description', { config: { commitlint: { rules: { 'header-max-length': ['error', 20] } } } }))
+        .toEqual([{ message: 'The header is 35 characters long, the maximum is 20', fix: 'shorten the subject and move the details to the body' }])
     })
   })
 
   describe('When checking the type', () => {
     it('Then rejects a type unknown to relizy', async () => {
-      expect(await messagesOf('feature: add a new thing')).toEqual([
-        'The type "feature" is not one of the relizy types: feat, perf, fix, refactor, docs, build, types, chore, examples, test, style, ci',
-      ])
+      expect(await problemsOf('feature: add a new thing')).toEqual([{
+        message: 'The type "feature" is unknown to relizy',
+        fix: 'use one of: feat, perf, fix, refactor, docs, build, types, chore, examples, test, style, ci',
+      }])
+    })
+
+    it('Then suggests the closest type of a typo', async () => {
+      expect((await problemsOf('feta: add a new thing'))[0]?.fix).toMatch(/^did you mean "feat"\? use one of: /)
     })
 
     it('Then accepts the extra types of the rule value', async () => {
@@ -154,20 +198,20 @@ describe('Given lintCommitMessage function', () => {
     })
 
     it('Then rejects a scope designating nothing', async () => {
-      expect(await messagesOf('fix(nuxtt): correct the options', { config: { commitlint: { scopes: ['ci'] } } }))
-        .toEqual(['The scope "nuxtt" is not allowed. Use a workspace package or one of: nuxt, @maz-ui/nuxt, core, ci'])
+      expect(await problemsOf('fix(nuxtt): correct the options', { config: { commitlint: { scopes: ['ci'] } } }))
+        .toEqual([{ message: 'The scope "nuxtt" is not allowed', fix: 'did you mean "nuxt"? use a workspace package or one of: nuxt, @maz-ui/nuxt, core, ci' }])
     })
 
     it('Then truncates a long list of allowed scopes', async () => {
       const scopes = Array.from({ length: 30 }, (_, index) => `scope-${index}`)
-      const [message] = await messagesOf('fix(other): correct the options', { packages: [], config: { commitlint: { scopes } } })
+      const [problem] = await problemsOf('fix(other): correct the options', { packages: [], config: { commitlint: { scopes } } })
 
-      expect(message).toMatch(/scope-19, \.\.\.$/)
+      expect(problem?.fix).toMatch(/scope-19, \.\.\.$/)
     })
 
     it('Then lists the explicit scopes in standalone mode', async () => {
-      expect(await messagesOf('fix(other): correct the options', { packages: [], config: { commitlint: { scopes: ['ci', 'deps'] } } }))
-        .toEqual(['The scope "other" is not allowed. Use one of: ci, deps'])
+      expect(await problemsOf('fix(other): correct the options', { packages: [], config: { commitlint: { scopes: ['ci', 'deps'] } } }))
+        .toEqual([{ message: 'The scope "other" is not allowed', fix: 'use one of: ci, deps' }])
     })
 
     it('Then allows any scope in standalone mode without explicit list', async () => {
@@ -183,19 +227,21 @@ describe('Given lintCommitMessage function', () => {
     })
 
     it('Then requires it always when enabled without value', async () => {
-      expect(await messagesOf('chore: tidy the scripts up', { config: withRule() })).toEqual(['A scope is required, e.g. "feat(core): ..."'])
+      expect(await problemsOf('chore: tidy the scripts up', { config: withRule() }))
+        .toEqual([{ message: 'The scope is missing', fix: 'add one, e.g. "chore(core): tidy the scripts up"' }])
       expect(await rulesOf('chore(core): tidy the scripts up', { config: withRule() })).toEqual([])
     })
 
     it('Then forbids it with "never"', async () => {
-      expect(await messagesOf('feat(core): add a new thing', { config: withRule('never') })).toEqual(['The scope must be empty'])
+      expect(await problemsOf('feat(core): add a new thing', { config: withRule('never') }))
+        .toEqual([{ message: 'The scope is not allowed in this project', fix: 'remove "(core)"' }])
       expect(await rulesOf('feat: add a new thing', { config: withRule('never') })).toEqual([])
     })
 
     describe('When it is required when bumping', () => {
       it('Then requires it for a bumping commit touching a package', async () => {
-        expect(await messagesOf('feat: add a new thing', { config: withRule('when-bumping'), files: ['packages/nuxt/src/index.ts'] }))
-          .toEqual(['A scope is required: this minor commit touches @maz-ui/nuxt, e.g. "feat(nuxt): ..."'])
+        expect(await problemsOf('feat: add a new thing', { config: withRule('when-bumping'), files: ['packages/nuxt/src/index.ts'] }))
+          .toEqual([{ message: 'The scope is missing on a minor commit touching @maz-ui/nuxt', fix: 'add the scope of the package: "feat(nuxt): add a new thing"' }])
       })
 
       it.each([
@@ -207,9 +253,19 @@ describe('Given lintCommitMessage function', () => {
         expect(await rulesOf(message, { config: withRule('when-bumping'), files })).toEqual([])
       })
 
+      it('Then shortens a long list of touched packages', async () => {
+        const packages = Array.from({ length: 6 }, (_, index) => ({ name: `pkg-${index}`, path: `packages/pkg-${index}`, scopes: [`pkg-${index}`] }))
+        const files = packages.map(pkg => `${pkg.path}/index.ts`)
+
+        expect(await problemsOf('build: upgrade the dependencies', { config: withRule('when-bumping'), files, packages })).toEqual([{
+          message: 'The scope is missing on a patch commit touching pkg-0, pkg-1, pkg-2 and 3 more',
+          fix: 'add the scope of the main package, e.g. "build(pkg-0): upgrade the dependencies", or split the commit per package',
+        }])
+      })
+
       it('Then requires it for every bumping commit in standalone mode', async () => {
-        expect(await messagesOf('fix: correct a bug in the parser', { config: withRule('when-bumping'), packages: [] }))
-          .toEqual(['A scope is required for the commits that bump the version (patch)'])
+        expect(await problemsOf('fix: correct a bug in the parser', { config: withRule('when-bumping'), packages: [] }))
+          .toEqual([{ message: 'The scope is missing on a commit that bumps the version (patch)', fix: 'add one, e.g. "fix(core): correct a bug in the parser"' }])
       })
     })
   })
@@ -223,6 +279,8 @@ describe('Given lintCommitMessage function', () => {
         rule: 'scope-matches-files',
         severity: 'warn',
         message: 'The scope "nuxt" designates packages/nuxt, but it touches core',
+        fix: 'use the scope of the touched package, or split the commit per package',
+        url: 'https://relizy.dev/commitlint/rules#scope-matches-files',
       }])
     })
 
@@ -260,7 +318,8 @@ describe('Given lintCommitMessage function', () => {
     it('Then uses the configured minimum of words', async () => {
       const config = { commitlint: { rules: { 'subject-meaningful': ['error', { minWords: 3, minLength: 100 }] as ['error', unknown] } } }
 
-      expect(await messagesOf('fix: parser crash', { config })).toEqual(['The subject is too short: write at least 3 words or 100 characters describing the change'])
+      expect(await problemsOf('fix: parser crash', { config }))
+        .toEqual([{ message: 'The subject "parser crash" is too short', fix: 'describe what changed, in at least 3 words or 100 characters' }])
     })
   })
 
@@ -281,9 +340,10 @@ describe('Given lintCommitMessage function', () => {
     const INVALID = 'feat: scope the guidelines per target\n\nNow an object:\n\n```ts\nai: {\n  extraGuidelines: {\n    global: \'a\',\n    slack: \'b\',\n  },\n}\n```'
 
     it('Then rejects a code block that is not a complete program, like the one that broke a release', async () => {
-      const [message] = await messagesOf(INVALID)
+      const [problem] = await problemsOf(INVALID)
 
-      expect(message).toMatch(/^The body would break the changelog formatting: Invalid ts code block: .+, on "slack: 'b',"\. Write a complete program/)
+      expect(problem?.message).toMatch(/^The body would break the changelog formatting: Invalid ts code block: .+, on "slack: 'b',"$/)
+      expect(problem?.fix).toBe('make the code block a complete program, e.g. "export default defineConfig({ ... })" rather than a bare object')
     })
 
     it('Then accepts a complete program', async () => {
@@ -314,6 +374,10 @@ describe('Given lintCommitMessage function', () => {
       expect(await rulesOf('fix: correct a bug in the parser\n\nThe body.\n\nBreaking change: the output changed')).toEqual(['body-breaking-change'])
     })
 
+    it('Then accepts a BREAKING CHANGE footer spanning several lines', async () => {
+      expect(await rulesOf('refactor(core)!: remove the legacy mixins\n\nThe mixins are gone.\n\nBREAKING CHANGE: the removed mixins are no longer\navailable. Use the replacements of the migration guide.')).toEqual([])
+    })
+
     it('Then accepts the BREAKING CHANGE footer', async () => {
       expect(await rulesOf('fix: correct a bug in the parser\n\nThe body.\n\nBREAKING CHANGE: the output changed')).toEqual([])
     })
@@ -341,7 +405,17 @@ describe('Given lintCommitMessage function', () => {
 
     it('Then accepts the commitlint tuples', async () => {
       expect(await messagesOf('feat: add a rather long description', { config: { commitlint: { rules: { 'header-max-length': [2, 'always', 20] } } } }))
-        .toEqual(['The header must not be longer than 20 characters (35)'])
+        .toEqual(['The header is 35 characters long, the maximum is 20'])
+    })
+
+    it('Then warns about the unknown rules once per config, not once per commit', async () => {
+      const config = createMockConfig({ cwd, commitlint: { rules: { 'footer-empty': 'error' } } })
+      vi.mocked(logger.warn).mockClear()
+
+      await lintCommitMessage('feat: add a new thing', { config, packages: PACKAGES })
+      await lintCommitMessage('fix: correct a bug in the parser', { config, packages: PACKAGES })
+
+      expect(vi.mocked(logger.warn).mock.calls.filter(([message]) => String(message).includes('footer-empty'))).toHaveLength(1)
     })
 
     it('Then warns about the unknown rules', async () => {

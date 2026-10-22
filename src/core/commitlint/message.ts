@@ -36,7 +36,8 @@ function isFooterLine(line: string): boolean {
 
 /**
  * Split a message into header, body and footer. The footer is the last
- * paragraph when it is only made of `Token: value` lines.
+ * paragraph when it starts with a `Token: value` line: as in Conventional
+ * Commits, a footer value can continue on the next lines.
  */
 export function splitCommitMessage(message: string): CommitMessageParts {
   const lines = message.replaceAll('\r\n', '\n').split('\n')
@@ -50,7 +51,7 @@ export function splitCommitMessage(message: string): CommitMessageParts {
 
   const paragraphs = rest.join('\n').trim().split(/\n[ \t]*\n/)
   const last = paragraphs.at(-1) ?? ''
-  const hasFooter = paragraphs.length > 0 && last !== '' && last.split('\n').every(isFooterLine)
+  const hasFooter = isFooterLine(last.split('\n')[0] ?? '')
 
   return {
     raw: lines.join('\n'),

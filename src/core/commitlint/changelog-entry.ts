@@ -159,7 +159,7 @@ function createBuiltInLinter(): ChangelogLinter {
         const [error] = parseSync(`block.${extension}`, block.value).errors
         if (error) {
           const line = getLine(block.value, block.value.slice(0, error.labels?.[0]?.start ?? 0).split('\n').length)
-          problems.push(`Invalid ${lang} code block: ${error.message}, on "${line}". Write a complete program, e.g. \`export default defineConfig({ ... })\` rather than a bare object`)
+          problems.push(`Invalid ${lang} code block: ${error.message}, on "${line}"`)
         }
       }
       return problems

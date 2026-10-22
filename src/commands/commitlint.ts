@@ -1,12 +1,17 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { CommitlintResult, CommitlintSummary, InstalledHook, ResolvedRelizyConfig } from '../core'
+import type { CommitlintReport, CommitlintResult, CommitlintSummary, InstalledHook, ReportEntry, ResolvedRelizyConfig } from '../core'
+import { relative } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import {
-  formatCommitResult,
-  formatSummary,
+  assertRefAvailable,
+  formatGithubAnnotations,
+  formatJsonReport,
+  formatTextReport,
   getCommentChar,
+  getCommitMessageFile,
   getCommitsInRange,
+  getPullRequestTitle,
   getStagedFiles,
   getWorkspacePackages,
   installCommitMsgHook,
@@ -15,6 +20,7 @@ import {
   readCommitMessageFile,
   renderChangelogEntry,
   resolveDefaultRangeStart,
+  shouldUseColors,
   stripGitComments,
   summarizeResults,
 } from '../core'
@@ -37,8 +43,21 @@ export interface CommitlintOptions {
    * @default 'HEAD'
    */
   to?: string
+  /**
+   * In the CI of a pull/merge request, also lint its title, which becomes the
+   * commit message of a squash merge
+   * @default true
+   */
+  title?: boolean
   /** Print the changelog entry of each commit */
   preview?: boolean
+  /**
+   * `text` for people (colors in a terminal or a CI), `json` for programs and AI agents
+   * @default 'text'
+   */
+  format?: 'text' | 'json'
+  /** In the text format, only print the commits with problems, and the summary */
+  quiet?: boolean
   /** Write the `commit-msg` hook instead of linting */
   install?: boolean
   /** Replace an existing `commit-msg` hook with `install` */
@@ -52,26 +71,36 @@ export interface CommitlintOptions {
 
 export interface CommitlintRunResult extends CommitlintSummary {
   results: CommitlintResult[]
+  /** The linted commits and how to fix them, unset with `install` */
+  report?: CommitlintReport
   /** Set when the hook was installed */
   hook?: InstalledHook
 }
 
-/** Plain output, without the logger prefixes: it is read in the terminal of the commit and in the CI logs */
+/** Plain output, without the logger prefixes: it is read in the terminal of the commit, in the CI logs and by AI agents */
 function print(lines: string[]) {
   for (const line of lines) {
     process.stdout.write(`${line}\n`)
   }
 }
 
-async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyConfig): Promise<CommitlintResult[]> {
+async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyConfig): Promise<CommitlintReport> {
   const packages = getWorkspacePackages(config)
+  const helpUrl = config.commitlint?.helpUrl
 
-  if (options.edit || options.message !== undefined) {
-    const message = options.message ?? stripGitComments(
-      readCommitMessageFile(typeof options.edit === 'string' ? options.edit : undefined, config.cwd),
-      getCommentChar(config.cwd),
-    )
-    return [await lintCommitMessage(message, { config, packages, files: getStagedFiles(config.cwd) })]
+  if (options.message !== undefined) {
+    const result = await lintCommitMessage(options.message, { config, packages, files: getStagedFiles(config.cwd) })
+    return { mode: 'message', entries: [{ result }], helpUrl }
+  }
+
+  if (options.edit) {
+    const file = typeof options.edit === 'string' ? options.edit : undefined
+    const message = stripGitComments(readCommitMessageFile(file, config.cwd), getCommentChar(config.cwd))
+    const result = await lintCommitMessage(message, { config, packages, files: getStagedFiles(config.cwd) })
+    const path = getCommitMessageFile(file, config.cwd)
+    // Relative inside the repository, absolute outside (e.g. a temporary file)
+    const messageFile = relative(config.cwd, path).startsWith('..') ? path : relative(config.cwd, path)
+    return { mode: 'edit', entries: [{ result }], messageFile, helpUrl }
   }
 
   let from = options.from
@@ -80,13 +109,31 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
     logger.debug(`commitlint: linting from the ${start.reason}`)
     from = start.from
   }
+  if (from) {
+    assertRefAvailable(from, config.cwd)
+  }
 
   const commits = getCommitsInRange({ from, to: options.to, cwd: config.cwd })
-  const results: CommitlintResult[] = []
-  for (const commit of commits) {
-    results.push(await lintCommitMessage(commit.message, { config, packages, files: commit.files, hash: commit.hash }))
+  const entries: ReportEntry[] = []
+
+  // The title becomes the commit message of a squash merge, with every file of the pull request
+  const pullRequest = options.title === false ? undefined : getPullRequestTitle()
+  if (pullRequest) {
+    const files = [...new Set(commits.flatMap(commit => commit.files))]
+    entries.push({
+      result: await lintCommitMessage(pullRequest.title, { config, packages, files }),
+      label: pullRequest.kind === 'merge request' ? 'MR title' : 'PR title',
+    })
   }
-  return results
+
+  for (const commit of commits) {
+    entries.push({
+      result: await lintCommitMessage(commit.message, { config, packages, files: commit.files, hash: commit.hash }),
+      label: commit.hash.slice(0, 7),
+    })
+  }
+
+  return { mode: 'range', entries, from, titleKind: pullRequest?.kind, helpUrl }
 }
 
 /**
@@ -107,23 +154,23 @@ export async function commitlint(options: CommitlintOptions = {}): Promise<Commi
     return { results: [], errorCount: 0, warningCount: 0, hook }
   }
 
-  const results = await lintMessages(options, config)
-  const isRange = !options.edit && options.message === undefined
-
-  for (const result of results) {
-    print(formatCommitResult(result, { showHash: isRange }))
-    if (options.preview && result.gitCommit && !result.ignored) {
-      const entry = renderChangelogEntry(result.gitCommit, config)
-      print(entry ? ['', ...entry.split('\n').map(line => `    ${line}`), ''] : [])
+  const report = await lintMessages(options, config)
+  if (options.preview) {
+    for (const entry of report.entries) {
+      entry.preview = entry.result.gitCommit && !entry.result.ignored ? renderChangelogEntry(entry.result.gitCommit, config) : undefined
     }
   }
 
-  if (isRange && results.length === 0) {
-    print(['No commit to lint'])
+  if (options.format === 'json') {
+    print([formatJsonReport(report)])
+  }
+  else {
+    print(formatTextReport(report, { colors: shouldUseColors(), quiet: options.quiet }))
+    if (process.env.GITHUB_ACTIONS === 'true') {
+      print(formatGithubAnnotations(report))
+    }
   }
 
-  const summary = summarizeResults(results)
-  print(formatSummary(summary, config.commitlint?.helpUrl))
-
-  return { results, ...summary }
+  const results = report.entries.map(entry => entry.result)
+  return { results, ...summarizeResults(results), report }
 }

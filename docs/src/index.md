@@ -125,13 +125,22 @@ $ git commit -m "feat(nuxt): add the module options"
 
 $ git commit -m "fix(nuxtt): Typo."
 ✖ fix(nuxtt): Typo.
-  ✖ The scope "nuxtt" is not allowed. Use a workspace package or one of: nuxt, @maz-ui/nuxt, core, @maz-ui/core [scope-enum]
-  ✖ The subject must not start with an uppercase letter, relizy capitalizes it in the changelog [subject-case]
-  ✖ The subject must not end with a period [subject-full-stop]
-  ✖ The subject "Typo." does not describe the change [subject-meaningful]
+
+  ✖ scope-enum          The scope "nuxtt" is not allowed
+                        → did you mean "nuxt"? use a workspace package or one of: nuxt,
+                          @maz-ui/nuxt, core, @maz-ui/core
+  ✖ subject-case        The subject starts with an uppercase letter
+                        → start it lowercase, relizy capitalizes it in the changelog
+  ✖ subject-full-stop   The subject ends with a period
+                        → remove the final period
+  ✖ subject-meaningful  The subject "Typo." does not describe the change
+                        → describe what changed, in at least 2 words or 15 characters
+
+  Suggested header: fix(nuxt): typo
+                    still to fix: subject-meaningful
 ```
 
-Every commit shows its effect on your next release, scopes are checked against the packages it really touches, and commit bodies are rendered and linted like your changelogs, so a broken snippet can never break a release again. [Lint your commits →](/commitlint/)
+Every commit shows its effect on your next release, every problem comes with how to fix it, scopes are checked against the packages it really touches, and commit bodies are rendered and linted like your changelogs, so a broken snippet can never break a release again. A JSON output is available for AI agents. [Lint your commits →](/commitlint/)
 
 ## Run your first release
 

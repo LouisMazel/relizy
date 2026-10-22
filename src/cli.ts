@@ -247,7 +247,10 @@ program
   .option('--message <message>', 'Lint this message')
   .option('--from <ref>', 'Lint the commits after this ref (default: merge-base of the pull/merge request in CI, otherwise the last tag)')
   .option('--to <ref>', 'Last commit of the range (default: HEAD)')
+  .option('--no-title', 'Do not lint the title of the pull/merge request in CI')
   .option('--preview', 'Print the changelog entry of each commit')
+  .option('--quiet', 'Only print the commits with problems, and the summary')
+  .addOption(new Option('--format <format>', 'Output format: text for people, json for programs and AI agents').choices(['text', 'json']).default('text'))
   .option('--install', 'Write the commit-msg hook running relizy commitlint (in .husky/ when husky is set up)')
   .option('--force', 'Replace an existing commit-msg hook with --install')
   .action(async (options) => {
@@ -257,7 +260,10 @@ program
         message: options.message,
         from: options.from,
         to: options.to,
+        title: options.title,
         preview: options.preview,
+        format: options.format,
+        quiet: options.quiet,
         install: options.install,
         force: options.force,
         configName: program.opts().config,
@@ -268,7 +274,14 @@ program
       }
     }
     catch (error) {
-      logger.error('Failed to lint the commits -', error)
+      // Expected errors (missing ref, existing hook...): the message is enough in a hook or a CI log
+      const message = error instanceof Error ? error.message : String(error)
+      if (options.format === 'json') {
+        process.stdout.write(`${JSON.stringify({ valid: false, error: message }, null, 2)}\n`)
+      }
+      else {
+        logger.error('Failed to lint the commits -', message)
+      }
       process.exit(1)
     }
   })

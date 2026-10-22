@@ -4,8 +4,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import {
+  assertRefAvailable,
   getCommentChar,
   getCommitsInRange,
+  getPullRequestTitle,
   getStagedFiles,
   installCommitMsgHook,
   readCommitMessageFile,
@@ -47,6 +49,10 @@ describe('Given the commitlint git helpers on a real repository', () => {
     git('config', 'user.email', 'test@example.com')
     git('config', 'commit.gpgsign', 'false')
     git('config', 'tag.gpgsign', 'false')
+    // The CI running these tests may itself be a pull request
+    for (const name of ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA']) {
+      vi.stubEnv(name, '')
+    }
   })
 
   afterEach(() => {
@@ -116,11 +122,6 @@ describe('Given the commitlint git helpers on a real repository', () => {
   })
 
   describe('When resolving the default start of the range', () => {
-    beforeEach(() => {
-      vi.stubEnv('GITHUB_BASE_REF', '')
-      vi.stubEnv('CI_MERGE_REQUEST_DIFF_BASE_SHA', '')
-    })
-
     it('Then uses the merge-base with the target branch of a GitHub pull request', async () => {
       const base = commitFiles('chore: init the repository', { 'README.md': 'readme' })
       git('update-ref', 'refs/remotes/origin/main', base)
@@ -134,8 +135,9 @@ describe('Given the commitlint git helpers on a real repository', () => {
     it('Then explains how to fetch the target branch when it is missing', async () => {
       commitFiles('chore: init the repository', { 'README.md': 'readme' })
       vi.stubEnv('GITHUB_BASE_REF', 'main')
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
 
-      await expect(resolveDefaultRangeStart({ cwd })).rejects.toThrow('Cannot find the merge-base of HEAD and origin/main: fetch the history of the base branch (e.g. "fetch-depth: 0" on actions/checkout), or pass --from')
+      await expect(resolveDefaultRangeStart({ cwd })).rejects.toThrow('Cannot find the merge-base of HEAD and origin/main: fetch the history of the base branch (set "fetch-depth: 0" on actions/checkout), or pass --from')
     })
 
     it('Then uses the base of a GitLab merge request', async () => {
@@ -157,6 +159,81 @@ describe('Given the commitlint git helpers on a real repository', () => {
       commitFiles('chore: init the repository', { 'README.md': 'readme' })
 
       expect(await resolveDefaultRangeStart({ cwd })).toEqual({ reason: 'whole history, no tag found' })
+    })
+  })
+
+  describe('When checking the start of the range', () => {
+    it('Then accepts a ref of the history', () => {
+      commitFiles('chore: init the repository', { 'README.md': 'readme' })
+      git('tag', 'v1.0.0')
+
+      expect(() => assertRefAvailable('v1.0.0', cwd)).not.toThrow()
+    })
+
+    it('Then asks to fetch a missing ref', () => {
+      commitFiles('chore: init the repository', { 'README.md': 'readme' })
+
+      expect(() => assertRefAvailable('origin/main', cwd)).toThrow('Cannot find "origin/main": fetch it before linting')
+    })
+
+    it.each([
+      [{ GITLAB_CI: 'true' }, 'set "GIT_DEPTH: 0" on the job'],
+      [{ GITHUB_ACTIONS: 'true' }, 'set "fetch-depth: 0" on actions/checkout'],
+      [{}, 'run "git fetch --unshallow"'],
+    ])('Then explains how to fetch the history of a shallow clone (%j)', (env, hint) => {
+      commitFiles('chore: init the repository', { 'README.md': 'readme' })
+      commitFiles('feat: add the parser', { 'index.ts': 'a' })
+      const base = git('rev-parse', 'HEAD~1')
+      const shallow = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-shallow-')))
+      execFileSync('git', ['clone', '--quiet', '--depth', '1', `file://${cwd}`, shallow])
+      Object.entries(env).forEach(([name, value]) => vi.stubEnv(name, value))
+
+      try {
+        expect(() => assertRefAvailable(base, shallow)).toThrow(`Cannot find "${base}": the repository is a shallow clone: fetch the full history (${hint})`)
+      }
+      finally {
+        rmSync(shallow, { recursive: true, force: true })
+      }
+    })
+  })
+
+  describe('When reading the title of the pull request', () => {
+    it.each([
+      ['feat: add the parser', 'feat: add the parser'],
+      ['Draft: feat: add the parser', 'feat: add the parser'],
+      ['draft:feat: add the parser', 'feat: add the parser'],
+      ['[Draft] feat: add the parser', 'feat: add the parser'],
+      ['(Draft) feat: add the parser', 'feat: add the parser'],
+    ])('Then reads the GitLab title "%s" without the draft marker', (title, expected) => {
+      vi.stubEnv('CI_MERGE_REQUEST_TITLE', title)
+
+      expect(getPullRequestTitle()).toEqual({ title: expected, kind: 'merge request' })
+    })
+
+    it('Then reads the title from the GitHub event of a pull request', () => {
+      writeFileSync(join(cwd, 'event.json'), JSON.stringify({ pull_request: { title: 'feat: add the parser' } }))
+      vi.stubEnv('GITHUB_BASE_REF', 'main')
+      vi.stubEnv('GITHUB_EVENT_PATH', join(cwd, 'event.json'))
+
+      expect(getPullRequestTitle()).toEqual({ title: 'feat: add the parser', kind: 'pull request' })
+    })
+
+    it.each([
+      ['an event without pull request', JSON.stringify({ push: {} })],
+      ['an invalid event', '{ not json'],
+    ])('Then returns nothing for %s', (_, content) => {
+      writeFileSync(join(cwd, 'event.json'), content)
+      vi.stubEnv('GITHUB_BASE_REF', 'main')
+      vi.stubEnv('GITHUB_EVENT_PATH', join(cwd, 'event.json'))
+
+      expect(getPullRequestTitle()).toBeUndefined()
+    })
+
+    it('Then returns nothing outside a pull request', () => {
+      writeFileSync(join(cwd, 'event.json'), JSON.stringify({ pull_request: { title: 'feat: add the parser' } }))
+      vi.stubEnv('GITHUB_EVENT_PATH', join(cwd, 'event.json'))
+
+      expect(getPullRequestTitle()).toBeUndefined()
     })
   })
 

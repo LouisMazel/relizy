@@ -78,7 +78,7 @@ export default {
 } satisfies UserConfig
 ```
 
-With Relizy, the types, the package scopes, the bump and the changed files are built in:
+With Relizy, the types, the package scopes, the bump and the changed files are built in, and the CI script linting the title and the commits of the merge request becomes `relizy commitlint`:
 
 ```ts
 // relizy.config.ts (after)
@@ -86,6 +86,8 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   commitlint: {
+    // The apps are not released by Relizy, but they are scopes
+    packages: ['apps/*'],
     scopes: ['ci', 'deps', 'release'],
     rules: {
       'header-max-length': ['error', 200],
@@ -102,6 +104,11 @@ export default defineConfig({
   },
 })
 ```
+
+## Differences
+
+- Reverts: commitlint ignores the `Revert "..."` messages of git, Relizy requires a conventional commit: `revert: <reverted header>` with a `revert` type in your Relizy `types`, or a commit of the type of the change, e.g. `fix(core): revert the parser change`.
+- Stricter defaults: [`subject-meaningful`](./rules.md#subject-meaningful) and the body rules may report commits commitlint accepted. Tune or disable them in `commitlint.rules`.
 
 ## What is not supported
 

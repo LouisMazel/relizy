@@ -54,6 +54,13 @@ describe('Given splitCommitMessage function', () => {
     expect(splitCommitMessage('fix: correct a bug\n\nRefs #12\nBREAKING-CHANGE: removed').footer).toBe('Refs #12\nBREAKING-CHANGE: removed')
   })
 
+  it('Then keeps a footer value continuing on the next lines', () => {
+    const parts = splitCommitMessage('feat!: remove the mixins\n\nThe mixins are gone.\n\nBREAKING CHANGE: the removed mixins are no longer\navailable. Use the replacements of the migration guide.')
+
+    expect(parts.body).toBe('The mixins are gone.')
+    expect(parts.footer).toBe('BREAKING CHANGE: the removed mixins are no longer\navailable. Use the replacements of the migration guide.')
+  })
+
   it('Then reports a missing blank line after the header', () => {
     expect(splitCommitMessage('feat: add a thing\nBody right after').hasLeadingBlank).toBe(false)
   })

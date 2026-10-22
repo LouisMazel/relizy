@@ -86,7 +86,7 @@ describe('Given getChangelogLinter function', () => {
     })
 
     it.each([
-      ['an invalid ts block', INVALID_TS, [/^Invalid ts code block: .+, on "slack: 'b',"\. Write a complete program/]],
+      ['an invalid ts block', INVALID_TS, [/^Invalid ts code block: .+, on "slack: 'b',"$/]],
       ['a valid ts block', VALID_TS, []],
       ['a typescript block', '```typescript\nconst = 1\n```', [/^Invalid typescript code block/]],
       ['a valid tsx block', '```tsx\nexport const App = () => <div>{value}</div>\n```', []],

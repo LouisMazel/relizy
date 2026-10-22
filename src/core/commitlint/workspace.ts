@@ -1,6 +1,7 @@
 import type { ResolvedRelizyConfig } from '../config'
-import { basename, relative, sep } from 'node:path'
-import { readPackages } from '../repo'
+import { readFileSync } from 'node:fs'
+import { basename, join } from 'node:path'
+import fastGlob from 'fast-glob'
 
 /**
  * A workspace package as seen by the commit linter.
@@ -21,27 +22,42 @@ function getShortName(name: string): string {
 
 /**
  * Packages of the monorepo, private ones included: a commit can touch a package
- * that is never published. Empty in standalone mode.
+ * that is never published. `commitlint.packages` adds directories that relizy
+ * does not release (e.g. apps). `monorepo.ignored` is not applied: an ignored
+ * package is released by another config, it is still a valid scope.
+ * Empty in standalone mode without them.
  */
 export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePackage[] {
-  const patterns = config.monorepo?.packages
-  if (!patterns || patterns.length === 0) {
+  const patterns = [...new Set([...(config.monorepo?.packages ?? []), ...(config.commitlint?.packages ?? [])])]
+  if (patterns.length === 0) {
     return []
   }
 
-  return readPackages({
+  const directories = fastGlob.sync(patterns, {
     cwd: config.cwd,
-    patterns,
-    ignorePackageNames: [],
-    ignored: config.monorepo?.ignored,
-    includePrivates: true,
+    onlyDirectories: true,
+    ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
   })
-    .filter(pkg => pkg.path !== config.cwd)
-    .map(pkg => ({
-      name: pkg.name,
-      path: relative(config.cwd, pkg.path).split(sep).join('/'),
-      scopes: [...new Set([getShortName(pkg.name), pkg.name, basename(pkg.path)])],
-    }))
+
+  return [...new Set(directories)]
+    .map(directory => directory.replace(/\/$/, ''))
+    .filter(directory => directory !== '' && directory !== '.')
+    .sort()
+    .flatMap((path) => {
+      // Only the name matters to the linter: apps without version are packages too
+      const name = readPackageName(join(config.cwd, path))
+      return name ? [{ name, path, scopes: [...new Set([getShortName(name), name, basename(path)])] }] : []
+    })
+}
+
+function readPackageName(directory: string): string | undefined {
+  try {
+    const { name } = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'))
+    return typeof name === 'string' && name ? name : undefined
+  }
+  catch {
+    return undefined
+  }
 }
 
 /**

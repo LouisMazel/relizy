@@ -20,7 +20,7 @@ The command lints, in this order of precedence:
 
 1. the commit being created with `--edit`, in a `commit-msg` hook;
 2. the message given with `--message`;
-3. otherwise, a range of commits (`--from` / `--to`).
+3. otherwise, a range of commits (`--from` / `--to`), and the title of the pull or merge request in CI.
 
 It exits with `1` when a commit has an error, `0` otherwise. Warnings never fail.
 
@@ -58,6 +58,61 @@ relizy commitlint --from origin/main
 
 Last commit of the range. Default: `HEAD`.
 
+### --no-title
+
+In the CI of a pull or merge request, Relizy also lints its title, which becomes the commit message of a squash merge: `CI_MERGE_REQUEST_TITLE` on GitLab (without the `Draft:` marker), the title of the pull request event on GitHub Actions. `--no-title` disables it.
+
+When a range has errors, the output ends with how to fix them: the `git rebase -i` command to reword the commits, and how to update the title.
+
+### --quiet
+
+Only print the commits with problems, and the summary. Useful on large pull requests.
+
+### --format &lt;format&gt;
+
+- `text` (default): for people, colored in a terminal and in GitHub Actions or GitLab CI, plain otherwise (`NO_COLOR` and `FORCE_COLOR` are honored). In GitHub Actions, the problems are also reported as annotations.
+- `json`: for programs and AI agents. Each entry has its effect on the release, its problems with how to fix them and the documentation of the rule, and a suggested header when the mistakes can be fixed safely.
+
+```bash
+relizy commitlint --format json --message "fix(nuxtt): Typo."
+```
+
+```json
+{
+  "valid": false,
+  "errorCount": 4,
+  "warningCount": 0,
+  "entries": [
+    {
+      "kind": "message",
+      "header": "fix(nuxtt): Typo.",
+      "ignored": false,
+      "valid": false,
+      "type": "fix",
+      "scope": "nuxtt",
+      "bump": "patch",
+      "changelogSection": "🩹 Fixes",
+      "problems": [
+        {
+          "rule": "scope-enum",
+          "severity": "error",
+          "message": "The scope \"nuxtt\" is not allowed",
+          "fix": "did you mean \"nuxt\"? use a workspace package or one of: nuxt, @maz-ui/nuxt, core",
+          "url": "https://relizy.dev/commitlint/rules#scope-enum"
+        }
+      ],
+      "suggestion": {
+        "header": "fix(nuxt): typo",
+        "remainingRules": ["subject-meaningful"]
+      }
+    }
+  ],
+  "howToFix": []
+}
+```
+
+An error that prevents the lint (e.g. a missing ref) is printed as `{ "valid": false, "error": "..." }`.
+
 ### --preview
 
 Print the changelog entry of each commit, as Relizy will write it.
@@ -88,12 +143,12 @@ With `--install`, replace an existing `commit-msg` hook.
 ```ts
 import { commitlint, lintCommitMessage, loadRelizyConfig } from 'relizy'
 
-// Like the CLI: prints the results and returns the counts
-const { errorCount } = await commitlint({ from: 'origin/main' })
+// Like the CLI: prints the report and returns it with the counts
+const { errorCount, report } = await commitlint({ from: 'origin/main', quiet: true })
 
 // A single message, without output
 const config = await loadRelizyConfig()
 const result = await lintCommitMessage('feat(core): add the parser', { config })
 
-console.log(errorCount, result.valid, result.commit.bump, result.problems)
+console.log(errorCount, report?.entries.length, result.valid, result.commit.bump, result.problems, result.suggestion)
 ```

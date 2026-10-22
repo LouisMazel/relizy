@@ -9,6 +9,7 @@ import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
 import { getChangelogLinter, renderChangelogEntry } from './changelog-entry'
+import { findClosest } from './suggest'
 import { findPackageByScope } from './workspace'
 
 export type RuleSeverity = 'error' | 'warn' | 'off'
@@ -29,12 +30,18 @@ export interface RuleContext {
   value: unknown
 }
 
+/** A problem found by a rule: what is wrong, and how to fix it */
+export interface RuleProblem {
+  message: string
+  fix?: string
+}
+
 export interface RuleDefinition {
   severity: RuleSeverity
   value?: unknown
   /** Only run on conventional commits */
   conventionalOnly?: boolean
-  check: (context: RuleContext) => string[] | Promise<string[]>
+  check: (context: RuleContext) => RuleProblem[] | Promise<RuleProblem[]>
 }
 
 /** `type(scope)!: subject`, lowercase type, a space after the colon */
@@ -63,10 +70,34 @@ function findNodes<T extends Nodes>(root: Nodes, type: T['type']): T[] {
   return found
 }
 
+/** Text of a markdown node, for the messages */
+function toPlainText(node: Nodes): string {
+  if ('value' in node && typeof node.value === 'string') {
+    return node.value
+  }
+  return 'children' in node ? (node.children as Nodes[]).map(toPlainText).join('') : ''
+}
+
+const MAX_LISTED_PACKAGES = 3
+
+/** `a, b, c and 4 more` */
+function formatPackageNames(names: string[]): string {
+  const listed = names.slice(0, MAX_LISTED_PACKAGES).join(', ')
+  return names.length > MAX_LISTED_PACKAGES ? `${listed} and ${names.length - MAX_LISTED_PACKAGES} more` : listed
+}
+
 function formatScopes(scopes: string[]): string {
   const listed = scopes.slice(0, MAX_LISTED_SCOPES).join(', ')
   return scopes.length > MAX_LISTED_SCOPES ? `${listed}, ...` : listed
 }
+
+/** `did you mean "nuxt"? ` when a candidate is close enough */
+function didYouMean(word: string, candidates: string[]): string {
+  const closest = findClosest(word, candidates)
+  return closest ? `did you mean "${closest}"? ` : ''
+}
+
+const HEADER_EXAMPLE = 'e.g. "feat(core): add the parser"'
 
 /**
  * The built-in rules, with their default severity and value.
@@ -74,29 +105,35 @@ function formatScopes(scopes: string[]): string {
 export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
   'header-format': {
     severity: 'error',
-    check: ({ parts }) => {
+    check: ({ parts, config }) => {
       const { header } = parts
       if (header !== header.trim()) {
-        return ['The header must not start or end with whitespace']
+        return [{ message: 'The header starts or ends with whitespace', fix: 'remove the spaces around the header' }]
       }
       if (STRICT_HEADER_PATTERN.test(header)) {
         return []
       }
-      const example = 'e.g. "feat(core): add the commitlint command"'
       if (header.startsWith('Revert "')) {
-        return [`Reverts must follow the format "revert: <reverted header>", not the default git message`]
+        const fix = config.types?.revert
+          ? 'write it as "revert: <reverted header>"'
+          : `rewrite it as a conventional commit, e.g. "fix(core): revert the parser change", or add a "revert" type to the relizy types`
+        return [{ message: 'The header is the default revert message of git', fix }]
+      }
+      if (/^\w+(?:\([^)]*\))?!? +:/.test(header)) {
+        return [{ message: 'There is a space before the colon', fix: `write "type(scope): subject", ${HEADER_EXAMPLE}` }]
       }
       if (/^[a-z]+(?:\([^)]*\))?!?:\S/i.test(header)) {
-        return [`A space is required after the colon, ${example}`]
+        return [{ message: 'A space is missing after the colon', fix: `write "type(scope): subject", ${HEADER_EXAMPLE}` }]
       }
-      if (/^[A-Z]+(?:\([^)]*\))?!?: /.test(header) || /^[a-z]*[A-Z]\w*(?:\([^)]*\))?!?: /.test(header)) {
-        return [`The type must be lowercase, ${example}`]
+      const type = /^(?<type>\w+)(?:\([^)]*\))?!? ?: /.exec(header)?.groups?.type
+      if (type && type !== type.toLowerCase()) {
+        return [{ message: `The type "${type}" is not lowercase`, fix: `write "${type.toLowerCase()}"` }]
       }
       const scope = /^[a-z]+\((?<scope>[^)]*)\)/.exec(header)?.groups?.scope
       if (scope !== undefined && (!scope || /\s/.test(scope))) {
-        return [`The scope must not be empty or contain spaces, ${example}`]
+        return [{ message: 'The scope is empty or contains spaces', fix: `use a single word, ${HEADER_EXAMPLE}` }]
       }
-      return [`The header must follow the format "type(scope)!: subject", ${example}`]
+      return [{ message: 'The header is not a conventional commit', fix: `write "type(scope): subject", ${HEADER_EXAMPLE}` }]
     },
   },
   'header-max-length': {
@@ -105,7 +142,7 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
     check: ({ parts, value }) => {
       const max = Number(value)
       return parts.header.length > max
-        ? [`The header must not be longer than ${max} characters (${parts.header.length})`]
+        ? [{ message: `The header is ${parts.header.length} characters long, the maximum is ${max}`, fix: 'shorten the subject and move the details to the body' }]
         : []
     },
   },
@@ -114,9 +151,10 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
     conventionalOnly: true,
     check: ({ commit, config, value }) => {
       const types = [...Object.keys(config.types ?? {}), ...(Array.isArray(value) ? value as string[] : [])]
-      return types.includes(commit.type)
+      // A known type in the wrong case is reported by header-format
+      return types.includes(commit.type.toLowerCase())
         ? []
-        : [`The type "${commit.type}" is not one of the relizy types: ${types.join(', ')}`]
+        : [{ message: `The type "${commit.type}" is unknown to relizy`, fix: `${didYouMean(commit.type, types)}use one of: ${types.join(', ')}` }]
     },
   },
   'scope-enum': {
@@ -126,8 +164,8 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
       if (!commit.scope || !allowedScopes || allowedScopes.includes(commit.scope)) {
         return []
       }
-      const hint = packages.length > 0 ? 'Use a workspace package or one of' : 'Use one of'
-      return [`The scope "${commit.scope}" is not allowed. ${hint}: ${formatScopes(allowedScopes)}`]
+      const allowed = packages.length > 0 ? 'use a workspace package or one of' : 'use one of'
+      return [{ message: `The scope "${commit.scope}" is not allowed`, fix: `${didYouMean(commit.scope, allowedScopes)}${allowed}: ${formatScopes(allowedScopes)}` }]
     },
   },
   'scope-required': {
@@ -136,25 +174,31 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
     conventionalOnly: true,
     check: ({ commit, packages, value }) => {
       if (value === 'never') {
-        return commit.scope ? ['The scope must be empty'] : []
+        return commit.scope ? [{ message: 'The scope is not allowed in this project', fix: `remove "(${commit.scope})"` }] : []
       }
       if (commit.scope) {
         return []
       }
       if (value !== 'when-bumping') {
-        return ['A scope is required, e.g. "feat(core): ..."']
+        return [{ message: 'The scope is missing', fix: `add one, e.g. "${commit.type}(core): ${commit.subject}"` }]
       }
       if (!commit.bump) {
         return []
       }
       if (packages.length === 0) {
-        return [`A scope is required for the commits that bump the version (${commit.bump})`]
+        return [{ message: `The scope is missing on a commit that bumps the version (${commit.bump})`, fix: `add one, e.g. "${commit.type}(core): ${commit.subject}"` }]
       }
       // Unknown files (e.g. during a rebase): nothing to compare
       if (!commit.packages || commit.packages.length === 0) {
         return []
       }
-      return [`A scope is required: this ${commit.bump} commit touches ${commit.packages.join(', ')}, e.g. "${commit.type}(${findPackageByScope(commit.packages[0]!, packages)?.scopes[0] ?? 'package'}): ..."`]
+      const scope = findPackageByScope(commit.packages[0]!, packages)?.scopes[0] ?? 'package'
+      return [{
+        message: `The scope is missing on a ${commit.bump} commit touching ${formatPackageNames(commit.packages)}`,
+        fix: commit.packages.length > 1
+          ? `add the scope of the main package, e.g. "${commit.type}(${scope}): ${commit.subject}", or split the commit per package`
+          : `add the scope of the package: "${commit.type}(${scope}): ${commit.subject}"`,
+      }]
     },
   },
   'scope-matches-files': {
@@ -165,8 +209,10 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
       if (!pkg || !commit.files || commit.files.length === 0 || commit.packages?.includes(pkg.name)) {
         return []
       }
-      const touched = commit.packages && commit.packages.length > 0 ? `it touches ${commit.packages.join(', ')}` : 'it only touches files outside the packages'
-      return [`The scope "${commit.scope}" designates ${pkg.path}, but ${touched}`]
+      const touched = commit.packages && commit.packages.length > 0
+        ? { message: `it touches ${formatPackageNames(commit.packages)}`, fix: 'use the scope of the touched package, or split the commit per package' }
+        : { message: 'it only touches files outside the packages', fix: 'use a scope describing these files, or no scope' }
+      return [{ message: `The scope "${commit.scope}" designates ${pkg.path}, but ${touched.message}`, fix: touched.fix }]
     },
   },
   'subject-case': {
@@ -175,7 +221,7 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
     check: ({ commit }) =>
       // An uppercase first letter followed by a non uppercase one: acronyms ("API ...") are fine
       /^[A-Z][^A-Z]/.test(commit.subject)
-        ? ['The subject must not start with an uppercase letter, relizy capitalizes it in the changelog']
+        ? [{ message: 'The subject starts with an uppercase letter', fix: 'start it lowercase, relizy capitalizes it in the changelog' }]
         : [],
   },
   'subject-full-stop': {
@@ -183,7 +229,7 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
     conventionalOnly: true,
     check: ({ commit }) =>
       commit.subject.endsWith('.') && !commit.subject.endsWith('...')
-        ? ['The subject must not end with a period']
+        ? [{ message: 'The subject ends with a period', fix: 'remove the final period' }]
         : [],
   },
   'subject-meaningful': {
@@ -194,39 +240,44 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
       const { minWords = 2, minLength = 15 } = (value ?? {}) as { minWords?: number, minLength?: number }
       const subject = commit.subject.trim()
       const words = subject.split(/\s+/).filter(Boolean).length
+      const fix = `describe what changed, in at least ${minWords} words or ${minLength} characters`
       let word = subject.toLowerCase()
       while (word.endsWith('.') || word.endsWith('!')) {
         word = word.slice(0, -1)
       }
       if (GENERIC_SUBJECTS.has(word)) {
-        return [`The subject "${subject}" does not describe the change`]
+        return [{ message: `The subject "${subject}" does not describe the change`, fix }]
       }
       return words < minWords && subject.length < minLength
-        ? [`The subject is too short: write at least ${minWords} words or ${minLength} characters describing the change`]
+        ? [{ message: `The subject "${subject}" is too short`, fix }]
         : []
     },
   },
   'body-leading-blank': {
     severity: 'error',
-    check: ({ parts }) => parts.hasLeadingBlank ? [] : ['A blank line is required between the header and the body'],
+    check: ({ parts }) => parts.hasLeadingBlank
+      ? []
+      : [{ message: 'The body starts right after the header', fix: 'add a blank line between the header and the body' }],
   },
   'body-no-headings': {
     severity: 'error',
     check: ({ parts }) =>
-      findNodes<Heading>(parseMarkdown(parts.body), 'heading')
-        .map(heading => `Markdown headings are not allowed in the body ("${'#'.repeat(heading.depth)} ..."): copied under the commit in the changelog, they break its structure`),
+      findNodes<Heading>(parseMarkdown(parts.body), 'heading').map(heading => ({
+        message: `The body contains a markdown heading ("${'#'.repeat(heading.depth)} ${toPlainText(heading)}")`,
+        fix: 'use a bold line or a list instead: copied under the commit in the changelog, a heading breaks its structure',
+      })),
   },
   'body-markdown': {
     severity: 'error',
     check: ({ parts }) => {
-      const problems: string[] = []
+      const problems: RuleProblem[] = []
       const fences = parts.body.split('\n').filter(line => /^ {0,3}(?:`{3,}|~{3,})/.test(line)).length
       if (fences % 2 === 1) {
-        problems.push('A code block of the body is not closed')
+        problems.push({ message: 'A code block of the body is not closed', fix: 'close it with a ``` line' })
       }
       for (const link of findNodes<Link>(parseMarkdown(parts.body), 'link')) {
         if (!link.url) {
-          problems.push('A link of the body has no URL')
+          problems.push({ message: `The link "${toPlainText(link)}" of the body has no URL`, fix: 'add its URL, or remove the link' })
         }
       }
       return problems
@@ -250,8 +301,11 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
       }
       const linter = await getChangelogLinter(config.cwd)
       const problems = await linter.lint(`# Changelog\n\n## v0.0.0\n\n${entry}\n`)
+      const fix = linter.name === 'eslint'
+        ? 'fix the code block: the body is linted like the CHANGELOG.md files by the ESLint of the project'
+        : 'make the code block a complete program, e.g. "export default defineConfig({ ... })" rather than a bare object'
       // A breaking commit is also listed in the breaking changes section: same problems twice
-      return [...new Set(problems)].map(problem => `The body would break the changelog formatting: ${problem}`)
+      return [...new Set(problems)].map(problem => ({ message: `The body would break the changelog formatting: ${problem}`, fix }))
     },
   },
   'body-breaking-change': {
@@ -264,13 +318,18 @@ export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
         ...footerLines.filter(line => isMention(line) && !/^BREAKING[ -]CHANGE: /.test(line)),
       ]
       return misplaced.length > 0
-        ? ['"breaking change:" outside a "BREAKING CHANGE:" footer makes relizy bump the major version. Rephrase it, or use a "BREAKING CHANGE:" footer or "!" if the change is breaking']
+        ? [{
+            message: '"breaking change:" appears outside a "BREAKING CHANGE:" footer: relizy would bump the major version',
+            fix: 'rephrase it, or if the change is breaking, declare it with "!" or a "BREAKING CHANGE:" footer',
+          }]
         : []
     },
   },
   'no-breaking': {
     severity: 'off',
-    check: ({ commit }) => commit.isBreaking ? ['Breaking changes are not allowed'] : [],
+    check: ({ commit }) => commit.isBreaking
+      ? [{ message: 'Breaking changes are not allowed', fix: 'remove the "!" and the "BREAKING CHANGE:" footer' }]
+      : [],
   },
 }
 
