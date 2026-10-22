@@ -1,5 +1,83 @@
 # Changelog
 
+## v1.10.0 (2026-10-22)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.9.0...v1.10.0)
+
+### 🚀 Features
+
+- Add the relizy commitlint command ([c3ae8ac](https://github.com/LouisMazel/relizy/commit/c3ae8ac))
+
+  `relizy commitlint` lints the commit messages with the relizy config, as a replacement for commitlint: the same parser, types and workspace packages as the release, and the commit bodies checked as they will appear in the changelogs.
+
+  - In the `commit-msg` hook: `relizy commitlint --edit "$1"`, or run `relizy commitlint --install` once to write the hook.
+  - In CI: `relizy commitlint` lints the commits of the pull request (merge-base with the base branch on GitHub Actions and GitLab CI, otherwise since the last tag).
+  - Each valid commit prints its effect on the next release, e.g. `✔ feat(nuxt) → minor bump, 🚀 Features`.
+  - The body is rendered like in the changelogs: its code blocks are linted with the ESLint of the project, or checked with a built-in parser.
+
+  Configure it with the `commitlint` key, rules can be tuned and added as functions:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    commitlint: {
+      scopes: ['ci', 'deps'],
+      rules: { 'scope-required': ['error', 'when-bumping'] },
+      customRules: {
+        ticket: ({ subject }) => /^\[[A-Z]+-\d+\] /.test(subject) || 'Start the subject with the ticket',
+      },
+    },
+  })
+  ```
+
+  See https://relizy.dev/commitlint/ for the rules and the migration from commitlint.
+
+- Explain how to fix the commits and cover the apps in relizy commitlint ([7a143b8](https://github.com/LouisMazel/relizy/commit/7a143b8))
+
+  Each problem now comes with how to fix it, a corrected header is suggested when the mistakes can be fixed safely (case, spacing, typos in the type or the scope, final period), and the summary links the documentation of the failing rules and gives the commands to fix the commits. The output is colored in a terminal and in CI, and plain for AI agents.
+
+  - `--format json` prints the report for programs and AI agents, `--quiet` only prints the commits with problems.
+  - In GitHub Actions, the problems are also reported as annotations.
+  - In the CI of a pull or merge request, its title is linted too, as it becomes the commit message of a squash merge (`--no-title` to disable).
+  - `commitlint.packages` adds directories that relizy does not release, such as apps, to the scopes. The packages excluded with `monorepo.ignored` and the packages without version are valid scopes too.
+  - A shallow clone of the CI is reported with how to fetch the history.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    commitlint: {
+      packages: ['apps/*'],
+    },
+  })
+  ```
+
+- Type the rules of relizy commitlint in the config ([9cfd89b](https://github.com/LouisMazel/relizy/commit/9cfd89b))
+- Lint the pull request title only when commitlint.title enables it ([7b68369](https://github.com/LouisMazel/relizy/commit/7b68369))
+
+### 🔥 Performance
+
+- Speed up the truncation of long Slack changelogs ([51cbb8f](https://github.com/LouisMazel/relizy/commit/51cbb8f))
+
+  The summary format of the Slack posts rebuilt the whole changelog for each commit it tried to drop: a release of hundreds of commits with bodies took tens of seconds to format. The truncation is now linear, and the full format searches its cut within the limits only.
+
+### 🩹 Fixes
+
+- Treat an empty FORCE_COLOR as unset in relizy commitlint ([b5688cc](https://github.com/LouisMazel/relizy/commit/b5688cc))
+
+### 📦 Build
+
+- Upgrade dependencies ([3a09855](https://github.com/LouisMazel/relizy/commit/3a09855))
+
+### 🧪 Tests
+
+- Run the commitlint CLI tests without the colors of the CI ([472164b](https://github.com/LouisMazel/relizy/commit/472164b))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.9.0 (2026-10-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.8.0...v1.9.0)
