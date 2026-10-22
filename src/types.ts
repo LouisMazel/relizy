@@ -879,7 +879,9 @@ export interface SlackSocialConfig {
   changelogFormat?: SlackChangelogFormat
   /**
    * Maximum length (in characters) of the changelog rendered inside the Slack message.
-   * When exceeded, the last commits are replaced with an "… and N more changes" line.
+   * When exceeded, `summary` drops the last commits, `full` cuts the changelog where the limit
+   * is reached (even inside a commit body) with an ellipsis; the commits left out entirely are
+   * announced with an "… and N more changes" line.
    * Defaults to 2500 in `summary` format (Slack's section limit is 3000) and to no limit
    * in `full` format, where the message is only bounded by Slack's 50 blocks.
    */
