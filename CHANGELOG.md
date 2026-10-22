@@ -1,5 +1,28 @@
 # Changelog
 
+## v1.8.0 (2026-10-20)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.7.0...v1.8.0)
+
+### 🚀 Features
+
+- Add the ai-sdk provider for AI release notes ([f199679](https://github.com/LouisMazel/relizy/commit/f199679))
+
+  New `ai.provider: 'ai-sdk'` option: release notes and social posts can be rewritten with any Vercel AI SDK model (OpenAI, Google, Mistral, ...) instead of Claude Code.
+  Install `ai` and your provider package (e.g. `pnpm add -D ai @ai-sdk/openai`), then set `ai.providers['ai-sdk'].model` to a model such as `openai('gpt-5-mini')`, or to a Vercel AI Gateway model id such as `'openai/gpt-5-mini'`. The credentials are read by the provider package (e.g. `OPENAI_API_KEY`). The optional `reasoning` option sets the reasoning effort of the models that support it.
+
+### 🩹 Fixes
+
+- Resolve the previous release from the versions of the release tags ([d18543c](https://github.com/LouisMazel/relizy/commit/d18543c))
+
+  When a package was released independently in the same monorepo (e.g. a selective config plus an independent config), its `name@version` tag could become the start of the next release range, and the commits made before it were lost from the bump and the changelog.
+  The previous release is now the release tag with the highest version up to the current version, instead of the most recent tag. In unified, selective and standalone modes, the release tags follow `templates.tagBody` (or the `v1.2.3` and `1.2.3` formats) and a package tag never matches. In independent mode, they are the `name@version` tags of the package. A hotfix of an older version or a release of a branch not merged yet is no longer picked either.
+
+### ❤️ Contributors
+
+- Favour Emeka ([@favorodera](https://github.com/favorodera))
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.7.0 (2026-10-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.6.0...v1.7.0)
