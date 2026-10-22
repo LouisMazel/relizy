@@ -7,10 +7,12 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
-import { bump, changelog, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
+// Run in the commit-msg hook at every commit: no banner, only the lint output
+const isCommitlint = process.argv[2] === 'commitlint'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -20,7 +22,7 @@ const packageJson = JSON.parse(
 
 const version = packageJson.version
 
-if (!hasSilentFlag) {
+if (!hasSilentFlag && !isCommitlint) {
   printBanner({
     name: 'Relizy',
     version: `v${version}`,
@@ -35,7 +37,7 @@ if (!hasSilentFlag) {
   })
 }
 
-if (isInCI()) {
+if (isInCI() && !isCommitlint) {
   logger.log(`Running in CI: ${getCIName()}`)
 }
 else {
@@ -234,6 +236,39 @@ program
       })
     }
     catch {
+      process.exit(1)
+    }
+  })
+
+program
+  .command('commitlint')
+  .description('Lint commit messages with the relizy config (types, scopes, changelog rendering)')
+  .option('--edit [file]', 'Lint the message of the commit being created (the file given to the commit-msg hook, .git/COMMIT_EDITMSG by default)')
+  .option('--message <message>', 'Lint this message')
+  .option('--from <ref>', 'Lint the commits after this ref (default: merge-base of the pull/merge request in CI, otherwise the last tag)')
+  .option('--to <ref>', 'Last commit of the range (default: HEAD)')
+  .option('--preview', 'Print the changelog entry of each commit')
+  .option('--install', 'Write the commit-msg hook running relizy commitlint (in .husky/ when husky is set up)')
+  .option('--force', 'Replace an existing commit-msg hook with --install')
+  .action(async (options) => {
+    try {
+      const { errorCount } = await commitlint({
+        edit: options.edit,
+        message: options.message,
+        from: options.from,
+        to: options.to,
+        preview: options.preview,
+        install: options.install,
+        force: options.force,
+        configName: program.opts().config,
+        logLevel: program.opts().logLevel,
+      })
+      if (errorCount > 0) {
+        process.exit(1)
+      }
+    }
+    catch (error) {
+      logger.error('Failed to lint the commits -', error)
       process.exit(1)
     }
   })

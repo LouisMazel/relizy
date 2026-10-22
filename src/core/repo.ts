@@ -536,7 +536,7 @@ export async function getPackages({
   return packagesToBump
 }
 
-function isAllowedCommit({
+export function isAllowedCommit({
   commit,
   type,
   changelog,

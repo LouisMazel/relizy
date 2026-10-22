@@ -58,6 +58,7 @@ Imagine you have multiple packages in your project (like a box with several toys
 - ⚙️ Multiple configuration files support for different release workflows
 - 🔧 Support for npm, yarn, pnpm, and bun (auto-detected)
 - 📱 Social media integration (Twitter & Slack) for release announcements
+- 🧹 Built-in commit linting with your Relizy config, a commitlint replacement (`relizy commitlint`)
 
 ## 📚 Documentation
 
@@ -136,6 +137,15 @@ Automatically post release announcements to Twitter and Slack when you ship new 
 relizy release --minor  # Automatically posts to configured social channels
 ```
 
+### Commit Linting
+
+Lint your commit messages with your Relizy config: the same parser, types and packages as your releases, and commit bodies checked as they will appear in your changelogs. No commitlint config to keep in sync.
+
+```bash
+relizy commitlint --install  # Writes the commit-msg hook
+relizy commitlint            # Lints the commits of the pull request in CI
+```
+
 ## 📖 Learn More
 
 This README covers the basics to get you started quickly. For detailed documentation, configuration options, and advanced features, visit our full documentation:
@@ -148,6 +158,7 @@ Topics covered in the documentation:
 - Monorepo versioning strategies (unified, selective, independent)
 - CI/CD integration (GitHub Actions, GitLab CI)
 - Social media integration (Twitter & Slack)
+- [Commit linting](https://relizy.dev/commitlint/)
 - Custom registries and private packages
 - Multiple configuration files
 - And much more...

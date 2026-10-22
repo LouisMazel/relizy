@@ -1,6 +1,6 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { GitCommit, ChangelogConfig as IChangelogConfig, SemverBumpType } from 'changelogen'
+import type { GitCommit, ChangelogConfig as IChangelogConfig, Reference, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
 
@@ -1293,6 +1293,109 @@ export type HookConfig = {
 }
 
 /**
+ * Severity of a commitlint rule: `error` (or `2`) fails the check, `warn` (or `1`)
+ * reports without failing, `off` (or `0`) disables the rule.
+ */
+export type CommitlintRuleLevel = 'error' | 'warn' | 'off' | 0 | 1 | 2
+
+/**
+ * Configuration of a commitlint rule: a level, a level and a value (ESLint style),
+ * or a commitlint tuple `[level, 'always', value]` to ease migrations.
+ */
+export type CommitlintRuleConfig
+  = | CommitlintRuleLevel
+    | [CommitlintRuleLevel]
+    | [CommitlintRuleLevel, unknown]
+    | [CommitlintRuleLevel, 'always' | 'never', unknown]
+
+/**
+ * A commit message parsed by `relizy commitlint`, with the commitlint field names,
+ * enriched with what relizy knows about the commit.
+ */
+export interface CommitlintCommit {
+  /** Full message, comments removed */
+  raw: string
+  /** First line of the message */
+  header: string
+  /** Text between the header and the footer */
+  body: string
+  /** Trailing block of `Token: value` lines (`BREAKING CHANGE:`, `Closes #12`...) */
+  footer: string
+  /** Type, empty when the header is not a conventional commit */
+  type: string
+  /** Scope, as written in the header */
+  scope: string
+  /** Description of the header, as written */
+  subject: string
+  /** Breaking change as detected by relizy (`!` or `breaking change:` in the body) */
+  isBreaking: boolean
+  /** Version bump the commit triggers, computed by relizy from `types` */
+  bump?: SemverBumpType
+  /** Pull request, issue and hash references found by relizy */
+  references: Reference[]
+  /** Changed files (staged files, or the files of the commit in a range), when known */
+  files?: string[]
+  /** Names of the workspace packages touched by `files` */
+  packages?: string[]
+  /** Hash of the commit, when linting a range */
+  hash?: string
+}
+
+export interface CommitlintCustomRuleContext {
+  /** Value configured for the rule (`['error', value]`) */
+  value: unknown
+  /** Resolved relizy config */
+  config: ResolvedRelizyConfig
+}
+
+/**
+ * A rule written as a function. Returns `true` when the commit is valid, an
+ * error message (or `false`) otherwise, or a commitlint-style `[valid, message?]`
+ * tuple so `commitlint-plugin-function-rules` rules can be copied as is.
+ */
+export type CommitlintCustomRule = (
+  commit: CommitlintCommit,
+  context: CommitlintCustomRuleContext,
+) => CommitlintCustomRuleOutcome | Promise<CommitlintCustomRuleOutcome>
+
+export type CommitlintCustomRuleOutcome = boolean | string | [boolean, string?]
+
+export interface CommitlintConfig {
+  /**
+   * Scopes allowed in addition to the workspace packages (short name, full name
+   * or folder) and the `scopeMap` keys. In standalone mode, scopes are free
+   * unless this list is set.
+   * @example ['ci', 'deps', 'release']
+   */
+  scopes?: string[]
+  /**
+   * Level and value of the built-in and custom rules.
+   * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'when-bumping'] }
+   */
+  rules?: Record<string, CommitlintRuleConfig>
+  /**
+   * Rules written as functions, keyed by name. Their level is set in `rules`
+   * and defaults to `error`.
+   */
+  customRules?: Record<string, CommitlintCustomRule>
+  /**
+   * Messages to ignore, in addition to the default ones: a regular expression
+   * tested against the header, or a function receiving the raw message.
+   */
+  ignores?: Array<RegExp | ((message: string) => boolean)>
+  /**
+   * Ignore merge commits, `fixup!`, `squash!` and `amend!` commits, and the
+   * release commits of relizy.
+   * @default true
+   */
+  defaultIgnores?: boolean
+  /**
+   * URL printed with the errors, e.g. the commit guidelines of the team.
+   */
+  helpUrl?: string
+}
+
+/**
  * Relizy configuration
  * @see https://relizy.dev/config/overview
  */
@@ -1371,6 +1474,11 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * Hooks config
    */
   hooks?: HookConfig
+  /**
+   * Commit message linter (`relizy commitlint`) config
+   * @see https://relizy.dev/commitlint/
+   */
+  commitlint?: CommitlintConfig
   /**
    * Set log level
    * @default 'default'

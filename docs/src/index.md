@@ -22,6 +22,10 @@ hero:
     alt: Relizy Logo
 
 features:
+  - icon: 🧹
+    title: Commit Linting
+    details: Lint your commits with your Relizy config, a built-in commitlint replacement. Same parser, types and packages as your releases, and commit bodies checked as they will appear in your changelogs.
+    link: /commitlint/
   - icon: 🔒
     title: Private Projects Too
     details: Not only for npm packages. Version your private apps, services and internal monorepos with changelogs, git tags and GitHub or GitLab releases, without publishing anything.
@@ -108,6 +112,26 @@ export default defineConfig({
 ```
 
 Every deploy gets a version you can tag, ship and roll back to, with release notes your whole team can read. [Version your private projects →](/guide/private-projects)
+
+## Lint Commits the Way Relizy Reads Them
+
+Your commits are the source of your versions and changelogs. `relizy commitlint` checks them with **your Relizy config**: the same parser, types and packages as your releases, no commitlint config to keep in sync.
+
+```bash
+$ npx relizy commitlint --install
+
+$ git commit -m "feat(nuxt): add the module options"
+✔ feat(nuxt) → minor bump, 🚀 Enhancements
+
+$ git commit -m "fix(nuxtt): Typo."
+✖ fix(nuxtt): Typo.
+  ✖ The scope "nuxtt" is not allowed. Use a workspace package or one of: nuxt, @maz-ui/nuxt, core, @maz-ui/core [scope-enum]
+  ✖ The subject must not start with an uppercase letter, relizy capitalizes it in the changelog [subject-case]
+  ✖ The subject must not end with a period [subject-full-stop]
+  ✖ The subject "Typo." does not describe the change [subject-meaningful]
+```
+
+Every commit shows its effect on your next release, scopes are checked against the packages it really touches, and commit bodies are rendered and linted like your changelogs, so a broken snippet can never break a release again. [Lint your commits →](/commitlint/)
 
 ## Run your first release
 
