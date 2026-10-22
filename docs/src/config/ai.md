@@ -34,7 +34,12 @@ interface AIConfig {
   }
   language?: string
   fallback?: 'raw' | 'fail'
-  extraGuidelines?: string
+  extraGuidelines?: string | {
+    global?: string
+    providerRelease?: string
+    twitter?: string
+    slack?: string
+  }
   systemPromptOverrides?: {
     providerRelease?: string
     twitter?: string
@@ -258,12 +263,12 @@ is non-negotiable.
 
 ## `extraGuidelines`
 
-- **Type:** `string`
+- **Type:** `string | { global?, providerRelease?, twitter?, slack? }`
 - **Default:** `undefined`
 
-Free-form directives appended to every built-in prompt. This is the right
+Free-form directives appended to the built-in prompts. This is the right
 place to add tone, vocabulary, or project-specific rules without rewriting
-the whole prompt.
+the whole prompt. A string applies to every target.
 
 ```ts
 export default defineConfig({
@@ -272,6 +277,21 @@ export default defineConfig({
       'Never mention the internal project codename "Phoenix".',
       'When a commit scope is "api", prefix the line with "API:".',
     ].join('\n'),
+  },
+})
+```
+
+Use an object to scope directives to a target. The `global` directives apply
+to every target and come first, then the ones of the target:
+
+```ts
+export default defineConfig({
+  ai: {
+    extraGuidelines: {
+      global: 'Never mention the internal project codename "Phoenix".',
+      slack: 'Mention the team owning each change when the scope tells it.',
+      twitter: 'Add the #opensource hashtag.',
+    },
   },
 })
 ```

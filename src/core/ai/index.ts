@@ -20,6 +20,21 @@ function substitutePlaceholders(prompt: string, vars: Record<string, string | un
   return result
 }
 
+/**
+ * Extra guidelines of a target: a string applies to every target, an object
+ * adds its `global` guidelines followed by the target-specific ones.
+ */
+function getExtraGuidelines(config: ResolvedRelizyConfig, target: AIPromptTarget): string[] {
+  const guidelines = config.ai?.extraGuidelines
+  if (!guidelines) {
+    return []
+  }
+  if (typeof guidelines === 'string') {
+    return [guidelines]
+  }
+  return [guidelines.global, guidelines[target]].filter((guideline): guideline is string => !!guideline?.trim())
+}
+
 function assemblePrompt(
   config: ResolvedRelizyConfig,
   target: AIPromptTarget,
@@ -39,9 +54,7 @@ function assemblePrompt(
   if (maxLength !== undefined) {
     parts.push(MAX_LENGTH_PROMPT)
   }
-  if (config.ai?.extraGuidelines) {
-    parts.push(config.ai.extraGuidelines)
-  }
+  parts.push(...getExtraGuidelines(config, target))
 
   return substitutePlaceholders(parts.join('\n\n'), vars)
 }
