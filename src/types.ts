@@ -1301,12 +1301,107 @@ export type CommitlintRuleLevel = 'error' | 'warn' | 'off' | 0 | 1 | 2
 /**
  * Configuration of a commitlint rule: a level, a level and a value (ESLint style),
  * or a commitlint tuple `[level, 'always', value]` to ease migrations.
+ * A rule without value accepts the commitlint tuple `[level, 'always']`.
  */
-export type CommitlintRuleConfig
+export type CommitlintRuleConfig<Value = unknown>
   = | CommitlintRuleLevel
-    | [CommitlintRuleLevel]
-    | [CommitlintRuleLevel, unknown]
-    | [CommitlintRuleLevel, 'always' | 'never', unknown]
+    | readonly [CommitlintRuleLevel]
+    | readonly [CommitlintRuleLevel, [Value] extends [never] ? 'always' | 'never' : Value]
+    | readonly [CommitlintRuleLevel, 'always' | 'never', Value]
+
+/**
+ * The built-in rules of `relizy commitlint`, with the type of their value
+ * (`never` when the rule has no value).
+ * @see https://relizy.dev/commitlint/rules
+ */
+export interface CommitlintBuiltInRules {
+  /**
+   * The header follows `type(scope)!: subject`.
+   * @default 'error'
+   */
+  'header-format': never
+  /**
+   * Maximum length of the header.
+   * @default ['error', 500]
+   */
+  'header-max-length': number
+  /**
+   * The type is one of the relizy `types`, or one of the extra types given as value.
+   * @default 'error'
+   */
+  'type-enum': string[]
+  /**
+   * The scope is a workspace package, a `scopeMap` key or one of `commitlint.scopes`.
+   * @default 'error'
+   */
+  'scope-enum': never
+  /**
+   * The scope is required (`'always'`), forbidden (`'never'`), or required on
+   * the commits bumping a version (`'when-bumping'`).
+   * @default ['off', 'always']
+   */
+  'scope-required': 'always' | 'never' | 'when-bumping'
+  /**
+   * The scope designates a package touched by the commit.
+   * @default 'warn'
+   */
+  'scope-matches-files': never
+  /**
+   * The subject starts with a lowercase letter.
+   * @default 'error'
+   */
+  'subject-case': never
+  /**
+   * The subject does not end with a period.
+   * @default 'error'
+   */
+  'subject-full-stop': never
+  /**
+   * The subject describes the change, with a minimum of words or characters.
+   * @default ['error', { minWords: 2, minLength: 15 }]
+   */
+  'subject-meaningful': { minWords?: number, minLength?: number }
+  /**
+   * A blank line separates the header from the body.
+   * @default 'error'
+   */
+  'body-leading-blank': never
+  /**
+   * The body has no markdown headings, which would break the changelog.
+   * @default 'error'
+   */
+  'body-no-headings': never
+  /**
+   * The markdown of the body is valid: code blocks closed, links with a URL.
+   * @default 'error'
+   */
+  'body-markdown': never
+  /**
+   * The commit, rendered as in the changelogs, passes the lint of the changelogs.
+   * @default 'error'
+   */
+  'body-changelog-lint': never
+  /**
+   * A breaking change is only declared with `!` in the header or a `BREAKING CHANGE:`
+   * footer, as relizy bumps the major version wherever `breaking change:` appears.
+   * @default 'error'
+   */
+  'body-breaking-change': never
+  /**
+   * Breaking changes are not allowed.
+   * @default 'off'
+   */
+  'no-breaking': never
+}
+
+export type CommitlintRuleName = keyof CommitlintBuiltInRules
+
+/**
+ * Configuration of the built-in rules, typed per rule, and of the custom rules.
+ */
+export type CommitlintRulesConfig = {
+  [Name in keyof CommitlintBuiltInRules]?: CommitlintRuleConfig<CommitlintBuiltInRules[Name]>
+} & Record<string, CommitlintRuleConfig>
 
 /**
  * A commit message parsed by `relizy commitlint`, with the commitlint field names,
@@ -1378,7 +1473,7 @@ export interface CommitlintConfig {
    * Level and value of the built-in and custom rules.
    * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'when-bumping'] }
    */
-  rules?: Record<string, CommitlintRuleConfig>
+  rules?: CommitlintRulesConfig
   /**
    * Rules written as functions, keyed by name. Their level is set in `rules`
    * and defaults to `error`.

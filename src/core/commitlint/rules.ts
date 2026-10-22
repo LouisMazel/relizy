@@ -1,6 +1,6 @@
 import type { GitCommit } from 'changelogen'
 import type { Code, Heading, Link, Nodes } from 'mdast'
-import type { CommitlintCommit, CommitlintRuleConfig, CommitlintRuleLevel } from '../../types'
+import type { CommitlintCommit, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { CommitMessageParts } from './message'
 import type { WorkspacePackage } from './workspace'
@@ -102,7 +102,7 @@ const HEADER_EXAMPLE = 'e.g. "feat(core): add the parser"'
 /**
  * The built-in rules, with their default severity and value.
  */
-export const BUILT_IN_RULES: Record<string, RuleDefinition> = {
+export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
   'header-format': {
     severity: 'error',
     check: ({ parts, config }) => {

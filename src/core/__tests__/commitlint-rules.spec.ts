@@ -1,5 +1,5 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
-import type { CommitlintCommit, RelizyConfig } from '../../types'
+import type { CommitlintBuiltInRules, CommitlintCommit, RelizyConfig } from '../../types'
 import type { WorkspacePackage } from '../commitlint/workspace'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -220,7 +220,7 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When requiring the scope', () => {
-    const withRule = (value?: string) => ({ commitlint: { rules: { 'scope-required': value ? ['error', value] as ['error', string] : 'error' as const } } })
+    const withRule = (value?: CommitlintBuiltInRules['scope-required']) => ({ commitlint: { rules: { 'scope-required': value ? ['error', value] as const : 'error' as const } } })
 
     it('Then does not require it by default', async () => {
       expect(await rulesOf('feat: add a new thing')).toEqual([])
@@ -316,7 +316,7 @@ describe('Given lintCommitMessage function', () => {
     })
 
     it('Then uses the configured minimum of words', async () => {
-      const config = { commitlint: { rules: { 'subject-meaningful': ['error', { minWords: 3, minLength: 100 }] as ['error', unknown] } } }
+      const config = { commitlint: { rules: { 'subject-meaningful': ['error', { minWords: 3, minLength: 100 }] as const } } }
 
       expect(await problemsOf('fix: parser crash', { config }))
         .toEqual([{ message: 'The subject "parser crash" is too short', fix: 'describe what changed, in at least 3 words or 100 characters' }])

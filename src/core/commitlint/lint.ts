@@ -123,7 +123,7 @@ function warnUnknownRules(configured: Record<string, unknown>, customRules: Reco
   }
   reportedConfigs.add(configured)
   for (const name of Object.keys(configured)) {
-    if (!BUILT_IN_RULES[name] && !customRules[name]) {
+    if (!Object.hasOwn(BUILT_IN_RULES, name) && !customRules[name]) {
       logger.warn(`commitlint: unknown rule "${name}" in commitlint.rules, it is ignored`)
     }
   }

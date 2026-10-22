@@ -62,20 +62,26 @@ Scopes allowed in addition to the workspace packages and the `scopeMap` keys, e.
 
 ## `rules`
 
-- **Type:** `Record<string, CommitlintRuleConfig>`
+- **Type:** `CommitlintRulesConfig`
 - **Default:** `{}`
 
-Level and value of the [built-in rules](./rules.md) and of the [custom rules](./custom-rules.md):
+Level and value of the [built-in rules](./rules.md) and of the [custom rules](./custom-rules.md). The built-in rules are typed: your editor completes their names, documents them, and checks their values.
 
 ```ts
 type CommitlintRuleLevel = 'error' | 'warn' | 'off' | 0 | 1 | 2
 
-type CommitlintRuleConfig
+type CommitlintRuleConfig<Value = unknown>
   = | CommitlintRuleLevel
-    | [CommitlintRuleLevel]
-    | [CommitlintRuleLevel, unknown]
-    | [CommitlintRuleLevel, 'always' | 'never', unknown]
+    | readonly [CommitlintRuleLevel]
+    | readonly [CommitlintRuleLevel, Value]
+    | readonly [CommitlintRuleLevel, 'always' | 'never', Value]
+
+type CommitlintRulesConfig = {
+  [Name in keyof CommitlintBuiltInRules]?: CommitlintRuleConfig<CommitlintBuiltInRules[Name]>
+} & Record<string, CommitlintRuleConfig>
 ```
+
+`CommitlintBuiltInRules` gives the type of the value of each built-in rule, e.g. `number` for `header-max-length`. A rule without value only takes a level, or the commitlint tuple `[level, 'always']`.
 
 An unknown rule name is reported with a warning.
 
