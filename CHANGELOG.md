@@ -1,5 +1,17 @@
 # Changelog
 
+## v1.11.1 (2026-10-23)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.11.0...v1.11.1)
+
+### 🩹 Fixes
+
+- Only attribute a commit to the packages whose folder it changes ([f6a9435](https://github.com/LouisMazel/relizy/commit/f6a9435))
+
+### ❤️ Contributors
+
+- LouisMazel <me@loicmazuel.com>
+
 ## v1.11.0 (2026-10-22)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.10.0...v1.11.0)
