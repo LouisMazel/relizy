@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import * as gitRefs from '../git-refs'
-import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
+import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -642,6 +642,74 @@ describe('Given getCommitChangedFiles', () => {
   it('Then returns an empty array when the body has no file lines', () => {
     expect(getCommitChangedFiles({ body: '' } as GitCommit)).toEqual([])
   })
+
+  it('Then drops the quotes git adds around paths with unusual characters', () => {
+    const commit = {
+      body: '\n\nA\t"packages/pkg-a/caf\\303\\251.ts"\nR100\t"packages/pkg-a/a b.ts"\t"packages/pkg-a/c d.ts"\n',
+    } as GitCommit
+
+    expect(getCommitChangedFiles(commit)).toEqual([
+      'packages/pkg-a/caf\\303\\251.ts',
+      'packages/pkg-a/c d.ts',
+    ])
+  })
+})
+
+describe('Given isCommitInPackage', () => {
+  it('Then is true when the commit changes a file of the package', () => {
+    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components/src/index.ts'] })
+
+    expect(isCommitInPackage(commit, 'packages/components')).toBe(true)
+  })
+
+  it('Then is true when the commit changes the package directory itself (submodule, symlink)', () => {
+    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components'] })
+
+    expect(isCommitInPackage(commit, 'packages/components')).toBe(true)
+  })
+
+  it('Then respects the directory boundary (packages/components does not match packages/components-mcp)', () => {
+    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components-mcp/src/index.ts'] })
+
+    expect(isCommitInPackage(commit, 'packages/components')).toBe(false)
+  })
+
+  it('Then does not match the package path inside a longer directory name', () => {
+    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['shared-components/ah-related-dropdown/src/index.ts'] })
+
+    expect(isCommitInPackage(commit, 'shared-components/related-dropdown')).toBe(false)
+  })
+
+  it('Then does not match a nested directory of another package with the same name', () => {
+    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['apps/demo/packages/components/index.ts'] })
+
+    expect(isCommitInPackage(commit, 'packages/components')).toBe(false)
+  })
+
+  it('Then counts both paths of a rename and of a copy', () => {
+    const movedOut = { body: '\n\nR100\tpackages/pkg-a/old.ts\tpackages/pkg-b/new.ts\n' } as GitCommit
+    const copiedIn = { body: '\n\nC75\tpackages/pkg-b/a.ts\tpackages/pkg-a/b.ts\n' } as GitCommit
+
+    expect(isCommitInPackage(movedOut, 'packages/pkg-a')).toBe(true)
+    expect(isCommitInPackage(movedOut, 'packages/pkg-b')).toBe(true)
+    expect(isCommitInPackage(copiedIn, 'packages/pkg-a')).toBe(true)
+  })
+
+  it('Then matches a path quoted by git', () => {
+    const commit = { body: '\n\nM\t"packages/pkg-a/caf\\303\\251.ts"\n' } as GitCommit
+
+    expect(isCommitInPackage(commit, 'packages/pkg-a')).toBe(true)
+  })
+
+  it('Then ignores the package path written in the commit message', () => {
+    const commit = { body: '\n\nMoved from packages/pkg-a/index.ts\n\nM\tdocs/index.md\n' } as GitCommit
+
+    expect(isCommitInPackage(commit, 'packages/pkg-a')).toBe(false)
+  })
+
+  it('Then is false when the body has no file lines', () => {
+    expect(isCommitInPackage({ body: '' } as GitCommit, 'packages/pkg-a')).toBe(false)
+  })
 })
 
 describe('Given isCommitOnlyInIgnoredPackages', () => {
@@ -698,6 +766,12 @@ describe('Given isCommitOnlyInIgnoredPackages', () => {
     })
 
     expect(isCommitOnlyInIgnoredPackages(commit, [])).toBe(false)
+  })
+
+  it('Then is true when the only file is quoted by git and lives inside an ignored package', () => {
+    const commit = { body: '\n\nM\t"shared-components/navigation/caf\\303\\251.ts"\n' } as GitCommit
+
+    expect(isCommitOnlyInIgnoredPackages(commit, ignored)).toBe(true)
   })
 
   it('Then is false (fail-open) when no files can be detected', () => {

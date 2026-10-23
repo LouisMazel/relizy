@@ -161,23 +161,50 @@ export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string
 }
 
 /**
- * Extract the changed file paths (POSIX) from a commit body. `getGitDiff` runs
- * `git log --name-status`, so the body carries lines like `M\tpath/to/file`
- * (renames/copies use `R100\told\tnew` - the new path is the last field).
+ * Git quotes the paths with unusual characters (`"packages/pkg-a/caf\303\251.ts"`,
+ * see `core.quotePath`): drop the quotes so the directory part can be compared.
  */
-export function getCommitChangedFiles(commit: GitCommit): string[] {
+function unquoteGitPath(path: string): string {
+  return path.length > 1 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path
+}
+
+/**
+ * The paths of each `--name-status` line of a commit body: `getGitDiff` runs
+ * `git log --name-status`, so the body carries lines like `M\tpath/to/file`,
+ * and `R100\told\tnew` for renames and copies.
+ */
+function getNameStatusPaths(commit: GitCommit): string[][] {
   return commit.body
     .split('\n')
     .filter(line => /^[A-Z]\d*\t/.test(line))
-    .map((line) => {
-      const parts = line.split('\t')
-      return parts[parts.length - 1]?.trim()
-    })
-    .filter((path): path is string => Boolean(path))
+    .map(line => line.split('\t').slice(1).map(path => unquoteGitPath(path.trim())).filter(Boolean))
+    .filter(paths => paths.length > 0)
+}
+
+/**
+ * Extract the changed file paths (POSIX) from a commit body (renames/copies:
+ * the new path, the last field of their `--name-status` line).
+ */
+export function getCommitChangedFiles(commit: GitCommit): string[] {
+  return getNameStatusPaths(commit).map(paths => paths[paths.length - 1]!)
+}
+
+function isUnderPath(file: string, directory: string): boolean {
+  return file === directory || file.startsWith(`${directory}/`)
 }
 
 function isUnderIgnoredPath(file: string, ignoredPaths: string[]): boolean {
-  return ignoredPaths.some(ignored => file === ignored || file.startsWith(`${ignored}/`))
+  return ignoredPaths.some(ignored => isUnderPath(file, ignored))
+}
+
+/**
+ * True when the commit changes a file of the package directory (POSIX, relative
+ * to the repository). Both paths of a rename or a copy count, so a file moved
+ * out of the package still belongs to its history. The directory is compared as
+ * a whole: `packages/components` does not match `packages/components-mcp/...`.
+ */
+export function isCommitInPackage(commit: GitCommit, packageRelativePath: string): boolean {
+  return getNameStatusPaths(commit).some(paths => paths.some(file => isUnderPath(file, packageRelativePath)))
 }
 
 /**
@@ -649,7 +676,7 @@ export async function getPackageCommits({
     }
 
     const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
-    return commit.body.includes(packageRelativePath)
+    return isCommitInPackage(commit, packageRelativePath)
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)
