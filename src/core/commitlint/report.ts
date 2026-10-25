@@ -76,7 +76,7 @@ export function shouldUseColors(stream: { isTTY?: boolean } = process.stdout): b
   return Boolean(stream.isTTY || process.env.GITHUB_ACTIONS || process.env.GITLAB_CI)
 }
 
-function createStyles(colors: boolean): Styles {
+export function createStyles(colors: boolean): Styles {
   const style = (code: string): Style => colors ? text => `${code}${text}${ANSI.reset}` : text => text
   return {
     bold: style(ANSI.bold),

@@ -55,6 +55,7 @@ export function detectGitProvider(cwd: string = process.cwd()): GitProvider | nu
     const remoteUrl = execSync('git remote get-url origin', {
       cwd,
       encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
     }).trim()
 
     if (remoteUrl.includes('github.com')) {

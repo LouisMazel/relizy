@@ -248,6 +248,7 @@ export default defineConfig({
         text: 'CLI',
         items: [
           { text: 'Overview', link: '/cli/commands' },
+          { text: 'init', link: '/cli/init' },
           { text: 'release', link: '/cli/release' },
           { text: 'bump', link: '/cli/bump' },
           { text: 'changelog', link: '/cli/changelog' },
