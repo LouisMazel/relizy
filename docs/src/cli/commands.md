@@ -12,10 +12,11 @@ tags: [cli, commands, reference, documentation]
 
 ## Overview
 
-Relizy provides eight main commands:
+Relizy provides nine main commands:
 
 | Command                                     | Description                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| [`init`](/cli/init)                         | Create the Relizy config of the project, detect the packages and set up commitlint       |
 | [`release`](/cli/release)                   | Complete release workflow (bump + changelog + commit + tag + publish + provider release) |
 | [`bump`](/cli/bump)                         | Update version in package.json                                                           |
 | [`changelog`](/cli/changelog)               | Generate or update CHANGELOG.md                                                          |

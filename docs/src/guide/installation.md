@@ -125,7 +125,13 @@ packages:
 
 ## Configuration File (Optional)
 
-While Relizy works with zero configuration, you can create a config file for customization:
+While Relizy works with zero configuration, you can create a config file for customization. The quickest way is [`relizy init`](/cli/init): it detects your packages, package manager and git provider, asks a few questions, writes `relizy.config.ts` and can set up [commit linting](/commitlint/):
+
+```bash
+npx relizy init
+```
+
+Or create it by hand:
 
 ```bash
 touch relizy.config.ts

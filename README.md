@@ -80,7 +80,13 @@ pnpm add -D relizy
 # or yarn add -D relizy
 ```
 
-Create a simple configuration file `relizy.config.ts`:
+Generate the configuration: packages, versions, package manager and git provider are detected, only a few questions are asked:
+
+```bash
+npx relizy init
+```
+
+Or write `relizy.config.ts` yourself:
 
 ```typescript
 import { defineConfig } from 'relizy'

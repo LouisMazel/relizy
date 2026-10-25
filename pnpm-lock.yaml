@@ -166,6 +166,9 @@ importers:
 
   .:
     dependencies:
+      '@clack/prompts':
+        specifier: ^1.8.1
+        version: 1.8.1
       '@inquirer/prompts':
         specifier: ^8.7.4
         version: 8.7.4(@types/node@26.6.5)
