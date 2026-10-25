@@ -1,5 +1,25 @@
 # Changelog
 
+## v1.12.0 (2026-10-25)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.11.1...v1.12.0)
+
+### 🚀 Features
+
+- Add the relizy init command ([d474bf1](https://github.com/LouisMazel/relizy/commit/d474bf1))
+
+  Run `npx relizy init` to create the `relizy.config.ts` of your project: the packages, their versions, the package manager and the git provider are detected, and only a few questions are asked (publish or version only, folders to release, version mode, optional advanced options). It can also install the `commit-msg` hook of `relizy commitlint` and add a `release` script to the `package.json`.
+
+  Use `--yes` to accept the detected values without questions, `--force` to replace an existing config and `--dry-run` to preview the generated config.
+
+### 🩹 Fixes
+
+- Stop printing git errors when detecting the provider of a repository without remote ([43d72e7](https://github.com/LouisMazel/relizy/commit/43d72e7))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.11.1 (2026-10-23)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.11.0...v1.11.1)
