@@ -7,7 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
-import { bump, changelog, commitlint, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
@@ -283,6 +283,27 @@ program
       else {
         logger.error('Failed to lint the commits -', message)
       }
+      process.exit(1)
+    }
+  })
+
+program
+  .command('init')
+  .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
+  .option('--yes', 'Accept the detected values without asking')
+  .option('--force', 'Replace an existing config file')
+  .action(async (options) => {
+    try {
+      await init({
+        yes: options.yes,
+        force: options.force,
+        dryRun: program.opts().dryRun,
+        configName: program.opts().config,
+        logLevel: program.opts().logLevel,
+      })
+    }
+    catch (error) {
+      logger.error('Failed to init relizy -', error instanceof Error ? error.message : error)
       process.exit(1)
     }
   })

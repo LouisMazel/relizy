@@ -258,6 +258,7 @@ describe('Given detectGitProvider function', () => {
       expect(execSync).toHaveBeenCalledWith('git remote get-url origin', {
         cwd: '/custom/path',
         encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
       })
     })
   })
@@ -331,6 +332,7 @@ describe('Given detectGitProvider function', () => {
       expect(execSync).toHaveBeenCalledWith('git remote get-url origin', {
         cwd: process.cwd(),
         encoding: 'utf8',
+        stdio: ['ignore', 'pipe', 'ignore'],
       })
     })
   })

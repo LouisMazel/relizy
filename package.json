@@ -95,6 +95,7 @@
     }
   },
   "dependencies": {
+    "@clack/prompts": "^1.8.1",
     "@inquirer/prompts": "^8.7.4",
     "@maz-ui/node": "5.0.0-beta.26",
     "@maz-ui/utils": "5.0.0-beta.39",

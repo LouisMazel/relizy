@@ -55,14 +55,22 @@ function readConfigFile(cwd: string, file: string): Record<string, any> | undefi
  * `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and the `workspace` of `deno.json`.
  */
 export function getPackageManagerWorkspaces(cwd: string): string[] {
+  return [...new Set(getPackageManagerWorkspaceSources(cwd).flatMap(source => source.patterns))]
+}
+
+/**
+ * Package globs of `getPackageManagerWorkspaces`, grouped by the file declaring them.
+ */
+export function getPackageManagerWorkspaceSources(cwd: string): { file: string, patterns: string[] }[] {
   const workspaces = readConfigFile(cwd, 'package.json')?.workspaces
-  return [...new Set([
-    ...toStrings(Array.isArray(workspaces) ? workspaces : workspaces?.packages),
-    ...toStrings(readConfigFile(cwd, 'pnpm-workspace.yaml')?.packages),
-    ...toStrings(readConfigFile(cwd, 'lerna.json')?.packages),
-    ...toStrings((readConfigFile(cwd, 'rush.json')?.projects ?? []).map((project: { projectFolder?: unknown }) => project?.projectFolder)),
-    ...toStrings((readConfigFile(cwd, 'deno.json') ?? readConfigFile(cwd, 'deno.jsonc'))?.workspace),
-  ])]
+  const deno = readConfigFile(cwd, 'deno.json') ? 'deno.json' : 'deno.jsonc'
+  return [
+    { file: 'package.json', patterns: toStrings(Array.isArray(workspaces) ? workspaces : workspaces?.packages) },
+    { file: 'pnpm-workspace.yaml', patterns: toStrings(readConfigFile(cwd, 'pnpm-workspace.yaml')?.packages) },
+    { file: 'lerna.json', patterns: toStrings(readConfigFile(cwd, 'lerna.json')?.packages) },
+    { file: 'rush.json', patterns: toStrings((readConfigFile(cwd, 'rush.json')?.projects ?? []).map((project: { projectFolder?: unknown }) => project?.projectFolder)) },
+    { file: deno, patterns: toStrings(readConfigFile(cwd, deno)?.workspace) },
+  ].filter(source => source.patterns.length > 0)
 }
 
 /**
