@@ -24,7 +24,7 @@ export default defineConfig({
         autoUpdate: !isInCI(),
         statements: 95.65,
         functions: 98.84,
-        branches: 91.31,
+        branches: 91.32,
         lines: 95.52,
       },
     },

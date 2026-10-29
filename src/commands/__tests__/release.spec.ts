@@ -18,7 +18,7 @@ import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
 import { publish } from '../publish'
 import { buildReleaseSummary, release } from '../release'
-import { social } from '../social'
+import { social, socialSafetyCheck } from '../social'
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual('../../core')
@@ -134,6 +134,25 @@ describe('Given release command', () => {
       expect(publish).toHaveBeenCalled()
       expect(providerRelease).toHaveBeenCalled()
       expect(social).toHaveBeenCalled()
+    })
+
+    it('Then checks the social config when the release posts', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({})
+
+      expect(socialSafetyCheck).toHaveBeenCalled()
+    })
+
+    it('Then does not check the social config with --no-social', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, social: { twitter: { enabled: true } } })
+      config.release.social = false
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ social: false })
+
+      expect(socialSafetyCheck).not.toHaveBeenCalled()
     })
 
     it('Then forwards the targeted version groups to every step', async () => {
@@ -569,6 +588,15 @@ describe('Given release command', () => {
       expect(changelog).not.toHaveBeenCalled()
       expect(providerRelease).not.toHaveBeenCalled()
       expect(social).not.toHaveBeenCalled()
+    })
+
+    it('Then does not check the social config, which canary releases do not post to', async () => {
+      setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true })
+
+      expect(socialSafetyCheck).not.toHaveBeenCalled()
     })
 
     it('Then still publishes to npm in canary mode', async () => {
