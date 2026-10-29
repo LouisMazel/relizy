@@ -89,6 +89,15 @@ This is equivalent to setting `monorepo.includePrivates: true` in
 never published. See
 [Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
+
+```bash
+relizy bump --group header
+relizy bump --group main,header
+```
+
 ## Examples
 
 ### Single Package

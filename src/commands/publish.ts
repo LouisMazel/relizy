@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
+import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { executeBuildCmd, getAuthCommand, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, topologicalSort, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getGroupBumpResult, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 /**
@@ -102,7 +102,126 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
   }
 }
 
-// eslint-disable-next-line complexity
+interface PackagesToPublish {
+  /**
+   * Packages in publish order (see `sortPackagesForPublish`)
+   */
+  sortedPackages: PackageBase[]
+  publishedPackages: PackageBase[]
+}
+
+/**
+ * Packages of the config to publish, sorted in publish order.
+ */
+async function getPackagesToPublish({
+  config,
+  bumpResult,
+  suffix,
+  force,
+  dryRun,
+  rootVersion,
+}: {
+  config: ResolvedRelizyConfig
+  bumpResult: BumpResultTruthy | undefined
+  suffix: string | undefined
+  force: boolean
+  dryRun: boolean
+  rootVersion: string
+}): Promise<PackagesToPublish> {
+  const discoveredPackages = await getPackagesOrBumpedPackages({
+    config,
+    bumpResult,
+    suffix,
+    force,
+    dryRun,
+  })
+
+  const packages = filterOutPrivatePackages(discoveredPackages)
+
+  if (discoveredPackages.length !== packages.length) {
+    logger.debug(`Filtered out ${discoveredPackages.length - packages.length} private package(s) from publish`)
+  }
+
+  logger.debug(`Found ${packages.length} package(s)`)
+
+  logger.debug('Building dependency graph and sorting...')
+  const sortedPackages = sortPackagesForPublish(packages)
+
+  let publishedPackages: PackageBase[] = packages || []
+
+  if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'independent') {
+    logger.debug('Determining packages to publish in independent mode...')
+
+    publishedPackages = await getPackagesToPublishInIndependentMode(sortedPackages, config)
+
+    logger.info(`Publishing ${publishedPackages.length} package(s) (independent mode)`)
+    logger.debug(`Packages: ${publishedPackages.join(', ')}`)
+  }
+  else if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'selective') {
+    logger.debug('Determining packages to publish in selective mode...')
+    publishedPackages = getPackagesToPublishInSelectiveMode(sortedPackages, rootVersion)
+    logger.info(`Publishing ${publishedPackages.length} package(s) matching root version (selective mode)`)
+    logger.debug(`Packages: ${publishedPackages.join(', ')}`)
+  }
+  else if (publishedPackages.length === 0) {
+    publishedPackages = sortedPackages
+    logger.info(`Publishing ${publishedPackages.length} package(s) (unified mode)`)
+  }
+
+  return { sortedPackages, publishedPackages }
+}
+
+/**
+ * Packages to publish of every version group, sorted in a single publish order:
+ * a package is published after its internal dependencies, whatever their group.
+ */
+async function getGroupsPackagesToPublish({
+  config,
+  options,
+  dryRun,
+  rootVersion,
+}: {
+  config: ResolvedRelizyConfig
+  options: Partial<PublishOptions>
+  dryRun: boolean
+  rootVersion: string
+}): Promise<PackagesToPublish> {
+  const publishedPackages: PackageBase[] = []
+
+  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
+    const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+
+    if (groupBumpResult === null) {
+      logger.debug(`Version group "${group.name}" did not bump, nothing to publish`)
+      continue
+    }
+
+    const { publishedPackages: groupPackages } = await getPackagesToPublish({
+      config: groupConfig,
+      bumpResult: groupBumpResult,
+      suffix: options.suffix,
+      force: options.force ?? false,
+      dryRun,
+      rootVersion: groupBumpResult?.newVersion ?? rootVersion,
+    })
+
+    logger.info(`Version group "${group.name}": ${groupPackages.length} package(s) to publish`)
+
+    publishedPackages.push(...groupPackages)
+  }
+
+  return { sortedPackages: sortPackagesForPublish(publishedPackages), publishedPackages }
+}
+
+/**
+ * New versions of the packages bumped by the run, by name.
+ */
+function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<string, string> {
+  return new Map((bumpResult?.bumpedPackages ?? [])
+    .filter(pkg => pkg.newVersion)
+    .map(pkg => [pkg.name, pkg.newVersion!]))
+}
+
 export async function publish(options: Partial<PublishOptions> = {}) {
   const config = await loadRelizyConfig({
     configFile: options.configName,
@@ -117,6 +236,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
         buildCmd: options.buildCmd,
         token: options.token,
         skipExistingVersions: options.skipExistingVersions,
+        checkWorkspaceDependencies: options.checkWorkspaceDependencies,
       },
       logLevel: options.logLevel,
       safetyCheck: options.safetyCheck,
@@ -148,45 +268,18 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.start('Start publishing packages')
 
-    const discoveredPackages = await getPackagesOrBumpedPackages({
-      config,
-      bumpResult: options.bumpResult,
-      suffix: options.suffix,
-      force: options.force ?? false,
-      dryRun,
-    })
+    assertVersionGroupsOption({ config, groups: options.groups })
 
-    const packages = filterOutPrivatePackages(discoveredPackages)
-
-    if (discoveredPackages.length !== packages.length) {
-      logger.debug(`Filtered out ${discoveredPackages.length - packages.length} private package(s) from publish`)
-    }
-
-    logger.debug(`Found ${packages.length} package(s)`)
-
-    logger.debug('Building dependency graph and sorting...')
-    const sortedPackages = topologicalSort(packages)
-
-    let publishedPackages: PackageBase[] = packages || []
-
-    if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'independent') {
-      logger.debug('Determining packages to publish in independent mode...')
-
-      publishedPackages = await getPackagesToPublishInIndependentMode(sortedPackages, config)
-
-      logger.info(`Publishing ${publishedPackages.length} package(s) (independent mode)`)
-      logger.debug(`Packages: ${publishedPackages.join(', ')}`)
-    }
-    else if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'selective') {
-      logger.debug('Determining packages to publish in selective mode...')
-      publishedPackages = getPackagesToPublishInSelectiveMode(sortedPackages, rootPackage.version)
-      logger.info(`Publishing ${publishedPackages.length} package(s) matching root version (selective mode)`)
-      logger.debug(`Packages: ${publishedPackages.join(', ')}`)
-    }
-    else if (publishedPackages.length === 0) {
-      publishedPackages = sortedPackages
-      logger.info(`Publishing ${publishedPackages.length} package(s) (unified mode)`)
-    }
+    const { sortedPackages, publishedPackages } = hasVersionGroups(config)
+      ? await getGroupsPackagesToPublish({ config, options, dryRun, rootVersion: rootPackage.version })
+      : await getPackagesToPublish({
+          config,
+          bumpResult: options.bumpResult,
+          suffix: options.suffix,
+          force: options.force ?? false,
+          dryRun,
+          rootVersion: rootPackage.version,
+        })
 
     if (publishedPackages.length === 0) {
       logger.fail('No packages need to be published')
@@ -196,6 +289,20 @@ export async function publish(options: Partial<PublishOptions> = {}) {
     // Only check the registries this specific set of packages actually needs -
     // scoped `registries` entries for packages outside this release must not block it.
     await publishSafetyCheck({ config, packages: publishedPackages })
+
+    await checkWorkspaceDependencies({
+      config,
+      packages: sortedPackages.filter(pkg => publishedPackages.some(p => p.name === pkg.name)),
+      plannedVersions: getPlannedVersions(options.bumpResult),
+    })
+
+    if (options.bumpResult) {
+      reportStalePeerDependents({
+        config,
+        bumpedPackages: options.bumpResult.bumpedPackages,
+        publishedPackages,
+      })
+    }
 
     await executeBuildCmd({
       config,

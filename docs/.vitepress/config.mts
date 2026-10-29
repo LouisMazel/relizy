@@ -210,6 +210,7 @@ export default defineConfig({
           { text: 'Installation', link: '/guide/installation' },
           { text: 'Private Projects & Apps', link: '/guide/private-projects' },
           { text: 'Version Modes', link: '/guide/version-modes' },
+          { text: 'Version Groups', link: '/guide/version-groups' },
           { text: 'Dependency Management', link: '/guide/dependency-management' },
           { text: 'Changelog Generation', link: '/guide/changelog' },
           { text: 'Canary Releases', link: '/guide/canary-releases' },
@@ -320,6 +321,7 @@ export default defineConfig({
           text: 'Core Concepts',
           items: [
             { text: 'Version Modes', link: '/guide/version-modes' },
+            { text: 'Version Groups', link: '/guide/version-groups' },
             { text: 'Dependency Management', link: '/guide/dependency-management' },
             { text: 'Changelog Generation', link: '/guide/changelog' },
             { text: 'Canary Releases', link: '/guide/canary-releases' },

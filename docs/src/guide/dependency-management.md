@@ -207,6 +207,20 @@ Relizy supports the workspace protocol used by pnpm, bun and yarn:
 }
 ```
 
+The package manager replaces these specifiers when publishing (`workspace:*` becomes the exact version, `workspace:^` becomes `^1.2.0`). Before publishing, Relizy checks that they resolve to versions published by the release or already on the registry. See [`publish.checkWorkspaceDependencies`](../config/publish.md#checkworkspacedependencies).
+
+### Out-of-Range Peer Dependencies
+
+A peer dependency declared as `workspace:*` is published as the exact version of the dependency. When the dependency is released again, the package must be released too, otherwise its consumers get peer dependency warnings. Relizy bumps such packages automatically, only when their published range no longer accepts the new version (`workspace:*` on every release, `workspace:^` on a major), even when `peerDependencies` is not in `dependencyTypes`. See [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers).
+
+### Publish Order
+
+Packages are published after the internal packages they depend on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever `dependencyTypes` is.
+
+## Between Version Groups
+
+With [version groups](./version-groups.md), a package depending on a package bumped by another group is bumped too, following the `dependencyTypes` of its own group and the out-of-range peer dependencies. See [Dependencies Between Groups](./version-groups.md#dependencies-between-groups).
+
 ## Complex Dependency Graphs
 
 Relizy handles complex scenarios automatically:

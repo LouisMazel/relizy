@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
+import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { detectGitProvider, executeHook, github, gitlab, loadRelizyConfig } from '../core'
+import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, github, gitlab, hasVersionGroups, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 
 export async function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
@@ -42,6 +42,42 @@ export async function providerReleaseSafetyCheck({ config, provider }: { config:
   }
 
   logger.info('provider release config checked successfully')
+}
+
+function postProviderReleases({
+  provider,
+  config,
+  bumpResult,
+  options,
+  dryRun,
+}: {
+  provider: GitProvider
+  config: ResolvedRelizyConfig
+  bumpResult: BumpResultTruthy | undefined
+  options: Partial<ProviderReleaseOptions>
+  dryRun: boolean
+}): Promise<PostedRelease[]> {
+  const payload = {
+    from: config.from || bumpResult?.fromTag,
+    to: config.to,
+    dryRun,
+    config,
+    logLevel: config.logLevel,
+    bumpResult,
+    force: options.force ?? false,
+    suffix: options.suffix,
+  }
+
+  if (provider === 'github') {
+    return github(payload)
+  }
+
+  if (provider === 'gitlab') {
+    return gitlab(payload)
+  }
+
+  logger.error(`Unsupported Git provider: ${provider}`)
+  return Promise.resolve([])
 }
 
 export async function providerRelease(
@@ -89,6 +125,8 @@ export async function providerRelease(
       )
     }
 
+    assertVersionGroupsOption({ config, groups: options.groups })
+
     let postedReleases: PostedRelease[] = []
 
     // Skip Bitbucket as it doesn't support releases
@@ -105,25 +143,32 @@ export async function providerRelease(
       }
     }
 
-    const payload = {
-      from: config.from || options.bumpResult?.fromTag,
-      to: config.to,
-      dryRun,
-      config,
-      logLevel: config.logLevel,
-      bumpResult: options.bumpResult,
-      force: options.force ?? false,
-      suffix: options.suffix,
-    }
+    if (hasVersionGroups(config)) {
+      for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
+        const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
 
-    if (detectedProvider === 'github') {
-      postedReleases = await github(payload)
-    }
-    else if (detectedProvider === 'gitlab') {
-      postedReleases = await gitlab(payload)
+        if (groupBumpResult === null) {
+          logger.debug(`Version group "${group.name}" did not bump, no release to publish`)
+          continue
+        }
+
+        postedReleases.push(...await postProviderReleases({
+          provider: detectedProvider,
+          config: groupConfig,
+          bumpResult: groupBumpResult,
+          options,
+          dryRun,
+        }))
+      }
     }
     else {
-      logger.error(`Unsupported Git provider: ${detectedProvider}`)
+      postedReleases = await postProviderReleases({
+        provider: detectedProvider,
+        config,
+        bumpResult: options.bumpResult,
+        options,
+        dryRun,
+      })
     }
 
     await executeHook('success:provider-release', config, dryRun)

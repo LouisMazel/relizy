@@ -139,6 +139,15 @@ relizy social --no-safety-check
 Use with caution. Safety checks help catch configuration issues before posting.
 :::
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
+
+```bash
+relizy social --group header
+relizy social --group main,header
+```
+
 ## Examples
 
 ### Basic Usage

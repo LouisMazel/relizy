@@ -136,6 +136,27 @@ describe('Given release command', () => {
       expect(social).toHaveBeenCalled()
     })
 
+    it('Then forwards the targeted version groups to every step', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ groups: ['header'] })
+
+      for (const step of [bump, changelog, publish, providerRelease, social]) {
+        expect(step).toHaveBeenCalledWith(expect.objectContaining({ groups: ['header'] }))
+      }
+    })
+
+    it('Then creates the tags of every version group that bumped', async () => {
+      const nav = { name: '@scope/nav', version: '1.2.0', newVersion: '2.0.0', oldVersion: '1.2.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
+      const groups = [{ name: 'header', versionMode: 'independent' as const, bumped: true as const, bumpedPackages: [nav] }]
+      vi.mocked(bump).mockResolvedValue({ bumpedPackages: [nav], bumped: true, groups })
+
+      await release({})
+
+      expect(assertReleaseTagsAvailable).toHaveBeenCalledWith(expect.objectContaining({ tags: ['@scope/nav@2.0.0'] }))
+      expect(createCommitAndTags).toHaveBeenCalledWith(expect.objectContaining({ groups }))
+    })
+
     it('Then executes success hook', async () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
 
@@ -686,5 +707,29 @@ describe('Given buildReleaseSummary function', () => {
       expect(summary).toContain('Social media: 1 succeeded, 1 failed (twitter)')
       expect(summary).toContain('PR comment: Failed')
     })
+  })
+})
+
+describe('Given buildReleaseSummary function with version groups', () => {
+  it('Then shows the version of each group', () => {
+    const summary = buildReleaseSummary({
+      config: createMockConfig({ bump: { type: 'release' } }),
+      bumpResult: {
+        bumped: true,
+        newVersion: '7.0.0',
+        bumpedPackages: [],
+        groups: [
+          { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', bumpedPackages: [] },
+          { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [{} as any, {} as any] },
+        ],
+      },
+      createdTags: ['v7.0.0', '@scope/nav@2.0.0', '@scope/login@2.0.1'],
+      provider: 'github',
+      postedReleases: [],
+      prCommentPosted: false,
+    })
+
+    expect(summary).toContain('Version: main: 7.0.0, header: 2 package(s) bumped independently')
+    expect(summary).toContain('Tag(s): v7.0.0, @scope/nav@2.0.0, @scope/login@2.0.1')
   })
 })

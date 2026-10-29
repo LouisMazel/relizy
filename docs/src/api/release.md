@@ -105,6 +105,11 @@ interface ReleaseOptions {
    * @default false
    */
   canary?: boolean
+  /**
+   * Only process these version groups of `monorepo.groups`, by name
+   * @default undefined (every group)
+   */
+  groups?: string[]
 }
 ```
 

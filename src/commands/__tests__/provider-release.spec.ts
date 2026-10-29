@@ -1,3 +1,4 @@
+import type { GroupBumpResult } from '../../types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
@@ -152,5 +153,79 @@ describe('Given providerReleaseSafetyCheck', () => {
 
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('Given providerRelease command with version groups', () => {
+  const mainGroup: GroupBumpResult = { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
+  const headerGroup: GroupBumpResult = { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    config.monorepo = {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+      ],
+    }
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+  })
+
+  it('Then posts the releases of each group with the config of the group', async () => {
+    vi.mocked(github)
+      .mockResolvedValueOnce([{ name: 'v7.0.0', tag: 'v7.0.0', prerelease: false, version: '7.0.0' }])
+      .mockResolvedValueOnce([{ name: '@scope/nav@1.2.1', tag: '@scope/nav@1.2.1', prerelease: false, version: '1.2.1' }])
+
+    const result = await providerRelease({
+      provider: 'github',
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+    })
+
+    expect(github).toHaveBeenNthCalledWith(1, expect.objectContaining({
+      from: 'v6.19.1',
+      bumpResult: mainGroup,
+      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'selective' }) }),
+    }))
+    expect(github).toHaveBeenNthCalledWith(2, expect.objectContaining({
+      bumpResult: headerGroup,
+      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
+    }))
+    expect(result.postedReleases.map(release => release.tag)).toEqual(['v7.0.0', '@scope/nav@1.2.1'])
+    expect(executeHook).toHaveBeenCalledTimes(2)
+  })
+
+  it('Then skips the groups that did not bump', async () => {
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({
+      provider: 'github',
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [headerGroup] },
+    })
+
+    expect(github).toHaveBeenCalledTimes(1)
+    expect(github).toHaveBeenCalledWith(expect.objectContaining({ bumpResult: headerGroup }))
+  })
+
+  it('Then only releases the targeted groups', async () => {
+    vi.mocked(gitlab).mockResolvedValue([])
+
+    await providerRelease({ provider: 'gitlab', groups: ['header'] })
+
+    expect(gitlab).toHaveBeenCalledTimes(1)
+    expect(gitlab).toHaveBeenCalledWith(expect.objectContaining({
+      bumpResult: undefined,
+      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
+    }))
+  })
+
+  it('Then returns an error when targeting groups on a config without groups', async () => {
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, safetyCheck: false }))
+
+    const result = await providerRelease({ provider: 'github', groups: ['header'] })
+
+    expect(result.error).toContain('the config has no monorepo.groups')
+    expect(github).not.toHaveBeenCalled()
   })
 })

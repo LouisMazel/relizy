@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, getMonorepoPackagePatterns, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -236,9 +236,9 @@ function buildSuccessComment({
   const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, includePrivates)
   const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, includePrivates)
   // Independent mode has no global version: each package has its own,
-  // listed in the packages table below.
-  const isIndependent = config.monorepo?.versionMode === 'independent'
-  const version = isIndependent ? undefined : (bumpResult?.newVersion ?? rootVersion)
+  // listed in the packages table below. Same with version groups when the
+  // unified/selective group is not released.
+  const version = hasRepositoryVersion(config, bumpResult) ? (bumpResult?.newVersion ?? rootVersion) : undefined
   const tags = releaseContext?.tags ?? []
   const isPublishing = config.release.publish !== false
   const distTag = isPublishing ? config.publish?.tag : undefined
@@ -344,7 +344,7 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
 
     const readPkgs = readPackages({
       cwd: config.cwd,
-      patterns: config.monorepo?.packages,
+      patterns: getMonorepoPackagePatterns(config),
       ignorePackageNames: config.monorepo?.ignorePackageNames,
       ignored: config.monorepo?.ignored,
       includePrivates: config.monorepo?.includePrivates,

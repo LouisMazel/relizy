@@ -93,6 +93,11 @@ interface SocialOptions {
    * @default undefined
    */
   slackFormat?: 'summary' | 'full'
+  /**
+   * Only process these version groups of `monorepo.groups`, by name
+   * @default undefined (every group)
+   */
+  groups?: string[]
 }
 ```
 

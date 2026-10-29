@@ -65,6 +65,15 @@ This is equivalent to setting `monorepo.includePrivates: true` in
 `relizy.config.ts`. See
 [Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
+
+```bash
+relizy changelog --group header
+relizy changelog --group main,header
+```
+
 ## Examples
 
 ### Basic Usage

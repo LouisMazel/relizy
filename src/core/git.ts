@@ -1,6 +1,6 @@
 import type { LogLevel } from '@maz-ui/node'
 
-import type { BumpResultTruthy, GitProvider } from '../types'
+import type { BumpResultTruthy, GitProvider, GroupBumpResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
 import { isAncestor, tagExists } from './git-refs'
+import { getRootGroupBumpResult } from './groups'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
 import { executeHook } from './utils'
@@ -151,6 +152,7 @@ export async function createCommitAndTags({
   noVerify,
   bumpedPackages,
   newVersion,
+  groups,
   dryRun,
   logLevel,
 }: {
@@ -158,6 +160,10 @@ export async function createCommitAndTags({
   noVerify: boolean
   bumpedPackages: BumpResultTruthy['bumpedPackages']
   newVersion?: string
+  /**
+   * Result of each version group, when `monorepo.groups` is set
+   */
+  groups?: GroupBumpResult[]
   dryRun?: boolean
   logLevel: LogLevel
 }): Promise<string[]> {
@@ -204,7 +210,10 @@ export async function createCommitAndTags({
 
     newVersion = newVersion || rootPackage.version
 
-    const isIndependent = internalConfig.monorepo?.versionMode === 'independent'
+    // With version groups, the commit is "independent" when no unified/selective group bumped
+    const isIndependent = groups
+      ? !getRootGroupBumpResult(groups)
+      : internalConfig.monorepo?.versionMode === 'independent'
 
     const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
     const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
@@ -230,8 +239,7 @@ export async function createCommitAndTags({
       return out
     }
 
-    const titleTemplate = internalConfig.templates.commitMessage ?? 'chore(release): bump version to {{newVersion}}'
-    const bodyTemplate = internalConfig.templates.commitBody
+    const { title: titleTemplate, body: bodyTemplate } = getCommitTemplates({ config: internalConfig, groups, isIndependent })
 
     const commitMessage = applyPlaceholders(titleTemplate)
     const commitBody = bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined
@@ -260,51 +268,13 @@ export async function createCommitAndTags({
     logger.debug(`Sign tags: ${internalConfig.signTags}`)
     const createdTags: string[] = []
 
-    if (internalConfig.monorepo?.versionMode === 'independent' && bumpedPackages && bumpedPackages.length > 0 && internalConfig.release.gitTag) {
-      logger.debug(`Creating ${bumpedPackages.length} independent package tags`)
+    const releaseTags = getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups })
 
-      for (const pkg of bumpedPackages) {
-        if (!pkg.newVersion) {
-          continue
-        }
+    logger.debug(`Creating ${releaseTags.length} tag(s)`)
 
-        const tagName = getIndependentTag({ version: pkg.newVersion, name: pkg.name })
-        const tagMessage = internalConfig.templates?.tagMessage
-          ?.replaceAll('{{newVersion}}', pkg.newVersion)
-          || tagName
-
-        if (dryRun) {
-          logger.info(`[dry-run] git tag ${signTags} -a ${tagName} -m "${tagMessage}"`)
-        }
-        else {
-          const cmd = `git tag ${signTags} -a ${tagName} -m "${tagMessage}"`
-          logger.debug(`Executing: ${cmd}`)
-          // eslint-disable-next-line max-depth
-          try {
-            await execPromise(cmd, {
-              logLevel,
-              noStderr: true,
-              noStdout: true,
-              cwd: internalConfig.cwd,
-            })
-            logger.debug(`Tag created: ${tagName}`)
-          }
-          catch (error) {
-            logger.error(`Failed to create tag ${tagName}:`, error)
-            throw error
-          }
-        }
-        createdTags.push(tagName)
-      }
-
-      logger.success(`Created ${createdTags.length} tags for independent packages, ${createdTags.join(', ')}`)
-    }
-    else if (internalConfig.release.gitTag) {
-      const tagName = internalConfig.templates.tagBody
-        ?.replaceAll('{{newVersion}}', newVersion)
-
+    for (const { name: tagName, version } of releaseTags) {
       const tagMessage = internalConfig.templates?.tagMessage
-        ?.replaceAll('{{newVersion}}', newVersion)
+        ?.replaceAll('{{newVersion}}', version)
         || tagName
 
       if (dryRun) {
@@ -329,6 +299,10 @@ export async function createCommitAndTags({
       }
 
       createdTags.push(tagName)
+    }
+
+    if (createdTags.length > 1) {
+      logger.success(`Created ${createdTags.length} tags, ${createdTags.join(', ')}`)
     }
 
     logger.debug('Created Tags:', createdTags.join(', '))
@@ -551,31 +525,93 @@ export async function pushCommitAndTags({
 }
 
 /**
- * Compute the git tag names a release will create, mirroring `createCommitAndTags`.
+ * Default commit templates of the release commit. With version groups, they
+ * depend on the groups that bumped: the title of the unified/selective mode
+ * when its group bumped, the one of the independent mode otherwise, and the
+ * list of the bumped packages as body when an independent group bumped.
+ * Templates set by the user are kept.
  */
-export function getReleaseTagNames({
+function getCommitTemplates({
+  config,
+  groups,
+  isIndependent,
+}: {
+  config: ResolvedRelizyConfig
+  groups?: GroupBumpResult[]
+  isIndependent: boolean
+}): { title: string, body?: string } {
+  const { commitMessage, commitBody } = config.templates
+
+  if (!groups || commitMessage !== undefined) {
+    return {
+      title: commitMessage ?? 'chore(release): bump version to {{newVersion}}',
+      body: commitBody,
+    }
+  }
+
+  const hasIndependentGroup = groups.some(group => group.versionMode === 'independent')
+
+  return {
+    title: isIndependent ? 'chore(release): bump {{packageCount}} packages' : 'chore(release): bump version to {{newVersion}}',
+    body: commitBody ?? (hasIndependentGroup ? '{{packageList}}' : undefined),
+  }
+}
+
+function getRepoTag({ config, version }: { config: ResolvedRelizyConfig, version?: string }): ReleaseTag[] {
+  const tagName = version ? config.templates.tagBody?.replaceAll('{{newVersion}}', version) : undefined
+
+  return tagName && version ? [{ name: tagName, version }] : []
+}
+
+function getPackageTags(bumpedPackages?: BumpResultTruthy['bumpedPackages']): ReleaseTag[] {
+  return (bumpedPackages ?? [])
+    .filter(pkg => pkg.newVersion)
+    .map(pkg => ({ name: getIndependentTag({ name: pkg.name, version: pkg.newVersion! }), version: pkg.newVersion! }))
+}
+
+export interface ReleaseTag {
+  name: string
+  version: string
+}
+
+/**
+ * Compute the git tags a release creates: one tag per package in independent
+ * mode, the repository tag (`templates.tagBody`) otherwise. With version groups,
+ * the tags of every group that bumped.
+ */
+export function getReleaseTags({
   config,
   bumpedPackages,
   newVersion,
+  groups,
 }: {
   config: ResolvedRelizyConfig
   bumpedPackages?: BumpResultTruthy['bumpedPackages']
   newVersion?: string
-}): string[] {
+  groups?: GroupBumpResult[]
+}): ReleaseTag[] {
   if (!config.release.gitTag) {
     return []
   }
 
-  if (config.monorepo?.versionMode === 'independent') {
-    return (bumpedPackages ?? [])
-      .filter(pkg => pkg.newVersion)
-      .map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion! }))
+  if (groups) {
+    return groups.flatMap(group => group.versionMode === 'independent'
+      ? getPackageTags(group.bumpedPackages)
+      : getRepoTag({ config, version: group.newVersion }))
   }
 
-  const version = newVersion || readPackageJson(config.cwd)?.version
-  const tagName = version ? config.templates.tagBody?.replaceAll('{{newVersion}}', version) : undefined
+  if (config.monorepo?.versionMode === 'independent') {
+    return getPackageTags(bumpedPackages)
+  }
 
-  return tagName ? [tagName] : []
+  return getRepoTag({ config, version: newVersion || readPackageJson(config.cwd)?.version })
+}
+
+/**
+ * Compute the git tag names a release will create, mirroring `createCommitAndTags`.
+ */
+export function getReleaseTagNames(options: Parameters<typeof getReleaseTags>[0]): string[] {
+  return getReleaseTags(options).map(tag => tag.name)
 }
 
 /**

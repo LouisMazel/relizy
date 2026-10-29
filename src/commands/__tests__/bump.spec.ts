@@ -25,7 +25,8 @@ vi.mock('node:process', () => ({
 }))
 
 // Mock core functions
-vi.mock('../../core', () => ({
+vi.mock('../../core', async () => ({
+  ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   checkGitStatusIfDirty: vi.fn(),
   confirmBump: vi.fn(() => true),
   determineSemverChange: vi.fn(() => 'minor'),

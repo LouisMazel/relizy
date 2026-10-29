@@ -90,6 +90,15 @@ Test publish without actually publishing:
 relizy publish --dry-run
 ```
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
+
+```bash
+relizy publish --group header
+relizy publish --group main,header
+```
+
 ## Examples
 
 ### Basic Publish
