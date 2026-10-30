@@ -229,6 +229,15 @@ This is equivalent to setting `monorepo.includePrivates: true` in
 `relizy.config.ts`. See
 [Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed. Only the targeted groups are bumped, published and tagged, in a single release commit.
+
+```bash
+relizy release --group header
+relizy release --group main,header
+```
+
 ## Examples
 
 ### Basic Release

@@ -5,7 +5,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -359,6 +359,33 @@ async function handleSlackPost({
   }
 }
 
+/**
+ * Post the release of each version group, with the config of the group.
+ */
+async function socialForVersionGroups({
+  config,
+  options,
+}: {
+  config: ResolvedRelizyConfig
+  options: Partial<SocialOptions>
+}): Promise<SocialResult> {
+  const results: SocialResult['results'] = []
+
+  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
+    const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+
+    if (groupBumpResult === null) {
+      logger.debug(`Version group "${group.name}" did not bump, nothing to post`)
+      continue
+    }
+
+    const groupResult = await social({ ...options, config: groupConfig, bumpResult: groupBumpResult })
+    results.push(...groupResult.results)
+  }
+
+  return { results, hasErrors: results.some(result => !result.success) }
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
   try {
@@ -374,6 +401,12 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
         logLevel: options.logLevel,
       },
     })
+
+    assertVersionGroupsOption({ config, groups: options.groups })
+
+    if (hasVersionGroups(config)) {
+      return await socialForVersionGroups({ config, options })
+    }
 
     applyAIOverride(config, options.ai)
 

@@ -8,7 +8,10 @@ import { buildCommentBody, prComment, tryPostPrComment } from '../pr-comment'
 vi.mock('../../core', async () => {
   const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
   const versionActual = await vi.importActual<typeof import('../../core')>('../../core/version')
+  const groupsActual = await vi.importActual<typeof import('../../core')>('../../core/groups')
   return {
+    getMonorepoPackagePatterns: groupsActual.getMonorepoPackagePatterns,
+    hasRepositoryVersion: groupsActual.hasRepositoryVersion,
     loadRelizyConfig: vi.fn(),
     detectPullRequest: vi.fn(),
     postPrComment: vi.fn(),
@@ -707,5 +710,82 @@ describe('Given tryPostPrComment function', () => {
 
       expect(result).toBe(false)
     })
+  })
+})
+
+describe('Given buildCommentBody with version groups', () => {
+  const nav = { name: '@scope/nav', oldVersion: '1.2.0', newVersion: '2.0.0', version: '2.0.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
+  const components = { name: '@scope/components', oldVersion: '6.19.1', newVersion: '6.20.0', version: '6.20.0', path: '/components', private: false, fromTag: 'v6.19.1', commits: [], dependencies: [] }
+
+  function createGroupsConfig() {
+    const config = createMockConfig({ prComment: { mode: 'append' }, publish: { packageManager: 'pnpm' } })
+    config.monorepo = {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+      ],
+    }
+    return config
+  }
+
+  it('Then shows the version of the selective group and the packages of both groups', () => {
+    const body = buildCommentBody({
+      config: createGroupsConfig(),
+      branch: 'main',
+      date: '2026-02-22 14:30 UTC',
+      releaseContext: {
+        status: 'success',
+        tags: ['v6.20.0', '@scope/nav@2.0.0'],
+        bumpResult: {
+          bumped: true,
+          newVersion: '6.20.0',
+          fromTag: 'v6.19.1',
+          bumpedPackages: [components, nav],
+          groups: [
+            { name: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+            { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
+          ],
+        },
+      },
+    })
+
+    expect(body).toContain('**Version**')
+    expect(body).toContain('`6.19.1` → `6.20.0`')
+    expect(body).toContain('| `@scope/nav` | `1.2.0` → `2.0.0` |')
+    expect(body).toContain('pnpm add @scope/components@6.20.0')
+    expect(body).toContain('pnpm add @scope/nav@2.0.0')
+  })
+
+  it('Then omits the global version when only an independent group is released', () => {
+    const body = buildCommentBody({
+      config: createGroupsConfig(),
+      branch: 'main',
+      date: '2026-02-22 14:30 UTC',
+      rootVersion: '6.19.1',
+      releaseContext: {
+        status: 'success',
+        tags: ['@scope/nav@2.0.0'],
+        bumpResult: {
+          bumped: true,
+          bumpedPackages: [nav],
+          groups: [{ name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
+        },
+      },
+    })
+
+    expect(body).not.toContain('**Version**')
+    expect(body).toContain('| `@scope/nav` | `1.2.0` → `2.0.0` |')
+  })
+
+  it('Then reads the packages of every group in standalone mode', async () => {
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createGroupsConfig())
+    vi.mocked(getCurrentGitBranch).mockReturnValue('main')
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '6.20.0', path: '/root', private: true })
+    vi.mocked(readPackages).mockReturnValue([])
+    vi.mocked(detectPullRequest).mockResolvedValue(null)
+
+    await prComment({ dryRun: true })
+
+    expect(readPackages).toHaveBeenCalledWith(expect.objectContaining({ patterns: ['packages/*', 'shared/*'] }))
   })
 })

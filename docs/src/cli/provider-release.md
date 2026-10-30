@@ -96,6 +96,15 @@ relizy provider-release --prerelease
 # Mark as pre-release (beta, alpha, rc)
 ```
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
+
+```bash
+relizy provider-release --group header
+relizy provider-release --group main,header
+```
+
 ## Bitbucket Support
 
 Bitbucket is partially supported with some limitations:

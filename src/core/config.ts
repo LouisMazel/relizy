@@ -9,6 +9,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { loadConfig, setupDotenv } from 'c12'
 import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
+import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
 
@@ -48,6 +49,7 @@ export function getDefaultConfig() {
       dependencyTypes: ['dependencies'],
       yes: false,
       capZeroMajor: true,
+      outOfRangePeers: 'bump',
     } as Required<Omit<BumpConfig, 'preid'>>,
     changelog: {
       rootChangelog: true,
@@ -68,6 +70,7 @@ export function getDefaultConfig() {
       // Annotated as `boolean` (not the inferred `false` literal) so the resolved
       // config type stays assignable to true when overridden by config/CLI.
       skipExistingVersions: false as boolean,
+      checkWorkspaceDependencies: true as boolean,
       packageManager: detectPackageManager(process.cwd()),
     } satisfies PublishConfig,
     tokens: {
@@ -174,10 +177,16 @@ export function getDefaultConfig() {
  * Resolves default commit templates based on the monorepo `versionMode`.
  * - `independent` (no user override): title = `chore(release): bump {{packageCount}} packages`, body = `{{packageList}}`.
  * - Other modes (no user override): title = `chore(release): bump version to {{newVersion}}`, no body.
+ * - Version groups (`monorepo.groups`): left unset, they depend on the groups that bump (see `createCommitAndTags`).
  * If the user set `templates.commitMessage` or `templates.commitBody`, their values are preserved.
  */
 function resolveTemplateDefaults(config: ResolvedConfig): void {
   const templates = config.templates ?? (config.templates = {} as typeof config.templates)
+
+  if (config.monorepo?.groups) {
+    return
+  }
+
   const isIndependent = config.monorepo?.versionMode === 'independent'
 
   if (templates.commitMessage === undefined) {
@@ -246,11 +255,50 @@ export function mergeTypes<T extends Record<string, unknown>>(
   }
 }
 
+/**
+ * A config derived for a version group (see `resolveVersionGroups`) is already
+ * resolved: the overrides are applied to it without loading the config file
+ * again, which would bring `monorepo.groups` back into it.
+ */
+function applyOverridesToGroupConfig(options?: {
+  baseConfig?: ResolvedRelizyConfig
+  overrides?: DeepPartial<RelizyConfig>
+}): ResolvedRelizyConfig | undefined {
+  const groupName = options?.baseConfig && getVersionGroupName(options.baseConfig)
+
+  if (!options?.baseConfig || !groupName) {
+    return undefined
+  }
+
+  const groupConfig = defu(options.overrides, options.baseConfig) as ResolvedRelizyConfig
+  setupLogger(options.overrides?.logLevel || groupConfig.logLevel)
+
+  return markVersionGroupConfig(groupConfig, groupName)
+}
+
+/**
+ * Validate `monorepo.groups`. A base config is already resolved: its groups
+ * replace the ones of the config file instead of being concatenated with them.
+ */
+function resolveConfigVersionGroups(config: ResolvedConfig, baseConfig?: ResolvedRelizyConfig): void {
+  if (baseConfig?.monorepo?.groups && config.monorepo) {
+    config.monorepo.groups = baseConfig.monorepo.groups
+  }
+
+  validateVersionGroups(config as ResolvedRelizyConfig)
+}
+
 export async function loadRelizyConfig(options?: {
   baseConfig?: ResolvedRelizyConfig
   overrides?: DeepPartial<RelizyConfig>
   configFile?: string
 }) {
+  const groupConfig = applyOverridesToGroupConfig(options)
+
+  if (groupConfig) {
+    return groupConfig
+  }
+
   const cwd = options?.overrides?.cwd ?? process.cwd()
 
   await setupDotenv({ cwd })
@@ -289,6 +337,8 @@ export async function loadRelizyConfig(options?: {
   }
 
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
+
+  resolveConfigVersionGroups(results.config, options?.baseConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))
 

@@ -56,6 +56,15 @@ Preview changes without making them:
 relizy release --patch --dry-run
 ```
 
+### --group
+
+Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Works with `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`:
+
+```bash
+relizy release --group header
+relizy bump --group main,header --dry-run
+```
+
 ### --yes
 
 Skip all interactive prompts:

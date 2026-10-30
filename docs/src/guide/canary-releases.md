@@ -220,6 +220,10 @@ canary:
 Use `--no-clean` in CI to skip the git dirty check, since CI environments may have build artifacts or generated files.
 :::
 
+## Canary with Version Groups
+
+With [version groups](./version-groups.md), the canary versions of every group are written before anything is published, and rolled back once, after the last package is published. The `workspace:` dependencies between groups therefore resolve to the canary versions of the same run, and the packages depending on packages of another group get a canary version too (see [Dependencies Between Groups](./version-groups.md#dependencies-between-groups)).
+
 ## Re-running a Canary on the Same Commit
 
 The canary version is derived from the commit SHA (`{nextVersion}-0.canary-{sha}`), so **re-running the pipeline on the same commit regenerates the exact same version**. Since that version is already on the registry, the publish fails - the registry refuses to overwrite an existing version (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.).

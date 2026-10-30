@@ -33,10 +33,11 @@ full list into the commit body.
 
 Defaults are resolved based on `monorepo.versionMode`:
 
-| Version mode            | Default `commitMessage`                                           | Default `commitBody`               |
-| ----------------------- | ----------------------------------------------------------------- | ---------------------------------- |
-| `unified` / `selective` | <code v-pre>chore(release): bump version to {{newVersion}}</code> | _(none)_                           |
-| `independent`           | <code v-pre>chore(release): bump {{packageCount}} packages</code> | <code v-pre>{{packageList}}</code> |
+| Version mode                                                | Default `commitMessage`                                                                      | Default `commitBody`                                                       |
+| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| `unified` / `selective`                                     | <code v-pre>chore(release): bump version to {{newVersion}}</code>                            | _(none)_                                                                   |
+| `independent`                                               | <code v-pre>chore(release): bump {{packageCount}} packages</code>                            | <code v-pre>{{packageList}}</code>                                         |
+| [version groups](../guide/version-groups.md#release-commit) | the `unified`/`selective` title when that group is released, the `independent` one otherwise | <code v-pre>{{packageList}}</code> when an `independent` group is released |
 
 If you set either `commitMessage` or `commitBody` yourself, your value is
 preserved — Relizy only fills in `undefined` fields.

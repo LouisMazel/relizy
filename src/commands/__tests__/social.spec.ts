@@ -1,3 +1,4 @@
+import type { GroupBumpResult } from '../../types'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
@@ -12,7 +13,8 @@ vi.mock('../../core/ai', () => ({
   isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled),
 }))
 
-vi.mock('../../core', () => ({
+vi.mock('../../core', async () => ({
+  ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   loadRelizyConfig: vi.fn(),
   getPackagesOrBumpedPackages: vi.fn(),
   executeHook: vi.fn(),
@@ -886,5 +888,64 @@ describe('Given social command', () => {
 
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
+  })
+})
+
+describe('Given social command with version groups', () => {
+  const mainGroup: GroupBumpResult = { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
+  const headerGroup: GroupBumpResult = { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      social: {
+        twitter: { enabled: false, onlyStable: true },
+        slack: { enabled: true, onlyStable: true, channel: '#releases' },
+      },
+    })
+    config.monorepo = {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+      ],
+    }
+    // The groups are posted with the config derived for them, passed as base config
+    vi.mocked(loadRelizyConfig).mockImplementation(options => Promise.resolve(options?.baseConfig ?? config))
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(getSlackToken).mockReturnValue('slack-token')
+    vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v6.19.1', to: 'v7.0.0' })
+    vi.mocked(getRootPackage).mockResolvedValue({ name: 'root', version: '7.0.0', path: '/root', private: false, fromTag: 'v6.19.1', commits: [] })
+    vi.mocked(isPrerelease).mockReturnValue(false)
+    vi.mocked(postReleaseToSlack).mockResolvedValue(undefined)
+  })
+
+  it('Then posts the release of each group that bumped, with the config of the group', async () => {
+    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] } })
+
+    expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+      baseConfig: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'selective' }) }),
+    }))
+    expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+      baseConfig: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
+    }))
+    expect(postReleaseToSlack).toHaveBeenCalledTimes(2)
+    expect(result).toEqual({ results: [{ platform: 'slack', success: true }, { platform: 'slack', success: true }], hasErrors: false })
+  })
+
+  it('Then skips the groups that did not bump', async () => {
+    await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [headerGroup] } })
+
+    expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
+  })
+
+  it('Then reports the errors of a group', async () => {
+    vi.mocked(postReleaseToSlack).mockRejectedValueOnce(new Error('Slack is down'))
+
+    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] } })
+
+    expect(result.hasErrors).toBe(true)
   })
 })

@@ -5,6 +5,7 @@ import fastGlob from 'fast-glob'
 import * as semver from 'semver'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
 import { detectGitProvider } from './git'
+import { GLOB_IGNORE } from './glob'
 import { detectPackageManager } from './npm'
 
 /**
@@ -96,7 +97,6 @@ export interface InitAnswers {
 }
 
 const CONFIG_EXTENSIONS = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json', 'jsonc', 'json5', 'yaml', 'yml', 'toml']
-const GLOB_IGNORE = ['**/node_modules/**', '**/dist/**', '**/.git/**']
 const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org'
 
 function readJson(path: string): Record<string, any> | undefined {

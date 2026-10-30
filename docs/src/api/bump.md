@@ -41,6 +41,13 @@ interface BumpOptions {
    */
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
   /**
+   * What to do with a package whose published peer dependency range rejects
+   * the new version of the dependency. See the
+   * [bump config reference](../config/bump.md#outofrangepeers).
+   * @default 'bump'
+   */
+  outOfRangePeers?: 'bump' | 'warn' | 'error'
+  /**
    * Skip confirmation prompt about bumping packages
    * @default true
    */
@@ -83,16 +90,36 @@ interface BumpOptions {
    * @default false
    */
   canary?: boolean
+  /**
+   * Only process these version groups of `monorepo.groups`, by name
+   * @default undefined (every group)
+   */
+  groups?: string[]
 }
 ```
 
 ## Returns
 
 ```ts
-interface BumpResult {
-  oldVersion: string
-  newVersion: string
-  packages?: PackageInfo[]
+type BumpResult = { bumped: false } | {
+  bumped: true
+  /**
+   * Root version before and after the bump (unified and selective modes)
+   */
+  oldVersion?: string
+  newVersion?: string
+  /**
+   * Tag of the previous release
+   */
+  fromTag?: string
+  rootPackage?: RootPackage
+  bumpedPackages: (PackageBase & { oldVersion: string })[]
+  /**
+   * Result of each version group that bumped, when `monorepo.groups` is set.
+   * The fields above then aggregate them: `bumpedPackages` lists the packages
+   * of every group, `newVersion` is the version of the unified/selective group.
+   */
+  groups?: (Omit<BumpResult, 'groups'> & { name: string, versionMode: VersionMode })[]
 }
 ```
 

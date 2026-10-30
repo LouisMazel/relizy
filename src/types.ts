@@ -92,6 +92,24 @@ export interface BumpResultTruthy {
    * Bumped
    */
   bumped: true
+  /**
+   * Result of each version group that bumped, when `monorepo.groups` is set.
+   * The other fields then aggregate them: `bumpedPackages` lists the packages
+   * of every group, `newVersion`, `oldVersion`, `fromTag` and `rootPackage`
+   * come from the `unified`/`selective` group (if it bumped).
+   */
+  groups?: GroupBumpResult[]
+}
+
+export interface GroupBumpResult extends Omit<BumpResultTruthy, 'groups'> {
+  /**
+   * Name of the version group
+   */
+  name: string
+  /**
+   * Version mode of the version group
+   */
+  versionMode: VersionMode
 }
 export interface BumpResultFalsy {
   /**
@@ -194,13 +212,25 @@ export interface ReleaseContext {
 
 export interface MonorepoConfig {
   /**
-   * Version mode for the monorepo.
+   * Version mode for the monorepo. Required unless `groups` is set.
    */
-  versionMode: VersionMode
+  versionMode?: VersionMode
   /**
-   * Glob pattern matching for packages to bump.
+   * Glob pattern matching for packages to bump. Required unless `groups` is set.
    */
-  packages: string[]
+  packages?: string[]
+  /**
+   * Version groups released together in a single run, each with its own
+   * version mode (e.g. a `selective` group for most packages and an
+   * `independent` group for packages with their own version line). Replaces
+   * `versionMode` and `packages`, which cannot be set with it.
+   *
+   * Every package belongs to one group. When a package is matched by several
+   * groups, the group listing its exact path (no glob) wins; any other overlap
+   * is an error. At most one group can use the `unified` or `selective` mode:
+   * it owns the root `package.json` version and the repository tags.
+   */
+  groups?: VersionGroup[]
   /**
    * Package names to ignore.
    * @deprecated Use `ignored` (path globs) instead, for consistency with
@@ -230,6 +260,35 @@ export interface MonorepoConfig {
    * @default false
    */
   includePrivates?: boolean
+}
+
+export interface VersionGroup {
+  /**
+   * Name of the group, used in logs and to target it with `--group <name>`.
+   */
+  name: string
+  /**
+   * Version mode of the packages of this group.
+   */
+  versionMode: VersionMode
+  /**
+   * Glob patterns (relative to `cwd`) of the package directories of this group.
+   */
+  packages: string[]
+  /**
+   * Glob patterns of package directories to ignore in this group, on top of
+   * `monorepo.ignored`.
+   * @default []
+   */
+  ignored?: string[]
+  /**
+   * Bump options of this group, overriding the global `bump` ones.
+   */
+  bump?: Pick<BumpConfig, 'capZeroMajor' | 'dependencyTypes'>
+  /**
+   * Changelog options of this group, overriding the global `changelog` ones.
+   */
+  changelog?: Pick<ChangelogConfig, 'rootChangelog' | 'includeCommitBody'>
 }
 
 export type ConfigType = {
@@ -280,6 +339,24 @@ export interface BumpConfig {
    * @default true
    */
   capZeroMajor?: boolean
+  /**
+   * What to do with a package that is not bumped while the range of one of its
+   * peer dependencies, as published, does not accept the new version of that
+   * dependency: `workspace:*` is published as the exact version, so any new
+   * version is out of its range; `workspace:^` only on a major. Its consumers
+   * would get peer dependency warnings, or errors with `strict-peer-dependencies`.
+   *
+   * - `bump`: bump the package (a patch, as a dependent), so it is released with
+   *   an up-to-date range. The packages outside of the release (e.g. not in the
+   *   targeted `--group`) are reported with a warning.
+   * - `warn`: only warn before publishing.
+   * - `error`: fail the release before publishing.
+   *
+   * Independent of `dependencyTypes`, which bumps the dependents on every bump
+   * of their dependencies.
+   * @default 'bump'
+   */
+  outOfRangePeers?: 'bump' | 'warn' | 'error'
 }
 
 export interface BumpOptions extends BumpConfig {
@@ -320,6 +397,11 @@ export interface BumpOptions extends BumpConfig {
    * @default false
    */
   includePrivates?: boolean
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface ChangelogConfig {
@@ -383,6 +465,11 @@ export interface ChangelogOptions extends ChangelogConfig {
    * @default false
    */
   includePrivates?: boolean
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface ProviderReleaseOptions {
@@ -444,6 +531,11 @@ export interface ProviderReleaseOptions {
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface SocialOptions {
@@ -501,6 +593,11 @@ export interface SocialOptions {
    * @default false
    */
   force?: boolean
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface RegistryTarget {
@@ -611,6 +708,17 @@ export type PublishConfig = IChangelogConfig['publish'] & {
    * @default false
    */
   skipExistingVersions?: boolean
+  /**
+   * Before publishing, check the internal dependencies declared with the
+   * `workspace:` protocol (`workspace:*`, `workspace:^`, `workspace:~`) in
+   * `dependencies`, `peerDependencies` and `optionalDependencies`: the version
+   * the package manager will write must be published by this run or already be
+   * on the registry. Fails when the registry confirms the version is missing
+   * (the published package could not be installed), warns when the registry
+   * cannot be queried.
+   * @default true
+   */
+  checkWorkspaceDependencies?: boolean
 }
 
 export interface PublishOptions extends PublishConfig {
@@ -645,6 +753,11 @@ export interface PublishOptions extends PublishConfig {
    * @default false
    */
   force?: boolean
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface ReleaseConfig {
@@ -768,6 +881,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * Override `social.slack.changelogFormat` for this run
    */
   slackFormat?: SlackChangelogFormat
+  /**
+   * Only process these version groups (`monorepo.groups`), by name.
+   * @default all groups
+   */
+  groups?: string[]
 }
 
 export interface TwitterCredentials {
