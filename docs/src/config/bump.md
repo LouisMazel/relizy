@@ -52,6 +52,50 @@ export default defineConfig({
 })
 ```
 
+This option only drives which dependents get bumped: the [publish order](./publish.md#checkworkspacedependencies) always follows `dependencies`, `peerDependencies` and `optionalDependencies`.
+
+With [version groups](/guide/version-groups#dependencies-between-groups), each group can set its own `dependencyTypes`, which also decides whether its packages are bumped when they depend on packages bumped by another group.
+
+::: tip Peer dependencies
+`peerDependencies` are not in `dependencyTypes` by default: a package is not bumped on **every** bump of its peer dependencies. It is still bumped when its peer dependency range no longer accepts the new version, see [`outOfRangePeers`](#outofrangepeers).
+:::
+
+## outOfRangePeers
+
+What to do with a package that is not bumped while the range of one of its peer dependencies, as published, no longer accepts the new version of that dependency.
+
+- **Type:** `'bump' | 'warn' | 'error'`
+- **Default:** `'bump'`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    outOfRangePeers: 'warn',
+  },
+})
+```
+
+The package manager publishes a `workspace:` specifier with the version the dependency has at that time. When the dependency is released again, the range published by the package may no longer accept it, and the consumers of the package get peer dependency warnings (or errors with `strict-peer-dependencies`):
+
+| Peer dependency | Published as | Out of range when the dependency gets |
+| --------------- | ------------ | ------------------------------------- |
+| `workspace:*`   | `6.19.1`     | any new version                       |
+| `workspace:~`   | `~6.19.1`    | a minor or a major                    |
+| `workspace:^`   | `^6.19.1`    | a major                               |
+| `^6.0.0`        | `^6.0.0`     | a major                               |
+
+- `bump`: the package is bumped as a dependent (a patch, or the version of its unified/selective group), so it is released with an up-to-date range. Its own dependents follow, as for [`dependencyTypes`](#dependencytypes). It also works across [version groups](/guide/version-groups#dependencies-between-groups). The packages not part of the release (e.g. a group not targeted by `--group`) are reported with a warning before publishing.
+- `warn`: the package is not bumped; Relizy warns before publishing.
+- `error`: the release fails before publishing anything.
+
+A package whose range still accepts the new version (`workspace:^` on a minor) is left untouched: unlike `dependencyTypes: ['peerDependencies']`, it is only released when needed.
+
+::: info Behavior change
+Before this option, such packages were never bumped. Set `outOfRangePeers: 'warn'` to keep that behavior while being told about them.
+:::
+
 ## clean
 
 Check if there are any uncommitted changes before bumping. If the working directory is not clean, the bump will be aborted:
@@ -142,6 +186,7 @@ export default defineConfig({
     type: 'prerelease',
     preid: 'beta',
     dependencyTypes: ['dependencies', 'devDependencies', 'peerDependencies'],
+    outOfRangePeers: 'bump',
     yes: true,
   },
 })

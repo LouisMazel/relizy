@@ -1,7 +1,7 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
+import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -28,9 +28,18 @@ vi.mock('../../core/npm', async (importActual) => {
     getPackagesToPublishInIndependentMode: vi.fn().mockReturnValue([]),
   }
 })
-vi.mock('../../core/dependencies', () => {
+vi.mock('../../core/dependencies', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/dependencies')>()
   return {
+    ...actual,
     topologicalSort: vi.fn(),
+  }
+})
+vi.mock('../../core/workspace', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/workspace')>()
+  return {
+    ...actual,
+    checkWorkspaceDependencies: vi.fn(),
   }
 })
 vi.mock('../../core/repo', () => {
@@ -388,5 +397,49 @@ describe('Given publish command', () => {
 
       expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
     })
+  })
+})
+
+describe('Given publish command and the workspace dependencies', () => {
+  const pkgA = createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', newVersion: '1.1.0', path: '/pkg-a', commits: [], dependencies: [] })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' } }))
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+  })
+
+  it('Then checks them with the versions planned by the bump', async () => {
+    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...pkgA, oldVersion: '1.0.0' }, { ...createMockPackageInfo({ name: 'private-pkg', newVersion: '0.2.0', private: true }), oldVersion: '0.1.0' }] }
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(bumpResult.bumpedPackages)
+
+    await publish({ bumpResult })
+
+    expect(checkWorkspaceDependencies).toHaveBeenCalledWith(expect.objectContaining({
+      packages: [expect.objectContaining({ name: 'pkg-a' })],
+      plannedVersions: new Map([['pkg-a', '1.1.0'], ['private-pkg', '0.2.0']]),
+    }))
+  })
+
+  it('Then neither builds nor publishes when the check fails', async () => {
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([pkgA])
+    vi.mocked(checkWorkspaceDependencies).mockRejectedValueOnce(new Error('missing version'))
+
+    await expect(publish({})).rejects.toThrow('missing version')
+
+    expect(execPromise).not.toHaveBeenCalledWith('pnpm build', expect.anything())
+    expect(publishPackage).not.toHaveBeenCalled()
+    expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
+  })
+
+  it('Then fails when targeting version groups on a config without groups', async () => {
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([pkgA])
+
+    await expect(publish({ groups: ['header'] })).rejects.toThrow('the config has no monorepo.groups')
+
+    expect(publishPackage).not.toHaveBeenCalled()
   })
 })

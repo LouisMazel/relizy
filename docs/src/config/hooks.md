@@ -158,6 +158,15 @@ export default defineConfig({
 })
 ```
 
+### Version Groups
+
+With [version groups](/guide/version-groups), the hooks run once per command, with the global config, except:
+
+- `before:social`, `success:social`, `error:social` and the `twitter` / `slack` hooks run once per version group (the release of each group is posted on its own), with the config of the group;
+- `generate:changelog` receives the config of the group of the changelog being generated.
+
+In the config of a group, `monorepo.versionMode` and `monorepo.packages` are the ones of the group.
+
 ## Hooks by Command
 
 Different commands execute different hooks based on their workflow:

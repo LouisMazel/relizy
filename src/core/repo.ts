@@ -1,6 +1,8 @@
 import type { GitCommit } from 'changelogen'
+import type { ReleaseType } from 'semver'
 import type { ConfigType, PackageBase, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import type { VersionChange } from './dependencies'
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
@@ -8,8 +10,9 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
-import { expandPackagesToBumpWithDependents, getPackageDependencies } from './dependencies'
+import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies } from './dependencies'
 import { getGitDiff } from './git-refs'
+import { GLOB_IGNORE } from './glob'
 import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
 import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
@@ -105,8 +108,6 @@ export function readPackageJson(packagePath: string): ReadPackage | undefined {
     path: packagePath,
   }
 }
-
-const GLOB_IGNORE = ['**/node_modules/**', '**/dist/**', '**/.git/**']
 
 /**
  * Resolve a set of path globs (relative to `cwd`) to the absolute directories
@@ -334,7 +335,7 @@ export function readPackages({
         cwd,
         onlyDirectories: true,
         absolute: true,
-        ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+        ignore: GLOB_IGNORE,
       })
 
       for (const matchPath of matches) {
@@ -364,6 +365,18 @@ export function readPackages({
   return packages
 }
 
+/**
+ * Release type of a package bumped only because one of its dependencies is
+ * bumped: a patch (or the matching prerelease).
+ */
+export function getDependencyReleaseType(currentVersion: string, releaseType: ReleaseType): ReleaseType {
+  if (isStableReleaseType(releaseType))
+    return 'patch'
+  if (isPrerelease(currentVersion))
+    return 'prerelease'
+  return 'prepatch'
+}
+
 function getPackageReleaseType({
   pkg,
   config,
@@ -388,11 +401,7 @@ function getPackageReleaseType({
   }
 
   if (pkg.reason === 'dependency') {
-    if (isStableReleaseType(releaseType))
-      return 'patch'
-    if (isPrerelease(pkg.version))
-      return 'prerelease'
-    return 'prepatch'
+    return getDependencyReleaseType(pkg.version, releaseType)
   }
 
   return determineReleaseType({
@@ -406,6 +415,139 @@ function getPackageReleaseType({
   })
 }
 
+/**
+ * Packages without commits of their own that depend on a package bumped outside
+ * of the config (see `getPackages` `externalBumps`).
+ */
+function getExternalDependents(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined): PackageBase[] {
+  if (!externalBumps?.size) {
+    return []
+  }
+
+  return packages.filter(pkg => pkg.commits.length === 0 && pkg.dependencies.some(name => externalBumps.has(name)))
+}
+
+/**
+ * Mark the seeds and their dependents (following `bump.dependencyTypes`) as
+ * bumped, keeping the reason of the packages already bumped. A seed with a
+ * `dependency` is bumped because of that dependency, the others for their commits.
+ */
+function markDependents({
+  packages,
+  seeds,
+}: {
+  packages: Map<string, PackageBase>
+  seeds: { pkg: PackageBase, dependency?: string }[]
+}): void {
+  const seedDependencies = new Map(seeds.map(({ pkg, dependency }) => [pkg.name, dependency]))
+
+  const expandedPackages = expandPackagesToBumpWithDependents({
+    allPackages: Array.from(packages.values()),
+    packagesWithCommits: seeds.map(({ pkg }) => pkg),
+  })
+
+  for (const pkg of expandedPackages) {
+    const current = packages.get(pkg.name)!
+    // The expansion marks its seeds as bumped by commits
+    const dependency = seedDependencies.get(pkg.name)
+
+    if (current.reason && current.reason !== 'commits') {
+      continue
+    }
+
+    if (current.reason === 'commits') {
+      packages.set(pkg.name, { ...pkg, reason: 'commits' })
+    }
+    else {
+      packages.set(pkg.name, dependency ? { ...pkg, reason: 'dependency', dependencyChain: [dependency] } : pkg)
+    }
+  }
+}
+
+function computeNewVersions({
+  packages,
+  config,
+  force,
+  suffix,
+  newVersionOverride,
+}: {
+  packages: Map<string, PackageBase>
+  config: ResolvedRelizyConfig
+  force: boolean
+  suffix: string | undefined
+  newVersionOverride?: string
+}): void {
+  for (const pkg of Array.from(packages.values())) {
+    const releaseType = getPackageReleaseType({
+      pkg,
+      config,
+      force,
+    })
+
+    const newVersion = releaseType
+      ? newVersionOverride ?? getPackageNewVersion({
+        name: pkg.name,
+        currentVersion: pkg.version,
+        releaseType,
+        preid: config.bump.preid,
+        suffix,
+      })
+      : undefined
+
+    const graduating = (releaseType && isGraduating(pkg.version, releaseType)) || isChangedPreid(pkg.version, config.bump.preid)
+
+    packages.set(pkg.name, {
+      ...pkg,
+      newVersion,
+      reason: pkg.reason || (releaseType && graduating && 'graduation') || undefined,
+    })
+  }
+}
+
+/**
+ * Bump the packages whose published peer dependency ranges do not accept the
+ * new version of a bumped dependency (see `bump.outOfRangePeers`), and their
+ * dependents, until no package is out of range.
+ */
+function bumpOutOfRangePeerDependents({
+  packages,
+  externalBumps,
+  ...versionContext
+}: {
+  packages: Map<string, PackageBase>
+  externalBumps?: Map<string, VersionChange>
+  config: ResolvedRelizyConfig
+  force: boolean
+  suffix: string | undefined
+  newVersionOverride?: string
+}): void {
+  for (;;) {
+    const bumped = new Map(externalBumps)
+
+    for (const pkg of packages.values()) {
+      if (pkg.reason && pkg.newVersion) {
+        bumped.set(pkg.name, { oldVersion: pkg.version, newVersion: pkg.newVersion })
+      }
+    }
+
+    const seeds = Array.from(packages.values())
+      .filter(pkg => !pkg.reason)
+      .map(pkg => ({ pkg, dependency: getOutOfRangePeers({ packagePath: pkg.path, bumped })[0]?.dependency }))
+      .filter((seed): seed is { pkg: PackageBase, dependency: string } => Boolean(seed.dependency))
+
+    if (seeds.length === 0) {
+      return
+    }
+
+    for (const { pkg, dependency } of seeds) {
+      logger.debug(`${pkg.name}: the published range of its peer dependency ${dependency} does not accept its new version, bumped as a dependent`)
+    }
+
+    markDependents({ packages, seeds })
+    computeNewVersions({ packages, ...versionContext })
+  }
+}
+
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
 export async function getPackages({
   config,
@@ -413,12 +555,24 @@ export async function getPackages({
   force,
   includeAll = false,
   dryRun = false,
+  externalBumps,
+  newVersionOverride,
 }: {
   config: ResolvedRelizyConfig
   suffix: string | undefined
   force: boolean
   includeAll?: boolean
   dryRun?: boolean
+  /**
+   * Packages bumped outside of the config (by the other version groups): the
+   * packages depending on them are bumped as dependents.
+   */
+  externalBumps?: Map<string, VersionChange>
+  /**
+   * Version every bumped package gets (unified/selective root version, canary
+   * version), when known: used to check the ranges of the peer dependencies.
+   */
+  newVersionOverride?: string
 }): Promise<PackageBase[]> {
   const patterns = config.monorepo?.packages
 
@@ -445,7 +599,7 @@ export async function getPackages({
       cwd: config.cwd,
       onlyDirectories: true,
       absolute: true,
-      ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
+      ignore: GLOB_IGNORE,
     })
 
     for (const matchPath of matches) {
@@ -497,7 +651,7 @@ export async function getPackages({
 
       const dependencies = getPackageDependencies({
         packagePath: matchPath,
-        allPackageNames: new Set(readedPackages.map(p => p.name)),
+        allPackageNames: new Set([...readedPackages.map(p => p.name), ...(externalBumps?.keys() ?? [])]),
         dependencyTypes: config.bump?.dependencyTypes,
       })
 
@@ -515,41 +669,23 @@ export async function getPackages({
   }
 
   const packagesArray = Array.from(packages.values())
-  const packagesWithCommits = packagesArray.filter(p => p.commits.length > 0)
+  const externalDependents = getExternalDependents(packagesArray, externalBumps)
 
-  const expandedPackages = expandPackagesToBumpWithDependents({
-    allPackages: packagesArray,
-    packagesWithCommits,
+  markDependents({
+    packages,
+    seeds: [
+      ...packagesArray.filter(p => p.commits.length > 0).map(pkg => ({ pkg })),
+      ...externalDependents.map(pkg => ({ pkg, dependency: pkg.dependencies.find(name => externalBumps!.has(name)) })),
+    ],
   })
 
-  for (const pkg of expandedPackages) {
-    packages.set(pkg.name, pkg)
-  }
+  const versionContext = { config, force, suffix, newVersionOverride }
 
-  for (const pkg of Array.from(packages.values())) {
-    const releaseType = getPackageReleaseType({
-      pkg,
-      config,
-      force,
-    })
+  computeNewVersions({ packages, ...versionContext })
 
-    const newVersion = releaseType
-      ? getPackageNewVersion({
-          name: pkg.name,
-          currentVersion: pkg.version,
-          releaseType,
-          preid: config.bump.preid,
-          suffix,
-        })
-      : undefined
-
-    const graduating = (releaseType && isGraduating(pkg.version, releaseType)) || isChangedPreid(pkg.version, config.bump.preid)
-
-    packages.set(pkg.name, {
-      ...pkg,
-      newVersion,
-      reason: pkg.reason || (releaseType && graduating && 'graduation') || undefined,
-    })
+  // `bump` is the default
+  if (!['warn', 'error'].includes(config.bump.outOfRangePeers!)) {
+    bumpOutOfRangePeerDependents({ packages, externalBumps, ...versionContext })
   }
 
   const allPackages = Array.from(packages.values())

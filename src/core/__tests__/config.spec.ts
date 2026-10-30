@@ -8,6 +8,7 @@ import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
+import { getVersionGroupName, markVersionGroupConfig } from '../groups'
 import { getNpmRegistry } from '../npm'
 
 vi.mock('node:process', () => ({
@@ -1188,6 +1189,73 @@ describe('Given defineConfig function', () => {
       const result = defineConfig(config)
 
       expect(result).toEqual(config)
+    })
+  })
+})
+
+describe('Given loadRelizyConfig with version groups', () => {
+  const groups = [
+    { name: 'main', versionMode: 'selective' as const, packages: ['packages/*'] },
+    { name: 'header', versionMode: 'independent' as const, packages: ['shared/*'] },
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(process.cwd).mockReturnValue('/project')
+    vi.mocked(setupDotenv).mockResolvedValue({} as any)
+    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
+    vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
+    vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+  })
+
+  describe('When the base config is derived for a version group', () => {
+    it('Then applies the overrides without loading the config file again', async () => {
+      const baseConfig = markVersionGroupConfig({ ...getDefaultConfig(), monorepo: { versionMode: 'independent', packages: ['shared/*'] } } as any, 'header')
+
+      const config = await loadRelizyConfig({ baseConfig, overrides: { logLevel: 'debug' } })
+
+      expect(loadConfig).not.toHaveBeenCalled()
+      expect(config.logLevel).toBe('debug')
+      expect(config.monorepo).toEqual({ versionMode: 'independent', packages: ['shared/*'] })
+      expect(getVersionGroupName(config)).toBe('header')
+      expect(logger.setLevel).toHaveBeenCalledWith('debug')
+    })
+  })
+
+  describe('When the base config has version groups', () => {
+    it('Then keeps its groups instead of concatenating them with the ones of the config file', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', monorepo: { groups: [...groups, ...groups] } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      const baseConfig = { ...getDefaultConfig(), monorepo: { groups } } as any
+
+      const config = await loadRelizyConfig({ baseConfig })
+
+      expect(config.monorepo!.groups).toBe(groups)
+    })
+  })
+
+  describe('When the config file has version groups', () => {
+    it('Then leaves the commit templates unset, they depend on the groups that bump', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', templates: {}, monorepo: { groups } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+
+      const config = await loadRelizyConfig()
+
+      expect(config.templates.commitMessage).toBeUndefined()
+      expect(config.templates.commitBody).toBeUndefined()
+    })
+
+    it('Then rejects invalid groups', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', monorepo: { versionMode: 'selective', groups } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+
+      await expect(loadRelizyConfig()).rejects.toThrow('cannot be used with monorepo.groups')
     })
   })
 })

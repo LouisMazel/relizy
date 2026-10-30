@@ -111,7 +111,8 @@ async function releaseSafetyCheck({
     await Promise.all([
       providerReleaseSafetyCheck({ config, provider }),
       publishSafetyCheck({ config }),
-      socialSafetyCheck({ config }),
+      // The release only posts with release.social (disabled by --no-social and --canary)
+      ...(config.release.social ? [socialSafetyCheck({ config })] : []),
       ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd })] : []),
     ])
 
@@ -121,6 +122,20 @@ async function releaseSafetyCheck({
     logger.error('Safety checks failed')
     throw error
   }
+}
+
+function getVersionDisplay({ config, bumpResult }: { config: ResolvedRelizyConfig, bumpResult: BumpResultTruthy }): string | undefined {
+  if (bumpResult.groups) {
+    return bumpResult.groups
+      .map(group => group.versionMode === 'independent'
+        ? `${group.name}: ${group.bumpedPackages.length} package(s) bumped independently`
+        : `${group.name}: ${group.newVersion}`)
+      .join(', ')
+  }
+
+  return config.monorepo?.versionMode === 'independent'
+    ? `${bumpResult.bumpedPackages.length} packages bumped independently`
+    : bumpResult.newVersion || readPackageJson(config.cwd)?.version
 }
 
 /**
@@ -150,9 +165,7 @@ export function buildReleaseSummary({
   prCommentPosted: boolean
 }): string {
   const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
-  const versionDisplay = config.monorepo?.versionMode === 'independent'
-    ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-    : bumpResult.newVersion || readPackageJson(config.cwd)?.version
+  const versionDisplay = getVersionDisplay({ config, bumpResult })
 
   // Format provider-release display
   let providerDisplay = 'Disabled'
@@ -249,6 +262,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       suffix: options.suffix,
       canary: isCanary,
       includePrivates: options.includePrivates,
+      groups: options.groups,
     })
 
     if (!bumpResult.bumped) {
@@ -272,7 +286,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         config,
         dryRun,
         guard: () => assertReleaseTagsAvailable({
-          tags: getReleaseTagNames({ config, bumpedPackages: bumpResult.bumpedPackages, newVersion: bumpResult.newVersion }),
+          tags: getReleaseTagNames({ config, bumpedPackages: bumpResult.bumpedPackages, newVersion: bumpResult.newVersion, groups: bumpResult.groups }),
           cwd: config.cwd,
         }),
       })
@@ -293,6 +307,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         force,
         suffix: options.suffix,
         includePrivates: options.includePrivates,
+        groups: options.groups,
       })
     }
     else {
@@ -326,6 +341,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           suffix: options.suffix,
           force,
           safetyCheck: false,
+          groups: options.groups,
         })
       }
       catch (error) {
@@ -352,6 +368,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         noVerify: config.release.noVerify,
         bumpedPackages: bumpResult.bumpedPackages,
         newVersion: bumpResult.newVersion,
+        groups: bumpResult.groups,
         dryRun,
         logLevel: config.logLevel,
       })
@@ -406,6 +423,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         force,
         suffix: options.suffix,
         safetyCheck: false,
+        groups: options.groups,
       })
       provider = response.detectedProvider
       postedReleases = response.postedReleases
@@ -429,6 +447,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         logLevel: config.logLevel,
         safetyCheck: false, // Already checked in releaseSafetyCheck
         slackFormat: options.slackFormat,
+        groups: options.groups,
       })
     }
     else {

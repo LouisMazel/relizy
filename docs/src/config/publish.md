@@ -348,6 +348,38 @@ When `skipExistingVersions` is **disabled** (the default), an already-published 
 
 You can also enable it per-run from the CLI with `--skip-existing-versions` on the [`publish`](/cli/publish) and [`release`](/cli/release) commands.
 
+## checkWorkspaceDependencies
+
+Check, before publishing, that the internal dependencies declared with the `workspace:` protocol resolve to installable versions.
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    checkWorkspaceDependencies: false,
+  },
+})
+```
+
+When a package is published, the package manager replaces `workspace:*`, `workspace:^` and `workspace:~` with the version of the workspace package (e.g. `workspace:^` becomes `^1.2.0`). If that version is never published (a private package, a package excluded from the release, a version bumped but not published), the published package cannot be installed.
+
+Before publishing, Relizy reads these specifiers in `dependencies`, `peerDependencies` and `optionalDependencies` of the packages to publish, and checks the version they resolve to:
+
+- published by the release itself: nothing to check;
+- otherwise, the registry is queried (as for [`skipExistingVersions`](#skipexistingversions)). The release **fails** when the registry confirms the version is missing, and nothing is published. When the registry cannot be queried (network, auth), Relizy only **warns**.
+
+The check is read-only: the replacement itself stays the package manager's job. Explicit ranges (`workspace:^1.2.0`) are published as they are, so they are not checked.
+
+During a release, Relizy also reports the packages **not released** whose published peer dependency ranges reject the new version of an internal dependency. For example, `"@scope/components": "workspace:*"` was published as `"6.19.1"` and does not accept `@scope/components@6.20.0`: the consumers of that package get peer dependency warnings, or errors with `strict-peer-dependencies`. By default, such packages are bumped and released with their dependency (see [`bump.outOfRangePeers`](./bump.md#outofrangepeers)), so only the packages outside the release are reported: with a warning, or an error with `bump.outOfRangePeers: 'error'`.
+
+::: info Publish order
+Relizy publishes each package after the internal packages it depends on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever [`bump.dependencyTypes`](./bump.md) is (that option only drives which dependents get bumped).
+:::
+
 ## Complete Example
 
 ```ts

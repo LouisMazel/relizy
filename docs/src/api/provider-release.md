@@ -29,6 +29,11 @@ export interface ProviderReleaseOptions {
   bumpResult?: BumpResult
   logLevel?: LogLevel
   dryRun?: boolean
+  /**
+   * Only process these version groups of `monorepo.groups`, by name
+   * @default undefined (every group)
+   */
+  groups?: string[]
 }
 ```
 

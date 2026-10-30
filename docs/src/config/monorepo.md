@@ -55,6 +55,32 @@ export default defineConfig({
 })
 ```
 
+## groups
+
+Release several sets of packages with different version modes in a single run, e.g. a `selective` group for most packages and an `independent` group for packages with their own version line. Replaces `versionMode` and `packages`, which cannot be set with it.
+
+```ts
+export default defineConfig({
+  monorepo: {
+    groups: [
+      { name: 'main', versionMode: 'selective', packages: ['packages/*', 'shared-components/*'] },
+      {
+        name: 'header',
+        versionMode: 'independent',
+        packages: ['shared-components/navigation'],
+        changelog: { rootChangelog: false },
+      },
+    ],
+  },
+})
+```
+
+- A package matched by several groups goes to the group listing its exact path; any other overlap is an error.
+- At most one group uses the `unified` or `selective` mode: it owns the root version and the repository tags.
+- Each group can override `bump.capZeroMajor`, `bump.dependencyTypes`, `changelog.rootChangelog` and `changelog.includeCommitBody`, and add its own `ignored` patterns.
+
+Learn more: [Version Groups](../guide/version-groups.md)
+
 ## ignored
 
 Exclude packages by **path**, using the same glob syntax as [`packages`](#packages).

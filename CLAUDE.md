@@ -61,6 +61,21 @@ Three version management strategies are supported:
 
 Version mode is configured in `relizy.config.ts` under `monorepo.versionMode`.
 
+### Version Groups
+
+`monorepo.groups` (replaces `versionMode` and `packages`) releases several sets of packages, each with its own version mode, in a single run. Implemented in `src/core/groups.ts`:
+
+- `resolveVersionGroups()` assigns each package to one group (an exact path wins over a glob) and derives a full config per group, where the packages of the other groups are `ignored`. The single-mode code runs unchanged on these derived configs; `loadRelizyConfig()` returns a derived config as is (no reload, which would bring `groups` back)
+- At most one `unified`/`selective` group: it owns the root version and the repository tags
+- `bump` plans every group (no write), propagates the bumps between groups (`externalBumps` of `getPackages()`) until no group changes, confirms, then writes
+- Steps run once (publish order, commit, push, canary rollback, PR comment) or per group (changelog, tags, provider release, social), from `BumpResultTruthy.groups`
+
+Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, peer and optional ones), checks the `workspace:` dependencies against the registry and reports stale peer ranges.
+
+### Out-of-Range Peer Dependencies
+
+`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()`, the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+
 ### Dependency Handling
 
 - Automatic detection of workspace package dependencies via `expandPackagesToBumpWithDependents()` in `dependencies.ts`

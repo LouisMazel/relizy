@@ -71,6 +71,10 @@ function getReleaseType(options: any) {
   return type
 }
 
+function parseGroupNames(value: string): string[] {
+  return value.split(',').map(name => name.trim()).filter(Boolean)
+}
+
 function slackFormatOption() {
   return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
 }
@@ -84,6 +88,7 @@ program
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
   .option('--pr-number <number>', 'Override PR/MR number for PR comment features', Number)
+  .option('--group <names>', 'Only release these version groups of monorepo.groups (comma-separated names)', parseGroupNames)
 
 program
   .command('bump')
@@ -114,6 +119,7 @@ program
         yes: options.yes,
         suffix: options.suffix,
         configName: program.opts().config,
+        groups: program.opts().group,
         canary: options.canary,
         includePrivates: options.includePrivate || undefined,
       })
@@ -145,6 +151,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        groups: program.opts().group,
         includePrivates: options.includePrivate || undefined,
       })
     }
@@ -177,6 +184,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        groups: program.opts().group,
       })
     }
     catch (error) {
@@ -204,6 +212,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
@@ -230,6 +239,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
@@ -401,6 +411,7 @@ program
         force: options.force,
         yes: options.yes,
         configName: program.opts().config,
+        groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         social: hasCliFlag('--no-social') ? false : undefined,
         prComment: hasCliFlag('--no-pr-comment') ? false : undefined,

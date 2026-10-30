@@ -19,6 +19,10 @@ Different release strategies for:
 - Different versioning modes
 - Different registries
 
+::: tip Different version modes in the same release
+To release some packages in `selective` mode and others in `independent` mode together, prefer [version groups](/guide/version-groups) to two configs run one after the other: a single run publishes every package with the right dependency versions (canary releases included), with a single release commit.
+:::
+
 ## Creating Multiple Configs
 
 Create config files with different names:

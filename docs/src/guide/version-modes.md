@@ -272,6 +272,10 @@ relizy release
 | **Bump Only Changed**   | ❌ No                                          | ✅ Yes                                         | ✅ Yes                 |
 | **Different Versions**  | ❌ No                                          | ❌ No                                          | ✅ Yes                 |
 
+## Mixing Modes
+
+To release some packages in `selective` mode and others in `independent` mode (e.g. packages with their own version line), use [version groups](./version-groups.md): each group has its own version mode, and every group is released in a single run.
+
 ## Switching Modes
 
 You can change the version mode at any time by updating your config:

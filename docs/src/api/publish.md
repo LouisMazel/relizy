@@ -46,6 +46,17 @@ interface PublishOptions {
   bumpedPackages?: PackageInfo[]
   logLevel?: LogLevel
   configName?: string
+  /**
+   * Check the `workspace:` dependencies before publishing. See the
+   * [publish config reference](../config/publish.md#checkworkspacedependencies).
+   * @default true
+   */
+  checkWorkspaceDependencies?: boolean
+  /**
+   * Only process these version groups of `monorepo.groups`, by name
+   * @default undefined (every group)
+   */
+  groups?: string[]
 }
 ```
 
