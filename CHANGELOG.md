@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.13.0 (2026-10-30)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.12.0...v1.13.0)
+
+### 🚀 Features
+
+- Release several version groups in a single run ([5ae4569](https://github.com/LouisMazel/relizy/commit/5ae4569))
+
+  Set `monorepo.groups` instead of `monorepo.versionMode` and `monorepo.packages` to release several sets of packages, each with its own version mode, in a single run: one release commit with the tags of every group, one publish order and one canary rollback, so the `workspace:` dependencies between groups resolve to the versions of the run.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    monorepo: {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/navigation'] },
+      ],
+    },
+  })
+  ```
+
+  The packages whose published peer dependency range rejects the new version of their dependency (`workspace:*` on any release, `workspace:^` on a major) are now bumped with it, with or without groups. Set `bump.outOfRangePeers` to `warn` or `error` to only report them.
+
+  The packages are now published after their peer and optional dependencies too, and their `workspace:` dependencies must resolve to versions published by the release or already on the registry (`publish.checkWorkspaceDependencies`).
+
+  Closes #164
+
+### 🩹 Fixes
+
+- Skip the social safety check when the release does not post ([dd4c668](https://github.com/LouisMazel/relizy/commit/dd4c668))
+
+  `relizy release --canary` and `relizy release --no-social` no longer require the Twitter, Slack or AI credentials of the social posts.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.12.0 (2026-10-25)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.11.1...v1.12.0)
