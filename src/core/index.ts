@@ -1,3 +1,4 @@
+export * from './catalogs'
 export * from './changelog'
 export * from './commitlint'
 export * from './config'

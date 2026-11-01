@@ -229,6 +229,38 @@ See [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers).
 
 Packages are published after the internal packages they depend on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever `dependencyTypes` is.
 
+## Catalogs
+
+The catalogs of pnpm (`pnpm-workspace.yaml`), yarn 4.10+ (`.yarnrc.yml`) and bun (root `package.json`) declare the versions of the dependencies once, referenced with `catalog:` (the default catalog) or `catalog:<name>` by the packages:
+
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  vue: ^3.5.0
+catalogs:
+  vue2:
+    vue: ^2.7.16
+```
+
+```json
+{
+  "name": "@myorg/ui",
+  "dependencies": {
+    "vue": "catalog:"
+  }
+}
+```
+
+A commit that changes an entry of a catalog belongs to the packages using this entry, in any dependency field, as if it had edited their `package.json`: their published dependencies change. The other packages do not get the commit. As for any commit, its type decides the bump:
+
+| Commit                           | Changed entry       | Result                                                             |
+| -------------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `fix(deps): update vue to 3.5`   | `vue` of `catalog`  | `@myorg/ui` is released (patch), with the commit in its changelog  |
+| `chore(deps): update vitest`     | `vitest`            | The commit belongs to the packages using vitest, no bump (`chore`) |
+| `chore: allow the esbuild build` | none (not an entry) | No package gets the commit                                         |
+
+The packages depending on a released package are then bumped following `dependencyTypes`, as usual. The package manager replaces `catalog:` with the range of the catalog when publishing, as it does for `workspace:`.
+
 ## Between Version Groups
 
 With [version groups](./version-groups.md), a package depending on a package bumped by another group is bumped too, following the `dependencyTypes` of its own group and the out-of-range peer dependencies. See [Dependencies Between Groups](./version-groups.md#dependencies-between-groups).
