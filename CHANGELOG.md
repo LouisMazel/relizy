@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.13.2 (2026-11-01)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.1...v1.13.2)
+
+### 🩹 Fixes
+
+- Graduate a prerelease to the version its commits imply ([bf3a9c2](https://github.com/LouisMazel/relizy/commit/bf3a9c2))
+
+  Releasing a stable version from a prerelease always gave its base version (`1.13.1-beta.0` gave `1.13.1`), even when the commits since the prerelease implied a bigger bump: a `feat` was released in a patch. The stable version now follows the same rule as between two prereleases: the base version, unless the commits imply a bigger bump than this base (`1.13.1-beta.0` with a `feat` gives `1.14.0`, with only fixes `1.13.1`). Breaking peer dependencies and `capZeroMajor` apply, and an explicit `--patch`, `--minor` or `--major` is unchanged.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.13.1 (2026-11-01)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.0...v1.13.1)
