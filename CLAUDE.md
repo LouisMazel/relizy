@@ -74,7 +74,11 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 
 ### Out-of-Range Peer Dependencies
 
-`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()`, the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()` (`bumpPeerDependents()`), the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+
+- The ranges are checked as npm does (no `includePrerelease`): `^6.19.1` rejects `6.20.0-beta.0`, so a prerelease of the dependency also releases the package.
+- Whatever `outOfRangePeers`, a released package whose out-of-range peer makes a breaking change (`isBreakingVersionChange()`: not accepted by `^oldVersion`) gets `breakingPeerDependency`, and `determineReleaseType({ breakingPeer })` bumps it as for a breaking commit (`capZeroMajor` applies). Only visible in `independent` mode: `unified`/`selective` packages get the root version.
+- With version groups, `readGroupsDependencies()` always follows the peer dependencies across groups, so their ranges are checked against the bumps of the other groups.
 
 ### Dependency Handling
 

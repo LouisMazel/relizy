@@ -40,7 +40,10 @@ export default defineConfig({
 
 ## dependencyTypes
 
-Set dependency types to consider for version bumping:
+Dependency fields whose internal dependencies bump the package: a package is bumped (a patch, or the matching prerelease) on **every** bump of the packages it lists in these fields.
+
+- **Type:** `('dependencies' | 'devDependencies' | 'peerDependencies')[]`
+- **Default:** `['dependencies']`
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -57,7 +60,7 @@ This option only drives which dependents get bumped: the [publish order](./publi
 With [version groups](/guide/version-groups#dependencies-between-groups), each group can set its own `dependencyTypes`, which also decides whether its packages are bumped when they depend on packages bumped by another group.
 
 ::: tip Peer dependencies
-`peerDependencies` are not in `dependencyTypes` by default: a package is not bumped on **every** bump of its peer dependencies. It is still bumped when its peer dependency range no longer accepts the new version, see [`outOfRangePeers`](#outofrangepeers).
+`peerDependencies` are not in `dependencyTypes` by default: a package is not bumped on **every** bump of its peer dependencies, only when its published range no longer accepts the new version, see [`outOfRangePeers`](#outofrangepeers). Add `peerDependencies` to release it on every bump of its peer dependencies.
 :::
 
 ## outOfRangePeers
@@ -77,16 +80,16 @@ export default defineConfig({
 })
 ```
 
-The package manager publishes a `workspace:` specifier with the version the dependency has at that time. When the dependency is released again, the range published by the package may no longer accept it, and the consumers of the package get peer dependency warnings (or errors with `strict-peer-dependencies`):
+The package manager publishes a `workspace:` specifier with the version the dependency has at that time. When the dependency is released again, the range published by the package may no longer accept it, and the consumers of the package get peer dependency errors (npm) or warnings (pnpm):
 
 | Peer dependency | Published as | Out of range when the dependency gets |
 | --------------- | ------------ | ------------------------------------- |
 | `workspace:*`   | `6.19.1`     | any new version                       |
-| `workspace:~`   | `~6.19.1`    | a minor or a major                    |
-| `workspace:^`   | `^6.19.1`    | a major                               |
-| `^6.0.0`        | `^6.0.0`     | a major                               |
+| `workspace:~`   | `~6.19.1`    | a minor, a major or a prerelease      |
+| `workspace:^`   | `^6.19.1`    | a major or a prerelease               |
+| `^6.0.0`        | `^6.0.0`     | a major or a prerelease               |
 
-- `bump`: the package is bumped as a dependent (a patch, or the version of its unified/selective group), so it is released with an up-to-date range. Its own dependents follow, as for [`dependencyTypes`](#dependencytypes). It also works across [version groups](/guide/version-groups#dependencies-between-groups). The packages not part of the release (e.g. a group not targeted by `--group`) are reported with a warning before publishing.
+- `bump`: the package is bumped as a dependent, so it is released with an up-to-date range. Its own dependents follow, as for [`dependencyTypes`](#dependencytypes). It also works across [version groups](/guide/version-groups#dependencies-between-groups). The packages not part of the release (e.g. a group not targeted by `--group`) are reported with a warning before publishing.
 - `warn`: the package is not bumped; Relizy warns before publishing.
 - `error`: the release fails before publishing anything.
 
@@ -95,6 +98,29 @@ A package whose range still accepts the new version (`workspace:^` on a minor) i
 ::: info Behavior change
 Before this option, such packages were never bumped. Set `outOfRangePeers: 'warn'` to keep that behavior while being told about them.
 :::
+
+### Prereleases
+
+The ranges are checked as npm does: a range rejects a prerelease unless it targets the same version (`^6.19.1` rejects `6.20.0-beta.0`, `^7.0.0-beta.0` accepts `7.0.0-beta.1`). pnpm accepts these prereleases, but the consumers of a package may use npm, which fails with `ERESOLVE`.
+
+So with `workspace:^`, a canary or a beta of the dependency also releases the package, as a prerelease with a range accepting it. The stable releases keep the rule of the table above.
+
+### Breaking changes
+
+The version the package gets depends on the change of its dependency:
+
+| Dependency                                         | Package (bumped with its peer dependency)                          |
+| -------------------------------------------------- | ------------------------------------------------------------------ |
+| a minor or a patch (`6.19.1` to `6.20.0`)          | a patch: `1.2.0` to `1.2.1`                                        |
+| a breaking change (`6.19.1` to `7.0.0`)            | a major: `1.2.0` to `2.0.0`                                        |
+| a breaking change, package in `0.x`                | a minor: `0.2.18` to `0.3.0` (see [`capZeroMajor`](#capzeromajor)) |
+| a breaking prerelease (`6.19.1` to `7.0.0-beta.0`) | a premajor: `1.2.0` to `2.0.0-beta.0`                              |
+
+A breaking change is a new major, or a new minor in `0.x`: the range `^6.19.1` does not accept `7.0.0`. Once released with `^7.0.0`, the package requires its consumers to upgrade the dependency too, which is a breaking change for them. A package with commits of its own gets the highest of both bumps (`fix` and a breaking peer dependency: a major).
+
+This rule applies to every package released while its published range rejects a breaking change of its peer dependency, whatever `outOfRangePeers` (also with `warn`, `error` or `dependencyTypes: ['peerDependencies']`), in the `independent` mode. In the `unified` and `selective` modes, the packages get the version of the root, computed from the commits: a breaking commit of the dependency already gives a major to the whole group.
+
+A range accepting several majors (`"^6.0.0 || ^7.0.0"`) still accepts the new version: the package is neither bumped nor given a major.
 
 ## clean
 

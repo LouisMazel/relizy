@@ -368,15 +368,99 @@ describe('Given a release with version groups on a real git repository', () => {
       warn.mockRestore()
     })
 
-    it('Then bumps it on a major out of its workspace:^ range', async () => {
-      git('reset', '--hard', 'HEAD~1')
+    describe('When the dependency makes a breaking change', () => {
+      function setupNav({ version = '1.2.0', headerOptions = '' }: { version?: string, headerOptions?: string } = {}) {
+        git('reset', '--hard', 'HEAD~1')
+        commitChanges('chore: caret peer', () => {
+          writeJson('shared/nav', { name: '@scope/nav', version, peerDependencies: { '@scope/components': 'workspace:^' } })
+          writeConfig({ headerOptions })
+        })
+        commitFile('packages/components/button.js', 'feat(components)!: new button API')
+      }
+
+      it('Then bumps the major of a package out of its workspace:^ range', async () => {
+        setupNav()
+
+        await release({ yes: true })
+
+        expect(readVersion('packages/components')).toBe('7.0.0')
+        expect(readVersion('shared/nav')).toBe('2.0.0')
+      })
+
+      it('Then bumps the major of a package with commits of its own', async () => {
+        setupNav()
+        commitFile('shared/nav/menu.js', 'fix(nav): fix the menu')
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('2.0.0')
+      })
+
+      it('Then bumps the major of a package released while outOfRangePeers is warn', async () => {
+        setupNav()
+        commitChanges('chore: warn', () => writeConfig({ options: `bump: { outOfRangePeers: 'warn' },` }))
+        commitFile('shared/nav/menu.js', 'fix(nav): fix the menu')
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('2.0.0')
+      })
+
+      it('Then bumps the major of a package following its peer dependencies', async () => {
+        setupNav({ headerOptions: `, bump: { dependencyTypes: ['dependencies', 'peerDependencies'] }` })
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('2.0.0')
+      })
+
+      it('Then bumps the minor of a 0.x package', async () => {
+        setupNav({ version: '0.2.18' })
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('0.3.0')
+      })
+
+      it('Then bumps the major of a 0.x package with capZeroMajor: false', async () => {
+        setupNav({ version: '0.2.18', headerOptions: ', bump: { capZeroMajor: false }' })
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('1.0.0')
+      })
+
+      it('Then bumps the premajor of a package for a prerelease', async () => {
+        setupNav()
+
+        await release({ yes: true, type: 'prerelease', preid: 'beta' })
+
+        expect(readVersion('packages/components')).toBe('7.0.0-beta.0')
+        expect(readVersion('shared/nav')).toBe('2.0.0-beta.0')
+      })
+
+      it('Then keeps a patch for a dependency released without breaking change', async () => {
+        git('reset', '--hard', 'HEAD~1')
+        commitFile('packages/components/button.js', 'feat(components): add a button')
+
+        await release({ yes: true })
+
+        expect(readVersion('packages/components')).toBe('6.20.0')
+        expect(readVersion('shared/nav')).toBe('1.2.1')
+      })
+    })
+
+    it('Then publishes the canary version of a package whose workspace:^ range rejects the canary of its dependency', async () => {
       commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
-      commitFile('packages/components/button.js', 'feat(components)!: new button API')
 
-      await release({ yes: true })
+      await release({ canary: true, yes: true })
 
-      expect(readVersion('packages/components')).toBe('7.0.0')
-      expect(readVersion('shared/nav')).toBe('1.2.1')
+      const components = publishedPackages.find(pkg => pkg.name === '@scope/components')!
+      const nav = publishedPackages.find(pkg => pkg.name === '@scope/nav')!
+
+      expect(components.version).toMatch(/^6\.20\.0-0\.canary-/)
+      expect(nav.version).toMatch(/^1\.2\.1-0\.canary-/)
+      expect(nav.componentsVersionOnDisk).toBe(components.version)
     })
 
     it('Then only warns with outOfRangePeers: warn', async () => {

@@ -36,13 +36,16 @@ interface BumpOptions {
    */
   clean?: boolean
   /**
-   * Include dependencies when bumping.
+   * Dependency fields whose internal dependencies bump the package, on every
+   * bump of these dependencies.
    * @default ['dependencies']
    */
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
   /**
    * What to do with a package whose published peer dependency range rejects
-   * the new version of the dependency. See the
+   * the new version of the dependency (checked as npm does, prereleases
+   * included). A package released while its dependency makes a breaking change
+   * gets a major. See the
    * [bump config reference](../config/bump.md#outofrangepeers).
    * @default 'bump'
    */

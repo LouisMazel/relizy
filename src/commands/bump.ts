@@ -670,7 +670,7 @@ function getBumpedVersions(result: BumpResult): string {
 /**
  * The packages of each version group and the packages of the other groups they
  * depend on (following the `bump.dependencyTypes` of the group, and the peer
- * dependencies with `bump.outOfRangePeers: 'bump'`).
+ * dependencies, whose ranges are checked whatever `bump.outOfRangePeers`).
  */
 function readGroupsDependencies({
   config,
@@ -682,10 +682,8 @@ function readGroupsDependencies({
   const workspaceNames = new Set(readWorkspacePackages(config).keys())
 
   return new Map(groups.map(({ group, config: groupConfig }) => {
-    // The peer dependencies also count when out-of-range peers are bumped
-    const dependencyTypes = groupConfig.bump.outOfRangePeers === 'bump'
-      ? [...new Set([...(groupConfig.bump.dependencyTypes ?? []), 'peerDependencies' as const])]
-      : groupConfig.bump.dependencyTypes
+    // The ranges of the peer dependencies are checked against the bumps of the other groups
+    const dependencyTypes = [...new Set([...(groupConfig.bump.dependencyTypes ?? []), 'peerDependencies' as const])]
     const packages = readPackages({
       cwd: groupConfig.cwd,
       patterns: groupConfig.monorepo?.packages,

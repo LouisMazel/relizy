@@ -2534,3 +2534,54 @@ describe('Given the capZeroMajor option is disabled', () => {
     })
   })
 })
+
+describe('Given determineReleaseType with a breaking peer dependency', () => {
+  const config = createMockConfig({})
+  const types = config.types
+
+  function getReleaseType(options: Partial<Parameters<typeof determineReleaseType>[0]>) {
+    return determineReleaseType({
+      currentVersion: '1.2.0',
+      commits: [],
+      releaseType: 'release',
+      preid: undefined,
+      types,
+      force: false,
+      breakingPeer: true,
+      ...options,
+    })
+  }
+
+  it('Then returns major without commits of its own', () => {
+    expect(getReleaseType({})).toBe('major')
+  })
+
+  it('Then returns major whatever its own commits', () => {
+    expect(getReleaseType({ commits: [createMockCommit('fix', 'fix: small fix')] })).toBe('major')
+  })
+
+  it('Then caps it to minor on 0.x, unless capZeroMajor is false', () => {
+    expect(getReleaseType({ currentVersion: '0.2.18' })).toBe('minor')
+    expect(getReleaseType({ currentVersion: '0.2.18', capZeroMajor: false })).toBe('major')
+  })
+
+  it('Then returns premajor for a prerelease from a stable version', () => {
+    expect(getReleaseType({ releaseType: 'prerelease', preid: 'beta' })).toBe('premajor')
+  })
+
+  it('Then upgrades a prerelease of a patch to a premajor', () => {
+    expect(getReleaseType({ currentVersion: '1.2.1-beta.0', releaseType: 'prerelease', preid: 'beta' })).toBe('premajor')
+  })
+
+  it('Then increments a prerelease already leading to a major', () => {
+    expect(getReleaseType({ currentVersion: '2.0.0-beta.0', releaseType: 'prerelease', preid: 'beta' })).toBe('prerelease')
+  })
+
+  it('Then keeps an explicit release type', () => {
+    expect(getReleaseType({ releaseType: 'minor' })).toBe('minor')
+  })
+
+  it('Then does not bump without commits nor breaking peer dependency', () => {
+    expect(getReleaseType({ breakingPeer: false })).toBeUndefined()
+  })
+})

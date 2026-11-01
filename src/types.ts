@@ -55,6 +55,12 @@ export interface PackageBase extends ReadPackage {
    * Dependency chain
    */
   dependencyChain?: string[]
+  /**
+   * Peer dependency making a breaking change (a new major, a new minor in `0.x`)
+   * that the published range of the package rejects: the package is bumped as
+   * for a breaking commit.
+   */
+  breakingPeerDependency?: string
 }
 
 /**
@@ -318,7 +324,11 @@ export interface BumpConfig {
    */
   clean?: boolean
   /**
-   * Include dependencies when bumping.
+   * Dependency fields whose internal dependencies bump the package: a package is
+   * bumped (a patch) on **every** bump of the packages it lists in these fields.
+   *
+   * `peerDependencies` is not included by default: a package is bumped only when
+   * the range of its peer dependency rejects the new version, see `outOfRangePeers`.
    * @default ['dependencies']
    */
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
@@ -343,14 +353,20 @@ export interface BumpConfig {
    * What to do with a package that is not bumped while the range of one of its
    * peer dependencies, as published, does not accept the new version of that
    * dependency: `workspace:*` is published as the exact version, so any new
-   * version is out of its range; `workspace:^` only on a major. Its consumers
-   * would get peer dependency warnings, or errors with `strict-peer-dependencies`.
+   * version is out of its range; `workspace:^` only on a major, or on a
+   * prerelease (npm rejects `6.20.0-beta.0` for `^6.19.1`). Its consumers would
+   * get peer dependency errors (npm) or warnings (pnpm).
    *
-   * - `bump`: bump the package (a patch, as a dependent), so it is released with
-   *   an up-to-date range. The packages outside of the release (e.g. not in the
-   *   targeted `--group`) are reported with a warning.
+   * - `bump`: bump the package, so it is released with an up-to-date range: a
+   *   patch, or a major when the dependency makes a breaking change. The packages
+   *   outside of the release (e.g. not in the targeted `--group`) are reported
+   *   with a warning.
    * - `warn`: only warn before publishing.
    * - `error`: fail the release before publishing.
+   *
+   * Whatever this option, a package released while its peer dependency makes a
+   * breaking change its published range rejects is bumped as for a breaking
+   * commit (`capZeroMajor` applies), in `independent` mode.
    *
    * Independent of `dependencyTypes`, which bumps the dependents on every bump
    * of their dependencies.

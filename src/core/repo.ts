@@ -10,7 +10,7 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
-import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies } from './dependencies'
+import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies, isBreakingVersionChange } from './dependencies'
 import { getGitDiff } from './git-refs'
 import { GLOB_IGNORE } from './glob'
 import { reconcileFromTag } from './rewritten-tags'
@@ -400,7 +400,9 @@ function getPackageReleaseType({
     })
   }
 
-  if (pkg.reason === 'dependency') {
+  const breakingPeer = Boolean(pkg.breakingPeerDependency)
+
+  if (pkg.reason === 'dependency' && !breakingPeer) {
     return getDependencyReleaseType(pkg.version, releaseType)
   }
 
@@ -412,6 +414,7 @@ function getPackageReleaseType({
     types: config.types,
     force,
     capZeroMajor: config.bump.capZeroMajor,
+    breakingPeer,
   })
 }
 
@@ -505,17 +508,58 @@ function computeNewVersions({
 }
 
 /**
- * Bump the packages whose published peer dependency ranges do not accept the
- * new version of a bumped dependency (see `bump.outOfRangePeers`), and their
- * dependents, until no package is out of range.
+ * The packages to bump because of their peer dependencies, given the bumped
+ * versions: the packages not bumped out of range (`seeds`, with `bumpOutOfRange`)
+ * and the bumped packages whose dependency makes a breaking change (`breaking`).
  */
-function bumpOutOfRangePeerDependents({
+function findPeerDependents({
+  packages,
+  bumped,
+  bumpOutOfRange,
+}: {
+  packages: Map<string, PackageBase>
+  bumped: Map<string, VersionChange>
+  bumpOutOfRange: boolean
+}) {
+  const seeds: { pkg: PackageBase, dependency: string }[] = []
+  const breaking: { pkg: PackageBase, dependency: string }[] = []
+
+  for (const pkg of packages.values()) {
+    if (pkg.breakingPeerDependency || (!pkg.reason && !bumpOutOfRange)) {
+      continue
+    }
+
+    const outOfRange = getOutOfRangePeers({ packagePath: pkg.path, bumped })
+    const breakingPeer = outOfRange.find(isBreakingVersionChange)
+
+    if (!pkg.reason && outOfRange[0]) {
+      seeds.push({ pkg, dependency: outOfRange[0].dependency })
+    }
+    else if (pkg.reason && breakingPeer) {
+      breaking.push({ pkg, dependency: breakingPeer.dependency })
+    }
+  }
+
+  return { seeds, breaking }
+}
+
+/**
+ * Follow the peer dependencies whose published range rejects the new version
+ * of a bumped dependency, until nothing changes:
+ * - with `bumpOutOfRange` (`bump.outOfRangePeers: 'bump'`), the packages not
+ *   bumped are bumped as dependents, and their own dependents follow;
+ * - the packages bumped while the dependency makes a breaking change are
+ *   bumped as for a breaking commit (`breakingPeerDependency`).
+ */
+function bumpPeerDependents({
   packages,
   externalBumps,
+  bumpOutOfRange,
   ...versionContext
 }: {
   packages: Map<string, PackageBase>
   externalBumps?: Map<string, VersionChange>
+  bumpOutOfRange: boolean
   config: ResolvedRelizyConfig
   force: boolean
   suffix: string | undefined
@@ -530,12 +574,9 @@ function bumpOutOfRangePeerDependents({
       }
     }
 
-    const seeds = Array.from(packages.values())
-      .filter(pkg => !pkg.reason)
-      .map(pkg => ({ pkg, dependency: getOutOfRangePeers({ packagePath: pkg.path, bumped })[0]?.dependency }))
-      .filter((seed): seed is { pkg: PackageBase, dependency: string } => Boolean(seed.dependency))
+    const { seeds, breaking } = findPeerDependents({ packages, bumped, bumpOutOfRange })
 
-    if (seeds.length === 0) {
+    if (seeds.length === 0 && breaking.length === 0) {
       return
     }
 
@@ -544,6 +585,12 @@ function bumpOutOfRangePeerDependents({
     }
 
     markDependents({ packages, seeds })
+
+    for (const { pkg, dependency } of breaking) {
+      logger.debug(`${pkg.name}: its peer dependency ${dependency} makes a breaking change, bumped as for a breaking commit`)
+      packages.set(pkg.name, { ...packages.get(pkg.name)!, breakingPeerDependency: dependency })
+    }
+
     computeNewVersions({ packages, ...versionContext })
   }
 }
@@ -684,9 +731,7 @@ export async function getPackages({
   computeNewVersions({ packages, ...versionContext })
 
   // `bump` is the default
-  if (!['warn', 'error'].includes(config.bump.outOfRangePeers!)) {
-    bumpOutOfRangePeerDependents({ packages, externalBumps, ...versionContext })
-  }
+  bumpPeerDependents({ packages, externalBumps, bumpOutOfRange: !['warn', 'error'].includes(config.bump.outOfRangePeers!), ...versionContext })
 
   const allPackages = Array.from(packages.values())
   const packagesToBump = includeAll ? allPackages : allPackages.filter(p => p.reason || force)

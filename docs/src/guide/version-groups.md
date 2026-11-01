@@ -132,7 +132,9 @@ When a package depends on a package bumped by another group, it is bumped too, s
 Which dependencies count:
 
 - the ones of the [`bump.dependencyTypes`](../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped on every bump of its dependency;
-- the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major.
+- the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major or a prerelease (canary, beta).
+
+In an `independent` group, a dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too.
 
 With the configuration of the example above, `@scope/navigation` (peer dependency `"@scope/components": "workspace:*"`) is released with a patch each time `@scope/components` is, without any other option.
 
