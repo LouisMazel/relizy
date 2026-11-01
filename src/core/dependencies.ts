@@ -254,9 +254,45 @@ export interface VersionChange {
 }
 
 /**
+ * Whether a new version breaks the consumers of the previous one: `^oldVersion`
+ * does not accept it (a new major, a new minor in `0.x`). A prerelease counts as
+ * the version it leads to: `6.19.1` to `6.20.0-beta.0` is not breaking,
+ * `6.19.1` to `7.0.0-beta.0` is.
+ */
+export function isBreakingVersionChange({ oldVersion, newVersion }: VersionChange): boolean {
+  return !semver.satisfies(newVersion, `^${oldVersion}`, { includePrerelease: true })
+}
+
+/**
+ * Peer dependency whose published range rejects the new version of the dependency.
+ */
+export interface OutOfRangePeer {
+  /**
+   * Name of the workspace package (the target of an alias)
+   */
+  dependency: string
+  /**
+   * Range the package was published with
+   */
+  range: string
+  /**
+   * Version of the dependency before the bump
+   */
+  oldVersion: string
+  /**
+   * Version of the dependency after the bump
+   */
+  newVersion: string
+}
+
+/**
  * The peer dependencies of a package whose published range (computed with the
  * version the dependency had before the bump) does not accept the new version
  * of the dependency.
+ *
+ * The ranges are checked as npm does, which rejects a prerelease unless the
+ * range targets the same version: `^6.19.1` does not accept `6.20.0-beta.0`.
+ * pnpm accepts it, but the consumers of the package may use npm.
  */
 export function getOutOfRangePeers({
   packagePath,
@@ -264,7 +300,7 @@ export function getOutOfRangePeers({
 }: {
   packagePath: string
   bumped: Map<string, VersionChange>
-}): { dependency: string, range: string, newVersion: string }[] {
+}): OutOfRangePeer[] {
   const packageJsonPath = join(packagePath, 'package.json')
 
   if (bumped.size === 0 || !existsSync(packageJsonPath)) {
@@ -272,14 +308,14 @@ export function getOutOfRangePeers({
   }
 
   const { peerDependencies = {} } = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as { peerDependencies?: Record<string, string> }
-  const outOfRange: { dependency: string, range: string, newVersion: string }[] = []
+  const outOfRange: OutOfRangePeer[] = []
 
   for (const [dependencyName, specifier] of Object.entries(peerDependencies)) {
     const change = bumped.get(parseWorkspaceProtocol(dependencyName, specifier)?.target ?? dependencyName)
     const published = change && getPublishedRange({ dependencyName, specifier, dependencyVersion: change.oldVersion })
 
-    if (change && published && !semver.satisfies(change.newVersion, published.range, { includePrerelease: true })) {
-      outOfRange.push({ dependency: published.target, range: published.range, newVersion: change.newVersion })
+    if (change && published && !semver.satisfies(change.newVersion, published.range)) {
+      outOfRange.push({ dependency: published.target, range: published.range, ...change })
     }
   }
 

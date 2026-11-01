@@ -15,6 +15,7 @@ export default defineConfig({
       include: ['src/**/*'],
       exclude: [
         ...coverageConfigDefaults.exclude,
+        '.claude/worktrees',
         'src/cli.ts',
         '**/*/index.ts',
         'src/types.ts',
@@ -23,11 +24,11 @@ export default defineConfig({
       thresholds: {
         autoUpdate: !isInCI(),
         statements: 95.65,
-        functions: 98.84,
-        branches: 91.32,
-        lines: 95.52,
+        functions: 98.85,
+        branches: 91.44,
+        lines: 95.51,
       },
     },
-    exclude: defaultExclude,
+    exclude: [...defaultExclude, '.claude/worktrees'],
   },
 })

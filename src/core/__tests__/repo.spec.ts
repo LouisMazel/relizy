@@ -21,6 +21,7 @@ vi.mock('node:fs/promises', async () => {
 // Mock dependencies
 vi.mock('../dependencies', () => ({
   getOutOfRangePeers: vi.fn(() => []),
+  isBreakingVersionChange: vi.fn(() => false),
   expandPackagesToBumpWithDependents: vi.fn(({ allPackages, packagesWithCommits }) => {
     // Simple mock: return packages that depend on packages with commits
     const packagesWithCommitsNames = new Set(packagesWithCommits.map((p: any) => p.name))
