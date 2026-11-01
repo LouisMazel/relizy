@@ -212,10 +212,14 @@ async function resolveConfig(
   cwd: string,
 ) {
   if (!config.repo) {
-    const resolvedRepoConfig = await resolveRepoConfig(cwd)
-    config.repo = {
-      ...resolvedRepoConfig,
-      provider: resolvedRepoConfig.provider as GitProvider,
+    // Undefined without a `repository` field nor an `origin` remote (a local repository)
+    const resolvedRepoConfig = await resolveRepoConfig(cwd) as Awaited<ReturnType<typeof resolveRepoConfig>> | undefined
+
+    if (resolvedRepoConfig) {
+      config.repo = {
+        ...resolvedRepoConfig,
+        provider: resolvedRepoConfig.provider as GitProvider,
+      }
     }
   }
 
