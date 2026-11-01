@@ -5,10 +5,11 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
+import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import micromatch from 'micromatch'
 import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
-import { isPrerelease, writeVersion } from './version'
+import { isPrerelease } from './version'
 
 const DEFAULT_REGISTRY = 'https://registry.npmjs.org/'
 
@@ -1007,13 +1008,13 @@ export async function publishPackage({
     && !!pkg.newVersion
     && pkg.newVersion !== pkg.version
 
-  let originalVersion: string | undefined
+  const packageJsonPath = join(pkg.path, 'package.json')
+  // Restored byte for byte, with the uncommitted changes of the file
+  let originalContent: string | undefined
   if (needsTempVersionWrite) {
-    const packageJsonPath = join(pkg.path, 'package.json')
-    const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8'))
-    originalVersion = packageJson.version
+    originalContent = readFileSync(packageJsonPath, 'utf8')
     logger.debug(`[dry-run] Temporarily writing ${pkg.newVersion} to ${pkg.name} for publish --dry-run validation`)
-    writeVersion(pkg.path, pkg.newVersion!, false)
+    writeFileSync(packageJsonPath, `${formatJson({ ...JSON.parse(originalContent), version: pkg.newVersion })}\n`, 'utf8')
   }
 
   try {
@@ -1038,9 +1039,9 @@ export async function publishPackage({
     }
   }
   finally {
-    if (needsTempVersionWrite && originalVersion) {
-      logger.debug(`[dry-run] Restoring ${pkg.name} version to ${originalVersion}`)
-      writeVersion(pkg.path, originalVersion, false)
+    if (originalContent !== undefined) {
+      logger.debug(`[dry-run] Restoring ${pkg.name} version to ${pkg.version}`)
+      writeFileSync(packageJsonPath, originalContent, 'utf8')
     }
   }
 }

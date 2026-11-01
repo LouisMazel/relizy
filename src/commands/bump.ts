@@ -3,7 +3,7 @@ import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionCh
 import type { BumpOptions, BumpResult, PackageBase, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -927,6 +927,12 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     if (config.bump.clean && config.release.clean) {
       checkGitStatusIfDirty()
     }
+    else {
+      await confirmDirtyGitStatus({ dryRun })
+    }
+
+    // A new run: only the files written from now on are restored and committed
+    resetReleaseFiles()
 
     await fetchGitTags(config.cwd)
 

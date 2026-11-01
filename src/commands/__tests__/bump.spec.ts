@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -28,6 +28,8 @@ vi.mock('node:process', () => ({
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   checkGitStatusIfDirty: vi.fn(),
+  confirmDirtyGitStatus: vi.fn(),
+  resetReleaseFiles: vi.fn(),
   confirmBump: vi.fn(() => true),
   determineSemverChange: vi.fn(() => 'minor'),
   fetchGitTags: vi.fn(() => {}),
@@ -213,6 +215,8 @@ describe('Given bump command', () => {
         false,
       )
       expect(checkGitStatusIfDirty).toHaveBeenCalledWith()
+      expect(confirmDirtyGitStatus).not.toHaveBeenCalled()
+      expect(resetReleaseFiles).toHaveBeenCalled()
       expect(fetchGitTags).toHaveBeenCalledWith(mockCwd)
       expect(readPackages).toHaveBeenCalledWith({
         cwd: mockCwd,
@@ -281,6 +285,31 @@ describe('Given bump command', () => {
         '1.0.1',
         false,
       )
+    })
+
+    it('Then warns about the uncommitted changes instead of failing without the clean check', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: { type: 'patch', yes: true },
+        release: { clean: false },
+        monorepo: { versionMode: 'unified', packages: ['packages/*'] },
+        types: {},
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+      vi.mocked(getRootPackage).mockResolvedValueOnce({
+        name: 'root-package',
+        version: '1.0.0',
+        path: mockCwd,
+        fromTag: 'v1.0.0',
+        commits: [],
+        private: false,
+      })
+
+      await bump({ type: 'patch', yes: true, dryRun: true })
+
+      expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
+      expect(confirmDirtyGitStatus).toHaveBeenCalledWith({ dryRun: true })
     })
 
     it('Then updates lerna.json in unified mode', async () => {

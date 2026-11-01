@@ -51,7 +51,7 @@ export default defineConfig({
     slack: { enabled: false },
   },
   prComment: {
-    mode: 'append',
+    mode: 'update',
   },
   commitlint: {
     scopes: ['docs', 'release', 'deps'],

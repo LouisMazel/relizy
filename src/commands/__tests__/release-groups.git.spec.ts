@@ -561,6 +561,68 @@ describe('Given a release with version groups on a real git repository', () => {
     })
   })
 
+  describe('When the working directory has uncommitted changes (--no-clean)', () => {
+    const untrackedPackage = 'packages/draft/package.json'
+    let changedFiles: Record<string, string>
+
+    function readFiles(paths: string[]): Record<string, string> {
+      return Object.fromEntries(paths.map(path => [path, readFileSync(join(cwd, path), 'utf8')]))
+    }
+
+    beforeEach(() => {
+      // An uncommitted change in a package bumped by the release, another in a package not bumped
+      writeJson('packages/components', { name: '@scope/components', version: '6.19.1', description: 'uncommitted' })
+      writeJson('packages/theme', { name: '@scope/theme', version: '6.18.0', keywords: ['uncommitted'] })
+      writeJson('packages/draft', { name: '@scope/draft', version: '0.0.0', private: true })
+      changedFiles = readFiles(['packages/components/package.json', 'packages/theme/package.json', untrackedPackage])
+    })
+
+    it('Then keeps them after a canary, restoring only the versions it wrote', async () => {
+      await release({ canary: true, yes: true, clean: false })
+
+      expect(publishedPackages.map(({ name }) => name)).toEqual(['@scope/components', '@scope/nav'])
+      expect(readFiles(Object.keys(changedFiles))).toEqual(changedFiles)
+      expect(readVersion('shared/nav')).toBe('1.2.0')
+    })
+
+    it('Then leaves every file untouched in dry-run', async () => {
+      const files = ['package.json', 'shared/nav/package.json', ...Object.keys(changedFiles)]
+      const before = readFiles(files)
+
+      await release({ canary: true, yes: true, clean: false, dryRun: true })
+      await release({ yes: true, clean: false, dryRun: true })
+
+      expect(readFiles(files)).toEqual(before)
+      expect(existsSync(join(cwd, 'CHANGELOG.md'))).toBe(false)
+    })
+
+    it('Then only commits the files written by the release', async () => {
+      await release({ yes: true, clean: false })
+
+      const committed = git('show', '--name-only', '--format=', 'HEAD').split('\n')
+
+      expect(committed).toContain('packages/components/package.json')
+      expect(committed).not.toContain('packages/theme/package.json')
+      expect(committed).not.toContain(untrackedPackage)
+      expect(readFiles(['packages/theme/package.json', untrackedPackage])).toEqual({
+        'packages/theme/package.json': changedFiles['packages/theme/package.json'],
+        [untrackedPackage]: changedFiles[untrackedPackage],
+      })
+      // A file written by the release is committed with the changes it contains
+      expect(JSON.parse(readFileSync(join(cwd, 'packages/components/package.json'), 'utf8'))).toEqual({ name: '@scope/components', version: '6.20.0', description: 'uncommitted' })
+    })
+
+    it('Then restores them when the release fails before its commit', async () => {
+      vi.mocked(publishPackage).mockRejectedValueOnce(new Error('registry down'))
+
+      await expect(release({ yes: true, clean: false })).rejects.toThrow('registry down')
+
+      expect(readFiles(Object.keys(changedFiles))).toEqual(changedFiles)
+      expect(readVersion('shared/nav')).toBe('1.2.0')
+      expect(git('status', '--porcelain', '--', 'CHANGELOG.md', 'shared/nav')).toBe('')
+    })
+  })
+
   describe('When releasing a single group', () => {
     it('Then only releases the packages of that group', async () => {
       await release({ yes: true, groups: ['header'] })

@@ -9,6 +9,7 @@ import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
+import { recordReleaseFile } from './release-files'
 import { hasLernaJson } from './repo'
 
 export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
@@ -351,6 +352,7 @@ export function writeVersion(pkgPath: string, newVersion: string, dryRun = false
       return
     }
 
+    recordReleaseFile(packageJsonPath)
     writeFileSync(packageJsonPath, `${formatJson(packageJson)}\n`, 'utf8')
     logger.debug(`Updated ${packageJson.name}: ${oldVersion} → ${newVersion}`)
   }
@@ -443,6 +445,7 @@ export function updateLernaVersion({
       return
     }
 
+    recordReleaseFile(lernaJsonPath)
     writeFileSync(lernaJsonPath, `${formatJson(lernaJson)}\n`, 'utf8')
     logger.success(`Updated lerna.json: ${oldVersion} → ${version}`)
   }
