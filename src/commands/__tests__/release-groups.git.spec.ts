@@ -6,8 +6,9 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
+import { loadRelizyConfig } from '../../core'
 import { isVersionPublished, publishPackage } from '../../core/npm'
-import { bump } from '../bump'
+import { bump, planBumps } from '../bump'
 import { release } from '../release'
 
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
@@ -355,6 +356,21 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(readVersion('packages/kit')).toBe('6.20.0')
       expect(readVersion('shared/nav')).toBe('1.2.1')
       expect(publishedPackages.map(({ name }) => name)).toEqual(['@scope/components', '@scope/kit', '@scope/nav'])
+    })
+
+    it('Then planBumps reports the rejecting peer dependency of each group without writing anything', async () => {
+      const config = await loadRelizyConfig()
+
+      const { result, plans, groups } = await planBumps({ config, dryRun: true })
+      const nav = result.bumped ? result.bumpedPackages.find(pkg => pkg.name === '@scope/nav') : undefined
+
+      expect(nav).toEqual(expect.objectContaining({ newVersion: '1.2.1', reason: 'dependency', dependencyChain: ['@scope/components'], outOfRangePeer: '@scope/components' }))
+      expect(groups?.map(({ group, result }) => [group.name, result.bumped])).toEqual([['main', true], ['header', true]])
+      expect(plans.map(plan => plan.result)).toEqual(groups?.map(group => group.result))
+      expect(readVersion('packages/components')).toBe('6.19.1')
+      expect(readVersion('shared/nav')).toBe('1.2.0')
+      expect(git('status', '--porcelain')).toBe('')
+      expect(confirm).not.toHaveBeenCalled()
     })
 
     it('Then does not bump a package whose workspace:^ range accepts the new version', async () => {

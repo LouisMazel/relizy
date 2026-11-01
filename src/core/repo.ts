@@ -435,13 +435,17 @@ function getExternalDependents(packages: PackageBase[], externalBumps: Map<strin
  * Mark the seeds and their dependents (following `bump.dependencyTypes`) as
  * bumped, keeping the reason of the packages already bumped. A seed with a
  * `dependency` is bumped because of that dependency, the others for their commits.
+ * With `outOfRangePeer`, the dependency of the seeds is a peer dependency whose
+ * published range rejects its new version.
  */
 function markDependents({
   packages,
   seeds,
+  outOfRangePeer = false,
 }: {
   packages: Map<string, PackageBase>
   seeds: { pkg: PackageBase, dependency?: string }[]
+  outOfRangePeer?: boolean
 }): void {
   const seedDependencies = new Map(seeds.map(({ pkg, dependency }) => [pkg.name, dependency]))
 
@@ -463,7 +467,9 @@ function markDependents({
       packages.set(pkg.name, { ...pkg, reason: 'commits' })
     }
     else {
-      packages.set(pkg.name, dependency ? { ...pkg, reason: 'dependency', dependencyChain: [dependency] } : pkg)
+      packages.set(pkg.name, dependency
+        ? { ...pkg, reason: 'dependency', dependencyChain: [dependency], ...(outOfRangePeer ? { outOfRangePeer: dependency } : {}) }
+        : pkg)
     }
   }
 }
@@ -585,7 +591,7 @@ function bumpPeerDependents({
       logger.debug(`${pkg.name}: the published range of its peer dependency ${dependency} does not accept its new version, bumped as a dependent`)
     }
 
-    markDependents({ packages, seeds })
+    markDependents({ packages, seeds, outOfRangePeer: true })
 
     for (const { pkg, dependency } of breaking) {
       logger.debug(`${pkg.name}: its peer dependency ${dependency} makes a breaking change, bumped as for a breaking commit`)
