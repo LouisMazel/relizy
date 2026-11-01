@@ -1468,6 +1468,16 @@ describe('Given confirmDirtyGitStatus function', () => {
       exitSpy.mockRestore()
     })
 
+    it('Then cancels the run when the prompt is cancelled (Ctrl+C)', async () => {
+      vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(exitSpy).toHaveBeenCalledWith(0)
+      exitSpy.mockRestore()
+    })
+
     it('Then only warns in dry-run, in the CI or without a terminal', async () => {
       const warnSpy = vi.spyOn(logger, 'warn')
 
