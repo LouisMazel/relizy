@@ -157,6 +157,30 @@ export async function pushTagForce(tag: string, cwd?: string, logLevel?: LogLeve
   )
 }
 
+/**
+ * A line of the `--name-status` list `getGitDiff` appends to the commit bodies:
+ * a status letter, a similarity score for renames and copies, then a tab
+ * (`M\tpath`, `R100\told\tnew`). A line of prose never has this tab
+ * ("A new option" is not a file).
+ */
+export const NAME_STATUS_LINE = /^[A-Z]\d*\t/
+
+/**
+ * The text of a commit body without the `--name-status` list git writes after
+ * it: the last block of lines, after a blank line. A line of the text that
+ * looks like a file line is kept.
+ */
+export function stripNameStatus(body: string): string {
+  const lines = body.trimEnd().split('\n')
+  let end = lines.length
+
+  while (end > 0 && NAME_STATUS_LINE.test(lines[end - 1]!)) {
+    end--
+  }
+
+  return lines.slice(0, end).join('\n')
+}
+
 // ASCII record and unit separators: they never appear in a commit message,
 // unlike the `----` and `|` delimiters used by changelogen's `getGitDiff`.
 const COMMIT_SEPARATOR = '\x1E'

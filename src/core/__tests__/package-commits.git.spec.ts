@@ -4,6 +4,7 @@ import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { createMockConfig } from '../../../tests/mocks'
+import { buildChangelogBody } from '../markdown'
 import { getPackageCommits } from '../repo'
 import { NEW_PACKAGE_MARKER } from '../tags'
 
@@ -123,6 +124,28 @@ describe('Given getPackageCommits on a real git repository', () => {
       expect(git('show', '--name-status', '--format=', 'HEAD')).toContain('"packages/components/src/caf\\303\\251.ts"')
       expect(await descriptionsOf('packages/components')).toEqual(['add the café component'])
       expect(await descriptionsOf('packages/components-mcp')).toEqual([])
+    })
+  })
+
+  describe('When the body of a commit has lines starting like a git status', () => {
+    it('Then the changelog keeps them and drops the files of the commit', async () => {
+      write('packages/components/src/size.ts')
+      commit('feat: add the size option\n\nA new option sets the size.\nM is the default size.')
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'components', version: '1.0.0', path: join(cwd, 'packages/components'), private: false },
+        from: base,
+        to: 'HEAD',
+        config: createConfig(),
+        changelog: true,
+      })
+      const config = createConfig()
+      config.changelog.includeCommitBody = true
+
+      const body = buildChangelogBody({ commits, config })
+
+      expect(body).toContain('  A new option sets the size.\n  M is the default size.')
+      expect(body).not.toContain('size.ts')
     })
   })
 

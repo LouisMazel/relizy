@@ -433,13 +433,13 @@ describe('Given generateMarkDown function', () => {
       expect(result).not.toContain('This should not appear')
     })
 
-    it('Then filters out git diff status lines from body', async () => {
+    it('Then filters out the git diff status lines appended to the body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
-          body: 'Real content\nM src/file.ts\nA new-file.ts\nMore content',
+          body: 'Real content\nMore content\n\nM\tsrc/file.ts\nA\tnew-file.ts\nR100\told.ts\tnew.ts\n',
           type: 'feat',
         },
       ]
@@ -454,8 +454,32 @@ describe('Given generateMarkDown function', () => {
 
       expect(result).toContain('Real content')
       expect(result).toContain('More content')
-      expect(result).not.toContain('M src/file.ts')
-      expect(result).not.toContain('A new-file.ts')
+      expect(result).not.toContain('src/file.ts')
+      expect(result).not.toContain('new-file.ts')
+      expect(result).not.toContain('old.ts')
+    })
+
+    it('Then keeps the lines of the body that start like a status letter', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
+      const commits: GitCommit[] = [
+        {
+          ...createMockCommit('feat', 'feature'),
+          body: 'A new option lets you skip the build.\nM is now the default size.\nD\tlooks like a file line in the middle of the text\n\nM\tsrc/option.ts\n',
+          type: 'feat',
+        },
+      ]
+
+      const result = await generateMarkDown({
+        commits,
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      expect(result).toContain('  A new option lets you skip the build.\n  M is now the default size.\n  D\tlooks like a file line in the middle of the text\n')
+      expect(result).not.toContain('src/option.ts')
     })
 
     it('Then keeps a single blank line between body paragraphs', async () => {
@@ -464,7 +488,7 @@ describe('Given generateMarkDown function', () => {
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
-          body: '\n\nFirst paragraph\n- item\n\n\n   \nSecond paragraph\n\nM src/file.ts\n\n',
+          body: '\n\nFirst paragraph\n- item\n\n\n   \nSecond paragraph\n\nM\tsrc/file.ts\n\n',
           type: 'feat',
         },
       ]
@@ -487,7 +511,7 @@ describe('Given generateMarkDown function', () => {
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
-          body: 'M src/file.ts\n\nA new-file.ts\n',
+          body: '\nM\tsrc/file.ts\nA\tnew-file.ts\n',
           type: 'feat',
         },
       ]

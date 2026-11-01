@@ -12,7 +12,7 @@ import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies, isBreakingVersionChange } from './dependencies'
-import { getGitDiff } from './git-refs'
+import { getGitDiff, NAME_STATUS_LINE } from './git-refs'
 import { GLOB_IGNORE } from './glob'
 import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
@@ -178,7 +178,7 @@ function unquoteGitPath(path: string): string {
 function getNameStatusPaths(commit: GitCommit): string[][] {
   return commit.body
     .split('\n')
-    .filter(line => /^[A-Z]\d*\t/.test(line))
+    .filter(line => NAME_STATUS_LINE.test(line))
     .map(line => line.split('\t').slice(1).map(path => unquoteGitPath(path.trim())).filter(Boolean))
     .filter(paths => paths.length > 0)
 }
