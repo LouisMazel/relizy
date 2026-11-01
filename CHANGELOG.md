@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.13.1-beta.0 (2026-11-01)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.0...v1.13.1-beta.0)
+
+### 🩹 Fixes
+
+- Check the peer dependency ranges as npm does and bump a major on a breaking peer dependency ([59dd54f](https://github.com/LouisMazel/relizy/commit/59dd54f))
+
+  `bump.outOfRangePeers` checks the published ranges as npm does (`^6.19.1` rejects `6.20.0-beta.0`), so a canary or a beta of a dependency also releases its dependents declared with `workspace:^`. In the `independent` mode, a package released while its peer dependency makes a breaking change that its published range rejects (`6.19.1` to `7.0.0`) gets a major instead of a patch, as for a breaking commit: a minor in `0.x` (see `bump.capZeroMajor`), a premajor for a prerelease.
+
+- Bump the major of a unified or selective group whose package has a breaking peer dependency of another group ([6e3544d](https://github.com/LouisMazel/relizy/commit/6e3544d))
+
+  In the `unified` and `selective` modes, a package released while its peer dependency on a package of another version group makes a breaking change that its published range rejects now gives a major to the root version (a minor in `0.x`, a premajor for a prerelease), so to every package released by the group, instead of a patch. The canary versions follow the same rule, in every version mode.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.13.0 (2026-10-30)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.12.0...v1.13.0)
