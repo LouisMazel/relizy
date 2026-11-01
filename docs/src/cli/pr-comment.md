@@ -144,7 +144,7 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   prComment: {
-    mode: 'append', // 'append' (default) or 'update'
+    mode: 'update', // 'update' (default) or 'append'
   },
 })
 ```

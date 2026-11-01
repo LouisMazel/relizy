@@ -143,7 +143,7 @@ Dependencies that consumers must provide:
 }
 ```
 
-Peer dependency updates are tracked like regular dependencies.
+Peer dependencies are not in `dependencyTypes` by default: a package is bumped only when its published range no longer accepts the new version of its peer dependency, and gets a major when that dependency makes a breaking change. See [Out-of-Range Peer Dependencies](#out-of-range-peer-dependencies).
 
 ## Version Mode Differences
 
@@ -195,6 +195,13 @@ core: 2.0.0 → 2.1.0 (has feature commits)
 ui: 1.5.0 → 1.6.0 (has its own feature commits)
 ```
 
+A package whose published peer dependency range rejects a breaking change of its dependency gets a major, as for a breaking commit:
+
+```text
+core: 2.0.0 → 3.0.0 (has a breaking commit)
+ui: 1.5.0 → 2.0.0 ("core": "workspace:^", published as "^2.0.0", now "^3.0.0")
+```
+
 ## Workspace Protocol
 
 Relizy supports the workspace protocol used by pnpm, bun and yarn:
@@ -211,11 +218,48 @@ The package manager replaces these specifiers when publishing (`workspace:*` bec
 
 ### Out-of-Range Peer Dependencies
 
-A peer dependency declared as `workspace:*` is published as the exact version of the dependency. When the dependency is released again, the package must be released too, otherwise its consumers get peer dependency warnings. Relizy bumps such packages automatically, only when their published range no longer accepts the new version (`workspace:*` on every release, `workspace:^` on a major), even when `peerDependencies` is not in `dependencyTypes`. See [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers).
+A peer dependency declared as `workspace:*` is published as the exact version of the dependency. When the dependency is released again, the package must be released too, otherwise its consumers get peer dependency errors (npm) or warnings (pnpm). Relizy bumps such packages automatically, only when their published range no longer accepts the new version (`workspace:*` on every release, `workspace:^` on a major or a prerelease), even when `peerDependencies` is not in `dependencyTypes`.
+
+- The ranges are checked as npm does: `^6.19.1` rejects the canary `6.20.0-0.canary-abc1234`, so the package is released as a canary too.
+- When the dependency makes a breaking change (`6.19.1` to `7.0.0`), the package gets a major (a minor in `0.x`), as its consumers have to upgrade the dependency.
+
+See [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers).
 
 ### Publish Order
 
 Packages are published after the internal packages they depend on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever `dependencyTypes` is.
+
+## Catalogs
+
+The catalogs of pnpm (`pnpm-workspace.yaml`), yarn 4.10+ (`.yarnrc.yml`) and bun (root `package.json`) declare the versions of the dependencies once, referenced with `catalog:` (the default catalog) or `catalog:<name>` by the packages:
+
+```yaml
+# pnpm-workspace.yaml
+catalog:
+  vue: ^3.5.0
+catalogs:
+  vue2:
+    vue: ^2.7.16
+```
+
+```json
+{
+  "name": "@myorg/ui",
+  "dependencies": {
+    "vue": "catalog:"
+  }
+}
+```
+
+A commit that changes an entry of a catalog belongs to the packages using this entry, in any dependency field, as if it had edited their `package.json`: their published dependencies change. The other packages do not get the commit. As for any commit, its type decides the bump:
+
+| Commit                           | Changed entry       | Result                                                             |
+| -------------------------------- | ------------------- | ------------------------------------------------------------------ |
+| `fix(deps): update vue to 3.5`   | `vue` of `catalog`  | `@myorg/ui` is released (patch), with the commit in its changelog  |
+| `chore(deps): update vitest`     | `vitest`            | The commit belongs to the packages using vitest, no bump (`chore`) |
+| `chore: allow the esbuild build` | none (not an entry) | No package gets the commit                                         |
+
+The packages depending on a released package are then bumped following `dependencyTypes`, as usual. The package manager replaces `catalog:` with the range of the catalog when publishing, as it does for `workspace:`.
 
 ## Between Version Groups
 

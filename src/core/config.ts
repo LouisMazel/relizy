@@ -150,7 +150,7 @@ export function getDefaultConfig() {
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
     prComment: {
-      mode: 'append',
+      mode: 'update',
     } as Required<PrCommentConfig>,
     ai: {
       provider: 'claude-code',
@@ -166,7 +166,7 @@ export function getDefaultConfig() {
         twitter: { enabled: false },
         slack: { enabled: false },
       },
-    } as AIConfig,
+    } as AIConfig & Required<Pick<AIConfig, 'language'>>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
     detectRewrittenTags: true,
@@ -212,10 +212,14 @@ async function resolveConfig(
   cwd: string,
 ) {
   if (!config.repo) {
-    const resolvedRepoConfig = await resolveRepoConfig(cwd)
-    config.repo = {
-      ...resolvedRepoConfig,
-      provider: resolvedRepoConfig.provider as GitProvider,
+    // Undefined without a `repository` field nor an `origin` remote (a local repository)
+    const resolvedRepoConfig = await resolveRepoConfig(cwd) as Awaited<ReturnType<typeof resolveRepoConfig>> | undefined
+
+    if (resolvedRepoConfig) {
+      config.repo = {
+        ...resolvedRepoConfig,
+        provider: resolvedRepoConfig.provider as GitProvider,
+      }
     }
   }
 

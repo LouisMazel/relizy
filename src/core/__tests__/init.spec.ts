@@ -2,6 +2,7 @@ import type { InitAnswers, ProjectDetection } from '../init'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { getDefaultConfig } from '../config'
 import {
   buildInitConfig,
   detectProject,
@@ -149,6 +150,19 @@ describe('Given the init helpers', () => {
       expect(buildInitConfig(detection, answers(detection))).toEqual({})
     })
 
+    it('Then takes the default answers from the default config, so changing a default changes init', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const defaults = getDefaultConfig()
+
+      expect(getDefaultAnswers(detectProject({ cwd }), { goal: 'publish', patterns: [] })).toEqual(expect.objectContaining({
+        dependencyTypes: defaults.bump.dependencyTypes,
+        capZeroMajor: defaults.bump.capZeroMajor,
+        rootChangelog: defaults.changelog.rootChangelog,
+        prCommentMode: defaults.prComment.mode,
+        aiLanguage: defaults.ai.language,
+      }))
+    })
+
     it('Then completes the missing name and version', () => {
       writePackage('.', { private: true })
 
@@ -199,7 +213,7 @@ describe('Given the init helpers', () => {
         slack: true,
         slackChannel: '#releases',
         changelogUrl: 'https://acme.dev/changelog',
-        prCommentMode: 'update',
+        prCommentMode: 'append',
         ai: ['providerRelease', 'slack'],
         aiLanguage: 'fr',
       }))
@@ -211,7 +225,7 @@ describe('Given the init helpers', () => {
         changelog: { rootChangelog: false, formatCmd: 'pnpm lint:fix' },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev/' },
         social: { twitter: { enabled: true }, slack: { enabled: true, channel: '#releases' }, changelogUrl: 'https://acme.dev/changelog' },
-        prComment: { mode: 'update' },
+        prComment: { mode: 'append' },
         ai: { language: 'fr', providerRelease: { enabled: true }, social: { slack: { enabled: true } } },
       })
     })

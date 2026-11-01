@@ -5,13 +5,15 @@ import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
+import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
-import { executeHook } from './utils'
+import { executeHook, isInCI } from './utils'
 
 export function getGitStatus(cwd?: string, trim = true) {
   const status = execSync('git status --porcelain', {
@@ -36,6 +38,39 @@ export function checkGitStatusIfDirty() {
     const error = `Git status is dirty!\n\nPlease commit or stash your changes before bumping or use --no-clean flag. \n\nUnstaged files:\n\n ${dirty.trim()}`
 
     throw new Error(error)
+  }
+}
+
+/**
+ * Warn before a run with uncommitted changes (`--no-clean`), and ask for a
+ * confirmation in an interactive terminal outside of the CI. Relizy only
+ * restores and commits the files it writes, but a file it writes (a
+ * `package.json` it bumps, a `CHANGELOG.md`) is committed with the uncommitted
+ * changes it contains, and `changelog.formatCmd` runs on the working directory.
+ * Nothing to confirm in dry-run, which writes nothing.
+ */
+export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Promise<void> {
+  const dirty = getGitStatus()
+
+  if (!dirty) {
+    return
+  }
+
+  logger.warn(`The working directory has uncommitted changes (--no-clean):\n\n${dirty}\n\nThe files Relizy writes (package.json, CHANGELOG.md, lerna.json) are committed with the changes they contain, and changelog.formatCmd runs on the working directory. The other files are left untouched.`)
+
+  if (dryRun || isInCI() || !process.stdin.isTTY) {
+    return
+  }
+
+  const confirmed = await confirm({
+    message: 'Do you want to continue with these uncommitted changes?',
+    default: false,
+  }).catch(() => false)
+
+  if (!confirmed) {
+    logger.log('')
+    logger.fail('Release cancelled: commit or stash your changes first')
+    process.exit(0)
   }
 }
 
@@ -172,7 +207,9 @@ export async function createCommitAndTags({
   try {
     await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false)
 
-    const filePatternsToAdd = getModifiedReleaseFilePatterns({ config: internalConfig })
+    // The files written by this run, or the modified release files when they were written by another process
+    const releaseFiles = getReleaseFiles(internalConfig.cwd)
+    const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config: internalConfig })
 
     logger.start('Start commit and tag')
 
@@ -262,6 +299,7 @@ export async function createCommitAndTags({
         cwd: internalConfig.cwd,
       })
       logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
+      resetReleaseFiles()
     }
 
     const signTags = internalConfig.signTags ? '-s' : ''
@@ -640,66 +678,35 @@ export async function assertReleaseTagsAvailable({ tags, cwd }: { tags: string[]
 }
 
 /**
- * Rollback modified files to their last committed state
- * Used when publish fails before commit/tag/push operations
+ * Restore the files written by the run (versions, changelogs, `lerna.json`) to
+ * their content before the run, and remove the ones it created. The other files
+ * of the working directory, and the uncommitted changes of the restored ones,
+ * are left untouched. Used once a canary is published, or when the release
+ * fails before its commit. Nothing to restore in dry-run, which writes nothing.
  */
+// Async for the callers of the public API
+// eslint-disable-next-line require-await
 export async function rollbackModifiedFiles({
   config,
 }: {
   config: ResolvedRelizyConfig
 }): Promise<void> {
-  const modifiedFiles = getModifiedReleaseFilePatterns({ config })
+  const releaseFiles = getReleaseFiles(config.cwd)
 
-  if (modifiedFiles.length === 0) {
+  if (releaseFiles.length === 0) {
     logger.debug('No modified files to rollback')
     return
   }
 
-  logger.debug(`Rolling back ${modifiedFiles.length} modified file(s)...`)
-  logger.debug(`Files to rollback: ${modifiedFiles.join(', ')}`)
+  logger.debug(`Rolling back ${releaseFiles.length} file(s): ${releaseFiles.join(', ')}`)
 
   try {
-    const trackedFiles: string[] = []
-    const untrackedFiles: string[] = []
-
-    for (const file of modifiedFiles) {
-      const filePath = join(config.cwd, file)
-      if (!existsSync(filePath)) {
-        continue
-      }
-      try {
-        execSync(`git ls-files --error-unmatch "${file}"`, {
-          cwd: config.cwd,
-          encoding: 'utf8',
-          stdio: 'pipe',
-        })
-        trackedFiles.push(file)
-      }
-      catch {
-        untrackedFiles.push(file)
-      }
-    }
-
-    if (trackedFiles.length > 0) {
-      const fileList = trackedFiles.join(' ')
-      logger.debug(`Restoring tracked files from HEAD: ${fileList}`)
-      await execPromise(`git checkout HEAD -- ${fileList}`, {
-        cwd: config.cwd,
-        logLevel: config.logLevel,
-        noStderr: true,
-      })
-    }
-
-    for (const file of untrackedFiles) {
-      logger.debug(`Removing untracked file: ${file}`)
-      execSync(`rm "${join(config.cwd, file)}"`, { cwd: config.cwd })
-    }
-
-    logger.success(`Successfully rolled back ${trackedFiles.length + untrackedFiles.length} release file(s)`)
+    restoreReleaseFiles(config.cwd)
+    logger.success(`Successfully rolled back ${releaseFiles.length} release file(s)`)
   }
   catch (error) {
     logger.error('Failed to rollback modified files automatically')
-    logger.warn(`Please manually restore these files: ${modifiedFiles.join(', ')}`)
+    logger.warn(`Please manually restore these files: ${releaseFiles.join(', ')}`)
     throw error
   }
 }

@@ -8,7 +8,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Structure
 
-- **`src/commands/`** - CLI command implementations: `bump`, `changelog`, `publish`, `provider-release`, `release`
+- **`src/commands/`** - CLI command implementations: `init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `pr-comment`, `commitlint`
+- **`src/mcp/`** - MCP server for AI agents (`relizy mcp`, `relizy mcp init`), see "MCP Server" below
 - **`src/core/`** - Core business logic modules:
   - `monorepo.ts` - Package discovery and package info resolution
   - `config.ts` - Configuration loading via c12
@@ -39,13 +40,13 @@ pnpm test:unit:watch          # Run tests in watch mode
 pnpm test:unit:coverage       # Run tests with coverage report
 ```
 
-Coverage is configured to only report on `src/core/version.ts` (see `vitest.config.ts`).
+Coverage covers `src/` (see the thresholds in `vitest.config.ts`). `test:unit` first generates the docs bundle of the MCP server (`agent-docs/`).
 
 ## CLI Development
 
 - The CLI is implemented with [Commander.js](https://github.com/tj/commander.js)
 - Global options: `--config <name>`, `--log-level <level>`, `--dry-run`
-- Main commands: `bump`, `changelog`, `publish`, `provider-release`, `release`
+- Main commands: `init`, `release`, `bump`, `changelog`, `publish`, `provider-release`, `social`, `pr-comment`, `commitlint`, `mcp` (with the `init` subcommand)
 - Use `pnpm cli` to run the CLI locally during development
 - Release type detection uses `getReleaseType()` helper in `cli.ts` to convert CLI flags to semver bump types
 
@@ -74,7 +75,11 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 
 ### Out-of-Range Peer Dependencies
 
-`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()`, the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()` (`bumpPeerDependents()`), the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+
+- The ranges are checked as npm does (no `includePrerelease`): `^6.19.1` rejects `6.20.0-beta.0`, so a prerelease of the dependency also releases the package.
+- Whatever `outOfRangePeers`, a released package whose out-of-range peer makes a breaking change (`isBreakingVersionChange()`: not accepted by `^oldVersion`) gets `breakingPeerDependency`, and `determineReleaseType({ breakingPeer })` bumps it as for a breaking commit (`capZeroMajor` applies). In `unified`/`selective` mode, the packages get the root version: `getBreakingPeerRootVersion()` in `bump.ts` bumps the root as for a breaking commit when a released package has a peer dependency on a package of another group making a breaking change (`hasExternalBreakingPeer()`, the packages of the group are left out as their jumps to the root version are not breaking changes), then plans the packages again. Same for the canary versions (`planCanaryMode`, `planCanaryIndependentMode`).
+- With version groups, `readGroupsDependencies()` always follows the peer dependencies across groups, so their ranges are checked against the bumps of the other groups.
 
 ### Dependency Handling
 
@@ -82,6 +87,7 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 - Transitive dependencies are handled (if A→B→C and C updates, both B and A are bumped)
 - `dependencyTypes` config option controls which dependency fields trigger bumps: `dependencies`, `devDependencies`, `peerDependencies`
 - In independent mode, dependent packages get a minimum `patch` bump unless they have their own qualifying commits
+- Catalogs (`src/core/catalogs.ts`): a commit changing an entry of a catalog (`pnpm-workspace.yaml`, `.yarnrc.yml`, bun's root `package.json`) belongs, in `getPackageCommits()`, to the packages referencing this entry with `catalog:` in any dependency field (their `package.json` at the commit), as an edit of their `package.json` would. The catalogs before and after the commits are read at once (`git cat-file --batch`)
 
 ### Configuration Loading
 
@@ -104,6 +110,15 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 - Git tags are resolved to determine version ranges (`from` → `to`)
 - In unified mode, uses root package tags; in selective/independent modes, uses package-specific tags
 - Supports commit type mapping via `types` config (e.g., `feat` → `minor` bump)
+
+## MCP Server
+
+`relizy mcp` (`src/mcp/`) is a read-only MCP server for AI coding agents, loaded on demand (`await import('./mcp')` in `cli.ts`, its SDK is inlined in that chunk by `build.config.ts`):
+
+- **Tools** (`src/mcp/tools/`): `preview_release` and `preview_changelog` (built on `planBumps()` of `bump.ts`, which plans without confirmation nor write, and `generateChangelog()`), `lint_commit`, `get_project`, `get_config_option`, `search_docs`, `get_doc`. Each returns markdown; a `ToolInputError` is an error the agent can fix.
+- **Guarantees** (`src/mcp/runtime.ts`): the reporters of the logger are replaced so stdout only carries the protocol and the logs come back as notes; `loadProjectConfig()` removes the hooks and never prompts. Never call `bump()`/`release()` from the server.
+- **Docs bundle** (`agent-docs/`, gitignored, shipped in the package): generated from `docs/src` and `src/types.ts` (config reference, extracted with oxc) by `src/mcp/knowledge/generate.ts`, at each build, test run and `success:bump` of the release. A renamed doc page cited by the server, an undocumented config key or a CLI command without its page fails `knowledge.spec.ts`.
+- **Agents setup**: `relizy mcp init` and the `init` step use `setupAgents()` of `@maz-ui/node` with `RELIZY_AGENTS_TOOL` and the rules of `src/mcp/content/rules.md`.
 
 ## Development Tips
 

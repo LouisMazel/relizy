@@ -3,12 +3,14 @@ import type { ResolvedRelizyConfig } from '../config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
 import {
   checkGitStatusIfDirty,
+  confirmDirtyGitStatus,
   createCommitAndTags,
   detectGitProvider,
   fetchGitTags,
@@ -21,7 +23,8 @@ import {
   pushCommitAndTags,
   rollbackModifiedFiles,
 } from '../git'
-import { executeHook } from '../utils'
+import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from '../release-files'
+import { executeHook, isInCI } from '../utils'
 
 vi.mock('node:child_process')
 vi.mock('node:fs')
@@ -51,6 +54,21 @@ vi.mock('../repo', () => {
 vi.mock('../utils', () => {
   return {
     executeHook: vi.fn(),
+    isInCI: vi.fn(() => false),
+  }
+})
+
+vi.mock('../release-files', () => {
+  return {
+    getReleaseFiles: vi.fn(() => []),
+    resetReleaseFiles: vi.fn(),
+    restoreReleaseFiles: vi.fn(),
+  }
+})
+
+vi.mock('@inquirer/prompts', () => {
+  return {
+    confirm: vi.fn(),
   }
 })
 
@@ -731,6 +749,30 @@ describe('Given createCommitAndTags function', () => {
       expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json')
     })
 
+    it('Then only adds the files written by the run, and forgets them once committed', async () => {
+      vi.mocked(execSync).mockImplementation((cmd) => {
+        if (cmd === 'git status --porcelain') {
+          return ' M package.json\n M packages/a/package.json\n M packages/b/package.json\n'
+        }
+        return ''
+      })
+      vi.mocked(getReleaseFiles).mockReturnValueOnce(['package.json', 'packages/a/package.json'])
+
+      await createCommitAndTags({
+        config,
+        noVerify: false,
+        bumpedPackages,
+        newVersion: '1.0.1',
+        dryRun: false,
+        logLevel: 'normal',
+      })
+
+      expect(execSync).toHaveBeenCalledWith('git add package.json')
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json')
+      expect(execSync).not.toHaveBeenCalledWith('git add packages/b/package.json')
+      expect(resetReleaseFiles).toHaveBeenCalled()
+    })
+
     it('Then skips lerna.json when not present', async () => {
       // Mock git status to return lerna.json as modified
       vi.mocked(execSync).mockImplementation((cmd) => {
@@ -1323,144 +1365,131 @@ describe('Given getShortCommitSha function', () => {
 describe('Given rollbackModifiedFiles function', () => {
   let config: ResolvedRelizyConfig
 
-  function setupExecSync({
-    gitStatus,
-    untracked = [],
-  }: {
-    gitStatus: string
-    untracked?: string[]
-  }) {
-    vi.mocked(execSync).mockImplementation((cmd: any) => {
-      const command = String(cmd)
-      if (command.includes('git status --porcelain')) {
-        return gitStatus as any
-      }
-      if (command.includes('git ls-files --error-unmatch')) {
-        const match = command.match(/"([^"]+)"/)
-        const file = match?.[1]
-        if (file && untracked.includes(file)) {
-          throw new Error(`not tracked: ${file}`)
-        }
-        return '' as any
-      }
-      if (command.startsWith('rm ')) {
-        return '' as any
-      }
-      return '' as any
-    })
-  }
-
   beforeEach(() => {
     vi.clearAllMocks()
     config = createMockConfig({ monorepo: { versionMode: 'selective' } })
     config.cwd = '/project'
-    vi.mocked(join).mockImplementation((...args) => args.join('/'))
-    vi.mocked(existsSync).mockReturnValue(true)
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
   })
 
-  describe('When there are no modified files', () => {
-    it('Then does not call git checkout', async () => {
-      setupExecSync({ gitStatus: '' })
+  describe('When the run wrote no file', () => {
+    it('Then restores nothing and runs no git command', async () => {
+      vi.mocked(getReleaseFiles).mockReturnValueOnce([])
 
       await rollbackModifiedFiles({ config })
 
+      expect(restoreReleaseFiles).not.toHaveBeenCalled()
       expect(execPromise).not.toHaveBeenCalled()
+      expect(execSync).not.toHaveBeenCalled()
     })
   })
 
-  describe('When all modified files are tracked', () => {
-    it('Then restores them with a single git checkout call', async () => {
-      setupExecSync({
-        gitStatus: ' M package.json\n M packages/a/package.json',
-      })
+  describe('When the run wrote files', () => {
+    it('Then restores them from the journal without git checkout nor rm', async () => {
+      vi.mocked(getReleaseFiles).mockReturnValueOnce(['package.json', 'packages/a/CHANGELOG.md'])
 
       await rollbackModifiedFiles({ config })
 
-      expect(execPromise).toHaveBeenCalledTimes(1)
-      expect(execPromise).toHaveBeenCalledWith(
-        'git checkout HEAD -- package.json packages/a/package.json',
-        expect.objectContaining({ cwd: '/project', noStderr: true }),
-      )
-    })
-  })
-
-  describe('When some modified files are untracked (new CHANGELOG.md)', () => {
-    it('Then only checks out tracked files and rm\'s untracked ones', async () => {
-      setupExecSync({
-        gitStatus: ' M package.json\n?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
-        untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
-      })
-
-      await rollbackModifiedFiles({ config })
-
-      expect(execPromise).toHaveBeenCalledTimes(1)
-      expect(execPromise).toHaveBeenCalledWith(
-        'git checkout HEAD -- package.json',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/packages/a/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-    })
-  })
-
-  describe('When all modified files are untracked', () => {
-    it('Then skips git checkout entirely and rm\'s each file', async () => {
-      setupExecSync({
-        gitStatus: '?? CHANGELOG.md\n?? packages/a/CHANGELOG.md',
-        untracked: ['CHANGELOG.md', 'packages/a/CHANGELOG.md'],
-      })
-
-      await rollbackModifiedFiles({ config })
-
+      expect(restoreReleaseFiles).toHaveBeenCalledWith('/project')
       expect(execPromise).not.toHaveBeenCalled()
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
-      expect(execSync).toHaveBeenCalledWith(
-        'rm "/project/packages/a/CHANGELOG.md"',
-        expect.objectContaining({ cwd: '/project' }),
-      )
+      expect(execSync).not.toHaveBeenCalled()
     })
   })
 
-  describe('When an untracked file no longer exists on disk', () => {
-    it('Then skips it without attempting rm', async () => {
-      setupExecSync({
-        gitStatus: '?? CHANGELOG.md',
-        untracked: ['CHANGELOG.md'],
+  describe('When the restoration fails', () => {
+    it('Then logs the files to restore and rethrows', async () => {
+      vi.mocked(getReleaseFiles).mockReturnValueOnce(['package.json'])
+      vi.mocked(restoreReleaseFiles).mockImplementationOnce(() => {
+        throw new Error('restore boom')
       })
-      vi.mocked(existsSync).mockReturnValue(false)
-
-      await rollbackModifiedFiles({ config })
-
-      expect(execPromise).not.toHaveBeenCalled()
-      const rmCalls = vi
-        .mocked(execSync)
-        .mock
-        .calls
-        .filter(([cmd]) => String(cmd).startsWith('rm '))
-      expect(rmCalls).toHaveLength(0)
-    })
-  })
-
-  describe('When git checkout fails', () => {
-    it('Then logs error and rethrows', async () => {
-      setupExecSync({ gitStatus: ' M package.json' })
-      vi.mocked(execPromise).mockRejectedValueOnce(new Error('checkout boom'))
       const errorSpy = vi.spyOn(logger, 'error')
       const warnSpy = vi.spyOn(logger, 'warn')
 
-      await expect(rollbackModifiedFiles({ config })).rejects.toThrow('checkout boom')
+      await expect(rollbackModifiedFiles({ config })).rejects.toThrow('restore boom')
       expect(errorSpy).toHaveBeenCalledWith('Failed to rollback modified files automatically')
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('package.json'))
+    })
+  })
+})
+
+describe('Given confirmDirtyGitStatus function', () => {
+  const isTTY = process.stdin.isTTY
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    process.stdin.isTTY = true
+    vi.mocked(isInCI).mockReturnValue(false)
+  })
+
+  afterEach(() => {
+    process.stdin.isTTY = isTTY
+  })
+
+  function mockGitStatus(status: string) {
+    vi.mocked(execSync).mockReturnValue(status as any)
+  }
+
+  describe('When the working directory is clean', () => {
+    it('Then neither warns nor prompts', async () => {
+      mockGitStatus('')
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(warnSpy).not.toHaveBeenCalled()
+      expect(confirm).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When the working directory has uncommitted changes', () => {
+    beforeEach(() => {
+      mockGitStatus(' M packages/a/package.json')
+    })
+
+    it('Then warns with the modified files and continues once confirmed', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+      vi.mocked(confirm).mockResolvedValueOnce(true)
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('packages/a/package.json'))
+      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ default: false }))
+      expect(exitSpy).not.toHaveBeenCalled()
+      exitSpy.mockRestore()
+    })
+
+    it('Then cancels the run when refused', async () => {
+      vi.mocked(confirm).mockResolvedValueOnce(false)
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(exitSpy).toHaveBeenCalledWith(0)
+      exitSpy.mockRestore()
+    })
+
+    it('Then cancels the run when the prompt is cancelled (Ctrl+C)', async () => {
+      vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
+      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(exitSpy).toHaveBeenCalledWith(0)
+      exitSpy.mockRestore()
+    })
+
+    it('Then only warns in dry-run, in the CI or without a terminal', async () => {
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      await confirmDirtyGitStatus({ dryRun: true })
+      vi.mocked(isInCI).mockReturnValue(true)
+      await confirmDirtyGitStatus({ dryRun: false })
+      vi.mocked(isInCI).mockReturnValue(false)
+      process.stdin.isTTY = false
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(warnSpy).toHaveBeenCalledTimes(3)
+      expect(confirm).not.toHaveBeenCalled()
     })
   })
 })

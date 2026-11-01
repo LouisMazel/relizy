@@ -285,7 +285,7 @@ const defaultConfig = {
     },
   },
   prComment: {
-    mode: 'append',
+    mode: 'update',
   },
   ai: {
     provider: 'claude-code',

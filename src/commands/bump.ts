@@ -1,9 +1,9 @@
 import type { SemverBumpType } from 'changelogen'
-import type { ResolvedRelizyConfig, ResolvedVersionGroup, VersionChange } from '../core'
+import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionChange } from '../core'
 import type { BumpOptions, BumpResult, PackageBase, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -22,7 +22,7 @@ interface BumpStrategyInput {
  * Computing every version group before writing lets the groups depend on each
  * other, and a refused confirmation leaves the files untouched.
  */
-interface BumpPlan {
+export interface BumpPlan {
   result: BumpResult
   confirm?: () => Promise<void>
   write?: () => void
@@ -96,6 +96,75 @@ function getPlannedRootVersion({
   return rootPackage.newVersion ?? (externalBumps?.size ? getDependencyRootVersion({ config, rootPackage, suffix }) : undefined)
 }
 
+/**
+ * Whether a package released by a unified/selective group has a peer dependency
+ * on a package of another version group making a breaking change its published
+ * range rejects. The packages of the group itself are left out: they get the
+ * version of the group, whose jumps (`1.5.0` to the root version `6.19.2`) are
+ * not breaking changes.
+ */
+function hasExternalBreakingPeer(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined): boolean {
+  return Boolean(externalBumps?.size) && packages.some(pkg => getOutOfRangePeers({ packagePath: pkg.path, bumped: externalBumps! }).some(isBreakingVersionChange))
+}
+
+/**
+ * Root version of a unified/selective group whose packages are released while
+ * a peer dependency of another group makes a breaking change: bumped as for a
+ * breaking commit, unless the planned version already is a breaking change.
+ * Undefined when nothing changes.
+ */
+function getBreakingPeerRootVersion({
+  config,
+  rootPackage,
+  plannedVersion,
+  packages,
+  externalBumps,
+  force,
+  suffix,
+}: {
+  config: ResolvedRelizyConfig
+  rootPackage: RootPackage
+  plannedVersion: string | undefined
+  packages: PackageBase[]
+  externalBumps: Map<string, VersionChange> | undefined
+  force: boolean
+  suffix: string | undefined
+}): string | undefined {
+  if (force || !plannedVersion || !hasExternalBreakingPeer(packages, externalBumps)) {
+    return undefined
+  }
+
+  if (isBreakingVersionChange({ oldVersion: rootPackage.version, newVersion: plannedVersion })) {
+    return undefined
+  }
+
+  const releaseType = determineReleaseType({
+    currentVersion: rootPackage.version,
+    commits: rootPackage.commits,
+    releaseType: config.bump.type,
+    preid: config.bump.preid,
+    types: config.types,
+    force: false,
+    capZeroMajor: config.bump.capZeroMajor,
+    breakingPeer: true,
+  })
+
+  const newVersion = releaseType && getPackageNewVersion({
+    name: rootPackage.name,
+    currentVersion: rootPackage.version,
+    releaseType,
+    preid: config.bump.preid,
+    suffix,
+  })
+
+  if (newVersion && newVersion !== plannedVersion) {
+    logger.debug(`${rootPackage.name}: packages released with a peer dependency making a breaking change, ${plannedVersion} → ${newVersion}`)
+    return newVersion
+  }
+
+  return undefined
+}
+
 async function planUnifiedMode({
   config,
   dryRun,
@@ -128,13 +197,19 @@ async function planUnifiedMode({
     dryRun,
   })
 
+  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
+  const getUnifiedPackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, includeAll: true, dryRun, externalBumps, newVersionOverride })
+
   // Only needed to find dependents of other version groups when there is no new version
-  const packages = rootPackage.newVersion || externalBumps?.size
-    ? await getPackages({ config, suffix, force, includeAll: true, dryRun, externalBumps, newVersionOverride: getPlannedRootVersion({ config, rootPackage, externalBumps, suffix }) })
-    : []
+  let packages = rootPackage.newVersion || externalBumps?.size ? await getUnifiedPackages(plannedVersion) : []
+  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+
+  if (breakingVersion) {
+    packages = await getUnifiedPackages(breakingVersion)
+  }
 
   const currentVersion = rootPackage.version
-  const newVersion = getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -240,17 +315,18 @@ async function planSelectiveMode({
   }
 
   logger.debug('Determining packages to bump...')
-  const packages = await getPackages({
-    config,
-    suffix,
-    force,
-    dryRun,
-    externalBumps,
-    newVersionOverride: getPlannedRootVersion({ config, rootPackage, externalBumps, suffix }),
-  })
+  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
+  const getSelectivePackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, dryRun, externalBumps, newVersionOverride })
+
+  let packages = await getSelectivePackages(plannedVersion)
+  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+
+  if (breakingVersion) {
+    packages = await getSelectivePackages(breakingVersion)
+  }
 
   const currentVersion = rootPackage.version
-  const newVersion = getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -457,29 +533,37 @@ async function planCanaryMode({
 
   const sha = getShortCommitSha(config.cwd)
 
-  const canaryVersion = getCanaryVersion({
+  let canaryVersion = getCanaryVersion({
     currentVersion,
     releaseType,
     preid,
     sha,
   })
 
-  logger.info(`Canary version: ${canaryVersion}`)
-
   const versionMode = config.monorepo?.versionMode || 'unified'
   const isUnified = versionMode === 'unified'
 
   // In unified mode, every package must receive the canary version regardless of commits.
   // In selective mode, only packages with commits + dependents are bumped.
-  const packages = await getPackages({
+  const getCanaryPackages = (newVersionOverride: string) => getPackages({
     config,
     suffix: undefined,
     force: false,
     includeAll: isUnified,
     dryRun,
     externalBumps,
-    newVersionOverride: canaryVersion,
+    newVersionOverride,
   })
+
+  let packages = await getCanaryPackages(canaryVersion)
+
+  // A package released with a peer dependency of another group making a breaking change gives a major to the group
+  if (releaseType !== 'major' && hasExternalBreakingPeer(packages, externalBumps)) {
+    canaryVersion = getCanaryVersion({ currentVersion, releaseType: 'major', preid, sha })
+    packages = await getCanaryPackages(canaryVersion)
+  }
+
+  logger.info(`Canary version: ${canaryVersion}`)
 
   if (packages.length === 0) {
     logger.debug('No packages to bump')
@@ -559,7 +643,8 @@ function planCanaryIndependentMode({
 
   // Compute per-package canary versions based on each package's own version and commits
   const packagesWithCanaryVersion = packages.map((pkg) => {
-    const releaseType = determineSemverChange(pkg.commits, typesConfig)
+    // A peer dependency making a breaking change counts as a breaking commit
+    const releaseType = pkg.breakingPeerDependency ? 'major' : determineSemverChange(pkg.commits, typesConfig)
 
     const canaryVersion = getCanaryVersion({
       currentVersion: pkg.version,
@@ -670,7 +755,7 @@ function getBumpedVersions(result: BumpResult): string {
 /**
  * The packages of each version group and the packages of the other groups they
  * depend on (following the `bump.dependencyTypes` of the group, and the peer
- * dependencies with `bump.outOfRangePeers: 'bump'`).
+ * dependencies, whose ranges are checked whatever `bump.outOfRangePeers`).
  */
 function readGroupsDependencies({
   config,
@@ -682,10 +767,8 @@ function readGroupsDependencies({
   const workspaceNames = new Set(readWorkspacePackages(config).keys())
 
   return new Map(groups.map(({ group, config: groupConfig }) => {
-    // The peer dependencies also count when out-of-range peers are bumped
-    const dependencyTypes = groupConfig.bump.outOfRangePeers === 'bump'
-      ? [...new Set([...(groupConfig.bump.dependencyTypes ?? []), 'peerDependencies' as const])]
-      : groupConfig.bump.dependencyTypes
+    // The ranges of the peer dependencies are checked against the bumps of the other groups
+    const dependencyTypes = [...new Set([...(groupConfig.bump.dependencyTypes ?? []), 'peerDependencies' as const])]
     const packages = readPackages({
       cwd: groupConfig.cwd,
       patterns: groupConfig.monorepo?.packages,
@@ -726,17 +809,16 @@ function sortGroupsByDependencies(
 }
 
 /**
- * Bump each version group (`monorepo.groups`) with its own version mode, then
- * merge their results.
+ * Plan the bump of each version group (`monorepo.groups`) with its own version
+ * mode.
  *
  * A package depending on a package bumped by another group is bumped too (as
  * a dependent, following the `bump.dependencyTypes` of its group, or when its
  * published peer dependency range rejects the new version), so that its
  * published dependency ranges follow. The groups are computed in dependency
- * order, again until no group changes when they depend on each other, then
- * confirmed, and only then written.
+ * order, again until no group changes when they depend on each other.
  */
-async function bumpVersionGroups({
+async function planVersionGroups({
   config,
   dryRun,
   force,
@@ -750,7 +832,7 @@ async function bumpVersionGroups({
   suffix: string | undefined
   canary: boolean
   groups?: string[]
-}): Promise<BumpResult> {
+}): Promise<PlannedBumps> {
   const resolvedGroups = resolveVersionGroups({ config, only: groups })
   const dependencies = readGroupsDependencies({ config, groups: resolvedGroups })
   const sortedGroups = sortGroupsByDependencies(resolvedGroups, dependencies)
@@ -805,12 +887,91 @@ async function bumpVersionGroups({
     }
   }
 
-  await applyBumpPlans(resolvedGroups.map(({ group }) => plans.get(group.name)!.plan))
-
-  return mergeGroupBumpResults(results)
+  return {
+    result: mergeGroupBumpResults(results),
+    plans: resolvedGroups.map(({ group }) => plans.get(group.name)!.plan),
+    groups: results,
+  }
 }
 
-// eslint-disable-next-line complexity
+export interface PlanBumpsOptions {
+  config: ResolvedRelizyConfig
+  /**
+   * Passed to the planning steps (a rewritten tag is then never re-bound)
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * Bump even without commits
+   * @default false
+   */
+  force?: boolean
+  /**
+   * Custom suffix of the prerelease versions
+   */
+  suffix?: string
+  /**
+   * Plan a canary release
+   * @default false
+   */
+  canary?: boolean
+  /**
+   * Only plan these version groups of `monorepo.groups`
+   */
+  groups?: string[]
+}
+
+export interface PlannedBumps {
+  /**
+   * Result of the bump, as `bump()` returns it
+   */
+  result: BumpResult
+  /**
+   * Plans to confirm then write (`plan.confirm`, `plan.write`)
+   */
+  plans: BumpPlan[]
+  /**
+   * Result of each version group, with `monorepo.groups`
+   */
+  groups?: { group: VersionGroup, result: BumpResult }[]
+}
+
+/**
+ * Compute the bump of the packages of a resolved config, without asking for
+ * any confirmation nor writing anything: the versions of each package, the
+ * reason of its bump, and the plans `bump()` confirms then writes. Neither the
+ * hooks nor `git fetch --tags` run here.
+ */
+export async function planBumps({
+  config,
+  dryRun = false,
+  force = false,
+  suffix,
+  canary = false,
+  groups,
+}: PlanBumpsOptions): Promise<PlannedBumps> {
+  assertVersionGroupsOption({ config, groups })
+
+  if (hasVersionGroups(config)) {
+    return planVersionGroups({ config, dryRun, force, suffix, canary, groups })
+  }
+
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
+  const packages = readPackages({
+    cwd: config.cwd,
+    patterns: config.monorepo?.packages,
+    ignorePackageNames: config.monorepo?.ignorePackageNames,
+    ignored: config.monorepo?.ignored,
+  })
+
+  logger.debug(`Found ${packages.length} package(s)`)
+
+  const plan = await planBump({ config, dryRun, force, suffix, canary })
+
+  return { result: plan.result, plans: [plan] }
+}
+
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,
@@ -844,47 +1005,25 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
     if (config.bump.clean && config.release.clean) {
       checkGitStatusIfDirty()
     }
+    else {
+      await confirmDirtyGitStatus({ dryRun })
+    }
+
+    // A new run: only the files written from now on are restored and committed
+    resetReleaseFiles()
 
     await fetchGitTags(config.cwd)
 
-    assertVersionGroupsOption({ config, groups: options.groups })
+    const { result, plans } = await planBumps({
+      config,
+      dryRun,
+      force,
+      suffix: options.suffix,
+      canary: options.canary ?? false,
+      groups: options.groups,
+    })
 
-    let result: BumpResult
-
-    if (hasVersionGroups(config)) {
-      result = await bumpVersionGroups({
-        config,
-        dryRun,
-        force,
-        suffix: options.suffix,
-        canary: options.canary ?? false,
-        groups: options.groups,
-      })
-    }
-    else {
-      logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
-      const packages = readPackages({
-        cwd: config.cwd,
-        patterns: config.monorepo?.packages,
-        ignorePackageNames: config.monorepo?.ignorePackageNames,
-        ignored: config.monorepo?.ignored,
-      })
-
-      logger.debug(`Found ${packages.length} package(s)`)
-
-      const plan = await planBump({
-        config,
-        dryRun,
-        force,
-        suffix: options.suffix,
-        canary: options.canary ?? false,
-      })
-
-      await applyBumpPlans([plan])
-
-      result = plan.result
-    }
+    await applyBumpPlans(plans)
 
     if (result.bumped) {
       const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length

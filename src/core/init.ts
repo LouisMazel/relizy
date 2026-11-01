@@ -4,6 +4,7 @@ import { basename, join } from 'node:path'
 import fastGlob from 'fast-glob'
 import * as semver from 'semver'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
+import { getDefaultConfig } from './config'
 import { detectGitProvider } from './git'
 import { GLOB_IGNORE } from './glob'
 import { detectPackageManager } from './npm'
@@ -279,20 +280,22 @@ export function getDetectedPublishConfig(detection: ProjectDetection, { goal, pa
  * Detected answers, used for the questions that are not asked.
  */
 export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns }: { goal: InitGoal, patterns: string[] }): InitAnswers {
+  const defaults = getDefaultConfig()
+
   return {
     goal,
     patterns,
     versionMode: isMonorepoProject(detection) ? suggestVersionMode(getReleasedPackages(detection, goal, patterns)) : undefined,
-    dependencyTypes: ['dependencies'],
-    capZeroMajor: true,
-    rootChangelog: true,
+    dependencyTypes: [...defaults.bump.dependencyTypes],
+    capZeroMajor: defaults.bump.capZeroMajor,
+    rootChangelog: defaults.changelog.rootChangelog,
     hiddenTypes: [],
     buildCmd: detection.root.scripts.build ? getRunCommand(detection.packageManager, 'build') : undefined,
     twitter: false,
     slack: false,
-    prCommentMode: 'append',
+    prCommentMode: defaults.prComment.mode,
     ai: [],
-    aiLanguage: 'en',
+    aiLanguage: defaults.ai.language,
   }
 }
 
@@ -310,6 +313,8 @@ export function supportsProviderRelease(provider: GitProvider | null): boolean {
  */
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export function buildInitConfig(detection: ProjectDetection, answers: InitAnswers): RelizyConfig {
+  // Only the values that differ from the defaults are written
+  const defaults = getDefaultConfig()
   const config: RelizyConfig = {}
   const isMonorepo = isMonorepoProject(detection) && answers.patterns.length > 0
 
@@ -332,15 +337,15 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
   }
 
   const bump: BumpConfig = {
-    ...(isMonorepo && answers.dependencyTypes.join() !== 'dependencies' && { dependencyTypes: answers.dependencyTypes }),
-    ...(!answers.capZeroMajor && { capZeroMajor: false }),
+    ...(isMonorepo && answers.dependencyTypes.join() !== defaults.bump.dependencyTypes.join() && { dependencyTypes: answers.dependencyTypes }),
+    ...(answers.capZeroMajor !== defaults.bump.capZeroMajor && { capZeroMajor: answers.capZeroMajor }),
   }
   if (Object.keys(bump).length > 0) {
     config.bump = bump
   }
 
   const changelog = {
-    ...(isMonorepo && !answers.rootChangelog && { rootChangelog: false }),
+    ...(isMonorepo && answers.rootChangelog !== defaults.changelog.rootChangelog && { rootChangelog: answers.rootChangelog }),
     ...(answers.formatCmd && { formatCmd: answers.formatCmd }),
   }
   if (Object.keys(changelog).length > 0) {
@@ -375,7 +380,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     }
   }
 
-  if (providerRelease && answers.prCommentMode !== 'append') {
+  if (providerRelease && answers.prCommentMode !== defaults.prComment.mode) {
     config.prComment = { mode: answers.prCommentMode }
   }
 
@@ -385,7 +390,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
       ...(answers.ai.includes('slack') && { slack: { enabled: true } }),
     }
     config.ai = {
-      ...(answers.aiLanguage && answers.aiLanguage !== 'en' && { language: answers.aiLanguage }),
+      ...(answers.aiLanguage && answers.aiLanguage !== defaults.ai.language && { language: answers.aiLanguage }),
       ...(answers.ai.includes('providerRelease') && { providerRelease: { enabled: true } }),
       ...(Object.keys(social).length > 0 && { social }),
     }

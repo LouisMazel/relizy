@@ -218,6 +218,7 @@ export default defineConfig({
           { text: 'Semver Convention', link: '/guide/semver-convention' },
           { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
           { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
+          { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
           { text: 'Twitter Integration', link: '/guide/twitter-integration' },
           { text: 'Slack Integration', link: '/guide/slack-integration' },
@@ -257,6 +258,7 @@ export default defineConfig({
           { text: 'provider-release', link: '/cli/provider-release' },
           { text: 'social', link: '/cli/social' },
           { text: 'pr-comment', link: '/cli/pr-comment' },
+          { text: 'mcp', link: '/cli/mcp' },
           { text: 'commitlint', link: '/commitlint/cli' },
         ],
       },
@@ -334,6 +336,7 @@ export default defineConfig({
           text: 'AI',
           items: [
             { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
+            { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
           ],
         },
         {
@@ -370,6 +373,7 @@ export default defineConfig({
           text: 'CLI Reference',
           items: [
             { text: 'Commands Overview', link: '/cli/commands' },
+            { text: 'init', link: '/cli/init' },
             { text: 'release', link: '/cli/release' },
             { text: 'bump', link: '/cli/bump' },
             { text: 'changelog', link: '/cli/changelog' },
@@ -377,6 +381,7 @@ export default defineConfig({
             { text: 'provider-release', link: '/cli/provider-release' },
             { text: 'social', link: '/cli/social' },
             { text: 'pr-comment', link: '/cli/pr-comment' },
+            { text: 'mcp', link: '/cli/mcp' },
             { text: 'commitlint', link: '/commitlint/cli' },
           ],
         },

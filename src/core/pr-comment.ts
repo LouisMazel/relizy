@@ -497,7 +497,7 @@ export async function postPrComment({
 }): Promise<boolean> {
   const repo = config.repo?.repo
   const domain = config.repo?.domain
-  const mode = config.prComment?.mode ?? 'append'
+  const mode = config.prComment.mode
 
   const token = getProviderToken(config, pr.provider)
   if (!token) {

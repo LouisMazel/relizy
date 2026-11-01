@@ -7,6 +7,7 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
+import { recordReleaseFile } from './release-files'
 import { getNewPackageCompareBase, getPackageCommits } from './repo'
 import { getIndependentTag, NEW_PACKAGE_MARKER } from './tags'
 import { executeHook } from './utils'
@@ -341,6 +342,7 @@ export function writeChangelogToFile({
   }
   else {
     logger.debug(`Writing changelog to ${changelogPath}`)
+    recordReleaseFile(changelogPath)
     writeFileSync(changelogPath, updatedChangelog, 'utf8')
     logger.info(`Changelog updated for ${pkg.name} (${('newVersion' in pkg && pkg.newVersion) || pkg.version})`)
   }

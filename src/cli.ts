@@ -13,6 +13,8 @@ import { getCIName, isInCI } from './core/utils'
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
 // Run in the commit-msg hook at every commit: no banner, only the lint output
 const isCommitlint = process.argv[2] === 'commitlint'
+// The MCP server speaks the protocol on stdout: no banner, no log
+const isMcpServer = process.argv[2] === 'mcp' && process.argv[3] !== 'init'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -22,7 +24,7 @@ const packageJson = JSON.parse(
 
 const version = packageJson.version
 
-if (!hasSilentFlag && !isCommitlint) {
+if (!hasSilentFlag && !isCommitlint && !isMcpServer) {
   printBanner({
     name: 'Relizy',
     version: `v${version}`,
@@ -37,7 +39,7 @@ if (!hasSilentFlag && !isCommitlint) {
   })
 }
 
-if (isInCI() && !isCommitlint) {
+if (isInCI() && !isCommitlint && !isMcpServer) {
   logger.log(`Running in CI: ${getCIName()}`)
 }
 else {
@@ -314,6 +316,54 @@ program
     }
     catch (error) {
       logger.error('Failed to init relizy -', error instanceof Error ? error.message : error)
+      process.exit(1)
+    }
+  })
+
+const mcp = program
+  .command('mcp')
+  .description('MCP server for the AI coding agents (Claude Code, Cursor, Copilot, Codex...): release preview, commit linting, config reference and docs of this relizy version')
+
+mcp
+  .command('serve', { isDefault: true })
+  .description('Start the MCP server on stdio (default command of relizy mcp)')
+  .option('--cwd <dir>', 'Root of the project (default: current directory)')
+  .action(async (options) => {
+    try {
+      if (options.cwd) {
+        process.chdir(options.cwd)
+      }
+
+      const { startStdioServer } = await import('./mcp')
+      await startStdioServer({ cwd: process.cwd() })
+    }
+    catch (error) {
+      process.stderr.write(`Failed to start the relizy MCP server - ${error instanceof Error ? error.message : error}\n`)
+      process.exit(1)
+    }
+  })
+
+mcp
+  .command('init')
+  .description('Configure the AI agents of the project for relizy: rules (Claude Code, AGENTS.md) and MCP server (.mcp.json, Cursor, VS Code)')
+  .option('--targets <agents>', 'Comma-separated agents: claude, agents-md, cursor, vscode (default: the detected ones, else claude,agents-md)', parseGroupNames)
+  .option('--no-rules', 'Only register the MCP server, without the rules')
+  .option('--no-mcp', 'Only write the rules, without the MCP server')
+  .option('--remove', 'Remove what relizy mcp init added')
+  .action(async (options) => {
+    try {
+      const { mcpInit } = await import('./mcp')
+
+      mcpInit({
+        targets: options.targets,
+        rules: options.rules,
+        mcp: options.mcp,
+        remove: options.remove,
+        dryRun: program.opts().dryRun,
+      })
+    }
+    catch (error) {
+      logger.error('Failed to set up the AI agents -', error instanceof Error ? error.message : error)
       process.exit(1)
     }
   })

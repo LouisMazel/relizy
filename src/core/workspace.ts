@@ -1,5 +1,6 @@
 import type { PackageBase, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import type { OutOfRangePeer } from './dependencies'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
@@ -265,11 +266,8 @@ function reportUnresolvedWorkspaceDependencies(unresolved: UnresolvedWorkspaceDe
   }
 }
 
-export interface StaleDependent {
+export interface StaleDependent extends OutOfRangePeer {
   dependent: string
-  dependency: string
-  range: string
-  newVersion: string
 }
 
 /**

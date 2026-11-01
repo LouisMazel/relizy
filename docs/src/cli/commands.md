@@ -12,7 +12,7 @@ tags: [cli, commands, reference, documentation]
 
 ## Overview
 
-Relizy provides nine main commands:
+Relizy provides ten main commands:
 
 | Command                                     | Description                                                                              |
 | ------------------------------------------- | ---------------------------------------------------------------------------------------- |
@@ -25,6 +25,7 @@ Relizy provides nine main commands:
 | [`social`](/cli/social)                     | Post release announcements to social media                                               |
 | [`pr-comment`](/cli/pr-comment)             | Post release information as a PR/MR comment                                              |
 | [`commitlint`](/commitlint/cli)             | Lint commit messages with the Relizy config                                              |
+| [`mcp`](/cli/mcp)                           | MCP server for AI coding agents, and their setup (`relizy mcp init`)                     |
 
 ## Global Options
 

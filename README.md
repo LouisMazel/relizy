@@ -59,6 +59,7 @@ Imagine you have multiple packages in your project (like a box with several toys
 - 🔧 Support for npm, yarn, pnpm, and bun (auto-detected)
 - 📱 Social media integration (Twitter & Slack) for release announcements
 - 🧹 Built-in commit linting with your Relizy config, a commitlint replacement (`relizy commitlint`)
+- 🤖 MCP server for AI coding agents (Claude Code, Cursor, Copilot, Codex): release preview, commit linting, config reference and docs of the installed version (`relizy mcp`)
 
 ## 📚 Documentation
 
@@ -151,6 +152,16 @@ Lint your commit messages with your Relizy config: the same parser, types and pa
 relizy commitlint --install  # Writes the commit-msg hook
 relizy commitlint            # Lints the commits of the pull request in CI
 ```
+
+### AI Coding Agents
+
+Give your AI agents what the next release will do and why, the commit linting of your config, and the docs of the installed Relizy, through its MCP server (read-only: it never releases anything):
+
+```bash
+relizy mcp init  # Rules for Claude Code and AGENTS.md, MCP server in .mcp.json, Cursor and VS Code
+```
+
+See the [AI agents guide](https://relizy.dev/guide/ai-agents).
 
 ## 📖 Learn More
 

@@ -1805,6 +1805,25 @@ describe('Given publishPackage function', () => {
       expect(writeCalls).toEqual(['1.0.1', '1.0.0'])
     })
 
+    it('Then restores the package.json byte for byte, with its uncommitted changes', async () => {
+      const original = '{\n    "name": "test-package",\n    "version": "1.0.0",\n    "dependencies": { "dep": "workspace:^" }\n}'
+      vi.mocked(readFileSync).mockReturnValue(original)
+      const writes: string[] = []
+      vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+        writes.push(content as string)
+      })
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(JSON.parse(writes[0]!)).toEqual({ name: 'test-package', version: '1.0.1', dependencies: { dep: 'workspace:^' } })
+      expect(writes.at(-1)).toBe(original)
+    })
+
     it('Then restores original version after publish succeeds for npm', async () => {
       const writeCalls: string[] = []
       vi.mocked(writeFileSync).mockImplementation((_path, content) => {

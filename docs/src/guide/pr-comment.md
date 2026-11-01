@@ -98,7 +98,7 @@ Error: Failed to publish to npm
 
 Relizy supports two comment modes:
 
-### Append Mode (Default)
+### Append Mode
 
 In `append` mode, Relizy creates a **new comment** each time. This is useful when you want a full history of release attempts on the PR.
 
@@ -112,7 +112,7 @@ export default defineConfig({
 })
 ```
 
-### Update Mode
+### Update Mode (Default)
 
 In `update` mode, Relizy **finds and updates** an existing comment instead of creating a new one. It uses a hidden HTML marker (`<!-- relizy-pr-comment -->`) to identify its previous comment.
 
@@ -129,7 +129,7 @@ export default defineConfig({
 ```
 
 ::: tip
-Use `update` mode in CI/CD to keep your PR clean — only one Relizy comment will ever appear on the PR.
+`update` is the default: only one Relizy comment ever appears on the PR. Use `append` to keep a comment per release attempt.
 :::
 
 ## Supported Providers
@@ -253,7 +253,7 @@ export default defineConfig({
   // PR comment is enabled by default in release workflow
   // Customize if needed:
   prComment: {
-    mode: 'append', // or 'update'
+    mode: 'update', // or 'append'
   },
 })
 ```

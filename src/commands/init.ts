@@ -1,11 +1,11 @@
-import type { LogLevel } from '@maz-ui/node'
+import type { AgentTarget, LogLevel, SetupAgentsResult } from '@maz-ui/node'
 import type { InitAITarget, InitAnswers, InitGoal, InitPackage, InstalledHook, ProjectDetection } from '../core'
 import type { RelizyConfig, VersionMode } from '../types'
 import { existsSync, rmSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, text } from '@clack/prompts'
-import { logger } from '@maz-ui/node'
+import { detectAgentTargets, logger } from '@maz-ui/node'
 import {
   buildInitConfig,
   createStyles,
@@ -31,6 +31,7 @@ import {
   supportsProviderRelease,
   updateRootPackageJson,
 } from '../core'
+import { setupRelizyAgents } from '../mcp/agents'
 
 export interface InitOptions {
   /** Accept the detected values without asking (also when there is no TTY or in CI) */
@@ -61,6 +62,8 @@ export interface InitResult {
   hook?: InstalledHook
   /** Scripts added to the root package.json */
   scripts: string[]
+  /** Set when the AI agents were set up (rules and MCP server, see `relizy mcp init`) */
+  agents?: SetupAgentsResult
 }
 
 const c = createStyles(shouldUseColors())
@@ -304,7 +307,7 @@ async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise
   }
   return {
     ai,
-    aiLanguage: await askText({ message: 'Language of the AI texts:', initialValue: answers.aiLanguage }) ?? 'en',
+    aiLanguage: await askText({ message: 'Language of the AI texts:', initialValue: answers.aiLanguage }) ?? answers.aiLanguage,
   }
 }
 
@@ -334,6 +337,7 @@ interface InitPlan {
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
   hook: boolean
+  agents: AgentTarget[]
 }
 
 function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
@@ -350,6 +354,9 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   }
   if (plan.hook) {
     rows.push(`${c.cyan('install')}  commit-msg hook ${c.dim('runs relizy commitlint at each commit')}`)
+  }
+  if (plan.agents.length > 0) {
+    rows.push(`${c.cyan('setup')}    AI agents (${plan.agents.join(', ')}) ${c.dim('relizy rules and MCP server, as relizy mcp init')}`)
   }
   note(rows.join('\n'), 'Changes')
 }
@@ -369,6 +376,20 @@ async function installHook(cwd: string, interactive: boolean): Promise<Installed
       return undefined
     }
     return installCommitMsgHook({ cwd, force: true })
+  }
+}
+
+function setUpAgents(cwd: string, targets: AgentTarget[]): SetupAgentsResult | undefined {
+  try {
+    const result = setupRelizyAgents({ cwd, targets })
+    const written = result.changes.filter(change => change.action === 'create' || change.action === 'update').map(change => change.file)
+
+    log.success(written.length > 0 ? `Set up the AI agents (${written.join(', ')})` : 'The AI agents are already set up for relizy')
+    return result
+  }
+  catch (error) {
+    log.warn(`AI agents not set up - ${error instanceof Error ? error.message : String(error)} (run relizy mcp init later)`)
+    return undefined
   }
 }
 
@@ -429,6 +450,13 @@ async function runInit({ options, detection, configFile, interactive }: {
     initialValue: true,
   }))
 
+  // Only offered to the projects that already use an AI agent (CLAUDE.md, AGENTS.md, .cursor...)
+  const agentTargets = detectAgentTargets(cwd)
+  const withAgents = agentTargets.length > 0 && await ask(interactive, true, () => confirm({
+    message: `Give relizy to your AI agents (${agentTargets.join(', ')})? (rules and the relizy MCP server: release preview, commit linting, config reference)`,
+    initialValue: true,
+  }))
+
   const scriptsToAdd = getScriptsToAdd(detection)
   const withScripts = Object.keys(scriptsToAdd).length > 0 && await ask(interactive, true, () => confirm({
     message: `Add a "release" script to the package.json? (${detection.packageManager} run release)`,
@@ -452,6 +480,7 @@ async function runInit({ options, detection, configFile, interactive }: {
     rootFields: getMissingRootFields(detection, answers),
     scripts: withScripts ? scriptsToAdd : {},
     hook: withHook,
+    agents: withAgents ? agentTargets : [],
   }
   showPlan(plan, answers, cwd)
 
@@ -480,10 +509,12 @@ async function runInit({ options, detection, configFile, interactive }: {
     log.success(hook.status === 'unchanged' ? `The commit-msg hook already runs relizy commitlint (${relative(cwd, hook.path)})` : `Installed the commit-msg hook (${relative(cwd, hook.path)})`)
   }
 
+  const agents = plan.agents.length > 0 ? setUpAgents(cwd, plan.agents) : undefined
+
   showNextSteps(detection, answers)
   outro(c.green('relizy is ready'))
 
-  return { configFile, config, content, written: true, hook, scripts }
+  return { configFile, config, content, written: true, hook, scripts, ...(agents && { agents }) }
 }
 
 /**
