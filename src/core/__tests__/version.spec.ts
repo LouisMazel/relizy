@@ -2393,6 +2393,48 @@ describe('Given determineSemverChange with a 0.x current version', () => {
   })
 })
 
+describe('Given a prerelease graduating to stable with the release type', () => {
+  const { types } = createMockConfig({})
+
+  function graduate(currentVersion: string, commits: ReturnType<typeof createMockCommit>[], options: { capZeroMajor?: boolean, breakingPeer?: boolean } = {}) {
+    const releaseType = determineReleaseType({ currentVersion, commits, releaseType: 'release', preid: undefined, types, force: false, ...options })
+
+    return releaseType && getPackageNewVersion({ name: 'test', currentVersion, releaseType, preid: undefined, suffix: undefined })
+  }
+
+  describe('When the commits since the prerelease imply a bigger bump than its base', () => {
+    it('Then a feat on a patch-level base graduates to the next minor', () => {
+      expect(graduate('1.13.1-beta.0', [createMockCommit('fix', 'fix: a'), createMockCommit('feat', 'feat: b')])).toBe('1.14.0')
+    })
+
+    it('Then a breaking change on a minor-level base graduates to the next major', () => {
+      expect(graduate('1.3.0-beta.2', [makeBreakingCommit()])).toBe('2.0.0')
+    })
+
+    it('Then a breaking peer dependency counts as a breaking change', () => {
+      expect(graduate('1.3.0-beta.2', [], { breakingPeer: true })).toBe('2.0.0')
+    })
+
+    it('Then a breaking change on 0.x is capped to a minor, unless capZeroMajor is off', () => {
+      expect(graduate('0.5.3-beta.0', [makeBreakingCommit()])).toBe('0.6.0')
+      expect(graduate('0.5.3-beta.0', [makeBreakingCommit()], { capZeroMajor: false })).toBe('1.0.0')
+    })
+  })
+
+  describe('When the commits do not imply a bigger bump than its base', () => {
+    it('Then it graduates to its base version', () => {
+      expect(graduate('1.13.1-beta.0', [createMockCommit('fix', 'fix: a')])).toBe('1.13.1')
+      expect(graduate('1.3.0-beta.2', [createMockCommit('feat', 'feat: a'), createMockCommit('fix', 'fix: b')])).toBe('1.3.0')
+      expect(graduate('2.0.0-rc.1', [makeBreakingCommit()])).toBe('2.0.0')
+    })
+
+    it('Then it graduates to its base version without relevant commits', () => {
+      expect(graduate('1.13.1-beta.0', [createMockCommit('chore', 'chore: a')])).toBe('1.13.1')
+      expect(graduate('1.13.1-beta.0', [])).toBe('1.13.1')
+    })
+  })
+})
+
 describe('Given determineReleaseType with breaking commits on 0.x', () => {
   const config = createMockConfig({})
   const types = config.types
