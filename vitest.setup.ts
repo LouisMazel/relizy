@@ -21,9 +21,9 @@ vi.mock('changelogen', async (importOriginal) => {
   }
 })
 
-vi.mock('@maz-ui/node', (importActual) => {
+vi.mock('@maz-ui/node', async (importActual) => {
   return {
-    ...importActual<typeof import('@maz-ui/node')>(),
+    ...await importActual<typeof import('@maz-ui/node')>(),
     execPromise: vi.fn((param) => {
       if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
         return Promise.resolve({

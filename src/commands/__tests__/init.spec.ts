@@ -103,6 +103,48 @@ describe('Given init command', () => {
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('pnpm add -D -w relizy'), 'Next steps')
     })
 
+    it('Then sets up the AI agents the project already uses', async () => {
+      write('CLAUDE.md', '# mono')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.agents?.targets).toEqual(['claude'])
+      expect(read('.claude/rules/relizy.md')).toContain('Managed by relizy')
+      expect(readJson('.mcp.json').mcpServers.relizy.args).toContain('mcp')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('AI agents (claude)'), 'Changes')
+      expect(vi.mocked(log.success)).toHaveBeenCalledWith('Set up the AI agents (.claude/rules/relizy.md, .mcp.json)')
+    })
+
+    it('Then reports the AI agents already set up, and does not set up a project without agent', async () => {
+      write('CLAUDE.md', '# mono')
+      await init({ cwd, yes: true })
+
+      await init({ cwd, yes: true, force: true })
+
+      expect(vi.mocked(log.success)).toHaveBeenCalledWith('The AI agents are already set up for relizy')
+
+      rmSync(join(cwd, 'CLAUDE.md'))
+      rmSync(join(cwd, '.claude'), { recursive: true })
+      rmSync(join(cwd, '.mcp.json'))
+
+      const result = await init({ cwd, yes: true, force: true })
+
+      expect(result.agents).toBeUndefined()
+      expect(existsSync(join(cwd, '.mcp.json'))).toBe(false)
+    })
+
+    it('Then warns when the AI agents cannot be set up', async () => {
+      write('CLAUDE.md', '# mono')
+      vi.stubEnv('RELIZY_AGENT_DOCS_DIR', join(cwd, 'missing'))
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.written).toBe(true)
+      expect(result.agents).toBeUndefined()
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining('AI agents not set up - The rules of relizy for the agents are missing'))
+      vi.unstubAllEnvs()
+    })
+
     it('Then refuses to replace an existing config without --force', async () => {
       write('relizy.config.mjs', 'export default {}')
 

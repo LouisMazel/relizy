@@ -20,6 +20,7 @@ export default defineConfig({
         '**/*/index.ts',
         'src/types.ts',
         'src/commands/__tests__/*',
+        'src/**/*.md',
       ],
       thresholds: {
         autoUpdate: !isInCI(),

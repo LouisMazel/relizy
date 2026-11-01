@@ -12,7 +12,7 @@ tags: [guide, installation, setup, configuration]
 
 ## Prerequisites
 
-- **Node.js** 20.x or higher
+- **Node.js** 22.12 or higher
 - **npm**, **pnpm**, **bun** or **yarn** package manager
 - **Git** initialized in your project
 

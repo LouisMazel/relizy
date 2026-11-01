@@ -1,0 +1,115 @@
+---
+title: AI Agents (MCP)
+description: Give your AI coding agents (Claude Code, Cursor, Copilot, Codex...) the release preview, the commit linting and the docs of the installed Relizy, through its MCP server.
+keywords: relizy mcp, mcp server, model context protocol, ai agents, claude code, cursor, github copilot, codex, release preview, commitlint
+category: Guide
+tags: [guide, ai, mcp, agents]
+---
+
+# {{ $frontmatter.title }}
+
+{{ $frontmatter.description }}
+
+An agent cannot guess what the next release will do: which packages, which versions, why, which changelog. Relizy ships an [MCP](https://modelcontextprotocol.io) server that answers these questions from your repository, with the docs and the config reference of the version you installed.
+
+## Quick Start
+
+```bash
+npx relizy mcp init
+```
+
+It writes the Relizy rules for your agents and registers the MCP server in their configs (see [`relizy mcp init`](/cli/mcp#relizy-mcp-init)). `relizy init` offers the same step when the project already uses an AI agent.
+
+Install Relizy as a devDependency of the project: the agents then start the installed version in about a second, at the version of your lockfile.
+
+## What the Agents Get
+
+| Tool                | What it answers                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preview_release`   | What the next release bumps: the version of each package and group, and why (its commits, a bumped dependency, a peer range rejecting the new version, another version group) |
+| `preview_changelog` | The changelog entries the release would write                                                                                                                                 |
+| `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                               |
+| `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                           |
+| `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                             |
+| `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                 |
+| `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                              |
+
+It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy` and `setup-ci`.
+
+## Guarantees
+
+- **Read-only**: the tools never write a file, commit, tag, push nor publish. The rules ask the agents to run `relizy release` (and the other writing commands) only with your approval, and `--dry-run` otherwise.
+- **No hook**: the hooks of your config never run in the MCP server.
+- **No network by default**: the local tags are used (`fetchTags: true` runs `git fetch --tags`), and the changelog previews leave the contributors out (`contributors: true` may query the GitHub API).
+- **Version-matched**: the docs, the config reference and the rules come from the installed Relizy. Each release of Relizy ships them up to date.
+
+## Manual Configuration
+
+`relizy mcp init` writes these files for you. To configure another agent, register the `relizy mcp` command:
+
+::: code-group
+
+```json [.mcp.json (Claude Code)]
+{
+  "mcpServers": {
+    "relizy": {
+      "type": "stdio",
+      "command": "pnpm",
+      "args": ["exec", "relizy", "mcp"]
+    }
+  }
+}
+```
+
+```json [.cursor/mcp.json]
+{
+  "mcpServers": {
+    "relizy": {
+      "command": "npx",
+      "args": ["--no-install", "relizy", "mcp"]
+    }
+  }
+}
+```
+
+```json [.vscode/mcp.json (Copilot)]
+{
+  "servers": {
+    "relizy": {
+      "type": "stdio",
+      "command": "npx",
+      "args": ["--no-install", "relizy", "mcp"]
+    }
+  }
+}
+```
+
+```toml [~/.codex/config.toml]
+[mcp_servers.relizy]
+command = "npx"
+args = [
+  "-y",
+  "relizy",
+  "mcp"
+]
+```
+
+:::
+
+Without Relizy in the dependencies of the project, use `npx -y relizy@<version> mcp`: a pinned version starts faster than `relizy@latest`, which queries the registry at every start.
+
+## Keeping the Agents Up to Date
+
+The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. The rules written in the project carry the version that generated them: `get_project` tells the agent when they are older than the installed Relizy, and `relizy mcp init` updates them. Rules you edited by hand are kept and no longer updated: delete the file (or the `AGENTS.md` section) to get the new ones.
+
+## The Rules
+
+These rules are written in `.claude/rules/relizy.md` and `AGENTS.md`:
+
+<!--@include: ./../../../src/mcp/content/rules.md-->
+
+## Troubleshooting
+
+- **The agent does not see the tools**: restart it after `relizy mcp init`, and check that `relizy mcp` starts from the root of the project (`npx relizy mcp` should wait for input without printing anything).
+- **"The docs bundle of relizy is missing"**: reinstall Relizy. In the Relizy repository, run `pnpm build`.
+- **A monorepo whose apps are released from a subfolder**: start the server with `relizy mcp --cwd <folder>`.

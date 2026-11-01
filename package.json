@@ -49,16 +49,18 @@
   "files": [
     "LICENSE",
     "README.md",
+    "agent-docs",
     "bin",
     "dist"
   ],
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.12.0"
   },
   "scripts": {
     "prepare": "npx husky",
-    "build": "unbuild",
-    "dev": "unbuild --stub",
+    "build": "pnpm generate:agent-docs && unbuild",
+    "generate:agent-docs": "tsx scripts/generate-agent-docs.ts",
+    "dev": "pnpm generate:agent-docs && unbuild --stub",
     "relizy": "tsx src/cli.ts",
     "rly": "tsx src/cli.ts",
     "typecheck": "tsc --noEmit --skipLibCheck",
@@ -68,9 +70,9 @@
     "lint:fix:all": "pnpm lint:fix && pnpm lint:docs:fix",
     "lint:docs": "cross-env NODE_ENV=production pnpm -F docs lint",
     "lint:docs:fix": "pnpm lint:docs --fix",
-    "test:unit": "vitest run",
-    "test:unit:watch": "vitest watch",
-    "test:unit:coverage": "vitest run --coverage",
+    "test:unit": "pnpm generate:agent-docs && vitest run",
+    "test:unit:watch": "pnpm generate:agent-docs && vitest watch",
+    "test:unit:coverage": "pnpm generate:agent-docs && vitest run --coverage",
     "health": "pnpm typecheck && pnpm -F docs typecheck && pnpm lint:fix:all && pnpm test:unit:coverage && pnpm build && pnpm -F docs build",
     "pre-commit": "lint-staged"
   },
@@ -97,7 +99,7 @@
   "dependencies": {
     "@clack/prompts": "^1.8.1",
     "@inquirer/prompts": "^8.7.4",
-    "@maz-ui/node": "5.0.0-beta.26",
+    "@maz-ui/node": "5.2.0-beta.0",
     "@maz-ui/utils": "5.0.0-beta.39",
     "c12": "^3.3.3",
     "changelogen": "^0.6.2",
@@ -116,6 +118,7 @@
   },
   "devDependencies": {
     "@maz-ui/eslint-config": "5.0.0-beta.43",
+    "@modelcontextprotocol/sdk": "^1.32.2",
     "@slack/web-api": "8.2.0",
     "@types/mdast": "^4.0.4",
     "@types/micromatch": "^4.0.10",
@@ -130,11 +133,13 @@
     "jiti": "2.7.0",
     "lint-staged": "^17.6.0",
     "memfs": "^4.80.0",
+    "minisearch": "^7.2.0",
     "tsx": "^4.23.15",
     "twitter-api-v2": "^1.29.1",
     "typescript": "^6.0.0",
     "unbuild": "^3.6.1",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "zod": "^4.6.7"
   },
   "lint-staged": {
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
