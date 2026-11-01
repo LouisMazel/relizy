@@ -173,8 +173,8 @@ importers:
         specifier: ^8.7.4
         version: 8.7.4(@types/node@26.6.5)
       '@maz-ui/node':
-        specifier: 5.2.0-beta.0
-        version: 5.2.0-beta.0
+        specifier: 5.2.0
+        version: 5.2.0
       '@maz-ui/utils':
         specifier: 5.0.0-beta.39
         version: 5.0.0-beta.39(libphonenumber-js@1.13.13)
@@ -1270,8 +1270,8 @@ packages:
     resolution: {integrity: sha512-mXzK6uZMmUA8D97ewELuDte7vr1+Ao8JU3ihGTCr8SDio+7mD+oOlBYAA8zT0fzj0i+mbEbTojSMSxjgEcVyig==}
     engines: {node: '>=18.0.0'}
 
-  '@maz-ui/node@5.2.0-beta.0':
-    resolution: {integrity: sha512-YDYZ8JJ3TYOjqTEktRAWYvB6FKHDnTNt9w05fSdtKsHOcSKz2OKJmahKEl3AQALVVMw57hDmTD+PrdB2y4oUWA==}
+  '@maz-ui/node@5.2.0':
+    resolution: {integrity: sha512-Zpew36ncqlZwEjyazc8+FQW9qBgQBbuJaxbVKVWNtNEzPlIgT45urYTjBkOv3+GtKu+z5yrvgnUVW2mN8blInA==}
     engines: {node: '>=22.12.0'}
 
   '@maz-ui/themes@5.0.0-beta.39':
@@ -5957,7 +5957,7 @@ snapshots:
       consola: 3.4.2
       figlet: 1.11.4
 
-  '@maz-ui/node@5.2.0-beta.0':
+  '@maz-ui/node@5.2.0':
     dependencies:
       colorette: 2.0.20
       consola: 3.4.2

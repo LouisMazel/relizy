@@ -99,7 +99,7 @@
   "dependencies": {
     "@clack/prompts": "^1.8.1",
     "@inquirer/prompts": "^8.7.4",
-    "@maz-ui/node": "5.2.0-beta.0",
+    "@maz-ui/node": "5.2.0",
     "@maz-ui/utils": "5.0.0-beta.39",
     "c12": "^3.3.3",
     "changelogen": "^0.6.2",
