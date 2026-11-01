@@ -82,10 +82,22 @@ Relizy will automatically:
 When ready to release a stable version:
 
 ```bash
-relizy release --patch   # Graduates to the base version (e.g. 1.3.0-beta.5 -> 1.3.0)
-# or
 relizy release           # Auto-detects from commits
+# or
+relizy release --patch   # Graduates to the base version (e.g. 1.3.0-beta.5 -> 1.3.0)
 ```
+
+Without a type, the stable version is the base version of the prerelease, unless the commits since the prerelease imply a bigger bump than this base (the same rule as between two prereleases):
+
+| Prerelease      | Commits since the prerelease | Stable version | Explanation                                       |
+| --------------- | ---------------------------- | -------------- | ------------------------------------------------- |
+| `1.13.1-beta.0` | `fix: resolve bug`           | `1.13.1`       | fix implies patch, the base is patch-level        |
+| `1.13.1-beta.0` | `feat: new feature`          | `1.14.0`       | feat implies minor > patch, the base bumps up     |
+| `1.3.0-beta.2`  | `feat: another feature`      | `1.3.0`        | feat implies minor, the base is minor-level       |
+| `1.3.0-beta.2`  | `feat!: breaking`            | `2.0.0`        | breaking implies major > minor, the base bumps up |
+| `1.13.1-beta.0` | `chore: tooling`             | `1.13.1`       | no semver commit, the base version                |
+
+On `0.x`, a breaking change bumps the minor (see `capZeroMajor`).
 
 ## Changing Preid
 

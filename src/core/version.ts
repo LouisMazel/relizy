@@ -170,13 +170,6 @@ function handleStableVersionWithPrereleaseType(
   return prereleaseType
 }
 
-function handlePrereleaseVersionToStable(
-  currentVersion: string,
-): ReleaseType {
-  logger.debug(`Graduating from prerelease ${currentVersion} to stable release`)
-  return 'release'
-}
-
 function getSemverRank(type: 'major' | 'minor' | 'patch' | undefined): number {
   switch (type) {
     case 'major': return 3
@@ -195,6 +188,32 @@ function getImpliedBumpFromPrerelease(version: string): 'major' | 'minor' | 'pat
   if (minor > 0)
     return 'minor'
   return 'major'
+}
+
+/**
+ * Stable version of a prerelease (`release` type): its base version
+ * (`1.13.1-beta.0` gives `1.13.1`), unless the commits imply a bigger bump
+ * than the base: a `feat` on a patch-level base gives `1.14.0`.
+ */
+function handlePrereleaseVersionToStable(
+  { currentVersion, commits, types, capZeroMajor, breakingPeer }: {
+    currentVersion: string
+    commits: GitCommit[] | undefined
+    types: NonNullable<RelizyConfig['types']>
+    capZeroMajor: boolean
+    breakingPeer: boolean
+  },
+): ReleaseType {
+  const detectedType = detectReleaseTypeFromCommits(commits, types, currentVersion, capZeroMajor, breakingPeer)
+  const impliedBump = getImpliedBumpFromPrerelease(currentVersion)
+
+  if (getSemverRank(detectedType) > getSemverRank(impliedBump)) {
+    logger.debug(`Graduating from prerelease ${currentVersion}: commits imply ${detectedType} bump, bigger than its ${impliedBump}-level base`)
+    return detectedType!
+  }
+
+  logger.debug(`Graduating from prerelease ${currentVersion} to stable release`)
+  return 'release'
 }
 
 function handlePrereleaseVersionWithPrereleaseType(
@@ -325,7 +344,7 @@ export function determineReleaseType({
    * Prerelease branch
    */
   if (releaseType === 'release') {
-    return handlePrereleaseVersionToStable(currentVersion)
+    return handlePrereleaseVersionToStable({ currentVersion, commits, types, capZeroMajor, breakingPeer })
   }
 
   if (releaseType === 'prerelease') {
