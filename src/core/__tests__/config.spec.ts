@@ -596,6 +596,20 @@ describe('Given loadRelizyConfig function', () => {
     })
   })
 
+  describe('When the repository has no repository field nor origin remote', () => {
+    it('Then loads the config without a repo config', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project' },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue(undefined as any)
+
+      const config = await loadRelizyConfig()
+
+      expect(config.repo).toBeUndefined()
+    })
+  })
+
   describe('When loading config with custom config name', () => {
     it('Then uses provided config name', async () => {
       vi.mocked(loadConfig).mockResolvedValue({

@@ -61,6 +61,11 @@ export interface PackageBase extends ReadPackage {
    * for a breaking commit.
    */
   breakingPeerDependency?: string
+  /**
+   * Peer dependency whose new version the published range of this package
+   * rejects: the package is bumped as a dependent for it (`bump.outOfRangePeers: 'bump'`)
+   */
+  outOfRangePeer?: string
 }
 
 /**
@@ -334,7 +339,7 @@ export interface BumpConfig {
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
   /**
    * Skip confirmation prompt about bumping packages
-   * @default true
+   * @default false
    */
   yes?: boolean
   /**
@@ -1665,6 +1670,12 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    */
   projectName?: string
 
+  /**
+   * Commit types: the title of their section in the changelog and the bump
+   * they trigger (`semver`: `major`, `minor` or `patch`, none to only list
+   * them in the changelog). `false` leaves the commits of the type out of the
+   * changelog and of the bump.
+   */
   types?: Record<string, {
     title: string
     semver?: SemverBumpType

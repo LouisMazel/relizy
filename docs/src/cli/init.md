@@ -40,8 +40,9 @@ Every question comes with a default deduced from the repository:
 4. **Advanced options** (optional): dependency bumps, `0.x` breaking changes, root changelog, hidden commit types, changelog format command, npm access, registry, build command, Twitter and Slack announcements, PR comment mode and AI release notes.
 5. **Commit linting**: install the `commit-msg` hook running [`relizy commitlint`](/commitlint/cli) (in `.husky/` when husky is set up).
 6. **Release script**: add `"release": "relizy release"` to the `package.json`.
+7. **AI agents** (only when the project already uses one: `CLAUDE.md`, `AGENTS.md`, `.cursor/`...): give them the relizy rules and the [relizy MCP server](/guide/ai-agents), as [`relizy mcp init`](/cli/mcp#relizy-mcp-init) does.
 
-Before writing anything, `init` shows the generated config and the list of changes (files created, `package.json` updates, hook), and asks for a single confirmation.
+Before writing anything, `init` shows the generated config and the list of changes (files created, `package.json` updates, hook, AI agents), and asks for a single confirmation.
 
 When the root `package.json` has no `name` or `version`, they are part of these changes: Relizy reads both. In `unified` and `selective` modes, the version is the highest version of the packages, the shared version bumped at each release. In `independent` mode, it is `0.0.0` and never bumped.
 
@@ -75,7 +76,7 @@ Accept the detected values without asking. Useful in scripts and for AI agents:
 npx relizy init --yes
 ```
 
-The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept) and the `release` script is added. The command also runs without questions when there is no terminal or in CI.
+The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added and the AI agents detected in the project are set up. The command also runs without questions when there is no terminal or in CI.
 
 ### --force
 

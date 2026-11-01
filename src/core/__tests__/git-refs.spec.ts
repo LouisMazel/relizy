@@ -5,8 +5,10 @@ import {
   getCommitSubject,
   getGitDiff,
   isAncestor,
+  NAME_STATUS_LINE,
   pushTagForce,
   retagAnnotatedLocal,
+  stripNameStatus,
   tagExists,
 } from '../git-refs'
 
@@ -190,5 +192,28 @@ describe('Given getGitDiff', () => {
 
     expect(commit?.message).toBe('feat: support a | b')
     expect(commit?.shortHash).toBe('abc1234')
+  })
+})
+
+describe('Given stripNameStatus', () => {
+  it('Then removes the --name-status list git writes after the body', () => {
+    expect(stripNameStatus('First line\n\nSecond paragraph\n\nM\tsrc/a.ts\nR100\told.ts\tnew.ts\nD\t"caf\\303\\251.ts"\n')).toBe('First line\n\nSecond paragraph\n')
+  })
+
+  it('Then keeps the lines of the text that look like status lines', () => {
+    expect(stripNameStatus('A new option\nM is the default\nD\tin the text\n\nM\tsrc/a.ts')).toBe('A new option\nM is the default\nD\tin the text\n')
+  })
+
+  it('Then returns an empty text for a body made of files only, and the body as is without files', () => {
+    expect(stripNameStatus('\nM\tsrc/a.ts\n').trim()).toBe('')
+    expect(stripNameStatus('Only text')).toBe('Only text')
+    expect(stripNameStatus('')).toBe('')
+  })
+})
+
+describe('Given NAME_STATUS_LINE', () => {
+  it('Then only matches a status letter, an optional score and a tab', () => {
+    expect(['M\tsrc/a.ts', 'R100\ta\tb', 'C075\ta\tb'].every(line => NAME_STATUS_LINE.test(line))).toBe(true)
+    expect(['A new option', 'M src/a.ts', 'Mention\tx', ''].some(line => NAME_STATUS_LINE.test(line))).toBe(false)
   })
 })

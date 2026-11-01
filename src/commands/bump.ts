@@ -22,7 +22,7 @@ interface BumpStrategyInput {
  * Computing every version group before writing lets the groups depend on each
  * other, and a refused confirmation leaves the files untouched.
  */
-interface BumpPlan {
+export interface BumpPlan {
   result: BumpResult
   confirm?: () => Promise<void>
   write?: () => void
@@ -809,17 +809,16 @@ function sortGroupsByDependencies(
 }
 
 /**
- * Bump each version group (`monorepo.groups`) with its own version mode, then
- * merge their results.
+ * Plan the bump of each version group (`monorepo.groups`) with its own version
+ * mode.
  *
  * A package depending on a package bumped by another group is bumped too (as
  * a dependent, following the `bump.dependencyTypes` of its group, or when its
  * published peer dependency range rejects the new version), so that its
  * published dependency ranges follow. The groups are computed in dependency
- * order, again until no group changes when they depend on each other, then
- * confirmed, and only then written.
+ * order, again until no group changes when they depend on each other.
  */
-async function bumpVersionGroups({
+async function planVersionGroups({
   config,
   dryRun,
   force,
@@ -833,7 +832,7 @@ async function bumpVersionGroups({
   suffix: string | undefined
   canary: boolean
   groups?: string[]
-}): Promise<BumpResult> {
+}): Promise<PlannedBumps> {
   const resolvedGroups = resolveVersionGroups({ config, only: groups })
   const dependencies = readGroupsDependencies({ config, groups: resolvedGroups })
   const sortedGroups = sortGroupsByDependencies(resolvedGroups, dependencies)
@@ -888,12 +887,91 @@ async function bumpVersionGroups({
     }
   }
 
-  await applyBumpPlans(resolvedGroups.map(({ group }) => plans.get(group.name)!.plan))
-
-  return mergeGroupBumpResults(results)
+  return {
+    result: mergeGroupBumpResults(results),
+    plans: resolvedGroups.map(({ group }) => plans.get(group.name)!.plan),
+    groups: results,
+  }
 }
 
-// eslint-disable-next-line complexity
+export interface PlanBumpsOptions {
+  config: ResolvedRelizyConfig
+  /**
+   * Passed to the planning steps (a rewritten tag is then never re-bound)
+   * @default false
+   */
+  dryRun?: boolean
+  /**
+   * Bump even without commits
+   * @default false
+   */
+  force?: boolean
+  /**
+   * Custom suffix of the prerelease versions
+   */
+  suffix?: string
+  /**
+   * Plan a canary release
+   * @default false
+   */
+  canary?: boolean
+  /**
+   * Only plan these version groups of `monorepo.groups`
+   */
+  groups?: string[]
+}
+
+export interface PlannedBumps {
+  /**
+   * Result of the bump, as `bump()` returns it
+   */
+  result: BumpResult
+  /**
+   * Plans to confirm then write (`plan.confirm`, `plan.write`)
+   */
+  plans: BumpPlan[]
+  /**
+   * Result of each version group, with `monorepo.groups`
+   */
+  groups?: { group: VersionGroup, result: BumpResult }[]
+}
+
+/**
+ * Compute the bump of the packages of a resolved config, without asking for
+ * any confirmation nor writing anything: the versions of each package, the
+ * reason of its bump, and the plans `bump()` confirms then writes. Neither the
+ * hooks nor `git fetch --tags` run here.
+ */
+export async function planBumps({
+  config,
+  dryRun = false,
+  force = false,
+  suffix,
+  canary = false,
+  groups,
+}: PlanBumpsOptions): Promise<PlannedBumps> {
+  assertVersionGroupsOption({ config, groups })
+
+  if (hasVersionGroups(config)) {
+    return planVersionGroups({ config, dryRun, force, suffix, canary, groups })
+  }
+
+  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
+  const packages = readPackages({
+    cwd: config.cwd,
+    patterns: config.monorepo?.packages,
+    ignorePackageNames: config.monorepo?.ignorePackageNames,
+    ignored: config.monorepo?.ignored,
+  })
+
+  logger.debug(`Found ${packages.length} package(s)`)
+
+  const plan = await planBump({ config, dryRun, force, suffix, canary })
+
+  return { result: plan.result, plans: [plan] }
+}
+
 export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,
@@ -936,44 +1014,16 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
     await fetchGitTags(config.cwd)
 
-    assertVersionGroupsOption({ config, groups: options.groups })
+    const { result, plans } = await planBumps({
+      config,
+      dryRun,
+      force,
+      suffix: options.suffix,
+      canary: options.canary ?? false,
+      groups: options.groups,
+    })
 
-    let result: BumpResult
-
-    if (hasVersionGroups(config)) {
-      result = await bumpVersionGroups({
-        config,
-        dryRun,
-        force,
-        suffix: options.suffix,
-        canary: options.canary ?? false,
-        groups: options.groups,
-      })
-    }
-    else {
-      logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
-      const packages = readPackages({
-        cwd: config.cwd,
-        patterns: config.monorepo?.packages,
-        ignorePackageNames: config.monorepo?.ignorePackageNames,
-        ignored: config.monorepo?.ignored,
-      })
-
-      logger.debug(`Found ${packages.length} package(s)`)
-
-      const plan = await planBump({
-        config,
-        dryRun,
-        force,
-        suffix: options.suffix,
-        canary: options.canary ?? false,
-      })
-
-      await applyBumpPlans([plan])
-
-      result = plan.result
-    }
+    await applyBumpPlans(plans)
 
     if (result.bumped) {
       const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length

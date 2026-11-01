@@ -1,4 +1,6 @@
+import process from 'node:process'
 import { defineConfig } from './src'
+import { generateAgentDocs } from './src/mcp/knowledge/generate'
 
 export default defineConfig({
   types: {
@@ -58,4 +60,10 @@ export default defineConfig({
     title: false,
   },
   safetyCheck: true,
+  hooks: {
+    // The CI builds before the bump: the docs bundle of the MCP server (agent-docs/) gets the new version
+    'success:bump': () => {
+      generateAgentDocs({ rootDir: process.cwd() })
+    },
+  },
 })
