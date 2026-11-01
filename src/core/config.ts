@@ -150,7 +150,7 @@ export function getDefaultConfig() {
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
     },
     prComment: {
-      mode: 'append',
+      mode: 'update',
     } as Required<PrCommentConfig>,
     ai: {
       provider: 'claude-code',

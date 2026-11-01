@@ -196,7 +196,7 @@ describe('Given init command', () => {
     })
 
     it('Then writes the basic and advanced answers', async () => {
-      answer(select, ['publish', 'selective', 'restricted', 'update'])
+      answer(select, ['publish', 'selective', 'restricted', 'append'])
       answer(multiselect, [['packages/*'], ['dependencies', 'devDependencies'], typesExcept('chore'), ['slack'], ['providerRelease']])
       answer(confirm, [true, false, false, true, false, true])
       answer(text, ['', 'https://npm.acme.dev', 'pnpm build', '#releases', 'https://acme.dev/changelog', 'fr'])
@@ -210,7 +210,7 @@ describe('Given init command', () => {
         changelog: { rootChangelog: false },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev', buildCmd: 'pnpm build' },
         social: { slack: { enabled: true, channel: '#releases' }, changelogUrl: 'https://acme.dev/changelog' },
-        prComment: { mode: 'update' },
+        prComment: { mode: 'append' },
         ai: { language: 'fr', providerRelease: { enabled: true } },
       })
       // The root takes the highest package version in selective mode

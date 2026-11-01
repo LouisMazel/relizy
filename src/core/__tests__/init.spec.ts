@@ -213,7 +213,7 @@ describe('Given the init helpers', () => {
         slack: true,
         slackChannel: '#releases',
         changelogUrl: 'https://acme.dev/changelog',
-        prCommentMode: 'update',
+        prCommentMode: 'append',
         ai: ['providerRelease', 'slack'],
         aiLanguage: 'fr',
       }))
@@ -225,7 +225,7 @@ describe('Given the init helpers', () => {
         changelog: { rootChangelog: false, formatCmd: 'pnpm lint:fix' },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev/' },
         social: { twitter: { enabled: true }, slack: { enabled: true, channel: '#releases' }, changelogUrl: 'https://acme.dev/changelog' },
-        prComment: { mode: 'update' },
+        prComment: { mode: 'append' },
         ai: { language: 'fr', providerRelease: { enabled: true }, social: { slack: { enabled: true } } },
       })
     })

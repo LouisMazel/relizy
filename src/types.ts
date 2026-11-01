@@ -190,7 +190,7 @@ export type PrCommentMode = 'append' | 'update'
 export interface PrCommentConfig {
   /**
    * PR comment mode
-   * @default 'append'
+   * @default 'update'
    */
   mode?: PrCommentMode
 }

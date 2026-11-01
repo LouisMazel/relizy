@@ -256,7 +256,7 @@ describe('Given getDefaultConfig function', () => {
     it('Then sets prComment mode to append by default', () => {
       const config = getDefaultConfig()
 
-      expect(config.prComment.mode).toBe('append')
+      expect(config.prComment.mode).toBe('update')
     })
   })
 

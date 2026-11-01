@@ -22,7 +22,7 @@ interface PrCommentConfig {
    * PR comment mode
    * - 'append': Create a new comment each time
    * - 'update': Find and update an existing comment
-   * @default 'append'
+   * @default 'update'
    */
   mode?: 'append' | 'update'
 }
@@ -31,7 +31,7 @@ interface PrCommentConfig {
 ## mode
 
 - **Type:** `'append' | 'update'`
-- **Default:** `'append'`
+- **Default:** `'update'`
 
 Controls how Relizy manages comments on the PR/MR.
 
@@ -66,7 +66,7 @@ export default defineConfig({
 If no previous comment is found, a new one is created.
 
 ::: tip
-Use `update` mode in CI/CD pipelines to keep your PRs clean — only one Relizy comment will ever appear on the PR.
+`update` is the default: only one Relizy comment ever appears on the PR. Use `append` to keep a comment per release attempt.
 :::
 
 ## release.prComment
@@ -106,7 +106,7 @@ relizy release --patch --no-pr-comment
 
 ## Complete Examples
 
-### Append Mode (Default)
+### Append Mode
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -121,7 +121,7 @@ export default defineConfig({
 })
 ```
 
-### Update Mode
+### Update Mode (Default)
 
 ```ts
 import { defineConfig } from 'relizy'
