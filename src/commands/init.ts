@@ -304,7 +304,7 @@ async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise
   }
   return {
     ai,
-    aiLanguage: await askText({ message: 'Language of the AI texts:', initialValue: answers.aiLanguage }) ?? 'en',
+    aiLanguage: await askText({ message: 'Language of the AI texts:', initialValue: answers.aiLanguage }) ?? answers.aiLanguage,
   }
 }
 

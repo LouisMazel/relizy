@@ -367,7 +367,7 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
   })
 
   if (dryRun) {
-    const mode: PrCommentMode = config.prComment?.mode ?? 'append'
+    const mode: PrCommentMode = config.prComment.mode
     const prDisplay = pr ? `#${pr.number} (${pr.url})` : 'Not detected'
     const statusDisplay = options.releaseContext?.status ?? 'success'
     logger.box(

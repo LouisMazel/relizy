@@ -41,7 +41,7 @@ function assemblePrompt(
   maxLength?: number,
 ): string {
   const vars = {
-    language: config.ai?.language ?? 'en',
+    language: config.ai.language,
     maxLength: maxLength?.toString(),
   }
 

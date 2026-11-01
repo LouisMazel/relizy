@@ -2,6 +2,7 @@ import type { InitAnswers, ProjectDetection } from '../init'
 import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { basename, join } from 'node:path'
+import { getDefaultConfig } from '../config'
 import {
   buildInitConfig,
   detectProject,
@@ -147,6 +148,19 @@ describe('Given the init helpers', () => {
       const detection = { ...detectProject({ cwd }), provider: 'github' as const }
 
       expect(buildInitConfig(detection, answers(detection))).toEqual({})
+    })
+
+    it('Then takes the default answers from the default config, so changing a default changes init', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const defaults = getDefaultConfig()
+
+      expect(getDefaultAnswers(detectProject({ cwd }), { goal: 'publish', patterns: [] })).toEqual(expect.objectContaining({
+        dependencyTypes: defaults.bump.dependencyTypes,
+        capZeroMajor: defaults.bump.capZeroMajor,
+        rootChangelog: defaults.changelog.rootChangelog,
+        prCommentMode: defaults.prComment.mode,
+        aiLanguage: defaults.ai.language,
+      }))
     })
 
     it('Then completes the missing name and version', () => {

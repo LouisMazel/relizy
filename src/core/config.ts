@@ -166,7 +166,7 @@ export function getDefaultConfig() {
         twitter: { enabled: false },
         slack: { enabled: false },
       },
-    } as AIConfig,
+    } as AIConfig & Required<Pick<AIConfig, 'language'>>,
     logLevel: 'default' as LogLevel,
     safetyCheck: true,
     detectRewrittenTags: true,
