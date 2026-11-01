@@ -86,6 +86,7 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 - Transitive dependencies are handled (if A→B→C and C updates, both B and A are bumped)
 - `dependencyTypes` config option controls which dependency fields trigger bumps: `dependencies`, `devDependencies`, `peerDependencies`
 - In independent mode, dependent packages get a minimum `patch` bump unless they have their own qualifying commits
+- Catalogs (`src/core/catalogs.ts`): a commit changing an entry of a catalog (`pnpm-workspace.yaml`, `.yarnrc.yml`, bun's root `package.json`) belongs, in `getPackageCommits()`, to the packages referencing this entry with `catalog:` in any dependency field (their `package.json` at the commit), as an edit of their `package.json` would. The catalogs before and after the commits are read at once (`git cat-file --batch`)
 
 ### Configuration Loading
 

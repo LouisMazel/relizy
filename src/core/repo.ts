@@ -10,6 +10,7 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
+import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies, isBreakingVersionChange } from './dependencies'
 import { getGitDiff } from './git-refs'
 import { GLOB_IGNORE } from './glob'
@@ -836,6 +837,11 @@ export async function getPackageCommits({
   // Paths of ignored packages, resolved once for the root filter below.
   const ignoredPackagePaths = isRootPackage ? resolveIgnoredPackagePaths(changelogConfig) : []
 
+  if (!isRootPackage) {
+    // The catalogs changed by the commits, read at once
+    prefetchCatalogChanges({ commits: allCommits.map(commit => ({ hash: commit.shortHash, files: getCommitChangedFiles(commit) })), cwd: changelogConfig.cwd })
+  }
+
   const commits = allCommits.filter((commit) => {
     const type = changelogConfig?.types[commit.type] as ConfigType | undefined
 
@@ -857,7 +863,15 @@ export async function getPackageCommits({
     }
 
     const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
-    return isCommitInPackage(commit, packageRelativePath)
+
+    if (isCommitInPackage(commit, packageRelativePath)) {
+      return true
+    }
+
+    // A commit changing an entry of a catalog (`catalog:` dependencies) changes the packages using it
+    const catalogChanges = getCommitCatalogChanges({ hash: commit.shortHash, files: getCommitChangedFiles(commit), cwd: changelogConfig.cwd })
+
+    return referencesCatalogEntries({ hash: commit.shortHash, packageRelativePath, entries: catalogChanges, cwd: changelogConfig.cwd })
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)
