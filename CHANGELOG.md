@@ -1,5 +1,73 @@
 # Changelog
 
+## v1.13.1 (2026-11-01)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.0...v1.13.1)
+
+### 🚀 Features
+
+- Update a single PR comment by default ([f2b4219](https://github.com/LouisMazel/relizy/commit/f2b4219))
+
+  `prComment.mode` is now `update` by default: relizy updates its comment on the pull or merge request at each release instead of adding a new one, so only one relizy comment appears on it. Set `prComment: { mode: 'append' }` to keep a comment per release.
+
+- Plan a bump without writing anything with planBumps ([5f9925e](https://github.com/LouisMazel/relizy/commit/5f9925e))
+
+  `planBumps({ config })` computes the bump of the packages like `bump()`, with the version groups, without asking for any confirmation nor writing anything, and without running the hooks: it returns the result of the bump and the plans that `bump()` then confirms and writes. A package bumped because the published range of one of its peer dependencies rejects the new version of this dependency gets `outOfRangePeer`, the name of this dependency.
+
+- Give AI coding agents the release preview and the docs with relizy mcp ([7e14609](https://github.com/LouisMazel/relizy/commit/7e14609))
+
+  `relizy mcp` starts an MCP server for AI coding agents (Claude Code, Cursor, Copilot, Codex...). Its tools only read the project, never run the hooks of the config and never write, commit, tag, push nor publish:
+
+  - `preview_release`: the version of each package and version group of the next release, and why (its commits, a bumped dependency, a peer range rejecting the new version, a package of another group, a graduation), with the tags
+  - `preview_changelog`: the changelog entries the release would write
+  - `lint_commit`: lints a message before committing, or the commits of a branch, with the fixes, a suggested header, the bump and the changelog entry
+  - `get_project`, `get_config_option`, `search_docs` and `get_doc`: the config of the project, the reference of the options and the docs of the installed relizy, shipped in the package (`agent-docs/`)
+
+  `relizy mcp init` writes the relizy rules for the agents (`.claude/rules/relizy.md`, a section of `AGENTS.md`) and registers the server in `.mcp.json`, `.cursor/mcp.json` and `.vscode/mcp.json`. `relizy init` offers the same step when the project already uses an AI agent. Run it again after an upgrade of relizy to update the rules.
+
+  relizy now requires Node.js 22.12 or higher.
+
+### 🩹 Fixes
+
+- Check the peer dependency ranges as npm does and bump a major on a breaking peer dependency ([59dd54f](https://github.com/LouisMazel/relizy/commit/59dd54f))
+
+  `bump.outOfRangePeers` checks the published ranges as npm does (`^6.19.1` rejects `6.20.0-beta.0`), so a canary or a beta of a dependency also releases its dependents declared with `workspace:^`. In the `independent` mode, a package released while its peer dependency makes a breaking change that its published range rejects (`6.19.1` to `7.0.0`) gets a major instead of a patch, as for a breaking commit: a minor in `0.x` (see `bump.capZeroMajor`), a premajor for a prerelease.
+
+- Bump the major of a unified or selective group whose package has a breaking peer dependency of another group ([6e3544d](https://github.com/LouisMazel/relizy/commit/6e3544d))
+
+  In the `unified` and `selective` modes, a package released while its peer dependency on a package of another version group makes a breaking change that its published range rejects now gives a major to the root version (a minor in `0.x`, a premajor for a prerelease), so to every package released by the group, instead of a patch. The canary versions follow the same rule, in every version mode.
+
+- Only restore and commit the files written by the release, never in dry-run ([61bd0ab](https://github.com/LouisMazel/relizy/commit/61bd0ab))
+
+  A canary release, or a release failing before its commit, restored the release files with `git checkout HEAD`, even in dry-run: the uncommitted changes of every modified `package.json` and `CHANGELOG.md` were lost, and an untracked `package.json` was removed. Relizy now records the files it writes and restores their exact content before the release, the release commit only stages them, and a dry-run writes nothing. With `--no-clean`, Relizy warns about the uncommitted changes and asks for a confirmation in an interactive terminal outside of the CI.
+
+- Release the packages whose catalog dependencies a commit updates ([13928d9](https://github.com/LouisMazel/relizy/commit/13928d9))
+
+  A commit that only updated an entry of a catalog (`catalog:` dependencies) belonged to no package: in selective and independent modes, the packages using this entry were not released, and their changelogs did not mention the update, although their published dependencies changed. Such a commit now belongs to the packages referencing the updated entry, in any dependency field, as if it had edited their `package.json`: its type decides the bump, `chore(deps)` releases nothing. The catalogs of pnpm (`pnpm-workspace.yaml`), yarn (`.yarnrc.yml`) and bun (root `package.json`) are supported.
+
+- Keep the lines of a commit body that start like a file of the commit ([0c36df1](https://github.com/LouisMazel/relizy/commit/0c36df1))
+
+  A line of a commit body starting with a capital letter such as `A`, `M` or `D` followed by a space ("A new option sets the size.") was taken for a file of the commit and left out of the changelog. Only the list of files git writes after the body is now left out, and a line of this list is recognized as git writes it: a status letter, an optional similarity score, then a tab. The files used to attribute the commits to the packages are unchanged.
+
+- Load the config of a repository without origin remote nor repository field ([40a82a1](https://github.com/LouisMazel/relizy/commit/40a82a1))
+
+  Loading the config failed with "Cannot read properties of undefined (reading 'provider')" in a local repository: without an `origin` remote nor a `repository` field in the package.json, the repository is not resolved and the config is now loaded without it.
+
+### 💅 Refactors
+
+- Read the default values of the config instead of repeating them ([79e396e](https://github.com/LouisMazel/relizy/commit/79e396e))
+
+  The fallbacks of `prComment.mode` and `ai.language` repeated the defaults of `getDefaultConfig()`, although the resolved config always has them. `relizy init` now takes its default answers, and the values it leaves out of the generated config, from `getDefaultConfig()` too: changing a default no longer needs to change them.
+
+### 🧪 Tests
+
+- Cover the cancelled confirmation of a run with uncommitted changes ([91b7997](https://github.com/LouisMazel/relizy/commit/91b7997))
+- Cover the cancelled confirmation of a run with uncommitted changes ([3f7ad19](https://github.com/LouisMazel/relizy/commit/3f7ad19))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.13.1-beta.0 (2026-11-01)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.0...v1.13.1-beta.0)
