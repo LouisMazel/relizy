@@ -450,6 +450,56 @@ describe('Given a release with version groups on a real git repository', () => {
       })
     })
 
+    describe('When a package of the selective group has a peer dependency on a package of the independent group making a breaking change', () => {
+      beforeEach(() => {
+        commitChanges('chore: add the kit', () => writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1', peerDependencies: { '@scope/login': 'workspace:^' } }))
+        commitFile('shared/login/form.js', 'feat(login)!: new form API')
+      })
+
+      it('Then bumps the major of the root version of the selective group', async () => {
+        await release({ yes: true })
+
+        expect(readVersion('shared/login')).toBe('3.0.0')
+        expect(readVersion('.')).toBe('7.0.0')
+        expect(readVersion('packages/components')).toBe('7.0.0')
+        expect(readVersion('packages/kit')).toBe('7.0.0')
+        // The peer dependency `workspace:*` of @scope/nav rejects the major of @scope/components
+        expect(readVersion('shared/nav')).toBe('2.0.0')
+      })
+
+      it('Then bumps the major of a unified group', async () => {
+        commitChanges('chore: unified', () => writeFileSync(join(cwd, 'relizy.config.mjs'), readFileSync(join(cwd, 'relizy.config.mjs'), 'utf8').replace(`versionMode: 'selective'`, `versionMode: 'unified'`)))
+
+        await release({ yes: true })
+
+        expect(readVersion('.')).toBe('7.0.0')
+        expect(readVersion('packages/theme')).toBe('7.0.0')
+        expect(readVersion('packages/kit')).toBe('7.0.0')
+      })
+
+      it('Then publishes a major canary of the selective group', async () => {
+        await release({ canary: true, yes: true })
+
+        const components = publishedPackages.find(pkg => pkg.name === '@scope/components')!
+        const kit = publishedPackages.find(pkg => pkg.name === '@scope/kit')!
+
+        expect(components.version).toMatch(/^7\.0\.0-0\.canary-/)
+        expect(kit.version).toBe(components.version)
+      })
+    })
+
+    it('Then publishes a major canary of a package whose peer dependency makes a breaking change', async () => {
+      git('reset', '--hard', 'HEAD~1')
+      commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
+      commitFile('packages/components/button.js', 'feat(components)!: new button API')
+
+      await release({ canary: true, yes: true })
+
+      const nav = publishedPackages.find(pkg => pkg.name === '@scope/nav')!
+
+      expect(nav.version).toMatch(/^2\.0\.0-0\.canary-/)
+    })
+
     it('Then publishes the canary version of a package whose workspace:^ range rejects the canary of its dependency', async () => {
       commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
 

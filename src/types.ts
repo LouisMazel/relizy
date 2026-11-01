@@ -366,7 +366,8 @@ export interface BumpConfig {
    *
    * Whatever this option, a package released while its peer dependency makes a
    * breaking change its published range rejects is bumped as for a breaking
-   * commit (`capZeroMajor` applies), in `independent` mode.
+   * commit (`capZeroMajor` applies). In `unified`/`selective` mode, a peer
+   * dependency of another version group gives that bump to the root version.
    *
    * Independent of `dependencyTypes`, which bumps the dependents on every bump
    * of their dependencies.

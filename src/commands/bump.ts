@@ -1,9 +1,9 @@
 import type { SemverBumpType } from 'changelogen'
-import type { ResolvedRelizyConfig, ResolvedVersionGroup, VersionChange } from '../core'
+import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionChange } from '../core'
 import type { BumpOptions, BumpResult, PackageBase, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -96,6 +96,75 @@ function getPlannedRootVersion({
   return rootPackage.newVersion ?? (externalBumps?.size ? getDependencyRootVersion({ config, rootPackage, suffix }) : undefined)
 }
 
+/**
+ * Whether a package released by a unified/selective group has a peer dependency
+ * on a package of another version group making a breaking change its published
+ * range rejects. The packages of the group itself are left out: they get the
+ * version of the group, whose jumps (`1.5.0` to the root version `6.19.2`) are
+ * not breaking changes.
+ */
+function hasExternalBreakingPeer(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined): boolean {
+  return Boolean(externalBumps?.size) && packages.some(pkg => getOutOfRangePeers({ packagePath: pkg.path, bumped: externalBumps! }).some(isBreakingVersionChange))
+}
+
+/**
+ * Root version of a unified/selective group whose packages are released while
+ * a peer dependency of another group makes a breaking change: bumped as for a
+ * breaking commit, unless the planned version already is a breaking change.
+ * Undefined when nothing changes.
+ */
+function getBreakingPeerRootVersion({
+  config,
+  rootPackage,
+  plannedVersion,
+  packages,
+  externalBumps,
+  force,
+  suffix,
+}: {
+  config: ResolvedRelizyConfig
+  rootPackage: RootPackage
+  plannedVersion: string | undefined
+  packages: PackageBase[]
+  externalBumps: Map<string, VersionChange> | undefined
+  force: boolean
+  suffix: string | undefined
+}): string | undefined {
+  if (force || !plannedVersion || !hasExternalBreakingPeer(packages, externalBumps)) {
+    return undefined
+  }
+
+  if (isBreakingVersionChange({ oldVersion: rootPackage.version, newVersion: plannedVersion })) {
+    return undefined
+  }
+
+  const releaseType = determineReleaseType({
+    currentVersion: rootPackage.version,
+    commits: rootPackage.commits,
+    releaseType: config.bump.type,
+    preid: config.bump.preid,
+    types: config.types,
+    force: false,
+    capZeroMajor: config.bump.capZeroMajor,
+    breakingPeer: true,
+  })
+
+  const newVersion = releaseType && getPackageNewVersion({
+    name: rootPackage.name,
+    currentVersion: rootPackage.version,
+    releaseType,
+    preid: config.bump.preid,
+    suffix,
+  })
+
+  if (newVersion && newVersion !== plannedVersion) {
+    logger.debug(`${rootPackage.name}: packages released with a peer dependency making a breaking change, ${plannedVersion} → ${newVersion}`)
+    return newVersion
+  }
+
+  return undefined
+}
+
 async function planUnifiedMode({
   config,
   dryRun,
@@ -128,13 +197,19 @@ async function planUnifiedMode({
     dryRun,
   })
 
+  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
+  const getUnifiedPackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, includeAll: true, dryRun, externalBumps, newVersionOverride })
+
   // Only needed to find dependents of other version groups when there is no new version
-  const packages = rootPackage.newVersion || externalBumps?.size
-    ? await getPackages({ config, suffix, force, includeAll: true, dryRun, externalBumps, newVersionOverride: getPlannedRootVersion({ config, rootPackage, externalBumps, suffix }) })
-    : []
+  let packages = rootPackage.newVersion || externalBumps?.size ? await getUnifiedPackages(plannedVersion) : []
+  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+
+  if (breakingVersion) {
+    packages = await getUnifiedPackages(breakingVersion)
+  }
 
   const currentVersion = rootPackage.version
-  const newVersion = getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -240,17 +315,18 @@ async function planSelectiveMode({
   }
 
   logger.debug('Determining packages to bump...')
-  const packages = await getPackages({
-    config,
-    suffix,
-    force,
-    dryRun,
-    externalBumps,
-    newVersionOverride: getPlannedRootVersion({ config, rootPackage, externalBumps, suffix }),
-  })
+  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
+  const getSelectivePackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, dryRun, externalBumps, newVersionOverride })
+
+  let packages = await getSelectivePackages(plannedVersion)
+  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+
+  if (breakingVersion) {
+    packages = await getSelectivePackages(breakingVersion)
+  }
 
   const currentVersion = rootPackage.version
-  const newVersion = getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -457,29 +533,37 @@ async function planCanaryMode({
 
   const sha = getShortCommitSha(config.cwd)
 
-  const canaryVersion = getCanaryVersion({
+  let canaryVersion = getCanaryVersion({
     currentVersion,
     releaseType,
     preid,
     sha,
   })
 
-  logger.info(`Canary version: ${canaryVersion}`)
-
   const versionMode = config.monorepo?.versionMode || 'unified'
   const isUnified = versionMode === 'unified'
 
   // In unified mode, every package must receive the canary version regardless of commits.
   // In selective mode, only packages with commits + dependents are bumped.
-  const packages = await getPackages({
+  const getCanaryPackages = (newVersionOverride: string) => getPackages({
     config,
     suffix: undefined,
     force: false,
     includeAll: isUnified,
     dryRun,
     externalBumps,
-    newVersionOverride: canaryVersion,
+    newVersionOverride,
   })
+
+  let packages = await getCanaryPackages(canaryVersion)
+
+  // A package released with a peer dependency of another group making a breaking change gives a major to the group
+  if (releaseType !== 'major' && hasExternalBreakingPeer(packages, externalBumps)) {
+    canaryVersion = getCanaryVersion({ currentVersion, releaseType: 'major', preid, sha })
+    packages = await getCanaryPackages(canaryVersion)
+  }
+
+  logger.info(`Canary version: ${canaryVersion}`)
 
   if (packages.length === 0) {
     logger.debug('No packages to bump')
@@ -559,7 +643,8 @@ function planCanaryIndependentMode({
 
   // Compute per-package canary versions based on each package's own version and commits
   const packagesWithCanaryVersion = packages.map((pkg) => {
-    const releaseType = determineSemverChange(pkg.commits, typesConfig)
+    // A peer dependency making a breaking change counts as a breaking commit
+    const releaseType = pkg.breakingPeerDependency ? 'major' : determineSemverChange(pkg.commits, typesConfig)
 
     const canaryVersion = getCanaryVersion({
       currentVersion: pkg.version,

@@ -118,7 +118,12 @@ The version the package gets depends on the change of its dependency:
 
 A breaking change is a new major, or a new minor in `0.x`: the range `^6.19.1` does not accept `7.0.0`. Once released with `^7.0.0`, the package requires its consumers to upgrade the dependency too, which is a breaking change for them. A package with commits of its own gets the highest of both bumps (`fix` and a breaking peer dependency: a major).
 
-This rule applies to every package released while its published range rejects a breaking change of its peer dependency, whatever `outOfRangePeers` (also with `warn`, `error` or `dependencyTypes: ['peerDependencies']`), in the `independent` mode. In the `unified` and `selective` modes, the packages get the version of the root, computed from the commits: a breaking commit of the dependency already gives a major to the whole group.
+This rule applies to every package released while its published range rejects a breaking change of its peer dependency, whatever `outOfRangePeers` (also with `warn`, `error` or `dependencyTypes: ['peerDependencies']`).
+
+In the `unified` and `selective` modes, the packages share the version of the root:
+
+- a peer dependency on a package of the same group needs nothing more: its breaking commit already gives a major to the whole group;
+- a peer dependency on a package of another [version group](/guide/version-groups#dependencies-between-groups) making a breaking change gives a major to the root version, so to every package released by the group (canary included).
 
 A range accepting several majors (`"^6.0.0 || ^7.0.0"`) still accepts the new version: the package is neither bumped nor given a major.
 

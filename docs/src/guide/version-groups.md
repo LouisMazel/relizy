@@ -127,14 +127,14 @@ chore(release): bump version to 7.1.0
 When a package depends on a package bumped by another group, it is bumped too, so that its published dependency ranges follow (e.g. `workspace:*` is published as the exact new version):
 
 - in an `independent` group, the dependent gets a patch (or the matching prerelease), and its own dependents in the group follow;
-- in the `unified`/`selective` group, the dependent is bumped with the root version. Without commits of its own, the group gets a patch of its root version.
+- in the `unified`/`selective` group, the dependent is bumped with the root version. Without commits of its own, the group gets a patch of its root version, or a major when a peer dependency makes a breaking change (see below).
 
 Which dependencies count:
 
 - the ones of the [`bump.dependencyTypes`](../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped on every bump of its dependency;
 - the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major or a prerelease (canary, beta).
 
-In an `independent` group, a dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too.
+A dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too. In a `unified`/`selective` group, the major goes to the root version, so to every package released by the group.
 
 With the configuration of the example above, `@scope/navigation` (peer dependency `"@scope/components": "workspace:*"`) is released with a patch each time `@scope/components` is, without any other option.
 
