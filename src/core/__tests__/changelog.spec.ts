@@ -255,7 +255,7 @@ describe('Given generateChangelog function', () => {
         newVersion: '0.1.0',
       })
 
-      expect(getNewPackageCompareBase).toHaveBeenCalledWith('/p/pkg-a', config.cwd)
+      expect(getNewPackageCompareBase).toHaveBeenCalledWith('/p/pkg-a', config.cwd, config.monorepo?.movedPackages)
       expect(buildCompareLink).toHaveBeenCalledWith(
         expect.objectContaining({ from: 'parent456', to: 'pkg-a@0.1.0', isFirstCommit: false }),
       )

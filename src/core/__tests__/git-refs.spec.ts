@@ -6,6 +6,7 @@ import {
   getGitDiff,
   isAncestor,
   NAME_STATUS_LINE,
+  parseNameStatus,
   pushTagForce,
   retagAnnotatedLocal,
   stripNameStatus,
@@ -215,5 +216,24 @@ describe('Given NAME_STATUS_LINE', () => {
   it('Then only matches a status letter, an optional score and a tab', () => {
     expect(['M\tsrc/a.ts', 'R100\ta\tb', 'C075\ta\tb'].every(line => NAME_STATUS_LINE.test(line))).toBe(true)
     expect(['A new option', 'M src/a.ts', 'Mention\tx', ''].some(line => NAME_STATUS_LINE.test(line))).toBe(false)
+  })
+})
+
+describe('Given parseNameStatus', () => {
+  it('Then returns the status and the paths of each file line', () => {
+    expect(parseNameStatus('Fix the parser\n\nM\tsrc/a.ts\nR100\tpackages/a/package.json\tpackages/b/package.json\n')).toEqual([
+      { status: 'M', paths: ['src/a.ts'] },
+      { status: 'R100', paths: ['packages/a/package.json', 'packages/b/package.json'] },
+    ])
+  })
+
+  it('Then drops the quotes git adds around paths with unusual characters', () => {
+    expect(parseNameStatus('\n\nR100\t"packages/a b/package.json"\t"packages/c d/package.json"\n')).toEqual([
+      { status: 'R100', paths: ['packages/a b/package.json', 'packages/c d/package.json'] },
+    ])
+  })
+
+  it('Then ignores the lines of prose', () => {
+    expect(parseNameStatus('A new option\n\nBREAKING CHANGE: removed')).toEqual([])
   })
 })

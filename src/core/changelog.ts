@@ -93,7 +93,7 @@ function resolveChangelogTags({
 
   // The marker is not a git ref: point the compare link at a real commit.
   const compareFromRef = isNewPackage
-    ? getNewPackageCompareBase(pkg.path, config.cwd)
+    ? getNewPackageCompareBase(pkg.path, config.cwd, config.monorepo?.movedPackages)
     : displayFromTag
 
   // The release tag does not exist yet at changelog time (it is created in

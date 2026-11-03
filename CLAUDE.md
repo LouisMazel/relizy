@@ -89,6 +89,14 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 - In independent mode, dependent packages get a minimum `patch` bump unless they have their own qualifying commits
 - Catalogs (`src/core/catalogs.ts`): a commit changing an entry of a catalog (`pnpm-workspace.yaml`, `.yarnrc.yml`, bun's root `package.json`) belongs, in `getPackageCommits()`, to the packages referencing this entry with `catalog:` in any dependency field (their `package.json` at the commit), as an edit of their `package.json` would. The catalogs before and after the commits are read at once (`git cat-file --batch`)
 
+### Moved Packages
+
+A commit belongs to a package when a file of its `--name-status` list is under the package directory (`isCommitInPackage()` in `repo.ts`). `getPreviousPackagePaths()` (`src/core/moved-packages.ts`) adds the former directories of the package, so the commits made before a move keep counting:
+
+- the moves detected in the commits of the range (`getDetectedPackageMoves()`: a renamed `package.json`, `R<score>\told/package.json\tnew/package.json`, as is for `R100`, only when the package keeps its `name` for an inexact rename since git pairs the look-alike `package.json` of a removed and an added package), read from the raw commits so a non-conventional commit of the move still counts, and skipped when a package lives in the old directory again;
+- the moves of `monorepo.movedPackages` (`old path: new path`), for the moves git does not detect, applied as is;
+- followed through the chains. Applied to the package commits, to the ignored paths of the root filter (`isCommitOnlyInIgnoredPackages()`) and to the first commit of a new package (`getFirstPackageCommitHash()`, which follows its `package.json` with `git log --follow`).
+
 ### Configuration Loading
 
 - Uses [c12](https://github.com/unjs/c12) for config file discovery and loading

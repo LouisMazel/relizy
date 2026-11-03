@@ -166,6 +166,36 @@ export async function pushTagForce(tag: string, cwd?: string, logLevel?: LogLeve
 export const NAME_STATUS_LINE = /^[A-Z]\d*\t/
 
 /**
+ * Git quotes the paths with unusual characters (`"packages/pkg-a/caf\303\251.ts"`,
+ * see `core.quotePath`): drop the quotes so the directory part can be compared.
+ */
+function unquoteGitPath(path: string): string {
+  return path.length > 1 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path
+}
+
+/** A file line of the `--name-status` list: its status (`M`, `A`, `R100`...) and its paths (old then new for renames and copies) */
+export interface NameStatusEntry {
+  status: string
+  paths: string[]
+}
+
+/**
+ * The file lines of the `--name-status` list `getGitDiff` appends to a commit
+ * body (`M\tpath/to/file`, `R100\told\tnew`).
+ */
+export function parseNameStatus(body: string): NameStatusEntry[] {
+  return body
+    .split('\n')
+    .filter(line => NAME_STATUS_LINE.test(line))
+    .map((line) => {
+      const [status = '', ...paths] = line.split('\t')
+
+      return { status, paths: paths.map(path => unquoteGitPath(path.trim())).filter(Boolean) }
+    })
+    .filter(entry => entry.paths.length > 0)
+}
+
+/**
  * The text of a commit body without the `--name-status` list git writes after
  * it: the last block of lines, after a blank line. A line of the text that
  * looks like a file line is kept.

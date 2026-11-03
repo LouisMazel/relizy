@@ -270,10 +270,15 @@ describe('Given the version groups of a workspace', () => {
       const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP], cwd)
       config.monorepo!.includePrivates = true
       config.monorepo!.ignorePackageNames = ['@scope/legacy']
+      config.monorepo!.movedPackages = { 'packages/legacy': 'packages/components' }
 
       const [main] = resolveVersionGroups({ config })
 
-      expect(main!.config.monorepo).toEqual(expect.objectContaining({ includePrivates: true, ignorePackageNames: ['@scope/legacy'] }))
+      expect(main!.config.monorepo).toEqual(expect.objectContaining({
+        includePrivates: true,
+        ignorePackageNames: ['@scope/legacy'],
+        movedPackages: { 'packages/legacy': 'packages/components' },
+      }))
       expect(main!.config.monorepo!.groups).toBeUndefined()
     })
 

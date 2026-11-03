@@ -217,6 +217,7 @@ export default defineConfig({
           { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
           { text: 'Semver Convention', link: '/guide/semver-convention' },
           { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
+          { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
           { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
           { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
           { text: 'Social Media Integration', link: '/guide/social-media' },
@@ -330,6 +331,7 @@ export default defineConfig({
             { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
             { text: 'Semver Convention', link: '/guide/semver-convention' },
             { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
+            { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
           ],
         },
         {

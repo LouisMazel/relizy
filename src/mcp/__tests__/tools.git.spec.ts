@@ -235,6 +235,114 @@ describe('Given preview_release on a monorepo', () => {
   })
 })
 
+function createMovedPackage({ movedPackages }: { movedPackages?: Record<string, string> } = {}): TestRepository {
+  const repository = createRepository()
+
+  repository.writeJson('.', { name: 'monorepo', version: '1.0.0', private: true })
+  repository.writeJson('packages/components', { name: '@scope/components', version: '1.0.0' })
+  repository.writeJson('packages/icons', { name: '@scope/icons', version: '1.0.0' })
+  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: ${JSON.stringify(movedPackages ?? {})} } }\n`)
+  repository.commit('chore: init', { 'packages/components/button.js': 'export const button = 1\n' })
+
+  for (const name of ['components', 'icons']) {
+    repository.git('tag', '-a', `@scope/${name}@1.0.0`, '-m', `@scope/${name}@1.0.0`)
+  }
+
+  repository.commit('feat(components)!: drop the old button api', { 'packages/components/button.js': 'export const button = 2\n' })
+
+  return repository
+}
+
+describe('Given preview_release on a monorepo whose package moved', () => {
+  describe('When the package was moved with git mv', () => {
+    it('Then the commits made before the move still release it', async () => {
+      const repository = createMovedPackage()
+      repository.git('mv', 'packages/components', 'packages/ui')
+      repository.commit('chore(ui): move the components to packages/ui')
+
+      const text = await previewRelease(createTestContext(repository.cwd), {})
+
+      expect(text).toContain('| `@scope/components` (`packages/ui`) | 1.0.0 → 2.0.0 |')
+      expect(text).toContain('feat(components)!: drop the old button api')
+      expect(text).toContain('Not released (no relevant commit nor bumped dependency): `@scope/icons`')
+    })
+
+    it('Then a commit of a branch merged after the move belongs to the package', async () => {
+      const repository = createMovedPackage()
+      repository.git('switch', '-c', 'feature')
+      repository.commit('feat(components): add the button sizes', { 'packages/components/button.js': 'export const button = 3\n' })
+      repository.git('switch', 'main')
+      repository.git('mv', 'packages/components', 'packages/ui')
+      repository.commit('chore(ui): move the components to packages/ui')
+      repository.git('merge', '--no-ff', '--no-edit', 'feature')
+
+      const text = await previewChangelog(createTestContext(repository.cwd), { package: '@scope/components' })
+
+      expect(text).toContain('## @scope/components → `packages/ui/CHANGELOG.md`')
+      expect(text).toContain('Add the button sizes')
+      expect(text).toContain('Drop the old button api')
+    })
+  })
+
+  describe('When a package is removed while another one is added in the same commit', () => {
+    it('Then the new package does not take the commits of the removed one', async () => {
+      const repository = createMovedPackage()
+      const manifest = (name: string) => ({
+        name,
+        type: 'module',
+        version: '1.0.0',
+        description: 'A package of the design system, with its styles, its stories and its tests',
+        scripts: { build: 'vite build', test: 'vitest run', lint: 'eslint .' },
+      })
+      repository.writeJson('packages/legacy', manifest('@scope/legacy'))
+      repository.commit('feat(legacy): add the legacy dropdown', { 'packages/legacy/dropdown.js': 'export const dropdown = 1\n' })
+      repository.git('rm', '-r', '-q', 'packages/legacy')
+      repository.writeJson('packages/nav', manifest('@scope/nav'))
+      repository.commit('feat(nav): add the navigation', { 'packages/nav/nav.js': 'export const nav = 1\n' })
+
+      expect(repository.git('show', '--name-status', '--format=', 'HEAD')).toMatch(/^R\d+\tpackages\/legacy\/package\.json\tpackages\/nav\/package\.json$/m)
+
+      const text = await previewChangelog(createTestContext(repository.cwd), { package: '@scope/nav' })
+
+      expect(text).toContain('Add the navigation')
+      expect(text).not.toContain('Add the legacy dropdown')
+    })
+  })
+
+  describe('When git cannot see the move (package.json rewritten)', () => {
+    function rewriteAndMove(repository: TestRepository) {
+      repository.git('mv', 'packages/components', 'packages/ui')
+      repository.writeJson('packages/ui', {
+        name: '@scope/components',
+        version: '1.0.0',
+        description: 'The components of the design system, with their styles, their stories and their tests',
+        keywords: ['components', 'design-system', 'vue', 'buttons', 'links', 'inputs', 'modals', 'tooltips'],
+        exports: { '.': './dist/index.js', './button': './dist/button.js', './style': './dist/style.css' },
+        files: ['dist', 'README.md', 'CHANGELOG.md'],
+      })
+      repository.commit('chore(ui): move the components to packages/ui')
+    }
+
+    it('Then the commits made before the move are lost without monorepo.movedPackages', async () => {
+      const repository = createMovedPackage()
+      rewriteAndMove(repository)
+
+      const text = await previewRelease(createTestContext(repository.cwd), {})
+
+      expect(text).not.toContain('1.0.0 → 2.0.0')
+    })
+
+    it('Then monorepo.movedPackages gives them back to the package', async () => {
+      const repository = createMovedPackage({ movedPackages: { 'packages/components': 'packages/ui' } })
+      rewriteAndMove(repository)
+
+      const text = await previewRelease(createTestContext(repository.cwd), {})
+
+      expect(text).toContain('| `@scope/components` (`packages/ui`) | 1.0.0 → 2.0.0 |')
+    })
+  })
+})
+
 describe('Given preview_release with version groups', () => {
   let repository: TestRepository
 

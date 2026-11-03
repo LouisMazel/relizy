@@ -68,7 +68,7 @@ Each group has:
 | `bump`        | `capZeroMajor` and `dependencyTypes` of the group, overriding the global [`bump`](../config/bump.md) options              |
 | `changelog`   | `rootChangelog` and `includeCommitBody` of the group, overriding the global [`changelog`](../config/changelog.md) options |
 
-The other `monorepo` options (`ignored`, `includePrivates`) and the rest of the config apply to every group.
+The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and the rest of the config apply to every group.
 
 ### Rules
 
