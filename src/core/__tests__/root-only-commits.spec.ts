@@ -12,11 +12,11 @@
  * The "does the commit touch any tracked package?" check no longer applies
  * to the root package.
  */
-import type { GitCommit } from 'changelogen'
-import * as changelogen from 'changelogen'
+import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
 vi.mock('node:fs', async () => {
@@ -51,7 +51,7 @@ vi.mock('../git-refs', async importActual => ({
   getGitDiff: vi.fn(() => []),
 }))
 
-vi.mock('changelogen', () => ({
+vi.mock('../commits', () => ({
   parseCommits: vi.fn(() => []),
 }))
 
@@ -114,7 +114,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       // for a root-only build commit (no `packages/…` path in the body).
       const rootOnlyBody = '\nM\t.gitlab/ci/release.yml\nM\tpackage.json\nM\tpnpm-lock.yaml\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'build', description: 'upgrade relizy', body: rootOnlyBody }),
       ])
 
@@ -142,7 +142,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
     it('Then a `ci:` commit touching only root files IS included', async () => {
       const rootOnlyBody = '\nM\t.gitlab-ci.yml\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'ci', description: 'tweak pipeline', body: rootOnlyBody }),
       ])
 
@@ -170,7 +170,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
     it('Then `chore(release)` is still excluded by isAllowedCommit', async () => {
       const body = '\nM\tpackage.json\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'chore', scope: 'release', description: 'bump', body }),
       ])
 
@@ -196,7 +196,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
     it('Then a root-only commit is correctly excluded', async () => {
       const rootOnlyBody = '\nM\tpackage.json\nM\tpnpm-lock.yaml\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'build', description: 'upgrade deps', body: rootOnlyBody }),
       ])
 
@@ -220,7 +220,7 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
     it('Then a commit touching the sub-package path is still included', async () => {
       const subPkgBody = '\nM\tpackages/pkg-a/src/index.ts\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'feat', description: 'new feature', body: subPkgBody }),
       ])
 

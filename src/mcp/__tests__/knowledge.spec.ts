@@ -225,10 +225,6 @@ export interface RelizyConfig extends Base {
         'nested',
         'nested.deep',
         'scopeMap',
-        'excludeAuthors',
-        'noAuthors',
-        'hideAuthorEmail',
-        'signTags',
       ])
       expect(options.find(option => option.path === 'children[].name')).toEqual({ path: 'children[].name', type: 'string', description: 'Name of the child', default: '\'a\'', docId: 'config/overview' })
       expect(options.find(option => option.path === 'children[].old')?.deprecated).toBe('Deprecated')

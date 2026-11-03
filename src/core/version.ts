@@ -1,6 +1,5 @@
-import type { GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
-import type { PackageBase, RelizyConfig, VersionMode } from '../types'
+import type { GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

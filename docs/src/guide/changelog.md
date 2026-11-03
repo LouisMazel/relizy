@@ -12,7 +12,7 @@ tags: [guide, changelog, documentation, commits]
 
 ## Overview
 
-Changelogs are generated based on [Conventional Commits](https://www.conventionalcommits.org/) using the powerful [changelogen](https://github.com/unjs/changelogen) library.
+Changelogs are generated based on [Conventional Commits](https://www.conventionalcommits.org/), with a format inspired by [changelogen](https://github.com/unjs/changelogen).
 
 ## Automatic Generation
 

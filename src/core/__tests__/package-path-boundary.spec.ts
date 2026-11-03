@@ -11,11 +11,11 @@
  * Fix: compare the `--name-status` paths of the commit with the package
  * directory as a whole (`path` or `path/...`).
  */
-import type { GitCommit } from 'changelogen'
-import * as changelogen from 'changelogen'
+import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
 vi.mock('node:fs', async () => {
@@ -50,7 +50,7 @@ vi.mock('../git-refs', async importActual => ({
   getGitDiff: vi.fn(() => []),
 }))
 
-vi.mock('changelogen', () => ({
+vi.mock('../commits', () => ({
   parseCommits: vi.fn(() => []),
 }))
 
@@ -120,7 +120,7 @@ describe('Given packages whose directory names are prefixes of each other', () =
 
   describe('When a commit only changes the sibling package', () => {
     it('Then it belongs to the sibling package only', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('mcp tool', ['M\tpackages/components-mcp/src/tools.ts']),
       ])
 
@@ -131,7 +131,7 @@ describe('Given packages whose directory names are prefixes of each other', () =
 
   describe('When a commit changes both packages', () => {
     it('Then it belongs to both packages', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('shared change', ['M\tpackages/components/src/index.ts', 'M\tpackages/components-mcp/src/index.ts']),
       ])
 
@@ -142,7 +142,7 @@ describe('Given packages whose directory names are prefixes of each other', () =
 
   describe('When a commit only mentions the package path in its body text', () => {
     it('Then it does not belong to the package', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('document the setup', ['M\tdocs/guide.md'], 'Moved from packages/components/README.md.'),
       ])
 
@@ -152,7 +152,7 @@ describe('Given packages whose directory names are prefixes of each other', () =
 
   describe('When a commit changes a nested directory with the same name in another package', () => {
     it('Then it does not belong to the package', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('demo app', ['M\tapps/demo/packages/components/index.ts']),
       ])
 
@@ -162,7 +162,7 @@ describe('Given packages whose directory names are prefixes of each other', () =
 
   describe('When a commit moves a file between the packages', () => {
     it('Then it belongs to the package of the old path and to the package of the new path', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('move the helper', ['R100\tpackages/components/src/helper.ts\tpackages/components-mcp/src/helper.ts']),
       ])
 
@@ -192,7 +192,7 @@ describe('Given a package path contained in a longer directory name', () => {
 
   describe('When a commit only changes the other directory', () => {
     it('Then it does not belong to the package', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('other component', ['M\tshared-components/ah-related-dropdown/src/index.ts']),
       ])
 
@@ -202,7 +202,7 @@ describe('Given a package path contained in a longer directory name', () => {
 
   describe('When a commit changes a file of the package with an unusual name, quoted by git', () => {
     it('Then it belongs to the package', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit('accented file', ['A\t"shared-components/related-dropdown/src/caf\\303\\251.ts"']),
       ])
 

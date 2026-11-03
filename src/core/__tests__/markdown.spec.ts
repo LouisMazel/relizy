@@ -1,17 +1,18 @@
-import type { GitCommit } from 'changelogen'
+import type { GitCommit } from '../../types'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
-import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
+import { parseGitCommit } from '../commits'
 import { getFirstCommit } from '../git'
 import { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames, generateMarkDown, parseChangelogMarkdown } from '../markdown'
+import { formatCompareChanges, formatReference } from '../repo-config'
 
 vi.mock('@maz-ui/utils/helpers/upperFirst', () => ({
   upperFirst: vi.fn((str: string) => str.charAt(0).toUpperCase() + str.slice(1)),
 }))
-vi.mock('changelogen')
+vi.mock('../repo-config')
 vi.mock('convert-gitmoji')
 vi.mock('node-fetch-native')
 vi.mock('../git')
@@ -1498,7 +1499,6 @@ describe('Given buildContributors function', () => {
   it('Then credits co-authors parsed from a squash-merged commit', async () => {
     const config = createMockConfig({ bump: { type: 'patch' } })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
-    const { parseGitCommit } = await vi.importActual<typeof import('changelogen')>('changelogen')
     const commit = parseGitCommit({
       message: 'feat: support publishing to multiple registries (#113)',
       body: '* feat: support publishing to multiple registries (#112)\n\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>',

@@ -1,6 +1,5 @@
-import type { GitCommit } from 'changelogen'
 import type { Code, Heading, Link, Nodes } from 'mdast'
-import type { CommitlintCommit, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName } from '../../types'
+import type { CommitlintCommit, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, GitCommit } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { CommitMessageParts } from './message'
 import type { WorkspacePackage } from './workspace'

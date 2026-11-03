@@ -1,0 +1,171 @@
+import type { GitProvider, Reference, RepoConfig } from '../types'
+import { execSync } from 'node:child_process'
+import { existsSync, readFileSync, statSync } from 'node:fs'
+import { dirname, join, resolve } from 'node:path'
+import { parseJSON, parseJSONC } from 'confbox'
+
+/**
+ * Repository resolution and links, ported from changelogen 0.6.2 without
+ * behavior change: https://github.com/unjs/changelogen/blob/v0.6.2/src/repo.ts
+ *
+ * MIT License - Copyright (c) Pooya Parsa <pooya@pi0.io>
+ */
+
+const providerToRefSpec: Record<GitProvider, Record<Reference['type'], string>> = {
+  github: { 'pull-request': 'pull', 'hash': 'commit', 'issue': 'issues' },
+  gitlab: { 'pull-request': 'merge_requests', 'hash': 'commit', 'issue': 'issues' },
+  bitbucket: { 'pull-request': 'pull-requests', 'hash': 'commit', 'issue': 'issues' },
+}
+
+const providerToDomain: Record<GitProvider, string> = {
+  github: 'github.com',
+  gitlab: 'gitlab.com',
+  bitbucket: 'bitbucket.org',
+}
+
+const domainToProvider: Record<string, GitProvider> = {
+  'github.com': 'github',
+  'gitlab.com': 'gitlab',
+  'bitbucket.org': 'bitbucket',
+}
+
+// https://regex101.com/r/NA4Io6/1
+const PROVIDER_URL_REGEX = /^(?:(?<user>[\w-]+)@)?(?:(?<provider>[^/:]+):)?(?<repo>[\w-]+\/(?:\w|\.(?!git$)|-)+)(?:\.git)?$/
+
+function baseUrl(config: RepoConfig) {
+  return `https://${config.domain}/${config.repo}`
+}
+
+/**
+ * Markdown link of a commit hash, an issue or a pull request, the raw value
+ * when the provider is unknown
+ */
+export function formatReference(ref: Reference, repo?: RepoConfig): string {
+  if (!repo || !(repo.provider! in providerToRefSpec)) {
+    return ref.value
+  }
+  const refSpec = providerToRefSpec[repo.provider!]
+  return `[${ref.value}](${baseUrl(repo)}/${refSpec[ref.type]}/${ref.value.replace(/^#/, '')})`
+}
+
+/**
+ * Markdown link comparing `config.from` to `v` (or `config.to`)
+ */
+export function formatCompareChanges(
+  v: string | undefined,
+  config: { repo: RepoConfig, from: string, to: string },
+): string {
+  const part = config.repo.provider === 'bitbucket' ? 'branches/compare' : 'compare'
+  const changes = config.repo.provider === 'bitbucket'
+    ? `${v || config.to}%0D${config.from}`
+    : `${config.from}...${v || config.to}`
+  return `[compare changes](${baseUrl(config.repo)}/${part}/${changes})`
+}
+
+/** Closest `package.json` from `cwd`, in `cwd` or one of its parents */
+function readClosestPackageJson(cwd: string): { repository?: string | { url?: string } } | undefined {
+  let dir = resolve(cwd)
+
+  while (true) {
+    const path = join(dir, 'package.json')
+
+    if (existsSync(path) && statSync(path).isFile()) {
+      const content = readFileSync(path, 'utf8')
+      try {
+        return parseJSON(content)
+      }
+      catch {
+        return parseJSONC(content)
+      }
+    }
+
+    const parent = dirname(dir)
+    if (parent === dir) {
+      return undefined
+    }
+    dir = parent
+  }
+}
+
+function getGitRemoteURL(cwd: string, remote = 'origin'): string {
+  return execSync(`git --work-tree="${cwd}" remote get-url "${remote}"`, { encoding: 'utf8', cwd }).trim()
+}
+
+/**
+ * Repository of the project, from the `repository` field of the closest
+ * `package.json`, else from the `origin` remote. Undefined without both.
+ */
+// eslint-disable-next-line require-await
+export async function resolveRepoConfig(cwd: string): Promise<RepoConfig | undefined> {
+  let pkg: ReturnType<typeof readClosestPackageJson>
+  try {
+    pkg = readClosestPackageJson(cwd)
+  }
+  catch {
+    // Ignore
+  }
+
+  if (pkg && pkg.repository) {
+    const url = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository.url
+    return getRepoConfig(url)
+  }
+
+  try {
+    const gitRemote = getGitRemoteURL(cwd)
+    if (gitRemote) {
+      return getRepoConfig(gitRemote)
+    }
+  }
+  catch {
+    // Ignore
+  }
+
+  return undefined
+}
+
+/**
+ * Provider, domain and `owner/name` of a repository URL (`https://`, `git@`,
+ * `github:owner/name` or `owner/name`)
+ */
+export function getRepoConfig(repoUrl = ''): RepoConfig {
+  let provider: GitProvider | undefined
+  let repo: string | undefined
+  let domain: string | undefined
+
+  let url: URL | undefined
+  try {
+    url = new URL(repoUrl)
+  }
+  catch {
+    // Ignore error
+  }
+
+  const m = repoUrl.match(PROVIDER_URL_REGEX)?.groups ?? {}
+  if (m.repo && m.provider) {
+    repo = m.repo
+    provider = m.provider in domainToProvider
+      ? domainToProvider[m.provider]
+      : m.provider as GitProvider
+    domain = provider! in providerToDomain ? providerToDomain[provider!] : provider
+  }
+  else if (url) {
+    domain = url.hostname
+    const paths = url.pathname.split('/')
+    repo = paths
+      .slice(1)
+      .join('/')
+      .replace(/\.git$/, '')
+    provider = domainToProvider[domain]
+  }
+  else if (m.repo) {
+    repo = m.repo
+    provider = 'github'
+    domain = providerToDomain[provider]
+  }
+
+  return {
+    provider,
+    repo,
+    domain,
+  }
+}

@@ -34,7 +34,7 @@ After  rebase:   ...─ A'─ B'(bump 1.1.0)   ← branch HEAD (new SHA)
                        └ B (bump 1.1.0)  ←── tag v1.1.0 still here (orphaned)
 ```
 
-To build a changelog, Relizy (via changelogen) runs `git log "v1.1.0...HEAD"`.
+To build a changelog, Relizy runs `git log "v1.1.0...HEAD"`.
 With an orphaned `v1.1.0`, that range is the **symmetric difference** between
 two divergent lines, so it walks all the way back to their common ancestor
 (near the last stable tag) and returns both the old and the rebased commits,

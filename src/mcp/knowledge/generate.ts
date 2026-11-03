@@ -37,15 +37,6 @@ export const CONFIG_DOC_IDS: Record<string, string> = {
   types: 'config/changelog',
 }
 
-/** Options inherited from the changelogen config, not declared in `src/types.ts` */
-export const INHERITED_OPTIONS: Omit<ConfigOption, 'docId'>[] = [
-  { path: 'scopeMap', type: 'Record<string, string>', description: 'Renames the scopes of the commits in the changelog (`{ ui: \'components\' }`). Its keys are also allowed scopes for `relizy commitlint`.' },
-  { path: 'excludeAuthors', type: 'string[]', description: 'Authors (names or emails) left out of the contributors of the changelog, e.g. `[\'dependabot[bot]\']`.' },
-  { path: 'noAuthors', type: 'boolean', description: 'Do not list the contributors in the changelog.' },
-  { path: 'hideAuthorEmail', type: 'boolean', description: 'Do not show the emails of the contributors in the changelog.' },
-  { path: 'signTags', type: 'boolean', description: 'Sign the release tags with GPG (`git tag -s`).' },
-]
-
 const MAX_DEPTH = 5
 
 export interface GenerateAgentDocsOptions {
@@ -342,14 +333,6 @@ export function extractConfigReference(source: string): ConfigOption[] {
   }
 
   visit(membersOf(declarations.get('RelizyConfig'), new Set(['RelizyConfig'])), '', 0, new Set(['RelizyConfig']))
-
-  const declared = new Set(options.map(option => option.path))
-
-  for (const option of INHERITED_OPTIONS) {
-    if (!declared.has(option.path)) {
-      options.push({ ...option, docId: CONFIG_DOC_IDS[option.path] ?? 'config/overview' })
-    }
-  }
 
   // Several types can declare the same path (`boolean | TwitterConfig`): the first one wins
   return options.filter((option, index) => options.findIndex(other => other.path === option.path) === index)

@@ -1,16 +1,11 @@
-import type { GitCommit, GitCommitAuthor, ResolvedChangelogConfig } from 'changelogen'
+import type { GitCommit, GitCommitAuthor, Reference } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
-import { formatCompareChanges, formatReference } from 'changelogen'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
 import { getFirstCommit } from './git'
 import { stripNameStatus } from './git-refs'
-
-export interface Reference {
-  type: 'hash' | 'issue' | 'pull-request'
-  value: string
-}
+import { formatCompareChanges, formatReference } from './repo-config'
 
 const CHANGELOG_RELEASE_HEAD_REGEX
   // eslint-disable-next-line sonarjs/super-linear-regex, regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
@@ -31,10 +26,10 @@ export function buildCompareLink({ config, from, to, isFirstCommit }: {
   }
 
   return formatCompareChanges(to, {
-    ...config,
+    repo: config.repo,
     from: isFirstCommit ? getFirstCommit(config.cwd) : from,
     to,
-  } as ResolvedChangelogConfig)
+  })
 }
 
 export function buildChangelogBody({ commits, config, minify }: {
@@ -112,7 +107,7 @@ export function collectContributorNames({ commits, config }: {
 }
 
 /**
- * Commit author followed by the co-authors parsed by changelogen from the
+ * Commit author followed by the co-authors parsed by `parseCommits` from the
  * `Co-authored-by:` trailers, so squash-merged contributions are credited.
  */
 function getCommitAuthors(commit: GitCommit): GitCommitAuthor[] {
@@ -325,7 +320,7 @@ function formatReferences(
     )
   }
   if (references.length > 0) {
-    return ` (${formatReference(references[0] as Reference, config.repo)})`
+    return ` (${formatReference(references[0]!, config.repo)})`
   }
   return ''
 }

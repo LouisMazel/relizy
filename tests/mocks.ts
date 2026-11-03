@@ -1,7 +1,6 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
-import type { GitCommit } from 'changelogen'
 import type { ResolvedRelizyConfig } from '../src/core/config'
-import type { PackageBase, RelizyConfig } from '../src/types'
+import type { GitCommit, PackageBase, RelizyConfig } from '../src/types'
 import { getDefaultConfig } from '../src/core/config'
 
 export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {

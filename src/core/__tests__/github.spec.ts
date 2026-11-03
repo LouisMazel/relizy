@@ -1,13 +1,13 @@
-import { createGithubRelease } from 'changelogen'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 
 import { buildChangelogBody, buildCompareLink, buildContributors, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
 import { generateAIProviderReleaseBody } from '../ai'
-
 import { github } from '../github'
 
-vi.mock('changelogen', () => {
+import { createGithubRelease } from '../github-api'
+
+vi.mock('../github-api', () => {
   return {
     createGithubRelease: vi.fn(),
   }
@@ -109,7 +109,7 @@ describe('Given github function', () => {
     vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
     vi.mocked(buildContributors).mockResolvedValue('')
     vi.mocked(isPrerelease).mockReturnValue(false)
-    vi.mocked(createGithubRelease).mockResolvedValue(undefined)
+    vi.mocked(createGithubRelease).mockResolvedValue({ tag_name: 'v1.0.0' })
   })
 
   describe('When in unified mode', () => {
@@ -118,7 +118,7 @@ describe('Given github function', () => {
       await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
-        expect.objectContaining({ from: 'v0.0.0', to: 'v1.0.0' }),
+        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
         {
           tag_name: 'v1.0.0',
           name: 'v1.0.0',
@@ -243,11 +243,11 @@ describe('Given github function', () => {
       await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
-        expect.objectContaining({ from: 'pkg-a@0.9.0', to: 'pkg-a@1.0.0' }),
+        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
         expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
       )
       expect(createGithubRelease).toHaveBeenCalledWith(
-        expect.objectContaining({ from: 'pkg-b@1.9.0', to: 'pkg-b@2.0.0' }),
+        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
         expect.objectContaining({ tag_name: 'pkg-b@2.0.0' }),
       )
     })

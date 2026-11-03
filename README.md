@@ -45,7 +45,7 @@ Imagine you have multiple packages in your project (like a box with several toys
 
 ## ✨ Features
 
-- 🚀 Built on top of [changelogen](https://github.com/unjs/changelogen)
+- 🚀 Inspired by [changelogen](https://github.com/unjs/changelogen)
 - 📦 Monorepo support with glob pattern matching
 - 🔄 Three versioning modes: unified, selective, independent
 - 📝 Generate changelogs per package + root aggregate

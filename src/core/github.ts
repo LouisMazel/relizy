@@ -1,13 +1,12 @@
-import type { GitCommit } from 'changelogen'
-import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, GitCommit, PostedRelease, ProviderReleaseOptions } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
-import { createGithubRelease } from 'changelogen'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
+import { createGithubRelease } from './github-api'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
@@ -66,7 +65,7 @@ async function publishIndependentRelease({
   }
   else {
     logger.debug(`Publishing release ${to} to GitHub...`)
-    await createGithubRelease({ ...config, from, to, repo: repoConfig }, release)
+    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 
   return {
@@ -198,13 +197,7 @@ async function githubUnified({
   }
   else {
     logger.debug('Publishing release to GitHub...')
-    const releaseConfig = {
-      ...config,
-      from: (bumpResult?.bumped && bumpResult.fromTag) || 'v0.0.0',
-      to,
-      repo: repoConfig,
-    }
-    await createGithubRelease(releaseConfig, release)
+    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 
   logger.success(`Release ${to} published to GitHub!`)

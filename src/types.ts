@@ -1,12 +1,47 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { GitCommit, ChangelogConfig as IChangelogConfig, Reference, SemverBumpType } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
+export type SemverBumpType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease'
+
+/**
+ * COMMIT TYPES
+ */
+export interface GitCommitAuthor {
+  name: string
+  email: string
+}
+
+/**
+ * Commit read from `git log` (see `getGitDiff`)
+ */
+export interface RawGitCommit {
+  message: string
+  body: string
+  shortHash: string
+  author: GitCommitAuthor
+}
+
+export interface Reference {
+  type: 'hash' | 'issue' | 'pull-request'
+  value: string
+}
+
+/**
+ * Conventional commit parsed by `parseCommits`
+ */
+export interface GitCommit extends RawGitCommit {
+  description: string
+  type: string
+  scope: string
+  references: Reference[]
+  authors: GitCommitAuthor[]
+  isBreaking: boolean
+}
 
 /**
  * PACAKGE TYPES
@@ -681,7 +716,16 @@ export interface RegistryTarget {
   exclusive?: boolean
 }
 
-export type PublishConfig = IChangelogConfig['publish'] & {
+export interface PublishConfig {
+  /**
+   * Arguments passed to the publish command
+   */
+  args?: string[]
+  /**
+   * Publish the private packages
+   * @default false
+   */
+  private?: boolean
   /**
    * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
    */
@@ -1679,7 +1723,7 @@ export interface CommitlintConfig {
  */
 export type OnRewrittenTag = 'prompt' | 'ephemeral' | 'rebind' | 'error'
 
-export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 'templates' | 'publish' | 'types' | 'tokens'>> {
+export interface RelizyConfig {
   /**
    * Project name
    * Useful for tweet and slack posts
@@ -1710,6 +1754,35 @@ export interface RelizyConfig extends Partial<Omit<IChangelogConfig, 'output' | 
    * End tag
    */
   to?: string
+  /**
+   * New version of the release
+   */
+  newVersion?: string
+  /**
+   * Renames the scopes of the commits in the changelog (`{ ui: 'components' }`).
+   * Its keys are also allowed scopes for `relizy commitlint`.
+   * @default {}
+   */
+  scopeMap?: Record<string, string>
+  /**
+   * Authors (names or emails) left out of the contributors of the changelog,
+   * e.g. `['dependabot[bot]']`.
+   * @default []
+   */
+  excludeAuthors?: string[]
+  /**
+   * Do not list the contributors in the changelog.
+   * @default false
+   */
+  noAuthors?: boolean
+  /**
+   * Do not show the emails of the contributors in the changelog.
+   */
+  hideAuthorEmail?: boolean
+  /**
+   * Sign the release tags with GPG (`git tag -s`).
+   */
+  signTags?: boolean
   /**
    * Monorepo config
    */

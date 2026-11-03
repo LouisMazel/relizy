@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-**Relizy** is a monorepo version management and release automation tool built on top of [changelogen](https://github.com/unjs/changelogen). It automates versioning, changelog generation, npm publishing, and git provider releases (GitHub/GitLab) for monorepo projects.
+**Relizy** is a monorepo version management and release automation tool, inspired by [changelogen](https://github.com/unjs/changelogen) (no longer a dependency). It automates versioning, changelog generation, npm publishing, and git provider releases (GitHub/GitLab) for monorepo projects.
 
 ## Project Structure
 
@@ -114,7 +114,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 ### Changelog and Tags
 
-- Leverages changelogen for commit parsing and changelog generation
+- Commits read by `getGitDiff()` (`git-refs.ts`) and parsed by `parseCommits()` (`commits.ts`), the repository resolved by `repo-config.ts` and the GitHub releases created by `github-api.ts`: ported from changelogen 0.6.2 without behavior change (keep it so, a fix goes in a separate commit), its cases are in `commits.spec.ts` and `repo-config.spec.ts`
 - Git tags are resolved to determine version ranges (`from` → `to`)
 - In unified mode, uses root package tags; in selective/independent modes, uses package-specific tags
 - Supports commit type mapping via `types` config (e.g., `feat` → `minor` bump)
@@ -144,7 +144,6 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 ## Key Dependencies
 
-- **changelogen** - Commit parsing, changelog generation, and semver detection
 - **Commander.js** - CLI framework and argument parsing
 - **c12** - Configuration file loading and environment variable handling
 - **semver** - Semantic version parsing and comparison

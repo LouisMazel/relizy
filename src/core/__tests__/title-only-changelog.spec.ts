@@ -17,7 +17,7 @@
  *   - `docs: { title: 'X' }`                   → in changelog, no bump
  *   - `docs: { title: 'X', semver: 'patch' }`  → in changelog AND bump
  */
-import type { GitCommit } from 'changelogen'
+import type { GitCommit } from '../../types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { generateChangelog } from '../changelog'

@@ -1,8 +1,7 @@
-import type { GitCommit } from 'changelogen'
 import type { ReleaseType } from 'semver'
 import type { PlannedBumps } from '../../commands/bump'
 import type { ResolvedRelizyConfig } from '../../core'
-import type { BumpResult, BumpResultTruthy, PackageBase } from '../../types'
+import type { BumpResult, BumpResultTruthy, GitCommit, PackageBase } from '../../types'
 import type { ServerContext } from '../context'
 import type { PackageSet } from './project'
 

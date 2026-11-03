@@ -13,7 +13,7 @@ vi.mock('@maz-ui/node', importActual => importActual())
 
 /**
  * Integration tests of the commit attribution against a real git repository: the
- * real `git log --name-status` output (renames, quoted paths) parsed by changelogen.
+ * real `git log --name-status` output (renames, quoted paths) parsed by `parseCommits`.
  * `packages/components` is a prefix of `packages/components-mcp`, as in a real
  * monorepo (a component library and its MCP server).
  */

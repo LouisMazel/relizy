@@ -1,5 +1,4 @@
-import type { GitCommit } from 'changelogen'
-import type { PackageBase, ReadPackage } from '../types'
+import type { GitCommit, PackageBase, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'

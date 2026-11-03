@@ -1,6 +1,5 @@
-import type { SemverBumpType } from 'changelogen'
 import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionChange } from '../core'
-import type { BumpOptions, BumpResult, PackageBase, VersionGroup } from '../types'
+import type { BumpOptions, BumpResult, PackageBase, SemverBumpType, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
