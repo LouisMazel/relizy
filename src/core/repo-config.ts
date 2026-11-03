@@ -75,7 +75,7 @@ function readClosestPackageJson(cwd: string): { repository?: string | { url?: st
         return parseJSON(content)
       }
       catch {
-        return parseJSONC(content)
+        return parseJSONC(content, { allowTrailingComma: true })
       }
     }
 
