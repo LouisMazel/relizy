@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.14.0 (2026-11-03)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.2...v1.14.0)
+
+### 🚀 Features
+
+- Keep the commits made before a package directory moved ([0b7a5e2](https://github.com/LouisMazel/relizy/commit/0b7a5e2))
+
+  The commits of the old directory of a moved package (renamed `package.json`) now count for its changelog and its bump. Declare the moves git cannot detect with `monorepo.movedPackages`.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.13.2 (2026-11-01)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.1...v1.13.2)
