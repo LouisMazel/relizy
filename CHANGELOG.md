@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.14.2 (2026-11-03)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.1...v1.14.2)
+
+### 📦 Build
+
+- **deps:** Update minor and patch versions ([900fc44](https://github.com/LouisMazel/relizy/commit/900fc44))
+- **deps:** Update major versions ([ac0073d](https://github.com/LouisMazel/relizy/commit/ac0073d))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.14.1 (2026-11-03)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.0...v1.14.1)
