@@ -1,5 +1,19 @@
 # Changelog
 
+## v1.14.1 (2026-11-03)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.0...v1.14.1)
+
+### 💅 Refactors
+
+- Drop the changelogen dependency ([b21457c](https://github.com/LouisMazel/relizy/commit/b21457c))
+
+  Relizy no longer depends on changelogen: the commit parsing, the repository resolution and the GitHub release creation are ported from changelogen 0.6.2 without behavior change, along with its tests. The config options it brought (`scopeMap`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`, `signTags`) are now declared by relizy, unchanged.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.14.0 (2026-11-03)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.13.2...v1.14.0)
