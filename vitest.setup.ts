@@ -1,9 +1,9 @@
 import type { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 
-// Mock changelogen module globally to avoid missing export errors
-vi.mock('changelogen', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('changelogen')>()
+// Mock the repository resolution globally: no test reads the remote of the relizy repository
+vi.mock('./src/core/repo-config', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./src/core/repo-config')>()
   return {
     ...actual,
     resolveRepoConfig: vi.fn().mockResolvedValue({

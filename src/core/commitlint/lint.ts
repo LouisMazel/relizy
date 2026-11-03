@@ -1,10 +1,9 @@
-import type { GitCommit } from 'changelogen'
-import type { CommitlintCommit, CommitlintCustomRule, CommitlintCustomRuleOutcome } from '../../types'
+import type { CommitlintCommit, CommitlintCustomRule, CommitlintCustomRuleOutcome, GitCommit } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { RuleContext, RuleProblem, RuleSeverity } from './rules'
 import type { WorkspacePackage } from './workspace'
 import { logger } from '@maz-ui/node'
-import { parseCommits } from 'changelogen'
+import { parseCommits } from '../commits'
 import { isAllowedCommit } from '../repo'
 import { determineSemverChange } from '../version'
 import { getChangelogTitle } from './changelog-entry'
@@ -73,7 +72,7 @@ function parseWithRelizy(header: string, body: string, hash: string | undefined,
     body,
     shortHash: hash?.slice(0, 7) ?? '',
     author: { name: '', email: '' },
-  }], { ...config, from: config.from ?? '', to: config.to ?? 'HEAD' })
+  }], config)
   if (!parsed) {
     return undefined
   }

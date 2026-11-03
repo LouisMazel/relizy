@@ -1,8 +1,8 @@
-import type { GitCommit } from 'changelogen'
-import * as changelogen from 'changelogen'
+import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
+import * as commitsModule from '../commits'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import * as gitRefs from '../git-refs'
 import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
@@ -86,7 +86,7 @@ vi.mock('../git-refs', async importActual => ({
   getGitDiff: vi.fn(() => []),
 }))
 
-vi.mock('changelogen', () => ({
+vi.mock('../commits', () => ({
   parseCommits: vi.fn((_diff: string, _config: any) => {
     // Return different commits based on context
     return []
@@ -127,7 +127,7 @@ describe('Given getPackages function', () => {
     }, mockCwd)
 
     // Mock parseCommits to use our controlled map
-    vi.mocked(changelogen.parseCommits).mockImplementation((_diff: any, _config: any) => {
+    vi.mocked(commitsModule.parseCommits).mockImplementation((_diff: any, _config: any) => {
       // Try to determine which package based on config
       return mockCommitsMap.get('default') || []
     })
@@ -822,7 +822,7 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
 
   describe('When the root package aggregates commits with an ignored package', () => {
     it('Then excludes commits that only touch an ignored package', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
         commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
         commitWithFiles({ type: 'build', message: 'build: lockfile', files: ['pnpm-lock.yaml'] }),
@@ -848,7 +848,7 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
     })
 
     it('Then keeps every commit at root when nothing is ignored', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
         commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
       ])
@@ -885,7 +885,7 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
 
   describe('When getPackages receives ignored path globs', () => {
     it('Then never discovers or bumps a package matched by monorepo.ignored', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         commitWithFiles({ type: 'feat', message: 'feat: work', files: ['packages/pkg-b/src/x.ts'] }),
       ])
 
@@ -912,7 +912,7 @@ describe('Given a package moved to another directory', () => {
 
   function mockHistory(commits: GitCommit[]) {
     vi.mocked(gitRefs.getGitDiff).mockReturnValue(commits.map(({ message, body, shortHash, author }) => ({ message, body, shortHash, author })))
-    vi.mocked(changelogen.parseCommits).mockReturnValue(commits)
+    vi.mocked(commitsModule.parseCommits).mockReturnValue(commits)
   }
 
   const breakingBeforeMove = commitWithBody({ type: 'feat', message: 'feat(pkg-a)!: drop the old api', body: 'M\tlegacy/pkg-a/src/x.ts', isBreaking: true })

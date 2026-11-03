@@ -12,11 +12,11 @@
  *
  * @see https://github.com/LouisMazel/relizy/issues/52
  */
-import type { GitCommit } from 'changelogen'
-import * as changelogen from 'changelogen'
+import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
 // ─── File system ──────────────────────────────────────────────────────────────
@@ -87,7 +87,7 @@ vi.mock('../git-refs', async importActual => ({
   getGitDiff: vi.fn(() => []),
 }))
 
-vi.mock('changelogen', () => ({
+vi.mock('../commits', () => ({
   parseCommits: vi.fn(() => []),
 }))
 
@@ -150,7 +150,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
       // git log --name-status always outputs forward slashes, even on Windows.
       const gitStyleBody = '\nM\tpackages/pkg-a/src/components/Button.vue\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'feat', body: gitStyleBody }),
       ])
 
@@ -180,7 +180,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
       const gitBodyA = '\nM\tpackages/pkg-a/src/utils.ts\n'
       const gitBodyB = '\nA\tpackages/pkg-a/src/newFile.ts\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ shortHash: 'aaa0001', type: 'feat', body: gitBodyA }),
         makeCommit({ shortHash: 'bbb0002', type: 'fix', body: gitBodyB }),
       ])
@@ -206,7 +206,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
       // This commit only modifies pkg-b — it must NOT appear for pkg-a.
       const otherPkgBody = '\nM\tpackages/pkg-b/src/index.ts\n'
 
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'fix', body: otherPkgBody }),
       ])
 
@@ -229,7 +229,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
     })
 
     it('Then commits with empty body are excluded (no path to match)', async () => {
-      vi.mocked(changelogen.parseCommits).mockReturnValue([
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({ type: 'feat', body: '' }),
       ])
 

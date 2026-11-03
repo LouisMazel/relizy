@@ -1,6 +1,5 @@
-import type { GitCommit } from 'changelogen'
 import type { Code } from 'mdast'
-import type { CommitlintCodeBlocksLinter } from '../../types'
+import type { CommitlintCodeBlocksLinter, GitCommit } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'

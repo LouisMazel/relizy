@@ -1,17 +1,17 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, GitProvider, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
-import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
+import { getRepoConfig, resolveRepoConfig } from './repo-config'
 
 export function getDefaultConfig() {
   return {
@@ -213,22 +213,15 @@ async function resolveConfig(
 ) {
   if (!config.repo) {
     // Undefined without a `repository` field nor an `origin` remote (a local repository)
-    const resolvedRepoConfig = await resolveRepoConfig(cwd) as Awaited<ReturnType<typeof resolveRepoConfig>> | undefined
+    const resolvedRepoConfig = await resolveRepoConfig(cwd)
 
     if (resolvedRepoConfig) {
-      config.repo = {
-        ...resolvedRepoConfig,
-        provider: resolvedRepoConfig.provider as GitProvider,
-      }
+      config.repo = resolvedRepoConfig
     }
   }
 
   if (typeof config.repo === 'string') {
-    const resolvedRepoConfig = getRepoConfig(config.repo)
-    config.repo = {
-      ...resolvedRepoConfig,
-      provider: resolvedRepoConfig.provider as GitProvider,
-    }
+    config.repo = getRepoConfig(config.repo)
   }
 
   // When the user did not set a registry, resolve the effective one from their

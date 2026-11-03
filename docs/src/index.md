@@ -40,7 +40,7 @@ features:
     link: /config/overview
   - icon: 📝
     title: Beautiful Changelogs
-    details: Automatically generates elegant changelogs from Conventional Commits using changelogen. Markdown formatted and SEO-friendly.
+    details: Automatically generates elegant changelogs from Conventional Commits. Markdown formatted and SEO-friendly.
     link: /guide/changelog
   - icon: 🔄
     title: Smart Version Bumping

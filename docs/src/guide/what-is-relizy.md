@@ -84,11 +84,11 @@ Automatically detects:
 
 ### 🔄 Based on Standards
 
-Built on top of proven tools and standards:
+Built on proven standards:
 
-- [changelogen](https://github.com/unjs/changelogen) for changelog generation
 - [Conventional Commits](https://www.conventionalcommits.org/) for commit parsing
 - [Semantic Versioning](https://semver.org/) for version management
+- A changelog format inspired by [changelogen](https://github.com/unjs/changelogen)
 
 ## Use Cases
 

@@ -5,12 +5,6 @@ import { buildChangelogBody, buildCompareLink, buildContributors, getIndependent
 import { generateAIProviderReleaseBody } from '../ai'
 import { createGitlabRelease, gitlab } from '../gitlab'
 
-vi.mock('changelogen', () => {
-  return {
-    createGithubRelease: vi.fn(),
-  }
-})
-
 vi.mock('convert-gitmoji', () => ({
   convert: vi.fn((input: string) => input),
 }))

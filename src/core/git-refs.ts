@@ -1,5 +1,5 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { RawGitCommit } from 'changelogen'
+import type { RawGitCommit } from '../types'
 import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
 

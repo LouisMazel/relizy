@@ -428,7 +428,7 @@ open coverage/index.html
 
 - [GitHub Repository](https://github.com/LouisMazel/relizy)
 - [Issues](https://github.com/LouisMazel/relizy/issues)
-- [Changelogen](https://github.com/unjs/changelogen) - Underlying changelog tool
+- [Changelogen](https://github.com/unjs/changelogen) - Inspiration of the changelog format
 - [Conventional Commits](https://www.conventionalcommits.org/)
 
 ### Getting Help

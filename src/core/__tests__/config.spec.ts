@@ -4,12 +4,12 @@ import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { loadConfig, setupDotenv } from 'c12'
-import { getRepoConfig, resolveRepoConfig } from 'changelogen'
 import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
 import { getVersionGroupName, markVersionGroupConfig } from '../groups'
 import { getNpmRegistry } from '../npm'
+import { getRepoConfig, resolveRepoConfig } from '../repo-config'
 
 vi.mock('node:process', () => ({
   default: {
@@ -29,7 +29,7 @@ vi.mock('@maz-ui/utils/helpers/formatJson', () => ({
   formatJson: vi.fn(obj => JSON.stringify(obj)),
 }))
 vi.mock('c12')
-vi.mock('changelogen')
+vi.mock('../repo-config')
 vi.mock('defu')
 
 describe('Given getDefaultConfig function', () => {
