@@ -41,7 +41,7 @@ function readConfigFile(cwd: string, file: string): Record<string, any> | undefi
     return undefined
   }
   try {
-    const parsed = file.endsWith('.yaml') ? parseYAML(content) : parseJSONC(content)
+    const parsed = file.endsWith('.yaml') ? parseYAML(content) : parseJSONC(content, { allowTrailingComma: true })
     return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : undefined
   }
   catch {
