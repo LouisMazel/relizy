@@ -174,6 +174,39 @@ You can also enable it ad-hoc from the CLI with the `--include-private` flag on
 > listed in `ignored` (or `ignorePackageNames`) stays excluded even if
 > `includePrivates` is `true`.
 
+## movedPackages
+
+- **Type:** `Record<string, string>`
+- **Default:** `{}`
+
+Package directories moved or renamed, as `old path: new path` (relative to
+`cwd`, no glob). The commits that changed the old directory belong to the
+package: its changelog and its bump keep the commits made before the move.
+
+Relizy already detects the moves whose `package.json` git sees as renamed
+(`git mv`) and that keep their package name. Declare the moves it cannot see: a
+`package.json` rewritten or a package renamed in the commit of the move, or a
+commit moving more files than the rename detection of git handles
+(`diff.renameLimit`).
+
+```ts
+export default defineConfig({
+  monorepo: {
+    versionMode: 'selective',
+    packages: ['packages/*'],
+    movedPackages: {
+      'packages/components': 'packages/ui',
+    },
+  },
+})
+```
+
+Chains are followed (`a: b` then `b: c`), and the option applies to every
+[version group](#groups). The entries can be removed once a release includes the
+move.
+
+Learn more: [Moving & Renaming Packages](../guide/moved-packages.md)
+
 ## Complete Example
 
 ```ts

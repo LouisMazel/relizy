@@ -12,24 +12,30 @@ import { parseCommits } from 'changelogen'
 import fastGlob from 'fast-glob'
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies, isBreakingVersionChange } from './dependencies'
-import { getGitDiff, NAME_STATUS_LINE } from './git-refs'
+import { getGitDiff, parseNameStatus } from './git-refs'
 import { GLOB_IGNORE } from './glob'
+import { getPackageJsonHistory, getPreviousPackagePaths } from './moved-packages'
 import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
 import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
 
 /**
- * Get the first commit hash that touched a specific package directory.
+ * Get the first commit hash that touched a specific package directory, or one
+ * of its former directories (see `getPreviousPackagePaths`).
  * This is used for new packages without tags to avoid ENOBUFS errors
  * when using the first commit of the entire repo.
  */
-function getFirstPackageCommitHash(packagePath: string, cwd: string): string | null {
-  const relativePath = relative(cwd, packagePath)
+function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackages?: Record<string, string>): string | null {
+  const relativePath = relative(cwd, packagePath).split(sep).join('/')
+  const previousPaths = relativePath
+    ? getPreviousPackagePaths({ packagePath: relativePath, commits: getPackageJsonHistory(relativePath, cwd), movedPackages, cwd })
+    : []
+  const pathspecs = [relativePath, ...previousPaths].map(path => `"${path}"`).join(' ')
 
   try {
     // Get the oldest commit that touched this package directory
     const result = execSync(
-      `git log --reverse --format="%H" -- "${relativePath}" | head -1`,
+      `git log --reverse --format="%H" -- ${pathspecs} | head -1`,
       { cwd, encoding: 'utf8' },
     )
     const hash = result.trim()
@@ -70,8 +76,8 @@ function getCommitParentHash(hash: string, cwd: string): string | null {
  * package history. Falls back to that first commit when it is the repository
  * root commit (no parent). Returns null when the package has no commits yet.
  */
-export function getNewPackageCompareBase(packagePath: string, cwd: string): string | null {
-  const firstPackageCommit = getFirstPackageCommitHash(packagePath, cwd)
+export function getNewPackageCompareBase(packagePath: string, cwd: string, movedPackages?: Record<string, string>): string | null {
+  const firstPackageCommit = getFirstPackageCommitHash(packagePath, cwd, movedPackages)
 
   if (!firstPackageCommit) {
     return null
@@ -163,24 +169,12 @@ export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string
 }
 
 /**
- * Git quotes the paths with unusual characters (`"packages/pkg-a/caf\303\251.ts"`,
- * see `core.quotePath`): drop the quotes so the directory part can be compared.
- */
-function unquoteGitPath(path: string): string {
-  return path.length > 1 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path
-}
-
-/**
  * The paths of each `--name-status` line of a commit body: `getGitDiff` runs
  * `git log --name-status`, so the body carries lines like `M\tpath/to/file`,
  * and `R100\told\tnew` for renames and copies.
  */
 function getNameStatusPaths(commit: GitCommit): string[][] {
-  return commit.body
-    .split('\n')
-    .filter(line => NAME_STATUS_LINE.test(line))
-    .map(line => line.split('\t').slice(1).map(path => unquoteGitPath(path.trim())).filter(Boolean))
-    .filter(paths => paths.length > 0)
+  return parseNameStatus(commit.body).map(entry => entry.paths)
 }
 
 /**
@@ -204,9 +198,13 @@ function isUnderIgnoredPath(file: string, ignoredPaths: string[]): boolean {
  * to the repository). Both paths of a rename or a copy count, so a file moved
  * out of the package still belongs to its history. The directory is compared as
  * a whole: `packages/components` does not match `packages/components-mcp/...`.
+ * The former directories of the package (`previousPaths`, see
+ * `getPreviousPackagePaths`) count as the package directory.
  */
-export function isCommitInPackage(commit: GitCommit, packageRelativePath: string): boolean {
-  return getNameStatusPaths(commit).some(paths => paths.some(file => isUnderPath(file, packageRelativePath)))
+export function isCommitInPackage(commit: GitCommit, packageRelativePath: string, previousPaths: string[] = []): boolean {
+  const directories = [packageRelativePath, ...previousPaths]
+
+  return getNameStatusPaths(commit).some(paths => paths.some(file => directories.some(directory => isUnderPath(file, directory))))
 }
 
 /**
@@ -800,7 +798,7 @@ export async function getPackageCommits({
   // that touched this package to avoid ENOBUFS errors.
   let actualFrom: string | undefined
   if (from === NEW_PACKAGE_MARKER) {
-    const firstPackageCommit = getFirstPackageCommitHash(pkg.path, config.cwd)
+    const firstPackageCommit = getFirstPackageCommitHash(pkg.path, config.cwd, config.monorepo?.movedPackages)
     if (!firstPackageCommit) {
       logger.debug(`${pkg.name} has no commits yet, returning empty`)
       return []
@@ -840,8 +838,21 @@ export async function getPackageCommits({
 
   const isRootPackage = pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name
 
-  // Paths of ignored packages, resolved once for the root filter below.
-  const ignoredPackagePaths = isRootPackage ? resolveIgnoredPackagePaths(changelogConfig) : []
+  const movedPackages = changelogConfig.monorepo?.movedPackages
+  const getPreviousPaths = (packagePath: string) => getPreviousPackagePaths({ packagePath, commits: rawCommits, movedPackages, cwd: changelogConfig.cwd })
+
+  // Paths of ignored packages (and their former directories), resolved once for the root filter below.
+  const ignoredPackagePaths = isRootPackage
+    ? resolveIgnoredPackagePaths(changelogConfig).flatMap(path => [path, ...getPreviousPaths(path)])
+    : []
+
+  const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
+  // The commits of the former directories of a moved package belong to it
+  const previousPaths = isRootPackage ? [] : getPreviousPaths(packageRelativePath)
+
+  if (previousPaths.length > 0) {
+    logger.debug(`${pkg.name} was moved from ${previousPaths.join(', ')}: their commits belong to it`)
+  }
 
   if (!isRootPackage) {
     // The catalogs changed by the commits, read at once
@@ -868,9 +879,7 @@ export async function getPackageCommits({
       return true
     }
 
-    const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
-
-    if (isCommitInPackage(commit, packageRelativePath)) {
+    if (isCommitInPackage(commit, packageRelativePath, previousPaths)) {
       return true
     }
 

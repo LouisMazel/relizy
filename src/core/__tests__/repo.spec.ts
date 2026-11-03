@@ -901,3 +901,121 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
     })
   })
 })
+
+describe('Given a package moved to another directory', () => {
+  const mockCwd = '/test-repo'
+  const moveLines = 'R100\tlegacy/pkg-a/package.json\tpackages/pkg-a/package.json\nR100\tlegacy/pkg-a/src/x.ts\tpackages/pkg-a/src/x.ts'
+
+  function commitWithBody({ type, message, body, isBreaking = false }: { type: string, message: string, body: string, isBreaking?: boolean }): GitCommit {
+    return { ...commitWithFiles({ type, message, files: [], isBreaking }), body: `\n\n${body}\n` }
+  }
+
+  function mockHistory(commits: GitCommit[]) {
+    vi.mocked(gitRefs.getGitDiff).mockReturnValue(commits.map(({ message, body, shortHash, author }) => ({ message, body, shortHash, author })))
+    vi.mocked(changelogen.parseCommits).mockReturnValue(commits)
+  }
+
+  const breakingBeforeMove = commitWithBody({ type: 'feat', message: 'feat(pkg-a)!: drop the old api', body: 'M\tlegacy/pkg-a/src/x.ts', isBreaking: true })
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+
+    vol.fromJSON({
+      [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({ name: 'pkg-b', version: '1.1.0' }),
+    }, mockCwd)
+  })
+
+  afterEach(() => {
+    vol.reset()
+    vi.mocked(gitRefs.getGitDiff).mockReturnValue([])
+  })
+
+  describe('When isCommitInPackage receives the former directories of the package', () => {
+    it('Then a commit of a former directory belongs to the package', () => {
+      const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['legacy/pkg-a/src/x.ts'] })
+
+      expect(isCommitInPackage(commit, 'packages/pkg-a', ['legacy/pkg-a'])).toBe(true)
+      expect(isCommitInPackage(commit, 'packages/pkg-a')).toBe(false)
+    })
+  })
+
+  describe('When git detected the move', () => {
+    it('Then the commits made before the move belong to the package', async () => {
+      mockHistory([
+        commitWithBody({ type: 'refactor', message: 'refactor(pkg-a): move the package', body: moveLines }),
+        breakingBeforeMove,
+      ])
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        from: 'pkg-a@1.0.0',
+        to: 'HEAD',
+        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'independent', packages: ['packages/*'] } }),
+        changelog: true,
+      })
+
+      expect(commits.map(c => c.message)).toEqual(['refactor(pkg-a): move the package', 'feat(pkg-a)!: drop the old api'])
+    })
+  })
+
+  describe('When git did not detect the move', () => {
+    const undetectedMove = commitWithBody({
+      type: 'refactor',
+      message: 'refactor(pkg-a): move the package',
+      body: 'D\tlegacy/pkg-a/package.json\nA\tpackages/pkg-a/package.json',
+    })
+
+    it('Then the commits made before the move are lost without monorepo.movedPackages', async () => {
+      mockHistory([undetectedMove, breakingBeforeMove])
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        from: 'pkg-a@1.0.0',
+        to: 'HEAD',
+        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'independent', packages: ['packages/*'] } }),
+        changelog: true,
+      })
+
+      expect(commits.map(c => c.message)).toEqual(['refactor(pkg-a): move the package'])
+    })
+
+    it('Then monorepo.movedPackages gives them back to the package', async () => {
+      mockHistory([undetectedMove, breakingBeforeMove])
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        from: 'pkg-a@1.0.0',
+        to: 'HEAD',
+        config: createMockConfig({
+          cwd: mockCwd,
+          monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: { 'legacy/pkg-a': 'packages/pkg-a' } },
+        }),
+        changelog: true,
+      })
+
+      expect(commits.map(c => c.message)).toContain('feat(pkg-a)!: drop the old api')
+    })
+  })
+
+  describe('When the moved package is ignored by the root', () => {
+    it('Then the commits of its former directory stay out of the root', async () => {
+      mockHistory([
+        commitWithBody({ type: 'refactor', message: 'refactor(pkg-a): move the package', body: moveLines }),
+        breakingBeforeMove,
+        commitWithBody({ type: 'feat', message: 'feat(pkg-b): add a feature', body: 'M\tpackages/pkg-b/src/y.ts' }),
+      ])
+
+      const commits = await getPackageCommits({
+        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        from: 'root-package@1.0.0',
+        to: 'HEAD',
+        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] } }),
+        changelog: true,
+      })
+
+      expect(commits.map(c => c.message)).toEqual(['feat(pkg-b): add a feature'])
+    })
+  })
+})

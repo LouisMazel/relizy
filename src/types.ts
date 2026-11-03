@@ -271,6 +271,22 @@ export interface MonorepoConfig {
    * @default false
    */
   includePrivates?: boolean
+  /**
+   * Package directories moved or renamed, as `old path: new path` (relative to
+   * `cwd`, POSIX separators, no glob). The commits that changed the old
+   * directory belong to the package, so its changelog and its bump keep the
+   * commits made before the move.
+   *
+   * Relizy already detects the moves whose `package.json` git sees as renamed
+   * (`git mv`) and that keep their package name: this option is for the moves
+   * it cannot see, e.g. a `package.json` rewritten or a package renamed in the
+   * commit of the move, or a commit moving more files than the rename detection
+   * of git handles (`diff.renameLimit`). Chains
+   * are followed (`a: b` then `b: c`). The entries can be removed once a
+   * release includes the move.
+   * @default {}
+   */
+  movedPackages?: Record<string, string>
 }
 
 export interface VersionGroup {

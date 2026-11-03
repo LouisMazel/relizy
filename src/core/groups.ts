@@ -232,6 +232,7 @@ function deriveGroupConfig({
       ignored: [...new Set([...(config.monorepo?.ignored ?? []), ...(group.ignored ?? []), ...otherGroupsPaths.map(path => fastGlob.escapePath(path))])],
       ignorePackageNames: config.monorepo?.ignorePackageNames,
       includePrivates: config.monorepo?.includePrivates,
+      movedPackages: config.monorepo?.movedPackages,
     },
     bump: { ...config.bump, ...group.bump },
     changelog: { ...config.changelog, ...group.changelog },
