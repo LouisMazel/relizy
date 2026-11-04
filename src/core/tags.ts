@@ -1,12 +1,14 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { ReadPackage, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, posix, relative, sep } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { getCurrentGitRef, getFirstCommit } from './git'
-import { listTags } from './git-refs'
+import { listTags, parseNameStatus } from './git-refs'
+import { getPackageJsonHistory } from './moved-packages'
 import { isGraduating, isGraduatingToStableBetweenVersion, isPrerelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from './version'
 
 export function getIndependentTag({ version, name }: { version: string, name: string }) {
@@ -451,17 +453,115 @@ export interface ResolvedTags {
  */
 export const NEW_PACKAGE_MARKER = '__NEW_PACKAGE__' as const
 
+function readPackageJsonAt({ ref, file, cwd }: { ref: string, file: string, cwd: string }): { name?: unknown, version?: unknown } | null {
+  try {
+    return JSON.parse(execSync(`git show "${ref}:${file}"`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }))
+  }
+  catch {
+    return null
+  }
+}
+
+/**
+ * Finds the release of the current version of a package that has no tag of
+ * this version (released by the unified or selective group before joining an
+ * independent one, by a previous config, by hand, or whose tag push failed):
+ * the commit that set this version in its `package.json`, walking its history
+ * back through the moves (detected by git or declared in
+ * `monorepo.movedPackages`).
+ *
+ * Returns `NEW_PACKAGE_MARKER` when the package was created with this version
+ * (a new `package.json`, or a copy or inexact rename of another package), or
+ * null when the history does not tell.
+ */
+function findVersionCommit({
+  name,
+  version,
+  path,
+  rev,
+  config,
+}: {
+  name: string
+  version: string
+  /** Directory of the package at `rev`, relative to the repository */
+  path: string
+  rev?: string
+  config: ResolvedRelizyConfig
+}): string | null {
+  const movedPackages = Object.entries(config.monorepo?.movedPackages ?? {})
+
+  for (const { shortHash, body } of getPackageJsonHistory(path, config.cwd, rev)) {
+    const entry = parseNameStatus(body).find(({ paths }) => paths.at(-1) === `${path}/package.json`)
+
+    if (!entry) {
+      continue
+    }
+
+    const current = readPackageJsonAt({ ref: shortHash, file: `${path}/package.json`, cwd: config.cwd })
+
+    // The version is not committed (e.g. written by the bump of the running release): the history does not tell
+    if (current?.name !== name || current.version !== version) {
+      return null
+    }
+
+    // A move git does not detect adds the `package.json` of the new directory
+    const movedFrom = entry.status === 'A' ? movedPackages.find(([, to]) => to.replace(/\/$/, '') === path)?.[0].replace(/\/$/, '') : undefined
+    const previousFile = entry.status === 'A' ? movedFrom && `${movedFrom}/package.json` : entry.paths[0]
+    const previous = previousFile ? readPackageJsonAt({ ref: `${shortHash}~1`, file: previousFile, cwd: config.cwd }) : null
+
+    if (!previous || previous.name !== name) {
+      return NEW_PACKAGE_MARKER
+    }
+
+    if (previous.version !== version) {
+      return shortHash
+    }
+
+    path = posix.dirname(previousFile!)
+
+    if (movedFrom) {
+      return findVersionCommit({ name, version, path, rev: `${shortHash}~1`, config })
+    }
+  }
+
+  return null
+}
+
+/**
+ * Names a release commit found by `findVersionCommit` with its tag: the tag of
+ * the package, or the repository tag of the version (`templates.tagBody`, `v1.2.3`
+ * or `1.2.3`), so the changelog title and the compare link show a version.
+ * Falls back to the commit.
+ */
+function getVersionCommitRef({ hash, pkg, config }: { hash: string, pkg: ReadPackage, config: ResolvedRelizyConfig }): string {
+  let tags: string[] = []
+
+  try {
+    tags = execSync(`git tag --points-at "${hash}"`, { cwd: config.cwd, encoding: 'utf8' }).split('\n').map(tag => tag.trim()).filter(Boolean)
+  }
+  catch {}
+
+  const packageTag = getIndependentTag({ name: pkg.name, version: pkg.version })
+  const repoTags = tags.filter(tag => (extractVersionFromRepoTag(tag, config.templates.tagBody) ?? extractVersionFromLegacyRepoTag(tag)) === pkg.version)
+
+  return tags.find(tag => tag === packageTag)
+    ?? repoTags.find(tag => extractVersionFromRepoTag(tag, config.templates.tagBody))
+    ?? repoTags[0]
+    ?? hash
+}
+
 async function resolveFromTagIndependent({
-  cwd,
+  config,
   pkg,
   graduating,
   logLevel,
 }: {
-  cwd: string
+  config: ResolvedRelizyConfig
   pkg: ReadPackage
   graduating: boolean
   logLevel?: LogLevel
 }): Promise<string> {
+  const cwd = config.cwd
   // Determine if we should filter prerelease tags
   const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
@@ -472,6 +572,25 @@ async function resolveFromTagIndependent({
     logLevel,
     cwd,
   })
+
+  // A graduation starts at the last stable release, never at the prerelease of the current version
+  const startsAtCurrentVersion = !(onlyStable && isPrerelease(pkg.version))
+
+  if (startsAtCurrentVersion && lastPackageTag !== getIndependentTag({ name: pkg.name, version: pkg.version })) {
+    const packagePath = relative(cwd, pkg.path).split(sep).join('/')
+    const versionCommit = packagePath ? findVersionCommit({ name: pkg.name, version: pkg.version, path: packagePath, config }) : null
+
+    if (versionCommit === NEW_PACKAGE_MARKER) {
+      logger.debug(`${pkg.name} was created at ${pkg.version} and never tagged, marking as new package`)
+      return NEW_PACKAGE_MARKER
+    }
+
+    if (versionCommit) {
+      const ref = getVersionCommitRef({ hash: versionCommit, pkg, config })
+      logger.debug(`No ${getIndependentTag({ name: pkg.name, version: pkg.version })} tag, ${pkg.name} starts at the release of its version: ${ref}`)
+      return ref
+    }
+  }
 
   if (!lastPackageTag) {
     // For new packages without any tags, return a marker instead of the first commit.
@@ -572,7 +691,7 @@ async function resolveFromTag({
     }
 
     from = await resolveFromTagIndependent({
-      cwd: config.cwd,
+      config,
       pkg,
       graduating,
       logLevel,

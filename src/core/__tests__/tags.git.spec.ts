@@ -309,6 +309,122 @@ describe('Given resolveTags function on a real git repository', () => {
     })
   })
 
+  describe('When a package has no tag of its current version', () => {
+    const navigation = { name: '@scope/navigation', path: '' }
+
+    function writePackage(directory: string, content: Record<string, unknown>) {
+      mkdirSync(join(cwd, directory), { recursive: true })
+      writeFileSync(join(cwd, directory, 'package.json'), JSON.stringify({ name: navigation.name, ...content }))
+      git('add', '--all')
+    }
+
+    function commitPackageVersion(directory: string, version: string, message = `chore(release): bump version to v${version}`) {
+      writePackage(directory, { version })
+      commit(message)
+    }
+
+    function resolveNavigation({ version = '6.18.0', path = navigation.path, config = createConfig('independent') } = {}) {
+      return resolveFrom({ config, name: navigation.name, path, version })
+    }
+
+    beforeEach(() => {
+      navigation.path = join(cwd, 'packages/navigation')
+    })
+
+    describe('When it was released by the selective group before joining an independent group', () => {
+      beforeEach(() => {
+        tag('@scope/navigation@1.2.0')
+        commitPackageVersion('packages/navigation', '6.17.0')
+        tag('v6.17.0')
+        commitPackageVersion('packages/navigation', '6.18.0')
+        tag('v6.18.0')
+        commit('feat(navigation): a')
+      })
+
+      it('Then starts at the repository tag of its release, not at an older package tag', async () => {
+        expect(await resolveNavigation()).toBe('v6.18.0')
+      })
+
+      it('Then starts at the repository tag of its release when it was moved since', async () => {
+        git('mv', 'packages/navigation', 'packages/ah-navigation')
+        commit('chore(navigation): move the package')
+
+        expect(await resolveNavigation({ path: join(cwd, 'packages/ah-navigation') })).toBe('v6.18.0')
+      })
+
+      it('Then starts at its package tag once released by the independent group', async () => {
+        tag('@scope/navigation@6.18.0')
+
+        expect(await resolveNavigation()).toBe('@scope/navigation@6.18.0')
+      })
+
+      it('Then follows a move declared in monorepo.movedPackages', async () => {
+        git('rm', '-q', '-r', 'packages/navigation')
+        writePackage('packages/ah-navigation', { version: '6.18.0', description: 'A navigation rewritten from scratch', type: 'module', exports: { '.': './dist/index.js' }, files: ['dist'] })
+        commit('feat(navigation): rewrite the navigation')
+
+        const config = createConfig('independent')
+        config.monorepo = { ...config.monorepo!, movedPackages: { 'packages/navigation': 'packages/ah-navigation' } }
+
+        expect(await resolveNavigation({ path: join(cwd, 'packages/ah-navigation'), config })).toBe('v6.18.0')
+      })
+    })
+
+    describe('When its version was released without tag', () => {
+      it('Then starts at the commit that set its version', async () => {
+        commitPackageVersion('packages/navigation', '1.0.0', 'feat(navigation): add the navigation')
+        tag('@scope/navigation@1.0.0')
+        commit('feat(navigation): a')
+        commitPackageVersion('packages/navigation', '1.1.0', 'chore(navigation): release 1.1.0')
+        const release = git('rev-parse', '--short', 'HEAD')
+        commit('feat(navigation): b')
+
+        expect(await resolveNavigation({ version: '1.1.0' })).toBe(release)
+      })
+    })
+
+    describe('When the bump of the running release wrote the new version without committing it', () => {
+      beforeEach(() => {
+        commitPackageVersion('packages/navigation', '1.0.0', 'feat(navigation): add the navigation')
+        tag('@scope/navigation@1.0.0')
+        commit('feat(navigation): a')
+        writePackage('packages/navigation', { version: '1.1.0' })
+      })
+
+      it('Then the steps after the bump start at the tag of the previous release', async () => {
+        const config = createConfig('independent')
+
+        for (const step of ['changelog', 'publish'] as const) {
+          expect(await resolveFrom({ config, ...navigation, version: '1.1.0', newVersion: '1.1.0', step })).toBe('@scope/navigation@1.0.0')
+        }
+      })
+
+      it('Then the bump starts at the tag of the current version', async () => {
+        expect(await resolveNavigation({ version: '1.0.0' })).toBe('@scope/navigation@1.0.0')
+      })
+    })
+
+    describe('When a prerelease without tag graduates', () => {
+      it('Then starts at the last stable tag', async () => {
+        commitPackageVersion('packages/navigation', '1.0.0', 'feat(navigation): add the navigation')
+        tag('@scope/navigation@1.0.0')
+        commitPackageVersion('packages/navigation', '2.0.0-beta.0', 'feat(navigation)!: b')
+
+        expect(await resolveFrom({ config: createConfig('independent'), ...navigation, version: '2.0.0-beta.0', newVersion: '2.0.0' })).toBe('@scope/navigation@1.0.0')
+      })
+    })
+
+    describe('When it was created with its current version', () => {
+      it('Then marks it as new, even with the tags of an older package of the same name', async () => {
+        tag('@scope/navigation@0.1.0')
+        commitPackageVersion('packages/navigation', '0.3.7', 'feat(navigation): import the navigation')
+        commit('feat(navigation): a')
+
+        expect(await resolveNavigation({ version: '0.3.7' })).toBe(NEW_PACKAGE_MARKER)
+      })
+    })
+  })
+
   describe('When a new sub-package is added at 0.0.0', () => {
     it('Then marks it as new', async () => {
       tag('v6.18.0')

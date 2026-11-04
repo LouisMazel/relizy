@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.14.3-beta.0 (2026-11-04)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.2...v1.14.3-beta.0)
+
+### 🩹 Fixes
+
+- Read the git log of a long range without overflowing the exec buffer ([e48ad14](https://github.com/LouisMazel/relizy/commit/e48ad14))
+
+  The `git log` of a new package in a large repository (its whole history) overflowed the 1 MB default buffer of execSync and failed the bump with ENOBUFS.
+
+- Start an independent package without a tag of its version at the release of this version ([d0da83e](https://github.com/LouisMazel/relizy/commit/d0da83e))
+
+  A package moved from the unified or selective group to an independent group has no tag of its own yet (its releases were tagged v6.18.0): it started at an old tag of the package, or at its first commit. It now starts at the commit that set its current version in its package.json, followed through its moves, named after its tag (v6.18.0). The same applies to a package released by hand or whose tag push failed. A package created with its current version is released as a new package.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.14.2 (2026-11-03)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.1...v1.14.2)

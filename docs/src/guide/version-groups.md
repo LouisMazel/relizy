@@ -198,3 +198,9 @@ relizy release --yes --config relizy-independent
 # After
 relizy release --yes
 ```
+
+## Moving Packages to an Independent Group
+
+A package moved from the `unified`/`selective` group to an `independent` group has no tag of its own yet (`@scope/navigation@6.18.0`): its releases were tagged `v6.18.0`. Its next release starts at the release of its current version, the commit that set this version in its `package.json`, named after its tag (`v6.18.0`). Its older package tags, if any, are ignored.
+
+The same applies to any package without a tag of its current version (released by hand, by another tool, or whose tag push failed). A package created with its current version (a package imported from another repository, at `0.3.7`) and never tagged is released as a new package: its changelog starts at its first commit.

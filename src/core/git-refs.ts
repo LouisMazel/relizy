@@ -217,6 +217,12 @@ const COMMIT_SEPARATOR = '\x1E'
 const FIELD_SEPARATOR = '\x1F'
 
 /**
+ * The output of `git log` over a long range (the whole history of a new package
+ * in a large repository) overflows the 1 MB default of `execSync` (ENOBUFS).
+ */
+const GIT_LOG_MAX_BUFFER = 1024 ** 3
+
+/**
  * Drop-in replacement for changelogen's `getGitDiff`, which splits the
  * `git log` output on `----\n` and the subject line on `|`. A commit body
  * containing a `----` line (GitHub adds `---------` before the
@@ -227,7 +233,7 @@ export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string):
   const range = from ? `${from}...${to}` : to
   const output = execSync(
     `git --no-pager log "${range}" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
-    { cwd, encoding: 'utf8' },
+    { cwd, encoding: 'utf8', maxBuffer: GIT_LOG_MAX_BUFFER },
   ).trim()
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
