@@ -109,12 +109,14 @@ export function getPreviousPackagePaths({
 /**
  * The commits of the `package.json` of a package, followed through its renames
  * (`git log --follow`), with their `--name-status` list: the moves of the
- * package before its first tag.
+ * package before its first tag. Read from `rev` (HEAD by default).
  */
-export function getPackageJsonHistory(packageRelativePath: string, cwd: string): { body: string, shortHash: string }[] {
+export function getPackageJsonHistory(packageRelativePath: string, cwd: string, rev?: string): { body: string, shortHash: string }[] {
+  const revision = rev ? `"${rev}" ` : ''
+
   try {
     const output = execSync(
-      `git --no-pager log --follow --name-status --format="%x1E%h" -- "${packageRelativePath}/package.json"`,
+      `git --no-pager log --follow --name-status --format="%x1E%h" ${revision}-- "${packageRelativePath}/package.json"`,
       { cwd, encoding: 'utf8' },
     )
 
