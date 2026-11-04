@@ -117,6 +117,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - Commits read by `getGitDiff()` (`git-refs.ts`) and parsed by `parseCommits()` (`commits.ts`), the repository resolved by `repo-config.ts` and the GitHub releases created by `github-api.ts`: ported from changelogen 0.6.2 without behavior change (keep it so, a fix goes in a separate commit), its cases are in `commits.spec.ts` and `repo-config.spec.ts`
 - Git tags are resolved to determine version ranges (`from` → `to`)
 - In unified mode, uses root package tags; in selective/independent modes, uses package-specific tags
+- An independent package without a tag of its current version starts at the commit that set this version in its `package.json` (`findVersionCommit()` in `tags.ts`, through its moves), named after its tag (`v6.18.0` when it was released by the selective group); a package created with this version is new (`NEW_PACKAGE_MARKER`)
 - Supports commit type mapping via `types` config (e.g., `feat` → `minor` bump)
 
 ## MCP Server
