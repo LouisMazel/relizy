@@ -146,8 +146,16 @@ describe('Given getGitDiff', () => {
 
     expect(mockExecSync).toHaveBeenCalledWith(
       'git --no-pager log "v1.0.0...HEAD" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status',
-      { cwd: '/repo', encoding: 'utf8' },
+      expect.objectContaining({ cwd: '/repo', encoding: 'utf8' }),
     )
+  })
+
+  it('Then reads a log larger than the default buffer of execSync', () => {
+    mockExecSync.mockReturnValue('')
+
+    getGitDiff(undefined, 'HEAD', '/repo')
+
+    expect(mockExecSync).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ maxBuffer: 1024 ** 3 }))
   })
 
   it('Then logs the whole history when there is no from ref', () => {
