@@ -122,3 +122,18 @@ describe('Given check_migration on a project already on relizy 2', () => {
     expect(text).toContain('## To review (0)\n\nNothing to review.')
   })
 })
+
+describe('Given check_migration on a project with the options renamed in relizy 2', () => {
+  it('Then points out commitlint.codeBlocksLinter and the CommitlintCodeBlocksLinter type', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  commitlint: {\n    codeBlocksLinter: 'oxc',\n  },\n}\n`,
+      'scripts/lint.ts': `import type { CommitlintCodeBlocksLinter } from 'relizy'\n\nexport const linter: CommitlintCodeBlocksLinter = 'oxc'\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`commitlint.codeBlocksLinter` is renamed `commitlint.changelogLinter`** (`relizy.config.mjs:3`)')
+    expect(text).toContain('**The `CommitlintCodeBlocksLinter` type is renamed `CommitlintChangelogLinter`** (`scripts/lint.ts:1`, `scripts/lint.ts:3`)')
+  })
+})

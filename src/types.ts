@@ -1796,12 +1796,13 @@ export type CommitlintCustomRule = (
 export type CommitlintCustomRuleOutcome = boolean | string | [boolean, string?]
 
 /**
- * Tool checking the code blocks of the commit bodies (`body-changelog-lint`):
+ * Tool checking the changelog entry of a commit, as written in the CHANGELOG.md
+ * files (`body-changelog-lint`):
  * - `auto`: the ESLint of the project when it lints the CHANGELOG.md files, otherwise `oxc`;
- * - `eslint`: the ESLint of the project, an error when it does not lint the CHANGELOG.md files;
- * - `oxc`: a syntax check of the JavaScript, TypeScript and JSON code blocks.
+ * - `eslint`: the ESLint of the project on the whole entry, an error when it does not lint the CHANGELOG.md files;
+ * - `oxc`: a syntax check of the JavaScript, TypeScript and JSON code blocks of the entry.
  */
-export type CommitlintCodeBlocksLinter = 'auto' | 'eslint' | 'oxc'
+export type CommitlintChangelogLinter = 'auto' | 'eslint' | 'oxc'
 
 export interface CommitlintConfig {
   /**
@@ -1845,11 +1846,12 @@ export interface CommitlintConfig {
    */
   title?: boolean
   /**
-   * Tool checking the code blocks of the commit bodies, rendered as in the
-   * changelogs (`body-changelog-lint`).
+   * Tool checking the changelog entry of a commit, as written in the
+   * changelogs (`body-changelog-lint`): the whole entry with ESLint, its code
+   * blocks with oxc.
    * @default 'auto'
    */
-  codeBlocksLinter?: CommitlintCodeBlocksLinter
+  changelogLinter?: CommitlintChangelogLinter
   /**
    * URL printed with the errors, e.g. the commit guidelines of the team.
    */

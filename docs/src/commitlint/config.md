@@ -136,23 +136,23 @@ export default defineConfig({
 
 `--title` and `--no-title` override it for a run. See [Lint the commits of a pull request](./getting-started.md#lint-the-commits-of-a-pull-request).
 
-## `codeBlocksLinter`
+## `changelogLinter`
 
 - **Type:** `'auto' | 'eslint' | 'oxc'`
 - **Default:** `'auto'`
 
-Tool checking the code blocks of the commit bodies, rendered as in your changelogs. See [`body-changelog-lint`](./rules.md#body-changelog-lint).
+Tool checking the changelog entry of a commit, as it will be written in your `CHANGELOG.md` files. See [`body-changelog-lint`](./rules.md#body-changelog-lint).
 
 - `auto`: the ESLint of your project when it lints the `CHANGELOG.md` files, otherwise `oxc`;
-- `eslint`: the ESLint of your project. Relizy fails when it is not installed or does not lint the `CHANGELOG.md` files, instead of falling back to `oxc`;
-- `oxc`: a syntax check of the `js`, `ts`, `jsx`, `tsx` and `json` code blocks, faster than ESLint.
+- `eslint`: the ESLint of your project, on the whole entry (markdown and code blocks) with your config. Relizy fails when it is not installed or does not lint the `CHANGELOG.md` files, instead of falling back to `oxc`;
+- `oxc`: a syntax check of the `js`, `ts`, `jsx`, `tsx` and `json` code blocks, faster than ESLint. The markdown itself is checked by [`body-markdown`](./rules.md#body-markdown) in every mode.
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   commitlint: {
-    codeBlocksLinter: 'oxc',
+    changelogLinter: 'oxc',
   },
 })
 ```

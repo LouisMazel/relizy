@@ -145,6 +145,20 @@ export default defineConfig({
 })
 ```
 
+### Changelog Linter of commitlint
+
+`commitlint.codeBlocksLinter` is renamed [`commitlint.changelogLinter`](../commitlint/config.md#changeloglinter), with the same values: with ESLint, it checks the whole changelog entry of the commit, not only its code blocks. The type `CommitlintCodeBlocksLinter` is renamed `CommitlintChangelogLinter`.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    changelogLinter: 'oxc',
+  },
+})
+```
+
 ## CLI
 
 ### Exit Code of bump

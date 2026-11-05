@@ -134,7 +134,7 @@ export function getDefaultConfig() {
       ignores: [],
       defaultIgnores: true,
       title: false,
-      codeBlocksLinter: 'auto',
+      changelogLinter: 'auto',
     } as Required<Omit<CommitlintConfig, 'helpUrl'>> & Pick<CommitlintConfig, 'helpUrl'>,
     social: {
       twitter: {

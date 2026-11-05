@@ -189,7 +189,7 @@ Renders the commit as in your changelogs and checks it like your release formats
 - **with the ESLint of your project**, when it is installed and lints the `CHANGELOG.md` files: the entry is linted with your config, the fixable problems are ignored and the remaining errors are reported;
 - **otherwise, with a built-in parser** ([oxc](https://oxc.rs)): the `js`, `ts`, `jsx`, `tsx` and `json` code blocks must be valid code.
 
-Force one of them with [`commitlint.codeBlocksLinter`](./config.md#codeblockslinter).
+Force one of them with [`commitlint.changelogLinter`](./config.md#changeloglinter).
 
 ```text
 ✖ feat: scope the AI guidelines per target
