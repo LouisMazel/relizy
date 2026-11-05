@@ -260,6 +260,16 @@ describe('Given social command', () => {
       expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), false)
     })
 
+    it('Then applies the safetyCheck option to the config', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+
+      await social({ safetyCheck: false, bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({ safetyCheck: false }),
+      }))
+    })
+
     it('Then posts to Twitter', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },

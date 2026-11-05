@@ -398,6 +398,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
         from: options.from,
         to: options.to,
         logLevel: options.logLevel,
+        safetyCheck: options.safetyCheck,
       },
     })
 
