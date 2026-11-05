@@ -113,6 +113,22 @@ describe('Given preview_release with every step of the release turned off', () =
       expect(text).toContain('`relizy release` would then write the changelogs, commit.')
       expect(text).toContain('Continuing with local tags')
     })
+
+    it('Then it lists the steps of the release in their order, publishing before the release commit', async () => {
+      const repository = createApp(`release: { prComment: false }`)
+
+      const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
+
+      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm, commit, tag, push, create the GitHub/GitLab releases, post on the social networks.')
+    })
+
+    it('Then it leaves out the tags and the push without the release commit', async () => {
+      const repository = createApp(`release: { commit: false, social: false, prComment: false, providerRelease: false }`)
+
+      const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
+
+      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm.')
+    })
   })
 
   describe('When a package of an independent monorepo is forced', () => {

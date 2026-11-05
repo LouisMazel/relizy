@@ -14,20 +14,29 @@ import { defineTool } from './types'
 /** Below the 80,000 characters the server announces for a result, with room for the notes */
 const MAX_PREVIEW_LENGTH = 75_000
 
+/** The steps of `relizy release` after the bump, in its order: it publishes before the release commit */
 const RELEASE_STEPS: [string, string][] = [
   ['changelog', 'write the changelogs'],
+  ['publish', 'publish to npm'],
   ['commit', 'commit'],
   ['gitTag', 'tag'],
   ['push', 'push'],
-  ['publish', 'publish to npm'],
   ['providerRelease', 'create the GitHub/GitLab releases'],
   ['social', 'post on the social networks'],
   ['prComment', 'comment the pull request'],
 ]
 
+/** The tags and the push need the release commit */
+const COMMIT_STEPS = new Set(['gitTag', 'push'])
+
 /** Steps of `relizy release` after the bump, as configured */
 function releaseSteps(release: object): string {
-  return RELEASE_STEPS.filter(([key]) => (release as Record<string, unknown>)[key] !== false).map(([, label]) => label).join(', ')
+  const enabled = (key: string) => (release as Record<string, unknown>)[key] !== false
+
+  return RELEASE_STEPS
+    .filter(([key]) => enabled(key) && (!COMMIT_STEPS.has(key) || enabled('commit')))
+    .map(([, label]) => label)
+    .join(', ')
 }
 
 function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, plan: ReleasePlan, full: boolean): string[] {
