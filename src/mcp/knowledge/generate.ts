@@ -221,6 +221,54 @@ export function extractConfigReference(source: string): ConfigOption[] {
     }, '')
   }
 
+  /**
+   * The values accepted by a type made of literals (`'unified' | 'selective'`,
+   * an alias of them, `boolean`, an array of them), undefined otherwise
+   */
+  function literalValues(node: AstNode | undefined, seen: Set<string> = new Set()): string[] | undefined {
+    switch (node?.type) {
+      case 'TSLiteralType':
+        return node.literal?.value === undefined ? undefined : [JSON.stringify(node.literal.value)]
+      case 'TSBooleanKeyword':
+        return ['true', 'false']
+      case 'TSParenthesizedType':
+        return literalValues(node.typeAnnotation, seen)
+      case 'TSArrayType':
+        return literalValues(node.elementType, seen)
+      case 'TSUnionType': {
+        const values = node.types.map((type: AstNode) => literalValues(type, seen))
+        return values.every(Boolean) ? [...new Set<string>(values.flat())] : undefined
+      }
+      case 'TSTypeReference':
+        return referenceValues(node, seen)
+      default:
+        return undefined
+    }
+  }
+
+  /** The values of a reference: `Array<...>`, or a type alias of `types.ts` */
+  function referenceValues(node: AstNode, seen: Set<string>): string[] | undefined {
+    const name: string | undefined = node.typeName?.name
+
+    if (name === 'Array') {
+      return literalValues(node.typeArguments?.params?.[0], seen)
+    }
+
+    const declaration = name ? declarations.get(name) : undefined
+
+    return name && !seen.has(name) && declaration?.type === 'TSTypeAliasDeclaration'
+      ? literalValues(declaration.typeAnnotation, new Set([...seen, name]))
+      : undefined
+  }
+
+  /** The values of a type that its text does not show (`VersionMode`), undefined otherwise */
+  function hiddenValues(node: AstNode | undefined, text: string): string[] | undefined {
+    const values = literalValues(node)
+    const shown = (value: string) => text.includes(value) || text.includes(value.replaceAll('"', '\'')) || ((value === 'true' || value === 'false') && /\bboolean\b/.test(text))
+
+    return values && !values.every(shown) ? values : undefined
+  }
+
   function jsDocOf(member: AstNode): JsDoc | undefined {
     const comment = comments.filter(candidate => candidate.type === 'Block' && candidate.value.startsWith('*') && candidate.end <= member.start).at(-1)
 
@@ -291,9 +339,13 @@ export function extractConfigReference(source: string): ConfigOption[] {
     const doc = jsDocOf(member)
     const tags = doc?.tags ?? {}
 
+    const type = typeNode?.type === 'TSTypeLiteral' ? 'object' : textOf(typeNode)
+    const values = hiddenValues(typeNode, type)
+
     return {
       path,
-      type: typeNode?.type === 'TSTypeLiteral' ? 'object' : textOf(typeNode),
+      type,
+      ...(values ? { values } : {}),
       description: doc?.description ?? '',
       ...(tags.default === undefined ? {} : { default: tags.default }),
       ...(tags.deprecated === undefined ? {} : { deprecated: tags.deprecated || 'Deprecated' }),

@@ -541,7 +541,11 @@ describe('Given the knowledge tools', () => {
       const groups = getConfigOption(context, { path: 'monorepo.groups' })
 
       expect(groups).toContain('# `monorepo.groups`')
-      expect(groups).toContain('| `monorepo.groups[].versionMode` | `VersionMode` |')
+      expect(groups).toContain('| `monorepo.groups[].versionMode` | `VersionMode ("unified" \\| "independent" \\| "selective")` |')
+      expect(getConfigOption(context, { path: 'monorepo.versionMode' })).toContain('- **Values:** `"unified"`, `"independent"`, `"selective"`')
+      expect(getConfigOption(context, { path: 'bump.type' })).toContain('`"prerelease"`, `"release"`')
+      expect(getConfigOption(context, { path: 'logLevel' })).toContain('- **Values:** `"silent"`,')
+      expect(getConfigOption(context, { path: 'release.push' })).not.toContain('**Values:**')
       expect(getConfigOption(context, { path: 'release.push' })).toContain('- **Default:** `true`')
       expect(getConfigOption(context, { path: 'config.bump.dependencyTypes' })).toContain('- **Default:** `[\'dependencies\']`')
       expect(getConfigOption(context, { path: 'publish.packageManager' })).toContain('- **Default:** `"pnpm"`')

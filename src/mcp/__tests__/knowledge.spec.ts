@@ -232,6 +232,35 @@ export interface RelizyConfig extends Base {
       expect(options.find(option => option.path === 'scopeMap')?.description).toBe('')
     })
   })
+
+  describe('When a type hides its values behind an alias', () => {
+    it('Then it lists the values, and only when the type does not show them', () => {
+      const source = `
+export type Mode = 'unified' | 'selective'
+type Level = Mode | 'off' | 0
+export interface RelizyConfig {
+  mode?: Mode
+  modes?: Mode[]
+  items?: Array<Level>
+  inline?: 'a' | 'b'
+  enabled?: boolean
+  either?: boolean | 'warn'
+  other?: Mode | Record<string, string>
+}
+`
+      const values = Object.fromEntries(extractConfigReference(source).map(option => [option.path, option.values]))
+
+      expect(values).toEqual({
+        mode: ['"unified"', '"selective"'],
+        modes: ['"unified"', '"selective"'],
+        items: ['"unified"', '"selective"', '"off"', '0'],
+        inline: undefined,
+        enabled: undefined,
+        either: undefined,
+        other: undefined,
+      })
+    })
+  })
 })
 
 describe('Given loadKnowledge', () => {

@@ -1,12 +1,19 @@
-import type { LogLevel } from '@maz-ui/node'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseType } from 'semver'
 import type { ReleaseOverview, ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 export type SemverBumpType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease'
+/**
+ * Release type of a bump: a semver release type, or `release` to compute it
+ * from the commits (the `ReleaseType` of semver)
+ */
+export type BumpReleaseType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease' | 'release'
+/**
+ * Log level of relizy (the `LogLevel` of `@maz-ui/node`)
+ */
+export type RelizyLogLevel = 'silent' | 'error' | 'warning' | 'normal' | 'default' | 'debug' | 'trace' | 'verbose'
 
 /**
  * COMMIT TYPES
@@ -391,7 +398,7 @@ export interface BumpConfig {
    * Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
    * @default 'release'
    */
-  type?: ReleaseType
+  type?: BumpReleaseType
   /**
    * Prerelease identifier (e.g. 'beta', 'alpha')
    */
@@ -467,7 +474,7 @@ export interface BumpOptions extends BumpConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Bump all packages even if there are no commits
    * @default false
@@ -540,7 +547,7 @@ export interface ChangelogOptions extends ChangelogConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
    * @default 'relizy'
@@ -601,7 +608,7 @@ export interface ProviderReleaseOptions {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Run without side effects
    * @default false
@@ -658,7 +665,7 @@ export interface SocialOptions {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Run without side effects
    * @default false
@@ -842,7 +849,7 @@ export interface PublishOptions extends PublishConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
    * @default 'relizy'
@@ -934,7 +941,7 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   token?: string
   /**
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * @default 'relizy'
    */
@@ -1932,7 +1939,7 @@ export interface RelizyConfig {
    * Set log level
    * @default 'default'
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Global safety check. The safety check will verify if tokens or others required for release are set (depends on the release options)
    * @default true
