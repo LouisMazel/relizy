@@ -529,6 +529,46 @@ describe('Given generateMarkDown function', () => {
       expect(result).not.toContain('file.ts')
     })
 
+    async function renderBody(body: string) {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
+
+      return await generateMarkDown({
+        commits: [{ ...createMockCommit('feat', 'feature'), body, type: 'feat' }],
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+    }
+
+    it('Then drops the git trailers and the lines crediting an AI tool', async () => {
+      const result = await renderBody('The parser reads the footers.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nClaude-Session: https://claude.ai/code/session_01\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>\nSigned-off-by: Mazel <me@example.com>\nCloses #12\n\nM\tsrc/parser.ts\n')
+
+      expect(result).toContain('- Feature\n\n  The parser reads the footers.\n')
+      expect(result).not.toMatch(/Generated with|Claude-Session|Co-authored-by|Signed-off-by|Closes/)
+    })
+
+    it('Then keeps the BREAKING CHANGE footer, which tells how to migrate', async () => {
+      const result = await renderBody('The options moved.\n\nBREAKING CHANGE: rename `token` to `accessToken`\n  in the options of the client\nCo-authored-by: Claude <noreply@anthropic.com>')
+
+      expect(result).toContain('  The options moved.\n\n  BREAKING CHANGE: rename `token` to `accessToken`\n    in the options of the client\n')
+      expect(result).not.toContain('Co-authored-by')
+    })
+
+    it('Then keeps a last paragraph that only looks like a trailer', async () => {
+      const result = await renderBody('The parser reads the footers.\n\nNote: the old footers are still read.')
+
+      expect(result).toContain('  Note: the old footers are still read.\n')
+    })
+
+    it('Then drops the separator GitHub writes before the trailers of a squash merge', async () => {
+      const result = await renderBody('* feat: read the footers (#112)\n\n---------\n\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>')
+
+      expect(result).toContain('  * feat: read the footers (#112)\n')
+      expect(result).not.toContain('-----')
+    })
+
     it('Then handles empty body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }

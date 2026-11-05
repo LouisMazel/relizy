@@ -3,6 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
+import { isAIAttributionLine } from './ai-attribution'
 import { getFirstCommit } from './git'
 import { stripNameStatus } from './git-refs'
 import { reportProgress } from './progress'
@@ -263,13 +264,63 @@ export function parseChangelogMarkdown(contents: string) {
 
 // --- Internal utils ---
 
+/**
+ * Trailers without a hyphen, which reference an issue: `Closes #12`, `Fixes: #12`
+ */
+const REFERENCE_TRAILERS = new Set(['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved', 'ref', 'refs', 'see', 'cc', 'link'])
+
+const BREAKING_TRAILER_REGEX = /^BREAKING[ -]CHANGE: /
+
+/**
+ * `Co-authored-by: ...`, `Signed-off-by: ...`, `Closes #12`: a plain word
+ * (`Note: ...`) is text, not a trailer
+ */
+function isTrailerLine(line: string): boolean {
+  const token = /^(?<token>[\w-]+)(?:: | #)/.exec(line)?.groups?.token
+  return BREAKING_TRAILER_REGEX.test(line) || (!!token && (token.includes('-') || REFERENCE_TRAILERS.has(token.toLowerCase())))
+}
+
+/**
+ * The body without its git trailers (its last paragraph, when made of
+ * `Token: value` lines) and without the lines crediting an AI tool. A
+ * `BREAKING CHANGE:` footer is kept: it tells how to migrate.
+ */
+function stripTrailers(body: string): string {
+  const paragraphs = body
+    .split('\n')
+    .filter(line => !isAIAttributionLine(line))
+    .join('\n')
+    .split(/\n[ \t]*\n/)
+    // A removed line can leave an empty paragraph
+    .map(paragraph => paragraph.replace(/^\n+/, '').trimEnd())
+    .filter(Boolean)
+
+  const trailers = paragraphs.at(-1)?.split('\n') ?? []
+  // A trailer value can continue on the next lines, indented
+  if (!isTrailerLine(trailers[0] ?? '') || !trailers.every(line => isTrailerLine(line) || /^\s+\S/.test(line))) {
+    return paragraphs.join('\n\n')
+  }
+
+  const breakingChanges = trailers.filter((line, index) => {
+    const start = trailers.findLastIndex((candidate, candidateIndex) => candidateIndex <= index && !/^\s/.test(candidate))
+    return BREAKING_TRAILER_REGEX.test(trailers[start] ?? '')
+  })
+  const content = paragraphs.slice(0, -1)
+  // The separator GitHub writes before the trailers of a squash merge
+  if (/^-{3,}$/.test(content.at(-1)?.trim() ?? '')) {
+    content.pop()
+  }
+
+  return [...content, ...(breakingChanges.length > 0 ? [breakingChanges.join('\n')] : [])].join('\n\n')
+}
+
 function getCommitBody(commit: GitCommit) {
   if (!commit.body) {
     return ''
   }
 
   // `getGitDiff` appends the `--name-status` list of the commit after its body
-  const contentLines = stripNameStatus(commit.body).split('\n')
+  const contentLines = stripTrailers(stripNameStatus(commit.body)).split('\n')
 
   // Keep a single blank line between paragraphs, none around the body
   // (a blank line is only kept after a content line, so none can lead)

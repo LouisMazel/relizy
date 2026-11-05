@@ -45,7 +45,7 @@ export default defineConfig({
 
 ### includeCommitBody
 
-Include the commit body in the changelog entries:
+Include the commit body in the changelog entries, without its git trailers (`Co-authored-by:`, `Signed-off-by:`, `Closes #12`, `Claude-Session:`...) nor the "Generated with" line of the AI tools. A `BREAKING CHANGE:` footer is kept, as it tells how to migrate:
 
 - **Type:** `boolean`
 - **Default:** `true`
