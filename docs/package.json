@@ -7,6 +7,9 @@
   "description": "Documentation for relizy",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  },
   "scripts": {
     "build": "pnpm predocs && pnpm build:only",
     "build:only": "vitepress build",
