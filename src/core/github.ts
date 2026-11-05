@@ -69,7 +69,7 @@ async function publishIndependentRelease({
   else {
     logger.debug(`Publishing release ${to} to GitHub...`)
     reportProgress(`Creating the GitHub release ${to}`)
-    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
+    await createGithubRelease({ repo: repoConfig, tokens: { github: config.tokens.github || config.repo?.token } }, release)
   }
 
   return {
@@ -203,7 +203,7 @@ async function githubUnified({
   else {
     logger.debug('Publishing release to GitHub...')
     reportProgress(`Creating the GitHub release ${to}`)
-    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
+    await createGithubRelease({ repo: repoConfig, tokens: { github: config.tokens.github || config.repo?.token } }, release)
   }
 
   logger.success(`Release ${to} published to GitHub!`)
