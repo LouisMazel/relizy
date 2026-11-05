@@ -608,9 +608,12 @@ describe('Given github function', () => {
 
       await github({ force: false })
 
+      // The release it rewrites, and whether to simulate it (dry-run)
       expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
         config,
         rawBody: '### Features\n\n- Original feature',
+        label: 'v1.0.0',
+        dryRun: false,
       })
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.anything(),

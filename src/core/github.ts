@@ -7,6 +7,7 @@ import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
 import { createGithubRelease } from './github-api'
+import { reportProgress, showPreview } from './progress'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
@@ -36,6 +37,8 @@ async function publishIndependentRelease({
   const toTag = dryRun ? 'HEAD' : to
   logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
 
+  reportProgress(`Writing the notes of ${to}`)
+
   // Pass `from` via `pkg.fromTag` so `generateChangelog` resolves the right
   // git range without us overriding `config.to` (which would otherwise leak
   // the not-yet-created future tag into `git log`).
@@ -46,7 +49,7 @@ async function publishIndependentRelease({
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
     transformBody: isAIProviderReleaseEnabled(config)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
       : undefined,
   })
 
@@ -61,10 +64,11 @@ async function publishIndependentRelease({
 
   if (dryRun) {
     logger.info(`[dry-run] Publish GitHub release for ${release.tag_name}`)
-    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+    showPreview({ title: `GitHub release ${release.tag_name}`, meta: release.prerelease ? ['Prerelease'] : [], content: releaseBody })
   }
   else {
     logger.debug(`Publishing release ${to} to GitHub...`)
+    reportProgress(`Creating the GitHub release ${to}`)
     await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 
@@ -166,6 +170,7 @@ async function githubUnified({
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit
 
+  reportProgress(`Writing the notes of ${to}`)
   const releaseBody = await generateChangelog({
     pkg: { ...rootPackage, fromTag: from },
     config,
@@ -173,7 +178,7 @@ async function githubUnified({
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
     transformBody: isAIProviderReleaseEnabled(config)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
       : undefined,
   })
 
@@ -193,10 +198,11 @@ async function githubUnified({
 
   if (dryRun) {
     logger.info('[dry-run] Publish GitHub release for', release.tag_name)
-    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+    showPreview({ title: `GitHub release ${release.tag_name}`, meta: release.prerelease ? ['Prerelease'] : [], content: releaseBody })
   }
   else {
     logger.debug('Publishing release to GitHub...')
+    reportProgress(`Creating the GitHub release ${to}`)
     await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 

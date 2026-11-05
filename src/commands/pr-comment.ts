@@ -2,7 +2,8 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { recordLink, showPreview } from '../core/progress'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -307,7 +308,7 @@ function buildNoReleaseComment({ branch, date }: CommentBodyParams): string {
   const lines: string[] = [
     PR_COMMENT_MARKER,
     '',
-    '## ℹ️ Release — no new version',
+    '## ℹ️ Release: no new version',
     '',
     'No new version was published. There are no qualifying commits since the last release.',
     '',
@@ -340,6 +341,11 @@ function buildFailedComment({ branch, date, releaseContext }: CommentBodyParams)
 }
 
 export function buildCommentBody(params: CommentBodyParams): string {
+  const report = params.releaseContext?.report
+  if (report) {
+    return `${PR_COMMENT_MARKER}\n\n${formatReleaseReportMarkdown(report)}`
+  }
+
   const status = params.releaseContext?.status ?? 'success'
   switch (status) {
     case 'no-release':
@@ -362,6 +368,40 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
     },
   })
 
+  const ui = createCommandUi({ title: 'relizy pr-comment', dryRun, logLevel: config.logLevel, cwd: config.cwd })
+
+  try {
+    const { posted, pr } = await ui.step({
+      running: 'Commenting the pull request',
+      done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',
+      run: () => commentPullRequest({ config, options, dryRun }),
+    })
+
+    const number = formatPrNumber(pr)
+    ui.complete(posted
+      ? { message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`, links: pr ? [{ label: number.trim(), url: pr.url }] : [] }
+      : { message: 'No pull request to comment', nothing: true })
+
+    return posted
+  }
+  catch (error) {
+    ui.fail(error, 'PR comment')
+    throw error
+  }
+}
+
+function formatPrNumber(pr: { number: number } | undefined): string {
+  return pr ? ` #${pr.number}` : ''
+}
+
+/**
+ * Build the comment and post it on the pull request of the branch
+ */
+async function commentPullRequest({ config, options, dryRun }: {
+  config: ResolvedRelizyConfig
+  options: PrCommentOptions
+  dryRun: boolean
+}): Promise<{ posted: boolean, pr?: { number: number, url: string } }> {
   const branch = getCurrentGitBranch(config.cwd) ?? 'unknown'
   const date = getFormattedDate()
 
@@ -400,22 +440,24 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
     prNumber: options.prNumber,
   })
 
+  if (pr) {
+    recordLink({ step: 'prComment', label: `#${pr.number}`, url: pr.url })
+  }
+
   if (dryRun) {
     const mode: PrCommentMode = config.prComment.mode
     const prDisplay = pr ? `#${pr.number} (${pr.url})` : 'Not detected'
     const statusDisplay = options.releaseContext?.status ?? 'success'
-    logger.box(
-      `[dry-run] PR Comment Preview\n\nPR: ${prDisplay}\nMode: ${mode}\nStatus: ${statusDisplay}\n\n${body}`,
-    )
-    return true
+    showPreview({ title: 'PR comment', meta: [`PR: ${prDisplay}`, `Mode: ${mode}`, `Status: ${statusDisplay}`], content: body })
+    return { posted: true, ...(pr ? { pr } : {}) }
   }
 
   if (!pr) {
     logger.warn('No PR/MR detected. Use --pr-number to specify one manually.')
-    return false
+    return { posted: false }
   }
 
-  return await postPrComment({ config, pr, body })
+  return { posted: await postPrComment({ config, pr, body }), pr }
 }
 
 /**

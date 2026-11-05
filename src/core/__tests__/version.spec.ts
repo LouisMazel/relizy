@@ -1,13 +1,14 @@
-import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { setBumpConfirmation } from '../bump-prompt'
 import { RelizyCancelError } from '../errors'
+import { askConfirm } from '../prompts'
 import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, displayBump, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
-vi.mock('@inquirer/prompts', () => ({
-  confirm: vi.fn(() => Promise.resolve(true)),
+vi.mock('../prompts', () => ({
+  askConfirm: vi.fn(() => Promise.resolve(true)),
 }))
 
 describe('Given getPackageNewVersion function', () => {
@@ -2296,7 +2297,7 @@ describe('Given confirmBump function', () => {
     logSpy = vi.spyOn(logger, 'log').mockImplementation(() => undefined)
     vi.spyOn(logger, 'info').mockImplementation(() => undefined)
     vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
-    vi.mocked(confirm).mockClear()
+    vi.mocked(askConfirm).mockClear()
     logSpy.mockClear()
   })
 
@@ -2315,20 +2316,20 @@ describe('Given confirmBump function', () => {
       await confirmBump({ packages: [], display, dryRun: false })
 
       expect(display).not.toHaveBeenCalled()
-      expect(confirm).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
     })
   })
 
   describe('When called with the packages of every version group', () => {
     it('Then displays them, then asks once', async () => {
       const display = vi.fn(() => {
-        expect(confirm).not.toHaveBeenCalled()
+        expect(askConfirm).not.toHaveBeenCalled()
       })
 
       await confirmBump({ packages: [{ private: false }, { private: false }], display, dryRun: false })
 
       expect(display).toHaveBeenCalledTimes(1)
-      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(askConfirm).toHaveBeenCalledTimes(1)
     })
   })
 
@@ -2350,7 +2351,7 @@ describe('Given confirmBump function', () => {
 
   describe('When the bump is refused', () => {
     it('Then cancels the run', async () => {
-      vi.mocked(confirm).mockResolvedValueOnce(false)
+      vi.mocked(askConfirm).mockResolvedValueOnce(false)
 
       await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
         .rejects
@@ -2360,11 +2361,47 @@ describe('Given confirmBump function', () => {
 
   describe('When the prompt is closed (Ctrl+C)', () => {
     it('Then cancels the run', async () => {
-      vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
+      // askConfirm throws its cancel message when the prompt is cancelled (see prompts.spec)
+      vi.mocked(askConfirm).mockImplementationOnce(({ cancelMessage }) => Promise.reject(new RelizyCancelError(cancelMessage)))
 
       await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
         .rejects
         .toThrow(new RelizyCancelError('Bump cancelled'))
+    })
+  })
+
+  describe('When the output of the CLI asks the confirmation', () => {
+    afterEach(() => {
+      setBumpConfirmation(undefined)
+    })
+
+    it('Then neither displays nor prompts itself once confirmed', async () => {
+      const confirmation = vi.fn(() => Promise.resolve(true))
+      setBumpConfirmation(confirmation)
+      const display = vi.fn()
+
+      await confirmBump({ packages: [{ private: false }], display, dryRun: false })
+
+      expect(confirmation).toHaveBeenCalledWith([{ private: false }])
+      expect(display).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
+    })
+
+    it('Then cancels the run when refused', async () => {
+      setBumpConfirmation(() => Promise.resolve(false))
+
+      await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
+        .rejects
+        .toThrow(new RelizyCancelError('Bump refused'))
+      expect(askConfirm).not.toHaveBeenCalled()
+    })
+
+    it('Then prompts itself when the output does not handle it', async () => {
+      setBumpConfirmation(() => Promise.resolve(undefined))
+
+      await confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false })
+
+      expect(askConfirm).toHaveBeenCalledTimes(1)
     })
   })
 })

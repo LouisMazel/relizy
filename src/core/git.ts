@@ -5,12 +5,12 @@ import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
+import { askConfirm } from './prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
@@ -35,7 +35,10 @@ export function checkGitStatusIfDirty() {
   const changes = parseGitStatus(getGitStatus(undefined, false))
 
   if (changes.length > 0) {
-    const files = changes.map(({ path, change }) => `${path} (${change})`).join(', ')
+    const names = changes.map(({ path, change }) => `${path} (${change})`)
+    // Every file in the log, the first ones in the error
+    logger.debug(`Uncommitted changes: ${names.join(', ')}`)
+    const files = names.slice(0, 3).join(', ') + (names.length > 3 ? `, and ${names.length - 3} more` : '')
 
     throw new Error(`Uncommitted changes: ${files}\nCommit or stash them first, or keep them with --no-clean.`)
   }
@@ -102,13 +105,11 @@ export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Pr
     return
   }
 
-  const confirmed = await confirm({
-    message: 'Commit these changes with the release?',
-    default: false,
-  }).catch(() => false)
+  const cancelMessage = 'Release cancelled: commit or stash the changes of these files first'
+  const confirmed = await askConfirm({ message: 'Commit these changes with the release?', initialValue: false, cancelMessage })
 
   if (!confirmed) {
-    throw new RelizyCancelError('Release cancelled: commit or stash the changes of these files first')
+    throw new RelizyCancelError(cancelMessage)
   }
 }
 

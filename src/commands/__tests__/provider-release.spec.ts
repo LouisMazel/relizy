@@ -1,9 +1,10 @@
 import type { GroupBumpResult } from '../../types'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
 import { aiSafetyCheck, applyAIOverride } from '../../core/ai'
-import { providerRelease, providerReleaseSafetyCheck } from '../provider-release'
+import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from '../provider-release'
 
 vi.mock('../../core/config', async () => {
   const actual = await vi.importActual('../../core/config')
@@ -294,5 +295,62 @@ describe('Given providerRelease command with version groups', () => {
 
     expect(result.error).toContain('the config has no monorepo.groups')
     expect(github).not.toHaveBeenCalled()
+  })
+})
+
+describe('Given the output of providerRelease in CI', () => {
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false }))
+    vi.mocked(github).mockResolvedValue([{ name: 'v1.0.0', tag: 'v1.0.0', version: '1.0.0', prerelease: false }])
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells the releases it created, with their links', async () => {
+    await providerRelease({})
+
+    expect(output.lines()).toEqual([
+      'relizy provider-release · ci',
+      '▸ Creating the releases',
+      '  › Checking the release',
+      expect.stringMatching(/^✔ 1 GitHub release created {2}\d+ms$/),
+      '  https://github.com/user/repo/releases/tag/v1.0.0',
+      expect.stringMatching(/^✔ Created 1 GitHub release {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is no release to create', async () => {
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({ dryRun: true })
+
+    expect(output.lines().at(-1)).toMatch(/^○ No release to create {2}\d+ms$/)
+  })
+
+  it('Then shows the error once, and returns it', async () => {
+    vi.mocked(github).mockRejectedValue(new Error('Bad credentials'))
+
+    const result = await providerRelease({})
+
+    expect(result.error).toBe('Bad credentials')
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Creating the releases failed {2}\d+ms$/),
+      '✖ Provider release failed',
+      '  Bad credentials',
+    ]))
+  })
+})
+
+describe('Given the result of a provider release', () => {
+  it('Then tells it in words', () => {
+    expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [], error: 'down' })).toBe('GitLab release failed: down')
+    expect(describeProviderReleaseResult({ detectedProvider: 'bitbucket', postedReleases: [] })).toBe('No release on Bitbucket, only the tags')
+    expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [{ name: 'a', tag: 'a@1.0.0', version: '1.0.0', prerelease: false }, { name: 'b', tag: 'b@1.0.0', version: '1.0.0', prerelease: false }] })).toBe('2 GitLab releases created')
   })
 })

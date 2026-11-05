@@ -503,7 +503,10 @@ describe('Given postReleaseToSlack function', () => {
         variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
-      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Slack Post Preview'))
+      const preview = vi.mocked(logger.box).mock.calls[0]![0] as string
+      expect(preview).toContain('[dry-run] Slack post')
+      expect(preview).toContain('Target: channel: #releases')
+      expect(preview).toContain('Bug fixes')
       expect(logger.debug).toHaveBeenCalled()
     })
 

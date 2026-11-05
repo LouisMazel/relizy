@@ -1,6 +1,8 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
+import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
+import { isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote, takeAICost } from '../progress'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -9,6 +11,8 @@ const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
   twitter: TWITTER_PROMPT,
   slack: SLACK_PROMPT,
 }
+
+const PLATFORM_NAMES = { twitter: 'Twitter', slack: 'Slack' } as const
 
 function substitutePlaceholders(prompt: string, vars: Record<string, string | undefined>): string {
   let result = prompt
@@ -87,24 +91,69 @@ export async function aiSafetyCheck({ config }: { config: ResolvedRelizyConfig }
   await provider.safetyCheck(config)
 }
 
-export async function generateAIProviderReleaseBody({ config, rawBody }: { config: ResolvedRelizyConfig, rawBody: string }): Promise<string> {
+function formatElapsed(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+}
+
+/**
+ * The AI is not called in dry-run (each call costs): the raw text is kept
+ * and the output tells that the rewrite is simulated
+ */
+function simulateRewrite({ subject, provider }: { subject: string, provider: string }): void {
+  logger.info(`✨ AI rewrite of ${subject} simulated (dry run, --ai-preview to call the AI): the raw text is kept`)
+  reportStepNote(`${upperFirst(subject)}: AI rewrite simulated (${provider} not called in dry run, see --ai-preview)`, { ai: true })
+  recordAIRewrite({ subject, provider, simulated: true })
+}
+
+function startRewrite({ subject, provider }: { subject: string, provider: string }): () => void {
+  const started = Date.now()
+  logger.info(`✨ Rewriting ${subject} with AI (${provider})`)
+  reportProgress(`Rewriting ${subject} with AI (${provider})`, { ai: true })
+
+  takeAICost()
+
+  return () => {
+    const durationMs = Date.now() - started
+    const costUsd = takeAICost()
+    const cost = costUsd === undefined ? '' : `, $${costUsd.toFixed(3)}`
+    const elapsed = formatElapsed(durationMs)
+    logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${elapsed}${cost}`)
+    reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider}) in ${elapsed}${cost}`, { ai: true })
+    recordAIRewrite({ subject, provider, simulated: false, durationMs, costUsd })
+  }
+}
+
+export async function generateAIProviderReleaseBody({ config, rawBody, label, dryRun = false }: {
+  config: ResolvedRelizyConfig
+  rawBody: string
+  /**
+   * The release, for the output: `v2.0.0`
+   */
+  label?: string
+  dryRun?: boolean
+}): Promise<string> {
   if (!rawBody.trim()) {
     logger.debug('AI skipped: empty changelog body')
     return rawBody
   }
 
   const provider = getAIProvider(config)
+  const subject = label ? `the notes of ${label}` : 'the release notes'
+
   const systemPrompt = assemblePrompt(config, 'providerRelease')
 
-  logger.info(`✨ Rewriting release notes with AI (provider: ${provider.name})`)
   logger.verbose('AI system prompt:', systemPrompt)
   logger.verbose('AI input body:', rawBody)
 
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return rawBody
+  }
+
   try {
-    const started = Date.now()
+    const done = startRewrite({ subject, provider: provider.name })
     const output = await provider.generate(config, { systemPrompt, prompt: rawBody })
-    const elapsed = Date.now() - started
-    logger.info(`✅ AI rewrite done in ${elapsed}ms (${rawBody.length} → ${output.length} chars)`)
+    done()
     logger.verbose('AI output body:', output)
     return output
   }
@@ -113,8 +162,9 @@ export async function generateAIProviderReleaseBody({ config, rawBody }: { confi
   }
 }
 
-export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength }: {
+export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength, dryRun = false }: {
   config: ResolvedRelizyConfig
+  dryRun?: boolean
   /** Input sent to the AI. Typically the rich (non-minified) changelog so the model has context. */
   rawBody: string
   /** Value returned when the AI fails and fallback is 'raw'. Defaults to rawBody. */
@@ -130,18 +180,22 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
 
   const provider = getAIProvider(config)
+  const subject = `the ${PLATFORM_NAMES[platform]} post`
+
   const systemPrompt = assemblePrompt(config, platform, maxLength)
 
-  const maxLengthHint = maxLength ? `, max ${maxLength} chars` : ''
-  logger.info(`✨ Rewriting ${platform} post with AI (provider: ${provider.name}${maxLengthHint})`)
   logger.verbose(`AI system prompt (${platform}):`, systemPrompt)
   logger.verbose(`AI input body (${platform}):`, rawBody)
 
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return fallbackValue
+  }
+
   try {
-    const started = Date.now()
+    const done = startRewrite({ subject, provider: provider.name })
     const output = await provider.generate(config, { systemPrompt, prompt: rawBody, maxLength })
-    const elapsed = Date.now() - started
-    logger.info(`✅ AI rewrite done for ${platform} in ${elapsed}ms (${rawBody.length} → ${output.length} chars)`)
+    done()
     logger.verbose(`AI output body (${platform}):`, output)
     return output
   }
@@ -181,8 +235,9 @@ function escapeAttribute(value: string): string {
  * missing ones (or all of them when the call fails and `ai.fallback` is `raw`)
  * keep their raw changelog.
  */
-export async function generateAISocialReleases({ config, releases, platform, maxLength }: {
+export async function generateAISocialReleases({ config, releases, platform, maxLength, dryRun = false }: {
   config: ResolvedRelizyConfig
+  dryRun?: boolean
   releases: AISocialRelease[]
   platform: 'twitter' | 'slack'
   maxLength?: number
@@ -195,6 +250,8 @@ export async function generateAISocialReleases({ config, releases, platform, max
   }
 
   const provider = getAIProvider(config)
+  const subject = `the ${PLATFORM_NAMES[platform]} post of ${input.length} ${input.length === 1 ? 'version' : 'versions'}`
+
   const releasesPrompt = platform === 'twitter' ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}` : RELEASES_PROMPT
   const systemPrompt = `${assemblePrompt(config, platform, maxLength)}\n\n${releasesPrompt}`
   const prompt = input
@@ -204,18 +261,21 @@ export async function generateAISocialReleases({ config, releases, platform, max
     })
     .join('\n\n')
 
-  const maxLengthHint = maxLength ? `, max ${maxLength} chars` : ''
-  logger.info(`✨ Rewriting ${platform} post of ${input.length} versions with AI (provider: ${provider.name}${maxLengthHint})`)
   logger.verbose(`AI system prompt (${platform}):`, systemPrompt)
   logger.verbose(`AI input body (${platform}):`, prompt)
 
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return new Map()
+  }
+
   try {
-    const started = Date.now()
+    const done = startRewrite({ subject, provider: provider.name })
     const output = await provider.generate(config, { systemPrompt, prompt, maxLength })
+    done()
     const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
     const missing = input.filter(release => !rewritten.get(release.id))
 
-    logger.info(`✅ AI rewrite done for ${platform} in ${Date.now() - started}ms (${rewritten.size}/${input.length} versions)`)
     logger.verbose(`AI output body (${platform}):`, output)
 
     if (missing.length > 0) {

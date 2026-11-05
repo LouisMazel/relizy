@@ -232,26 +232,33 @@ See [`reasoning`](/config/ai#reasoning).
 
 ## Preview with `--dry-run`
 
-In dry-run mode, the AI call **does** execute — that's the point of the
-preview — but nothing is published. You'll see the rewritten output in
-Relizy's log boxes, and the API calls to GitHub, GitLab, Twitter, and
-Slack are skipped.
+In dry-run mode, the AI is **not** called: each call costs, and a dry run
+writes nothing. The release notes and the social posts keep their raw text,
+and the output tells where the AI would rewrite them:
 
 ```bash
 relizy release --patch --dry-run
 ```
 
-In the output you'll see things like:
+```
+◇  1 GitHub release created  272ms  dry run
+│
+✨  The notes of v2.1.0: AI rewrite simulated (claude-code not called in dry run)
+```
+
+In a real release, the output shows the AI while it writes, then how long it took:
 
 ```
-ℹ ✨ Rewriting release notes with AI (provider: claude-code)
-ℹ ✅ AI rewrite done in 1240ms (612 → 431 chars)
+◇  1 GitHub release created  28.9s
+│
+✨  The notes of v2.1.0 rewritten by AI (claude-code) in 27.4s
+```
 
-┌────────────────────────────────────┐
-│ [dry-run] Release Preview          │
-│ Tag: v2.1.0                        │
-│ ...rewritten body here...          │
-└────────────────────────────────────┘
+To see the real AI output without releasing, add `--ai-preview`: the AI is
+called (it costs) and its rewrites are shown in the previews of the dry run.
+
+```bash
+relizy release --patch --dry-run --ai-preview
 ```
 
 For deeper inspection, bump the log level:
@@ -260,8 +267,8 @@ For deeper inspection, bump the log level:
 relizy release --patch --dry-run --log-level verbose
 ```
 
-This prints the full system prompt, the raw input, and the AI output for
-every target.
+This prints the full system prompt and the raw input of every target (and
+the AI output, in a real release).
 
 ## Per-target control
 
@@ -378,8 +385,7 @@ Counts per release:
 - Provider release: **1 call** (or 1 per package in independent mode).
 - Social: **1 call per enabled platform**.
 
-Use `--dry-run` while you're tuning prompts to avoid spending on trial
-runs that don't publish.
+`--dry-run` makes no AI call, so it costs nothing (unless `--ai-preview`).
 
 ## Before / after
 
@@ -501,7 +507,7 @@ pnpm add -D ai @ai-sdk/openai
 The error of the provider package is in the warning (or in the error with
 `fallback: 'fail'`). The most common cause is a missing API key: check
 the environment variable read by your provider package (e.g.
-`OPENAI_API_KEY`). Preview with `--dry-run` to see it before releasing.
+`OPENAI_API_KEY`).
 
 ### "Unknown AI provider"
 
@@ -512,8 +518,9 @@ want to plug your own.
 
 ### The AI output isn't what I want
 
-1. Preview with `--dry-run --log-level verbose` to see the exact prompt
-   and input.
+1. Run with `--dry-run --log-level verbose` to see the exact prompt
+   and input, without calling the AI, then `--dry-run --ai-preview` to
+   see its output.
 2. Start with `extraGuidelines` — it's the lightest lever.
 3. Move to `systemPromptOverrides` for a target when you need full
    control.

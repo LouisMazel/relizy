@@ -1,5 +1,6 @@
 import { execPromise, logger } from '@maz-ui/node'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
@@ -441,5 +442,68 @@ describe('Given publish command and the workspace dependencies', () => {
     await expect(publish({ groups: ['header'] })).rejects.toThrow('the config has no monorepo.groups')
 
     expect(publishPackage).not.toHaveBeenCalled()
+  })
+})
+
+describe('Given the output of publish in CI', () => {
+  const packages = [
+    createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', newVersion: '1.1.0', path: '/pkg-a', commits: [], dependencies: [] }),
+    createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', newVersion: '2.1.0', path: '/pkg-b', commits: [], dependencies: [] }),
+  ]
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' }, safetyCheck: false }))
+    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(packages)
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells each step: the packages, the build, each publish, then the npm pages', async () => {
+    await publish({})
+
+    expect(output.lines()).toEqual([
+      'relizy publish · ci',
+      '▸ Checking the packages to publish',
+      expect.stringMatching(/^✔ pkg-a@1\.1\.0, pkg-b@2\.1\.0 to publish {2}\d+ms$/),
+      '▸ Building the packages',
+      '  › Building the packages (pnpm build)',
+      expect.stringMatching(/^✔ Packages built {2}\d+ms$/),
+      '▸ Publishing the packages',
+      '  › Publishing pkg-a@1.1.0 (1/2)',
+      '  › Publishing pkg-b@2.1.0 (2/2)',
+      expect.stringMatching(/^✔ Published pkg-a@1\.1\.0, pkg-b@2\.1\.0 {2}\d+ms$/),
+      '  https://www.npmjs.com/package/pkg-a/v/1.1.0',
+      '  https://www.npmjs.com/package/pkg-b/v/2.1.0',
+      expect.stringMatching(/^✔ Published pkg-a@1\.1\.0, pkg-b@2\.1\.0 {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is nothing to publish', async () => {
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(getPackagesToPublishInSelectiveMode).mockReturnValue([])
+
+    await publish({})
+
+    expect(output.lines().at(-1)).toMatch(/^○ No package to publish {2}\d+ms$/)
+  })
+
+  it('Then shows the error once', async () => {
+    vi.mocked(publishPackage).mockRejectedValueOnce(new Error('E403 Forbidden'))
+
+    await expect(publish({})).rejects.toThrow('E403 Forbidden')
+
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Publishing the packages failed {2}\d+ms$/),
+      '✖ Publish failed',
+      '  E403 Forbidden',
+    ]))
   })
 })

@@ -321,7 +321,7 @@ export default defineConfig({
 
 ### From the CI
 
-The release also writes its report for the next steps of the CI: its outputs (`released`, `version`, `tags`, `packages`) and a summary.
+The release also writes its report for the next steps of the CI: its outputs (`released`, `version`, `tags`, `packages`, `urls`...) and a summary (see [`release.report`](../config/release.md#report)).
 
 On **GitHub Actions**, the outputs of the step and the summary of the run are written without option:
 
@@ -346,6 +346,17 @@ notify:
   needs: [release]
   script:
     - '[ "$RELIZY_RELEASED" = "true" ] && ./scripts/notify-teams.sh "$RELIZY_VERSION" || echo "Nothing released"'
+```
+
+GitLab CI has no summary of the run: write it to a markdown file (`--report-markdown relizy-summary.md`) and expose it as an artifact, or read it in the comment of the merge request ([PR comment](./pr-comment.md)).
+
+```yaml
+release:
+  script:
+    - pnpm relizy release --yes --report-markdown relizy-summary.md
+  artifacts:
+    expose_as: Release summary
+    paths: [relizy-summary.md]
 ```
 
 In a script, read the JSON report (`--report-json relizy.json`), or the return value of [`release()`](../api/release.md).

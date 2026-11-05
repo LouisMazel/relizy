@@ -3,10 +3,11 @@ import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
-import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import micromatch from 'micromatch'
+import { isRelizyCancelError } from './errors'
+import { askText } from './prompts'
 import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
 import { isPrerelease } from './version'
@@ -94,16 +95,19 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
   }
 }
 
-export function determinePublishTag(version: string, configTag?: string): string {
-  let tag: string = 'latest'
+/**
+ * The dist-tag of a version: the configured one, else `next` for a
+ * prerelease and `latest` otherwise
+ */
+export function getPublishTag(version: string, configTag?: string): string {
+  return configTag || (isPrerelease(version) ? 'next' : 'latest')
+}
 
-  if (configTag) {
-    tag = configTag
-  }
+export function determinePublishTag(version: string, configTag?: string): string {
+  const tag = getPublishTag(version, configTag)
 
   if (isPrerelease(version) && !configTag) {
     logger.warn('You are about to publish a "prerelease" version with the "latest" tag. To avoid mistake, the tag is set to "next"')
-    tag = 'next'
   }
 
   if (isPrerelease(version) && configTag === 'latest') {
@@ -743,7 +747,7 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
       reject(new Error('OTP input timeout'))
     }, timeout)
 
-    input({
+    askText({
       message: 'This operation requires a one-time password (OTP). Please enter your OTP:',
     })
       .then((otp) => {
@@ -752,7 +756,8 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
       })
       .catch((error) => {
         clearTimeout(timer)
-        reject(error)
+        // Not a cancelled run: packages may already be published, the publish fails
+        reject(isRelizyCancelError(error) ? new Error('OTP input cancelled', { cause: error }) : error)
       })
   })
 }

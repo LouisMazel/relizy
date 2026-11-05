@@ -57,6 +57,24 @@ Preview changes without making them:
 relizy release --patch --dry-run
 ```
 
+A dry run shows what it would generate: the changelogs, the release notes, the social posts and the PR comment. The AI is not called (each call costs): its rewrites are simulated.
+
+### --no-preview
+
+With `--dry-run`, hide what would be generated (shown with `--log-level verbose`):
+
+```bash
+relizy release --patch --dry-run --no-preview
+```
+
+### --ai-preview
+
+With `--dry-run`, call the AI to preview its rewrites of the release notes and the social posts, instead of simulating them. Each call costs, as in a real release:
+
+```bash
+relizy release --patch --dry-run --ai-preview
+```
+
 ### --group
 
 Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Works with `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`:
@@ -72,6 +90,19 @@ Skip all interactive prompts:
 
 ```bash
 relizy release --patch --yes
+```
+
+## Output
+
+Each command shows one line per step, with its duration, and ends with what it did (`relizy release` with a summary of the release). The details are only shown with `--log-level verbose`, and always written to `node_modules/.cache/relizy/release.log`.
+
+- **In a terminal**: an interactive output, with a spinner telling what the running step does (the AI rewrites included).
+- **In CI** (or when the output is not a terminal): lines only, the logs of each step in a collapsible group of GitHub Actions or GitLab CI, the result after it, the warnings and errors as annotations on GitHub. Colored, unless `NO_COLOR` is set.
+
+`RELIZY_REPORTER` forces the output: `pretty` (terminal), `ci` or `classic` (the logs of the logger, as relizy 1). The programmatic API uses `classic` unless `RELIZY_REPORTER` is set.
+
+```bash
+RELIZY_REPORTER=ci relizy release --dry-run --yes
 ```
 
 ## Quick Examples

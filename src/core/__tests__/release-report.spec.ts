@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { createMockConfig } from '../../../tests/mocks'
-import { formatReleaseReportMarkdown, formatReleaseReportText, getReleaseReportOutputs, writeReleaseReport } from '../release-report'
+import { describeReleaseAI, describeReleaseContent, formatReleaseReportMarkdown, formatReleaseReportText, getReleaseReportOutputs, getReleaseSummary, writeReleaseReport } from '../release-report'
 
 const groupsRelease: ReleaseReport['release'] = {
   projectName: 'maz-ui',
@@ -31,6 +31,29 @@ const released: ReleaseReport = {
 
 const nothing: ReleaseReport = { status: 'nothing', released: false, dryRun: false, canary: false, tags: [], steps: [] }
 
+// A release with what the summary tells: content, git, publication, AI and links
+const detailed: ReleaseReport = {
+  status: 'released',
+  released: true,
+  dryRun: false,
+  canary: false,
+  release: { projectName: 'relizy', groups: [{ name: '', title: 'relizy', versionMode: 'unified', version: '2.0.0', oldVersion: '1.14.3', tag: 'v2.0.0', packages: [{ name: 'relizy', oldVersion: '1.14.3', newVersion: '2.0.0', tag: 'v2.0.0', private: false }] }] },
+  version: '2.0.0',
+  tags: ['v2.0.0'],
+  steps: [
+    { name: 'changelog', status: 'done' },
+    { name: 'publish', status: 'done', detail: 'relizy@2.0.0', links: [{ label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' }] },
+    { name: 'commit', status: 'done', detail: 'v2.0.0' },
+    { name: 'push', status: 'done' },
+    { name: 'providerRelease', status: 'done', detail: '1 release on github', links: [{ label: 'v2.0.0', url: 'https://github.com/user/relizy/releases/tag/v2.0.0' }] },
+    { name: 'social', status: 'skipped' },
+  ],
+  content: { commits: 21, features: 11, fixes: 7, breaking: 7, contributors: 2 },
+  git: { branch: 'main', commit: 'a1b2c3d', remote: 'origin/main' },
+  publish: { tags: ['latest'], registries: ['registry.npmjs.org'], install: 'pnpm add relizy@2.0.0' },
+  ai: { provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 31200, costUsd: 0.0421 },
+}
+
 describe('Given the renderers of the release report', () => {
   it('Then renders a release as text for the terminal', () => {
     expect(formatReleaseReportText(released)).toBe([
@@ -47,15 +70,62 @@ describe('Given the renderers of the release report', () => {
     expect(formatReleaseReportText({ ...nothing, status: 'failed', error: 'boom' })).toBe('Release failed\n\nError: boom')
   })
 
-  it('Then renders a release as markdown for the summary of GitHub Actions', () => {
+  it('Then renders a release as markdown, with a table per version group', () => {
     const markdown = formatReleaseReportMarkdown(released)
 
-    expect(markdown).toContain('## 🚀 Relizy: release completed')
+    expect(markdown).toContain('## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0')
     expect(markdown).toContain('### maz-ui `5.2.1` (selective)\n\n| Package | Version |\n| --- | --- |\n| `maz-ui` | `5.2.0` → `5.2.1` |')
     expect(markdown).toContain('### Tooling (independent)')
-    expect(markdown).toContain('**Tags:** `v5.2.1`, `@maz-ui/eslint-config@5.1.0`')
-    expect(markdown).toContain('| Social media | ⚠️ slack: down |')
-    expect(formatReleaseReportMarkdown(nothing)).toBe('## ℹ️ Relizy: nothing to release\n')
+    expect(markdown).toContain('| **Tags** | `v5.2.1, @maz-ui/eslint-config@5.1.0` |')
+    // A failed step does not stop the release
+    expect(markdown).toContain('| ⚠️ **Social media** | slack: down |')
+    expect(markdown).toContain('| ⏭️ **PR comment** | skipped |')
+  })
+
+  it('Then renders the summary of a release as markdown: what each step did, with its links', () => {
+    const markdown = formatReleaseReportMarkdown(detailed)
+
+    expect(markdown).toContain('| **Content** | 11 features · 7 fixes · 7 breaking · 2 contributors |')
+    // A link replaces its label in the value, else follows it
+    expect(markdown).toContain('| ✅ **Publish** | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |')
+    expect(markdown).toContain('| ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/user/relizy/releases/tag/v2.0.0) |')
+    expect(markdown).toContain('| ✅ **Commit and tags** | a1b2c3d · v2.0.0 |')
+    expect(markdown).toContain('| ✅ **Push** | main → origin/main |')
+    expect(markdown).toContain('| ✨ **AI** | 2 rewrites by claude-code in 31.2s · $0.042 |')
+    expect(markdown).toContain('| **Install** | `pnpm add relizy@2.0.0` |')
+    // The packages and their versions, even for a single package
+    expect(markdown).toContain('### Packages\n\n| Package | Version |\n| --- | --- |\n| `relizy` | `1.14.3` → `2.0.0` |')
+    expect(markdown).toMatch(/<sub>`main` · \d{4}-\d{2}-\d{2} \d{2}:\d{2} UTC · by \[relizy\]\(https:\/\/relizy\.dev\)<\/sub>\n$/)
+  })
+
+  it('Then tells a dry run, nothing to release and a failure apart', () => {
+    expect(formatReleaseReportMarkdown({ ...detailed, dryRun: true, released: false })).toContain('## 🧪 Dry run: relizy 2.0.0\n\nNothing was written nor published.')
+    expect(formatReleaseReportMarkdown(nothing)).toContain('## ℹ️ Nothing to release\n\nNo commit since the last release triggers a new version.')
+    expect(formatReleaseReportMarkdown({ ...nothing, status: 'failed', error: 'npm publish failed\nat line 2' })).toContain('## ❌ Release failed\n\n> npm publish failed\n')
+  })
+
+  it('Then gives the summary as label and value pairs', () => {
+    expect(getReleaseSummary(detailed).map(({ label, value }) => `${label}: ${value}`)).toEqual([
+      'Version: 2.0.0',
+      'Tag: v2.0.0',
+      'Content: 11 features · 7 fixes · 7 breaking · 2 contributors',
+      'Changelog: done',
+      'Publish: relizy@2.0.0 · latest · registry.npmjs.org',
+      'Commit and tags: a1b2c3d · v2.0.0',
+      'Push: main → origin/main',
+      'Provider release: 1 release on github',
+      'Social media: skipped',
+      'AI: 2 rewrites by claude-code in 31.2s · $0.042',
+      'Install: pnpm add relizy@2.0.0',
+    ])
+    expect(getReleaseSummary(nothing)).toEqual([])
+  })
+
+  it('Then describes the content and the AI in words', () => {
+    expect(describeReleaseContent({ commits: 3, features: 0, fixes: 0, breaking: 0, contributors: 0 })).toBe('3 commits')
+    expect(describeReleaseContent({ commits: 2, features: 1, fixes: 1, breaking: 0, contributors: 1 })).toBe('1 feature · 1 fix · 1 contributor')
+    expect(describeReleaseAI({ provider: 'claude-code', rewrites: 1, simulated: true, durationMs: 0 })).toBe('1 rewrite simulated (claude-code)')
+    expect(describeReleaseAI({ provider: 'ai-sdk', rewrites: 1, simulated: false, durationMs: 800 })).toBe('1 rewrite by ai-sdk in 800ms')
   })
 
   it('Then gives the outputs of the release', () => {
@@ -65,8 +135,20 @@ describe('Given the renderers of the release report', () => {
       version: '5.2.1',
       tags: 'v5.2.1,@maz-ui/eslint-config@5.1.0',
       packages: 'maz-ui@5.2.1,@maz-ui/eslint-config@5.1.0',
+      branch: '',
+      commit: '',
+      dist_tags: '',
+      urls: '',
+      install: '',
     })
-    expect(getReleaseReportOutputs(nothing)).toEqual({ released: 'false', status: 'nothing', version: '', tags: '', packages: '' })
+    expect(getReleaseReportOutputs(detailed)).toEqual(expect.objectContaining({
+      branch: 'main',
+      commit: 'a1b2c3d',
+      dist_tags: 'latest',
+      urls: 'https://www.npmjs.com/package/relizy/v/2.0.0,https://github.com/user/relizy/releases/tag/v2.0.0',
+      install: 'pnpm add relizy@2.0.0',
+    }))
+    expect(getReleaseReportOutputs(nothing)).toEqual(expect.objectContaining({ released: 'false', status: 'nothing', version: '', tags: '', packages: '' }))
   })
 })
 
@@ -94,6 +176,8 @@ describe('Given writeReleaseReport function', () => {
     const output = readFileSync(join(cwd, 'output'), 'utf8')
     expect(output).toContain('previous=1\nreleased=true\nstatus=released\nversion=5.2.1\n')
     expect(JSON.parse(output.split('\n').find(line => line.startsWith('report='))!.slice('report='.length))).toEqual(released)
+    // The multiline summary, between its delimiters
+    expect(output).toContain(`summary<<RELIZY_SUMMARY_EOF\n${formatReleaseReportMarkdown(released).trimEnd()}\nRELIZY_SUMMARY_EOF\n`)
     expect(readFileSync(join(cwd, 'summary'), 'utf8')).toBe(formatReleaseReportMarkdown(released))
   })
 
@@ -111,9 +195,10 @@ describe('Given writeReleaseReport function', () => {
   it('Then writes the JSON and dotenv files', () => {
     const config = createMockConfig({ bump: { type: 'release' } })
 
-    writeReleaseReport({ config: { ...config, cwd, release: { ...config.release, report: { json: 'reports/relizy.json', dotenv: 'relizy.env' } } }, report: nothing })
+    writeReleaseReport({ config: { ...config, cwd, release: { ...config.release, report: { json: 'reports/relizy.json', dotenv: 'relizy.env', markdown: 'reports/summary.md' } } }, report: nothing })
 
     expect(JSON.parse(readFileSync(join(cwd, 'reports/relizy.json'), 'utf8'))).toEqual(nothing)
-    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\n')
+    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\nRELIZY_INSTALL=\n')
+    expect(readFileSync(join(cwd, 'reports/summary.md'), 'utf8')).toBe(formatReleaseReportMarkdown(nothing))
   })
 })

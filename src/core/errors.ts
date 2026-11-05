@@ -12,9 +12,18 @@ export function isRelizyCancelError(error: unknown): error is RelizyCancelError 
   return error instanceof RelizyCancelError
 }
 
+const REPORTED = Symbol.for('relizy.errorReported')
+
 /**
- * True when an `@inquirer/prompts` prompt was closed by the user (Ctrl+C)
+ * Mark an error as already shown to the user (by the release output), so
+ * that the CLI does not print it a second time
  */
-export function isPromptExitError(error: unknown): boolean {
-  return error instanceof Error && error.name === 'ExitPromptError'
+export function markErrorReported(error: unknown): void {
+  if (error && typeof error === 'object') {
+    Object.defineProperty(error, REPORTED, { value: true })
+  }
+}
+
+export function isErrorReported(error: unknown): boolean {
+  return Boolean(error && typeof error === 'object' && (error as Record<symbol, unknown>)[REPORTED])
 }

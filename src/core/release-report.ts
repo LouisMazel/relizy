@@ -5,6 +5,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { getReleaseLines } from './release-overview'
 
 export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'prComment'
 
@@ -18,6 +19,59 @@ export interface ReleaseStepReport {
    * What the step did, or why it failed
    */
   detail?: string
+  /**
+   * What the step created: the provider releases, the npm pages, the tweet, the pull request
+   */
+  links?: { label: string, url: string }[]
+}
+
+/**
+ * What the release contains
+ */
+export interface ReleaseContent {
+  commits: number
+  features: number
+  fixes: number
+  breaking: number
+  contributors: number
+}
+
+export interface ReleaseGit {
+  branch: string
+  /**
+   * Short hash of the release commit (not in dry-run)
+   */
+  commit?: string
+  /**
+   * Where the release is pushed: `origin/main`
+   */
+  remote?: string
+}
+
+export interface ReleasePublish {
+  /**
+   * Dist-tags of the published versions: `latest`
+   */
+  tags: string[]
+  /**
+   * Hosts of the registries: `registry.npmjs.org`
+   */
+  registries: string[]
+  /**
+   * Command installing the published versions, up to 3 packages
+   */
+  install?: string
+}
+
+export interface ReleaseAI {
+  provider: string
+  rewrites: number
+  /**
+   * Not called (dry run without `--ai-preview`)
+   */
+  simulated: boolean
+  durationMs: number
+  costUsd?: number
 }
 
 /**
@@ -49,6 +103,10 @@ export interface ReleaseReport {
    * The steps run after the bump, in order
    */
   steps: ReleaseStepReport[]
+  content?: ReleaseContent
+  git?: ReleaseGit
+  publish?: ReleasePublish
+  ai?: ReleaseAI
   error?: string
 }
 
@@ -65,6 +123,7 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
 const STATUS_ICONS: Record<ReleaseStepReport['status'], string> = {
   done: '✅',
   skipped: '⏭️',
+  // A failed step does not stop the release (social posts, provider release)
   failed: '⚠️',
 }
 
@@ -83,6 +142,108 @@ function getHeadline(report: ReleaseReport): string {
   }
 
   return report.status === 'nothing' ? `Nothing to release${dryRun}` : `Release completed${dryRun}`
+}
+
+export interface ReleaseSummaryEntry {
+  label: string
+  value: string
+  status?: ReleaseStepReport['status']
+  links?: { label: string, url: string }[]
+}
+
+function plural(count: number, word: string, plural = `${word}s`): string {
+  return `${count} ${count === 1 ? word : plural}`
+}
+
+export function formatDurationMs(ms: number): string {
+  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
+}
+
+/**
+ * What the release contains, in words: `6 features · 9 fixes · 3 breaking · 2 contributors`,
+ * else its commits
+ */
+export function describeReleaseContent(content: ReleaseContent): string {
+  const changes = content.features + content.fixes + content.breaking
+
+  return [
+    changes ? '' : plural(content.commits, 'commit'),
+    content.features ? plural(content.features, 'feature') : '',
+    content.fixes ? plural(content.fixes, 'fix', 'fixes') : '',
+    content.breaking ? `${content.breaking} breaking` : '',
+    content.contributors ? plural(content.contributors, 'contributor') : '',
+  ].filter(Boolean).join(' · ')
+}
+
+/**
+ * The AI of the release, in words: `2 rewrites in 31.2s · $0.042`
+ */
+export function describeReleaseAI(ai: ReleaseAI): string {
+  if (ai.simulated) {
+    return `${plural(ai.rewrites, 'rewrite')} simulated (${ai.provider})`
+  }
+
+  const cost = ai.costUsd === undefined ? '' : ` · $${ai.costUsd.toFixed(3)}`
+  return `${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDurationMs(ai.durationMs)}${cost}`
+}
+
+/**
+ * What a step did, with what the release knows of it
+ */
+function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
+  if (step.status === 'skipped') {
+    return 'skipped'
+  }
+
+  if (step.status === 'done' && step.name === 'publish' && report.publish) {
+    return [step.detail, ...report.publish.tags, ...report.publish.registries].filter(Boolean).join(' · ')
+  }
+
+  if (step.status === 'done' && step.name === 'commit' && report.git?.commit) {
+    return [report.git.commit, step.detail].filter(Boolean).join(' · ')
+  }
+
+  if (step.status === 'done' && step.name === 'push' && report.git) {
+    return report.git.remote ? `${report.git.branch} → ${report.git.remote}` : report.git.branch
+  }
+
+  return step.detail ?? (step.status === 'done' ? 'done' : 'failed')
+}
+
+/**
+ * The report as label and value pairs: the versions and what the release
+ * contains, then each step with what it created, then the AI and the install
+ */
+export function getReleaseSummary(report: ReleaseReport): ReleaseSummaryEntry[] {
+  const entries: ReleaseSummaryEntry[] = report.status === 'nothing'
+    ? []
+    : getVersionLines(report).map(line => ({ label: 'Version', value: line }))
+
+  if (report.tags.length > 0) {
+    entries.push({ label: report.tags.length === 1 ? 'Tag' : 'Tags', value: report.tags.join(', ') })
+  }
+
+  // A forced release without commit has nothing to tell
+  if (report.content?.commits) {
+    entries.push({ label: 'Content', value: describeReleaseContent(report.content) })
+  }
+
+  entries.push(...report.steps.map(step => ({
+    label: STEP_LABELS[step.name],
+    value: describeStep(step, report),
+    status: step.status,
+    ...(step.links?.length ? { links: step.links } : {}),
+  })))
+
+  if (report.ai) {
+    entries.push({ label: 'AI', value: describeReleaseAI(report.ai) })
+  }
+
+  if (report.publish?.install) {
+    entries.push({ label: 'Install', value: report.publish.install })
+  }
+
+  return entries
 }
 
 /**
@@ -108,46 +269,96 @@ export function formatReleaseReportText(report: ReleaseReport): string {
   return lines.join('\n').trim()
 }
 
+/** Values shown as code */
+const CODE_LABELS = new Set(['Version', 'Tag', 'Tags', 'Install'])
+
+function formatMarkdownLink({ label, url }: { label: string, url: string }): string {
+  return `[${label}](${url})`
+}
+
+function getReleaseName(report: ReleaseReport): string {
+  return getReleaseLines(report.release ?? { projectName: '', groups: [] }).map(line => `${line.name} ${line.version}`).join(', ')
+}
+
+function getMarkdownHeadline(report: ReleaseReport): string[] {
+  if (report.status === 'failed') {
+    return [`## ❌ Release failed${report.dryRun ? ' (dry run)' : ''}`, '', ...(report.error ? [`> ${report.error.split('\n')[0]}`, ''] : [])]
+  }
+
+  if (report.status === 'nothing') {
+    return ['## ℹ️ Nothing to release', '', 'No commit since the last release triggers a new version.', '']
+  }
+
+  return report.dryRun
+    ? [`## 🧪 Dry run: ${getReleaseName(report)}`, '', 'Nothing was written nor published.', '']
+    : [`## 🚀 Released ${getReleaseName(report)}`, '']
+}
+
 /**
- * The report as markdown, for the summary of a GitHub Actions run
+ * The packages of the release and their versions, by group
+ */
+function getMarkdownPackages(report: ReleaseReport): string[] {
+  const groups = report.status === 'nothing' ? [] : report.release?.groups ?? []
+
+  return groups.flatMap((group) => {
+    const version = group.version ? ` \`${group.version}\`` : ''
+    const title = groups.length > 1 || group.name ? [`### ${group.title}${version} (${group.versionMode})`, ''] : ['### Packages', '']
+
+    return [
+      ...title,
+      '| Package | Version |',
+      '| --- | --- |',
+      ...group.packages.map(pkg => pkg.oldVersion === pkg.newVersion
+        ? `| \`${pkg.name}\` | \`${pkg.newVersion}\` |`
+        : `| \`${pkg.name}\` | \`${pkg.oldVersion}\` → \`${pkg.newVersion}\` |`),
+      '',
+    ]
+  })
+}
+
+/**
+ * The report as markdown, as the summary of the terminal: for the summary of
+ * a GitHub Actions run, the comment of the pull request, and `release.report.markdown`
  */
 export function formatReleaseReportMarkdown(report: ReleaseReport): string {
-  const icon = { released: '🚀', nothing: 'ℹ️', failed: '❌' }[report.status]
-  const lines = [`## ${icon} Relizy: ${getHeadline(report).toLowerCase()}`, '']
+  const rows = getReleaseSummary(report).map(({ label, value, status, links = [] }) => {
+    const icon = status ? `${STATUS_ICONS[status]} ` : label === 'AI' ? '✨ ' : ''
+    let text = CODE_LABELS.has(label) ? `\`${value}\`` : value
+    // A link replaces its label in the value, else follows it
+    const others = links.filter((link) => {
+      if (!CODE_LABELS.has(label) && text.includes(link.label)) {
+        text = text.replace(link.label, formatMarkdownLink(link))
+        return false
+      }
+      return true
+    })
+    const linksText = others.length > 0 ? `<br>${others.map(formatMarkdownLink).join(' · ')}` : ''
+    return `| ${icon}**${label}** | ${text}${linksText} |`
+  })
 
-  if (report.error) {
-    lines.push(`**Error:** \`${report.error}\``, '')
-  }
-
-  for (const group of report.status === 'nothing' ? [] : report.release?.groups ?? []) {
-    if (report.release!.groups.length > 1 || group.name) {
-      const version = group.version ? ` \`${group.version}\`` : ''
-      lines.push(`### ${group.title}${version} (${group.versionMode})`, '')
-    }
-
-    lines.push('| Package | Version |', '| --- | --- |')
-    lines.push(...group.packages.map(pkg => pkg.oldVersion === pkg.newVersion
-      ? `| \`${pkg.name}\` | \`${pkg.newVersion}\` |`
-      : `| \`${pkg.name}\` | \`${pkg.oldVersion}\` → \`${pkg.newVersion}\` |`))
-    lines.push('')
-  }
-
-  if (report.tags.length > 0) {
-    const tags = report.tags.map(tag => `\`${tag}\``).join(', ')
-    lines.push(`**Tags:** ${tags}`, '')
-  }
-
-  if (report.steps.length > 0) {
-    lines.push('| Step | Status |', '| --- | --- |')
-    lines.push(...report.steps.map(step => `| ${STEP_LABELS[step.name]} | ${STATUS_ICONS[step.status]} ${step.status === 'skipped' ? 'skipped' : step.detail ?? step.status} |`))
-  }
+  const lines = [
+    ...getMarkdownHeadline(report),
+    ...(rows.length > 0 ? ['| | |', '| --- | --- |', ...rows, ''] : []),
+    ...getMarkdownPackages(report),
+    `<sub>${getMarkdownFooter(report)}</sub>`,
+  ]
 
   return `${lines.join('\n').trim()}\n`
 }
 
+function getMarkdownFooter(report: ReleaseReport): string {
+  const branch = report.git ? `\`${report.git.branch}\`` : ''
+  return [branch, formatDate(new Date()), 'by [relizy](https://relizy.dev)'].filter(Boolean).join(' · ')
+}
+
+function formatDate(date: Date): string {
+  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+}
+
 /**
- * The outputs of the report: `released`, `status`, `version`, `tags` and
- * `packages` (comma-separated `name@version`)
+ * The outputs of the report: `released`, `status`, `version`, `tags`,
+ * `packages` (comma-separated `name@version`), `branch`, `commit`,
+ * `dist_tags`, `urls` (what the release created) and `install`
  */
 export function getReleaseReportOutputs(report: ReleaseReport): Record<string, string> {
   const packages = (report.release?.groups ?? []).flatMap(group => group.packages)
@@ -158,8 +369,15 @@ export function getReleaseReportOutputs(report: ReleaseReport): Record<string, s
     version: report.version ?? '',
     tags: report.tags.join(','),
     packages: packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(','),
+    branch: report.git?.branch ?? '',
+    commit: report.git?.commit ?? '',
+    dist_tags: report.publish?.tags.join(',') ?? '',
+    urls: report.steps.flatMap(step => step.links ?? []).map(link => link.url).join(','),
+    install: report.publish?.install ?? '',
   }
 }
+
+const OUTPUT_DELIMITER = 'RELIZY_SUMMARY_EOF'
 
 function writeFile(path: string, content: string): void {
   mkdirSync(dirname(path), { recursive: true })
@@ -175,16 +393,19 @@ function writeFile(path: string, content: string): void {
 export function writeReleaseReport({ config, report }: { config: ResolvedRelizyConfig, report: ReleaseReport }): void {
   const reportConfig: ReleaseReportConfig = config.release.report ?? {}
   const outputs = getReleaseReportOutputs(report)
+  const markdown = formatReleaseReportMarkdown(report)
 
   try {
     if (reportConfig.github !== false && process.env.GITHUB_ACTIONS === 'true') {
       if (process.env.GITHUB_OUTPUT) {
         const lines = [...Object.entries(outputs), ['report', JSON.stringify(report)]].map(([name, value]) => `${name}=${value}`)
+        // Multiline: the markdown summary, to reuse in another step (comment, message)
+        lines.push(`summary<<${OUTPUT_DELIMITER}`, markdown.trimEnd(), OUTPUT_DELIMITER)
         appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`)
       }
 
       if (process.env.GITHUB_STEP_SUMMARY) {
-        appendFileSync(process.env.GITHUB_STEP_SUMMARY, formatReleaseReportMarkdown(report))
+        appendFileSync(process.env.GITHUB_STEP_SUMMARY, markdown)
       }
 
       logger.debug('Release report written to the outputs and the summary of the GitHub Actions run')
@@ -193,6 +414,11 @@ export function writeReleaseReport({ config, report }: { config: ResolvedRelizyC
     if (reportConfig.json) {
       writeFile(resolve(config.cwd, reportConfig.json), `${JSON.stringify(report, null, 2)}\n`)
       logger.debug(`Release report written to ${reportConfig.json}`)
+    }
+
+    if (reportConfig.markdown) {
+      writeFile(resolve(config.cwd, reportConfig.markdown), markdown)
+      logger.debug(`Release report written to ${reportConfig.markdown}`)
     }
 
     if (reportConfig.dotenv) {

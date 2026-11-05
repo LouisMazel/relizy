@@ -201,6 +201,31 @@ function getImportedNames(text: string): Map<string, string> {
     })))
 }
 
+function checkReleaseSummary(config: ResolvedRelizyConfig): MigrationFinding[] {
+  return config.release.prComment && !isOnRelizy2(config.cwd)
+    ? [{
+        severity: 'review',
+        title: 'The PR comment of a release is its summary',
+        section: 'Release Summary',
+        detail: 'With `relizy release`, the comment is the summary of the release (steps, links, AI, install command, package table), as the summary of the GitHub Actions run. Check it with `relizy release --dry-run` if a tool reads the comment.',
+      }]
+    : []
+}
+
+function checkAIDryRun(config: ResolvedRelizyConfig): MigrationFinding[] {
+  const ai = config.ai
+  const enabled = ai?.providerRelease?.enabled || ai?.social?.twitter?.enabled || ai?.social?.slack?.enabled
+
+  return enabled && !isOnRelizy2(config.cwd)
+    ? [{
+        severity: 'review',
+        title: '`--dry-run` no longer calls the AI',
+        section: 'No AI Call in Dry Run',
+        detail: 'A dry run simulates the AI rewrites of the release notes and the social posts (each call costs): add `--ai-preview` to call the AI and see its output, e.g. in a CI job previewing the release.',
+      }]
+    : []
+}
+
 function checkSourceFiles(cwd: string): MigrationFinding[] {
   const files = readSourceFiles(cwd)
   const collect = (pattern: RegExp, only?: (text: string) => boolean) => files
@@ -252,15 +277,29 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
   return checks.filter(check => check.locations.length > 0)
 }
 
-function checkDependency(cwd: string): MigrationFinding[] {
+/**
+ * The range of relizy required by the project, if any
+ */
+function getRelizyRange(cwd: string): string | undefined {
   const packageJsonPath = join(cwd, 'package.json')
 
   if (!existsSync(packageJsonPath)) {
-    return []
+    return undefined
   }
 
   const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as Record<string, Record<string, string> | undefined>
-  const range = packageJson.devDependencies?.relizy ?? packageJson.dependencies?.relizy
+  return packageJson.devDependencies?.relizy ?? packageJson.dependencies?.relizy
+}
+
+/**
+ * The project already requires relizy 2: the changes of behavior are not news
+ */
+function isOnRelizy2(cwd: string): boolean {
+  return /^[~^]?2\./.test(getRelizyRange(cwd) ?? '')
+}
+
+function checkDependency(cwd: string): MigrationFinding[] {
+  const range = getRelizyRange(cwd)
 
   return range && /^[~^]?1\./.test(range)
     ? [{ severity: 'change', title: `\`relizy\` is required as ${code(range)} in \`package.json\``, section: 'Upgrade', detail: 'Install relizy 2: `pnpm add -D relizy@^2` (or the command of your package manager).' }]
@@ -292,6 +331,8 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkTemplates(config, configFiles, severalVersions),
     ...checkDependencyTypes(config, configFiles),
     ...checkVersionGroups(config, configFiles),
+    ...checkAIDryRun(config),
+    ...checkReleaseSummary(config),
     ...checkSourceFiles(config.cwd),
   ]
   const changes = findings.filter(finding => finding.severity === 'change')

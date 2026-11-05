@@ -3,6 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
+import { reportProgress } from './progress'
 import { getReleaseOverview } from './release-overview'
 import { getPackages } from './repo'
 
@@ -196,6 +197,7 @@ export async function executeBuildCmd({
 }) {
   if (config.publish?.buildCmd) {
     logger.info('Running build command')
+    reportProgress(`Building the packages (${config.publish.buildCmd})`)
 
     logger.debug(`Running build command: ${config.publish.buildCmd}`)
 

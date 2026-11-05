@@ -3,6 +3,7 @@ import type { ResolvedRelizyConfig } from '../config'
 import { createMockConfig } from '../../../tests/mocks'
 import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog, generateAISocialReleases } from '../ai/index'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from '../ai/prompts'
+import { recordAICost, setDryRunOptions, setProgressHandlers, takeReleaseFacts } from '../progress'
 
 let fakeProvider: AIProvider & { lastRequest?: AIGenerateRequest, safetyCheckCalled: boolean }
 
@@ -218,5 +219,68 @@ describe('generateAISocialReleases', () => {
 
     await expect(generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })).resolves.toEqual(new Map())
     await expect(generateAISocialReleases({ config: createMockConfig({ ai: { fallback: 'fail' } }), releases, platform: 'slack' })).rejects.toThrow('AI generation failed: down')
+  })
+})
+
+describe('Given the AI in a dry run', () => {
+  const progress = vi.fn()
+  const note = vi.fn()
+
+  beforeEach(() => {
+    setProgressHandlers({ progress, note, preview: vi.fn() })
+    takeReleaseFacts()
+    progress.mockClear()
+    note.mockClear()
+  })
+
+  afterEach(() => {
+    setProgressHandlers(undefined)
+    setDryRunOptions({ ai: false })
+  })
+
+  it('Then simulates the rewrites without calling the provider, keeping the raw text', async () => {
+    const generate = vi.fn()
+    fakeProvider = createFakeProvider({ generate })
+    const config = createMockConfig({})
+
+    expect(await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0', dryRun: true })).toBe('raw notes')
+    expect(await generateAISocialChangelog({ config, rawBody: 'rich', fallbackBody: 'minified', platform: 'twitter', dryRun: true })).toBe('minified')
+    expect(await generateAISocialReleases({ config, releases: [{ id: '1', title: 'a 1.0.0', body: 'body' }], platform: 'slack', dryRun: true })).toEqual(new Map())
+
+    expect(generate).not.toHaveBeenCalled()
+    expect(note).toHaveBeenCalledWith('The notes of v2.0.0: AI rewrite simulated (fake not called in dry run, see --ai-preview)', { ai: true })
+    expect(note).toHaveBeenCalledWith('The Twitter post: AI rewrite simulated (fake not called in dry run, see --ai-preview)', { ai: true })
+    expect(note).toHaveBeenCalledWith('The Slack post of 1 version: AI rewrite simulated (fake not called in dry run, see --ai-preview)', { ai: true })
+    expect(takeReleaseFacts().aiRewrites).toEqual([
+      { subject: 'the notes of v2.0.0', provider: 'fake', simulated: true },
+      { subject: 'the Twitter post', provider: 'fake', simulated: true },
+      { subject: 'the Slack post of 1 version', provider: 'fake', simulated: true },
+    ])
+  })
+
+  it('Then calls the provider with --ai-preview', async () => {
+    setDryRunOptions({ ai: true })
+    const config = createMockConfig({})
+
+    expect(await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0', dryRun: true })).toBe('AI generated output')
+    expect(fakeProvider.lastRequest?.prompt).toBe('raw notes')
+  })
+
+  it('Then shows the rewrite while it runs, then its duration and cost', async () => {
+    fakeProvider = createFakeProvider({
+      generate: () => {
+        recordAICost(0.0123)
+        return Promise.resolve('rewritten')
+      },
+    })
+    const config = createMockConfig({})
+
+    await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0' })
+
+    expect(progress).toHaveBeenCalledWith('Rewriting the notes of v2.0.0 with AI (fake)', { ai: true })
+    expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms, \$0\.012$/), { ai: true })
+    expect(takeReleaseFacts().aiRewrites).toEqual([
+      { subject: 'the notes of v2.0.0', provider: 'fake', simulated: false, durationMs: expect.any(Number), costUsd: 0.0123 },
+    ])
   })
 })

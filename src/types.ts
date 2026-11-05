@@ -1,5 +1,5 @@
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseOverview, ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
@@ -208,6 +208,10 @@ export interface SocialNetworkResult {
    * Error message if the post failed
    */
   error?: string
+  /**
+   * The post, when the platform gives it (Twitter)
+   */
+  url?: string
 }
 
 export interface SocialResult {
@@ -265,6 +269,11 @@ export interface ReleaseContext {
    * Error message (available when status is 'failed')
    */
   error?: string
+  /**
+   * The report of the release so far (`relizy release`): the comment is its
+   * summary, as the summary of the terminal and of the GitHub Actions run
+   */
+  report?: ReleaseReport
 }
 
 export interface MonorepoConfig {
@@ -874,7 +883,8 @@ export interface PublishOptions extends PublishConfig {
 export interface ReleaseReportConfig {
   /**
    * In GitHub Actions, write the outputs of the step (`released`, `status`,
-   * `version`, `tags`, `packages`, `report`) and the summary of the run
+   * `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`,
+   * `install`, `report`, `summary`) and the summary of the run
    * @default true
    */
   github?: boolean
@@ -887,6 +897,11 @@ export interface ReleaseReportConfig {
    * for the `artifacts:reports:dotenv` of GitLab CI (relative to `cwd`)
    */
   dotenv?: string
+  /**
+   * File to write the summary of the release to, as markdown (the summary of
+   * a GitHub Actions run), e.g. for an artifact of GitLab CI (relative to `cwd`)
+   */
+  markdown?: string
 }
 
 export interface ReleaseConfig {

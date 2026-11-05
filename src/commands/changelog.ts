@@ -1,7 +1,8 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { reportProgress, showPreview } from '../core/progress'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -11,10 +12,10 @@ async function generateIndependentRootChangelog({
   packages: PackageBase[]
   config: ResolvedRelizyConfig
   dryRun: boolean
-}) {
+}): Promise<boolean> {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
-    return
+    return false
   }
 
   logger.debug('Generating aggregated root changelog for independent mode')
@@ -38,7 +39,7 @@ async function generateIndependentRootChangelog({
 
   if (packageChangelogs.length === 0) {
     logger.debug('No changelogs to aggregate')
-    return
+    return false
   }
 
   const date = new Date().toISOString().split('T')[0]
@@ -60,11 +61,13 @@ async function generateIndependentRootChangelog({
   })
 
   if (dryRun) {
-    logger.info(`[dry-run] Root package "${rootPackageRead.name}" - ${date} - Changelog:\n\n${aggregatedChangelog}`)
+    showPreview({ title: `Root changelog of ${rootPackageRead.name}`, content: aggregatedChangelog })
   }
   else {
     logger.debug('Aggregated root changelog written')
   }
+
+  return true
 }
 
 async function generateSimpleRootChangelog({
@@ -79,10 +82,10 @@ async function generateSimpleRootChangelog({
   force: boolean
   suffix: string | undefined
   bumpResult: BumpResultTruthy | undefined
-}) {
+}): Promise<boolean> {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
-    return
+    return false
   }
 
   logger.debug('Generating simple root changelog')
@@ -131,18 +134,18 @@ async function generateSimpleRootChangelog({
   })
 
   if (dryRun) {
-    logger.info(`[dry-run] Root package "${rootPackage.name}" - ${fromTag}...${to} - Changelog:\n\n${rootChangelog}`)
+    showPreview({ title: `Root changelog of ${rootPackage.name}`, meta: [`${fromTag}...${to}`], content: rootChangelog })
   }
   else {
     logger.debug('Root changelog written')
   }
 
-  return rootChangelog
+  return true
 }
 
 /**
  * Generate the root and package changelogs of the packages of the config.
- * Returns the number of package changelogs written.
+ * Returns the number of changelogs written, the root one included.
  */
 async function generateChangelogs({
   config,
@@ -165,23 +168,22 @@ async function generateChangelogs({
     dryRun,
   })
 
+  let rootWritten = false
+
   if (config.changelog?.rootChangelog && config.monorepo?.versionMode) {
-    if (config.monorepo.versionMode === 'independent') {
-      await generateIndependentRootChangelog({
-        packages,
-        config,
-        dryRun,
-      })
-    }
-    else {
-      await generateSimpleRootChangelog({
-        config,
-        dryRun,
-        bumpResult,
-        suffix,
-        force,
-      })
-    }
+    rootWritten = config.monorepo.versionMode === 'independent'
+      ? await generateIndependentRootChangelog({
+          packages,
+          config,
+          dryRun,
+        })
+      : await generateSimpleRootChangelog({
+          config,
+          dryRun,
+          bumpResult,
+          suffix,
+          force,
+        })
   }
   else {
     logger.debug('Skipping root changelog generation')
@@ -191,7 +193,7 @@ async function generateChangelogs({
 
   logger.debug(`Processing ${packages.length} package(s)`)
 
-  let generatedCount = 0
+  let generatedCount = rootWritten ? 1 : 0
 
   for await (const pkg of packages) {
     const newVersion = bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
@@ -214,7 +216,7 @@ async function generateChangelogs({
     generatedCount++
 
     if (dryRun) {
-      logger.box(`[dry-run] ${pkg.name}: Changelog Preview:\n\n${changelog}`)
+      showPreview({ title: `Changelog of ${pkg.name}`, content: changelog })
     }
     else {
       logger.debug(`${pkg.name}: changelog written`)
@@ -248,69 +250,98 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   const hookContext = getHookContext(config, options.bumpResult)
+  const ui = createCommandUi({ title: 'relizy changelog', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
     await executeHook('before:changelog', config, dryRun, hookContext)
 
-    logger.start('Start generating changelogs')
-
-    assertVersionGroupsOption({ config, groups: options.groups })
-
-    let generatedCount = 0
-
-    if (hasVersionGroups(config)) {
-      for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-        const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
-
-        if (groupBumpResult === null) {
-          logger.debug(`Version group "${group.name}" did not bump, no changelog to generate`)
-          continue
-        }
-
-        logger.debug(`Generating changelogs of version group "${group.name}"`)
-
-        generatedCount += await generateChangelogs({
-          config: groupConfig,
-          bumpResult: groupBumpResult,
-          dryRun,
-          force: options.force ?? false,
-          suffix: options.suffix,
-        })
-      }
-    }
-    else {
-      generatedCount = await generateChangelogs({
-        config,
-        bumpResult: options.bumpResult,
-        dryRun,
-        force: options.force ?? false,
-        suffix: options.suffix,
-      })
-    }
-
-    logger.debug(`Generated ${generatedCount} package changelog(s)`)
-
-    await executeFormatCmd({
-      config,
-      dryRun,
+    const generatedCount = await ui.step({
+      running: 'Writing the changelogs',
+      done: count => count === 0 ? 'No changelog to write' : `${count} ${count === 1 ? 'changelog' : 'changelogs'} written`,
+      run: () => writeChangelogs({ config, options, dryRun }),
     })
 
     logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
 
     await executeHook('success:changelog', config, dryRun, hookContext)
+
+    ui.complete(generatedCount === 0
+      ? { message: 'No changelog to write', nothing: true }
+      : { message: `${dryRun ? 'Previewed' : 'Wrote'} ${generatedCount} ${generatedCount === 1 ? 'changelog' : 'changelogs'}` })
   }
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure
     if (isRelizyCancelError(error)) {
+      ui.fail(error)
       throw error
     }
 
-    if (!options.config) {
+    if (!options.config && !isFancyUi()) {
       logger.error('Error generating changelogs!\n\n', error)
     }
 
     await executeHook('error:changelog', config, dryRun, hookContext)
 
+    ui.fail(error, 'Changelog')
     throw error
   }
+}
+
+/**
+ * The changelogs of the release, by version group, then formatted: the number
+ * of changelogs written
+ */
+async function writeChangelogs({ config, options, dryRun }: {
+  config: ResolvedRelizyConfig
+  options: Partial<ChangelogOptions>
+  dryRun: boolean
+}): Promise<number> {
+  logger.start('Start generating changelogs')
+
+  assertVersionGroupsOption({ config, groups: options.groups })
+
+  let generatedCount = 0
+
+  if (hasVersionGroups(config)) {
+    for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
+      const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+
+      if (groupBumpResult === null) {
+        logger.debug(`Version group "${group.name}" did not bump, no changelog to generate`)
+        continue
+      }
+
+      logger.debug(`Generating changelogs of version group "${group.name}"`)
+
+      generatedCount += await generateChangelogs({
+        config: groupConfig,
+        bumpResult: groupBumpResult,
+        dryRun,
+        force: options.force ?? false,
+        suffix: options.suffix,
+      })
+    }
+  }
+  else {
+    generatedCount = await generateChangelogs({
+      config,
+      bumpResult: options.bumpResult,
+      dryRun,
+      force: options.force ?? false,
+      suffix: options.suffix,
+    })
+  }
+
+  logger.debug(`Generated ${generatedCount} changelog(s)`)
+
+  if (config.changelog.formatCmd) {
+    reportProgress('Formatting the changelogs')
+  }
+
+  await executeFormatCmd({
+    config,
+    dryRun,
+  })
+
+  return generatedCount
 }

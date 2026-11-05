@@ -151,6 +151,26 @@ export default defineConfig({
 
 `relizy bump` exits with code `0` when there is nothing to bump, as `relizy release` does, instead of `1`: a CI job running it no longer fails when no commit triggers a bump. To run something only when a release happens, see [Run Something Only When a Release Happens](./ci-cd.md#run-something-only-when-a-release-happens).
 
+### New Output
+
+The commands show one line per step and end with what they did, the details only with `--log-level verbose` (see [Output](../cli/commands.md#output)). In CI, the logs of each step are in a collapsible group. The banner is only shown by `relizy init`. A script reading the output of relizy 1 can set `RELIZY_REPORTER=classic`, or read the [report](../config/release.md#report) of the release instead.
+
+### Interactive Prompts
+
+The prompts use [@clack/prompts](https://github.com/bombshell-dev/clack) instead of `@inquirer/prompts`: a cancelled prompt (Ctrl+C, Escape) still throws a `RelizyCancelError`.
+
+### Release Summary
+
+`relizy release` ends with a summary of the release: what it contains, what each step did, with the links of what it created (npm pages, provider releases, tweet, pull request), the AI rewrites and the install command. The PR comment of a release, the summary of the GitHub Actions run and the new [`release.report.markdown`](../config/release.md#report) file are this summary, and the report gets the outputs `branch`, `commit`, `dist_tags`, `urls`, `install` and, on GitHub Actions, `summary`. Check the PR comment if a tool reads it.
+
+### No AI Call in Dry Run
+
+`--dry-run` no longer calls the AI provider (each call costs): the provider release and the social posts keep their raw text, and the output tells that the AI rewrite is simulated. To preview the AI output, add `--ai-preview`:
+
+```bash
+relizy release --dry-run --ai-preview
+```
+
 ## Programmatic API
 
 ### Cancelled Prompts

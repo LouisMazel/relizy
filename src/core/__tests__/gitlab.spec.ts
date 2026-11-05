@@ -930,9 +930,12 @@ describe('Given gitlab function', () => {
 
       await gitlab({ force: false })
 
+      // The release it rewrites, and whether to simulate it (dry-run)
       expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
         config,
         rawBody: '### Features\n\n- Original feature',
+        label: 'v1.0.0',
+        dryRun: false,
       })
       const call = vi.mocked(fetch).mock.calls[0]
       const payload = JSON.parse(call[1]?.body as string)

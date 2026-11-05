@@ -3,7 +3,6 @@ import type { ResolvedRelizyConfig } from '../config'
 import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -24,6 +23,7 @@ import {
   pushCommitAndTags,
   rollbackModifiedFiles,
 } from '../git'
+import { askConfirm } from '../prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from '../release-files'
 import { executeHook, isInCI } from '../utils'
 
@@ -68,9 +68,9 @@ vi.mock('../release-files', () => {
   }
 })
 
-vi.mock('@inquirer/prompts', () => {
+vi.mock('../prompts', () => {
   return {
-    confirm: vi.fn(),
+    askConfirm: vi.fn(),
   }
 })
 
@@ -150,8 +150,10 @@ describe('Given checkGitStatusIfDirty function', () => {
 
     it('Then names each change of the porcelain status', () => {
       vi.mocked(execSync).mockReturnValue('M  file1.ts\nA  file2.ts\nR  old.ts -> new.ts\n D "with space.ts"\nUU conflict.ts\n')
+      const debugSpy = vi.spyOn(logger, 'debug')
 
-      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), with space.ts (deleted), conflict.ts (conflict)')
+      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), and 2 more')
+      expect(debugSpy).toHaveBeenCalledWith('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), with space.ts (deleted), conflict.ts (conflict)')
     })
   })
 })
@@ -1413,7 +1415,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       await confirmDirtyGitStatus({ dryRun: false })
 
       expect(warnSpy).not.toHaveBeenCalled()
-      expect(confirm).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
     })
   })
 
@@ -1424,27 +1426,28 @@ describe('Given confirmDirtyGitStatus function', () => {
 
     it('Then warns with the modified files and continues once confirmed', async () => {
       const warnSpy = vi.spyOn(logger, 'warn')
-      vi.mocked(confirm).mockResolvedValueOnce(true)
+      vi.mocked(askConfirm).mockResolvedValueOnce(true)
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
 
       await confirmDirtyGitStatus({ dryRun: false })
 
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('packages/a/package.json'))
-      expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ default: false }))
+      expect(askConfirm).toHaveBeenCalledWith(expect.objectContaining({ initialValue: false }))
       expect(exitSpy).not.toHaveBeenCalled()
       exitSpy.mockRestore()
     })
 
     it('Then cancels the run when refused', async () => {
-      vi.mocked(confirm).mockResolvedValueOnce(false)
+      vi.mocked(askConfirm).mockResolvedValueOnce(false)
 
       await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then cancels the run when the prompt is cancelled (Ctrl+C)', async () => {
-      vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
+      // askConfirm throws its cancel message when the prompt is cancelled (see prompts.spec)
+      vi.mocked(askConfirm).mockImplementationOnce(({ cancelMessage }) => Promise.reject(new RelizyCancelError(cancelMessage)))
 
-      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(RelizyCancelError)
+      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(new RelizyCancelError('Release cancelled: commit or stash the changes of these files first'))
     })
 
     it('Then only warns in dry-run, in the CI or without a terminal', async () => {
@@ -1458,13 +1461,13 @@ describe('Given confirmDirtyGitStatus function', () => {
       await confirmDirtyGitStatus({ dryRun: false })
 
       expect(warnSpy).toHaveBeenCalledTimes(3)
-      expect(confirm).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
     })
 
     it('Then names the release files with what changed', async () => {
       mockGitStatus(' M packages/a/package.json\n?? CHANGELOG.md\n M src/index.ts')
       const warnSpy = vi.spyOn(logger, 'warn')
-      vi.mocked(confirm).mockResolvedValueOnce(true)
+      vi.mocked(askConfirm).mockResolvedValueOnce(true)
 
       await confirmDirtyGitStatus({ dryRun: false })
 
@@ -1481,7 +1484,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       await confirmDirtyGitStatus({ dryRun: false })
 
       expect(warnSpy).not.toHaveBeenCalled()
-      expect(confirm).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
       expect(debugSpy).toHaveBeenCalledWith('Uncommitted changes kept (--no-clean): plans/v2.md (modified), src/core/release-ui.ts (new), new.ts (renamed)')
     })
   })

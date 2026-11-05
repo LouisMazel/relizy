@@ -4,10 +4,10 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
-import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { RelizyCancelError } from '../errors'
 import {
   detectPackageManager,
   determinePublishTag,
@@ -22,6 +22,7 @@ import {
   resolveRegistryTargetsForPackage,
   withRegistryNpmrc,
 } from '../npm'
+import { askText } from '../prompts'
 import { getIndependentTag, resolveTags } from '../tags'
 import { isInCI } from '../utils'
 import { isPrerelease } from '../version'
@@ -40,7 +41,7 @@ vi.mock('node:path', async () => {
   }
 })
 // Remove the node:process mock - we'll spy on globalThis.process directly
-vi.mock('@inquirer/prompts')
+vi.mock('../prompts')
 vi.mock('../utils', async () => {
   const actual = await vi.importActual('../utils')
   return {
@@ -1439,7 +1440,7 @@ describe('Given publishPackage function', () => {
   describe('When OTP error occurs', () => {
     it('Then retries with OTP in non-CI environment', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('OTP required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1451,8 +1452,20 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
       expect(execPromise).toHaveBeenCalledTimes(2)
+    })
+
+    it('Then fails the publish, not a cancelled run, when the OTP prompt is cancelled', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      vi.mocked(askText).mockRejectedValue(new RelizyCancelError('Cancelled'))
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('OTP required'))
+
+      const error = await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false }).catch(error_ => error_)
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error).not.toBeInstanceOf(RelizyCancelError)
+      expect(error.message).toContain('OTP input cancelled')
     })
 
     it('Then throws error in CI environment', async () => {
@@ -1469,7 +1482,7 @@ describe('Given publishPackage function', () => {
 
     it('Then handles EOTP error code', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('Error EOTP'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1481,12 +1494,12 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
     })
 
     it('Then handles one-time password error message', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('One-time password required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1498,7 +1511,7 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
     })
   })
 
@@ -2111,7 +2124,7 @@ describe('Given publishPackage function', () => {
         { name: 'otp-reuse', registry: 'https://otp-reuse.internal/repo/' },
       ]
 
-      vi.mocked(input).mockResolvedValueOnce('999999')
+      vi.mocked(askText).mockResolvedValueOnce('999999')
       vi.mocked(execPromise).mockImplementation((command) => {
         if ((command as string).includes('otp-reuse.internal') && !(command as string).includes('--otp 999999')) {
           return Promise.reject(new Error('OTP required'))
@@ -2122,18 +2135,18 @@ describe('Given publishPackage function', () => {
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
       // First attempt failed (no otp yet), retry succeeded with the prompted otp.
-      expect(input).toHaveBeenCalledTimes(1)
+      expect(askText).toHaveBeenCalledTimes(1)
       expect(callsFor('otp-reuse.internal')).toHaveLength(2)
       expect(callsFor('otp-reuse.internal')[1]![0]).toContain('--otp 999999')
 
       // A second package published to the same registry should reuse the cached OTP:
       // no further prompt, and the command carries it on the very first attempt.
       vi.mocked(execPromise).mockClear()
-      vi.mocked(input).mockClear()
+      vi.mocked(askText).mockClear()
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).not.toHaveBeenCalled()
+      expect(askText).not.toHaveBeenCalled()
       expect(callsFor('otp-reuse.internal')).toHaveLength(1)
       expect(callsFor('otp-reuse.internal')[0]![0]).toContain('--otp 999999')
     })
@@ -2158,7 +2171,7 @@ describe('Given publishPackage function', () => {
         { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo' }, // no trailing slash
       ]
 
-      vi.mocked(input).mockResolvedValueOnce('555555')
+      vi.mocked(askText).mockResolvedValueOnce('555555')
       vi.mocked(execPromise).mockImplementation((command) => {
         if ((command as string).includes('otp-trailing-slash.internal') && !(command as string).includes('--otp 555555')) {
           return Promise.reject(new Error('OTP required'))
@@ -2168,18 +2181,18 @@ describe('Given publishPackage function', () => {
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).toHaveBeenCalledTimes(1)
+      expect(askText).toHaveBeenCalledTimes(1)
 
       // Same registry, but declared with a trailing slash this time (different package/config).
       vi.mocked(execPromise).mockClear()
-      vi.mocked(input).mockClear()
+      vi.mocked(askText).mockClear()
       config.publish.registries = [
         { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo/' }, // trailing slash
       ]
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).not.toHaveBeenCalled()
+      expect(askText).not.toHaveBeenCalled()
       const calls = callsFor('otp-trailing-slash.internal')
       expect(calls).toHaveLength(1)
       expect(calls[0]![0]).toContain('--otp 555555')

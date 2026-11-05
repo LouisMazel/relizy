@@ -24,10 +24,10 @@ export default defineConfig({
       ],
       thresholds: {
         autoUpdate: !isInCI(),
-        statements: 95.65,
+        statements: 96.62,
         functions: 98.85,
-        branches: 91.44,
-        lines: 95.51,
+        branches: 91.78,
+        lines: 96.52,
       },
     },
     exclude: [...defaultExclude, '.claude/**'],

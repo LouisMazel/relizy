@@ -2,6 +2,7 @@ import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SlackRelease
 import type { PackageBumpEntry } from './packages'
 import type { SlackRichTextBlock } from './slack-markdown'
 import { logger } from '@maz-ui/node'
+import { showPreview } from './progress'
 import { fillSocialTemplate } from './release-overview'
 import { markdownToSlackMrkdwn, markdownToSlackRichText, richTextToPlainText, SLACK_HEADER_MAX_LENGTH, SLACK_MAX_BLOCKS, SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH, sliceSlackText } from './slack-markdown'
 import { extractChangelogSummary } from './social'
@@ -567,7 +568,7 @@ export async function postReleaseToSlack({
       .filter(Boolean)
       .join('\n\n')
     const target = useWebhook ? 'webhook' : `channel: ${channel}`
-    logger.box(`[dry-run] Slack Post Preview (${target})\n\n${preview}`)
+    showPreview({ title: 'Slack post', meta: [`Target: ${target}`], content: preview })
     return
   }
 

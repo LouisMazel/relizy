@@ -8,14 +8,14 @@ import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
 import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
-import { isRelizyCancelError } from './core/errors'
+import { isErrorReported, isRelizyCancelError } from './core/errors'
+import { setDryRunOptions } from './core/progress'
+import { enableCliUi } from './core/release-ui'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
-// Run in the commit-msg hook at every commit: no banner, only the lint output
-const isCommitlint = process.argv[2] === 'commitlint'
-// The MCP server speaks the protocol on stdout: no banner, no log
-const isMcpServer = process.argv[2] === 'mcp' && process.argv[3] !== 'init'
+// The other commands start with their own title line
+const isInit = process.argv[2] === 'init'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -25,7 +25,7 @@ const packageJson = JSON.parse(
 
 const version = packageJson.version
 
-if (!hasSilentFlag && !isCommitlint && !isMcpServer) {
+if (!hasSilentFlag && isInit) {
   printBanner({
     name: 'Relizy',
     version: `v${version}`,
@@ -40,18 +40,18 @@ if (!hasSilentFlag && !isCommitlint && !isMcpServer) {
   })
 }
 
-if (isInCI() && !isCommitlint && !isMcpServer) {
-  logger.log(`Running in CI: ${getCIName()}`)
-}
-else {
-  logger.debug('Running locally')
-}
+logger.debug(isInCI() ? `Running in CI: ${getCIName()}` : 'Running locally')
 
 const program = new Command()
 
 function hasCliFlag(flag: string): boolean {
   return process.argv.includes(flag)
 }
+
+program.hook('preAction', () => {
+  enableCliUi()
+  setDryRunOptions({ preview: !hasCliFlag('--no-preview'), ai: hasCliFlag('--ai-preview') })
+})
 
 function getReleaseType(options: any) {
   let type: BumpOptions['type'] = 'release'
@@ -78,6 +78,12 @@ function parseGroupNames(value: string): string[] {
   return value.split(',').map(name => name.trim()).filter(Boolean)
 }
 
+/** The files of the report given on the command line, if any */
+function getReportOverride(options: { reportJson?: string, reportDotenv?: string, reportMarkdown?: string }) {
+  const report = { json: options.reportJson, dotenv: options.reportDotenv, markdown: options.reportMarkdown }
+  return Object.values(report).some(Boolean) ? report : undefined
+}
+
 function slackFormatOption() {
   return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
 }
@@ -88,12 +94,17 @@ function slackFormatOption() {
  */
 function exitWithError(message: string, error: unknown): never {
   if (isRelizyCancelError(error)) {
-    logger.log('')
-    logger.fail(error.message)
+    if (!isErrorReported(error)) {
+      logger.log('')
+      logger.fail(error.message)
+    }
     process.exit(0)
   }
 
-  logger.error(message, error)
+  // Already shown by the output of the command
+  if (!isErrorReported(error)) {
+    logger.error(message, error)
+  }
   process.exit(1)
 }
 
@@ -105,6 +116,8 @@ program
   .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
+  .option('--no-preview', 'In dry-run, do not show what would be generated (changelogs, release notes, posts, PR comment)')
+  .option('--ai-preview', 'In dry-run, call the AI to preview its rewrites (it costs), instead of simulating them')
   .option('--pr-number <number>', 'Override PR/MR number for PR comment features', Number)
   .option('--group <names>', 'Only release these version groups of monorepo.groups (comma-separated names)', parseGroupNames)
 
@@ -437,6 +450,7 @@ program
   .option('--no-ai', 'Force-disable AI for release notes and social posts')
   .option('--report-json <file>', 'Write the report of the release to this JSON file')
   .option('--report-dotenv <file>', 'Write the outputs of the release to this dotenv file (RELIZY_RELEASED=true...), for the artifacts:reports:dotenv of GitLab CI')
+  .option('--report-markdown <file>', 'Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI')
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
@@ -478,7 +492,7 @@ program
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
-        report: options.reportJson || options.reportDotenv ? { json: options.reportJson, dotenv: options.reportDotenv } : undefined,
+        report: getReportOverride(options),
       })
     }
     catch (error) {

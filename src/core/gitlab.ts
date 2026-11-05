@@ -7,6 +7,7 @@ import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
+import { reportProgress, showPreview } from './progress'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
@@ -185,6 +186,7 @@ async function gitlabIndependentMode({
       continue
     }
 
+    reportProgress(`Writing the notes of ${to}`)
     const releaseBody = await generateChangelog({
       pkg: { ...pkg, fromTag: from },
       config,
@@ -192,7 +194,7 @@ async function gitlabIndependentMode({
       newVersion,
       include: { title: false, compareLink: true, body: true, contributors: true },
       transformBody: isAIProviderReleaseEnabled(config)
-        ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+        ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
         : undefined,
     })
 
@@ -207,10 +209,11 @@ async function gitlabIndependentMode({
 
     if (dryRun) {
       logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
-      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+      showPreview({ title: `GitLab release ${release.tag_name}`, content: releaseBody })
     }
     else {
       logger.debug(`Publishing release ${to} to GitLab...`)
+      reportProgress(`Creating the GitLab release ${to}`)
       await createGitlabRelease({
         config,
         release,
@@ -255,6 +258,7 @@ async function gitlabUnified({
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit
 
+  reportProgress(`Writing the notes of ${to}`)
   const releaseBody = await generateChangelog({
     pkg: { ...rootPackage, fromTag: from },
     config,
@@ -262,7 +266,7 @@ async function gitlabUnified({
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
     transformBody: isAIProviderReleaseEnabled(config)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
       : undefined,
   })
 
@@ -290,10 +294,11 @@ async function gitlabUnified({
 
   if (dryRun) {
     logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
-    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
+    showPreview({ title: `GitLab release ${release.tag_name}`, content: releaseBody })
   }
   else {
     logger.debug('Publishing release to GitLab...')
+    reportProgress(`Creating the GitLab release ${to}`)
     await createGitlabRelease({
       config,
       release,

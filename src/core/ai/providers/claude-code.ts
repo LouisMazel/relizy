@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from '../../config'
 import type { AIGenerateRequest, AIProvider } from '../provider'
 import { spawnSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
+import { recordAICost } from '../../progress'
 import { wrapChangelogPrompt } from '../prompts'
 
 function claudeBinaryAvailable(): boolean {
@@ -81,6 +82,7 @@ export const claudeCodeProvider: AIProvider = {
     )
 
     logger.verbose('Claude SDK events:', result.events?.map(e => e.type).join(', '))
+    recordAICost(result.costUsd)
 
     return (result.output ?? '').trim()
   },

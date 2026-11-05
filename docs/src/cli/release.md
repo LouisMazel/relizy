@@ -177,12 +177,12 @@ relizy release --slack-format summary --minor
 
 See the [Slack Integration](/guide/slack-integration#full-changelog) guide for the rendering details.
 
-### --report-json / --report-dotenv
+### --report-json / --report-dotenv / --report-markdown
 
-Write the report of the release to a JSON file, or its outputs to a dotenv file for GitLab CI, as [`release.report`](/config/release#report):
+Write the report of the release to a JSON file, its outputs to a dotenv file for GitLab CI, or its summary to a markdown file, as [`release.report`](/config/release#report):
 
 ```bash
-relizy release --yes --report-dotenv relizy.env
+relizy release --yes --report-dotenv relizy.env --report-markdown relizy-summary.md
 ```
 
 In GitHub Actions, the outputs and the summary of the run are written without option.

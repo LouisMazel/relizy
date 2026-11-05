@@ -129,6 +129,15 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - An independent package without a tag of its current version starts at the commit that set this version in its `package.json` (`findVersionCommit()` in `tags.ts`, through its moves), named after its tag (`v6.18.0` when it was released by the selective group); a package created with this version is new (`NEW_PACKAGE_MARKER`)
 - Supports commit type mapping via `types` config (e.g., `feat` → `minor` bump)
 
+## Output of the CLI
+
+`src/core/release-ui.ts` renders the commands of the CLI (enabled by `enableCliUi()` in `cli.ts`; the programmatic API keeps the logs of the logger, `classic`, unless `RELIZY_REPORTER`):
+
+- `createCommandUi({ title, dryRun, logLevel, cwd })` starts the output of a command; `ui.step({ running, done, details, run })` runs a step (one line with its duration), `ui.complete()` ends a command, `ui.finish(report)` ends `release` with its summary, `ui.fail()` shows an error once (`markErrorReported()`). A command run by another one (`bump` in `release`) gets the nested output: its steps are the progress of the running step.
+- `pretty` (clack: spinner, boxes) in a terminal, `ci` (lines, collapsible groups of GitHub Actions and GitLab CI, annotations, ANSI colors unless `NO_COLOR`) in CI. The logs are captured and written to `node_modules/.cache/relizy/release.log`, shown only with `--log-level verbose`.
+- `src/core/progress.ts`, without dependency: `reportProgress()` (what a long step does, `{ ai: true }` for the AI), `reportStepNote()`, `showPreview()` (what a dry run generated, hidden by `--no-preview`), `recordLink()`/`recordAIRewrite()` (the facts of the release summary). The AI is not called in dry-run unless `--ai-preview`.
+- The summary of a release (`getReleaseSummary()` and `formatReleaseReportMarkdown()` in `release-report.ts`, its data in `release-facts.ts`) is the end of the terminal output, the summary of the GitHub Actions run, the PR comment of the release and `release.report.markdown`.
+
 ## MCP Server
 
 `relizy mcp` (`src/mcp/`) is a read-only MCP server for AI coding agents, loaded on demand (`await import('./mcp')` in `cli.ts`, its SDK is inlined in that chunk by `build.config.ts`):
@@ -158,7 +167,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - **c12** - Configuration file loading and environment variable handling
 - **semver** - Semantic version parsing and comparison
 - **fast-glob** - File pattern matching for package discovery
-- **@inquirer/prompts** - Interactive CLI prompts for confirmations
+- **@clack/prompts** - Interactive output and prompts of the CLI (`src/core/release-ui.ts`, `src/core/prompts.ts`)
 
 ## Output Files
 

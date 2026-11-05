@@ -1,5 +1,6 @@
 import type { SocialTemplateVariables, TweetSection, TwitterCredentials, TwitterOptions } from '../types'
 import { logger } from '@maz-ui/node'
+import { recordLink, showPreview } from './progress'
 import { fillSocialTemplate } from './release-overview'
 import { extractChangelogSummary } from './social'
 
@@ -241,7 +242,7 @@ export async function postReleaseToTwitter({
   logger.debug(`Tweet message (${getTweetLength(message)} chars):\n${message}`)
 
   if (dryRun) {
-    logger.box(`[dry-run] Twitter Post Preview (${getTweetLength(message)}/${postMaxLength} chars)\n\n${message}`)
+    showPreview({ title: 'Twitter post', meta: [`Length: ${getTweetLength(message)}/${postMaxLength} chars`], content: message })
     return
   }
 
@@ -264,6 +265,7 @@ export async function postReleaseToTwitter({
 
     logger.info(`Tweet posted successfully! Tweet ID: ${tweet.data.id}`)
     logger.info(`Tweet URL: https://twitter.com/i/web/status/${tweet.data.id}`)
+    recordLink({ step: 'social', label: 'Tweet', url: `https://x.com/i/web/status/${tweet.data.id}` })
 
     return tweet
   }

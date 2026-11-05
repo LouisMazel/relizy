@@ -431,7 +431,9 @@ describe('Given postReleaseToTwitter function', () => {
         variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
-      expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Twitter Post Preview'))
+      const preview = vi.mocked(logger.box).mock.calls[0]![0] as string
+      expect(preview).toContain('[dry-run] Twitter post')
+      expect(preview).toMatch(/Length: \d+\/280 chars/)
       expect(logger.debug).toHaveBeenCalled()
     })
 

@@ -5,6 +5,7 @@ import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
 import { getFirstCommit } from './git'
 import { stripNameStatus } from './git-refs'
+import { reportProgress } from './progress'
 import { formatCompareChanges, formatReference } from './repo-config'
 
 const CHANGELOG_RELEASE_HEAD_REGEX
@@ -140,6 +141,7 @@ export async function buildContributors({ commits, config }: {
   }
 
   if (config.repo?.provider === 'github') {
+    reportProgress('Finding the GitHub profiles of the contributors')
     await Promise.all(
       Array.from(_authors.keys(), async (authorName) => {
         const meta = _authors.get(authorName)

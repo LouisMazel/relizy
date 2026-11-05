@@ -158,26 +158,46 @@ See [PR Comments](/guide/pr-comment) for more details.
 
 Report of the release, to run something only when a release happens (see [CI/CD Setup](/guide/ci-cd#run-something-only-when-a-release-happens)). It is written for a release, when there is nothing to release and when the release fails, in dry-run too, where `released` is `false`.
 
-- **Type:** `{ github?: boolean, json?: string, dotenv?: string }`
+- **Type:** `{ github?: boolean, json?: string, dotenv?: string, markdown?: string }`
 - **Default:** `{ github: true }`
 
-| Option   | Description                                                                                                                                                                       |
-| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github` | In GitHub Actions, write the outputs of the step (`released`, `status`, `version`, `tags`, `packages`, `report`) and the summary of the run                                       |
-| `json`   | File to write the whole report to, as JSON                                                                                                                                        |
-| `dotenv` | File to write the outputs to, as dotenv (`RELIZY_RELEASED`, `RELIZY_STATUS`, `RELIZY_VERSION`, `RELIZY_TAGS`, `RELIZY_PACKAGES`), for the `artifacts:reports:dotenv` of GitLab CI |
+| Option     | Description                                                                                                                       |
+| ---------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `github`   | In GitHub Actions, write the outputs of the step and the summary of the run                                                       |
+| `json`     | File to write the whole report to, as JSON                                                                                        |
+| `dotenv`   | File to write the outputs to, as dotenv (`RELIZY_RELEASED`, `RELIZY_VERSION`...), for the `artifacts:reports:dotenv` of GitLab CI |
+| `markdown` | File to write the summary of the release to, as markdown (the summary of a GitHub Actions run), e.g. for an artifact of GitLab CI |
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   release: {
-    report: { dotenv: 'relizy.env' },
+    report: { dotenv: 'relizy.env', markdown: 'relizy-summary.md' },
   },
 })
 ```
 
-The outputs: `released` (`true` when the release happened), `status` (`released`, `nothing` or `failed`), `version` (the repository version), `tags` and `packages` (comma-separated `name@version`).
+The outputs:
+
+| Output      | Value                                                                                         |
+| ----------- | --------------------------------------------------------------------------------------------- |
+| `released`  | `true` when the release happened (never in dry-run)                                           |
+| `status`    | `released`, `nothing` or `failed`                                                             |
+| `version`   | The repository version                                                                        |
+| `tags`      | The created tags, comma-separated                                                             |
+| `packages`  | The released packages, comma-separated `name@version`                                         |
+| `branch`    | The branch of the release                                                                     |
+| `commit`    | The short hash of the release commit                                                          |
+| `dist_tags` | The dist-tags of the published versions, comma-separated                                      |
+| `urls`      | What the release created (npm pages, provider releases, tweet, pull request), comma-separated |
+| `install`   | The command installing the published versions (up to 3 packages)                              |
+
+On GitHub Actions, the step also gets `report` (the whole report, as JSON) and `summary` (the summary of the release, as markdown, to reuse in a comment or a message).
+
+### The Summary
+
+The same summary closes the output of `relizy release` in the terminal, fills the summary of the GitHub Actions run, the [PR comment](/guide/pr-comment) of the release and the `markdown` file: the versions, what the release contains (features, fixes, breaking changes, contributors), what each step did with the links of what it created (npm pages, GitHub or GitLab releases, tweet, pull request), the AI rewrites (with their cost for `claude-code`), the install command and the packages with their versions.
 
 ## Canary Mode Behavior
 

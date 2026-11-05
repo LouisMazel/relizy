@@ -1,7 +1,9 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { reportProgress } from '../core/progress'
+import { getNpmLinks } from '../core/release-facts'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 /**
@@ -258,70 +260,50 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   }
 
   const hookContext = getHookContext(config, options.bumpResult)
+  const ui = createCommandUi({ title: 'relizy publish', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
     await executeHook('before:publish', config, dryRun, hookContext)
 
-    const rootPackage = readPackageJson(config.cwd)
-
-    if (!rootPackage) {
-      throw new Error('Failed to read root package.json')
-    }
-
-    logger.start('Start publishing packages')
-
-    assertVersionGroupsOption({ config, groups: options.groups })
-
-    const { sortedPackages, publishedPackages } = hasVersionGroups(config)
-      ? await getGroupsPackagesToPublish({ config, options, dryRun, rootVersion: rootPackage.version })
-      : await getPackagesToPublish({
-          config,
-          bumpResult: options.bumpResult,
-          suffix: options.suffix,
-          force: options.force ?? false,
-          dryRun,
-          rootVersion: rootPackage.version,
-        })
+    const { toPublish, publishedPackages } = await ui.step({
+      running: 'Checking the packages to publish',
+      done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0 ? 'No package to publish' : `${describePackages(toPublish)} to publish`,
+      run: () => getCheckedPackagesToPublish({ config, options, dryRun }),
+    })
 
     if (publishedPackages.length === 0) {
       logger.fail('No packages need to be published')
+      ui.complete({ message: 'No package to publish', nothing: true })
       return
     }
 
-    // Only check the registries this specific set of packages actually needs -
-    // scoped `registries` entries for packages outside this release must not block it.
-    await publishSafetyCheck({ config, packages: publishedPackages })
-
-    await checkWorkspaceDependencies({
-      config,
-      packages: sortedPackages.filter(pkg => publishedPackages.some(p => p.name === pkg.name)),
-      plannedVersions: getPlannedVersions(options.bumpResult),
-    })
-
-    if (options.bumpResult) {
-      reportStalePeerDependents({
-        config,
-        bumpedPackages: options.bumpResult.bumpedPackages,
-        publishedPackages,
+    if (config.publish.buildCmd) {
+      await ui.step({
+        running: 'Building the packages',
+        done: () => 'Packages built',
+        run: () => executeBuildCmd({ config, dryRun }),
       })
     }
 
-    await executeBuildCmd({
-      config,
-      dryRun,
+    const distTag = config.publish.tag ? ` (${config.publish.tag})` : ''
+    await ui.step({
+      running: 'Publishing the packages',
+      done: () => `Published ${describePackages(toPublish)}${distTag}`,
+      run: async () => {
+        for await (const [index, pkg] of toPublish.entries()) {
+          const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
+          const position = toPublish.length > 1 ? ` (${index + 1}/${toPublish.length})` : ''
+          logger.debug(`Publishing ${tag}...`)
+          reportProgress(`Publishing ${tag}${position}`)
+          await publishPackage({
+            pkg,
+            config,
+            packageManager: config.publish.packageManager,
+            dryRun,
+          })
+        }
+      },
     })
-
-    for await (const pkg of sortedPackages) {
-      if (publishedPackages.some(p => p.name === pkg.name)) {
-        logger.debug(`Publishing ${getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })}...`)
-        await publishPackage({
-          pkg,
-          config,
-          packageManager: config.publish.packageManager,
-          dryRun,
-        })
-      }
-    }
 
     if (!dryRun) {
       logger.info('Package(s) have been published to npm registry')
@@ -331,6 +313,11 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     await executeHook('success:publish', config, dryRun, hookContext)
 
+    ui.complete({
+      message: `${dryRun ? 'Simulated publication of' : 'Published'} ${describePackages(toPublish)}${distTag}`,
+      links: getNpmLinks({ config, packages: toPublish }),
+    })
+
     return {
       publishedPackages,
     } satisfies PublishResponse
@@ -338,15 +325,81 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure
     if (isRelizyCancelError(error)) {
+      ui.fail(error)
       throw error
     }
 
-    if (!options.config) {
+    if (!options.config && !isFancyUi()) {
       logger.error('Error during publishing packages!\n\n', error)
     }
 
     await executeHook('error:publish', config, dryRun, hookContext)
 
+    ui.fail(error, 'Publish')
     throw error
   }
+}
+
+/** The published versions: `relizy@2.0.0`, up to 3, else their count */
+function describePackages(packages: PackageBase[]): string {
+  return packages.length <= 3
+    ? packages.map(pkg => `${pkg.name}@${pkg.newVersion || pkg.version}`).join(', ')
+    : `${packages.length} packages`
+}
+
+/**
+ * The packages to publish, in publish order, once the registries and the
+ * workspace dependencies are checked
+ */
+async function getCheckedPackagesToPublish({ config, options, dryRun }: {
+  config: ResolvedRelizyConfig
+  options: Partial<PublishOptions>
+  dryRun: boolean
+}): Promise<{ toPublish: PackageBase[], publishedPackages: PackageBase[] }> {
+  const rootPackage = readPackageJson(config.cwd)
+
+  if (!rootPackage) {
+    throw new Error('Failed to read root package.json')
+  }
+
+  logger.start('Start publishing packages')
+
+  assertVersionGroupsOption({ config, groups: options.groups })
+
+  const { sortedPackages, publishedPackages } = hasVersionGroups(config)
+    ? await getGroupsPackagesToPublish({ config, options, dryRun, rootVersion: rootPackage.version })
+    : await getPackagesToPublish({
+        config,
+        bumpResult: options.bumpResult,
+        suffix: options.suffix,
+        force: options.force ?? false,
+        dryRun,
+        rootVersion: rootPackage.version,
+      })
+
+  if (publishedPackages.length === 0) {
+    return { toPublish: [], publishedPackages }
+  }
+
+  // Only check the registries this specific set of packages actually needs -
+  // scoped `registries` entries for packages outside this release must not block it.
+  await publishSafetyCheck({ config, packages: publishedPackages })
+
+  const toPublish = sortedPackages.filter(pkg => publishedPackages.some(p => p.name === pkg.name))
+
+  await checkWorkspaceDependencies({
+    config,
+    packages: toPublish,
+    plannedVersions: getPlannedVersions(options.bumpResult),
+  })
+
+  if (options.bumpResult) {
+    reportStalePeerDependents({
+      config,
+      bumpedPackages: options.bumpResult.bumpedPackages,
+      publishedPackages,
+    })
+  }
+
+  return { toPublish, publishedPackages }
 }

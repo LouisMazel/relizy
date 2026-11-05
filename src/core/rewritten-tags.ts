@@ -1,9 +1,8 @@
 import type { OnRewrittenTag, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
-import { confirm, select } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
-import { isPromptExitError, RelizyCancelError } from './errors'
+import { isRelizyCancelError, RelizyCancelError } from './errors'
 import {
   findReachableCommitBySubject,
   getCommitSubject,
@@ -12,6 +11,7 @@ import {
   retagAnnotatedLocal,
   tagExists,
 } from './git-refs'
+import { askConfirm, askSelect } from './prompts'
 
 /**
  * Per-process memo so the user is prompted at most once per (from, to) pair,
@@ -147,15 +147,15 @@ async function promptOrphan({
 
   let answer: string
   try {
-    answer = await select({
+    answer = await askSelect({
       message: `How should relizy handle the rewritten tag "${from}"?`,
-      choices,
-      default: twin ? 'ephemeral' : 'keep',
+      options: choices.map(({ name, value }) => ({ value, label: name })),
+      initialValue: twin ? 'ephemeral' : 'keep',
     })
   }
   catch (error) {
-    if (isPromptExitError(error)) {
-      throw new RelizyCancelError('Cancelled', { cause: error })
+    if (isRelizyCancelError(error)) {
+      throw error
     }
 
     throw new Error(`Error while resolving the rewritten tag "${from}"`, { cause: error })
@@ -168,9 +168,9 @@ async function promptOrphan({
     case 'rebind-local':
       return rebind({ from, twin: twin!, config, dryRun, push: false })
     case 'rebind-push': {
-      const confirmed = await confirm({
+      const confirmed = await askConfirm({
         message: `Force-push tag "${from}" to origin? This rewrites the already-published tag.`,
-        default: false,
+        initialValue: false,
       }).catch(() => false)
 
       if (!confirmed) {

@@ -1,4 +1,5 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../../core'
 import { changelog } from '../changelog'
@@ -121,5 +122,58 @@ describe('Given changelog command', () => {
       // 2 packages + root changelog (with bumped packages (2))
       expect(generateChangelog).toHaveBeenCalledTimes(4)
     })
+  })
+})
+
+describe('Given the output of changelog in CI', () => {
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, monorepo: { versionMode: 'unified', packages: ['packages/*'] } }))
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', path: '/root', private: false, fromTag: 'v0.9.0', commits: [] })
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells how many changelogs it wrote', async () => {
+    await changelog({})
+
+    expect(output.lines()).toEqual([
+      'relizy changelog · ci',
+      '▸ Writing the changelogs',
+      expect.stringMatching(/^✔ 1 changelog written {2}\d+ms$/),
+      expect.stringMatching(/^✔ Wrote 1 changelog {2}\d+ms$/),
+    ])
+  })
+
+  it('Then shows the changelog it would write in dry-run', async () => {
+    await changelog({ dryRun: true })
+
+    const lines = output.lines()
+    // The root changelog, as the ones of the packages
+    expect(lines).toContain('▸ Preview: Root changelog of test')
+    expect(lines).toContain('  v0.9.0...v1.0.0')
+    expect(lines).toContain('  ## v1.0.0')
+    expect(lines.at(-1)).toMatch(/^ DRY RUN {2}Previewed 1 changelog, nothing was written {2}\d+ms$/)
+  })
+
+  it('Then shows the error once', async () => {
+    vi.mocked(generateChangelog).mockRejectedValue(new Error('git log failed'))
+
+    await expect(changelog({})).rejects.toThrow('git log failed')
+
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Writing the changelogs failed {2}\d+ms$/),
+      '✖ Changelog failed',
+      '  git log failed',
+    ]))
   })
 })

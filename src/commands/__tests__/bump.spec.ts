@@ -1,6 +1,7 @@
 import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockCommit } from '../../../tests/mocks'
 import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
@@ -28,6 +29,7 @@ vi.mock('node:process', () => ({
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  ...await vi.importActual<typeof import('../../core/release-ui')>('../../core/release-ui'),
   getHookContext: (await vi.importActual<typeof import('../../core/utils')>('../../core/utils')).getHookContext,
   checkGitStatusIfDirty: vi.fn(),
   confirmDirtyGitStatus: vi.fn(),
@@ -1253,5 +1255,77 @@ describe('Given bump command', () => {
         }),
       )
     })
+  })
+})
+
+describe('Given the output of bump in CI', () => {
+  const mockCwd = '/test-repo'
+  let output: ReturnType<typeof captureCliOutput>
+  const config = {
+    cwd: mockCwd,
+    bump: { type: 'minor', yes: true, clean: true, dependencyTypes: ['dependencies'] },
+    release: { clean: true },
+    monorepo: { versionMode: 'unified', packages: ['packages/*'] },
+    types: { feat: { title: 'Features', semver: 'minor' }, fix: { title: 'Bug Fixes', semver: 'patch' } },
+    templates: { commitMessage: 'chore: bump version {{newVersion}}', tagBody: 'v{{newVersion}}', tagMessage: 'chore: bump version {{newVersion}}', emptyChangelogContent: 'No changes' },
+    logLevel: 'default',
+  } as unknown as ResolvedRelizyConfig
+
+  function mockPackages(newVersion: string | undefined) {
+    vi.mocked(getRootPackage).mockResolvedValueOnce({ name: 'root-package', private: false, version: '1.0.0', newVersion, path: mockCwd, fromTag: 'v1.0.0', commits: newVersion ? [createMockCommit('feat', 'add feature')] : [] })
+    vi.mocked(getPackages).mockResolvedValueOnce(newVersion
+      ? ['pkg-a', 'pkg-b'].map(name => ({ name, version: '1.0.0', path: `${mockCwd}/packages/${name}`, newVersion, reason: 'commits' as const, commits: [createMockCommit('feat', 'add feature')], fromTag: 'v1.0.0', dependencies: [], private: false }))
+      : [])
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vol.fromJSON({
+      [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({ name: 'pkg-b', version: '1.0.0' }),
+    }, mockCwd)
+    vi.mocked(loadRelizyConfig).mockResolvedValueOnce(config)
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+    vol.reset()
+  })
+
+  it('Then lists the packages with --yes, then tells what it bumped', async () => {
+    mockPackages('1.1.0')
+
+    await bump({ type: 'minor', yes: true })
+
+    expect(output.lines()).toEqual([
+      'relizy bump · ci',
+      '▸ Computing the versions',
+      expect.stringMatching(/^✔ 2 packages to release {2}\d+ms$/),
+      '  pkg-a  1.0.0  →  1.1.0  1 feature',
+      '  pkg-b  1.0.0  →  1.1.0  1 feature',
+      expect.stringMatching(/^✔ Bumped 2 packages {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is nothing to bump', async () => {
+    mockPackages(undefined)
+
+    await bump({ type: 'minor', yes: true })
+
+    expect(output.lines().at(-1)).toMatch(/^○ Nothing to bump: no commit since the last release triggers a new version {2}\d+ms$/)
+  })
+
+  it('Then shows the error once', async () => {
+    vi.mocked(fetchGitTags).mockRejectedValueOnce(new Error('fetch failed'))
+
+    await expect(bump({ type: 'minor', yes: true })).rejects.toThrow('fetch failed')
+
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Computing the versions failed {2}\d+ms$/),
+      '✖ Bump failed',
+      '  fetch failed',
+    ]))
   })
 })

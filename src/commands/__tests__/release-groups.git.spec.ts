@@ -4,17 +4,17 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
-import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import { loadRelizyConfig, RelizyCancelError } from '../../core'
 import { isVersionPublished, publishPackage } from '../../core/npm'
+import { askConfirm } from '../../core/prompts'
 import { bump, planBumps } from '../bump'
 import { release } from '../release'
 
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
-vi.mock('@inquirer/prompts', () => ({ confirm: vi.fn() }))
+vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn() }))
 
 // Only the registry is mocked: publishing and querying the published versions
 vi.mock('../../core/npm', async (importActual) => {
@@ -371,7 +371,7 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(readVersion('packages/components')).toBe('6.19.1')
       expect(readVersion('shared/nav')).toBe('1.2.0')
       expect(git('status', '--porcelain')).toBe('')
-      expect(confirm).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
     })
 
     it('Then does not bump a package whose workspace:^ range accepts the new version', async () => {
@@ -567,12 +567,12 @@ describe('Given a release with version groups on a real git repository', () => {
       git('add', '-A')
       git('commit', '--no-verify', '-m', 'chore: update the config')
       const log = vi.spyOn(logger, 'log')
-      vi.mocked(confirm).mockResolvedValueOnce(true)
+      vi.mocked(askConfirm).mockResolvedValueOnce(true)
 
       await bump({})
 
       const logged = log.mock.calls.map(([message]) => String(message))
-      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(askConfirm).toHaveBeenCalledTimes(1)
       expect(logged).toContain('main (selective mode)')
       expect(logged).toContain('Header (independent mode)')
       expect(logged.indexOf('main (selective mode)')).toBeLessThan(logged.indexOf('Header (independent mode)'))
@@ -580,11 +580,11 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then writes nothing when refused', async () => {
-      vi.mocked(confirm).mockResolvedValueOnce(false)
+      vi.mocked(askConfirm).mockResolvedValueOnce(false)
 
       await expect(bump({})).rejects.toThrow(RelizyCancelError)
 
-      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(askConfirm).toHaveBeenCalledTimes(1)
       expect(git('status', '--porcelain')).toBe('')
       expect(readVersion('packages/components')).toBe('6.19.1')
       expect(readVersion('shared/nav')).toBe('1.2.0')

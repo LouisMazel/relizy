@@ -1,6 +1,7 @@
 import type { GroupBumpResult } from '../../types'
 import { logger } from '@maz-ui/node'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import { collectContributorNames, executeHook, generateChangelog, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog, generateAISocialReleases } from '../../core/ai'
@@ -23,6 +24,7 @@ vi.mock('../../core/repo', async importActual => ({
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  ...await vi.importActual<typeof import('../../core/release-ui')>('../../core/release-ui'),
   getHookContext: (await vi.importActual<typeof import('../../core/utils')>('../../core/utils')).getHookContext,
   ...await vi.importActual<typeof import('../../core/release-overview')>('../../core/release-overview'),
   loadRelizyConfig: vi.fn(),
@@ -1085,5 +1087,72 @@ describe('Given social command with version groups', () => {
 
     expect(result.hasErrors).toBe(true)
     expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
+  })
+})
+
+describe('Given the output of social in CI', () => {
+  const twitter = { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' }
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      safetyCheck: false,
+      tokens: { twitter, slack: 'slack-token' },
+      social: { twitter: { enabled: true, onlyStable: true }, slack: { enabled: true, onlyStable: true, channel: '#releases' } },
+    }))
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
+    vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', path: '/root', private: false, fromTag: 'v0.9.0', commits: [] })
+    vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(generateChangelog).mockResolvedValue('- Feature')
+    vi.mocked(isPrerelease).mockReturnValue(false)
+    vi.mocked(getTwitterCredentials).mockReturnValue(twitter)
+    vi.mocked(getSlackToken).mockReturnValue('slack-token')
+    vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+    vi.mocked(collectContributorNames).mockReturnValue([])
+    vi.mocked(postReleaseToTwitter).mockResolvedValue({ data: { id: '123', text: 'tweet' } } as never)
+    vi.mocked(postReleaseToSlack).mockResolvedValue(undefined)
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells the platforms it posted on, with the link of the tweet', async () => {
+    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+    expect(result.results).toEqual([
+      { platform: 'twitter', success: true, url: 'https://x.com/i/web/status/123' },
+      { platform: 'slack', success: true },
+    ])
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      'relizy social · ci',
+      expect.stringMatching(/^✔ Posted on twitter, slack {2}\d+ms$/),
+      '  https://x.com/i/web/status/123',
+      expect.stringMatching(/^✔ Posted on twitter, slack {2}\d+ms$/),
+    ]))
+  })
+
+  it('Then marks a failed post without failing the command', async () => {
+    vi.mocked(postReleaseToSlack).mockRejectedValue(new Error('channel_not_found'))
+
+    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+    expect(result.hasErrors).toBe(true)
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^▲ Posted on twitter, slack failed {2}\d+ms$/),
+      expect.stringMatching(/^✔ Posted on twitter {2}\d+ms$/),
+    ]))
+  })
+
+  it('Then ends as failed when every post failed', async () => {
+    vi.mocked(postReleaseToTwitter).mockRejectedValue(new Error('down'))
+    vi.mocked(postReleaseToSlack).mockRejectedValue(new Error('down'))
+
+    await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+    expect(output.lines().at(-1)).toMatch(/^▲ twitter, slack failed {2}\d+ms$/)
   })
 })

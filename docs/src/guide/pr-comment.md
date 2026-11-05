@@ -33,45 +33,44 @@ Relizy generates different comments depending on the release outcome:
 
 ### ✅ Success
 
-When the release succeeds, the comment includes:
+With `relizy release`, the comment is the **summary of the release**, as at the end of the terminal output and in the summary of the GitHub Actions run (see [`release.report`](/config/release#report)):
 
-- Version transition (e.g., `1.0.0 → 1.1.0`), except in `independent` mode where each package has its own version in the package table
-- Git tags created
-- Dist-tag used
-- Date and branch
-- Package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
-- Installation commands for each package manager
+- The versions and tags
+- What the release contains: features, fixes, breaking changes, contributors
+- Each step and what it did, with the links of what it created: the npm pages (with the dist-tag and the registry), the GitHub or GitLab releases, the tweet
+- The AI rewrites, the install command
+- The package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
 
 ::: info Projects that publish nothing
-Installation commands are only shown for packages that are actually published: they are omitted when `release.publish` is `false`, and never shown for private packages. See [Private Projects & Apps](/guide/private-projects).
+The install command is only shown for packages that are actually published: it is omitted when `release.publish` is `false`, and never shown for private packages. See [Private Projects & Apps](/guide/private-projects).
 :::
 
 Example:
 
 ```markdown
-## 🚀 Release Published
+## 🚀 Released relizy 2.0.0
 
-| Field    | Value         |
-| -------- | ------------- |
-| Version  | 1.0.0 → 1.1.0 |
-| Tags     | v1.1.0        |
-| Dist-tag | latest        |
-| Date     | 2026-02-22    |
-| Branch   | main          |
+|                         |                                                                                            |
+| ----------------------- | ------------------------------------------------------------------------------------------ |
+| **Version**             | `2.0.0`                                                                                    |
+| **Tag**                 | `v2.0.0`                                                                                   |
+| **Content**             | 11 features · 7 fixes · 7 breaking · 2 contributors                                        |
+| ✅ **Changelog**        | done                                                                                       |
+| ✅ **Publish**          | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |
+| ✅ **Commit and tags**  | a1b2c3d · v2.0.0                                                                           |
+| ✅ **Push**             | main → origin/main                                                                         |
+| ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/LouisMazel/relizy/releases/tag/v2.0.0)  |
+| ✨ **AI**               | 1 rewrite by claude-code in 27.4s · $0.031                                                 |
+| **Install**             | `pnpm add relizy@2.0.0`                                                                    |
 
-### 📦 Packages
+### Packages
 
-| Package      | Version       |
-| ------------ | ------------- |
-| @myorg/core  | 1.0.0 → 1.1.0 |
-| @myorg/utils | 1.0.0 → 1.1.0 |
-
-### 📥 Install
-
-pnpm add @myorg/core@1.1.0
+| Package  | Version            |
+| -------- | ------------------ |
+| `relizy` | `1.14.3` → `2.0.0` |
 ```
 
-With version groups:
+With version groups, one table per group:
 
 ```markdown
 ### maz-ui `5.2.1` (selective)
@@ -88,27 +87,26 @@ With version groups:
 | `@maz-ui/eslint-config` | `5.0.0` → `5.1.0` |
 ```
 
-### ⏭️ No Release
+`relizy pr-comment` on its own (without a release) comments the versions, the tags, the dist-tag and the install commands of the packages.
+
+### ℹ️ No Release
 
 When no qualifying commits exist (nothing to release):
 
 ```markdown
-## ⏭️ No Release
+## ℹ️ Nothing to release
 
-No new version was published from this branch.
-No qualifying commits were found since the last release.
+No commit since the last release triggers a new version.
 ```
 
 ### ❌ Failed
 
-When the release fails:
+When the release fails, the error and the steps done before it:
 
 ```markdown
-## ❌ Release Failed
+## ❌ Release failed
 
-The release process encountered an error:
-
-Error: Failed to publish to npm
+> Failed to publish to npm
 ```
 
 ## Comment Modes

@@ -3,12 +3,13 @@ import type { GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
-import { isPromptExitError, RelizyCancelError } from './errors'
+import { confirmBumpWithOutput } from './bump-prompt'
+import { RelizyCancelError } from './errors'
+import { askConfirm } from './prompts'
 import { recordReleaseFile } from './release-files'
 import { hasLernaJson } from './repo'
 
@@ -763,6 +764,15 @@ export async function confirmBump({
     return
   }
 
+  // The output of the CLI asks within its steps, and throws when refused
+  const answer = await confirmBumpWithOutput(packages as PackageBase[])
+  if (answer !== undefined) {
+    if (!answer) {
+      throw new RelizyCancelError('Bump refused')
+    }
+    return
+  }
+
   logger.log('')
   logger.info(`${dryRun ? '[dry-run] ' : ''}The following packages will be updated:\n`)
 
@@ -772,21 +782,11 @@ export async function confirmBump({
 
   display()
 
-  let confirmed: boolean
-
-  try {
-    confirmed = await confirm({
-      message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
-      default: true,
-    })
-  }
-  catch (error) {
-    if (isPromptExitError(error)) {
-      throw new RelizyCancelError('Bump cancelled', { cause: error })
-    }
-
-    throw error
-  }
+  const confirmed = await askConfirm({
+    message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
+    initialValue: true,
+    cancelMessage: 'Bump cancelled',
+  })
 
   if (!confirmed) {
     throw new RelizyCancelError('Bump refused')
