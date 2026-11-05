@@ -59,6 +59,7 @@
     "prepare": "npx husky",
     "build": "pnpm generate:agent-docs && unbuild",
     "generate:agent-docs": "tsx scripts/generate-agent-docs.ts",
+    "ai:eval": "tsx scripts/ai-eval/run.ts",
     "dev": "pnpm generate:agent-docs && unbuild --stub",
     "relizy": "tsx src/cli.ts",
     "rly": "tsx src/cli.ts",
