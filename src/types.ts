@@ -1025,8 +1025,8 @@ export interface TwitterSocialConfig {
   onlyStable?: boolean
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}} (see `SocialTemplateVariables`)
+   * @default '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   template?: string
   /**
@@ -1083,7 +1083,7 @@ export interface SlackSocialConfig {
   webhookUrl?: string
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}, {{packages}} (see `SocialTemplateVariables`)
    */
   template?: string
   /**
@@ -1251,27 +1251,51 @@ export interface SocialConfig {
   // discord?: DiscordSocialConfig
 }
 
-export interface TwitterOptions {
+/**
+ * Variables of the social templates (`templates.twitterMessage`, `templates.slackMessage`)
+ */
+export interface SocialTemplateVariables {
   /**
-   * Release information
-   */
-  version: string
-  /**
-   * Project name
+   * `projectName` of the config, else the name of the root `package.json`
    */
   projectName: string
+  /**
+   * `<name> <version> is out!` when a single version line is released (the
+   * root version, or a single package of an `independent` group),
+   * `New releases of <projectName>` otherwise
+   */
+  releaseTitle: string
+  /**
+   * The version released, empty when several version lines are released
+   */
+  newVersion: string
+  /**
+   * Comma-separated `name@version` of the released packages
+   */
+  packageList: string
+  /**
+   * Number of released packages
+   */
+  packageCount: string
+  /**
+   * Release URL (GitHub/GitLab) of the release, or of its only version line
+   */
+  releaseUrl?: string
+  /**
+   * Full changelog URL (`social.changelogUrl`)
+   */
+  changelogUrl?: string
+}
+
+export interface TwitterOptions {
+  /**
+   * Variables of the template
+   */
+  variables: SocialTemplateVariables
   /**
    * Changelog content
    */
   changelog: string
-  /**
-   * Release URL (GitHub/GitLab)
-   */
-  releaseUrl?: string
-  /**
-   * Full changelog URL (e.g., https://example.com/changelog)
-   */
-  changelogUrl?: string
   /**
    * Twitter credentials (all fields required)
    */
@@ -1299,25 +1323,13 @@ export interface TwitterOptions {
 
 export interface SlackOptions {
   /**
-   * Release information
+   * Variables of the template, and of the header of the rich blocks format
    */
-  version: string
-  /**
-   * Project name
-   */
-  projectName: string
+  variables: SocialTemplateVariables
   /**
    * Changelog content
    */
   changelog: string
-  /**
-   * Release URL (GitHub/GitLab)
-   */
-  releaseUrl?: string
-  /**
-   * Full changelog URL (e.g., https://example.com/changelog)
-   */
-  changelogUrl?: string
   /**
    * Slack channel ID or name. Required when using token-based auth.
    */
@@ -1414,13 +1426,13 @@ export interface TemplatesConfig {
   emptyChangelogContent?: string
   /**
    * Twitter message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}} (see `SocialTemplateVariables`)
+   * @default '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   twitterMessage?: string
   /**
    * Slack message template (optional - if not provided, uses rich blocks format)
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}, {{packages}} (see `SocialTemplateVariables`)
    * @default undefined
    */
   slackMessage?: string

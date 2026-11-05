@@ -425,7 +425,7 @@ this body — they never touch AI.
 Template:
 
 ```
-📣 {{projectName}} {{newVersion}} is out!
+📣 {{releaseTitle}}
 
 {{changelog}}
 

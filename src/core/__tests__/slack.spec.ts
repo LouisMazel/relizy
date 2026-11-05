@@ -1,5 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, vi } from 'vitest'
+import { socialVariables } from '../../../tests/mocks'
 import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack, resolveSlackPostMaxLength } from '../slack'
 
 vi.mock('../social', () => ({
@@ -297,9 +298,8 @@ describe('Given formatSlackMessage function', () => {
   describe('When using default rich blocks format', () => {
     it('Then returns blocks with header', () => {
       const blocks = formatSlackMessage({
-        projectName: 'my-package',
-        version: '1.0.0',
         changelog: 'Bug fixes',
+        variables: socialVariables({ projectName: 'my-package', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0]).toEqual({
@@ -314,9 +314,8 @@ describe('Given formatSlackMessage function', () => {
 
     it('Then includes changelog section', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '2.0.0',
         changelog: 'New features',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '2.0.0' }),
       })
 
       const changelogBlock = blocks.find(b => b.type === 'section')
@@ -326,9 +325,8 @@ describe('Given formatSlackMessage function', () => {
 
     it('Then includes divider', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       const divider = blocks.find(b => b.type === 'divider')
@@ -337,9 +335,8 @@ describe('Given formatSlackMessage function', () => {
 
     it('Then does not include actions when no URLs provided', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       const actions = blocks.find(b => b.type === 'actions')
@@ -350,10 +347,8 @@ describe('Given formatSlackMessage function', () => {
   describe('When including releaseUrl', () => {
     it('Then adds View Release button', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
-        releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0' }),
       })
 
       const actions = blocks.find(b => b.type === 'actions')
@@ -373,10 +368,8 @@ describe('Given formatSlackMessage function', () => {
   describe('When including changelogUrl', () => {
     it('Then adds Full Changelog button', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
-        changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md' }),
       })
 
       const actions = blocks.find(b => b.type === 'actions')
@@ -396,11 +389,8 @@ describe('Given formatSlackMessage function', () => {
   describe('When including both URLs', () => {
     it('Then adds both buttons', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
-        releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
-        changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0', changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md' }),
       })
 
       const actions = blocks.find(b => b.type === 'actions')
@@ -413,9 +403,8 @@ describe('Given formatSlackMessage function', () => {
     it('Then returns simple text block with template', () => {
       const blocks = formatSlackMessage({
         template: 'Custom: {{projectName}} {{newVersion}}',
-        projectName: 'my-pkg',
-        version: '2.0.0',
         changelog: 'Features',
+        variables: socialVariables({ projectName: 'my-pkg', newVersion: '2.0.0' }),
       })
 
       expect(blocks).toHaveLength(1)
@@ -431,11 +420,8 @@ describe('Given formatSlackMessage function', () => {
     it('Then replaces all placeholders in template', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Bug fixes',
-        releaseUrl: 'https://example.com/release',
-        changelogUrl: 'https://example.com/changelog',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', releaseUrl: 'https://example.com/release', changelogUrl: 'https://example.com/changelog' }),
       })
 
       const message = blocks[0].text.text
@@ -449,9 +435,8 @@ describe('Given formatSlackMessage function', () => {
     it('Then removes releaseUrl placeholder when not provided', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{releaseUrl}}',
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       const message = blocks[0].text.text
@@ -462,9 +447,8 @@ describe('Given formatSlackMessage function', () => {
     it('Then removes changelogUrl placeholder when not provided', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{changelogUrl}}',
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: 'Updates',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       const message = blocks[0].text.text
@@ -476,9 +460,8 @@ describe('Given formatSlackMessage function', () => {
   describe('When changelog is empty', () => {
     it('Then still includes header block', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: '',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0].type).toBe('header')
@@ -486,9 +469,8 @@ describe('Given formatSlackMessage function', () => {
 
     it('Then does not include changelog section for empty changelog', () => {
       const blocks = formatSlackMessage({
-        projectName: 'pkg',
-        version: '1.0.0',
         changelog: '',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
       })
 
       const changelogBlock = blocks.find(b => b.type === 'section')
@@ -512,12 +494,11 @@ describe('Given postReleaseToSlack function', () => {
   describe('When posting in dry run mode', () => {
     it('Then logs message without posting', async () => {
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Bug fixes',
         channel: '#releases',
         token: 'xoxb-token',
         dryRun: true,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
       expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('[dry-run] Slack Post Preview'))
@@ -531,12 +512,11 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#general',
         token: 'xoxb-test',
         dryRun: true,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
       expect(mockImport).not.toHaveBeenCalled()
@@ -568,13 +548,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Bug fixes',
         channel: '#releases',
         token: 'xoxb-token',
-        releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg', releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0' }),
       })
 
       expect(logger.debug).toHaveBeenCalledWith('Preparing Slack post...')
@@ -584,13 +562,12 @@ describe('Given postReleaseToSlack function', () => {
   describe('When using custom message template', () => {
     it('Then uses provided template', async () => {
       await postReleaseToSlack({
-        version: '2.0.0',
-        projectName: 'my-pkg',
         changelog: 'New features',
         channel: '#releases',
         token: 'xoxb-token',
         template: 'Custom: {{projectName}} {{newVersion}}',
         dryRun: true,
+        variables: socialVariables({ newVersion: '2.0.0', projectName: 'my-pkg' }),
       })
 
       expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('Custom: my-pkg 2.0.0'))
@@ -606,12 +583,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
         token: 'xoxb-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow('Missing dependency: @slack/web-api')
     })
   })
@@ -634,12 +610,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#nonexistent',
         token: 'xoxb-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow('Slack channel not found')
     })
 
@@ -659,12 +634,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#private',
         token: 'xoxb-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow('Bot is not in the channel')
     })
 
@@ -684,12 +658,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
         token: 'invalid-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow('Invalid Slack token')
     })
 
@@ -709,12 +682,11 @@ describe('Given postReleaseToSlack function', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
         token: 'xoxb-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow('Missing required OAuth scope')
     })
 
@@ -730,12 +702,11 @@ describe('Given postReleaseToSlack function', () => {
       }))
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
         token: 'xoxb-token',
         dryRun: false,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })).rejects.toThrow()
     })
   })
@@ -743,12 +714,11 @@ describe('Given postReleaseToSlack function', () => {
   describe('When posting with different channel formats', () => {
     it('Then works with channel name format', async () => {
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: '#releases',
         token: 'xoxb-token',
         dryRun: true,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
       expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('#releases'))
@@ -756,12 +726,11 @@ describe('Given postReleaseToSlack function', () => {
 
     it('Then works with channel ID format', async () => {
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'pkg',
         changelog: 'Updates',
         channel: 'C1234567890',
         token: 'xoxb-token',
         dryRun: true,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
       })
 
       expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('C1234567890'))
@@ -773,10 +742,9 @@ describe('Given formatSlackMessage with contributors', () => {
   describe('When contributors array is non-empty (rich blocks mode)', () => {
     it('Then appends a contributors section block', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         contributors: ['Alice Martin', 'Bob Dupont'],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
@@ -790,10 +758,9 @@ describe('Given formatSlackMessage with contributors', () => {
   describe('When contributors array is empty (rich blocks mode)', () => {
     it('Then does not append a contributors block', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         contributors: [],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
@@ -802,9 +769,8 @@ describe('Given formatSlackMessage with contributors', () => {
 
     it('Then does not append a contributors block when not provided', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const contribBlock = blocks.find((b: any) => b.text?.text?.includes('❤️ Contributors'))
@@ -816,10 +782,9 @@ describe('Given formatSlackMessage with contributors', () => {
     it('Then substitutes the bullet list', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n\n{{contributors}}',
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         contributors: ['Alice', 'Bob'],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0].text.text).toContain('• Alice')
@@ -830,10 +795,9 @@ describe('Given formatSlackMessage with contributors', () => {
     it('Then replaces with empty string when contributors is empty', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n{{contributors}}',
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         contributors: [],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0].text.text).not.toContain('{{contributors}}')
@@ -847,10 +811,9 @@ describe('Given formatSlackMessage with postMaxLength', () => {
     it('Then truncates the changelog at the given length', () => {
       const longChangelog = 'a'.repeat(2000)
       const blocks = formatSlackMessage({
-        projectName: 'p',
-        version: '1.0.0',
         changelog: longChangelog,
         postMaxLength: 100,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
       })
 
       const section = blocks.find((b: any) => b.type === 'section' && b.text?.text?.startsWith('a'))
@@ -863,9 +826,8 @@ describe('Given formatSlackMessage with postMaxLength', () => {
     it('Then uses default of 2500', () => {
       const longChangelog = 'a'.repeat(3000)
       const blocks = formatSlackMessage({
-        projectName: 'p',
-        version: '1.0.0',
         changelog: longChangelog,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
       })
 
       const section = blocks.find((b: any) => b.type === 'section' && b.text?.text?.startsWith('a'))
@@ -903,7 +865,7 @@ describe('Given formatSlackMessage with the full changelog format', () => {
 
   describe('When using the default blocks layout', () => {
     it('Then renders one rich_text block per changelog section, bodies included', () => {
-      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog: richChangelog, changelogFormat: 'full' })
+      const blocks = formatSlackMessage({ changelog: richChangelog, changelogFormat: 'full', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
 
       const richTextBlocks = blocks.filter((b: any) => b.type === 'rich_text')
       expect(richTextBlocks).toHaveLength(2)
@@ -917,13 +879,11 @@ describe('Given formatSlackMessage with the full changelog format', () => {
 
     it('Then keeps the header, packages, contributors and actions around the changelog', () => {
       const blocks = formatSlackMessage({
-        projectName: 'p',
-        version: '1.0.0',
         changelog: richChangelog,
         changelogFormat: 'full',
-        releaseUrl: 'https://example.com/release',
         contributors: ['Alice'],
         packages: [{ name: 'a', version: '1.0.0', hasTransition: false } as any],
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/release' }),
       })
 
       expect(blocks.map((b: any) => b.type)).toEqual(['header', 'rich_text', 'rich_text', 'section', 'section', 'divider', 'actions'])
@@ -932,7 +892,7 @@ describe('Given formatSlackMessage with the full changelog format', () => {
     it('Then stays within the 50 blocks of a Slack message', () => {
       const changelog = Array.from({ length: 80 }, (_, i) => sectionWithOneChange(i)).join('\n\n')
 
-      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', releaseUrl: 'https://example.com/release' })
+      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/release' }) })
 
       expect(blocks.length).toBeLessThanOrEqual(50)
       expect(JSON.stringify(blocks.at(-3))).toContain('more changes')
@@ -941,7 +901,7 @@ describe('Given formatSlackMessage with the full changelog format', () => {
     it('Then truncates by commits when postMaxLength is set', () => {
       const changelog = `### Features\n\n${bulletList(20, 'Feature number')}`
 
-      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', postMaxLength: 100 })
+      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', postMaxLength: 100, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
 
       const serialized = JSON.stringify(blocks)
       expect(serialized).toContain('Feature number 0')
@@ -953,11 +913,10 @@ describe('Given formatSlackMessage with the full changelog format', () => {
   describe('When using a template', () => {
     it('Then injects the complete changelog as mrkdwn with bodies quoted', () => {
       const blocks = formatSlackMessage({
-        projectName: 'p',
-        version: '1.0.0',
         changelog: richChangelog,
         changelogFormat: 'full',
         template: '*{{projectName}} {{newVersion}}*\n{{changelog}}',
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
       })
 
       expect(blocks).toHaveLength(1)
@@ -976,7 +935,7 @@ describe('Given formatSlackMessage with the full changelog format', () => {
       const changelog = `### Features\n\n${bulletList(300, 'Feature number')}`
       const template = `${'x'.repeat(1000)}\n{{changelog}}`
 
-      const blocks = formatSlackMessage({ projectName: 'p', version: '1.0.0', changelog, changelogFormat: 'full', template })
+      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', template, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
 
       expect(blocks[0].text.text.length).toBeLessThanOrEqual(3000)
       expect(blocks[0].text.text).toMatch(/more changes_$/)
@@ -987,12 +946,11 @@ describe('Given formatSlackMessage with the full changelog format', () => {
 describe('Given postReleaseToSlack in full format and dry run', () => {
   it('Then previews the rich text blocks as plain text', async () => {
     await postReleaseToSlack({
-      version: '1.0.0',
-      projectName: 'pkg',
       changelog: '### Features\n\n- Add a thing\n\n  With a body',
       webhookUrl: 'https://hooks.slack.com/services/A/B/C',
       changelogFormat: 'full',
       dryRun: true,
+      variables: socialVariables({ newVersion: '1.0.0', projectName: 'pkg' }),
     })
 
     expect(logger.box).toHaveBeenCalledWith(expect.stringContaining('Features\n• Add a thing\n> With a body'))
@@ -1065,10 +1023,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
 
       const result = await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'proj',
         changelog: 'feat: add X',
         webhookUrl: 'https://hooks.slack.com/services/AAA/BBB/CCC',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'proj' }),
       })
 
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -1088,12 +1045,11 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
 
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'proj',
         changelog: 'feat: add X',
         webhookUrl: 'https://hooks.slack.com/services/AAA/BBB/CCC',
         token: 'xoxb-should-be-ignored',
         channel: '#anything',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'proj' }),
       })
 
       expect(fetchMock).toHaveBeenCalledTimes(1)
@@ -1110,10 +1066,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/Slack webhook failed.*404.*Regenerate/s)
     })
   })
@@ -1128,10 +1083,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/postMaxLength/)
     })
   })
@@ -1146,10 +1100,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/archived or removed|new webhook/)
     })
   })
@@ -1164,10 +1117,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/workspace.*blocked/)
     })
   })
@@ -1182,10 +1134,9 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
       })
 
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/Slack webhook failed.*500/)
     })
   })
@@ -1193,11 +1144,10 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
   describe('When dryRun is true in webhook mode', () => {
     it('Then does not call fetch', async () => {
       await postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         webhookUrl: 'https://hooks.slack.com/services/A/B/C',
         dryRun: true,
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })
 
       expect(fetchMock).not.toHaveBeenCalled()
@@ -1209,9 +1159,8 @@ describe('Given postReleaseToSlack validation', () => {
   describe('When neither token nor webhookUrl is provided', () => {
     it('Then throws', async () => {
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/webhookUrl or token/)
     })
   })
@@ -1219,10 +1168,9 @@ describe('Given postReleaseToSlack validation', () => {
   describe('When token is provided without channel', () => {
     it('Then throws', async () => {
       await expect(postReleaseToSlack({
-        version: '1.0.0',
-        projectName: 'p',
         changelog: 'x',
         token: 'xoxb-test',
+        variables: socialVariables({ newVersion: '1.0.0', projectName: 'p' }),
       })).rejects.toThrow(/channel is required/)
     })
   })
@@ -1285,13 +1233,12 @@ describe('Given formatSlackMessage with packages', () => {
   describe('When packages array is non-empty (rich blocks mode)', () => {
     it('Then appends a 📦 Packages section block after changelog and before contributors', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         packages: [
           { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
         ],
         contributors: ['Alice'],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const types = blocks.map((b: any) => b.type)
@@ -1312,10 +1259,9 @@ describe('Given formatSlackMessage with packages', () => {
   describe('When packages array is empty', () => {
     it('Then does not append a packages block', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         packages: [],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
@@ -1324,9 +1270,8 @@ describe('Given formatSlackMessage with packages', () => {
 
     it('Then does not append a packages block when not provided', () => {
       const blocks = formatSlackMessage({
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       const pkgBlock = blocks.find((b: any) => b.text?.text?.includes('📦 Packages'))
@@ -1338,12 +1283,11 @@ describe('Given formatSlackMessage with packages', () => {
     it('Then substitutes the bullet list', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n\n{{packages}}',
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         packages: [
           { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
         ],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0].text.text).toContain('• *@acme/a* : `1.0.0` → `1.1.0`')
@@ -1353,10 +1297,9 @@ describe('Given formatSlackMessage with packages', () => {
     it('Then replaces with empty string when packages is empty', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n{{packages}}',
-        projectName: 'proj',
-        version: '1.0.0',
         changelog: 'feat: add X',
         packages: [],
+        variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
 
       expect(blocks[0].text.text).not.toContain('{{packages}}')

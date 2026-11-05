@@ -101,12 +101,15 @@ export default defineConfig({
 ### twitter.template
 
 - **Type:** `string`
-- **Default:** Auto-generated from version and changelog
+- **Default:** `templates.twitterMessage`: <code v-pre>'📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'</code>
 
-Customize the tweet message template. Available variables:
+Customize the tweet message template. Every occurrence of a variable is replaced. Available variables:
 
-- <code v-pre>{{projectName}}</code> - Project name
-- <code v-pre>{{version}}</code> - Release version
+- <code v-pre>{{releaseTitle}}</code> - `<name> <version> is out!` when a single version is released (the root version, or a single package in `independent` mode), `New releases of <projectName>` when several are
+- <code v-pre>{{projectName}}</code> - `projectName` of the config, else the name of the root `package.json`
+- <code v-pre>{{newVersion}}</code> - The version released, empty when several versions are released
+- <code v-pre>{{packageList}}</code> - Comma-separated `name@version` of the released packages
+- <code v-pre>{{packageCount}}</code> - Number of released packages
 - <code v-pre>{{changelog}}</code> - Changelog summary (truncated to fit Twitter's limit)
 - <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
@@ -116,7 +119,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      template: '🚀 {{projectName}} v{{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
+      template: '🚀 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}',
     },
   },
 })
@@ -259,14 +262,20 @@ See the [Slack Integration Guide](../guide/slack-integration.md) for setup steps
 - **Type:** `string`
 - **Default:** Auto-generated from version and changelog
 
-Customize the Slack message template. Available variables:
+Customize the Slack message template. Every occurrence of a variable is replaced. Available variables:
 
-- <code v-pre>{{projectName}}</code> - Project name
-- <code v-pre>{{newVersion}}</code> - Release version
+- <code v-pre>{{releaseTitle}}</code> - `<name> <version> is out!` when a single version is released (the root version, or a single package in `independent` mode), `New releases of <projectName>` when several are
+- <code v-pre>{{projectName}}</code> - `projectName` of the config, else the name of the root `package.json`
+- <code v-pre>{{newVersion}}</code> - The version released, empty when several versions are released
+- <code v-pre>{{packageList}}</code> - Comma-separated `name@version` of the released packages
+- <code v-pre>{{packageCount}}</code> - Number of released packages
 - <code v-pre>{{changelog}}</code> - Changelog summary, or the complete changelog in mrkdwn with `changelogFormat: 'full'` (commit bodies as quotes, fitted to Slack's 3000 characters section limit)
 - <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
 - <code v-pre>{{contributors}}</code> - Bullet list of contributor names (empty when `noAuthors` is active or none detected)
+- <code v-pre>{{packages}}</code> - Bullet list of the bumped packages with their old and new versions (empty with `noPackages`)
+
+Without template, the header of the message is <code v-pre>📣 {{releaseTitle}}</code>.
 
 ```ts
 export default defineConfig({
@@ -436,7 +445,7 @@ export default defineConfig({
     twitter: {
       enabled: true,
       onlyStable: true,
-      template: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n📖 {{releaseUrl}}',
+      template: '🎉 {{projectName}} v{{newVersion}} released!\n\n{{changelog}}\n\n📖 {{releaseUrl}}',
     },
     changelogUrl: 'https://myproject.com/changelog',
   },
@@ -454,7 +463,7 @@ export default defineConfig({
       enabled: true,
       onlyStable: false, // Post all releases including prereleases
       channel: '#releases',
-      template: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View on GitHub>',
+      template: '🚀 *{{projectName}} v{{newVersion}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View on GitHub>',
     },
     changelogUrl: 'https://myproject.com/changelog',
   },

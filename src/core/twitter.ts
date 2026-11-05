@@ -1,5 +1,6 @@
-import type { TwitterCredentials, TwitterOptions } from '../types'
+import type { SocialTemplateVariables, TwitterCredentials, TwitterOptions } from '../types'
 import { logger } from '@maz-ui/node'
+import { fillSocialTemplate } from './release-overview'
 import { extractChangelogSummary } from './social'
 
 export interface ResolvedTwitterCredentials {
@@ -116,66 +117,35 @@ function truncateTweetText(text: string, maxLength: number, ellipsis: string): s
   return `${segments.join('')}${ellipsis}`
 }
 
-export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl, postMaxLength }: {
+export function formatTweetMessage({ template, variables, changelog, postMaxLength }: {
   template: string
-  projectName: string
-  version: string
+  variables: SocialTemplateVariables
   changelog: string
-  releaseUrl?: string
-  changelogUrl?: string
   postMaxLength: number
 }): string {
-  const MAX_LENGTH = postMaxLength
   const ELLIPSIS = '...'
 
-  const changelogSummary = extractChangelogSummary(changelog, { maxLength: MAX_LENGTH, stripBoldMarkers: true })
+  const changelogSummary = extractChangelogSummary(changelog, { maxLength: postMaxLength, stripBoldMarkers: true })
 
-  // Step 1: Build template with all placeholders replaced except changelog
-  let templateWithValues = template
-    .replace('{{projectName}}', projectName)
-    .replace('{{newVersion}}', version)
+  // Every placeholder but the changelog, whose length depends on the space they leave
+  const templateWithValues = fillSocialTemplate(template, variables)
+  const availableForChangelog = postMaxLength - getTweetLength(templateWithValues.replaceAll('{{changelog}}', ''))
 
-  if (releaseUrl) {
-    templateWithValues = templateWithValues.replace('{{releaseUrl}}', releaseUrl)
-  }
-  else {
-    // Remove the releaseUrl placeholder if no URL is provided
-    templateWithValues = templateWithValues.replace('{{releaseUrl}}', '')
-  }
-
-  if (changelogUrl) {
-    templateWithValues = templateWithValues.replace('{{changelogUrl}}', changelogUrl)
-  }
-  else {
-    // Remove the changelogUrl placeholder if no URL is provided
-    templateWithValues = templateWithValues.replace('{{changelogUrl}}', '')
-  }
-
-  // Step 2: Calculate how much space is available for the changelog
-  const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
-  const availableForChangelog = MAX_LENGTH - getTweetLength(templateWithoutChangelog)
-
-  // Step 3: Escape @ mentions in changelog to prevent unintended Twitter mentions
+  // Escape @ mentions in changelog to prevent unintended Twitter mentions
   // by inserting a zero-width space after @ (e.g., scoped package names like @scope/pkg)
   const escapedChangelog = changelogSummary.replace(/@\b/g, '@\u200B')
 
-  // Step 4: Truncate changelog if needed
   const finalChangelog = truncateTweetText(escapedChangelog, Math.max(0, availableForChangelog), ELLIPSIS)
 
-  // Step 5: Build final message
-  const message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
+  const message = templateWithValues.replaceAll('{{changelog}}', finalChangelog).trim()
 
-  // Step 6: Safety check - if message still exceeds limit, truncate entire message
-  // This should only happen if the template + URLs alone are > 280 chars
-  return truncateTweetText(message, MAX_LENGTH, ELLIPSIS)
+  // Only exceeds the limit when the template and its URLs alone do
+  return truncateTweetText(message, postMaxLength, ELLIPSIS)
 }
 
 export async function postReleaseToTwitter({
-  version,
-  projectName,
+  variables,
   changelog,
-  releaseUrl,
-  changelogUrl,
   credentials,
   template,
   postMaxLength,
@@ -185,11 +155,8 @@ export async function postReleaseToTwitter({
 
   const message = formatTweetMessage({
     template,
-    projectName,
-    version,
+    variables,
     changelog,
-    releaseUrl,
-    changelogUrl,
     postMaxLength,
   })
 

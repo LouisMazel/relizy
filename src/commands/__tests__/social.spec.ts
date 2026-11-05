@@ -2,7 +2,7 @@ import type { GroupBumpResult } from '../../types'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { collectContributorNames, executeHook, generateChangelog, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { collectContributorNames, executeHook, generateChangelog, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
@@ -13,9 +13,16 @@ vi.mock('../../core/ai', () => ({
   isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled),
 }))
 
+// The release overview reads the name of the project from the root package.json
+vi.mock('../../core/repo', async importActual => ({
+  ...await importActual<typeof import('../../core/repo')>(),
+  readPackageJson: vi.fn().mockReturnValue({ name: 'test-package', version: '1.0.0' }),
+}))
+
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  ...await vi.importActual<typeof import('../../core/release-overview')>('../../core/release-overview'),
   loadRelizyConfig: vi.fn(),
   getPackagesOrBumpedPackages: vi.fn(),
   executeHook: vi.fn(),
@@ -473,9 +480,33 @@ describe('Given social command', () => {
 
       await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
 
-      expect(getIndependentTag).toHaveBeenCalledWith({ version: '1.0.1', name: 'pkg-a' })
       expect(getReleaseUrl).toHaveBeenCalledWith(expect.anything(), 'pkg-a@1.0.1')
-      expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
+        variables: expect.objectContaining({ releaseTitle: 'pkg-a 1.0.1 is out!', newVersion: '1.0.1', releaseUrl: 'https://example.com/release' }),
+      }))
+    })
+
+    it('Then announces several packages under the project name, without version nor release URL', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.1.0', fromTag: 'pkg-b@2.0.0' }),
+        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+      ] as any)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+
+      expect(getReleaseUrl).not.toHaveBeenCalled()
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
+        variables: {
+          projectName: 'test-package',
+          releaseTitle: 'New releases of test-package',
+          newVersion: '',
+          packageList: 'pkg-a@1.0.1, pkg-b@2.1.0',
+          packageCount: '2',
+          releaseUrl: undefined,
+          changelogUrl: undefined,
+        },
+      }))
     })
 
     it('Then skips onlyStable posts when every package is a prerelease', async () => {

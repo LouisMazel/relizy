@@ -150,7 +150,7 @@ export default defineConfig({
   social: {
     twitter: {
       enabled: true,
-      template: '📣 {{projectName}} {{version}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
+      template: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📋 {{changelogUrl}}',
     },
   },
 })
@@ -158,8 +158,11 @@ export default defineConfig({
 
 ### Available Placeholders
 
-- <code v-pre>{{projectName}}</code> - Package name from package.json
-- <code v-pre>{{version}}</code> - New version number
+- <code v-pre>{{releaseTitle}}</code> - `<name> <version> is out!` when a single version is released (the root version, or a single package in `independent` mode), `New releases of <projectName>` when several are
+- <code v-pre>{{projectName}}</code> - `projectName` of the config, else the name of the root `package.json`
+- <code v-pre>{{newVersion}}</code> - The version released, empty when several versions are released
+- <code v-pre>{{packageList}}</code> - Comma-separated `name@version` of the released packages
+- <code v-pre>{{packageCount}}</code> - Number of released packages
 - <code v-pre>{{changelog}}</code> - Auto-generated changelog summary
 - <code v-pre>{{releaseUrl}}</code> - Link to the GitHub/GitLab release
 - <code v-pre>{{changelogUrl}}</code> - Link to the full changelog (from `social.changelogUrl`)

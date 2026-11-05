@@ -111,7 +111,7 @@ describe('Given getDefaultConfig function', () => {
       const config = getDefaultConfig()
 
       expect(config.templates.twitterMessage).toBe(
-        '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+        '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
       )
     })
 

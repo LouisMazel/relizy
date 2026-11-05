@@ -219,7 +219,7 @@ export default defineConfig({
     twitter: {
       enabled: true,
       onlyStable: true, // Skip prerelease versions
-      template: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n{{releaseUrl}}',
+      template: '🎉 {{projectName}} v{{newVersion}} released!\n\n{{changelog}}\n\n{{releaseUrl}}',
       credentials: {
         apiKey: process.env.TWITTER_API_KEY,
         apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
@@ -231,7 +231,7 @@ export default defineConfig({
       enabled: true,
       onlyStable: false, // Post all releases
       channel: '#releases',
-      template: '📣 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
+      template: '📣 *{{projectName}} v{{newVersion}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View Release>',
       credentials: {
         token: process.env.SLACK_TOKEN,
       },
@@ -416,7 +416,7 @@ Tweet exceeds 280 characters
 Relizy automatically truncates tweets, but you can customize the template to make it shorter:
 
 ```ts
-template: '🎉 {{projectName}} v{{version}}\n{{releaseUrl}}'
+template: '🎉 {{projectName}} v{{newVersion}}\n{{releaseUrl}}'
 ```
 
 ## Integration with release Command

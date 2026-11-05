@@ -1,7 +1,8 @@
-import type { SlackChangelogFormat, SlackCredentials, SlackOptions } from '../types'
+import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SocialTemplateVariables } from '../types'
 import type { PackageBumpEntry } from './packages'
 import type { SlackRichTextBlock } from './slack-markdown'
 import { logger } from '@maz-ui/node'
+import { fillSocialTemplate } from './release-overview'
 import { markdownToSlackMrkdwn, markdownToSlackRichText, richTextToPlainText, SLACK_HEADER_MAX_LENGTH, SLACK_MAX_BLOCKS, SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH, sliceSlackText } from './slack-markdown'
 import { extractChangelogSummary } from './social'
 
@@ -107,38 +108,18 @@ function formatListSection(title: string, lines: string[], noun: string): string
   return truncateSlackText(render(0), SLACK_SECTION_MAX_LENGTH)
 }
 
-function renderSlackTemplate({ template, projectName, version, changelog, contributorsLine, packagesLine, releaseUrl, changelogUrl }: {
+function renderSlackTemplate({ template, variables, changelog, contributorsLine, packagesLine }: {
   template: string
-  projectName: string
-  version: string
+  variables: SocialTemplateVariables
   changelog: string
   contributorsLine: string
   packagesLine: string
-  releaseUrl?: string
-  changelogUrl?: string
 }): string {
-  let message = template
-    .replace('{{projectName}}', projectName)
-    .replace('{{newVersion}}', version)
-    .replace('{{changelog}}', changelog)
-    .replace('{{contributors}}', contributorsLine)
-    .replace('{{packages}}', packagesLine)
-
-  if (releaseUrl) {
-    message = message.replace('{{releaseUrl}}', releaseUrl)
-  }
-  else {
-    message = message.replace('{{releaseUrl}}', '').trim()
-  }
-
-  if (changelogUrl) {
-    message = message.replace('{{changelogUrl}}', changelogUrl)
-  }
-  else {
-    message = message.replace('{{changelogUrl}}', '').trim()
-  }
-
-  return message
+  return fillSocialTemplate(template, variables, {
+    changelog,
+    contributors: contributorsLine,
+    packages: packagesLine,
+  }).trim()
 }
 
 /**
@@ -149,13 +130,10 @@ function renderSlackTemplate({ template, projectName, version, changelog, contri
  *   always by Slack's limits (50 blocks, ~13,200 chars for rich text messages).
  * Every block is kept within Slack's limits so the post is never rejected.
  */
-export function formatSlackMessage({ projectName, version, changelog, releaseUrl, changelogUrl, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary' }: {
+export function formatSlackMessage({ variables, changelog, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary' }: {
   template?: string
-  projectName: string
-  version: string
+  variables: SocialTemplateVariables
   changelog: string
-  releaseUrl?: string
-  changelogUrl?: string
   contributors?: string[]
   packages?: PackageBumpEntry[]
   postMaxLength?: number
@@ -169,7 +147,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
 
   // Use template if provided, otherwise use blocks
   if (template) {
-    const templateContext = { template, projectName, version, contributorsLine, packagesLine, releaseUrl, changelogUrl }
+    const templateContext = { template, variables, contributorsLine, packagesLine }
     let changelogText: string
     if (changelogFormat === 'full') {
       // A template is a single section: the changelog gets what the template leaves of its limit.
@@ -201,7 +179,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
     type: 'header',
     text: {
       type: 'plain_text',
-      text: truncateSlackText(`📣 ${projectName} ${version} is out!`, SLACK_HEADER_MAX_LENGTH),
+      text: truncateSlackText(`📣 ${variables.releaseTitle}`, SLACK_HEADER_MAX_LENGTH),
       emoji: true,
     },
   }
@@ -238,7 +216,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
   // Add action buttons
   const elements: any[] = []
 
-  if (releaseUrl) {
+  if (variables.releaseUrl) {
     elements.push({
       type: 'button',
       text: {
@@ -246,12 +224,12 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
         text: '📦 View Release',
         emoji: true,
       },
-      url: releaseUrl,
+      url: variables.releaseUrl,
       action_id: 'view_release',
     })
   }
 
-  if (changelogUrl) {
+  if (variables.changelogUrl) {
     elements.push({
       type: 'button',
       text: {
@@ -259,7 +237,7 @@ export function formatSlackMessage({ projectName, version, changelog, releaseUrl
         text: '📋 Full Changelog',
         emoji: true,
       },
-      url: changelogUrl,
+      url: variables.changelogUrl,
       action_id: 'view_changelog',
     })
   }
@@ -394,11 +372,8 @@ async function postViaWebApi({ token, channel, blocks, text }: {
  * When both are provided, the webhook takes priority.
  */
 export async function postReleaseToSlack({
-  version,
-  projectName,
+  variables,
   changelog,
-  releaseUrl,
-  changelogUrl,
   channel,
   token,
   webhookUrl,
@@ -423,17 +398,14 @@ export async function postReleaseToSlack({
 
   const blocks = formatSlackMessage({
     template,
-    projectName,
-    version,
+    variables,
     changelog,
-    releaseUrl,
-    changelogUrl,
     contributors,
     packages,
     postMaxLength,
     changelogFormat,
   })
-  const fallbackText = `${projectName} ${version} is out!`
+  const fallbackText = variables.releaseTitle
 
   logger.debug(`Message blocks (${blocks.length} blocks)`)
 

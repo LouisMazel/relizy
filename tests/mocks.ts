@@ -1,6 +1,6 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ResolvedRelizyConfig } from '../src/core/config'
-import type { GitCommit, PackageBase, RelizyConfig } from '../src/types'
+import type { GitCommit, PackageBase, RelizyConfig, SocialTemplateVariables } from '../src/types'
 import { getDefaultConfig } from '../src/core/config'
 
 export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
@@ -49,6 +49,20 @@ export function createMockPackageInfo(overrides?: Partial<PackageBase>): Package
     reason: 'commits',
     fromTag: 'v1.0.0',
     commits: [],
+    ...overrides,
+  }
+}
+
+/**
+ * Variables of the social templates for a single version released
+ */
+export function socialVariables({ projectName = 'pkg', newVersion = '1.0.0', ...overrides }: Partial<SocialTemplateVariables> = {}): SocialTemplateVariables {
+  return {
+    projectName,
+    newVersion,
+    releaseTitle: `${projectName} ${newVersion} is out!`,
+    packageList: `${projectName}@${newVersion}`,
+    packageCount: '1',
     ...overrides,
   }
 }

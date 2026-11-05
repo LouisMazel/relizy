@@ -1,35 +1,24 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { ResolvedRelizyConfig } from '../core'
-import type { GitCommit, SocialNetworkResult, SocialOptions, SocialResult } from '../types'
+import type { BumpResultTruthy, GitCommit, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTweetLength, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
 function computeTwitterChangelogBudget({
   template,
-  projectName,
-  version,
-  releaseUrl,
-  changelogUrl,
+  variables,
   postMaxLength,
 }: {
   template: string
-  projectName: string
-  version: string
-  releaseUrl?: string
-  changelogUrl?: string
+  variables: SocialTemplateVariables
   postMaxLength: number
 }): number {
-  const overhead = template
-    .replace('{{projectName}}', projectName)
-    .replace('{{newVersion}}', version)
-    .replace('{{releaseUrl}}', releaseUrl ?? '')
-    .replace('{{changelogUrl}}', changelogUrl ?? '')
-    .replace('{{changelog}}', '')
+  const overhead = fillSocialTemplate(template, variables, { changelog: '' })
 
   return Math.max(0, postMaxLength - getTweetLength(overhead))
 }
@@ -130,19 +119,17 @@ async function handleTwitterPost({
   config,
   changelog,
   dryRun,
-  newVersion,
-  tag,
+  variables,
   prerelease,
 }: {
   config: ResolvedRelizyConfig
   changelog: string
   dryRun: boolean
-  newVersion: string
-  tag: string
-  // When provided, overrides the `isPrerelease(newVersion)` heuristic for the
-  // onlyStable skip. Independent mode passes it because `newVersion` may be an
-  // aggregate label (e.g. "3 packages") rather than a parsable semver string.
-  prerelease?: boolean
+  variables: SocialTemplateVariables
+  /**
+   * True when every version of the release is a prerelease
+   */
+  prerelease: boolean
 }): Promise<SocialNetworkResponse<TweetV2PostTweetResult>> {
   // Check if Twitter is enabled specifically
   const twitterConfig = config.social?.twitter
@@ -167,39 +154,22 @@ async function handleTwitterPost({
     logger.debug('Preparing tweet for release')
 
     // Check if this is a prerelease and if we should skip it
-    const onlyStable = twitterConfig.onlyStable
-    const isPre = prerelease ?? isPrerelease(newVersion)
-    if (onlyStable && isPre) {
-      logger.info(`Skipping Twitter post for prerelease version ${newVersion} (social.twitter.onlyStable is enabled)`)
+    if (twitterConfig.onlyStable && prerelease) {
+      logger.info(`Skipping Twitter post for prerelease ${variables.newVersion || variables.packageList} (social.twitter.onlyStable is enabled)`)
       return { success: true, response: undefined }
     }
 
     await executeHook('before:twitter', config, dryRun)
 
     try {
-      const rootPackageBase = readPackageJson(config.cwd)
-
-      if (!rootPackageBase) {
-        throw new Error('Failed to read root package.json')
-      }
-
-      logger.debug(`Project: ${rootPackageBase.name}`)
-
-      const releaseUrl = getReleaseUrl(config, tag)
-      logger.debug(`Release URL: ${releaseUrl || 'none'}`)
-
-      const changelogUrl = config.social?.changelogUrl
-      logger.debug(`Changelog URL: ${changelogUrl || 'none'}`)
-
+      logger.debug(`Release URL: ${variables.releaseUrl || 'none'}`)
+      logger.debug(`Changelog URL: ${variables.changelogUrl || 'none'}`)
       logger.debug(`Changelog generated (${changelog.length} chars)`)
 
       const response = await postReleaseToTwitter({
         template: config.social.twitter.template || config.templates.twitterMessage,
-        version: newVersion,
-        projectName: config.projectName || rootPackageBase.name,
+        variables,
         changelog,
-        releaseUrl,
-        changelogUrl,
         credentials,
         dryRun,
         postMaxLength: config.social.twitter.postMaxLength,
@@ -228,8 +198,7 @@ async function handleSlackPost({
   config,
   changelog,
   dryRun,
-  newVersion,
-  tag,
+  variables,
   commits,
   bumpedPackages,
   prerelease,
@@ -237,12 +206,13 @@ async function handleSlackPost({
   config: ResolvedRelizyConfig
   changelog: string
   dryRun: boolean
-  newVersion: string
-  tag: string
+  variables: SocialTemplateVariables
   commits: GitCommit[]
   bumpedPackages?: Array<{ name: string, version: string, oldVersion: string, newVersion?: string }>
-  // See handleTwitterPost: overrides the onlyStable prerelease heuristic when set.
-  prerelease?: boolean
+  /**
+   * True when every version of the release is a prerelease
+   */
+  prerelease: boolean
 }): Promise<SocialNetworkResponse<ChatPostMessageResponse | { ok: true, transport: 'webhook' } | undefined>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
@@ -274,33 +244,19 @@ async function handleSlackPost({
 
     const slackMode = webhookUrl ? 'webhook mode' : `token mode, channel: ${slackConfig.channel}`
     logger.debug(`Slack: ${slackMode}`)
-    logger.debug(`Preparing Slack message for release: ${tag} (${newVersion})`)
+    logger.debug(`Preparing Slack message for release: ${variables.releaseTitle}`)
 
     // Check if this is a prerelease and if we should skip it
-    const onlyStable = slackConfig.onlyStable ?? true
-    const isPre = prerelease ?? isPrerelease(newVersion)
-    if (onlyStable && isPre) {
-      logger.info(`Skipping Slack post for prerelease version ${newVersion} (social.slack.onlyStable is enabled)`)
+    if ((slackConfig.onlyStable ?? true) && prerelease) {
+      logger.info(`Skipping Slack post for prerelease ${variables.newVersion || variables.packageList} (social.slack.onlyStable is enabled)`)
       return { success: true, response: undefined }
     }
 
     try {
       await executeHook('before:slack', config, dryRun)
 
-      const rootPackageBase = readPackageJson(config.cwd)
-
-      if (!rootPackageBase) {
-        throw new Error('Failed to read root package.json')
-      }
-
-      logger.debug(`Project: ${rootPackageBase.name}`)
-
-      const releaseUrl = getReleaseUrl(config, tag)
-      logger.debug(`Release URL: ${releaseUrl || 'none'}`)
-
-      const changelogUrl = config.social?.changelogUrl
-      logger.debug(`Changelog URL: ${changelogUrl || 'none'}`)
-
+      logger.debug(`Release URL: ${variables.releaseUrl || 'none'}`)
+      logger.debug(`Changelog URL: ${variables.changelogUrl || 'none'}`)
       logger.debug(`Changelog generated (${changelog.length} chars)`)
 
       const template = slackConfig.template || config.templates.slackMessage
@@ -321,11 +277,8 @@ async function handleSlackPost({
       logger.debug(`Packages: ${packages.length}`)
 
       const response = await postReleaseToSlack({
-        version: newVersion,
-        projectName: config.projectName || rootPackageBase.name,
+        variables,
         changelog,
-        releaseUrl,
-        changelogUrl,
         channel: slackConfig.channel,
         token: token ?? undefined,
         webhookUrl: webhookUrl ?? undefined,
@@ -441,10 +394,11 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
 
     let minifiedBody: string
     let richBody: string
-    let newVersion: string
-    let tag: string
     let changelogCommits: GitCommit[]
-    let prerelease: boolean
+    // What the post announces: the packages and their versions
+    let released: BumpResultTruthy
+    // Tag of the release URL, when the post announces a single version
+    let tag: string | undefined
 
     if (isIndependent) {
       // Independent mode: aggregate one changelog section per bumped package,
@@ -517,20 +471,13 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       richBody = richSections.join('\n\n')
       changelogCommits = [...commitsByHash.values()]
 
-      // The batch is a prerelease only if every bumped package is a prerelease,
-      // so an onlyStable post is skipped only when there is nothing stable to announce.
-      prerelease = packages.length > 0
-        && packages.every(pkg => isPrerelease((isBumpedPackage(pkg) && pkg.newVersion) || pkg.version))
-
-      if (packages.length === 1) {
-        const only = packages[0]
-        newVersion = (isBumpedPackage(only) && only.newVersion) || only.version
-        tag = getIndependentTag({ version: newVersion, name: only.name })
-      }
-      else {
-        // No single version/tag represents the aggregated post.
-        newVersion = `${packages.length} packages`
-        tag = ''
+      released = {
+        bumped: true,
+        bumpedPackages: packages.map(pkg => ({
+          ...pkg,
+          oldVersion: (isBumpedPackage(pkg) && pkg.oldVersion) || pkg.version,
+          newVersion: (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version,
+        })),
       }
     }
     else {
@@ -572,7 +519,12 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
         minify: false,
       })
 
-      newVersion = resolvedNewVersion
+      released = {
+        bumped: true,
+        newVersion: resolvedNewVersion,
+        fromTag,
+        bumpedPackages: options.bumpResult?.bumpedPackages ?? [],
+      }
       tag = to
       // Fetch commits with `changelog: true` so contributors who only authored
       // title-only commits (e.g. `docs:`) still appear in Slack notifications.
@@ -586,13 +538,23 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
         changelog: true,
         dryRun,
       })
-      prerelease = isPrerelease(newVersion)
     }
 
-    const hasContent = !!minifiedBody.trim()
+    const overview = withoutPrivatePackages(getReleaseOverview({ config, bumpResult: released }))
+    const lines = getReleaseLines(overview)
+    tag ??= lines.length === 1 ? lines[0]!.tag : undefined
 
-    const twitterReleaseUrl = getReleaseUrl(config, tag)
-    const twitterChangelogUrl = config.social?.changelogUrl
+    const variables = getSocialTemplateVariables({
+      overview,
+      releaseUrl: tag ? getReleaseUrl(config, tag) : undefined,
+      changelogUrl: config.social?.changelogUrl,
+    })
+
+    // The release is a prerelease only if every version is a prerelease, so an
+    // onlyStable post is skipped only when there is nothing stable to announce
+    const prerelease = lines.length > 0 && lines.every(line => isPrerelease(line.version))
+
+    const hasContent = !!minifiedBody.trim()
 
     const twitterWillPost = !!config.social?.twitter?.enabled && !(config.social.twitter.onlyStable && prerelease)
     const slackWillPost = !!config.social?.slack?.enabled && !((config.social.slack.onlyStable ?? true) && prerelease)
@@ -602,10 +564,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       const twitterTemplate = config.social.twitter.template || config.templates.twitterMessage
       const twitterBudget = computeTwitterChangelogBudget({
         template: twitterTemplate,
-        projectName: config.projectName || rootPackageRead.name,
-        version: newVersion,
-        releaseUrl: twitterReleaseUrl,
-        changelogUrl: twitterChangelogUrl,
+        variables,
         postMaxLength: config.social.twitter.postMaxLength,
       })
 
@@ -641,8 +600,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       config,
       changelog: twitterChangelog,
       dryRun,
-      newVersion,
-      tag,
+      variables,
       prerelease,
     })
 
@@ -650,8 +608,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       config,
       changelog: slackChangelog,
       dryRun,
-      newVersion,
-      tag,
+      variables,
       commits: changelogCommits,
       bumpedPackages: options.bumpResult?.bumpedPackages,
       prerelease,
