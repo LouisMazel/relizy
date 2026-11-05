@@ -2,7 +2,7 @@ import type { ServerContext } from '../context'
 import type { ReleasePlanArgs } from './release-plan'
 
 import { z } from 'zod'
-import { generateChangelog } from '../../core'
+import { aggregateIndependentChangelogs, generateChangelog, readPackageJson } from '../../core'
 import { codeList } from '../markdown'
 import { formatNotes, withCapturedLogs } from '../runtime'
 import { relativePath } from './project'
@@ -12,12 +12,18 @@ import { defineTool, ToolInputError } from './types'
 /** Above this size, the changelogs are cut: request a single package */
 export const MAX_CHANGELOGS_CHARS = 60_000
 
+type ChangelogConfig = Parameters<typeof generateChangelog>[0]['config']
+
+type ChangelogPackage = Parameters<typeof generateChangelog>[0]['pkg'] & { newVersion: string }
+
 interface ChangelogTarget {
   label: string
   file: string
-  pkg: { name: string, path: string, fromTag?: string, newVersion?: string }
-  newVersion: string
-  config: Parameters<typeof generateChangelog>[0]['config']
+  /**
+   * Name of the package, the root package for the root changelog (also selected with `root`)
+   */
+  packageName: string
+  generate: () => Promise<string>
 }
 
 export interface PreviewChangelogArgs extends ReleasePlanArgs {
@@ -29,27 +35,47 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
   const { value, logs } = await withCapturedLogs(async () => {
     const plan = await planRelease(context, args)
     const targets: ChangelogTarget[] = []
+    const generate = (pkg: ChangelogPackage, config: ChangelogConfig) => generateChangelog({
+      pkg,
+      config,
+      dryRun: true,
+      newVersion: pkg.newVersion,
+      include: { contributors: args.contributors ?? false },
+    })
 
     for (const { set, result } of plan.results) {
       if (!isBumped(result)) {
         continue
       }
 
-      if (set.versionMode !== 'independent' && result.rootPackage && result.newVersion && set.config.changelog.rootChangelog) {
-        targets.push({ label: `root (${result.rootPackage.name})`, file: 'CHANGELOG.md', pkg: { ...result.rootPackage, newVersion: result.newVersion }, newVersion: result.newVersion, config: set.config })
+      const packages: ChangelogPackage[] = result.bumpedPackages.flatMap(pkg => pkg.newVersion && pkg.path !== plan.config.cwd ? [{ ...pkg, newVersion: pkg.newVersion }] : [])
+
+      // As `relizy changelog`: the root changelog of an independent release aggregates the changelogs of its packages
+      if (set.config.changelog.rootChangelog) {
+        if (set.versionMode !== 'independent' && result.rootPackage && result.newVersion) {
+          const rootPackage = { ...result.rootPackage, newVersion: result.newVersion }
+          targets.push({ label: `root (${rootPackage.name})`, file: 'CHANGELOG.md', packageName: rootPackage.name, generate: () => generate(rootPackage, set.config) })
+        }
+        else if (set.versionMode === 'independent' && packages.length > 0) {
+          const rootName = readPackageJson(plan.config.cwd)?.name ?? 'root'
+          targets.push({
+            label: `root (${rootName}, the changelogs of the packages)`,
+            file: 'CHANGELOG.md',
+            packageName: rootName,
+            generate: async () => aggregateIndependentChangelogs(await Promise.all(packages.map(pkg => generate(pkg, set.config)))) ?? '',
+          })
+        }
       }
 
-      for (const pkg of result.bumpedPackages) {
-        if (pkg.newVersion && pkg.path !== plan.config.cwd) {
-          targets.push({ label: pkg.name, file: `${relativePath(plan.config.cwd, pkg.path)}/CHANGELOG.md`, pkg, newVersion: pkg.newVersion, config: set.config })
-        }
+      for (const pkg of packages) {
+        targets.push({ label: pkg.name, file: `${relativePath(plan.config.cwd, pkg.path)}/CHANGELOG.md`, packageName: pkg.name, generate: () => generate(pkg, set.config) })
       }
     }
 
-    const selected = args.package ? targets.filter(target => target.pkg.name === args.package || (args.package === 'root' && target.file === 'CHANGELOG.md')) : targets
+    const selected = args.package ? targets.filter(target => target.packageName === args.package || (args.package === 'root' && target.file === 'CHANGELOG.md')) : targets
 
     if (args.package && selected.length === 0) {
-      const released = codeList(targets.map(target => target.pkg.name)) || 'nothing'
+      const released = codeList(targets.map(target => target.packageName)) || 'nothing'
       const root = targets.some(target => target.file === 'CHANGELOG.md') ? ' (and `root`)' : ''
 
       throw new ToolInputError(`"${args.package}" is not released by this release. Released: ${released}${root}.`)
@@ -58,15 +84,7 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
     const changelogs: { target: ChangelogTarget, changelog: string }[] = []
 
     for (const target of selected) {
-      const changelog = await generateChangelog({
-        pkg: target.pkg,
-        config: target.config,
-        dryRun: true,
-        newVersion: target.newVersion,
-        include: { contributors: args.contributors ?? false },
-      })
-
-      changelogs.push({ target, changelog })
+      changelogs.push({ target, changelog: await target.generate() })
     }
 
     return changelogs

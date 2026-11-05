@@ -257,6 +257,17 @@ describe('Given preview_release on a monorepo', () => {
       expect(text).not.toContain('## root')
       expect(text).toContain('Add the parser')
     })
+
+    it('Then the root changelog of an independent release aggregates the changelogs of its packages, as relizy changelog writes it', async () => {
+      const repository = createMonorepo('independent')
+
+      const text = await previewChangelog(createTestContext(repository.cwd), { package: 'root' })
+
+      expect(text).toContain('## root (monorepo, the changelogs of the packages) → `CHANGELOG.md`')
+      expect(text).toContain('**Multiple Packages Updated** - ')
+      expect(text).toContain('Add the parser')
+      expect(text).not.toContain('## @scope/core →')
+    })
   })
 })
 

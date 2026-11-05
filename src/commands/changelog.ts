@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress, showPreview } from '../core/progress'
@@ -27,25 +27,20 @@ async function generateIndependentRootChangelog({
   for (const pkg of packages) {
     const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
 
-    const changelog = await generateChangelog({
+    packageChangelogs.push(await generateChangelog({
       pkg,
       config,
       dryRun,
       newVersion,
-    })
-
-    if (changelog) {
-      packageChangelogs.push(changelog)
-    }
+    }))
   }
 
-  if (packageChangelogs.length === 0) {
+  const aggregatedChangelog = aggregateIndependentChangelogs(packageChangelogs)
+
+  if (!aggregatedChangelog) {
     logger.debug('No changelogs to aggregate')
     return false
   }
-
-  const date = new Date().toISOString().split('T')[0]
-  const aggregatedChangelog = `**Multiple Packages Updated** - ${date}\n\n${packageChangelogs.join('\n\n')}`
 
   logger.verbose(`Aggregated root changelog: ${aggregatedChangelog}`)
 

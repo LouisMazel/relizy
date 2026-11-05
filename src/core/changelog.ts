@@ -192,6 +192,20 @@ function isFullChangelogOutput(sections: ResolvedSections, minify?: boolean): bo
 }
 
 /**
+ * The root changelog of an `independent` release: the changelogs of its
+ * packages under a dated title, undefined when none has an entry.
+ */
+export function aggregateIndependentChangelogs(changelogs: string[], date = new Date()): string | undefined {
+  const entries = changelogs.filter(Boolean)
+
+  if (entries.length === 0) {
+    return undefined
+  }
+
+  return `**Multiple Packages Updated** - ${date.toISOString().split('T')[0]}\n\n${entries.join('\n\n')}`
+}
+
+/**
  * Generate the changelog string for a single package.
  *
  * - Fetches commits internally using `changelog: true`, so types that only
