@@ -360,11 +360,11 @@ describe('Given publish command', () => {
   })
 
   describe('When the discovered list contains private packages', () => {
-    it('Then excludes them from the publish flow even when includePrivates is enabled', async () => {
+    it('Then excludes them from the publish flow even with privatePackages: release', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
         bump: { type: 'patch' },
         publish: { packageManager: 'npm' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
       }))
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: '@scope/public', version: '1.0.0', path: '/pub', private: false, commits: [], dependencies: [] }),

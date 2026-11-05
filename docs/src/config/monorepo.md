@@ -137,13 +137,18 @@ export default defineConfig({
 })
 ```
 
-## includePrivates
+## privatePackages
 
-Include private packages (packages with `"private": true` in their `package.json`)
-in the release workflow, everywhere except publishing.
+- **Type:** `'ignore' | 'release'`
+- **Default:** `'ignore'`
 
-By default, private packages are excluded from every pipeline step. When this
-option is enabled, they are versioned like public ones:
+What relizy does with the private packages of the workspace (`"private": true`
+in their `package.json`):
+
+- `ignore`: they are left out of the release.
+- `release`: they are released as the other packages, but never published.
+
+With `release`:
 
 - they get their own version bump and their own `CHANGELOG.md`
 - their commits are included in the aggregated root changelog
@@ -163,18 +168,18 @@ export default defineConfig({
   monorepo: {
     versionMode: 'selective',
     packages: ['packages/*', 'apps/*'],
-    includePrivates: true,
+    privatePackages: 'release',
   },
 })
 ```
 
-You can also enable it ad-hoc from the CLI with the `--include-private` flag on
-`relizy bump`, `relizy changelog`, and `relizy release`.
+The `--private-packages <mode>` flag of `relizy bump`, `relizy changelog` and
+`relizy release` overrides it for a run.
 
 > [!NOTE]
 > `ignored` / `ignorePackageNames` still take precedence. A private package
-> listed in `ignored` (or `ignorePackageNames`) stays excluded even if
-> `includePrivates` is `true`.
+> listed in `ignored` (or `ignorePackageNames`) stays excluded even with
+> `privatePackages: 'release'`.
 
 ## movedPackages
 
@@ -217,7 +222,7 @@ export default defineConfig({
     versionMode: 'selective',
     packages: ['packages/*', 'apps/*'],
     ignored: ['apps/docs'],
-    includePrivates: false,
+    privatePackages: 'ignore',
   },
 })
 ```

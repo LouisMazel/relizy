@@ -816,7 +816,7 @@ function readGroupsDependencies({
       patterns: groupConfig.monorepo?.packages,
       ignorePackageNames: groupConfig.monorepo?.ignorePackageNames,
       ignored: groupConfig.monorepo?.ignored,
-      includePrivates: groupConfig.monorepo?.includePrivates,
+      privatePackages: groupConfig.monorepo?.privatePackages,
     })
     const names = new Set(packages.map(pkg => pkg.name))
     const externalDependencies = new Set(packages
@@ -1031,8 +1031,8 @@ async function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> 
         preid: options.preid,
         dependencyTypes: options.dependencyTypes,
       },
-      monorepo: options.includePrivates !== undefined
-        ? { includePrivates: options.includePrivates }
+      monorepo: options.privatePackages !== undefined
+        ? { privatePackages: options.privatePackages }
         : undefined,
       logLevel: options.logLevel,
     },

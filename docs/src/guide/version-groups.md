@@ -71,7 +71,7 @@ Each group has:
 | `release`     | `providerRelease` and `social` of the group, overriding the global [`release`](../config/release.md) options                                    |
 | `ai`          | `providerRelease` of the group, overriding the global [`ai`](../config/ai.md) options (the `--ai`/`--no-ai` options still apply to every group) |
 
-The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and the rest of the config apply to every group.
+The other `monorepo` options (`ignored`, `privatePackages`, `movedPackages`) and the rest of the config apply to every group.
 
 ### Rules
 

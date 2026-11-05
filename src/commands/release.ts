@@ -78,8 +78,8 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         prComment: options.prComment,
         report: options.report,
       },
-      monorepo: options.includePrivates !== undefined
-        ? { includePrivates: options.includePrivates }
+      monorepo: options.privatePackages !== undefined
+        ? { privatePackages: options.privatePackages }
         : undefined,
       safetyCheck: options.safetyCheck,
     },
@@ -275,7 +275,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         configName: options.configName,
         suffix: options.suffix,
         canary: isCanary,
-        includePrivates: options.includePrivates,
+        privatePackages: options.privatePackages,
         groups: options.groups,
       }),
     })
@@ -336,7 +336,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           configName: options.configName,
           force,
           suffix: options.suffix,
-          includePrivates: options.includePrivates,
+          privatePackages: options.privatePackages,
           groups: options.groups,
         }),
       })

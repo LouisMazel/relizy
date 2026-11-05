@@ -39,7 +39,7 @@ With `relizy release`, the comment is the **summary of the release**, as at the 
 - What the release contains: features, fixes, breaking changes, contributors
 - Each step and what it did, with the links of what it created: the npm pages (with the dist-tag and the registry), the GitHub or GitLab releases, the tweet
 - The AI rewrites, the install command
-- The package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
+- The package table with version transitions (private packages are listed with [`monorepo.privatePackages: 'release'`](/config/monorepo#privatepackages)). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
 
 ::: info Projects that publish nothing
 The install command is only shown for packages that are actually published: it is omitted when `release.publish` is `false`, and never shown for private packages. See [Private Projects & Apps](/guide/private-projects).

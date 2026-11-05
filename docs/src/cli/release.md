@@ -213,17 +213,16 @@ relizy release --skip-existing-versions
 
 Makes a re-run idempotent: already-published versions are skipped with a warning, and only missing packages are published. Particularly useful for [canary releases](/guide/canary-releases), where re-running a pipeline on the same commit regenerates the same version. Without this flag, an already-published version fails the release with a clear error message. See [`publish.skipExistingVersions`](/config/publish#skipexistingversions) for details.
 
-### --include-private
+### --private-packages
 
-Include private packages (packages with `"private": true` in their
-`package.json`) in the release. By default, private packages are skipped
-entirely.
+`release` releases the private packages of the workspace (`"private": true` in
+their `package.json`) as the other packages, `ignore` leaves them out.
 
 ```bash
-relizy release --minor --include-private
+relizy release --minor --private-packages release
 ```
 
-When enabled:
+With `release`:
 
 - Private packages are bumped alongside public ones.
 - Private packages get their own `CHANGELOG.md`.
@@ -235,9 +234,7 @@ Private packages **are never published** to a registry, even with this flag.
 See [Private Projects & Apps](/guide/private-projects) to version a project
 that publishes nothing.
 
-This is equivalent to setting `monorepo.includePrivates: true` in
-`relizy.config.ts`. See
-[Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
+Overrides [`monorepo.privatePackages`](../config/monorepo.md#privatepackages).
 
 ### --group
 

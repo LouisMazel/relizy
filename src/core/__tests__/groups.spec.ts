@@ -274,14 +274,14 @@ describe('Given the version groups of a workspace', () => {
 
     it('Then keeps the global monorepo options', () => {
       const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP], cwd)
-      config.monorepo!.includePrivates = true
+      config.monorepo!.privatePackages = 'release'
       config.monorepo!.ignorePackageNames = ['@scope/legacy']
       config.monorepo!.movedPackages = { 'packages/legacy': 'packages/components' }
 
       const [main] = resolveVersionGroups({ config })
 
       expect(main!.config.monorepo).toEqual(expect.objectContaining({
-        includePrivates: true,
+        privatePackages: 'release',
         ignorePackageNames: ['@scope/legacy'],
         movedPackages: { 'packages/legacy': 'packages/components' },
       }))

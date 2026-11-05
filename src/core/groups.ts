@@ -242,7 +242,7 @@ function deriveGroupConfig({
       // must stay out of this group, including its root version and changelog.
       ignored: [...new Set([...(config.monorepo?.ignored ?? []), ...(group.ignored ?? []), ...otherGroupsPaths.map(path => fastGlob.escapePath(path))])],
       ignorePackageNames: config.monorepo?.ignorePackageNames,
-      includePrivates: config.monorepo?.includePrivates,
+      privatePackages: config.monorepo?.privatePackages,
       movedPackages: config.monorepo?.movedPackages,
     },
     bump: { ...config.bump, ...group.bump },

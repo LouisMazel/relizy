@@ -2,6 +2,9 @@ import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
+
+/** What relizy does with the private packages of the workspace, see `monorepo.privatePackages` */
+export type PrivatePackages = 'ignore' | 'release'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 export type SemverBumpType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease'
@@ -320,12 +323,16 @@ export interface MonorepoConfig {
    */
   ignored?: string[]
   /**
-   * Include private packages (with `"private": true` in package.json) in
-   * bump and changelog operations. Private packages remain excluded from
-   * publish, provider-release, and pr-comment regardless of this flag.
-   * @default false
+   * What relizy does with the private packages of the workspace (`"private": true`
+   * in their package.json):
+   * - `ignore`: they are left out of the release
+   * - `release`: they are released as the other packages (bump, changelog, tag,
+   *   GitHub/GitLab release, PR comment), but never published to the registry
+   *
+   * The root package is always released, private or not.
+   * @default 'ignore'
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Package directories moved or renamed, as `old path: new path` (relative to
    * `cwd`, POSIX separators, no glob). The commits that changed the old
@@ -504,10 +511,9 @@ export interface BumpOptions extends BumpConfig {
    */
   canary?: boolean
   /**
-   * Include private packages in the bump.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` bumps the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -572,10 +578,9 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   suffix?: string
   /**
-   * Include private packages in the changelog generation.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` generates the changelogs of the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -1016,10 +1021,9 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   canary?: boolean
   /**
-   * Include private packages in bump and changelog operations.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` releases the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Override AI configuration for this run
    * true = force-enable AI, false = force-disable AI, undefined = use config

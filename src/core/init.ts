@@ -328,7 +328,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
       versionMode: answers.versionMode ?? 'selective',
       packages: answers.patterns,
       ...(ignored.length > 0 && { ignored }),
-      ...(released.some(pkg => pkg.private) && { includePrivates: true }),
+      ...(released.some(pkg => pkg.private) && { privatePackages: 'release' as const }),
     }
   }
 

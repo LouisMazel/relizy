@@ -39,7 +39,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -701,10 +701,10 @@ describe('Given gitlab function', () => {
       expect(result).toHaveLength(1)
     })
 
-    it('Then creates GitLab releases for private packages when includePrivates is enabled', async () => {
+    it('Then creates GitLab releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })
@@ -721,10 +721,10 @@ describe('Given gitlab function', () => {
       expect(calls[1][1]?.body).toContain('"tag_name":"@scope/private@1.0.0"')
     })
 
-    it('Then excludes private packages from GitLab releases when includePrivates is disabled', async () => {
+    it('Then excludes private packages from GitLab releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: false },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })

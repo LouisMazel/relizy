@@ -159,9 +159,28 @@ export default defineConfig({
 })
 ```
 
+### Private Packages
+
+`monorepo.includePrivates` is renamed [`monorepo.privatePackages`](../config/monorepo.md#privatepackages), with named values: `ignore` (default) or `release`. The `--include-private` flag of `bump`, `changelog` and `release` becomes `--private-packages <mode>`, and the `includePrivates` option of `bump()`, `changelog()` and `release()` becomes `privatePackages`.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    // includePrivates: true,
+    privatePackages: 'release',
+  },
+})
+```
+
+```bash
+relizy release --private-packages release
+```
+
 ### Removed publish.private
 
-`publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.includePrivates`](../config/monorepo.md#includeprivates) to bump them and generate their changelogs.
+`publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.privatePackages: 'release'`](../config/monorepo.md#privatepackages) to release them.
 
 ### AI Attribution in Commits
 

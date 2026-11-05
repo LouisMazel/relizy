@@ -1,5 +1,5 @@
 import type { ReleaseType } from 'semver'
-import type { ConfigType, GitCommit, PackageBase, ReadPackage } from '../types'
+import type { ConfigType, GitCommit, PackageBase, PrivatePackages, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { VersionChange } from './dependencies'
 import { execSync } from 'node:child_process'
@@ -309,13 +309,13 @@ export function readPackages({
   patterns,
   ignorePackageNames,
   ignored,
-  includePrivates,
+  privatePackages,
 }: {
   cwd: string
   patterns?: string[]
   ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
   ignored?: NonNullable<ResolvedRelizyConfig['monorepo']>['ignored']
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
 }) {
   const packages: ReadPackage[] = []
   const foundPaths = new Set<string>()
@@ -345,7 +345,7 @@ export function readPackages({
 
         const packageBase = readPackageJson(matchPath)
 
-        if (!packageBase || (packageBase.private && !includePrivates) || ignorePackageNames?.includes(packageBase.name))
+        if (!packageBase || (packageBase.private && privatePackages !== 'release') || ignorePackageNames?.includes(packageBase.name))
           continue
 
         foundPaths.add(matchPath)
@@ -632,7 +632,7 @@ export async function getPackages({
     patterns,
     ignorePackageNames: config.monorepo?.ignorePackageNames,
     ignored: config.monorepo?.ignored,
-    includePrivates: config.monorepo?.includePrivates,
+    privatePackages: config.monorepo?.privatePackages,
   })
 
   const packages = new Map<string, PackageBase>()
@@ -669,7 +669,7 @@ export async function getPackages({
         continue
       }
 
-      if (packageBase.private && !config.monorepo?.includePrivates) {
+      if (packageBase.private && config.monorepo?.privatePackages !== 'release') {
         logger.debug(`${packageBase.name} is private and will be ignored`)
         continue
       }

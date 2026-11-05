@@ -75,19 +75,14 @@ Skip confirmations:
 relizy bump --minor --yes
 ```
 
-### --include-private
+### --private-packages
 
-Include private packages (packages with `"private": true` in their
-`package.json`) in the bump. By default, private packages are skipped.
+`release` also bumps the private packages of the workspace (`"private": true` in
+their `package.json`), `ignore` leaves them out. Overrides [`monorepo.privatePackages`](../config/monorepo.md#privatepackages).
 
 ```bash
-relizy bump --minor --include-private
+relizy bump --minor --private-packages release
 ```
-
-This is equivalent to setting `monorepo.includePrivates: true` in
-`relizy.config.ts`. Private packages participate in version bumping but are
-never published. See
-[Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
 
 ### --group
 

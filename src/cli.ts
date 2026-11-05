@@ -84,6 +84,10 @@ function getReportOverride(options: { reportJson?: string, reportDotenv?: string
   return Object.values(report).some(Boolean) ? report : undefined
 }
 
+function privatePackagesOption() {
+  return new Option('--private-packages <mode>', 'What to do with the private packages, overrides monorepo.privatePackages (release: version them, never publish them)').choices(['ignore', 'release'])
+}
+
 function slackFormatOption() {
   return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
 }
@@ -137,7 +141,7 @@ program
   .option('--force', 'Bump even if there are no commits')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--canary', 'Publish a canary release from the current commit')
-  .option('--include-private', 'Include private packages in the bump')
+  .addOption(privatePackagesOption())
   .action(async (options) => {
     try {
       await bump({
@@ -152,7 +156,7 @@ program
         configName: program.opts().config,
         groups: program.opts().group,
         canary: options.canary,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
       })
     }
     catch (error) {
@@ -167,7 +171,7 @@ program
   .option('--to <ref>', 'End commit reference')
   .option('--format-cmd <cmd>', 'Command to format CHANGELOG files after generation (e.g. "pnpm lint")')
   .option('--no-root-changelog', 'Skip generation of root changelog file')
-  .option('--include-private', 'Include private packages in changelog generation')
+  .addOption(privatePackagesOption())
   .action(async (options) => {
     try {
       await changelog({
@@ -179,7 +183,7 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
       })
     }
     catch (error) {
@@ -447,7 +451,7 @@ program
   .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--canary', 'Publish a canary release from the current commit')
-  .option('--include-private', 'Include private packages in bump and changelog phases')
+  .addOption(privatePackagesOption())
   .option('--ai', 'Force-enable AI for release notes and social posts')
   .option('--no-ai', 'Force-disable AI for release notes and social posts')
   .option('--report-json <file>', 'Write the report of the release to this JSON file')
@@ -461,7 +465,7 @@ program
         preid: options.preid,
         suffix: options.suffix,
         canary: options.canary,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
         from: options.from,
         to: options.to,
         changelog: hasCliFlag('--no-changelog') ? false : undefined,

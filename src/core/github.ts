@@ -111,7 +111,7 @@ async function githubIndependentMode({
     suffix,
     force,
     dryRun,
-  }), config.monorepo?.includePrivates)
+  }), config.monorepo?.privatePackages)
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
 

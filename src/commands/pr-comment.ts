@@ -131,7 +131,7 @@ function buildGroupTableLines(overview: ReleaseOverview): string[] {
 
 /**
  * The overview of a release of several version groups, with the packages the
- * comment lists (the private ones with `monorepo.includePrivates` only)
+ * comment lists (the private ones with `monorepo.privatePackages: 'release'` only)
  */
 function getGroupsOverview(config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy): ReleaseOverview | undefined {
   if (!bumpResult?.groups || bumpResult.groups.length < 2) {
@@ -140,7 +140,7 @@ function getGroupsOverview(config: ResolvedRelizyConfig, bumpResult?: BumpResult
 
   const overview = getReleaseOverview({ config, bumpResult })
 
-  return config.monorepo?.includePrivates ? overview : withoutPrivatePackages(overview)
+  return config.monorepo?.privatePackages === 'release' ? overview : withoutPrivatePackages(overview)
 }
 
 function resolvePackageNames(
@@ -267,10 +267,10 @@ function buildSuccessComment({
   rootVersion,
 }: CommentBodyParams): string {
   const bumpResult = releaseContext?.bumpResult
-  const includePrivates = config.monorepo?.includePrivates
+  const privatePackages = config.monorepo?.privatePackages
   const allBumpedPackages = bumpResult?.bumpedPackages ?? []
-  const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, includePrivates)
-  const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, includePrivates)
+  const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, privatePackages)
+  const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, privatePackages)
   // Independent mode has no global version: each package has its own,
   // listed in the packages table below. Same with version groups when the
   // unified/selective group is not released.
@@ -431,7 +431,7 @@ async function commentPullRequest({ config, options, dryRun }: {
       patterns: getMonorepoPackagePatterns(config),
       ignorePackageNames: config.monorepo?.ignorePackageNames,
       ignored: config.monorepo?.ignored,
-      includePrivates: config.monorepo?.includePrivates,
+      privatePackages: config.monorepo?.privatePackages,
     })
     packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version, private: pkg.private }))
   }

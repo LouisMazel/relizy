@@ -273,7 +273,7 @@ describe('Given init command', () => {
       const result = await init({ cwd })
 
       expect(result.config).toEqual({
-        monorepo: { versionMode: 'selective', packages: ['packages/*', 'tools/*'], includePrivates: true },
+        monorepo: { versionMode: 'selective', packages: ['packages/*', 'tools/*'], privatePackages: 'release' },
         release: { publish: false },
       })
       expect(result.hook?.status).toBe('replaced')

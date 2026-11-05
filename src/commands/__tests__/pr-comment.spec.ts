@@ -27,7 +27,7 @@ vi.mock('../../core', async () => {
     getCurrentGitBranch: vi.fn(),
     PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     // Use the real collectPackageBumps so the package table renders in tests
     collectPackageBumps: actual.collectPackageBumps,
     // Real implementation so the metadata "from" version is derived from fromTag
@@ -531,7 +531,7 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         ...overrides,
       })
     }
@@ -547,7 +547,7 @@ describe('Given buildCommentBody', () => {
       expect(body).not.toContain('unknown')
     })
 
-    it('Then lists private packages in the packages table when includePrivates is enabled', () => {
+    it('Then lists private packages in the packages table with privatePackages: release', () => {
       const body = buildCommentBody({
         ...baseParams,
         config: createIndependentConfig(),
@@ -597,7 +597,7 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
       })
       const body = buildCommentBody({
         ...baseParams,

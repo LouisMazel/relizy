@@ -47,7 +47,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -284,10 +284,10 @@ describe('Given github function', () => {
       })
     })
 
-    it('Then creates GitHub releases for private packages when includePrivates is enabled', async () => {
+    it('Then creates GitHub releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })
@@ -306,10 +306,10 @@ describe('Given github function', () => {
       )
     })
 
-    it('Then excludes private packages from GitHub releases when includePrivates is disabled', async () => {
+    it('Then excludes private packages from GitHub releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: false },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })

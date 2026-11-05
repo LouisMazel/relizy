@@ -108,7 +108,7 @@ describe('Given the init helpers', () => {
 
       const config = buildInitConfig(detection, answers(detection, { goal: 'version', patterns: ['tools/*'] }))
 
-      expect(config.monorepo).toEqual({ versionMode: 'selective', packages: ['tools/*'], includePrivates: true })
+      expect(config.monorepo).toEqual({ versionMode: 'selective', packages: ['tools/*'], privatePackages: 'release' })
       expect(config.release).toEqual(expect.objectContaining({ publish: false }))
       expect(config.publish).toBeUndefined()
     })

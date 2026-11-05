@@ -403,24 +403,24 @@ describe('Given release command', () => {
       )
     })
 
-    it('Then forwards includePrivates to config overrides, bump, and changelog', async () => {
+    it('Then forwards privatePackages to config overrides, bump, and changelog', async () => {
       const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
       vi.mocked(bump).mockResolvedValue(bumpResult)
 
-      await release({ includePrivates: true })
+      await release({ privatePackages: 'release' })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            monorepo: expect.objectContaining({ includePrivates: true }),
+            monorepo: expect.objectContaining({ privatePackages: 'release' }),
           }),
         }),
       )
       expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ includePrivates: true }),
+        expect.objectContaining({ privatePackages: 'release' }),
       )
       expect(changelog).toHaveBeenCalledWith(
-        expect.objectContaining({ includePrivates: true }),
+        expect.objectContaining({ privatePackages: 'release' }),
       )
     })
 

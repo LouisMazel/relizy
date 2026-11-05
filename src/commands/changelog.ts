@@ -241,8 +241,8 @@ async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<vo
       from: options.from,
       to: options.to,
       logLevel: options.logLevel,
-      monorepo: options.includePrivates !== undefined
-        ? { includePrivates: options.includePrivates }
+      monorepo: options.privatePackages !== undefined
+        ? { privatePackages: options.privatePackages }
         : undefined,
       changelog: {
         rootChangelog: options.rootChangelog,

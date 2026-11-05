@@ -1,4 +1,4 @@
-import type { BumpResultTruthy, HookConfig, HookContext, PackageBase } from '../types'
+import type { BumpResultTruthy, HookConfig, HookContext, PackageBase, PrivatePackages } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
@@ -234,15 +234,15 @@ export function filterOutPrivatePackages<T extends { private: boolean }>(package
 }
 
 /**
- * Keep private packages only when `monorepo.includePrivates` is enabled. They
+ * Keep private packages only with `monorepo.privatePackages: 'release'`. They
  * are then versioned and tagged like public ones, so they also get provider
  * releases and appear in PR comments. Publishing ignores them regardless.
  */
 export function filterPrivatePackagesUnlessIncluded<T extends { private: boolean }>(
   packages: T[],
-  includePrivates: boolean | undefined,
+  privatePackages: PrivatePackages | undefined,
 ): T[] {
-  return includePrivates ? packages : filterOutPrivatePackages(packages)
+  return privatePackages === 'release' ? packages : filterOutPrivatePackages(packages)
 }
 
 export async function getPackagesOrBumpedPackages({

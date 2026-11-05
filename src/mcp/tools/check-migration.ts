@@ -147,12 +147,24 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     })
   }
 
+  const privates = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bincludePrivates\b/)))
+
+  if (privates.length > 0) {
+    findings.push({
+      severity: 'change',
+      title: '`monorepo.includePrivates` is renamed `monorepo.privatePackages`',
+      section: 'Private Packages',
+      detail: 'Replace `includePrivates: true` with `privatePackages: \'release\'` (the option, `release()`, `bump()` and `changelog()`), and the `--include-private` flag with `--private-packages release`: relizy 2 ignores `includePrivates`.',
+      locations: privates,
+    })
+  }
+
   if ((config.publish as { private?: unknown } | undefined)?.private !== undefined) {
     findings.push({
       severity: 'change',
       title: '`publish.private` is removed',
       section: 'Removed publish.private',
-      detail: 'relizy never read it: the private packages are never published. Remove the option, and set `monorepo.includePrivates` to version them.',
+      detail: 'relizy never read it: the private packages are never published. Remove the option, and set `monorepo.privatePackages: \'release\'` to version them.',
       locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bprivate\s*:/))),
     })
   }

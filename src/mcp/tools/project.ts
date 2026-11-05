@@ -27,7 +27,7 @@ export function readPackageSets(config: ResolvedRelizyConfig): PackageSet[] {
     patterns: setConfig.monorepo?.packages,
     ignorePackageNames: setConfig.monorepo?.ignorePackageNames,
     ignored: setConfig.monorepo?.ignored,
-    includePrivates: setConfig.monorepo?.includePrivates,
+    privatePackages: setConfig.monorepo?.privatePackages,
   })
 
   if (hasVersionGroups(config)) {

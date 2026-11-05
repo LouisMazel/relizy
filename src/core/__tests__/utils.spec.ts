@@ -869,15 +869,15 @@ describe('Given filterPrivatePackagesUnlessIncluded function', () => {
     { name: 'b', private: true },
   ]
 
-  describe('When includePrivates is enabled', () => {
+  describe('When privatePackages is release', () => {
     it('Then keeps private packages', () => {
-      expect(filterPrivatePackagesUnlessIncluded(packages, true)).toEqual(packages)
+      expect(filterPrivatePackagesUnlessIncluded(packages, 'release')).toEqual(packages)
     })
   })
 
-  describe('When includePrivates is disabled or not set', () => {
+  describe('When privatePackages is ignore or not set', () => {
     it('Then removes private packages', () => {
-      expect(filterPrivatePackagesUnlessIncluded(packages, false)).toEqual([{ name: 'a', private: false }])
+      expect(filterPrivatePackagesUnlessIncluded(packages, 'ignore')).toEqual([{ name: 'a', private: false }])
       expect(filterPrivatePackagesUnlessIncluded(packages, undefined)).toEqual([{ name: 'a', private: false }])
     })
   })

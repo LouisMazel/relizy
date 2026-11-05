@@ -62,14 +62,14 @@ describe('Given changelog command', () => {
     })
   })
 
-  describe('When includePrivates option is provided', () => {
+  describe('When the privatePackages option is provided', () => {
     it('Then forwards it to loadRelizyConfig overrides', async () => {
-      await changelog({ includePrivates: true })
+      await changelog({ privatePackages: 'release' })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            monorepo: expect.objectContaining({ includePrivates: true }),
+            monorepo: expect.objectContaining({ privatePackages: 'release' }),
           }),
         }),
       )

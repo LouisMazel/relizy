@@ -440,7 +440,7 @@ describe('Given getPackages function', () => {
     })
   })
 
-  describe('When includePrivates is enabled', () => {
+  describe('When privatePackages is release', () => {
     it('Then includes private packages in the result', async () => {
       vol.fromJSON({
         [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
@@ -463,7 +463,7 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          includePrivates: true,
+          privatePackages: 'release',
         },
       })
 
@@ -496,7 +496,7 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          includePrivates: true,
+          privatePackages: 'release',
           ignorePackageNames: ['pkg-b'],
         },
       })
@@ -527,7 +527,7 @@ describe('Given getPackages function', () => {
       }, mockCwd)
     })
 
-    describe('When includePrivates is not provided', () => {
+    describe('When privatePackages is not provided', () => {
       it('Then excludes private packages', () => {
         const result = readPackages({
           cwd: mockCwd,
@@ -539,26 +539,26 @@ describe('Given getPackages function', () => {
       })
     })
 
-    describe('When includePrivates is true', () => {
+    describe('When privatePackages is release', () => {
       it('Then includes private packages', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
           ignorePackageNames: undefined,
-          includePrivates: true,
+          privatePackages: 'release',
         })
 
         expect(result.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
       })
     })
 
-    describe('When includePrivates is true but a private package is in ignorePackageNames', () => {
+    describe('When privatePackages is release but a private package is in ignorePackageNames', () => {
       it('Then still excludes it via ignorePackageNames', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
           ignorePackageNames: ['pkg-b'],
-          includePrivates: true,
+          privatePackages: 'release',
         })
 
         expect(result.map(p => p.name)).toEqual(['pkg-a'])

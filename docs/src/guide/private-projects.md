@@ -82,7 +82,7 @@ Each release creates a tag like `v1.4.0` and a matching GitHub or GitLab release
 
 ### A Monorepo of Apps and Private Packages
 
-For a monorepo where every package is private (apps, workers, shared internal libraries), use the `independent` mode so each app gets its own version, and enable `includePrivates`:
+For a monorepo where every package is private (apps, workers, shared internal libraries), use the `independent` mode so each app gets its own version, and release the private packages with `privatePackages: 'release'`:
 
 ```ts
 // relizy.config.ts
@@ -94,7 +94,7 @@ export default defineConfig({
   monorepo: {
     versionMode: 'independent',
     packages: ['apps/*', 'packages/*'],
-    includePrivates: true, // version and release private packages too
+    privatePackages: 'release', // version and release private packages too
   },
 
   changelog: {
@@ -116,8 +116,8 @@ export default defineConfig({
 
 With this configuration, a release that touches `apps/web` and `packages/core` creates the tags `@my-platform/web@1.3.0` and `@my-platform/core@2.1.0`, each with its own `CHANGELOG.md` entry and its own GitHub or GitLab release.
 
-::: info Why `includePrivates`?
-By default, Relizy skips packages marked `"private": true`, because in a library monorepo they are usually internal tooling. In a private project, they are the whole point: `includePrivates: true` tells Relizy to version, tag and release them. See [`monorepo.includePrivates`](/config/monorepo#includeprivates).
+::: info Why `privatePackages: 'release'`?
+By default, Relizy skips the workspace packages marked `"private": true`, because in a library monorepo they are usually internal tooling. In a private project, they are the whole point: `privatePackages: 'release'` tells Relizy to version, tag and release them. See [`monorepo.privatePackages`](/config/monorepo#privatepackages).
 :::
 
 Prefer one shared version for the whole platform? Use `versionMode: 'unified'` or `'selective'` instead: Relizy then creates a single tag (`v1.3.0`) and a single release for the repository. See [Version Modes](/guide/version-modes).
@@ -217,4 +217,4 @@ Yes. Set `release.providerRelease: false`, or pass `--no-provider-release` to `r
 
 ### What if only some of my packages are published?
 
-That works too. In the same monorepo, public packages are published to npm while private ones are only versioned, tagged and released on GitHub or GitLab. Keep `release.publish: true` and `monorepo.includePrivates: true`. The PR comment only shows install commands for the published packages.
+That works too. In the same monorepo, public packages are published to npm while private ones are only versioned, tagged and released on GitHub or GitLab. Keep `release.publish: true` and set `monorepo.privatePackages: 'release'`. The PR comment only shows install commands for the published packages.

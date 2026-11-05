@@ -56,7 +56,7 @@ export function getDefaultConfig() {
       includeCommitBody: true,
     } as Required<ChangelogConfig>,
     monorepo: {
-      includePrivates: false,
+      privatePackages: 'ignore',
     } as MonorepoConfig,
     publish: {
       args: [],

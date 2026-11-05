@@ -142,7 +142,7 @@ async function gitlabIndependentMode({
     suffix,
     force,
     dryRun,
-  }), config.monorepo?.includePrivates)
+  }), config.monorepo?.privatePackages)
 
   logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
 

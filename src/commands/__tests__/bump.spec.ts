@@ -784,14 +784,14 @@ describe('Given bump command', () => {
     })
   })
 
-  describe('When includePrivates option is provided', () => {
+  describe('When the privatePackages option is provided', () => {
     it('Then forwards it to loadRelizyConfig overrides', async () => {
-      await bump({ includePrivates: true }).catch(() => undefined)
+      await bump({ privatePackages: 'release' }).catch(() => undefined)
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            monorepo: expect.objectContaining({ includePrivates: true }),
+            monorepo: expect.objectContaining({ privatePackages: 'release' }),
           }),
         }),
       )
