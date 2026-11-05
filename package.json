@@ -1,7 +1,7 @@
 {
   "name": "relizy",
   "type": "module",
-  "version": "1.14.3",
+  "version": "1.14.4-beta.0",
   "packageManager": "pnpm@12.4.1",
   "description": "Changelogen adapter for monorepo management with unified and independent versioning",
   "author": "Louis Mazel <me@loicmazuel.com>",
@@ -53,7 +53,7 @@
     "dist"
   ],
   "engines": {
-    "node": ">=22.12.0"
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },
   "scripts": {
     "prepare": "npx husky",
@@ -100,18 +100,18 @@
     "@inquirer/prompts": "^8.7.5",
     "@maz-ui/node": "5.2.0",
     "@maz-ui/utils": "5.2.0",
-    "c12": "^3.3.3",
+    "c12": "^3.3.4",
     "commander": "^15.0.0",
     "confbox": "^0.3.2",
     "convert-gitmoji": "^0.1.5",
     "defu": "6.1.7",
-    "fast-glob": "^3.3.2",
+    "fast-glob": "^3.3.3",
     "mdast-util-from-markdown": "^2.1.0",
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
     "micromatch": "^4.0.8",
     "node-fetch-native": "^1.6.7",
-    "oxc-parser": "^0.156.0",
+    "oxc-parser": "^0.157.0",
     "semver": "^7.8.6"
   },
   "devDependencies": {
@@ -123,8 +123,8 @@
     "@types/node": "^26.6.6",
     "@types/semver": "^7.8.0",
     "@vitest/coverage-v8": "^5.1.0",
-    "@yoloship/claude-sdk": "0.2.0-beta.6",
-    "ai": "^7.0.159",
+    "@yoloship/claude-sdk": "0.2.0-beta.9",
+    "ai": "^7.0.162",
     "cross-env": "10.1.0",
     "eslint": "^10.14.0",
     "husky": "9.1.7",
@@ -134,7 +134,7 @@
     "minisearch": "^7.2.0",
     "tsx": "^4.23.15",
     "twitter-api-v2": "^1.31.0",
-    "typescript": "^6.0.0",
+    "typescript": "^6.0.3",
     "unbuild": "^3.6.1",
     "vitest": "^5.1.0",
     "zod": "^4.6.7"

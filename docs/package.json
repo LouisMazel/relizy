@@ -7,11 +7,13 @@
   "description": "Documentation for relizy",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  },
   "scripts": {
     "build": "pnpm predocs && pnpm build:only",
     "build:only": "vitepress build",
     "dev": "pnpm predocs && vitepress dev",
-    "ftp-deploy": "ftp-deploy --config ftp.json",
     "preview": "vitepress preview",
     "predocs": "typedoc",
     "lint": "eslint .",
@@ -30,7 +32,7 @@
     "typedoc": "^0.28.20",
     "typedoc-plugin-markdown": "^4.14.1",
     "typedoc-vitepress-theme": "^1.1.4",
-    "vitepress": "2.0.0-alpha.20",
+    "vitepress": "2.0.0-alpha.21",
     "vue-router": "^5.4.0",
     "vue-tsc": "^3.3.14"
   },

@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.14.4-beta.0 (2026-11-05)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.3...v1.14.4-beta.0)
+
+### 📦 Build
+
+- **deps:** Upgrade minor and patch dependencies ([d15b26d](https://github.com/LouisMazel/relizy/commit/d15b26d))
+
+  - `c12` from 3.3.3 to 3.3.4
+  - `fast-glob` from 3.3.2 to 3.3.3
+
+  Claude-Session: https://claude.ai/code/session_01KFeGtn1VttzYn51vUuV9Rv
+
+- **deps:** Upgrade oxc-parser to v0.157 ([001efa3](https://github.com/LouisMazel/relizy/commit/001efa3))
+
+  - `oxc-parser` from 0.156.0 to 0.157.0
+
+  Claude-Session: https://claude.ai/code/session_01KFeGtn1VttzYn51vUuV9Rv
+
+- Require node versions patched by the october 2026 security releases ([a4fca4f](https://github.com/LouisMazel/relizy/commit/a4fca4f))
+
+  `engines.node` goes from `>=22.12.0` to `^22.23.4 || ^24.22.1 || >=26.12.1`, the releases that fix the 10 CVEs of the Node.js October 2026 security releases (including the Brotli decoder RCE, CVE-2026-111497).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.14.3 (2026-11-04)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.2...v1.14.3)
