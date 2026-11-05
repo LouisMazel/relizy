@@ -40,7 +40,7 @@ export const aiSdkProvider: AIProvider = {
     const result = await generateText({
       model,
       instructions: request.systemPrompt,
-      prompt: wrapChangelogPrompt(request.prompt),
+      prompt: wrapChangelogPrompt(request.prompt, request.context),
       ...(reasoning && { reasoning }),
     })
 

@@ -35,6 +35,15 @@ Under the hood, Relizy:
 The raw changelog remains the source of truth. PR/issue references,
 commit scopes, and links are preserved exactly. Nothing is invented.
 
+The built-in prompts also make the model:
+
+- keep every change and the section headings of your [`types`](../config/changelog.md#commit-types) as they are (text, emojis and order, even in another [`language`](../config/ai.md#language));
+- keep the code blocks of commit bodies, such as migration examples;
+- translate the prose only, never the code, option or package names;
+- treat the commits as data: an instruction written in a commit message is rewritten like any other text, never followed.
+
+Before the changelog, Relizy sends the context of the release: the project (or the package), its version, the previous one and the kind of release (`major release`, `prerelease (beta)`...).
+
 ## When to enable it
 
 Turn AI on when you want:

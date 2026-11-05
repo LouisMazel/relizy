@@ -2,7 +2,7 @@ import type { AIGenerateRequest, AIProvider } from '../ai/provider'
 import type { ResolvedRelizyConfig } from '../config'
 import { createMockConfig } from '../../../tests/mocks'
 import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog, generateAISocialReleases } from '../ai/index'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from '../ai/prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT, wrapChangelogPrompt } from '../ai/prompts'
 import { recordAICost, setDryRunOptions, setProgressHandlers, takeReleaseFacts } from '../progress'
 
 let fakeProvider: AIProvider & { lastRequest?: AIGenerateRequest, safetyCheckCalled: boolean }
@@ -81,6 +81,34 @@ describe('generateAIProviderReleaseBody', () => {
     const result = await generateAIProviderReleaseBody({ config, rawBody: 'body' })
     expect(result).toBe('AI generated output')
   })
+
+  it('sends the context of the release to the provider', async () => {
+    const config = createMockConfig({})
+    const context = { project: 'relizy', version: '2.0.0', previousVersion: '1.14.3' }
+    await generateAIProviderReleaseBody({ config, rawBody: 'body', context })
+    expect(fakeProvider.lastRequest?.context).toEqual(context)
+  })
+})
+
+describe('Given the changelog sent to the model', () => {
+  it('When there is no context, Then only wraps it in the changelog tag', () => {
+    expect(wrapChangelogPrompt('- feat a')).toMatch(/^<changelog>\n- feat a\n<\/changelog>\n\nRewrite the content/)
+  })
+
+  it('When the release is a major, Then tells it before the changelog', () => {
+    const prompt = wrapChangelogPrompt('- feat a', { project: 'relizy', version: '2.0.0', previousVersion: '1.14.3' })
+    expect(prompt.startsWith('<release-context>\nProject: relizy\nVersion: 2.0.0\nPrevious version: 1.14.3\nKind: major release\n</release-context>\n\n<changelog>\n- feat a\n</changelog>')).toBe(true)
+  })
+
+  it('When the version is a prerelease, Then tells it is not stable yet', () => {
+    const prompt = wrapChangelogPrompt('- feat a', { project: 'relizy', version: '2.0.0-beta.1', previousVersion: '1.14.3' })
+    expect(prompt).toContain('Kind: prerelease (beta), not a stable version yet')
+  })
+
+  it('When the previous version is unknown, Then gives the version only', () => {
+    const prompt = wrapChangelogPrompt('- feat a', { project: '@acme/ui', version: '1.3.0' })
+    expect(prompt.startsWith('<release-context>\nProject: @acme/ui\nVersion: 1.3.0\n</release-context>')).toBe(true)
+  })
 })
 
 describe('generateAISocialChangelog', () => {
@@ -95,10 +123,25 @@ describe('generateAISocialChangelog', () => {
     expect(fakeProvider.lastRequest?.maxLength).toBe(280)
   })
 
-  it('assembles base + slack prompt', async () => {
+  it('assembles base + slack prompt, with the rules of the summary format by default', async () => {
     const config = createMockConfig({})
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
-    expect(fakeProvider.lastRequest?.systemPrompt).toBe(`${BASE_PROMPT}\n\n${SLACK_PROMPT}`.replaceAll('{{language}}', 'en'))
+    expect(fakeProvider.lastRequest?.systemPrompt).toBe(`${BASE_PROMPT}\n\n${SLACK_PROMPT}\n\n${SLACK_FORMAT_PROMPTS.summary}`.replaceAll('{{language}}', 'en'))
+  })
+
+  it('keeps every change of the slack message in the full format', async () => {
+    const config = createMockConfig({ social: { slack: { changelogFormat: 'full' } } })
+    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
+
+    const systemPrompt = fakeProvider.lastRequest?.systemPrompt ?? ''
+    expect(systemPrompt).toContain(SLACK_FORMAT_PROMPTS.full)
+    expect(systemPrompt).not.toContain(SLACK_FORMAT_PROMPTS.summary)
+  })
+
+  it('sends the context of the release to the provider', async () => {
+    const config = createMockConfig({})
+    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280, context: { project: 'relizy', version: '2.0.0' } })
+    expect(fakeProvider.lastRequest?.context).toEqual({ project: 'relizy', version: '2.0.0' })
   })
 
   it('adds the length budget to the slack prompt when provided', async () => {

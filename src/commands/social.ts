@@ -1,6 +1,7 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ReleaseUi, ResolvedRelizyConfig } from '../core'
+import type { AIReleaseContext } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
@@ -639,6 +640,10 @@ function getSlackSections({ overview, versions, changelogs, hasGroups }: {
   })
 }
 
+function toAIContext(version: AnnouncedVersion): AIReleaseContext {
+  return { project: version.line.name, version: version.line.version }
+}
+
 /**
  * The changelog of the tweet: the changelog of its version, or the sections
  * of its versions. With AI, rewritten in a single call.
@@ -665,7 +670,7 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
       return version!.minified
     }
 
-    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: version!.minified, platform: 'twitter', maxLength, dryRun })
+    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: version!.minified, platform: 'twitter', maxLength, context: toAIContext(version!), dryRun })
   }
 
   const rewritten = useAI
@@ -715,7 +720,7 @@ async function getSlackChangelog({ config, versions, overview, hasGroups, dryRun
       return getBody(version!)
     }
 
-    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: getBody(version!), platform: 'slack', maxLength, dryRun })
+    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: getBody(version!), platform: 'slack', maxLength, context: toAIContext(version!), dryRun })
   }
 
   const rewritten = useAI

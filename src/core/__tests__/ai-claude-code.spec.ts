@@ -120,6 +120,17 @@ describe('claudeCodeProvider', () => {
       expect(auth).toEqual({ apiKey: 'sk-test', oauthToken: undefined })
     })
 
+    it('sends the context of the release before the changelog', async () => {
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
+      mockClaudeRun.mockResolvedValue({ output: 'Result text' })
+
+      const config = createMockConfig({})
+      await claudeCodeProvider.generate(config, { ...request, context: { project: 'relizy', version: '2.0.0' } })
+
+      const [options] = mockClaudeRun.mock.calls[0]
+      expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
+    })
+
     it('ignores maxLength (not forwarded to claudeRun options)', async () => {
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
       mockClaudeRun.mockResolvedValue({ output: 'short' })

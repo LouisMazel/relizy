@@ -1,10 +1,13 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
+import type { AIReleaseContext } from './prompts'
 import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote, takeAICost } from '../progress'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
+
+export type { AIReleaseContext } from './prompts'
 
 const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
   providerRelease: PROVIDER_RELEASE_PROMPT,
@@ -55,6 +58,9 @@ function assemblePrompt(
   }
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
+  if (target === 'slack') {
+    parts.push(SLACK_FORMAT_PROMPTS[config.social?.slack?.changelogFormat ?? 'summary'])
+  }
   if (maxLength !== undefined) {
     parts.push(MAX_LENGTH_PROMPT)
   }
@@ -123,13 +129,14 @@ function startRewrite({ subject, provider }: { subject: string, provider: string
   }
 }
 
-export async function generateAIProviderReleaseBody({ config, rawBody, label, dryRun = false }: {
+export async function generateAIProviderReleaseBody({ config, rawBody, label, context, dryRun = false }: {
   config: ResolvedRelizyConfig
   rawBody: string
   /**
    * The release, for the output: `v2.0.0`
    */
   label?: string
+  context?: AIReleaseContext
   dryRun?: boolean
 }): Promise<string> {
   if (!rawBody.trim()) {
@@ -152,7 +159,7 @@ export async function generateAIProviderReleaseBody({ config, rawBody, label, dr
 
   try {
     const done = startRewrite({ subject, provider: provider.name })
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody })
+    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, context })
     done()
     logger.verbose('AI output body:', output)
     return output
@@ -162,7 +169,7 @@ export async function generateAIProviderReleaseBody({ config, rawBody, label, dr
   }
 }
 
-export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength, dryRun = false }: {
+export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength, context, dryRun = false }: {
   config: ResolvedRelizyConfig
   dryRun?: boolean
   /** Input sent to the AI. Typically the rich (non-minified) changelog so the model has context. */
@@ -171,6 +178,7 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   fallbackBody?: string
   platform: 'twitter' | 'slack'
   maxLength?: number
+  context?: AIReleaseContext
 }): Promise<string> {
   const fallbackValue = fallbackBody ?? rawBody
 
@@ -194,7 +202,7 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
 
   try {
     const done = startRewrite({ subject, provider: provider.name })
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, maxLength })
+    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, maxLength, context })
     done()
     logger.verbose(`AI output body (${platform}):`, output)
     return output

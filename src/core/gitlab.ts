@@ -11,7 +11,7 @@ import { reportProgress, showPreview } from './progress'
 import { getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
-import { isPrerelease } from './version'
+import { extractVersionFromTag, isPrerelease } from './version'
 
 export interface GitlabRelease {
   tag_name: string
@@ -194,7 +194,7 @@ async function gitlabIndependentMode({
       newVersion,
       include: { title: false, compareLink: true, body: true, contributors: true },
       transformBody: isAIProviderReleaseEnabled(config)
-        ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
+        ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: pkg.name, version: newVersion, previousVersion: extractVersionFromTag(from, pkg.name) || undefined }, dryRun })
         : undefined,
     })
 
@@ -266,7 +266,7 @@ async function gitlabUnified({
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
     transformBody: isAIProviderReleaseEnabled(config)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, dryRun })
+      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: config.projectName || rootPackage.name, version: newVersion, previousVersion: extractVersionFromTag(from) || bumpResult?.oldVersion }, dryRun })
       : undefined,
   })
 

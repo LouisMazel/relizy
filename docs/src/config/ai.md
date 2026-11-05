@@ -239,6 +239,8 @@ Relizy does not handle the credentials of the `ai-sdk` provider: the package of 
 Output language for the AI. ISO 639-1 code or English name both work —
 the value is substituted into the system prompt as-is.
 
+Only the prose is translated: the code, the option and package names, and the section headings stay as they are. To translate the headings, set the `title` of your [`types`](./changelog.md#commit-types).
+
 ```ts
 export default defineConfig({
   ai: { language: 'fr' },
@@ -308,6 +310,8 @@ ignored for that target — the override owns the full instruction.
 Supports the same placeholders as built-in prompts: `{{language}}` and
 `{{maxLength}}` (the length budget of Twitter posts and of Slack posts in
 `summary` format).
+
+The changelog comes in a `<changelog>` tag, after a `<release-context>` tag giving the project, the version, the previous one and the kind of release when they are known: your prompt can refer to both.
 
 ```ts
 export default defineConfig({
@@ -443,7 +447,8 @@ export const myProvider: AIProvider = {
   },
 
   async generate(config, request) {
-    // Call your model with request.systemPrompt + request.prompt.
+    // Call your model with request.systemPrompt and
+    // wrapChangelogPrompt(request.prompt, request.context) (../prompts).
     // Honor request.maxLength for Twitter-like targets.
     // Return the trimmed output.
   },

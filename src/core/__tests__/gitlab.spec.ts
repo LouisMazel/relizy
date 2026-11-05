@@ -18,9 +18,11 @@ vi.mock('../repo', () => {
   }
 })
 
-vi.mock('../version', () => {
+vi.mock('../version', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../version')>()
   return {
     isPrerelease: vi.fn(),
+    extractVersionFromTag: actual.extractVersionFromTag,
   }
 })
 
@@ -935,6 +937,8 @@ describe('Given gitlab function', () => {
         config,
         rawBody: '### Features\n\n- Original feature',
         label: 'v1.0.0',
+        // What the model knows of the release, besides its changelog
+        context: { project: 'test', version: '1.0.0', previousVersion: '0.9.0' },
         dryRun: false,
       })
       const call = vi.mocked(fetch).mock.calls[0]

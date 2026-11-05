@@ -122,13 +122,15 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
   describe('When rewriting the release notes', () => {
     it('Then returns the output of the model, generated with the release notes rules and the configured language', async () => {
       const model = createModel()
-      const result = await generateAIProviderReleaseBody({ config: createConfig(model, { language: 'fr' }), rawBody: RAW_BODY })
+      const context = { project: 'relizy', version: '2.0.0', previousVersion: '1.14.3' }
+      const result = await generateAIProviderReleaseBody({ config: createConfig(model, { language: 'fr' }), rawBody: RAW_BODY, context })
 
       const { system, user } = lastMessages(model)
       expect(result).toBe('AI rewritten notes')
       expect(system).toContain('You are a release-notes rewriter.')
-      expect(system).toContain('Format the output as markdown with "### <Type>" sections')
+      expect(system).toContain('the "### " section headings of the input kept exactly')
       expect(system).toContain('Output language: fr.')
+      expect(user).toContain('<release-context>\nProject: relizy\nVersion: 2.0.0\nPrevious version: 1.14.3\nKind: major release\n</release-context>')
       expect(user).toContain(RAW_BODY)
     })
 

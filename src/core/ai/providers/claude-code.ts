@@ -69,7 +69,7 @@ export const claudeCodeProvider: AIProvider = {
     const result = await claudeRun(
       {
         systemPrompt: request.systemPrompt,
-        prompt: wrapChangelogPrompt(request.prompt),
+        prompt: wrapChangelogPrompt(request.prompt, request.context),
         maxTurns: 1,
         effort: 'low',
         disableSlashCommands: true,
