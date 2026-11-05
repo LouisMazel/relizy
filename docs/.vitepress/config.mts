@@ -208,6 +208,7 @@ export default defineConfig({
           { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
           { text: 'Getting Started', link: '/guide/getting-started' },
           { text: 'Installation', link: '/guide/installation' },
+          { text: 'Migrating from v1', link: '/guide/migration-v2' },
           { text: 'Private Projects & Apps', link: '/guide/private-projects' },
           { text: 'Version Modes', link: '/guide/version-modes' },
           { text: 'Version Groups', link: '/guide/version-groups' },
@@ -298,6 +299,10 @@ export default defineConfig({
             link: '/changelog',
           },
           {
+            text: 'Migrating from v1',
+            link: '/guide/migration-v2',
+          },
+          {
             text: 'Contributing',
             link: '/guide/contributing',
           },
@@ -317,6 +322,7 @@ export default defineConfig({
             { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
             { text: 'Getting Started', link: '/guide/getting-started' },
             { text: 'Installation', link: '/guide/installation' },
+            { text: 'Migrating from v1', link: '/guide/migration-v2' },
             { text: 'Private Projects & Apps', link: '/guide/private-projects' },
           ],
         },
