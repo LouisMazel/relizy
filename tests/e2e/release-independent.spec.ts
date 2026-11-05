@@ -42,7 +42,7 @@ describe('Given independent mode release workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     const config = createMockConfig({
-      bump: { type: 'patch' },
+      bump: { type: 'patch', yes: true },
       release: {
         commit: true,
         changelog: true,
@@ -331,7 +331,7 @@ describe('Given independent mode release workflow', () => {
 
   describe('When skipping steps in independent mode', () => {
     it('Then respects skip flags', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.monorepo = {
         versionMode: 'independent',
         packages: ['packages/*'],
@@ -448,7 +448,7 @@ describe('Given independent mode release workflow', () => {
 
   describe('When clean is disabled', () => {
     it('Then skips git status check', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.monorepo = {
         versionMode: 'independent',
         packages: ['packages/*'],

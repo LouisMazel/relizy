@@ -41,7 +41,7 @@ describe('Given selective mode release workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     const config = createMockConfig({
-      bump: { type: 'patch' },
+      bump: { type: 'patch', yes: true },
       monorepo: {
         versionMode: 'selective',
         packages: ['packages/*'],
@@ -181,7 +181,7 @@ describe('Given selective mode release workflow', () => {
   describe('When using unified version for all packages', () => {
     it('Then all packages get same version', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
-        bump: { type: 'major' },
+        bump: { type: 'major', yes: true },
       }))
 
       await release({ type: 'major' })
@@ -353,7 +353,7 @@ describe('Given selective mode release workflow', () => {
 
   describe('When skipping steps in selective mode', () => {
     it('Then respects skip flags', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.monorepo = {
         versionMode: 'selective',
         packages: ['packages/*'],

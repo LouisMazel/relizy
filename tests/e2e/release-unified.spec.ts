@@ -40,7 +40,7 @@ describe('Given unified mode release workflow', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     const config = createMockConfig({
-      bump: { type: 'patch' },
+      bump: { type: 'patch', yes: true },
       release: {
         commit: true,
         changelog: true,
@@ -171,7 +171,7 @@ describe('Given unified mode release workflow', () => {
 
   describe('When skipping changelog', () => {
     it('Then does not execute changelog command', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.release = {
         commit: true,
         changelog: false,
@@ -194,7 +194,7 @@ describe('Given unified mode release workflow', () => {
 
   describe('When skipping publish', () => {
     it('Then does not execute publish command', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.release = {
         commit: true,
         changelog: true,
@@ -217,7 +217,7 @@ describe('Given unified mode release workflow', () => {
 
   describe('When skipping provider release', () => {
     it('Then does not execute provider release command', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.release = {
         commit: true,
         changelog: true,
@@ -240,7 +240,7 @@ describe('Given unified mode release workflow', () => {
 
   describe('When skipping social', () => {
     it('Then does not execute social command', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({ bump: { type: 'patch', yes: true } })
       config.release = {
         commit: true,
         changelog: true,
