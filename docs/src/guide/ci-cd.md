@@ -319,6 +319,37 @@ export default defineConfig({
 })
 ```
 
+### From the CI
+
+The release also writes its report for the next steps of the CI: its outputs (`released`, `version`, `tags`, `packages`) and a summary.
+
+On **GitHub Actions**, the outputs of the step and the summary of the run are written without option:
+
+```yaml
+- id: release
+  run: pnpm relizy release --yes
+- if: steps.release.outputs.released == 'true'
+  run: ./scripts/notify-teams.sh "${{ steps.release.outputs.version }}"
+```
+
+On **GitLab CI**, write them to a dotenv file ([`release.report.dotenv`](../config/release.md#report) or `--report-dotenv`), read by the next jobs:
+
+```yaml
+release:
+  script:
+    - pnpm relizy release --yes --report-dotenv relizy.env
+  artifacts:
+    reports:
+      dotenv: relizy.env
+
+notify:
+  needs: [release]
+  script:
+    - '[ "$RELIZY_RELEASED" = "true" ] && ./scripts/notify-teams.sh "$RELIZY_VERSION" || echo "Nothing released"'
+```
+
+In a script, read the JSON report (`--report-json relizy.json`), or the return value of [`release()`](../api/release.md).
+
 ## Canary Releases in CI
 
 Canary releases are ideal for CI pipelines. Publish a temporary test version on every pull request so reviewers can install and test the changes before merging.

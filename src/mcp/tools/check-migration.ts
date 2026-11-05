@@ -223,6 +223,13 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
       locations: collect(/\b(?:formatTweetMessage|postReleaseToTwitter|formatSlackMessage|postReleaseToSlack|TwitterOptions|SlackOptions)\b/),
     },
     {
+      severity: 'change',
+      title: '`buildReleaseSummary()` is replaced by the release report',
+      section: 'Release Report',
+      detail: '`release()` returns the report of the release; `formatReleaseReportText(report)` renders it as text.',
+      locations: collect(/\bbuildReleaseSummary\b/),
+    },
+    {
       severity: 'review',
       title: '`GroupBumpResult` objects',
       section: 'Version Group Results',

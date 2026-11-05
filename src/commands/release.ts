@@ -1,18 +1,19 @@
-import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResultTruthy, GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
+import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig } from '../core'
+import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
   createCommitAndTags,
   executeHook,
+  formatReleaseReportText,
   getHookContext,
   getReleaseTagNames,
   isRelizyCancelError,
   loadRelizyConfig,
   pushCommitAndTags,
-  readPackageJson,
   rollbackModifiedFiles,
+  writeReleaseReport,
 } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { bump } from './bump'
@@ -65,6 +66,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         gitTag: options.gitTag,
         social: options.social,
         prComment: options.prComment,
+        report: options.report,
       },
       monorepo: options.includePrivates !== undefined
         ? { includePrivates: options.includePrivates }
@@ -128,93 +130,8 @@ async function releaseSafetyCheck({
   }
 }
 
-function getVersionDisplay({ config, bumpResult }: { config: ResolvedRelizyConfig, bumpResult: BumpResultTruthy }): string | undefined {
-  if (bumpResult.groups) {
-    return bumpResult.groups
-      .map(group => group.versionMode === 'independent'
-        ? `${group.title}: ${group.bumpedPackages.length} package(s) bumped independently`
-        : `${group.title}: ${group.newVersion}`)
-      .join(', ')
-  }
-
-  return config.monorepo?.versionMode === 'independent'
-    ? `${bumpResult.bumpedPackages.length} packages bumped independently`
-    : bumpResult.newVersion || readPackageJson(config.cwd)?.version
-}
-
-/**
- * Build the final "Release workflow completed!" summary box from the outcome of
- * each release step. Pure formatting - no side effects - so it stays easy to read
- * and to test in isolation, and keeps the `release()` orchestration lean.
- */
-export function buildReleaseSummary({
-  config,
-  bumpResult,
-  publishResponse,
-  createdTags,
-  provider,
-  postedReleases,
-  providerError,
-  socialResults,
-  prCommentPosted,
-}: {
-  config: ResolvedRelizyConfig
-  bumpResult: BumpResultTruthy
-  publishResponse?: PublishResponse
-  createdTags: string[]
-  provider?: GitProvider
-  postedReleases: PostedRelease[]
-  providerError?: string
-  socialResults?: SocialResult
-  prCommentPosted: boolean
-}): string {
-  const publishedPackageCount = publishResponse?.publishedPackages.length ?? 0
-  const versionDisplay = getVersionDisplay({ config, bumpResult })
-
-  // Format provider-release display
-  let providerDisplay = 'Disabled'
-  if (config.release.providerRelease) {
-    if (providerError) {
-      providerDisplay = `Failed: ${providerError}`
-    }
-    else {
-      providerDisplay = `${postedReleases.length} release${postedReleases.length !== 1 ? 's' : ''}`
-    }
-  }
-
-  // Format social media display
-  let socialDisplay = 'Disabled'
-
-  if (config.release.social && socialResults) {
-    if (socialResults.hasErrors) {
-      const failed = socialResults.results.filter(r => !r.success).map(r => r.platform)
-      const succeeded = socialResults.results.filter(r => r.success).map(r => r.platform)
-      socialDisplay = `${succeeded.length} succeeded, ${failed.length} failed (${failed.join(', ')})`
-    }
-    else {
-      socialDisplay = `${socialResults.results.length} succeeded`
-    }
-  }
-
-  // Format PR comment display
-  let prCommentDisplay = 'Disabled'
-  if (config.release.prComment) {
-    prCommentDisplay = prCommentPosted ? 'Posted' : 'Failed'
-  }
-
-  return 'Release workflow completed!\n\n'
-    + `Version: ${versionDisplay ?? 'Unknown'}\n`
-    + `Tag(s): ${createdTags?.length ? createdTags.join(', ') : 'None'}\n`
-    + `Pushed: ${config.release.push ? 'Yes' : 'Disabled'}\n`
-    + `Published packages: ${config.release.publish ? publishedPackageCount : 'Disabled'}\n`
-    + `Provider release: ${providerDisplay}\n`
-    + `Social media: ${socialDisplay}\n`
-    + `PR comment: ${prCommentDisplay}\n`
-    + `Git provider: ${provider}`
-}
-
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
-export async function release(options: Partial<ReleaseOptions> = {}): Promise<void> {
+export async function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
   const isCanary = options.canary ?? false
 
   if (isCanary) {
@@ -248,6 +165,22 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
   // Known once the bump is done, for the hooks of the next steps
   let hookContext: HookContext | undefined
+  let createdTags: string[] = []
+  const steps: ReleaseStepReport[] = []
+  const addStep = (name: ReleaseStepReport['name'], done: boolean, detail?: string) => {
+    steps.push({ name, status: done ? 'done' : 'skipped', ...(detail ? { detail } : {}) })
+  }
+  const reportOf = (status: ReleaseReport['status'], error?: unknown): ReleaseReport => ({
+    status,
+    released: status === 'released' && !dryRun,
+    dryRun,
+    canary: isCanary,
+    release: hookContext?.release,
+    version: hookContext?.release.groups.find(group => group.versionMode !== 'independent')?.version,
+    tags: createdTags,
+    steps,
+    ...(error === undefined ? {} : { error: error instanceof Error ? error.message : String(error) }),
+  })
 
   try {
     await executeHook('before:release', config, dryRun)
@@ -287,7 +220,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         configName: options.configName,
       })
 
-      return
+      const report = reportOf('nothing')
+      logger.box(formatReleaseReportText(report))
+      writeReleaseReport({ config, report })
+
+      return report
     }
 
     if (config.release.commit) {
@@ -322,6 +259,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping changelog generation (--no-changelog)')
     }
+    addStep('changelog', Boolean(config.release.changelog))
 
     // Packages are published before the push: make sure the release commit
     // will be pushable, as new commits may have landed while the release ran.
@@ -367,10 +305,10 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping publish (--no-publish)')
     }
+    addStep('publish', Boolean(config.release.publish), publishResponse && `${publishResponse.publishedPackages.length} package(s)`)
 
     logger.box('Commit changes and create tag')
 
-    let createdTags: string[] = []
     if (config.release.commit) {
       createdTags = await createCommitAndTags({
         config,
@@ -385,6 +323,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping commit and tag (--no-commit)')
     }
+    addStep('commit', Boolean(config.release.commit), config.release.commit ? `${createdTags.length} tag(s)` : undefined)
 
     logger.box('Push changes and tags')
     if (config.release.push && config.release.commit) {
@@ -409,6 +348,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping push (--no-push or --no-commit)')
     }
+    addStep('push', Boolean(config.release.push && config.release.commit))
 
     let provider = config.repo?.provider
     let postedReleases: PostedRelease[] = []
@@ -442,6 +382,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping release (--no-provider-release)')
     }
+    if (providerError) {
+      steps.push({ name: 'providerRelease', status: 'failed', detail: providerError })
+    }
+    else {
+      addStep('providerRelease', Boolean(config.release.providerRelease), `${postedReleases.length} release(s) on ${provider}`)
+    }
 
     logger.box('Post release to social media')
     let socialResults: SocialResult | undefined
@@ -463,6 +409,12 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     else {
       logger.info('Skipping social media posts (--no-social or no social media enabled)')
     }
+    if (socialResults?.hasErrors) {
+      steps.push({ name: 'social', status: 'failed', detail: socialResults.results.filter(result => !result.success).map(result => `${result.platform}: ${result.error}`).join(', ') })
+    }
+    else {
+      addStep('social', Boolean(socialResults?.results.length), socialResults?.results.map(result => result.platform).join(', '))
+    }
 
     logger.box('Post PR comment')
     const prCommentPosted = await tryPostPrComment({
@@ -474,19 +426,15 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       configName: options.configName,
     })
 
-    logger.box(buildReleaseSummary({
-      config,
-      bumpResult,
-      publishResponse,
-      createdTags,
-      provider,
-      postedReleases,
-      providerError,
-      socialResults,
-      prCommentPosted,
-    }))
+    addStep('prComment', prCommentPosted, 'Posted')
+
+    const report = reportOf('released')
+    logger.box(formatReleaseReportText(report))
+    writeReleaseReport({ config, report })
 
     await executeHook('success:release', config, dryRun, hookContext)
+
+    return report
   }
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure
@@ -510,6 +458,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     })
 
     await executeHook('error:release', config, dryRun, hookContext)
+
+    writeReleaseReport({ config, report: reportOf('failed', error) })
 
     throw error
   }

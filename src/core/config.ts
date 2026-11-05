@@ -124,7 +124,8 @@ export function getDefaultConfig() {
       gitTag: true,
       social: true,
       prComment: true,
-    } as Required<ReleaseConfig>,
+      report: { github: true },
+    } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
     commitlint: {
       packages: [],
       scopes: [],

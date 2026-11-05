@@ -38,7 +38,7 @@ const V1_CONFIG = `export default {
 `
 
 const V1_SCRIPT = `import type { GroupBumpResult } from 'relizy'
-import { confirmBump, formatTweetMessage, release as runRelease } from 'relizy'
+import { buildReleaseSummary, confirmBump, formatTweetMessage, release as runRelease } from 'relizy'
 
 export async function main(groups: GroupBumpResult[]) {
   await confirmBump({ versionMode: 'unified', packages: [], force: false, dryRun: false })
@@ -92,6 +92,7 @@ describe('Given check_migration on a relizy 1 project', () => {
     expect(text).toContain('**The social functions take the `variables` of the template** (`scripts/release.ts:2`, `scripts/release.ts:6`)')
     expect(text).toContain('**`GroupBumpResult` objects** (`scripts/release.ts:1`, `scripts/release.ts:4`)')
     expect(text).toContain('**Commands called from code: a refused prompt throws** (`scripts/release.ts:7`)')
+    expect(text).toContain('**`buildReleaseSummary()` is replaced by the release report** (`scripts/release.ts:2`)')
     expect(text).not.toContain('node_modules/')
   })
 
@@ -99,7 +100,7 @@ describe('Given check_migration on a relizy 1 project', () => {
     const toChange = text.slice(text.indexOf('## To change'), text.indexOf('## To review'))
     const toReview = text.slice(text.indexOf('## To review'))
 
-    expect(toChange).toContain('## To change (6)')
+    expect(toChange).toContain('## To change (7)')
     expect(toChange).toContain('`confirmBump()`')
     expect(toReview).toContain('## To review (6)')
     expect(toReview).toContain('`GroupBumpResult` objects')

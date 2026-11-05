@@ -38,6 +38,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                                               | None                                                                          |
 | [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                                                   | None, or stop treating the exit code 1 as nothing to bump                     |
 | [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                                                 | Catch `RelizyCancelError`                                                     |
+| [Release report](#release-report)                             | `release()` return value, `buildReleaseSummary()`                                                | Use the report                                                                |
 | [Bump confirmation](#bump-confirmation)                       | `confirmBump()`, `planBumps()`                                                                   | Use `displayBump()`, `plan.display()`                                         |
 | [Social functions](#social-functions)                         | `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()` | Pass `variables`                                                              |
 | [Version group results](#version-group-results)               | `GroupBumpResult` objects                                                                        | Add `title`                                                                   |
@@ -166,6 +167,18 @@ catch (error) {
   if (!isRelizyCancelError(error)) {
     throw error
   }
+}
+```
+
+### Release Report
+
+`release()` returns the [report of the release](../config/release.md#report) instead of nothing, and `buildReleaseSummary()` is replaced by `formatReleaseReportText(report)`. The report is also written to the outputs and the summary of GitHub Actions, and with `release.report`, to a JSON or dotenv file (GitLab CI).
+
+```ts
+const report = await release({ yes: true })
+
+if (report.released) {
+  console.log(formatReleaseReportText(report))
 }
 ```
 

@@ -154,6 +154,31 @@ export default defineConfig({
 
 See [PR Comments](/guide/pr-comment) for more details.
 
+## report
+
+Report of the release, to run something only when a release happens (see [CI/CD Setup](/guide/ci-cd#run-something-only-when-a-release-happens)). It is written for a release, when there is nothing to release and when the release fails, in dry-run too, where `released` is `false`.
+
+- **Type:** `{ github?: boolean, json?: string, dotenv?: string }`
+- **Default:** `{ github: true }`
+
+| Option   | Description                                                                                                                                                                       |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `github` | In GitHub Actions, write the outputs of the step (`released`, `status`, `version`, `tags`, `packages`, `report`) and the summary of the run                                       |
+| `json`   | File to write the whole report to, as JSON                                                                                                                                        |
+| `dotenv` | File to write the outputs to, as dotenv (`RELIZY_RELEASED`, `RELIZY_STATUS`, `RELIZY_VERSION`, `RELIZY_TAGS`, `RELIZY_PACKAGES`), for the `artifacts:reports:dotenv` of GitLab CI |
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  release: {
+    report: { dotenv: 'relizy.env' },
+  },
+})
+```
+
+The outputs: `released` (`true` when the release happened), `status` (`released`, `nothing` or `failed`), `version` (the repository version), `tags` and `packages` (comma-separated `name@version`).
+
 ## Canary Mode Behavior
 
 When using `relizy release --canary`, several release options are **automatically overridden** regardless of your configuration:

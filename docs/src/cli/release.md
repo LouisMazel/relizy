@@ -177,6 +177,16 @@ relizy release --slack-format summary --minor
 
 See the [Slack Integration](/guide/slack-integration#full-changelog) guide for the rendering details.
 
+### --report-json / --report-dotenv
+
+Write the report of the release to a JSON file, or its outputs to a dotenv file for GitLab CI, as [`release.report`](/config/release#report):
+
+```bash
+relizy release --yes --report-dotenv relizy.env
+```
+
+In GitHub Actions, the outputs and the summary of the run are written without option.
+
 ### --no-provider-release
 
 Skip provider release creation (GitHub/GitLab):

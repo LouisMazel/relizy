@@ -13,7 +13,17 @@ tags: [api, release, workflow, automation, typescript]
 ## Signature
 
 ```ts
-function release(options: ReleaseOptions): Promise<void>
+function release(options: ReleaseOptions): Promise<ReleaseReport>
+```
+
+It returns the [report of the release](/config/release#report): its `status` (`released`, `nothing`), `released` (`false` in dry-run), the packages and versions by version group (`release`), the `tags`, and what each step did (`steps`). It throws when the release fails.
+
+```ts
+const report = await release({ yes: true })
+
+if (report.released) {
+  await notifyTheTeam(report.release)
+}
 ```
 
 ## Options

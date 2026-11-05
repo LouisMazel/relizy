@@ -871,6 +871,24 @@ export interface PublishOptions extends PublishConfig {
   groups?: string[]
 }
 
+export interface ReleaseReportConfig {
+  /**
+   * In GitHub Actions, write the outputs of the step (`released`, `status`,
+   * `version`, `tags`, `packages`, `report`) and the summary of the run
+   * @default true
+   */
+  github?: boolean
+  /**
+   * File to write the report to, as JSON (relative to `cwd`)
+   */
+  json?: string
+  /**
+   * File to write the outputs to, as dotenv (`RELIZY_RELEASED=true`...),
+   * for the `artifacts:reports:dotenv` of GitLab CI (relative to `cwd`)
+   */
+  dotenv?: string
+}
+
 export interface ReleaseConfig {
   /**
    * Commit changes and create tag
@@ -918,10 +936,17 @@ export interface ReleaseConfig {
    */
   social?: boolean
   /**
-   * Post release announcements to social media platforms
+   * Post a comment with the outcome of the release on the pull request
    * @default false
    */
   prComment?: boolean
+  /**
+   * Report of the release, to run something only when a release happens:
+   * the outputs and the summary of GitHub Actions, a JSON file, a dotenv file
+   * (GitLab CI). Written in dry-run too, where `released` is `false`.
+   * @default { github: true }
+   */
+  report?: ReleaseReportConfig
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {

@@ -435,6 +435,8 @@ program
   .option('--include-private', 'Include private packages in bump and changelog phases')
   .option('--ai', 'Force-enable AI for release notes and social posts')
   .option('--no-ai', 'Force-disable AI for release notes and social posts')
+  .option('--report-json <file>', 'Write the report of the release to this JSON file')
+  .option('--report-dotenv <file>', 'Write the outputs of the release to this dotenv file (RELIZY_RELEASED=true...), for the artifacts:reports:dotenv of GitLab CI')
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
@@ -476,6 +478,7 @@ program
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
+        report: options.reportJson || options.reportDotenv ? { json: options.reportJson, dotenv: options.reportDotenv } : undefined,
       })
     }
     catch (error) {

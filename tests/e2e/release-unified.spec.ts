@@ -19,7 +19,7 @@ vi.mock('../../src/core', async () => {
     resolveTags: vi.fn(),
     generateChangelog: vi.fn(),
     writeChangelogToFile: vi.fn(),
-    createCommitAndTags: vi.fn(),
+    createCommitAndTags: vi.fn().mockResolvedValue([]),
     pushCommitAndTags: vi.fn(),
     assertBranchUpToDateWithRemote: vi.fn(),
     assertReleaseTagsAvailable: vi.fn(),
