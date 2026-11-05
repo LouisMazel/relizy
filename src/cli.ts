@@ -118,7 +118,7 @@ program
   .version(version)
   .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
   .option('--no-safety-check', 'Skip safety check')
-  .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
+  .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose), instead of the logLevel of the config')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
   .option('--no-preview', 'In dry-run, do not show what would be generated (changelogs, release notes, posts, PR comment)')
   .option('--ai-preview', 'In dry-run, call the AI to preview its rewrites (it costs), instead of simulating them')
