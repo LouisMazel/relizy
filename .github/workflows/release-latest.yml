@@ -34,11 +34,6 @@ jobs:
         with:
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Setup Git User
-        run: |
-          git config --global user.name "LouisMazel"
-          git config --global user.email "12446546+LouisMazel@users.noreply.github.com"
-
       - name: Typecheck & Build
         run: pnpm typecheck && pnpm build
 
