@@ -14,7 +14,6 @@
     "build": "pnpm predocs && pnpm build:only",
     "build:only": "vitepress build",
     "dev": "pnpm predocs && vitepress dev",
-    "ftp-deploy": "ftp-deploy --config ftp.json",
     "preview": "vitepress preview",
     "predocs": "typedoc",
     "lint": "eslint .",
