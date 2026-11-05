@@ -326,11 +326,13 @@ program
   .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
   .option('--yes', 'Accept the detected values without asking')
   .option('--force', 'Replace an existing config file')
+  .option('--no-workflow', 'Do not offer the release workflow of the CI (GitHub Actions, GitLab CI)')
   .action(async (options) => {
     try {
       await init({
         yes: options.yes,
         force: options.force,
+        workflow: options.workflow,
         dryRun: program.opts().dryRun,
         configName: program.opts().config,
         logLevel: program.opts().logLevel,

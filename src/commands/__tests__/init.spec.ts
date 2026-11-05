@@ -240,7 +240,8 @@ describe('Given init command', () => {
     it('Then writes the basic and advanced answers', async () => {
       answer(select, ['publish', 'selective', 'restricted', 'append'])
       answer(multiselect, [['packages/*'], ['dependencies', 'devDependencies'], typesExcept('chore'), ['slack'], ['providerRelease']])
-      answer(confirm, [true, false, false, true, false, true])
+      // advanced, capZeroMajor, rootChangelog, hook, script, workflow, apply
+      answer(confirm, [true, false, false, true, false, false, true])
       answer(text, ['', 'https://npm.acme.dev', 'pnpm build', '#releases', 'https://acme.dev/changelog', 'fr'])
 
       const result = await init({ cwd })
@@ -266,7 +267,8 @@ describe('Given init command', () => {
       write('.git/hooks/commit-msg', '#!/bin/sh\nnpx commitlint --edit "$1"\n')
       answer(select, ['version', 'selective'])
       answer(multiselect, [['packages/*', 'tools/*']])
-      answer(confirm, [false, true, true, true, true])
+      // advanced, hook, script, workflow, apply, replace the hook
+      answer(confirm, [false, true, true, false, true, true])
 
       const result = await init({ cwd })
 
@@ -276,6 +278,67 @@ describe('Given init command', () => {
       })
       expect(result.hook?.status).toBe('replaced')
       expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint')
+    })
+  })
+
+  describe('When generating the release workflow of the CI', () => {
+    it('Then writes the GitHub Actions workflow without asking, released on demand, with the secrets of the config', async () => {
+      const result = await init({ cwd, yes: true })
+
+      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
+      const workflow = read('.github/workflows/release.yml')
+      expect(workflow).toContain('  workflow_dispatch:\n')
+      // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+      expect(workflow).toContain('        run: pnpm exec relizy release --yes ${{ inputs.release != \'auto\' && format(\'--{0}\', inputs.release) || \'\' }}\n')
+      // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+      expect(workflow).toContain('          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n')
+      expect(workflow).toContain('      pull-requests: write\n')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps')
+    })
+
+    it('Then keeps an existing workflow without asking', async () => {
+      write('.github/workflows/release.yml', 'name: Mine\n')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.workflow).toBeUndefined()
+      expect(read('.github/workflows/release.yml')).toBe('name: Mine\n')
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith('.github/workflows/release.yml already exists: the release workflow is not generated')
+    })
+
+    it('Then writes nothing with --no-workflow, nor in dry run where it shows it', async () => {
+      await init({ cwd, yes: true, workflow: false })
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
+
+      rmSync(join(cwd, 'relizy.config.ts'))
+      vi.mocked(note).mockClear()
+      await init({ cwd, yes: true, dryRun: true })
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('name: Release'), '.github/workflows/release.yml')
+    })
+
+    it('Then puts the GitLab CI job aside an existing .gitlab-ci.yml, released at each push, with the include to add', async () => {
+      execFileSync('git', ['remote', 'set-url', 'origin', 'git@gitlab.com:acme/mono.git'], { cwd })
+      write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
+      write('.nvmrc', 'v24.11.0\n')
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      answer(select, ['publish', 'selective', 'push'])
+      answer(multiselect, [['packages/*']])
+      // advanced, hook, script, workflow, apply
+      answer(confirm, [false, false, false, true, true])
+
+      const result = await init({ cwd })
+      delete (process.stdin as { isTTY?: boolean }).isTTY
+
+      expect(result.workflow).toEqual({ file: '.gitlab/ci/relizy.yml', include: 'include:\n  - local: .gitlab/ci/relizy.yml' })
+      expect(read('.gitlab-ci.yml')).toBe('test:\n  script: [pnpm test]\n')
+      const job = read('.gitlab/ci/relizy.yml')
+      expect(job).toContain('  image: node:24\n')
+      expect(job).toContain('    - if: \'$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\\(release\\): /\'\n')
+      expect(job).not.toContain('when: manual')
+      expect(job).toContain('    - pnpm exec relizy release --yes --report-dotenv relizy.env\n')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps')
     })
   })
 

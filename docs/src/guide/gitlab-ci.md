@@ -12,7 +12,7 @@ tags: [guide, gitlab, ci-cd, automation, pipeline]
 
 ## Quick Start
 
-Create `.gitlab-ci.yml`:
+`npx relizy init` generates this job from your config, with the CI/CD variables it needs (see [release workflow](/cli/init#release-workflow)). Or create `.gitlab-ci.yml`:
 
 ```yaml
 release:

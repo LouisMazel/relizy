@@ -12,7 +12,7 @@ tags: [guide, github, ci-cd, automation, workflow]
 
 ## Quick Start
 
-Create `.github/workflows/release.yml`:
+`npx relizy init` generates this workflow from your config, with the secrets it needs (see [release workflow](/cli/init#release-workflow)). Or create `.github/workflows/release.yml`:
 
 ```yaml
 name: Release

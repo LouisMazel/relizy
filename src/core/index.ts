@@ -1,5 +1,6 @@
 export * from './catalogs'
 export * from './changelog'
+export * from './ci-workflow'
 export * from './commitlint'
 export * from './config'
 export * from './dependencies'

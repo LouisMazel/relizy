@@ -1,8 +1,8 @@
 import type { AgentTarget, LogLevel, SetupAgentsResult } from '@maz-ui/node'
-import type { InitAITarget, InitAnswers, InitGoal, InitPackage, InstalledHook, ProjectDetection } from '../core'
+import type { InitAITarget, InitAnswers, InitGoal, InitPackage, InstalledHook, ProjectDetection, WorkflowFile, WorkflowTrigger } from '../core'
 import type { RelizyConfig, VersionMode } from '../types'
-import { existsSync, rmSync, writeFileSync } from 'node:fs'
-import { join, relative } from 'node:path'
+import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, text } from '@clack/prompts'
 import { detectAgentTargets, logger } from '@maz-ui/node'
@@ -19,6 +19,9 @@ import {
   getReleasedPackages,
   getRunCommand,
   getScriptsToAdd,
+  getWorkflowFile,
+  getWorkflowOptions,
+  getWorkflowSecrets,
   installCommitMsgHook,
   isInCI,
   isMonorepoProject,
@@ -48,6 +51,11 @@ export interface InitOptions {
   logLevel?: LogLevel
   /** @default process.cwd() */
   cwd?: string
+  /**
+   * Offer the release workflow of the CI (GitHub Actions, GitLab CI)
+   * @default true
+   */
+  workflow?: boolean
 }
 
 export interface InitResult {
@@ -64,11 +72,20 @@ export interface InitResult {
   scripts: string[]
   /** Set when the AI agents were set up (rules and MCP server, see `relizy mcp init`) */
   agents?: SetupAgentsResult
+  /** Set when the release workflow of the CI was written */
+  workflow?: {
+    /** Relative to the root of the project */
+    file: string
+    /** The `include:` to add to an existing `.gitlab-ci.yml` */
+    include?: string
+  }
 }
 
 const c = createStyles(shouldUseColors())
 
 const PROVIDER_NAMES = { github: 'GitHub', gitlab: 'GitLab', bitbucket: 'Bitbucket' } as const
+
+const CI_NAMES = { github: 'GitHub Actions', gitlab: 'GitLab CI' } as const
 
 /** Thrown when a prompt is cancelled (Ctrl+C) */
 class InitCancelledError extends Error {}
@@ -338,6 +355,17 @@ interface InitPlan {
   scripts: Record<string, string>
   hook: boolean
   agents: AgentTarget[]
+  workflow?: PlannedWorkflow
+}
+
+interface PlannedWorkflow {
+  file: WorkflowFile
+  /** The CI name: `GitHub Actions` */
+  ci: string
+  /** Secrets (GitHub) or CI/CD variables (GitLab) to create */
+  secrets: string[]
+  /** An existing workflow file is replaced */
+  replace: boolean
 }
 
 function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
@@ -354,6 +382,11 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   }
   if (plan.hook) {
     rows.push(`${c.cyan('install')}  commit-msg hook ${c.dim('runs relizy commitlint at each commit')}`)
+  }
+  if (plan.workflow) {
+    const action = plan.workflow.replace ? c.yellow('replace'.padEnd(9)) : c.green('create'.padEnd(9))
+    const description = c.dim(plan.workflow.ci)
+    rows.push(`${action}${plan.workflow.file.path} ${description}`)
   }
   if (plan.agents.length > 0) {
     rows.push(`${c.cyan('setup')}    AI agents (${plan.agents.join(', ')}) ${c.dim('relizy rules and MCP server, as relizy mcp init')}`)
@@ -393,6 +426,50 @@ function setUpAgents(cwd: string, targets: AgentTarget[]): SetupAgentsResult | u
   }
 }
 
+/**
+ * The release workflow of the CI: offered when the provider is GitHub or
+ * GitLab, an existing file is only replaced once confirmed
+ */
+async function askWorkflow({ detection, answers, config, interactive }: {
+  detection: ProjectDetection
+  answers: InitAnswers
+  config: RelizyConfig
+  interactive: boolean
+}): Promise<PlannedWorkflow | undefined> {
+  const provider = detection.provider === 'github' || detection.provider === 'gitlab' ? detection.provider : undefined
+  if (!provider) {
+    return undefined
+  }
+
+  const ci = CI_NAMES[provider]
+  const wanted = await ask(interactive, true, () => confirm({
+    message: `Generate the release workflow of ${ci}? (installs, the tokens it needs, the outputs of the release)`,
+    initialValue: true,
+  }))
+  if (!wanted) {
+    return undefined
+  }
+
+  const trigger = await ask<WorkflowTrigger>(interactive, 'manual', () => select<WorkflowTrigger>({
+    message: 'When does the workflow release?',
+    options: [
+      { value: 'manual', label: 'On demand', hint: 'run it from the CI, choosing the release type (auto, patch, minor, major)' },
+      { value: 'push', label: 'At each push on the default branch', hint: 'releases as soon as a commit bumps a version' },
+    ],
+    initialValue: 'manual',
+  }))
+
+  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage: config.templates?.commitMessage })
+  const file = getWorkflowFile(options, detection.cwd)
+  const exists = existsSync(join(detection.cwd, file.path))
+  if (exists && !await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
+    log.warn(`${file.path} already exists: the release workflow is not generated`)
+    return undefined
+  }
+
+  return { file, ci, secrets: getWorkflowSecrets(options), replace: exists }
+}
+
 function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): string[] {
   return [
     ...(answers.goal === 'publish' ? ['NPM_TOKEN'] : []),
@@ -404,12 +481,14 @@ function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): s
   ]
 }
 
-function showNextSteps(detection: ProjectDetection, answers: InitAnswers) {
-  const tokens = getRequiredTokens(detection, answers)
+function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workflow?: PlannedWorkflow) {
+  const tokens = workflow?.secrets ?? getRequiredTokens(detection, answers)
+  const secretsLabel = detection.provider === 'gitlab' ? 'Add the CI/CD variables' : 'Add the secrets      '
   const steps = [
     ...(detection.root.hasRelizy ? [] : [`Install relizy        ${c.cyan(getInstallCommand(detection))}`]),
     `Preview the release   ${c.cyan('npx relizy release --dry-run')}`,
-    ...(tokens.length > 0 ? [`Set in your CI        ${tokens.map(token => c.cyan(token)).join(', ')}`] : []),
+    ...(workflow?.file.include ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`] : []),
+    ...(tokens.length > 0 ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`] : []),
     `All the options       ${c.cyan('https://relizy.dev/config/overview')}`,
   ]
   note(steps.join('\n'), 'Next steps')
@@ -464,10 +543,15 @@ async function runInit({ options, detection, configFile, interactive }: {
   }))
 
   const config = buildInitConfig(detection, answers)
+  const workflow = options.workflow === false ? undefined : await askWorkflow({ detection, answers, config, interactive })
+
   const content = renderConfigFile(config)
   note(content.trimEnd(), relative(cwd, configFile))
 
   if (options.dryRun) {
+    if (workflow) {
+      note(workflow.file.content.trimEnd(), workflow.file.path)
+    }
     outro('Dry run, nothing written')
     return { configFile, config, content, written: false, scripts: [] }
   }
@@ -481,6 +565,7 @@ async function runInit({ options, detection, configFile, interactive }: {
     scripts: withScripts ? scriptsToAdd : {},
     hook: withHook,
     agents: withAgents ? agentTargets : [],
+    workflow,
   }
   showPlan(plan, answers, cwd)
 
@@ -511,10 +596,26 @@ async function runInit({ options, detection, configFile, interactive }: {
 
   const agents = plan.agents.length > 0 ? setUpAgents(cwd, plan.agents) : undefined
 
-  showNextSteps(detection, answers)
+  if (workflow) {
+    const path = join(cwd, workflow.file.path)
+    mkdirSync(dirname(path), { recursive: true })
+    writeFileSync(path, workflow.file.content)
+    log.success(`${workflow.replace ? 'Replaced' : 'Created'} ${workflow.file.path}`)
+  }
+
+  showNextSteps(detection, answers, workflow)
   outro(c.green('relizy is ready'))
 
-  return { configFile, config, content, written: true, hook, scripts, ...(agents && { agents }) }
+  return {
+    configFile,
+    config,
+    content,
+    written: true,
+    hook,
+    scripts,
+    ...(agents && { agents }),
+    ...(workflow && { workflow: { file: workflow.file.path, ...(workflow.file.include && { include: workflow.file.include }) } }),
+  }
 }
 
 /**

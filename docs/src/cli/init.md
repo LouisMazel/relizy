@@ -41,6 +41,7 @@ Every question comes with a default deduced from the repository:
 5. **Commit linting**: install the `commit-msg` hook running [`relizy commitlint`](/commitlint/cli) (in `.husky/` when husky is set up).
 6. **Release script**: add `"release": "relizy release"` to the `package.json`.
 7. **AI agents** (only when the project already uses one: `CLAUDE.md`, `AGENTS.md`, `.cursor/`...): give them the relizy rules and the [relizy MCP server](/guide/ai-agents), as [`relizy mcp init`](/cli/mcp#relizy-mcp-init) does.
+8. **Release workflow** (GitHub or GitLab): generate the workflow releasing from the CI, run on demand (choosing the release type) or at each push on the default branch. See [release workflow](#release-workflow).
 
 Before writing anything, `init` shows the generated config and the list of changes (files created, `package.json` updates, hook, AI agents), and asks for a single confirmation.
 
@@ -64,7 +65,24 @@ export default defineConfig({
 })
 ```
 
-At the end, `init` prints the next steps: installing Relizy if it is not a dependency yet, and the environment variables to set in your CI (npm, GitHub or GitLab, Twitter, Slack and AI tokens, depending on your answers).
+At the end, `init` prints the next steps: installing Relizy if it is not a dependency yet, and the secrets (GitHub) or CI/CD variables (GitLab) to create (npm, GitLab, Twitter, Slack and AI tokens, depending on your answers).
+
+### Release workflow
+
+On GitHub, `init` writes `.github/workflows/release.yml`:
+
+- run on demand from the Actions tab, with a release type (`auto` follows the commits, or `patch`, `minor`, `major`), or at each push on the default branch;
+- the permissions it needs: `contents: write` for the release commit, the tags and the GitHub release, `pull-requests: write` for the [PR comment](/guide/pr-comment);
+- the full history (`fetch-depth: 0`), your package manager and Node version (`.nvmrc` or `.node-version`), the install from the lockfile;
+- `relizy release --yes`, with only the secrets your config needs, then a step reading the [outputs](/config/release#report) of the release.
+
+On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/ci/relizy.yml` when the project already has one (it prints the `include:` to add, your file is not changed):
+
+- a manual job on the default branch with a `RELEASE_TYPE` variable, or a job at each push, never run on the release commit it pushes;
+- the full history (`GIT_DEPTH: 0`), the install of the dependencies;
+- the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
+
+An existing workflow file is only replaced once confirmed. Relizy handles the rest in CI (shallow clone, detached HEAD, git identity, push): see [CI/CD](/guide/ci-cd#what-relizy-handles-in-ci).
 
 ## Options
 
@@ -76,7 +94,7 @@ Accept the detected values without asking. Useful in scripts and for AI agents:
 npx relizy init --yes
 ```
 
-The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added and the AI agents detected in the project are set up. The command also runs without questions when there is no terminal or in CI.
+The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up and the release workflow is written, run on demand (an existing one is kept). The command also runs without questions when there is no terminal or in CI.
 
 ### --force
 
@@ -88,9 +106,17 @@ npx relizy init --yes --force
 
 A config file in another format (e.g. `relizy.config.js`) is removed so it does not take precedence over the new `relizy.config.ts`.
 
+### --no-workflow
+
+Do not offer the release workflow of the CI:
+
+```bash
+npx relizy init --yes --no-workflow
+```
+
 ### --dry-run
 
-Print the config without writing anything:
+Print the config and the release workflow without writing anything:
 
 ```bash
 npx relizy init --dry-run
