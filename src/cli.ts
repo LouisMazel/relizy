@@ -127,7 +127,7 @@ program
   .option('--include-private', 'Include private packages in the bump')
   .action(async (options) => {
     try {
-      const result = await bump({
+      await bump({
         type: getReleaseType(options),
         preid: options.preid,
         clean: hasCliFlag('--no-clean') ? false : undefined,
@@ -141,9 +141,6 @@ program
         canary: options.canary,
         includePrivates: options.includePrivate || undefined,
       })
-      if (!result.bumped) {
-        process.exit(1)
-      }
     }
     catch (error) {
       exitWithError('Failed to bump packages -', error)

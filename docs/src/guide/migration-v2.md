@@ -36,6 +36,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                                                    | Add `dependencies` to keep the v1 bumps                                       |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                                                   | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                                               | None                                                                          |
+| [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                                                   | None, or stop treating the exit code 1 as nothing to bump                     |
 | [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                                                 | Catch `RelizyCancelError`                                                     |
 | [Bump confirmation](#bump-confirmation)                       | `confirmBump()`, `planBumps()`                                                                   | Use `displayBump()`, `plan.display()`                                         |
 | [Social functions](#social-functions)                         | `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()` | Pass `variables`                                                              |
@@ -142,6 +143,12 @@ export default defineConfig({
   },
 })
 ```
+
+## CLI
+
+### Exit Code of bump
+
+`relizy bump` exits with code `0` when there is nothing to bump, as `relizy release` does, instead of `1`: a CI job running it no longer fails when no commit triggers a bump. To run something only when a release happens, see [Run Something Only When a Release Happens](./ci-cd.md#run-something-only-when-a-release-happens).
 
 ## Programmatic API
 
