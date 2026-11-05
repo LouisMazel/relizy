@@ -25,6 +25,7 @@ vi.mock('../../core', async () => ({
   resolveTags: vi.fn(),
   isPrerelease: vi.fn(),
   getTwitterCredentials: vi.fn(),
+  getTweetLength: (await vi.importActual<typeof import('../../core/twitter')>('../../core/twitter')).getTweetLength,
   postReleaseToTwitter: vi.fn(),
   getSlackToken: vi.fn(),
   getSlackWebhookUrl: vi.fn(),

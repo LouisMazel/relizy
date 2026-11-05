@@ -166,7 +166,7 @@ export default defineConfig({
 
 ### Template Notes
 
-- Twitter has a 280 character limit - tweets are automatically truncated if too long
+- Twitter has a 280 character limit - tweets are automatically truncated if too long. The length is counted as X counts it: every URL counts 23 characters, an emoji or a CJK character counts 2
 - The changelog summary is automatically condensed to fit
 - URLs are included in the character count
 - If no template is provided, a default format is used

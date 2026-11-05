@@ -51,6 +51,71 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials }: {
   }
 }
 
+/**
+ * Length of any URL in a post: X shortens them all to t.co links
+ */
+export const TWEET_URL_LENGTH = 23
+
+const URL_REGEX = /https?:\/\/\S+/g
+const EMOJI_REGEX = /\p{Extended_Pictographic}/u
+
+/**
+ * Code points counting 1 in a post (Latin, Greek, Cyrillic... and the common
+ * punctuation), the others count 2 (twitter-text v3 config)
+ */
+const LIGHT_CODE_POINT_RANGES: [number, number][] = [
+  [0x0000, 0x10FF],
+  [0x2000, 0x200D],
+  [0x2010, 0x201F],
+  [0x2032, 0x2037],
+]
+
+const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
+
+function getCodePointLength(codePoint: number): number {
+  return LIGHT_CODE_POINT_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 1 : 2
+}
+
+function getTextLength(text: string): number {
+  let length = 0
+
+  for (const { segment } of segmenter.segment(text.normalize('NFC'))) {
+    // An emoji counts 2, whatever the code points of its sequence (skin tone, ZWJ...)
+    length += EMOJI_REGEX.test(segment)
+      ? 2
+      : [...segment].reduce((sum, char) => sum + getCodePointLength(char.codePointAt(0)!), 0)
+  }
+
+  return length
+}
+
+/**
+ * Length of a post as X counts it: a URL counts 23 characters, an emoji or a
+ * CJK character counts 2.
+ */
+export function getTweetLength(text: string): number {
+  const urls = text.match(URL_REGEX) ?? []
+
+  return getTextLength(text.replace(URL_REGEX, '')) + urls.length * TWEET_URL_LENGTH
+}
+
+/**
+ * Cut a text so that it fits in `maxLength` (as X counts it) with the ellipsis
+ */
+function truncateTweetText(text: string, maxLength: number, ellipsis: string): string {
+  if (getTweetLength(text) <= maxLength) {
+    return text
+  }
+
+  const segments = [...segmenter.segment(text)].map(({ segment }) => segment)
+
+  while (segments.length > 0 && getTweetLength(`${segments.join('')}${ellipsis}`) > maxLength) {
+    segments.pop()
+  }
+
+  return `${segments.join('')}${ellipsis}`
+}
+
 export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl, postMaxLength }: {
   template: string
   projectName: string
@@ -88,29 +153,21 @@ export function formatTweetMessage({ template, projectName, version, changelog, 
 
   // Step 2: Calculate how much space is available for the changelog
   const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
-  const availableForChangelog = MAX_LENGTH - templateWithoutChangelog.length
+  const availableForChangelog = MAX_LENGTH - getTweetLength(templateWithoutChangelog)
 
   // Step 3: Escape @ mentions in changelog to prevent unintended Twitter mentions
   // by inserting a zero-width space after @ (e.g., scoped package names like @scope/pkg)
   const escapedChangelog = changelogSummary.replace(/@\b/g, '@\u200B')
 
   // Step 4: Truncate changelog if needed
-  let finalChangelog = escapedChangelog
-  if (escapedChangelog.length > availableForChangelog) {
-    const maxLength = Math.max(0, availableForChangelog - ELLIPSIS.length)
-    finalChangelog = escapedChangelog.substring(0, maxLength) + ELLIPSIS
-  }
+  const finalChangelog = truncateTweetText(escapedChangelog, Math.max(0, availableForChangelog), ELLIPSIS)
 
   // Step 5: Build final message
-  let message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
+  const message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
 
   // Step 6: Safety check - if message still exceeds limit, truncate entire message
   // This should only happen if the template + URLs alone are > 280 chars
-  if (message.length > MAX_LENGTH) {
-    message = message.substring(0, MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
-  }
-
-  return message
+  return truncateTweetText(message, MAX_LENGTH, ELLIPSIS)
 }
 
 export async function postReleaseToTwitter({
@@ -136,10 +193,10 @@ export async function postReleaseToTwitter({
     postMaxLength,
   })
 
-  logger.debug(`Tweet message (${message.length} chars):\n${message}`)
+  logger.debug(`Tweet message (${getTweetLength(message)} chars):\n${message}`)
 
   if (dryRun) {
-    logger.box(`[dry-run] Twitter Post Preview (${message.length}/${postMaxLength} chars)\n\n${message}`)
+    logger.box(`[dry-run] Twitter Post Preview (${getTweetLength(message)}/${postMaxLength} chars)\n\n${message}`)
     return
   }
 

@@ -4,7 +4,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { GitCommit, SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTweetLength, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -30,9 +30,8 @@ function computeTwitterChangelogBudget({
     .replace('{{releaseUrl}}', releaseUrl ?? '')
     .replace('{{changelogUrl}}', changelogUrl ?? '')
     .replace('{{changelog}}', '')
-    .length
 
-  return Math.max(0, postMaxLength - overhead)
+  return Math.max(0, postMaxLength - getTweetLength(overhead))
 }
 
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity

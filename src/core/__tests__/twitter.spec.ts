@@ -1,6 +1,6 @@
 import { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
-import { formatTweetMessage, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
+import { formatTweetMessage, getTweetLength, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
 
 logger.setLevel = vi.fn()
 
@@ -170,6 +170,26 @@ describe('Given getTwitterCredentials function', () => {
   })
 })
 
+describe('Given getTweetLength function', () => {
+  it('Then counts the Latin characters as 1', () => {
+    expect(getTweetLength('Fix the menu (é, ü, ß)')).toBe(22)
+  })
+
+  it('Then counts every URL as 23 characters', () => {
+    expect(getTweetLength('See https://github.com/LouisMazel/relizy/releases/tag/v2.0.0 and http://a.b')).toBe(4 + 23 + 5 + 23)
+  })
+
+  it('Then counts an emoji as 2 characters, whatever its sequence', () => {
+    expect(getTweetLength('📣')).toBe(2)
+    expect(getTweetLength('👨‍👩‍👧')).toBe(2)
+    expect(getTweetLength('👍🏽')).toBe(2)
+  })
+
+  it('Then counts the CJK characters as 2', () => {
+    expect(getTweetLength('リリース')).toBe(8)
+  })
+})
+
 describe('Given formatTweetMessage function', () => {
   describe('When all placeholders are provided', () => {
     it('Then replaces all placeholders correctly', () => {
@@ -277,6 +297,28 @@ describe('Given formatTweetMessage function', () => {
     })
   })
 
+  describe('When the URLs are longer than 23 characters', () => {
+    it('Then counts each of them as 23 characters, as X does', () => {
+      const releaseUrl = 'https://github.com/verylongusername/verylongrepositoryname/releases/tag/v1.0.0-beta.1'
+      const changelogUrl = 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md'
+      const result = formatTweetMessage({
+        template: '{{projectName}} {{newVersion}} {{changelog}} {{releaseUrl}} {{changelogUrl}}',
+        projectName: 'very-long-package-name-that-takes-up-space',
+        version: '1.0.0-beta.1',
+        changelog: 'Long changelog text that goes on and on with many details about the release',
+        releaseUrl,
+        changelogUrl,
+        postMaxLength: 280,
+      })
+
+      expect(result.length).toBeGreaterThan(280)
+      expect(getTweetLength(result)).toBeLessThanOrEqual(280)
+      expect(result).toContain(releaseUrl)
+      expect(result).toContain(changelogUrl)
+      expect(result).not.toContain('...')
+    })
+  })
+
   describe('When final message exceeds 280 characters', () => {
     it('Then truncates entire message to 280 chars', () => {
       const result = formatTweetMessage({
@@ -286,10 +328,10 @@ describe('Given formatTweetMessage function', () => {
         changelog: 'Long changelog text that goes on and on with many details about the release',
         releaseUrl: 'https://github.com/verylongusername/verylongrepositoryname/releases/tag/v1.0.0-beta.1',
         changelogUrl: 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md',
-        postMaxLength: 280,
+        postMaxLength: 150,
       })
 
-      expect(result).toHaveLength(280)
+      expect(getTweetLength(result)).toBe(150)
       expect(result).toContain('...')
     })
 
@@ -306,7 +348,7 @@ describe('Given formatTweetMessage function', () => {
       })
 
       expect(result).toContain('...')
-      expect(result).toHaveLength(280)
+      expect(getTweetLength(result)).toBe(280)
     })
   })
 
