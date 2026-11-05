@@ -51,6 +51,13 @@ function isRootVersionMode(versionMode: VersionMode): boolean {
 }
 
 /**
+ * Name of the group in the outputs of a release: its `title`, else its `name`
+ */
+export function getVersionGroupTitle(group: Pick<VersionGroup, 'name' | 'title'>): string {
+  return group.title || group.name
+}
+
+/**
  * Check the shape of `monorepo.groups`. The packages they match are checked
  * later by `resolveVersionGroups`, when a command needs them.
  */
@@ -82,6 +89,10 @@ export function validateVersionGroups(config: ResolvedRelizyConfig): void {
     }
 
     names.add(group.name)
+
+    if (group.title !== undefined && (typeof group.title !== 'string' || !group.title.trim())) {
+      throw new Error(`Version group "${group.name}" has an empty title`)
+    }
 
     if (!VERSION_MODES.includes(group.versionMode)) {
       throw new Error(`Version group "${group.name}" has an invalid versionMode "${group.versionMode}" (expected ${VERSION_MODES.join(', ')})`)
@@ -236,6 +247,8 @@ function deriveGroupConfig({
     },
     bump: { ...config.bump, ...group.bump },
     changelog: { ...config.changelog, ...group.changelog },
+    release: { ...config.release, ...group.release },
+    ai: { ...config.ai, ...group.ai },
   } as ResolvedRelizyConfig
 
   return markVersionGroupConfig(groupConfig, group.name)
@@ -313,6 +326,7 @@ export function mergeGroupBumpResults(results: { group: VersionGroup, result: Bu
     .map(({ group, result }) => ({
       ...result,
       name: group.name,
+      title: getVersionGroupTitle(group),
       versionMode: group.versionMode,
     }))
 

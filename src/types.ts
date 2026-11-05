@@ -153,6 +153,10 @@ export interface GroupBumpResult extends Omit<BumpResultTruthy, 'groups'> {
    */
   name: string
   /**
+   * Title of the version group (`title`, else `name`)
+   */
+  title: string
+  /**
    * Version mode of the version group
    */
   versionMode: VersionMode
@@ -330,6 +334,12 @@ export interface VersionGroup {
    */
   name: string
   /**
+   * Name of the group in the outputs of a release: bump confirmation, social
+   * posts, PR comment and release summary.
+   * @default name
+   */
+  title?: string
+  /**
    * Version mode of the packages of this group.
    */
   versionMode: VersionMode
@@ -351,6 +361,18 @@ export interface VersionGroup {
    * Changelog options of this group, overriding the global `changelog` ones.
    */
   changelog?: Pick<ChangelogConfig, 'rootChangelog' | 'includeCommitBody'>
+  /**
+   * Release steps of this group, overriding the global `release` ones:
+   * `providerRelease: false` creates no provider release for its packages,
+   * `social: false` leaves the group out of the social posts.
+   */
+  release?: Pick<ReleaseConfig, 'providerRelease' | 'social'>
+  /**
+   * AI options of this group, overriding the global `ai` ones, e.g.
+   * `{ providerRelease: { enabled: false } }` to create the provider releases
+   * of the group without AI.
+   */
+  ai?: Pick<AIConfig, 'providerRelease'>
 }
 
 export type ConfigType = {

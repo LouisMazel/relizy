@@ -97,9 +97,11 @@ async function guardBeforePublish({ config, dryRun, guard }: { config: ResolvedR
 async function releaseSafetyCheck({
   config,
   provider,
+  ai,
 }: {
   config: ResolvedRelizyConfig
   provider?: GitProvider
+  ai?: boolean
 }) {
   if (!config.safetyCheck) {
     return
@@ -110,7 +112,7 @@ async function releaseSafetyCheck({
 
   try {
     await Promise.all([
-      providerReleaseSafetyCheck({ config, provider }),
+      providerReleaseSafetyCheck({ config, provider, ai }),
       publishSafetyCheck({ config }),
       // The release only posts with release.social (disabled by --no-social and --canary)
       ...(config.release.social ? [socialSafetyCheck({ config })] : []),
@@ -129,8 +131,8 @@ function getVersionDisplay({ config, bumpResult }: { config: ResolvedRelizyConfi
   if (bumpResult.groups) {
     return bumpResult.groups
       .map(group => group.versionMode === 'independent'
-        ? `${group.name}: ${group.bumpedPackages.length} package(s) bumped independently`
-        : `${group.name}: ${group.newVersion}`)
+        ? `${group.title}: ${group.bumpedPackages.length} package(s) bumped independently`
+        : `${group.title}: ${group.newVersion}`)
       .join(', ')
   }
 
@@ -241,7 +243,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
-  await releaseSafetyCheck({ config, provider: options.provider })
+  await releaseSafetyCheck({ config, provider: options.provider, ai: options.ai })
 
   try {
     await executeHook('before:release', config, dryRun)
@@ -425,6 +427,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
         suffix: options.suffix,
         safetyCheck: false,
         groups: options.groups,
+        ai: options.ai,
       })
       provider = response.detectedProvider
       postedReleases = response.postedReleases

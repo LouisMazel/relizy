@@ -742,8 +742,8 @@ describe('Given buildCommentBody with version groups', () => {
           fromTag: 'v6.19.1',
           bumpedPackages: [components, nav],
           groups: [
-            { name: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
-            { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
+            { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+            { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
           ],
         },
       },
@@ -768,7 +768,7 @@ describe('Given buildCommentBody with version groups', () => {
         bumpResult: {
           bumped: true,
           bumpedPackages: [nav],
-          groups: [{ name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
+          groups: [{ name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
         },
       },
     })

@@ -903,8 +903,8 @@ describe('Given social command', () => {
 })
 
 describe('Given social command with version groups', () => {
-  const mainGroup: GroupBumpResult = { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
-  const headerGroup: GroupBumpResult = { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+  const mainGroup: GroupBumpResult = { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
+  const headerGroup: GroupBumpResult = { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -948,6 +948,15 @@ describe('Given social command with version groups', () => {
 
   it('Then skips the groups that did not bump', async () => {
     await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [headerGroup] } })
+
+    expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
+  })
+
+  it('Then leaves out the groups with release.social disabled', async () => {
+    const config = await loadRelizyConfig()
+    config.monorepo!.groups![1] = { ...config.monorepo!.groups![1]!, release: { social: false } }
+
+    await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] } })
 
     expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
   })

@@ -66,9 +66,11 @@ export default defineConfig({
       { name: 'main', versionMode: 'selective', packages: ['packages/*', 'shared-components/*'] },
       {
         name: 'header',
+        title: 'Header',
         versionMode: 'independent',
         packages: ['shared-components/navigation'],
         changelog: { rootChangelog: false },
+        ai: { providerRelease: { enabled: false } },
       },
     ],
   },
@@ -77,7 +79,7 @@ export default defineConfig({
 
 - A package matched by several groups goes to the group listing its exact path; any other overlap is an error.
 - At most one group uses the `unified` or `selective` mode: it owns the root version and the repository tags.
-- Each group can override `bump.capZeroMajor`, `bump.dependencyTypes`, `changelog.rootChangelog` and `changelog.includeCommitBody`, and add its own `ignored` patterns.
+- Each group can override `bump.capZeroMajor`, `bump.dependencyTypes`, `changelog.rootChangelog`, `changelog.includeCommitBody`, `release.providerRelease`, `release.social` and `ai.providerRelease`, add its own `ignored` patterns, and get a `title` shown in the outputs of a release.
 
 Learn more: [Version Groups](../guide/version-groups.md)
 

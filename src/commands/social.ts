@@ -378,6 +378,11 @@ async function socialForVersionGroups({
       continue
     }
 
+    if (groupConfig.release.social === false) {
+      logger.info(`Version group "${group.name}" is left out of the social posts (release.social: false)`)
+      continue
+    }
+
     const groupResult = await social({ ...options, config: groupConfig, bumpResult: groupBumpResult })
     results.push(...groupResult.results)
   }

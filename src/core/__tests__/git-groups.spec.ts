@@ -23,6 +23,7 @@ function bumpedPackage(name: string, newVersion: string): BumpResultTruthy['bump
 
 const mainGroup: GroupBumpResult = {
   name: 'main',
+  title: 'main',
   versionMode: 'selective',
   bumped: true,
   newVersion: '7.0.0',
@@ -32,6 +33,7 @@ const mainGroup: GroupBumpResult = {
 
 const headerGroup: GroupBumpResult = {
   name: 'header',
+  title: 'header',
   versionMode: 'independent',
   bumped: true,
   bumpedPackages: [bumpedPackage('@scope/nav', '1.2.1'), bumpedPackage('@scope/login', '2.0.0')],

@@ -4,7 +4,28 @@ import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, github, gitlab, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 
-export async function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
+/**
+ * True when a provider release of the run uses AI: the `ai` option of the run
+ * (`--ai`/`--no-ai`) wins, then the `ai.providerRelease` options of the config
+ * and of the version groups.
+ */
+function usesAIProviderRelease(config: ResolvedRelizyConfig, ai?: boolean): boolean {
+  if (ai !== undefined) {
+    return ai
+  }
+
+  return isAIProviderReleaseEnabled(config)
+    || (hasVersionGroups(config) && config.monorepo!.groups!.some(group => group.ai?.providerRelease?.enabled))
+}
+
+export async function providerReleaseSafetyCheck({ config, provider, ai }: {
+  config: ResolvedRelizyConfig
+  provider?: GitProvider | null
+  /**
+   * `ai` option of the run, overriding the AI options of the config
+   */
+  ai?: boolean
+}) {
   if (!config.safetyCheck || !config.release.providerRelease) {
     logger.debug('Safety check disabled or provider release disabled')
     return
@@ -37,7 +58,7 @@ export async function providerReleaseSafetyCheck({ config, provider }: { config:
     throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://relizy.dev/guide/installation#environment-setup`)
   }
 
-  if (isAIProviderReleaseEnabled(config)) {
+  if (usesAIProviderRelease(config, ai)) {
     await aiSafetyCheck({ config })
   }
 
@@ -80,6 +101,50 @@ function postProviderReleases({
   return Promise.resolve([])
 }
 
+/**
+ * Post the releases of each version group, with the config of the group
+ */
+async function postVersionGroupsReleases({
+  provider,
+  config,
+  options,
+  dryRun,
+}: {
+  provider: GitProvider
+  config: ResolvedRelizyConfig
+  options: Partial<ProviderReleaseOptions>
+  dryRun: boolean
+}): Promise<PostedRelease[]> {
+  const postedReleases: PostedRelease[] = []
+
+  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
+    const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+
+    if (groupBumpResult === null) {
+      logger.debug(`Version group "${group.name}" did not bump, no release to publish`)
+      continue
+    }
+
+    if (groupConfig.release.providerRelease === false) {
+      logger.info(`Skipping the provider releases of version group "${group.name}" (release.providerRelease: false)`)
+      continue
+    }
+
+    // The --ai/--no-ai option wins over the ai options of the group
+    applyAIOverride(groupConfig, options.ai)
+
+    postedReleases.push(...await postProviderReleases({
+      provider,
+      config: groupConfig,
+      bumpResult: groupBumpResult,
+      options,
+      dryRun,
+    }))
+  }
+
+  return postedReleases
+}
+
 export async function providerRelease(
   options: Partial<ProviderReleaseOptions> = {},
 ): Promise<ProviderReleaseResult> {
@@ -109,7 +174,7 @@ export async function providerRelease(
 
   try {
     detectedProvider = options.provider || detectGitProvider()
-    await providerReleaseSafetyCheck({ config, provider: detectedProvider })
+    await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
 
     await executeHook('before:provider-release', config, dryRun)
 
@@ -144,22 +209,7 @@ export async function providerRelease(
     }
 
     if (hasVersionGroups(config)) {
-      for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-        const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
-
-        if (groupBumpResult === null) {
-          logger.debug(`Version group "${group.name}" did not bump, no release to publish`)
-          continue
-        }
-
-        postedReleases.push(...await postProviderReleases({
-          provider: detectedProvider,
-          config: groupConfig,
-          bumpResult: groupBumpResult,
-          options,
-          dryRun,
-        }))
-      }
+      postedReleases = await postVersionGroupsReleases({ provider: detectedProvider, config, options, dryRun })
     }
     else {
       postedReleases = await postProviderReleases({

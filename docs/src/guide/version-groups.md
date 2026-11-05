@@ -59,14 +59,17 @@ export default defineConfig({
 
 Each group has:
 
-| Option        | Description                                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | Name of the group, used in the logs and with [`--group`](#releasing-a-single-group)                                       |
-| `versionMode` | `unified`, `selective` or `independent`                                                                                   |
-| `packages`    | Glob patterns of the package directories of the group                                                                     |
-| `ignored`     | Glob patterns of package directories to ignore in this group, on top of `monorepo.ignored`                                |
-| `bump`        | `capZeroMajor` and `dependencyTypes` of the group, overriding the global [`bump`](../config/bump.md) options              |
-| `changelog`   | `rootChangelog` and `includeCommitBody` of the group, overriding the global [`changelog`](../config/changelog.md) options |
+| Option        | Description                                                                                                                                     |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | Name of the group, used in the logs and with [`--group`](#releasing-a-single-group)                                                             |
+| `title`       | Name of the group in the outputs of a release (bump confirmation, social posts, PR comment, release summary). Default: `name`                   |
+| `versionMode` | `unified`, `selective` or `independent`                                                                                                         |
+| `packages`    | Glob patterns of the package directories of the group                                                                                           |
+| `ignored`     | Glob patterns of package directories to ignore in this group, on top of `monorepo.ignored`                                                      |
+| `bump`        | `capZeroMajor` and `dependencyTypes` of the group, overriding the global [`bump`](../config/bump.md) options                                    |
+| `changelog`   | `rootChangelog` and `includeCommitBody` of the group, overriding the global [`changelog`](../config/changelog.md) options                       |
+| `release`     | `providerRelease` and `social` of the group, overriding the global [`release`](../config/release.md) options                                    |
+| `ai`          | `providerRelease` of the group, overriding the global [`ai`](../config/ai.md) options (the `--ai`/`--no-ai` options still apply to every group) |
 
 The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and the rest of the config apply to every group.
 
@@ -84,7 +87,7 @@ The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and
 2. **Changelog**: each group generates its changelogs. Set `changelog.rootChangelog: false` on a group to keep it out of the root `CHANGELOG.md`.
 3. **Publish**: the packages of every group are published in a single order, each package after the internal packages it depends on (`dependencies`, `peerDependencies` and `optionalDependencies`), whatever their group.
 4. **Commit and tags**: a single release commit, with the tags of every group.
-5. **Provider releases and social posts**: one per group, as each group would do on its own.
+5. **Provider releases and social posts**: one per group, as each group would do on its own. Set `release.providerRelease: false` or `release.social: false` on a group to leave it out, or `ai.providerRelease.enabled: false` to create its provider releases without AI (an `independent` group gets one provider release per package).
 6. **PR comment**: a single comment listing the packages of every group.
 
 A group without relevant commits is skipped: it is not bumped, published nor tagged.

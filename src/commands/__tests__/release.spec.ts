@@ -168,7 +168,7 @@ describe('Given release command', () => {
 
     it('Then creates the tags of every version group that bumped', async () => {
       const nav = { name: '@scope/nav', version: '1.2.0', newVersion: '2.0.0', oldVersion: '1.2.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
-      const groups = [{ name: 'header', versionMode: 'independent' as const, bumped: true as const, bumpedPackages: [nav] }]
+      const groups = [{ name: 'header', title: 'header', versionMode: 'independent' as const, bumped: true as const, bumpedPackages: [nav] }]
       vi.mocked(bump).mockResolvedValue({ bumpedPackages: [nav], bumped: true, groups })
 
       await release({})
@@ -757,8 +757,8 @@ describe('Given buildReleaseSummary function with version groups', () => {
         newVersion: '7.0.0',
         bumpedPackages: [],
         groups: [
-          { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', bumpedPackages: [] },
-          { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [{} as any, {} as any] },
+          { name: 'main', title: 'Maz UI', versionMode: 'selective', bumped: true, newVersion: '7.0.0', bumpedPackages: [] },
+          { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [{} as any, {} as any] },
         ],
       },
       createdTags: ['v7.0.0', '@scope/nav@2.0.0', '@scope/login@2.0.1'],
@@ -767,7 +767,7 @@ describe('Given buildReleaseSummary function with version groups', () => {
       prCommentPosted: false,
     })
 
-    expect(summary).toContain('Version: main: 7.0.0, header: 2 package(s) bumped independently')
+    expect(summary).toContain('Version: Maz UI: 7.0.0, header: 2 package(s) bumped independently')
     expect(summary).toContain('Tag(s): v7.0.0, @scope/nav@2.0.0, @scope/login@2.0.1')
   })
 })

@@ -2,7 +2,7 @@ import type { GroupBumpResult } from '../../types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
-import { aiSafetyCheck } from '../../core/ai'
+import { aiSafetyCheck, applyAIOverride } from '../../core/ai'
 import { providerRelease, providerReleaseSafetyCheck } from '../provider-release'
 
 vi.mock('../../core/config', async () => {
@@ -154,11 +154,42 @@ describe('Given providerReleaseSafetyCheck', () => {
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })
+
+  describe('When a version group enables AI provider releases', () => {
+    function createGroupAIConfig() {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+      })
+      config.monorepo = {
+        groups: [
+          { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+          { name: 'header', versionMode: 'independent', packages: ['shared/*'], ai: { providerRelease: { enabled: true } } },
+        ],
+      }
+      return config
+    }
+
+    it('Then checks the AI provider', async () => {
+      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github' })
+
+      expect(aiSafetyCheck).toHaveBeenCalled()
+    })
+
+    it('Then does not check it with the ai option disabled', async () => {
+      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github', ai: false })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+  })
 })
 
 describe('Given providerRelease command with version groups', () => {
-  const mainGroup: GroupBumpResult = { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
-  const headerGroup: GroupBumpResult = { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+  const mainGroup: GroupBumpResult = { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
+  const headerGroup: GroupBumpResult = { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -218,6 +249,41 @@ describe('Given providerRelease command with version groups', () => {
       bumpResult: undefined,
       config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
     }))
+  })
+
+  it('Then skips the groups with release.providerRelease disabled', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    config.monorepo = {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'], release: { providerRelease: false } },
+      ],
+    }
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({
+      provider: 'github',
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+    })
+
+    expect(github).toHaveBeenCalledTimes(1)
+    expect(github).toHaveBeenCalledWith(expect.objectContaining({ bumpResult: mainGroup }))
+  })
+
+  it('Then applies the ai option over the ai options of each group', async () => {
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({
+      provider: 'github',
+      ai: false,
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+    })
+
+    const groupConfigs = vi.mocked(github).mock.calls.map(([options]) => options.config)
+    for (const groupConfig of groupConfigs) {
+      expect(applyAIOverride).toHaveBeenCalledWith(groupConfig, false)
+    }
   })
 
   it('Then returns an error when targeting groups on a config without groups', async () => {
