@@ -6,7 +6,8 @@ import { join, relative } from 'node:path'
 import fastGlob from 'fast-glob'
 import { GLOB_IGNORE } from '../../core/glob'
 import { hasVersionGroups } from '../../core/groups'
-import { code } from '../markdown'
+import * as publicApi from '../../index'
+import { code, codeList } from '../markdown'
 import { loadProjectConfig } from '../runtime'
 import { configArgSchema, getVersionMode } from './project'
 import { defineTool } from './types'
@@ -215,6 +216,59 @@ function getImportedNames(text: string): Map<string, string> {
     })))
 }
 
+/** What replaces a function that `relizy` no longer exports */
+const REMOVED_EXPORTS: [names: string[], instead: string][] = [
+  [['createCommitAndTags', 'pushCommitAndTags'], '`release()` with its `commit`, `gitTag` and `push` options'],
+  [['planBumps', 'confirmBump', 'displayBump', 'getPackages'], '`bump()`, with `dryRun` to preview it'],
+  [['formatTweetMessage', 'postReleaseToTwitter', 'formatSlackMessage', 'postReleaseToSlack', 'getReleaseOverview', 'getSocialTemplateVariables'], '`social()`, or the `release` parameter of a hook'],
+  [['buildReleaseSummary', 'formatReleaseReportText', 'formatReleaseReportMarkdown'], 'the report returned by `release()`'],
+  [['generateChangelog', 'generateMarkDown'], '`changelog()`'],
+  [['getDefaultConfig', 'mergeTypes'], '`loadRelizyConfig()`, which returns the config with its defaults'],
+  [['isPrerelease'], '`prerelease()` of semver'],
+  [['init'], '`relizy init`'],
+]
+
+const PUBLIC_EXPORTS = new Set(Object.keys(publicApi))
+
+/**
+ * The functions and constants imported from `relizy` that it no longer exports (the types, in
+ * PascalCase, are left out)
+ */
+function checkRemovedExports(files: { file: string, text: string }[]): MigrationFinding & { locations: string[] } {
+  const removed = new Set<string>()
+  const locations = files.flatMap(({ file, text }) => [...text.matchAll(NAMED_IMPORTS)].flatMap((match) => {
+    if (/^import\s+type\b/.test(match[0])) {
+      return []
+    }
+
+    const names = match[1]!
+      .split(',')
+      .map(name => name.replaceAll(/\s+/g, ' ').trim().split(' as ')[0]!.trim())
+      .filter(name => name && !name.startsWith('type ') && !PUBLIC_EXPORTS.has(name) && /^[a-z]|^[A-Z0-9_]+$/.test(name))
+
+    for (const name of names) {
+      removed.add(name)
+    }
+
+    return names.length > 0 ? locate(file, [text.slice(0, match.index).split('\n').length]) : []
+  }))
+
+  const replacements = REMOVED_EXPORTS
+    .map(([names, instead]) => [names.filter(name => removed.has(name)), instead] as const)
+    .filter(([names]) => names.length > 0)
+    .map(([names, instead]) => [codeList(names.map(name => `${name}()`)), instead].join(': '))
+  const others = [...removed].filter(name => !REMOVED_EXPORTS.some(([names]) => names.includes(name)))
+  const instead = [...replacements, ...(others.length > 0 ? [`${codeList(others)}: internal, use the commands or the CLI`] : [])]
+
+  return {
+    severity: 'change',
+    title: `\`relizy\` no longer exports ${codeList([...removed])}`,
+    section: 'Public API',
+    detail: `\`relizy\` only exports the commands, \`defineConfig()\`, \`loadRelizyConfig()\`, \`RelizyCancelError\`, \`isRelizyCancelError()\`, \`lintCommitMessage()\` and the types. Instead: ${instead.join('; ')}.`,
+    locations,
+  }
+}
+
 function checkReleaseSummary(config: ResolvedRelizyConfig): MigrationFinding[] {
   return config.release.prComment && !isOnRelizy2(config.cwd)
     ? [{
@@ -270,27 +324,7 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
     .flatMap(({ file, text }) => locate(file, findLines(text, pattern)))
 
   const checks: (MigrationFinding & { locations: string[] })[] = [
-    {
-      severity: 'change',
-      title: '`confirmBump()` or the `confirm()` of a bump plan',
-      section: 'Bump Confirmation',
-      detail: '`confirmBump({ packages, display, dryRun })` only asks, once for every package; `displayBump()` prints a bump; the plans of `planBumps()` have `display()` instead of `confirm()`.',
-      locations: [...collect(/\bconfirmBump\s*\(/), ...collect(/\.confirm\??\.?\(\)/, text => /\bplanBumps\b/.test(text))],
-    },
-    {
-      severity: 'change',
-      title: 'The social functions take the `variables` of the template',
-      section: 'Social Functions',
-      detail: '`formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()` and `postReleaseToSlack()` (and `TwitterOptions`, `SlackOptions`) take `variables` (`getSocialTemplateVariables()`) instead of `projectName`, `version`, `releaseUrl` and `changelogUrl`.',
-      locations: collect(/\b(?:formatTweetMessage|postReleaseToTwitter|formatSlackMessage|postReleaseToSlack|TwitterOptions|SlackOptions)\b/),
-    },
-    {
-      severity: 'change',
-      title: '`buildReleaseSummary()` is replaced by the release report',
-      section: 'Release Report',
-      detail: '`release()` returns the report of the release; `formatReleaseReportText(report)` renders it as text.',
-      locations: collect(/\bbuildReleaseSummary\b/),
-    },
+    checkRemovedExports(files),
     {
       severity: 'change',
       title: 'The `CommitlintCodeBlocksLinter` type is renamed `CommitlintChangelogLinter`',
@@ -406,7 +440,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
 export const checkMigrationTool = defineTool({
   name: 'check_migration',
   title: 'Check the migration from relizy 1',
-  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), `bump.dependencyTypes`, the version groups (one release, group titles, hooks), and the code calling the relizy API (cancelled prompts, `confirmBump`, social functions), with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
+  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), `bump.dependencyTypes`, the version groups (one release, group titles, hooks), and the code calling the relizy API (cancelled prompts, functions no longer exported), with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
   inputSchema: {
     config: configArgSchema,
   },

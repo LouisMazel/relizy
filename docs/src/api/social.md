@@ -231,33 +231,15 @@ await social({
 
 ### Full Release Workflow
 
+`release()` posts to social media after the other steps (bump, changelogs, commit, tags, publish, provider release), with the links of the releases it created:
+
 ```ts
-import { bump, changelog, createCommitAndTags, providerRelease, publish, social } from 'relizy'
+import { release } from 'relizy'
 
-async function completeRelease() {
-  // 1. Bump versions
-  const bumpResult = await bump({ type: 'minor' })
-
-  // 2. Generate changelogs
-  await changelog({ bumpResult })
-
-  // 3. Create git commit and tags
-  await createCommitAndTags({ bumpResult })
-
-  // 4. Publish to npm
-  await publish({ bumpResult })
-
-  // 5. Create GitHub/GitLab release
-  const postedReleases = await providerRelease({ bumpResult })
-
-  // 6. Post to social media
-  await social({
-    bumpResult,
-    postedReleases,
-  })
-}
-
-completeRelease().catch(console.error)
+await release({
+  type: 'minor',
+  social: true,
+})
 ```
 
 ### Monorepo - Independent Mode
@@ -281,12 +263,13 @@ await social({ bumpResult })
 Only post for stable releases:
 
 ```ts
-import { bump, isPrerelease, social } from 'relizy'
+import { bump, social } from 'relizy'
+import { prerelease } from 'semver'
 
 const bumpResult = await bump({ type: 'patch' })
 
 // Only post if not a prerelease
-if (!isPrerelease(bumpResult.newVersion)) {
+if (bumpResult.bumped && !prerelease(bumpResult.newVersion ?? '')) {
   await social({ bumpResult })
 }
 ```

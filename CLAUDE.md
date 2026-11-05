@@ -171,6 +171,6 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 ## Output Files
 
-- **`dist/index.mjs`** - Main library export (used for programmatic API)
+- **`dist/index.mjs`** - Main library export (used for programmatic API). `src/index.ts` lists the public API explicitly (the commands, `defineConfig`, `loadRelizyConfig`, the errors, `lintCommitMessage` and the types), never `export *`: a new export is a decision, guarded by `src/__tests__/index.spec.ts`, and shows up in the typedoc of the docs
 - **`dist/index.d.ts`** - TypeScript type definitions
 - **`bin/relizy.mjs`** - Executable CLI script (requires `#!/usr/bin/env node` shebang)

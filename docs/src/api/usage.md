@@ -139,12 +139,15 @@ await providerRelease({
 Load configuration from file:
 
 ```ts
-import { loadConfig, release } from 'relizy'
+import { loadRelizyConfig, release } from 'relizy'
 
-const config = await loadConfig()
+// Read the resolved config (defaults merged)
+const config = await loadRelizyConfig({ configFile: 'relizy.standalone' })
+console.log(config.monorepo?.versionMode)
 
+// Release with another config file than relizy.config
 await release({
-  ...config,
+  configName: 'relizy.standalone',
   type: 'minor',
 })
 ```
@@ -318,6 +321,5 @@ Explore individual API functions:
 - [changelog()](changelog.md) - Changelog generation
 - [publish()](publish.md) - NPM publishing
 - [providerRelease()](provider-release.md) - Provider releases
-- [createCommitAndTags()](create-commit-and-tags.md) - Create commit and tags
 - [prComment()](pr-comment.md) - PR/MR comments
 - [loadRelizyConfig()](load-relizy-config.md) - Load Relizy config

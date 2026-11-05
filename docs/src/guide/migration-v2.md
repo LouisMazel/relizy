@@ -24,25 +24,24 @@ pnpm add -D relizy@^2
 
 Then review the changes below, and check the next release with `relizy release --dry-run`.
 
-| Change                                                        | Who is affected                                                                                  | Action                                                                        |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------- |
-| [Single bump confirmation](#single-bump-confirmation)         | `monorepo.groups`                                                                                | None                                                                          |
-| [One social post per platform](#one-social-post-per-platform) | `monorepo.groups`, `independent` mode                                                            | Review the posts                                                              |
-| [PR comment](#pr-comment)                                     | `monorepo.groups`                                                                                | None                                                                          |
-| [Hooks run once](#hooks-run-once)                             | `monorepo.groups` with `social`, `twitter` or `slack` hooks                                      | Review the hooks                                                              |
-| [Release title](#release-title)                               | Custom `twitterMessage`                                                                          | Use <code v-pre>{{releaseTitle}}</code>                                       |
-| [New version variable](#new-version-variable)                 | Custom social templates with `monorepo.groups` or `independent` mode                             | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
-| [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                                            | Check the templates                                                           |
-| [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                                                    | Add `dependencies` to keep the v1 bumps                                       |
-| [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                                              | Turn off the attribution of the AI tools, or the rule                         |
-| [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                                                   | Use <code v-pre>{{newVersion}}</code>                                         |
-| [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                                               | None                                                                          |
-| [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                                                   | None, or stop treating the exit code 1 as nothing to bump                     |
-| [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                                                 | Catch `RelizyCancelError`                                                     |
-| [Release report](#release-report)                             | `release()` return value, `buildReleaseSummary()`                                                | Use the report                                                                |
-| [Bump confirmation](#bump-confirmation)                       | `confirmBump()`, `planBumps()`                                                                   | Use `displayBump()`, `plan.display()`                                         |
-| [Social functions](#social-functions)                         | `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()` | Pass `variables`                                                              |
-| [Version group results](#version-group-results)               | `GroupBumpResult` objects                                                                        | Add `title`                                                                   |
+| Change                                                        | Who is affected                                                      | Action                                                                        |
+| ------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Single bump confirmation](#single-bump-confirmation)         | `monorepo.groups`                                                    | None                                                                          |
+| [One social post per platform](#one-social-post-per-platform) | `monorepo.groups`, `independent` mode                                | Review the posts                                                              |
+| [PR comment](#pr-comment)                                     | `monorepo.groups`                                                    | None                                                                          |
+| [Hooks run once](#hooks-run-once)                             | `monorepo.groups` with `social`, `twitter` or `slack` hooks          | Review the hooks                                                              |
+| [Release title](#release-title)                               | Custom `twitterMessage`                                              | Use <code v-pre>{{releaseTitle}}</code>                                       |
+| [New version variable](#new-version-variable)                 | Custom social templates with `monorepo.groups` or `independent` mode | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
+| [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                | Check the templates                                                           |
+| [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                        | Add `dependencies` to keep the v1 bumps                                       |
+| [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                  | Turn off the attribution of the AI tools, or the rule                         |
+| [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                       | Use <code v-pre>{{newVersion}}</code>                                         |
+| [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                   | None                                                                          |
+| [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                       | None, or stop treating the exit code 1 as nothing to bump                     |
+| [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                     | Catch `RelizyCancelError`                                                     |
+| [Public API](#public-api)                                     | Programmatic API                                                     | Replace the functions no longer exported                                      |
+| [Release report](#release-report)                             | `release()` return value, `buildReleaseSummary()`                    | Use the report                                                                |
+| [Version group results](#version-group-results)               | `GroupBumpResult` objects                                            | Add `title`                                                                   |
 
 ## Version Groups
 
@@ -221,54 +220,50 @@ catch (error) {
 }
 ```
 
+### Public API
+
+`relizy` only exports the functions of the [programmatic API](../api/usage.md) and the types:
+
+- The commands: `release()`, `bump()`, `changelog()`, `publish()`, `providerRelease()`, `social()`, `prComment()`, `commitlint()`
+- The config: `defineConfig()`, `loadRelizyConfig()`
+- The errors: `RelizyCancelError`, `isRelizyCancelError()`
+- The commit linter: `lintCommitMessage()`
+- The types of the config, of the options and of the results (`RelizyConfig`, `ReleaseOptions`, `BumpResult`, `ReleaseReport`, `HookContext`...)
+
+The other functions were internal steps of the commands, and are no longer exported:
+
+| Removed                                                                                                                                                  | Instead                                                                                                                                            |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createCommitAndTags()`, `pushCommitAndTags()`                                                                                                           | `release()`, with its `commit`, `gitTag` and `push` options                                                                                        |
+| `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`                                                                                         | `bump()`, with `dryRun` to preview it                                                                                                              |
+| `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()` | `social()`, and the [templates](../config/social.md) of the posts. A hook gets the packages and versions of the release in its `release` parameter |
+| `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`                                                                    | The report returned by `release()`, see [Release report](#release-report)                                                                          |
+| `generateChangelog()`, `generateMarkDown()`                                                                                                              | `changelog()`                                                                                                                                      |
+| `getDefaultConfig()`, `mergeTypes()`                                                                                                                     | `loadRelizyConfig()`, which returns the config with its defaults (`config.types`...)                                                               |
+| `isPrerelease()`                                                                                                                                         | `prerelease()` of [semver](https://github.com/npm/node-semver)                                                                                     |
+| `init()`                                                                                                                                                 | `relizy init`                                                                                                                                      |
+| The helpers of git, npm, the tags, the versions, the dependencies, Slack and X                                                                           | The commands, or the CLI                                                                                                                           |
+
+```ts
+// v1
+const types = Object.keys(mergeTypes(relizyConfig.types, getDefaultConfig().types))
+
+// v2
+const config = await loadRelizyConfig()
+const types = Object.keys(config.types)
+```
+
 ### Release Report
 
-`release()` returns the [report of the release](../config/release.md#report) instead of nothing, and `buildReleaseSummary()` is replaced by `formatReleaseReportText(report)`. The report is also written to the outputs and the summary of GitHub Actions, and with `release.report`, to a JSON or dotenv file (GitLab CI).
+`release()` returns the [report of the release](../config/release.md#report) instead of nothing, and `buildReleaseSummary()` is removed. The summary of the release is written to the outputs and the summary of GitHub Actions, and with `release.report`, to a markdown, JSON or dotenv file (GitLab CI).
 
 ```ts
 const report = await release({ yes: true })
 
 if (report.released) {
-  console.log(formatReleaseReportText(report))
+  console.log(`Released ${report.version}: ${report.tags.join(', ')}`)
 }
 ```
-
-### Bump Confirmation
-
-`confirmBump()` only asks, once for every package of the run, and throws a `RelizyCancelError` when refused. `displayBump()` prints a bump. The plans of `planBumps()` have `display()` instead of `confirm()`:
-
-```ts
-// v1
-for (const plan of plans) {
-  await plan.confirm?.()
-}
-
-// v2
-await confirmBump({
-  packages: plans.flatMap(plan => plan.result.bumped ? plan.result.bumpedPackages : []),
-  display: () => {
-    for (const plan of plans) {
-      plan.display?.()
-    }
-  },
-  dryRun: false,
-})
-```
-
-### Social Functions
-
-`formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()` and `postReleaseToSlack()` take the `variables` of the template instead of `projectName`, `version`, `releaseUrl` and `changelogUrl`. Build them from the bump result:
-
-```ts
-import { formatTweetMessage, getReleaseOverview, getSocialTemplateVariables } from 'relizy'
-
-const overview = getReleaseOverview({ config, bumpResult })
-const variables = getSocialTemplateVariables({ overview, releaseUrl, changelogUrl })
-
-const tweet = formatTweetMessage({ template, changelog, postMaxLength: 280, variables })
-```
-
-Their `changelog` is the markdown changelog of a single version, or the sections of a release of several versions (`TweetSection[]`, `SlackReleaseSection[]`).
 
 ### Version Group Results
 

@@ -190,36 +190,15 @@ await prComment({
 
 ### In Full Release Workflow
 
+`release()` posts the PR comment after the other steps (bump, changelogs, commit, tags, publish, provider release), with the tags it created, and a failed comment when a step fails:
+
 ```ts
-import { bump, changelog, createCommitAndTags, prComment, providerRelease, publish } from 'relizy'
+import { release } from 'relizy'
 
-async function completeRelease() {
-  // 1. Bump versions
-  const bumpResult = await bump({ type: 'minor' })
-
-  // 2. Generate changelogs
-  await changelog({ bumpResult })
-
-  // 3. Create git commit and tags
-  const tags = await createCommitAndTags({ bumpResult })
-
-  // 4. Publish to npm
-  await publish({ bumpResult })
-
-  // 5. Create GitHub/GitLab release
-  await providerRelease({ bumpResult })
-
-  // 6. Post PR comment
-  await prComment({
-    releaseContext: {
-      status: 'success',
-      bumpResult,
-      tags,
-    },
-  })
-}
-
-completeRelease().catch(console.error)
+await release({
+  type: 'minor',
+  prComment: true,
+})
 ```
 
 ### Custom Log Level

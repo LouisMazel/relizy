@@ -59,7 +59,7 @@ export function registerPrompts(server: McpServer): void {
 
 1. Read the migration guide: \`get_doc({ id: "guide/migration-v2" })\`.
 2. Call \`check_migration()\` (with \`{ config }\` for each relizy config of the project, see \`get_project()\`): it lists what to change and what to review, with the file and line of each place.
-3. Propose the changes to the user, file by file: the relizy dependency, the social templates (\`{{releaseTitle}}\` instead of \`{{projectName}} {{newVersion}} is out!\`), a \`title\` for each version group, the hooks, and the code calling the relizy API (\`RelizyCancelError\`, \`confirmBump\`, social functions). Check every option with \`get_config_option\`.
+3. Propose the changes to the user, file by file: the relizy dependency, the social templates (\`{{releaseTitle}}\` instead of \`{{projectName}} {{newVersion}} is out!\`), a \`title\` for each version group, the hooks, and the code calling the relizy API (\`RelizyCancelError\`, the functions no longer exported). Check every option with \`get_config_option\`.
 4. Once the user agrees, apply them, then call \`check_migration()\` again until nothing is left to change.
 5. Check the next release with \`preview_release()\` and \`relizy release --dry-run\` (it shows the social posts and the PR comment), and run nothing else without the approval of the user.`))
 
