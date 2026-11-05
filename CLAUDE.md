@@ -69,9 +69,18 @@ Version mode is configured in `relizy.config.ts` under `monorepo.versionMode`.
 - `resolveVersionGroups()` assigns each package to one group (an exact path wins over a glob) and derives a full config per group, where the packages of the other groups are `ignored`. The single-mode code runs unchanged on these derived configs; `loadRelizyConfig()` returns a derived config as is (no reload, which would bring `groups` back)
 - At most one `unified`/`selective` group: it owns the root version and the repository tags
 - `bump` plans every group (no write), propagates the bumps between groups (`externalBumps` of `getPackages()`) until no group changes, confirms, then writes
-- Steps run once (publish order, commit, push, canary rollback, PR comment) or per group (changelog, tags, provider release, social), from `BumpResultTruthy.groups`
+- Steps run once (bump confirmation, publish order, commit, push, canary rollback, social posts, PR comment) or per group (changelog, tags, provider release), from `BumpResultTruthy.groups`
+- A group can override `bump`, `changelog`, `release` (`providerRelease`, `social`) and `ai` (`providerRelease`), and has a `title` shown in the outputs of a release
 
 Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, peer and optional ones), checks the `workspace:` dependencies against the registry and reports stale peer ranges.
+
+### Release Overview and Social Posts
+
+`src/core/release-overview.ts` builds, from a bump result, the `ReleaseOverview` of a release (its groups, the `unified`/`selective` one first, with their versions, tags and packages) and its version lines (`getReleaseLines()`: the root version, and each package of an `independent` group). The social posts (`src/commands/social.ts`), the PR comment and the hooks (`HookContext`, third parameter of the step hooks) use it:
+
+- A release of a single version line keeps `<name> <version> is out!` (`{{releaseTitle}}`); several are posted **once** per platform, by group: `TweetSection[]` (`fitTweetSections()`, filled by priority, lengths counted as X does by `getTweetLength()`) and `SlackReleaseSection[]` (budget shared between the groups by `shareBudget()`).
+- With AI, one call per platform: `generateAISocialReleases()` sends a `<release id>` element per version and reads them back, the raw changelog kept for a missing one.
+- A refused or cancelled prompt throws a `RelizyCancelError` (`src/core/errors.ts`): the commands rethrow it without their `error:*` hooks, the CLI exits with code 0.
 
 ### Out-of-Range Peer Dependencies
 
@@ -124,7 +133,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 `relizy mcp` (`src/mcp/`) is a read-only MCP server for AI coding agents, loaded on demand (`await import('./mcp')` in `cli.ts`, its SDK is inlined in that chunk by `build.config.ts`):
 
-- **Tools** (`src/mcp/tools/`): `preview_release` and `preview_changelog` (built on `planBumps()` of `bump.ts`, which plans without confirmation nor write, and `generateChangelog()`), `lint_commit`, `get_project`, `get_config_option`, `search_docs`, `get_doc`. Each returns markdown; a `ToolInputError` is an error the agent can fix.
+- **Tools** (`src/mcp/tools/`): `preview_release` and `preview_changelog` (built on `planBumps()` of `bump.ts`, which plans without confirmation nor write, and `generateChangelog()`), `lint_commit`, `get_project`, `get_config_option`, `search_docs`, `get_doc`, `check_migration` (what to change to upgrade from relizy 1, see `docs/src/guide/migration-v2.md`). Each returns markdown; a `ToolInputError` is an error the agent can fix.
 - **Guarantees** (`src/mcp/runtime.ts`): the reporters of the logger are replaced so stdout only carries the protocol and the logs come back as notes; `loadProjectConfig()` removes the hooks and never prompts. Never call `bump()`/`release()` from the server.
 - **Docs bundle** (`agent-docs/`, gitignored, shipped in the package): generated from `docs/src` and `src/types.ts` (config reference, extracted with oxc) by `src/mcp/knowledge/generate.ts`, at each build, test run and `success:bump` of the release. A renamed doc page cited by the server, an undocumented config key or a CLI command without its page fails `knowledge.spec.ts`.
 - **Agents setup**: `relizy mcp init` and the `init` step use `setupAgents()` of `@maz-ui/node` with `RELIZY_AGENTS_TOOL` and the rules of `src/mcp/content/rules.md`.
