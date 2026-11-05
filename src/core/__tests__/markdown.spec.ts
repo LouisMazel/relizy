@@ -1552,6 +1552,22 @@ describe('Given buildContributors function', () => {
     expect(result).toContain('- Raphaël ([@lestote](https://github.com/lestote))')
   })
 
+  it('Then does not credit the AI tools, but credits the people named like them', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    const commit = parseGitCommit({
+      message: 'feat: support publishing to multiple registries (#113)',
+      body: 'Co-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>\nCo-authored-by: Claude Dupont <claude@example.com>',
+      shortHash: 'f5bbc52',
+      author: { name: 'Copilot', email: '198982749+Copilot@users.noreply.github.com' },
+    }, config as any)
+
+    const result = await buildContributors({ commits: [commit as GitCommit], config })
+
+    expect(result).toContain('- Claude Dupont')
+    expect(result).not.toMatch(/- Claude\n|Cursor|Copilot/)
+  })
+
   it('Then resolves the GitHub username from a noreply email without a lookup', async () => {
     const config = createMockConfig({ bump: { type: 'patch' } })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }

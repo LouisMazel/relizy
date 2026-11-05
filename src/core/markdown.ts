@@ -3,7 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
-import { isAIAttributionLine } from './ai-attribution'
+import { isAIAttributionLine, isAIAuthor } from './ai-attribution'
 import { getFirstCommit } from './git'
 import { stripNameStatus } from './git-refs'
 import { reportProgress } from './progress'
@@ -92,7 +92,8 @@ export function collectContributorNames({ commits, config }: {
   const names = new Set<string>()
   for (const author of commits.flatMap(getCommitAuthors)) {
     const name = formatName(author.name)
-    if (!name || name.includes('[bot]')) {
+    // Bots and AI tools (`Co-authored-by: Claude <noreply@anthropic.com>`) are not contributors
+    if (!name || name.includes('[bot]') || isAIAuthor(author)) {
       continue
     }
     if (

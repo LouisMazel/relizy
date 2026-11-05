@@ -153,7 +153,7 @@ export default defineConfig({
 
 ## Exclude Authors
 
-Filter out commits from specific authors:
+Filter out commits from specific authors. The bots (`[bot]`) and the AI tools co-authoring commits (`Claude <noreply@anthropic.com>`, Cursor, GitHub Copilot...) are never credited:
 
 ```ts
 import { defineConfig } from 'relizy'
