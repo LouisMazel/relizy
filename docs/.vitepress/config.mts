@@ -1,6 +1,7 @@
 import type { HeadConfig, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
@@ -196,10 +197,10 @@ export default defineConfig({
       { icon: 'npm', link: 'https://www.npmjs.com/package/relizy' },
     ],
 
-    footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Made by LouisMazel with ❤️',
-    },
+    // footer: {
+    //   message: 'Released under the MIT License.',
+    //   copyright: 'Made by LouisMazel with ❤️',
+    // },
 
     nav: [
       {
@@ -485,6 +486,8 @@ export default defineConfig({
   },
 
   vite: {
+    // The utilities of the custom pages (the homepage), see theme/tailwind.css
+    plugins: [tailwindcss()],
     build: {
       target: 'esnext',
       minify: 'esbuild',

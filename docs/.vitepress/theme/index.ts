@@ -1,39 +1,33 @@
 import type { MazUiOptions } from 'maz-ui/plugins'
 import type { Theme } from 'vitepress'
-import VueTermynalPlugin from '@lehoczky/vue-termynal'
 import { MazUi } from 'maz-ui/plugins'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
 import Layout from './components/Layout.vue'
+import { relizyPreset } from './preset'
 import 'maz-ui/style.css'
 import './style.css'
+import './tailwind.css'
 
 export default {
   extends: DefaultTheme,
   Layout: () => h(Layout),
   enhanceApp({ app }) {
-    app.use(VueTermynalPlugin)
-
     app.use(MazUi, {
       theme: {
+        preset: relizyPreset,
+        // The `.dark` class of VitePress drives the color mode
         darkModeStrategy: 'class',
         strategy: 'runtime',
-        overrides: {
-          foundation: {
-            'border-width': '1px',
-          },
-          colors: {
-            light: {
-              primary: '272 99% 54%',
-              secondary: '210 100% 56%',
-            },
-            dark: {
-              primary: '272 99% 54%',
-              secondary: '210 100% 56%',
-            },
-          },
-        },
+        persistPreset: false,
+      },
+      // The props shared by the components of the custom pages, set once
+      defaults: {
+        global: { roundedSize: 'lg' },
+        MazBtn: { roundedSize: 'full' },
+        MazBadge: { roundedSize: 'full', size: 'sm' },
+        MazTabsBar: { roundedSize: 'full', size: 'sm' },
       },
     } satisfies MazUiOptions)
   },

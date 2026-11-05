@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "maz-ui": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "@maz-ui/mcp@5.2.0"
+      ]
+    },
+    "relizy": {
+      "type": "stdio",
+      "command": "npx",
+      "args": [
+        "-y",
+        "relizy",
+        "mcp"
+      ]
+    }
+  }
+}
