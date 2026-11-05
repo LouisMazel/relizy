@@ -356,6 +356,8 @@ function buildNpmrcEntries({
   return entries
 }
 
+const NPMRC_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
+
 /**
  * Run `fn` with the registry target's auth token and scope registry
  * temporarily written to the project `.npmrc` (at `config.cwd`), then restore
@@ -402,17 +404,48 @@ export async function withRegistryNpmrc<T>({
 
   const nextContent = `${[...preservedLines, ...entries.map(entry => entry.line)].filter(Boolean).join('\n')}\n`
 
-  try {
-    writeFileSync(npmrcPath, nextContent)
-    return await fn()
-  }
-  finally {
+  let restored = false
+  const restore = () => {
+    if (restored) {
+      return
+    }
+    restored = true
+
     if (existed) {
       writeFileSync(npmrcPath, original)
     }
     else {
       rmSync(npmrcPath, { force: true })
     }
+  }
+
+  // The token must not stay on disk when the process stops before the end
+  // (Ctrl+C, kill, closed terminal, process.exit): restore, then let the
+  // signal do what it would have done
+  function onSignal(signal: NodeJS.Signals) {
+    restore()
+    removeListeners()
+    process.kill(process.pid, signal)
+  }
+  function removeListeners() {
+    process.removeListener('exit', restore)
+    for (const signal of NPMRC_SIGNALS) {
+      process.removeListener(signal, onSignal)
+    }
+  }
+
+  process.once('exit', restore)
+  for (const signal of NPMRC_SIGNALS) {
+    process.once(signal, onSignal)
+  }
+
+  try {
+    writeFileSync(npmrcPath, nextContent)
+    return await fn()
+  }
+  finally {
+    restore()
+    removeListeners()
   }
 }
 

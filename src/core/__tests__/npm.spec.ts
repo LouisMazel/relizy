@@ -536,6 +536,59 @@ describe('Given withRegistryNpmrc function', () => {
     })
   })
 
+  describe('When the process stops while the token is on disk', () => {
+    const target = { name: 'npm', registry: 'https://registry.npmjs.org/', token: 'npm_secret' }
+
+    it('Then removes the .npmrc it created on exit (process.exit)', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => {
+          process.emit('exit', 0)
+          expect(rmSync).toHaveBeenCalledWith('/project/.npmrc', { force: true })
+          return Promise.resolve()
+        },
+      })
+
+      // Once
+      expect(rmSync).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then restores the original .npmrc on a signal (Ctrl+C, kill), then lets the signal stop the process', async () => {
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue('legacy-peer-deps=true\n' as any)
+      const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => {
+          process.emit('SIGINT', 'SIGINT')
+          return Promise.resolve()
+        },
+      })
+
+      expect(writeFileSync).toHaveBeenLastCalledWith('/project/.npmrc', 'legacy-peer-deps=true\n')
+      expect(kill).toHaveBeenCalledWith(process.pid, 'SIGINT')
+      kill.mockRestore()
+    })
+
+    it('Then leaves no listener once done', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+      const listeners = () => ['exit', 'SIGINT', 'SIGTERM', 'SIGHUP'].map(event => process.listenerCount(event))
+      const before = listeners()
+
+      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.resolve() })
+      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.reject(new Error('E403')) }).catch(() => {})
+
+      expect(listeners()).toEqual(before)
+    })
+  })
+
   describe('When publishing a scoped package', () => {
     it('Then writes both the scope registry override and the auth token', async () => {
       vi.mocked(existsSync).mockReturnValue(false)
