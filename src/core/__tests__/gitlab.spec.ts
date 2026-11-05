@@ -9,8 +9,9 @@ vi.mock('convert-gitmoji', () => ({
   convert: vi.fn((input: string) => input),
 }))
 
-vi.mock('../repo', () => {
+vi.mock('../repo', async () => {
   return {
+    getPrivatePackagesMode: (await vi.importActual<typeof import('../repo')>('../repo')).getPrivatePackagesMode,
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
     getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),

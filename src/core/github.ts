@@ -8,7 +8,7 @@ import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
 import { createGithubRelease } from './github-api'
 import { reportProgress, showPreview } from './progress'
-import { getRootPackage, readPackageJson } from './repo'
+import { getPrivatePackagesMode, getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
 import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
 import { extractVersionFromTag, isPrerelease } from './version'
@@ -111,7 +111,7 @@ async function githubIndependentMode({
     suffix,
     force,
     dryRun,
-  }), config.monorepo?.privatePackages)
+  }), getPrivatePackagesMode(config))
 
   logger.info(`Creating ${packages.length} GitHub release(s)`)
 

@@ -329,7 +329,7 @@ export interface MonorepoConfig {
    * - `release`: they are released as the other packages (bump, changelog, tag,
    *   GitHub/GitLab release, PR comment), but never published to the registry
    *
-   * The root package is always released, private or not.
+   * A project without workspace packages (a private app) is released, private or not.
    * @default 'ignore'
    */
   privatePackages?: PrivatePackages

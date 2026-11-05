@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -74,9 +74,25 @@ async function checkRegistryAuth({
   }
 }
 
+function hasPublishablePackage(config: ResolvedRelizyConfig): boolean {
+  return filterOutPrivatePackages(readPackages({
+    cwd: config.cwd,
+    patterns: getMonorepoPackagePatterns(config),
+    ignorePackageNames: config.monorepo?.ignorePackageNames,
+    ignored: config.monorepo?.ignored,
+  })).length > 0
+}
+
 export async function publishSafetyCheck({ config, packages }: { config: ResolvedRelizyConfig, packages?: PackageBase[] }) {
   if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
     logger.debug('Safety check disabled or publish disabled')
+    return
+  }
+
+  // Before the bump, a project whose packages are all private (a private app)
+  // publishes nothing: no registry to authenticate to
+  if (!packages && !hasPublishablePackage(config)) {
+    logger.debug('No publishable package (all private), skipping the registry check')
     return
   }
 

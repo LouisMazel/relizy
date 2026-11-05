@@ -1,5 +1,5 @@
 import type { ReleaseType } from 'semver'
-import type { ConfigType, GitCommit, PackageBase, PrivatePackages, ReadPackage } from '../types'
+import type { ConfigType, GitCommit, MonorepoConfig, PackageBase, PrivatePackages, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { VersionChange } from './dependencies'
 import { execSync } from 'node:child_process'
@@ -304,6 +304,17 @@ export async function getRootPackage({
   }
 }
 
+/**
+ * What relizy does with the private packages of a config: `monorepo.privatePackages`,
+ * and always `release` for a project without workspace packages, whose only
+ * package is the root (a private app is versioned, never published)
+ */
+export function getPrivatePackagesMode(config: { monorepo?: MonorepoConfig }): PrivatePackages {
+  const isStandalone = !config.monorepo?.packages?.length && !config.monorepo?.groups?.length
+
+  return isStandalone ? 'release' : config.monorepo?.privatePackages ?? 'ignore'
+}
+
 export function readPackages({
   cwd,
   patterns,
@@ -345,7 +356,7 @@ export function readPackages({
 
         const packageBase = readPackageJson(matchPath)
 
-        if (!packageBase || (packageBase.private && privatePackages !== 'release') || ignorePackageNames?.includes(packageBase.name))
+        if (!packageBase || (packageBase.private && patterns?.length && privatePackages !== 'release') || ignorePackageNames?.includes(packageBase.name))
           continue
 
         foundPaths.add(matchPath)
@@ -669,7 +680,7 @@ export async function getPackages({
         continue
       }
 
-      if (packageBase.private && config.monorepo?.privatePackages !== 'release') {
+      if (packageBase.private && getPrivatePackagesMode(config) !== 'release') {
         logger.debug(`${packageBase.name} is private and will be ignored`)
         continue
       }

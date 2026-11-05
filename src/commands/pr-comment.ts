@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { recordLink, showPreview } from '../core/progress'
@@ -267,7 +267,7 @@ function buildSuccessComment({
   rootVersion,
 }: CommentBodyParams): string {
   const bumpResult = releaseContext?.bumpResult
-  const privatePackages = config.monorepo?.privatePackages
+  const privatePackages = getPrivatePackagesMode(config)
   const allBumpedPackages = bumpResult?.bumpedPackages ?? []
   const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, privatePackages)
   const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, privatePackages)

@@ -2,7 +2,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
+import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, readPackages, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -43,9 +43,12 @@ vi.mock('../../core/workspace', async (importActual) => {
     checkWorkspaceDependencies: vi.fn(),
   }
 })
-vi.mock('../../core/repo', () => {
+vi.mock('../../core/repo', async (importActual) => {
   return {
+    getPrivatePackagesMode: (await importActual<typeof import('../../core/repo')>()).getPrivatePackagesMode,
     readPackageJson: vi.fn(),
+    // A publishable package, so that the safety check authenticates to the registry
+    readPackages: vi.fn(() => [{ name: 'pkg', version: '1.0.0', private: false, path: '/project' }]),
   }
 })
 
@@ -135,6 +138,17 @@ describe('Given publishSafetyCheck function', () => {
       await publishSafetyCheck({ config })
 
       expect(processExitSpy).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When every package is private (a private app)', () => {
+    it('Then does not authenticate to the registry, nothing can be published', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
+      vi.mocked(readPackages).mockReturnValueOnce([{ name: 'app', version: '1.0.0', private: true, path: '/project' }])
+
+      await publishSafetyCheck({ config })
+
+      expect(execPromise).not.toHaveBeenCalled()
     })
   })
 

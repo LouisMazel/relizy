@@ -18,6 +18,7 @@ vi.mock('../../core', async () => {
     getReleaseOverview: overviewActual.getReleaseOverview,
     withoutPrivatePackages: overviewActual.withoutPrivatePackages,
     getMonorepoPackagePatterns: groupsActual.getMonorepoPackagePatterns,
+    getPrivatePackagesMode: (await vi.importActual<typeof import('../../core/repo')>('../../core/repo')).getPrivatePackagesMode,
     hasRepositoryVersion: groupsActual.hasRepositoryVersion,
     loadRelizyConfig: vi.fn(),
     detectPullRequest: vi.fn(),

@@ -148,6 +148,9 @@ in their `package.json`):
 - `ignore`: they are left out of the release.
 - `release`: they are released as the other packages, but never published.
 
+A project without workspace packages (a private app with a single
+`package.json`) does not need it: its root package is released, private or not.
+
 With `release`:
 
 - they get their own version bump and their own `CHANGELOG.md`

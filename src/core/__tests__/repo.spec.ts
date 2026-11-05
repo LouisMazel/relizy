@@ -5,7 +5,7 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import * as gitRefs from '../git-refs'
-import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
+import { getCommitChangedFiles, getPackageCommits, getPackages, getPrivatePackagesMode, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -57,6 +57,10 @@ vi.mock('fast-glob', () => ({
 
       if (pattern === 'packages/pkg-a') {
         return [`${cwd}/packages/pkg-a`]
+      }
+
+      if (pattern === '.') {
+        return [cwd]
       }
 
       return []
@@ -564,6 +568,16 @@ describe('Given getPackages function', () => {
         expect(result.map(p => p.name)).toEqual(['pkg-a'])
       })
     })
+
+    describe('When there are no patterns (standalone project) and the root is private', () => {
+      it('Then reads the root, its only package', () => {
+        vol.fromJSON({ [`${mockCwd}/package.json`]: JSON.stringify({ name: 'app', version: '1.0.0', private: true }) }, mockCwd)
+
+        const result = readPackages({ cwd: mockCwd, patterns: undefined, ignorePackageNames: undefined })
+
+        expect(result.map(p => p.name)).toEqual(['app'])
+      })
+    })
   })
 
   describe('When no packages need bumping', () => {
@@ -1016,6 +1030,23 @@ describe('Given a package moved to another directory', () => {
       })
 
       expect(commits.map(c => c.message)).toEqual(['feat(pkg-b): add a feature'])
+    })
+  })
+})
+
+describe('Given getPrivatePackagesMode', () => {
+  describe('When the project has no workspace packages (standalone)', () => {
+    it('Then releases its private root package', () => {
+      expect(getPrivatePackagesMode({})).toBe('release')
+      expect(getPrivatePackagesMode({ monorepo: { privatePackages: 'ignore' } })).toBe('release')
+    })
+  })
+
+  describe('When the project is a monorepo', () => {
+    it('Then follows monorepo.privatePackages, ignore by default', () => {
+      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'] } })).toBe('ignore')
+      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'], privatePackages: 'release' } })).toBe('release')
+      expect(getPrivatePackagesMode({ monorepo: { groups: [{ name: 'main', versionMode: 'selective', packages: ['packages/*'] }] } })).toBe('ignore')
     })
   })
 })
