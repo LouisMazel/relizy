@@ -1,163 +1,59 @@
 ---
 title: release()
-description: Execute a complete release workflow programmatically.
-keywords: relizy release api, programmatic release, automated release api, release workflow api
+description: Run the whole release from Node.js and get its report.
+keywords: relizy release api, programmatic release, release report, canary release api, ReleaseOptions
 category: API Reference
-tags: [api, release, workflow, automation, typescript]
+tags: [api, release, workflow, typescript]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Signature
-
 ```ts
-function release(options: ReleaseOptions): Promise<ReleaseReport>
+function release(options?: Partial<ReleaseOptions>): Promise<ReleaseReport>
 ```
 
-It returns the [report of the release](/config/release#report): its `status` (`released`, `nothing`), `released` (`false` in dry-run), the packages and versions by version group (`release`), the `tags`, and what each step did (`steps`). It throws when the release fails.
-
-```ts
-const report = await release({ yes: true })
-
-if (report.released) {
-  await notifyTheTeam(report.release)
-}
-```
+`release()` runs the [steps of `relizy release`](./../cli/release.md#steps) and returns the [report of the release](./../config/release.md#report): its `status` (`released`, or `nothing` when no commit triggers a bump), `released` (`false` in dry-run), `version`, the packages and versions by version group (`release`), the `tags`, and what each step did (`steps`). It throws when the release fails, once the report is written and the failed PR comment posted.
 
 ## Options
 
+The options are the flags of [`relizy release`](./../cli/release.md#options), camelCased, and override the [config](./../config/release.md):
+
+- **Bump**: `type` (`BumpReleaseType`: `'release'`, the default, computes it from the commits), `preid`, `suffix`, `force`, `yes`, `clean`, `canary`, `privatePackages`, `from`, `to`
+- **Changelog**: `changelog`, `formatCmd`, `rootChangelog`
+- **Publish**: `publish`, `registry`, `registries`, `tag` (the dist-tag), `access`, `otp`, `buildCmd`, `publishToken`, `skipExistingVersions`
+- **Git**: `commit`, `gitTag` (the git tags), `noVerify`, `push`
+- **Provider release**: `providerRelease`, `provider`, `token` (the token of the git provider), `ai`
+- **Social and PR comment**: `social`, `slackFormat`, `prComment`, `prNumber`
+- **Run**: `report`, `safetyCheck`, `configName`, `dryRun`, `logLevel`, `groups`
+
+`ReleaseOptions` also has fields that `release()` ignores: `dependencyTypes`, `capZeroMajor`, `outOfRangePeers`, `includeCommitBody`, `args`, `packageManager`, `packages`, `safetyCheckTimeout`, `checkWorkspaceDependencies`. Set them in the [config](./../config/overview.md).
+
+See [ReleaseOptions](./../typedoc/interfaces/ReleaseOptions.md) and [ReleaseReport](./../typedoc/interfaces/ReleaseReport.md) for the types.
+
+## Examples
+
 ```ts
-interface ReleaseOptions {
-  // Release type
-  releaseType?: 'major' | 'minor' | 'patch'
+import { release } from 'relizy'
 
-  // Git operations
-  commit?: boolean
-  tag?: boolean
-  push?: boolean
-  noGitChecks?: boolean
+const report = await release({ yes: true, social: false })
 
-  // Publishing
-  publish?: boolean
-  providerRelease?: boolean
-
-  // Monorepo
-  packages?: string[]
-
-  // Behavior
-  yes?: boolean
-  dryRun?: boolean
-  logLevel?: 'silent' | 'error' | 'warn' | 'info' | 'debug'
-
-  // Configuration
-  config?: string
-
-  /**
-   * Run without side effects
-   * @default false
-   */
-  dryRun?: boolean
-  /**
-   * @default undefined
-   */
-  from?: string
-  /**
-   * @default undefined
-   */
-  to?: string
-  /**
-   * @default undefined
-   */
-  token?: string
-  /**
-   * @default undefined
-   */
-  logLevel?: LogLevel
-  /**
-   * @default 'relizy'
-   */
-  configName?: string
-  /**
-   * Bump even if there are no commits
-   * @default false
-   */
-  force?: boolean
-  /**
-   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
-   * @default undefined
-   */
-  suffix?: string
-  /**
-   * Enable/disable git tag creation
-   * @default true
-   */
-  gitTag?: boolean
-
-  /**
-   * Enable/disable PR comment posting
-   * @default true
-   */
-  prComment?: boolean
-
-  /**
-   * Override PR/MR number for PR comment
-   * @default undefined
-   */
-  prNumber?: number
-
-  /**
-   * Enable canary release mode.
-   * Publishes a temporary version with format {nextVersion}-0.{preid}-{sha}
-   * Automatically disables: commit, push, changelog, providerRelease, social, gitTag
-   * Keeps active: publish, prComment, safetyCheck, clean check
-   * @default false
-   */
-  canary?: boolean
-  /**
-   * Only process these version groups of `monorepo.groups`, by name
-   * @default undefined (every group)
-   */
-  groups?: string[]
+if (report.released) {
+  console.log(`Released ${report.version}: ${report.tags.join(', ')}`)
 }
 ```
 
-## Example
-
-### Standard Release
+A canary version of a pull request:
 
 ```ts
-import { release } from 'relizy'
-
-await release({
-  type: 'minor',
-  commit: true,
-  tag: true,
-  push: true,
-  publish: true,
-  providerRelease: true,
-  gitTag: true,
-})
+await release({ canary: true, yes: true, prNumber: 42 })
 ```
 
-### Canary Release
-
-```ts
-import { release } from 'relizy'
-
-await release({
-  canary: true,
-  yes: true,
-  prNumber: 42,
-})
-```
-
-When `canary` is `true`, the release function automatically disables `commit`, `push`, `changelog`, `providerRelease`, `social`, and `gitTag`. It publishes the canary version to npm with the `canary` dist-tag (or the value of `preid` if provided).
+With `canary`, the changelog, the commit, the git tags, the push, the provider release and the social posts are skipped. The version is `{nextVersion}-0.canary-{sha}` (`preid` replaces `canary`), published with the `canary` dist-tag unless `tag` is set. See [Canary Releases](./../guide/prereleases.md#canary-releases).
 
 ## See Also
 
-- [Canary Releases guide](../guide/canary-releases.md)
-- [CLI reference](../cli/release.md)
-- [API usage](usage.md)
-- [prComment() API](pr-comment.md)
+- [`relizy release`](./../cli/release.md)
+- [Programmatic API](./usage.md)
+- [Release config](./../config/release.md)

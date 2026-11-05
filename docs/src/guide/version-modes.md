@@ -1,336 +1,107 @@
 ---
 title: Version Modes
-description: Relizy supports three different versioning strategies for monorepos, each designed for different use cases.
-keywords: version modes, monorepo versioning, unified mode, selective mode, independent mode, versioning strategies
+description: The three version modes of a monorepo (unified, selective, independent), what each one bumps, tags and writes, with an example per mode.
+keywords: version modes, monorepo versioning, unified mode, selective mode, independent mode, versionMode, root version, package tags, lerna.json
 category: Guide
 tags: [guide, versioning, monorepo, strategies]
 ---
 
 # {{ $frontmatter.title }}
 
-> Only for monorepo with multiple packages
-
 {{ $frontmatter.description }}
 
-## Overview
-
-When working with monorepos, you need to decide how to manage versions across multiple packages. Relizy provides three modes:
-
-| Mode                                                       | Description                                                                            | Best For                                                                      |
-| ---------------------------------------------------------- | -------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| **[Selective](#selective-mode-recommended) (recommended)** | Only changed packages and their dependents are bumped (but all share the same version) | Projects with many packages but not all change every release                  |
-| **[Unified](#unified-mode)**                               | All packages share the same version                                                    | Projects where all packages are released together to keep version consistency |
-| **[Independent](#independent-mode)**                       | Each package has its own version                                                       | Projects where packages evolve independently                                  |
-
-## Selective Mode (Recommended)
-
-Selective mode is like unified mode, but only packages with actual changes are bumped.
-
-### How It Works
-
-When you run a release:
-
-1. Relizy analyzes git commits to find changed packages
-2. Only packages with changes (and their dependents) are bumped
-3. All bumped packages share the same version number
-4. Individual package changelogs are generated
-5. A single tag is created (e.g. `v1.2.0`)
-
-### Configuration
+A project without `monorepo` config is a single package (standalone): its root `package.json` is bumped, tagged `v1.2.3` and published. In a monorepo, `monorepo.versionMode` decides how the packages matched by `monorepo.packages` are versioned:
 
 ```ts
-// relizy.config.ts
 import { defineConfig } from 'relizy'
 
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective', // ← Recommended!
-    packages: ['packages/*'],
-  },
-})
-```
-
-### Example
-
-```text
-Before:
-  root: 1.0.0
-  packages/core: 1.0.0
-  packages/utils: 1.0.0
-  packages/ui: 1.0.0    ← has commits
-
-After release --minor:
-  root: 1.0.0           ← Not bumped
-  packages/core: 1.0.0  ← Not bumped (no changes)
-  packages/utils: 1.0.0 ← Not bumped (no changes)
-  packages/ui: 1.1.0    ← Bumped (has changes)
-```
-
-### Dependency Handling
-
-If a package depends on a changed package, it's automatically bumped:
-
-```text
-packages/core: has changes → bumped to 1.1.0
-packages/ui: depends on core → also bumped to 1.1.0
-```
-
-### When to Use
-
-✅ **Use selective mode when:**
-
-- You have multiple packages in a monorepo
-- Not all packages change with every release
-- You want to avoid unnecessary version bumps
-- You still want consistent versioning across updated packages
-
-❌ **Avoid selective mode when:**
-
-- You want every package to always have the same version
-- You prefer completely independent package versions
-
-### Real-World Example
-
-```bash
-# Only changed packages get bumped
-relizy release --minor
-
-# Output:
-# ✓ packages/core: 1.2.0 → 1.3.0 (has commits)
-# ✓ packages/ui: 1.2.0 → 1.3.0 (depends on core)
-# ○ packages/utils: 1.2.0 (no changes)
-# ✓ Created tags: core-v1.3.0, ui-v1.3.0
-```
-
-## Unified Mode
-
-In unified mode, all packages in your monorepo share a single version number.
-
-### How It Works
-
-When you run a release:
-
-1. The version is read from the root `package.json`
-2. ALL packages are bumped to the new version
-3. A single git tag is created (e.g., `v1.2.0`)
-4. The root `CHANGELOG.md` and all package changelogs are updated
-
-### Configuration
-
-```ts
-// relizy.config.ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'unified',
-    packages: ['packages/*'],
-  },
-})
-```
-
-### Example
-
-```bash
-Before:
-  root: 1.0.0
-  packages/core: 1.0.0
-  packages/utils: 1.0.0
-  packages/ui: 1.0.0
-
-After release --minor:
-  root: 1.1.0
-  packages/core: 1.1.0      ← Bumped (even without changes)
-  packages/utils: 1.1.0     ← Bumped (even without changes)
-  packages/ui: 1.1.0        ← Bumped (even without changes)
-```
-
-### When to Use
-
-✅ **Use unified mode when:**
-
-- All packages are tightly coupled
-- You want simple, synchronized versioning
-- Packages are always released together
-- You want a single changelog for the entire project
-
-❌ **Avoid unified mode when:**
-
-- Packages evolve independently
-- You have many packages with infrequent changes
-- You want granular version control per package
-
-### Real-World Example
-
-```bash
-# All packages get version 2.0.0
-relizy release --major
-
-# Output:
-# ✓ packages/core: 1.5.0 → 2.0.0
-# ✓ packages/utils: 1.5.0 → 2.0.0
-# ✓ packages/ui: 1.5.0 → 2.0.0
-# ✓ Created tag: v2.0.0
-```
-
-## Independent Mode
-
-In independent mode, each package maintains its own version number and evolves independently.
-
-### How It Works
-
-When you run a release:
-
-1. Each package is analyzed separately
-2. Packages are bumped based on their own commits
-3. Each package can have a different version
-4. Individual changelogs are created per package
-5. Separate git tags are created (e.g., `core@v2.1.0`, `ui@v1.5.3`)
-
-### Configuration
-
-```ts
-// relizy.config.ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'independent',
-    packages: ['packages/*'],
-  },
-})
-```
-
-### Example
-
-```text
-Before:
-  root: 1.0.0
-  packages/core: 2.0.0
-  packages/utils: 1.3.5
-  packages/ui: 0.8.0    ← has commits
-
-After release --minor:
-  root: 1.0.0           ← Not changed
-  packages/core: 2.0.0  ← Not changed
-  packages/utils: 1.3.5 ← Not changed
-  packages/ui: 0.9.0    ← Bumped based on its commits
-```
-
-### Dependency Handling
-
-When a package changes, its dependents get a minimum patch bump:
-
-```text
-packages/core: 2.0.0 → 2.1.0 (has feature commits)
-packages/ui: 1.5.0 → 1.5.1 (depends on core, gets patch bump)
-```
-
-If a dependent also has qualifying commits, it gets the appropriate bump:
-
-```text
-packages/core: 2.0.0 → 2.1.0 (has feature commits)
-packages/ui: 1.5.0 → 1.6.0 (has its own feature commits)
-```
-
-### When to Use
-
-✅ **Use independent mode when:**
-
-- Packages have different lifecycles
-- Some packages are stable while others evolve quickly
-- You want maximum flexibility
-- Packages are published separately
-
-❌ **Avoid independent mode when:**
-
-- You want simple, synchronized versioning
-- Packages are tightly coupled
-- You prefer consistent versions across the monorepo
-
-### Real-World Example
-
-```bash
-# Each package bumped independently
-relizy release
-
-# Output:
-# ✓ packages/core: 2.1.0 → 2.2.0 (minor - has feat commits)
-# ✓ packages/utils: 1.3.5 → 1.3.6 (patch - has fix commits)
-# ✓ packages/ui: 0.8.0 → 0.8.0 (no changes)
-# ✓ Created tags: core-v2.2.0, utils-v1.3.6
-```
-
-## Comparison Table
-
-| Feature                 | Unified                                        | Selective                                      | Independent            |
-| ----------------------- | ---------------------------------------------- | ---------------------------------------------- | ---------------------- |
-| **Version Consistency** | All packages always match                      | Changed packages match                         | Each package unique    |
-| **Tags**                | Single root tag                                | Single root tag                                | Per-package tags       |
-| **Changelog**           | Single root changelog + Per-package changelogs | Single root changelog + Per-package changelogs | Per-package changelogs |
-| **Bump All Packages**   | ✅ Yes                                         | ❌ No                                          | ❌ No                  |
-| **Bump Only Changed**   | ❌ No                                          | ✅ Yes                                         | ✅ Yes                 |
-| **Different Versions**  | ❌ No                                          | ❌ No                                          | ✅ Yes                 |
-
-## Mixing Modes
-
-To release some packages in `selective` mode and others in `independent` mode (e.g. packages with their own version line), use [version groups](./version-groups.md): each group has its own version mode, and every group is released in a single run.
-
-## Switching Modes
-
-You can change the version mode at any time by updating your config:
-
-```ts
-// relizy.config.ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective', // Change this value
-    packages: ['packages/*'],
-  },
-})
-```
-
-::: warning
-Switching from independent to unified/selective will align all packages to a common version on the next release.
-:::
-
-## Best Practices
-
-### For Small Monorepos (2-5 packages)
-
-Use **selective mode** - it provides a good balance of simplicity and flexibility.
-
-### For Large Monorepos (10+ packages)
-
-Use **independent mode** - it prevents version number inflation and gives fine-grained control.
-
-### For Tightly Coupled Packages
-
-Use **unified mode** - it keeps everything in sync and is the simplest to manage.
-
-## Dependency Configuration
-
-Control which dependency types trigger bumps:
-
-```ts
 export default defineConfig({
   monorepo: {
     versionMode: 'selective',
+    packages: ['packages/*'],
   },
-  bump: {
-    dependencyTypes: [
-      'dependencies', // Bump when production deps change
-      'devDependencies', // Bump when dev deps change
-      'peerDependencies', // Bump when peer deps change
-    ],
-  }
 })
 ```
 
-## Next Steps
+## Comparison
 
-- [Dependency Management](/guide/dependency-management) - Learn how dependencies are handled
-- [Configuration](/config/monorepo) - Detailed monorepo configuration options
-- [CLI Commands](/cli/release) - Learn about release command options
+|                         | `unified`                                      | `selective`                                            | `independent`                                                      |
+| ----------------------- | ---------------------------------------------- | ------------------------------------------------------ | ------------------------------------------------------------------ |
+| **Packages bumped**     | All                                            | The ones with commits, and their dependents            | The ones with commits, and their dependents                        |
+| **Version**             | The root version, for every package            | The root version, for the bumped packages              | Each package its own, from its own commits                         |
+| **Root `package.json`** | Bumped                                         | Bumped                                                 | Not bumped                                                         |
+| **Git tags**            | One: `v1.2.0`                                  | One: `v1.2.0`                                          | One per package: `@scope/core@2.1.0`                               |
+| **Changelogs**          | Root `CHANGELOG.md` and one per package        | Root `CHANGELOG.md` and one per bumped package         | One per bumped package, and a root `CHANGELOG.md` aggregating them |
+| **`lerna.json`**        | `version` updated                              | `version` updated                                      | Not updated                                                        |
+| **Best for**            | Tightly coupled packages, always used together | Many packages sharing a version line, not all changing | Packages with their own lifecycle                                  |
+
+In every mode:
+
+- the root version (`unified`, `selective`) is computed from every commit of the repository, except the commits only changing [ignored](./../config/monorepo.md#ignored) packages;
+- a package gets the commits changing its directory (see [Moving & Renaming Packages](./moved-packages.md) for the moves), and the commits changing a [catalog](./dependency-management.md#catalogs) entry it uses;
+- the dependents follow [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) and the [out-of-range peer dependencies](./../config/bump.md#outofrangepeers), see [Dependency Management](./dependency-management.md);
+- the tag format comes from [`templates.tagBody`](./../config/commit-templates.md#tagbody) for the repository tag, the package tags are always `<name>@<version>`.
+
+The bump type comes from the commits (see [Semver Convention](./semver-convention.md)), or from a flag such as `--minor`.
+
+## Unified
+
+Every package gets the root version, even without commits of its own:
+
+```text
+                  Before   After a feat commit in packages/ui
+root              1.4.2    1.5.0
+packages/core     1.4.2    1.5.0
+packages/utils    1.4.2    1.5.0
+packages/ui       1.4.2    1.5.0
+Tag: v1.5.0
+```
+
+Use it when the packages are always installed together and their versions must match.
+
+## Selective
+
+The root version is bumped from the commits, and only the packages with commits (and their dependents) get it. The others keep their version:
+
+```text
+                  Before   After a feat commit in packages/core
+root              1.4.2    1.5.0
+packages/core     1.4.2    1.5.0    commits
+packages/ui       1.4.2    1.5.0    depends on @scope/core
+packages/utils    1.4.2    1.4.2    not released
+Tag: v1.5.0
+```
+
+A package not released for a while jumps to the root version on its next release: `packages/utils` goes from `1.4.2` to the root version of that release (`1.6.1`, say), not to `1.4.3`. A dependent always gets the root version, never a patch of its own version.
+
+Use it for most monorepos: one version line, without releasing unchanged packages.
+
+## Independent
+
+Each package is bumped from its own commits, from its own version. A dependent without commits of its own gets a patch (with `--prerelease`, a `prepatch`, or the next `prerelease` when it already is a prerelease). The root `package.json` keeps its version:
+
+```text
+                  Before   After a feat commit in packages/core, a fix in packages/utils
+root              1.0.0    1.0.0
+packages/core     2.0.0    2.1.0    feat
+packages/ui       0.8.3    0.8.4    depends on @scope/core
+packages/utils    1.3.5    1.3.6    fix
+Tags: @scope/core@2.1.0, @scope/ui@0.8.4, @scope/utils@1.3.6
+```
+
+The previous release of a package is its last `<name>@<version>` tag. A package without a tag of its current version starts at the commit that set this version in its `package.json` (see [Moving Packages to an Independent Group](./version-groups.md#moving-packages-to-an-independent-group)).
+
+Use it when the packages evolve at different paces, with their own major versions.
+
+## Switching Modes
+
+Change `monorepo.versionMode`; nothing is rewritten until the next release:
+
+- **From `independent` to `unified`/`selective`**: the next release gives the new root version to the packages it bumps (all of them in `unified`, the changed ones in `selective`). The previous release is then read from the repository tags (`v1.2.3`), not from the package tags.
+- **From `unified`/`selective` to `independent`**: each package continues from its own version, and starts at the commit that set it when it has no `<name>@<version>` tag yet.
+
+Preview the first release in the new mode with `relizy release --dry-run`.
+
+## Mixing Modes
+
+To release some packages in `selective` mode and others in `independent` mode in the same run, use [version groups](./version-groups.md).

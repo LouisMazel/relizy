@@ -10,6 +10,125 @@ const SITE_URL = 'https://relizy.dev'
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
 // https://vitepress.dev/reference/site-config
+// One definition per section, shared by the nav and the sidebar
+const guideSidebar = [
+  {
+    text: 'Introduction',
+    items: [
+      { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
+      { text: 'Getting Started', link: '/guide/getting-started' },
+      { text: 'Private Projects & Apps', link: '/guide/private-projects' },
+      { text: 'Migrating from v1', link: '/guide/migration-v2' },
+    ],
+  },
+  {
+    text: 'Core Concepts',
+    items: [
+      { text: 'Version Modes', link: '/guide/version-modes' },
+      { text: 'Version Groups', link: '/guide/version-groups' },
+      { text: 'Dependency Management', link: '/guide/dependency-management' },
+      { text: 'Changelog Generation', link: '/guide/changelog' },
+      { text: 'Semver Convention', link: '/guide/semver-convention' },
+      { text: 'Prereleases & Canary', link: '/guide/prereleases' },
+      { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
+      { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
+    ],
+  },
+  {
+    text: 'CI/CD',
+    items: [
+      { text: 'Release from CI', link: '/guide/ci-cd' },
+      { text: 'GitHub Actions', link: '/guide/github-actions' },
+      { text: 'GitLab CI', link: '/guide/gitlab-ci' },
+    ],
+  },
+  {
+    text: 'Integrations',
+    items: [
+      { text: 'PR Comments', link: '/guide/pr-comment' },
+      { text: 'Social Media (Twitter, Slack)', link: '/guide/social-media' },
+      { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
+      { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
+    ],
+  },
+  {
+    text: 'Contributing',
+    items: [
+      { text: 'Contributing Guide', link: '/guide/contributing' },
+    ],
+  },
+]
+
+const configSidebar = [
+  {
+    text: 'Configuration',
+    items: [
+      { text: 'Overview', link: '/config/overview' },
+      { text: 'Release', link: '/config/release' },
+      { text: 'Monorepo', link: '/config/monorepo' },
+      { text: 'Bump', link: '/config/bump' },
+      { text: 'Changelog', link: '/config/changelog' },
+      { text: 'Publish', link: '/config/publish' },
+      { text: 'Templates', link: '/config/commit-templates' },
+      { text: 'Hooks', link: '/config/hooks' },
+      { text: 'AI', link: '/config/ai' },
+      { text: 'Social', link: '/config/social' },
+      { text: 'PR Comment', link: '/config/pr-comment' },
+    ],
+  },
+]
+
+const cliSidebar = [
+  {
+    text: 'CLI Reference',
+    items: [
+      { text: 'Overview', link: '/cli/commands' },
+      { text: 'init', link: '/cli/init' },
+      { text: 'release', link: '/cli/release' },
+      { text: 'bump', link: '/cli/bump' },
+      { text: 'changelog', link: '/cli/changelog' },
+      { text: 'publish', link: '/cli/publish' },
+      { text: 'provider-release', link: '/cli/provider-release' },
+      { text: 'social', link: '/cli/social' },
+      { text: 'pr-comment', link: '/cli/pr-comment' },
+      { text: 'commitlint', link: '/commitlint/cli' },
+      { text: 'mcp', link: '/cli/mcp' },
+    ],
+  },
+]
+
+const commitlintSidebar = [
+  {
+    text: 'Commit Linting',
+    items: [
+      { text: 'Introduction', link: '/commitlint/' },
+      { text: 'Rules', link: '/commitlint/rules' },
+      { text: 'Custom Rules', link: '/commitlint/custom-rules' },
+      { text: 'Configuration', link: '/commitlint/config' },
+      { text: 'CLI', link: '/commitlint/cli' },
+      { text: 'Migrating from commitlint', link: '/commitlint/migration' },
+    ],
+  },
+]
+
+const apiSidebar = [
+  {
+    text: 'Programmatic API',
+    items: [
+      { text: 'Overview', link: '/api/usage' },
+      { text: 'release()', link: '/api/release' },
+      { text: 'bump()', link: '/api/bump' },
+      { text: 'changelog()', link: '/api/changelog' },
+      { text: 'publish()', link: '/api/publish' },
+      { text: 'providerRelease()', link: '/api/provider-release' },
+      { text: 'social()', link: '/api/social' },
+      { text: 'prComment()', link: '/api/pr-comment' },
+      { text: 'commitlint()', link: '/api/commitlint' },
+      { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
+    ],
+  },
+]
+
 export default defineConfig({
   srcDir: 'src',
   lang: 'en-US',
@@ -203,246 +322,28 @@ export default defineConfig({
     // },
 
     nav: [
-      {
-        text: 'Guide',
-        items: [
-          { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
-          { text: 'Getting Started', link: '/guide/getting-started' },
-          { text: 'Installation', link: '/guide/installation' },
-          { text: 'Migrating from v1', link: '/guide/migration-v2' },
-          { text: 'Private Projects & Apps', link: '/guide/private-projects' },
-          { text: 'Version Modes', link: '/guide/version-modes' },
-          { text: 'Version Groups', link: '/guide/version-groups' },
-          { text: 'Dependency Management', link: '/guide/dependency-management' },
-          { text: 'Changelog Generation', link: '/guide/changelog' },
-          { text: 'Canary Releases', link: '/guide/canary-releases' },
-          { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
-          { text: 'Semver Convention', link: '/guide/semver-convention' },
-          { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
-          { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
-          { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
-          { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
-          { text: 'Social Media Integration', link: '/guide/social-media' },
-          { text: 'Twitter Integration', link: '/guide/twitter-integration' },
-          { text: 'Slack Integration', link: '/guide/slack-integration' },
-          { text: 'PR Comments', link: '/guide/pr-comment' },
-          { text: 'CI/CD Setup', link: '/guide/ci-cd' },
-          { text: 'GitHub Actions', link: '/guide/github-actions' },
-          { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          { text: 'Contributing', link: '/guide/contributing' },
-        ],
-      },
-      {
-        text: 'Config',
-        items: [
-          { text: 'Overview', link: '/config/overview' },
-          { text: 'Release Config', link: '/config/release' },
-          { text: 'Monorepo Config', link: '/config/monorepo' },
-          { text: 'Changelog Config', link: '/config/changelog' },
-          { text: 'Bump Config', link: '/config/bump' },
-          { text: 'Publish Config', link: '/config/publish' },
-          { text: 'AI Config', link: '/config/ai' },
-          { text: 'Social Config', link: '/config/social' },
-          { text: 'PR Comment Config', link: '/config/pr-comment' },
-          { text: 'Commit Templates', link: '/config/commit-templates' },
-          { text: 'Hooks Config', link: '/config/hooks' },
-          { text: 'Multiple Configs', link: '/config/multiple-configs' },
-        ],
-      },
-      {
-        text: 'CLI',
-        items: [
-          { text: 'Overview', link: '/cli/commands' },
-          { text: 'init', link: '/cli/init' },
-          { text: 'release', link: '/cli/release' },
-          { text: 'bump', link: '/cli/bump' },
-          { text: 'changelog', link: '/cli/changelog' },
-          { text: 'publish', link: '/cli/publish' },
-          { text: 'provider-release', link: '/cli/provider-release' },
-          { text: 'social', link: '/cli/social' },
-          { text: 'pr-comment', link: '/cli/pr-comment' },
-          { text: 'mcp', link: '/cli/mcp' },
-          { text: 'commitlint', link: '/commitlint/cli' },
-        ],
-      },
-      {
-        text: 'Commitlint',
-        items: [
-          { text: 'Introduction', link: '/commitlint/' },
-          { text: 'Getting Started', link: '/commitlint/getting-started' },
-          { text: 'Rules', link: '/commitlint/rules' },
-          { text: 'Custom Rules', link: '/commitlint/custom-rules' },
-          { text: 'Configuration', link: '/commitlint/config' },
-          { text: 'CLI', link: '/commitlint/cli' },
-          { text: 'Migrating from commitlint', link: '/commitlint/migration' },
-        ],
-      },
-      {
-        text: 'API',
-        items: [
-          { text: 'Overview', link: '/api/usage' },
-          { text: 'release()', link: '/api/release' },
-          { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
-          { text: 'bump()', link: '/api/bump' },
-          { text: 'changelog()', link: '/api/changelog' },
-          { text: 'publish()', link: '/api/publish' },
-          { text: 'providerRelease()', link: '/api/provider-release' },
-          { text: 'social()', link: '/api/social' },
-          { text: 'prComment()', link: '/api/pr-comment' },
-        ],
-      },
+      { text: 'Guide', items: guideSidebar },
+      { text: 'Config', items: configSidebar[0]!.items },
+      { text: 'CLI', items: cliSidebar[0]!.items },
+      { text: 'Commitlint', items: commitlintSidebar[0]!.items },
+      { text: 'API', items: apiSidebar[0]!.items },
       {
         text: `v${packageJson.version}`,
         items: [
-          {
-            text: 'Changelog',
-            link: '/changelog',
-          },
-          {
-            text: 'Migrating from v1',
-            link: '/guide/migration-v2',
-          },
-          {
-            text: 'Contributing',
-            link: '/guide/contributing',
-          },
+          { text: 'Changelog', link: '/changelog' },
+          { text: 'Migrating from v1', link: '/guide/migration-v2' },
+          { text: 'Contributing', link: '/guide/contributing' },
         ],
       },
-      {
-        text: 'TypeDoc',
-        items: typedocSidebar,
-      },
+      { text: 'TypeDoc', items: typedocSidebar },
     ],
 
     sidebar: {
-      '/guide/': [
-        {
-          text: 'Introduction',
-          items: [
-            { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'Installation', link: '/guide/installation' },
-            { text: 'Migrating from v1', link: '/guide/migration-v2' },
-            { text: 'Private Projects & Apps', link: '/guide/private-projects' },
-          ],
-        },
-        {
-          text: 'Core Concepts',
-          items: [
-            { text: 'Version Modes', link: '/guide/version-modes' },
-            { text: 'Version Groups', link: '/guide/version-groups' },
-            { text: 'Dependency Management', link: '/guide/dependency-management' },
-            { text: 'Changelog Generation', link: '/guide/changelog' },
-            { text: 'Canary Releases', link: '/guide/canary-releases' },
-            { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
-            { text: 'Semver Convention', link: '/guide/semver-convention' },
-            { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
-            { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
-          ],
-        },
-        {
-          text: 'AI',
-          items: [
-            { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
-            { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
-          ],
-        },
-        {
-          text: 'Social Media',
-          items: [
-            { text: 'Overview', link: '/guide/social-media' },
-            { text: 'Twitter Integration', link: '/guide/twitter-integration' },
-            { text: 'Slack Integration', link: '/guide/slack-integration' },
-          ],
-        },
-        {
-          text: 'PR Comments',
-          items: [
-            { text: 'PR Comments', link: '/guide/pr-comment' },
-          ],
-        },
-        {
-          text: 'Integration',
-          items: [
-            { text: 'CI/CD Setup', link: '/guide/ci-cd' },
-            { text: 'GitHub Actions', link: '/guide/github-actions' },
-            { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          ],
-        },
-        {
-          text: 'Contributing',
-          items: [
-            { text: 'Contributing Guide', link: '/guide/contributing' },
-          ],
-        },
-      ],
-      '/cli/': [
-        {
-          text: 'CLI Reference',
-          items: [
-            { text: 'Commands Overview', link: '/cli/commands' },
-            { text: 'init', link: '/cli/init' },
-            { text: 'release', link: '/cli/release' },
-            { text: 'bump', link: '/cli/bump' },
-            { text: 'changelog', link: '/cli/changelog' },
-            { text: 'publish', link: '/cli/publish' },
-            { text: 'provider-release', link: '/cli/provider-release' },
-            { text: 'social', link: '/cli/social' },
-            { text: 'pr-comment', link: '/cli/pr-comment' },
-            { text: 'mcp', link: '/cli/mcp' },
-            { text: 'commitlint', link: '/commitlint/cli' },
-          ],
-        },
-      ],
-      '/commitlint/': [
-        {
-          text: 'Commit Linting',
-          items: [
-            { text: 'Introduction', link: '/commitlint/' },
-            { text: 'Getting Started', link: '/commitlint/getting-started' },
-            { text: 'Rules', link: '/commitlint/rules' },
-            { text: 'Custom Rules', link: '/commitlint/custom-rules' },
-            { text: 'Configuration', link: '/commitlint/config' },
-            { text: 'CLI', link: '/commitlint/cli' },
-            { text: 'Migrating from commitlint', link: '/commitlint/migration' },
-          ],
-        },
-      ],
-      '/api/': [
-        {
-          text: 'Programmatic API',
-          items: [
-            { text: 'API Usage', link: '/api/usage' },
-            { text: 'release()', link: '/api/release' },
-            { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
-            { text: 'bump()', link: '/api/bump' },
-            { text: 'changelog()', link: '/api/changelog' },
-            { text: 'publish()', link: '/api/publish' },
-            { text: 'providerRelease()', link: '/api/provider-release' },
-            { text: 'social()', link: '/api/social' },
-            { text: 'prComment()', link: '/api/pr-comment' },
-          ],
-        },
-      ],
-      '/config/': [
-        {
-          text: 'Configuration',
-          items: [
-            { text: 'Overview', link: '/config/overview' },
-            { text: 'Release Config', link: '/config/release' },
-            { text: 'Monorepo Config', link: '/config/monorepo' },
-            { text: 'Changelog Config', link: '/config/changelog' },
-            { text: 'Bump Config', link: '/config/bump' },
-            { text: 'Publish Config', link: '/config/publish' },
-            { text: 'AI Config', link: '/config/ai' },
-            { text: 'Social Config', link: '/config/social' },
-            { text: 'PR Comment Config', link: '/config/pr-comment' },
-            { text: 'Commit Templates', link: '/config/commit-templates' },
-            { text: 'Hooks Config', link: '/config/hooks' },
-            { text: 'Multiple Configs', link: '/config/multiple-configs' },
-          ],
-        },
-      ],
+      '/guide/': guideSidebar,
+      '/cli/': cliSidebar,
+      '/commitlint/': commitlintSidebar,
+      '/api/': apiSidebar,
+      '/config/': configSidebar,
     },
 
     editLink: {

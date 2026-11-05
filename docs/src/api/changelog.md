@@ -1,59 +1,57 @@
 ---
 title: changelog()
-description: Generate changelogs programmatically.
-keywords: relizy changelog api, programmatic changelog, changelog generation api, git commits api
+description: Write the CHANGELOG.md files from Node.js.
+keywords: relizy changelog api, programmatic changelog, ChangelogOptions, bumpResult, CHANGELOG.md
 category: API Reference
-tags: [api, changelog, documentation, typescript]
+tags: [api, changelog, typescript]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Signature
-
 ```ts
-function changelog(options?: ChangelogOptions): Promise<void>
+function changelog(options?: Partial<ChangelogOptions>): Promise<void>
 ```
+
+`changelog()` runs [`relizy changelog`](./../cli/changelog.md): it writes the `CHANGELOG.md` of each package (and the root one in a monorepo), then runs the format command. It resolves once the files are written.
 
 ## Options
 
+The flags of [`relizy changelog`](./../cli/changelog.md#options), camelCased, and the [shared options](./usage.md#shared-options):
+
+| Option            | Description                                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `bumpResult`      | `BumpResultTruthy`, the result of [`bump()`](./bump.md): the changelogs of the bumped packages, at their new version |
+| `from`, `to`      | The commit range, instead of the last release tag and `HEAD`                                                         |
+| `formatCmd`       | Overrides [`changelog.formatCmd`](./../config/changelog.md#formatcmd)                                                |
+| `rootChangelog`   | Overrides [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)                                        |
+| `force`           | Without `bumpResult`, includes the packages without commits                                                          |
+| `suffix`          | Without `bumpResult`, the prerelease suffix of the versions, as for [`bump()`](./bump.md)                            |
+| `privatePackages` | Overrides [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)                                      |
+
+`ChangelogOptions` also has `includeCommitBody`, which `changelog()` ignores: set [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody) in the config. See [ChangelogOptions](./../typedoc/interfaces/ChangelogOptions.md).
+
+## Examples
+
 ```ts
-interface ChangelogOptions {
-  from?: string
-  to?: string
-  dryRun?: boolean
-  bumpedPackages?: PackageInfo[]
-  config?: ResolvedRelizyConfig
-  logLevel?: LogLevel
-  configName?: string
-  formatCmd?: string
-  rootChangelog?: boolean
-  /**
-   * Include commit body in the changelog.
-   * @default true
-   */
-  includeCommitBody?: boolean
-  /**
-   * Only process these version groups of `monorepo.groups`, by name
-   * @default undefined (every group)
-   */
-  groups?: string[]
+import { bump, changelog } from 'relizy'
+
+const bumpResult = await bump({ yes: true })
+
+if (bumpResult.bumped) {
+  await changelog({ bumpResult })
 }
 ```
 
-## Example
+A given range, previewed:
 
 ```ts
-import { changelog } from 'relizy'
-
-await changelog({
-  from: 'v1.0.0',
-  to: 'HEAD',
-})
+await changelog({ from: 'v1.0.0', to: 'v1.1.0', dryRun: true })
 ```
 
 ## See Also
 
-- [CLI reference](../cli/changelog.md)
-- [API usage](usage.md)
+- [`relizy changelog`](./../cli/changelog.md)
+- [Changelog](./../guide/changelog.md)
+- [Changelog config](./../config/changelog.md)

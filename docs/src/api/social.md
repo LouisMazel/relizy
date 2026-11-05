@@ -1,9 +1,9 @@
 ---
 title: social()
-description: Post release announcements to social media platforms programmatically.
-keywords: relizy social api, social media api, twitter api, slack api, programmatic posting, release announcements api
+description: Post the release on Twitter (X) and Slack from code, and read the result of each platform.
+keywords: relizy social api, social, twitter api, slack api, SocialOptions, SocialResult, release announcements api
 category: API Reference
-tags: [api, social, twitter, slack, announcements, typescript]
+tags: [api, social, twitter, slack, typescript]
 ---
 
 # {{ $frontmatter.title }}
@@ -13,373 +13,40 @@ tags: [api, social, twitter, slack, announcements, typescript]
 ## Signature
 
 ```ts
-function social(options?: SocialOptions): Promise<void>
+function social(options?: Partial<SocialOptions>): Promise<SocialResult>
 ```
 
-## Description
+Options: [`SocialOptions`](./../typedoc/interfaces/SocialOptions.md). Result: [`SocialResult`](./../typedoc/interfaces/SocialResult.md), with one [`SocialNetworkResult`](./../typedoc/interfaces/SocialNetworkResult.md) per enabled platform.
 
-The `social()` function posts release announcements to configured social media platforms (Twitter, Slack). It automatically:
+## Behavior
 
-1. Loads your Relizy configuration
-2. Determines which releases to announce (from `bumpResult` or `postedReleases`)
-3. Generates appropriate messages for each platform
-4. Posts to enabled platforms
-5. Handles errors gracefully with proper logging
+- Posts once per enabled platform (`social.<platform>.enabled`), what the release ships: with a `bumpResult` (a [`BumpResultTruthy`](./../typedoc/interfaces/BumpResultTruthy.md), as `bump()` returns it), its versions; without, the versions of the `package.json` files and the commits since the previous tags (`from` and `to` set the range). See [Social Media](./../guide/social-media.md) for the posts.
+- `results` is empty when no platform is enabled or nothing is to announce. A post that fails gives `{ platform, success: false, error }` and `hasErrors: true`.
+- `social()` does not reject: an error (the safety check, a missing config...) is returned as a result of the `unknown` platform with `hasErrors: true`. Only a refused or cancelled prompt rejects, with a [`RelizyCancelError`](./usage.md).
+- `results[].url` is the link of the tweet.
+- With `dryRun`, nothing is posted and the AI is not called: the CLI flag `--ai-preview` has no equivalent in the API.
+- The hooks get the release as third parameter (`HookContext`) only with a `bumpResult`. See [Social Media](./../guide/social-media.md#hooks).
 
-## Options
-
-```ts
-interface SocialOptions {
-  /**
-   * Start tag/commit reference for changelog generation
-   * @default undefined
-   */
-  from?: string
-
-  /**
-   * End tag/commit reference for changelog generation
-   * @default undefined
-   */
-  to?: string
-
-  /**
-   * Pre-loaded Relizy configuration
-   * If not provided, will load from config file
-   * @default undefined
-   */
-  config?: ResolvedRelizyConfig
-
-  /**
-   * Custom config file name (without .config extension)
-   * @example 'relizy.standalone' for 'relizy.standalone.config.ts'
-   * @default 'relizy'
-   */
-  configName?: string
-
-  /**
-   * Bump result from bump command
-   * Contains version and package information
-   * @default undefined
-   */
-  bumpResult?: BumpResult
-
-  /**
-   * Posted releases from provider-release command
-   * Contains release URLs from GitHub/GitLab
-   * @default undefined
-   */
-  postedReleases?: PostedRelease[]
-
-  /**
-   * Log level for output
-   * @default 'info'
-   */
-  logLevel?: LogLevel
-
-  /**
-   * Run in dry-run mode (no actual posting)
-   * @default false
-   */
-  dryRun?: boolean
-
-  /**
-   * Skip safety checks
-   * @default false
-   */
-  safetyCheck?: boolean
-
-  /**
-   * Override `social.slack.changelogFormat` for this run
-   * @default undefined
-   */
-  slackFormat?: 'summary' | 'full'
-  /**
-   * Only process these version groups of `monorepo.groups`, by name
-   * @default undefined (every group)
-   */
-  groups?: string[]
-}
-```
-
-## Return Value
-
-Returns a `Promise<void>` that resolves when all configured social media posts have been made successfully, or rejects if an error occurs.
-
-## Error Handling
-
-The function will throw an error if:
-
-- Required peer dependencies are missing (`twitter-api-v2` or `@slack/web-api`)
-- Credentials are not configured or invalid
-- Social media API requests fail
-- No releases are found to announce
-
-Errors are logged with detailed messages to help troubleshoot configuration issues.
-
-## Examples
-
-### Basic Usage
-
-Post about releases between two git tags:
+## Example
 
 ```ts
 import { social } from 'relizy'
 
-await social({
-  from: 'v1.0.0',
-  to: 'v1.1.0',
-})
-```
+// The current release, as `relizy social` posts it
+const { results, hasErrors } = await social({ dryRun: process.env.CI !== 'true' })
 
-### With Bump Result
-
-Use after bumping versions:
-
-```ts
-import { bump, social } from 'relizy'
-
-// Bump version first
-const bumpResult = await bump({
-  type: 'patch',
-})
-
-// Then post to social media
-await social({
-  bumpResult,
-})
-```
-
-### With Posted Releases
-
-Use after creating provider releases:
-
-```ts
-import { bump, providerRelease, social } from 'relizy'
-
-// Bump and create GitHub release
-const bumpResult = await bump({ type: 'minor' })
-const postedReleases = await providerRelease({ bumpResult })
-
-// Post to social media with release URLs
-await social({
-  bumpResult,
-  postedReleases,
-})
-```
-
-### Dry Run
-
-Test social media posting without actually posting:
-
-```ts
-import { social } from 'relizy'
-
-await social({
-  from: 'v1.0.0',
-  to: 'v1.1.0',
-  dryRun: true, // Will log what would be posted
-})
-```
-
-### Custom Configuration
-
-Use a different config file:
-
-```ts
-import { social } from 'relizy'
-
-await social({
-  configName: 'relizy.production',
-  from: 'v1.0.0',
-  to: 'v1.1.0',
-})
-```
-
-### With Pre-loaded Config
-
-Pass configuration directly:
-
-```ts
-import { loadRelizyConfig, social } from 'relizy'
-
-const config = await loadRelizyConfig({
-  configName: 'relizy.custom',
-})
-
-await social({
-  config,
-  from: 'v1.0.0',
-  to: 'v1.1.0',
-})
-```
-
-### Custom Log Level
-
-Control logging verbosity:
-
-```ts
-import { social } from 'relizy'
-
-await social({
-  from: 'v1.0.0',
-  to: 'v1.1.0',
-  logLevel: 'debug', // Show detailed logs
-})
-```
-
-## Integration in Workflows
-
-### Full Release Workflow
-
-`release()` posts to social media after the other steps (bump, changelogs, commit, tags, publish, provider release), with the links of the releases it created:
-
-```ts
-import { release } from 'relizy'
-
-await release({
-  type: 'minor',
-  social: true,
-})
-```
-
-### Monorepo - Independent Mode
-
-In independent mode, `social()` will create separate posts for each package:
-
-```ts
-import { bump, social } from 'relizy'
-
-// Configuration with independent mode
-// monorepo: { versionMode: 'independent' }
-
-const bumpResult = await bump({ type: 'patch' })
-
-// Posts separate announcements for each bumped package
-await social({ bumpResult })
-```
-
-### Conditional Posting
-
-Only post for stable releases:
-
-```ts
-import { bump, social } from 'relizy'
-import { prerelease } from 'semver'
-
-const bumpResult = await bump({ type: 'patch' })
-
-// Only post if not a prerelease
-if (bumpResult.bumped && !prerelease(bumpResult.newVersion ?? '')) {
-  await social({ bumpResult })
-}
-```
-
-## Configuration Requirements
-
-For `social()` to work, you need to configure social media platforms in your `relizy.config.ts`:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      credentials: {
-        apiKey: process.env.TWITTER_API_KEY,
-        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
-        accessToken: process.env.TWITTER_ACCESS_TOKEN,
-        accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-      },
-    },
-    slack: {
-      enabled: true,
-      channel: '#releases',
-      credentials: {
-        token: process.env.SLACK_TOKEN,
-      },
-    },
-  },
-})
-```
-
-## Hooks
-
-The `social()` function executes the following hooks:
-
-- `before:social` - Before posting to social media
-- `success:social` - After successful posting
-- `error:social` - If posting fails
-
-Example:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  hooks: {
-    'before:social': (config, dryRun) => {
-      console.log('About to post to social media...')
-    },
-    'success:social': (config, dryRun, result) => {
-      console.log('Successfully posted to social media!')
-    },
-    'error:social': (config, dryRun, error) => {
-      console.error('Failed to post:', error)
-    },
-  },
-})
-```
-
-## Platform-Specific Behavior
-
-### Twitter
-
-- Tweets are automatically truncated to fit Twitter's 280-character limit
-- URLs are shortened automatically by Twitter
-- Changelog is summarized to fit the limit
-- Prerelease versions are skipped by default (configurable with `onlyStable`)
-
-### Slack
-
-- Messages use Slack's mrkdwn formatting
-- Links are formatted as `<url|text>`
-- Rich formatting with bold, italic, and code blocks
-- Channel must exist and bot must have access
-
-## Type Definitions
-
-```ts
-interface BumpResult {
-  newVersion: string
-  bumpedPackages: PackageInfo[]
-  rootPackage?: PackageInfo
+for (const result of results) {
+  console.log(result.platform, result.success ? (result.url ?? 'posted') : result.error)
 }
 
-interface PostedRelease {
-  name: string
-  tag: string
-  version: string
-  url?: string
-  prerelease: boolean
+if (hasErrors) {
+  process.exitCode = 1
 }
-
-interface PackageInfo {
-  name: string
-  version: string
-  newVersion?: string
-  path: string
-  private: boolean
-}
-
-type LogLevel = 'silent' | 'error' | 'warn' | 'log' | 'info' | 'debug' | 'verbose'
 ```
 
 ## See Also
 
-- [CLI reference](../cli/social.md)
-- [Configuration reference](../config/social.md)
-- [Twitter Integration Guide](../guide/twitter-integration.md)
-- [Slack Integration Guide](../guide/slack-integration.md)
-- [release() API](./release.md)
-- [API Usage Guide](./usage.md)
+- [Social Media](./../guide/social-media.md)
+- [Social Configuration](./../config/social.md)
+- [`relizy social`](./../cli/social.md)
+- [API usage](./usage.md)

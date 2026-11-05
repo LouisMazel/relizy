@@ -18,7 +18,7 @@ An agent cannot guess what the next release will do: which packages, which versi
 npx relizy mcp init
 ```
 
-It writes the Relizy rules for your agents and registers the MCP server in their configs (see [`relizy mcp init`](/cli/mcp#relizy-mcp-init)). `relizy init` offers the same step when the project already uses an AI agent.
+It writes the Relizy rules for your agents and registers the MCP server in their configs: see [`relizy mcp init`](./../cli/mcp.md#relizy-mcp-init) for the files and the options. `relizy init` offers the same step when the project already uses an AI agent.
 
 Install Relizy as a devDependency of the project: the agents then start the installed version in about a second, at the version of your lockfile.
 
@@ -101,11 +101,11 @@ Without Relizy in the dependencies of the project, use `npx -y relizy@<version> 
 
 ## Keeping the Agents Up to Date
 
-The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. The rules written in the project carry the version that generated them: `get_project` tells the agent when they are older than the installed Relizy, and `relizy mcp init` updates them. Rules you edited by hand are kept and no longer updated: delete the file (or the `AGENTS.md` section) to get the new ones.
+The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. `get_project` tells the agent when the rules of the project are older than the installed Relizy: run `relizy mcp init` to update them. Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.md` section) to get the new ones.
 
 ## The Rules
 
-These rules are written in `.claude/rules/relizy.md` and `AGENTS.md`:
+The rules written by `relizy mcp init`:
 
 <!--@include: ./../../../src/mcp/content/rules.md-->
 

@@ -1,162 +1,81 @@
 ---
 title: AI Configuration
-description: Full reference for configuring AI-enhanced changelogs, release notes, and social media announcements.
-keywords: ai config, ai configuration, claude config, ai provider, relizy ai settings, ai changelog config, ai release notes config
+description: Options of the AI rewrites of the provider release notes and of the social posts - provider, model, credentials, language, fallback, prompts and targets.
+keywords: ai config, ai provider, claude-code, ai-sdk, model, anthropic api key, extraGuidelines, systemPromptOverrides, providerRelease ai, social ai
 category: Configuration
-tags: [config, ai, claude, provider, release-notes, social-media]
+tags: [config, ai, claude, ai-sdk, release-notes, social]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Overview
-
-The `ai` section of your Relizy config controls AI-enhanced changelogs. Every
-AI feature is **opt-in**: disabling the section (or leaving `enabled: false`
-on every target) restores the original changelog output byte-for-byte.
-
-## Shape
+Every AI rewrite is off by default: turn on the targets you want with [`providerRelease`](#providerrelease) and [`social`](#social). Setup of the providers, dry run and examples: [AI-Enhanced Changelogs](./../guide/ai-changelog.md).
 
 ```ts
-interface AIConfig {
-  provider?: 'claude-code' | 'ai-sdk'
-  providers?: {
-    'claude-code'?: {
-      apiKey?: string
-      oauthToken?: string
-      model?: string
-    }
-    'ai-sdk'?: {
-      model: LanguageModel
-      reasoning?: 'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'
-    }
-  }
-  language?: string
-  fallback?: 'raw' | 'fail'
-  extraGuidelines?: string | {
-    global?: string
-    providerRelease?: string
-    twitter?: string
-    slack?: string
-  }
-  systemPromptOverrides?: {
-    providerRelease?: string
-    twitter?: string
-    slack?: string
-  }
-  providerRelease?: { enabled?: boolean }
-  social?: {
-    twitter?: { enabled?: boolean }
-    slack?: { enabled?: boolean }
-  }
-}
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  ai: {
+    language: 'en',
+    providerRelease: { enabled: true },
+    social: {
+      twitter: { enabled: true },
+      slack: { enabled: true },
+    },
+  },
+})
 ```
 
-## Defaults
-
-Relizy ships with sensible defaults that you can override selectively.
-
-| Field                            | Default         |
-| -------------------------------- | --------------- |
-| `provider`                       | `'claude-code'` |
-| `providers['claude-code'].model` | `'haiku'`       |
-| `language`                       | `'en'`          |
-| `fallback`                       | `'raw'`         |
-| `providerRelease.enabled`        | `false`         |
-| `social.twitter.enabled`         | `false`         |
-| `social.slack.enabled`           | `false`         |
-
-## `provider`
+## provider
 
 - **Type:** `'claude-code' | 'ai-sdk'`
 - **Default:** `'claude-code'`
 
-The AI provider to use. The provider layer is pluggable, see [Adding a new AI provider](#adding-a-new-ai-provider).
+- `claude-code`: Claude, through `@yoloship/claude-sdk` and the `claude` CLI.
+- `ai-sdk`: any model of the [Vercel AI SDK](https://ai-sdk.dev/) (OpenAI, Google, Mistral, Anthropic...), through `ai` and the package of the provider.
 
-### `claude-code`
+## providers
 
-Powered by [`@yoloship/claude-sdk`](https://www.npmjs.com/package/@yoloship/claude-sdk). It requires both the SDK package and the `claude` CLI binary on your `PATH`:
+Options of each provider, by name.
 
-```bash
-pnpm add -D @yoloship/claude-sdk
-npm install -g @anthropic-ai/claude-code
-```
+### claude-code {#providers-claude-code}
 
-### `ai-sdk`
-
-Uses any model of the [Vercel AI SDK](https://ai-sdk.dev/) (OpenAI, Google, Mistral, Anthropic, ...). Install `ai` and the package of your [provider](https://ai-sdk.dev/providers/ai-sdk-providers), then set its [`model`](#model-1):
-
-```bash
-pnpm add -D ai @ai-sdk/openai
-```
-
-## `providers['claude-code']`
-
-### `apiKey`
+#### apiKey
 
 - **Type:** `string`
-- **Default:** `process.env.RELIZY_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY`
+- **Default:** `tokens.ai['claude-code'].apiKey`, read from `RELIZY_ANTHROPIC_API_KEY` or `ANTHROPIC_API_KEY`
 
-Anthropic API key. Usually supplied via environment variable — see
-[Credential resolution](#credential-resolution).
+Anthropic API key.
 
-### `oauthToken`
+#### oauthToken
 
 - **Type:** `string`
-- **Default:** `process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN`
+- **Default:** `tokens.ai['claude-code'].oauthToken`, read from `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `CLAUDE_CODE_OAUTH_TOKEN`
 
-Claude Code OAuth token, used when you are signed in with `claude login`
-rather than an API key.
+Claude Code OAuth token.
 
-### `model`
+The API key and the OAuth token are resolved each on its own (this option, else `tokens.ai`, else the environment), and both are given to the Claude SDK. The safety check fails when neither is set. See [Tokens](./overview.md#tokens).
+
+#### model {#claude-code-model}
 
 - **Type:** `string`
 - **Default:** `'haiku'`
 
-Claude model alias or id. The Claude CLI accepts short aliases:
+Alias (`haiku`, `sonnet`, `opus`) or versioned id of the Claude model.
 
-- `'haiku'` — fastest, cheapest (default, recommended)
-- `'sonnet'` — balanced quality/cost
-- `'opus'` — highest quality, slower, more expensive
-- Or a fully versioned id like `'claude-sonnet-4-6'`
+### ai-sdk {#providers-ai-sdk}
 
-```ts
-export default defineConfig({
-  ai: {
-    providers: {
-      'claude-code': { model: 'sonnet' },
-    },
-  },
-})
-```
-
-## `providers['ai-sdk']`
-
-### `model`
+#### model {#ai-sdk-model}
 
 - **Type:** `LanguageModel`
 - **Required** with `provider: 'ai-sdk'`
 
-The model, created by the package of your provider:
-
-```ts
-import { openai } from '@ai-sdk/openai'
-
-export default defineConfig({
-  ai: {
-    provider: 'ai-sdk',
-    providers: {
-      'ai-sdk': { model: openai('gpt-5-mini') },
-    },
-  },
-})
-```
-
-To configure the provider (API key, base URL, headers), create your own instance. The options depend on the provider, see its [documentation](https://ai-sdk.dev/providers/ai-sdk-providers):
+A model of a provider package, or a model id of the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) (`'openai/gpt-5-mini'`, with `AI_GATEWAY_API_KEY`). Relizy does not read the credentials of this provider: the provider package reads its own environment variable (`OPENAI_API_KEY` for `@ai-sdk/openai`), or the options of an instance you create:
 
 ```ts
 import { createOpenAI } from '@ai-sdk/openai'
+import { defineConfig } from 'relizy'
 
 const openai = createOpenAI({ apiKey: process.env.MY_OPENAI_API_KEY })
 
@@ -170,127 +89,41 @@ export default defineConfig({
 })
 ```
 
-A model id of the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) also works without any provider package (e.g. `model: 'openai/gpt-5-mini'`, with the `AI_GATEWAY_API_KEY` environment variable).
+#### reasoning
 
-### `reasoning`
-
-- **Type:** `'provider-default' | 'none' | 'minimal' | 'low' | 'medium' | 'high' | 'xhigh'`
-- **Default:** `undefined` (the default of the provider applies)
+- **Type:** the `reasoning` option of `generateText()` of `ai` (`'provider-default'`, `'none'`, `'low'`, `'medium'`, `'high'`...)
+- **Default:** not sent, the default of the provider applies
 
 Reasoning effort, for the models that support it. A lower effort makes the rewrite faster and cheaper.
 
-```ts
-export default defineConfig({
-  ai: {
-    provider: 'ai-sdk',
-    providers: {
-      'ai-sdk': { model: openai('gpt-5-mini'), reasoning: 'low' },
-    },
-  },
-})
-```
-
-## Credential resolution
-
-### `claude-code`
-
-Credentials are resolved in this order; the **first match wins**:
-
-1. `config.ai.providers['claude-code'].apiKey` / `.oauthToken`
-2. `config.tokens.ai['claude-code'].apiKey` / `.oauthToken`
-3. `process.env.RELIZY_ANTHROPIC_API_KEY` → `process.env.ANTHROPIC_API_KEY`
-4. `process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN` → `process.env.CLAUDE_CODE_OAUTH_TOKEN`
-
-The `RELIZY_`-prefixed variants let you scope credentials without clashing
-with other tools that also read `ANTHROPIC_API_KEY`.
-
-```ts
-// Option 1: inline in ai.providers
-export default defineConfig({
-  ai: {
-    providers: {
-      'claude-code': { apiKey: 'sk-ant-...' },
-    },
-  },
-})
-
-// Option 2: grouped with other tokens
-export default defineConfig({
-  tokens: {
-    ai: {
-      'claude-code': { apiKey: 'sk-ant-...' },
-    },
-  },
-})
-
-// Option 3 (recommended for CI): env var only, no config needed
-// export RELIZY_ANTHROPIC_API_KEY=sk-ant-...
-```
-
-### `ai-sdk`
-
-Relizy does not handle the credentials of the `ai-sdk` provider: the package of your provider reads them, usually from its environment variable (e.g. `OPENAI_API_KEY` for `@ai-sdk/openai`, `GOOGLE_GENERATIVE_AI_API_KEY` for `@ai-sdk/google`), or from the options of a custom instance (see [`model`](#model-1)).
-
-## `language`
+## language
 
 - **Type:** `string`
 - **Default:** `'en'`
 
-Output language for the AI. ISO 639-1 code or English name both work —
-the value is substituted into the system prompt as-is.
+Language of the output, as an ISO 639-1 code (`fr`) or an English name (`French`). Only the prose is translated: the code, the identifiers, the package names and the section headings stay as they are. To translate the headings, set the `title` of the [`types`](./changelog.md#types).
 
-Only the prose is translated: the code, the option and package names, and the section headings stay as they are. To translate the headings, set the `title` of your [`types`](./changelog.md#commit-types).
-
-```ts
-export default defineConfig({
-  ai: { language: 'fr' },
-})
-```
-
-## `fallback`
+## fallback
 
 - **Type:** `'raw' | 'fail'`
 - **Default:** `'raw'`
 
-How Relizy reacts when an AI call fails (network, quota, invalid credentials).
+When a call fails (network, quota, credentials):
 
-| Value    | Behavior                                            |
-| -------- | --------------------------------------------------- |
-| `'raw'`  | Log a warning and use the unmodified changelog body |
-| `'fail'` | Re-throw the error — the release stops              |
+- `raw`: warn, and keep the text without AI. With several versions in a post, a version missing from the output also keeps its raw changelog.
+- `fail`: throw, and stop the command.
 
-`'raw'` is safe for most workflows — a release should not fail because
-Anthropic had a hiccup. Use `'fail'` in strict CI where AI-enhanced content
-is non-negotiable.
+## extraGuidelines
 
-## `extraGuidelines`
+- **Type:** `string | { global?: string, providerRelease?: string, twitter?: string, slack?: string }`
 
-- **Type:** `string | { global?, providerRelease?, twitter?, slack? }`
-- **Default:** `undefined`
-
-Free-form directives appended to the built-in prompts. This is the right
-place to add tone, vocabulary, or project-specific rules without rewriting
-the whole prompt. A string applies to every target.
-
-```ts
-export default defineConfig({
-  ai: {
-    extraGuidelines: [
-      'Never mention the internal project codename "Phoenix".',
-      'When a commit scope is "api", prefix the line with "API:".',
-    ].join('\n'),
-  },
-})
-```
-
-Use an object to scope directives to a target. The `global` directives apply
-to every target and come first, then the ones of the target:
+Directives appended to the built-in prompts. A string applies to every target. With an object, `global` applies to every target, then `providerRelease`, `twitter` or `slack` to its target:
 
 ```ts
 export default defineConfig({
   ai: {
     extraGuidelines: {
-      global: 'Never mention the internal project codename "Phoenix".',
+      global: 'Never mention the internal codename "Phoenix".',
       slack: 'Mention the team owning each change when the scope tells it.',
       twitter: 'Add the #opensource hashtag.',
     },
@@ -298,198 +131,70 @@ export default defineConfig({
 })
 ```
 
-## `systemPromptOverrides`
+## systemPromptOverrides
 
-- **Type:** `{ providerRelease?, twitter?, slack? }`
-- **Default:** `undefined`
+- **Type:** `{ providerRelease?: string, twitter?: string, slack?: string }`
 
-Fully replace the built-in prompt for a single target. When set for a
-target, the base prompt, platform prompt, and `extraGuidelines` are all
-ignored for that target — the override owns the full instruction.
+Replaces the whole built-in prompt of a target: the base prompt, the prompt of the platform and the `extraGuidelines` are not sent for it. Prefer `extraGuidelines` to add rules.
 
-Supports the same placeholders as built-in prompts: `{{language}}` and
-`{{maxLength}}` (the length budget of Twitter posts and of Slack posts in
-`summary` format).
+Placeholders:
 
-The changelog comes in a `<changelog>` tag, after a `<release-context>` tag giving the project, the version, the previous one and the kind of release when they are known: your prompt can refer to both.
+- <code v-pre>{{language}}</code>: [`language`](#language);
+- <code v-pre>{{maxLength}}</code>: the length budget of the post. On Twitter, what the template leaves within `social.twitter.postMaxLength`. On Slack, `social.slack.postMaxLength`, else 2500 in `summary` format; in `full` format without `postMaxLength`, there is no budget and the placeholder is left as is.
+
+The model receives the changelog in a `<changelog>` tag, after a `<release-context>` tag (project, version, previous version and kind of release, when known). When a post announces several versions, each changelog is sent in a `<release id="..." title="...">` element, and the instructions to answer one `<release id="...">` element per version are always appended, overridden prompt or not.
 
 ```ts
 export default defineConfig({
   ai: {
     systemPromptOverrides: {
-      providerRelease: 'Rewrite the changelog as a blog post with headers.',
-      twitter: 'Write one hype tweet, max {{maxLength}} chars, no hashtags.',
-      // slack left untouched — uses the built-in prompt
+      twitter: 'Write one tweet of at most {{maxLength}} characters, in {{language}}, without hashtag.',
     },
   },
 })
 ```
 
-::: warning
-Overrides replace **everything**. If you only want to add rules on top of
-the defaults, use `extraGuidelines` instead.
-:::
+## providerRelease
 
-When a post announces several versions ([version groups](../guide/version-groups.md#one-release-presented-by-group), or several packages in `independent` mode), the changelog of each version is sent in a `<release id="..." title="...">` element, and the instructions to rewrite each one in a `<release id="...">` element are always appended to the prompt, overridden or not: Relizy reads the output back version by version, and keeps the raw changelog of a version missing from it.
-
-## `providerRelease.enabled`
+### enabled {#providerrelease-enabled}
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Turns AI rewriting on for GitHub and GitLab release bodies. The compare
-link (top) and contributors section (bottom) never pass through AI — only
-the middle "changes" body.
+Rewrite the body of the GitHub and GitLab releases: the changes only, the compare link and the contributors are kept as generated. One call per provider release (one per package of an `independent` release).
+
+A [version group](./monorepo.md#groups) can override it with its own `ai.providerRelease`, e.g. to create the releases of an `independent` group without AI:
 
 ```ts
 export default defineConfig({
-  ai: {
-    providerRelease: { enabled: true },
+  ai: { providerRelease: { enabled: true } },
+  monorepo: {
+    groups: [
+      { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+      { name: 'tooling', versionMode: 'independent', packages: ['tooling/*'], ai: { providerRelease: { enabled: false } } },
+    ],
   },
 })
 ```
 
-## `social.twitter.enabled` / `social.slack.enabled`
+## social
 
-- **Type:** `boolean`
-- **Default:** `false`
+### twitter {#social-twitter}
 
-Turns AI rewriting on per social platform. Twitter receives a plain-text
-output capped at `social.twitter.postMaxLength`; Slack receives a short
-Slack-flavored markdown block.
+- **Type:** `{ enabled?: boolean }`
+- **Default:** `{ enabled: false }`
 
-```ts
-export default defineConfig({
-  ai: {
-    social: {
-      twitter: { enabled: true },
-      slack: { enabled: false }, // keep Slack raw
-    },
-  },
-})
-```
+Rewrite the changelog of the tweet as plain text, within its length budget. Only when `social.twitter.enabled` is also `true`.
 
-## Complete examples
+### slack {#social-slack}
 
-### Minimal — all targets on
+- **Type:** `{ enabled?: boolean }`
+- **Default:** `{ enabled: false }`
 
-```ts
-import { defineConfig } from 'relizy'
+Rewrite the changelog of the Slack message. The model writes standard markdown (never Slack mrkdwn), that Relizy converts with the [`changelogFormat`](./social.md#slack-changelogformat) of the message: 3 to 8 bullets in `summary` format, every change in `full` format. Only when `social.slack.enabled` is also `true`.
 
-export default defineConfig({
-  ai: {
-    providerRelease: { enabled: true },
-    social: {
-      twitter: { enabled: true },
-      slack: { enabled: true },
-    },
-  },
-})
-```
+One call per enabled platform and per release, even when the post announces several versions.
 
-With `RELIZY_ANTHROPIC_API_KEY` (or `ANTHROPIC_API_KEY`) set in the
-environment, nothing else is required.
+## CLI
 
-### GitHub + Twitter only, strict CI mode
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  ai: {
-    fallback: 'fail',
-    providerRelease: { enabled: true },
-    social: {
-      twitter: { enabled: true },
-    },
-    extraGuidelines: 'Lead with breaking changes when present.',
-  },
-})
-```
-
-### French output with a custom model
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  ai: {
-    language: 'fr',
-    providers: {
-      'claude-code': { model: 'sonnet' },
-    },
-    providerRelease: { enabled: true },
-    social: {
-      slack: { enabled: true },
-    },
-  },
-})
-```
-
-## Adding a new AI provider
-
-The `ai` system is a small registry of providers behind a single interface.
-Adding a provider means:
-
-### 1. Implement `AIProvider`
-
-Create `src/core/ai/providers/my-provider.ts`:
-
-```ts
-import type { ResolvedRelizyConfig } from '../../config'
-import type { AIGenerateRequest, AIProvider } from '../provider'
-
-export const myProvider: AIProvider = {
-  name: 'my-provider',
-
-  async safetyCheck(config) {
-    // Throw an actionable error when auth or dependencies are missing.
-  },
-
-  async generate(config, request) {
-    // Call your model with request.systemPrompt and
-    // wrapChangelogPrompt(request.prompt, request.context) (../prompts).
-    // Honor request.maxLength for Twitter-like targets.
-    // Return the trimmed output, with the tokens and the cost when known:
-    // { text, usage: { inputTokens, outputTokens, costUsd } }
-  },
-}
-```
-
-### 2. Register it
-
-In `src/core/ai/registry.ts`:
-
-```ts
-import { myProvider } from './providers/my-provider'
-
-const providers = {
-  'claude-code': claudeCodeProvider,
-  'my-provider': myProvider,
-}
-```
-
-### 3. Extend types
-
-In `src/types.ts`:
-
-```ts
-export type AIProviderName = 'claude-code' | 'my-provider'
-
-export interface AIConfig {
-  providers?: {
-    'claude-code'?: ClaudeCodeProviderOptions
-    'my-provider'?: MyProviderOptions
-  }
-  // ...
-}
-```
-
-That's it — the engine, call-sites, and CLI flags work unchanged.
-
-## See also
-
-- [AI-Enhanced Changelogs guide](/guide/ai-changelog) — getting started walkthrough
-- [Provider release CLI](/cli/provider-release) — `--ai` / `--no-ai` flags
-- [Social CLI](/cli/social) — social-specific flags
-- [Social config](/config/social) — Twitter/Slack settings
+`--ai` and `--no-ai` of `relizy release`, `relizy provider-release` and `relizy social` turn every target on or off for the run. A dry run never calls the AI, unless `--ai-preview`: see [Dry Run](./../guide/ai-changelog.md#dry-run).

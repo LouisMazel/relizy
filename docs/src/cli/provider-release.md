@@ -1,9 +1,9 @@
 ---
 title: provider-release
-description: Create releases on GitHub, GitLab, and Bitbucket.
-keywords: relizy provider release, github release, gitlab release, bitbucket release, git release, release notes
+description: Create the GitHub or GitLab releases of the current versions, with their changelog as release notes.
+keywords: relizy provider release, github release, gitlab release, release notes, git provider token, ai release notes
 category: CLI Reference
-tags: [cli, provider-release, github, gitlab, bitbucket, releases]
+tags: [cli, provider-release, github, gitlab, releases]
 ---
 
 # {{ $frontmatter.title }}
@@ -16,153 +16,38 @@ tags: [cli, provider-release, github, gitlab, bitbucket, releases]
 relizy provider-release [options]
 ```
 
-## What It Does
+`provider-release` is a [step of `release`](./release.md#steps), after the push: the tags of the releases must be on the remote. Alone, it creates the release of the current version (one per package in `independent` mode), with the changelog of the commits since the previous release tag as notes. A prerelease version is marked as a prerelease.
 
-The `provider-release` command:
-
-1. ✅ Creates a release on GitHub/GitLab
-2. ✅ Uses changelog as release notes
-3. ✅ Attaches git tag
-4. ❌ Does NOT bump versions
-5. ❌ Does NOT publish to npm
+The provider is detected from the URL of the `origin` remote: `github` or `gitlab`. On Bitbucket, which has no release API, the step creates nothing (the tags of the release are its only trace). The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`, `--no-safety-check`...).
 
 ## Options
 
-### --from
+| Flag                    | Description                                                                    | Config                                     |
+| ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
+| `--from <ref>`          | Start of the commit range (tag or commit), instead of the previous release tag | [`from`](./../config/overview.md#from)     |
+| `--to <ref>`            | End of the commit range                                                        | [`to`](./../config/overview.md#to)         |
+| `--provider <provider>` | `github` or `gitlab`, instead of the detected one                              | -                                          |
+| `--token <token>`       | Token of the git provider                                                      | [`tokens`](./../config/overview.md#tokens) |
+| `--ai`, `--no-ai`       | Force or disable the AI rewrite of the release notes                           | [AI](./../config/ai.md)                    |
 
-Start release from specific tag:
+Without `--token`, the token comes from the config or the environment (`GITHUB_TOKEN`, `GITLAB_TOKEN`...), see [Tokens](./../config/overview.md#tokens). See [AI-Enhanced Changelogs](./../guide/ai-changelog.md) for the AI release notes.
 
-```bash
-relizy provider-release --from v1.0.0
-```
-
-### --to
-
-End release at specific tag:
-
-```bash
-relizy provider-release --to v2.0.0
-```
-
-### --token
+## Examples
 
 ```bash
-relizy provider-release --token your_token
+# Preview the release notes
+relizy provider-release --dry-run
+
+# On GitLab, with a token
+relizy provider-release --provider gitlab --token "$GITLAB_TOKEN"
+
+# Without the AI rewrite set in the config
+relizy provider-release --no-ai
 ```
-
-### --provider
-
-```bash
-relizy provider-release --provider github
-```
-
-### GitHub Release
-
-```bash
-relizy provider-release --provider github --token your_token
-
-# Creates release at:
-# https://github.com/user/repo/releases/tag/v1.0.0
-```
-
-### GitLab Release
-
-```bash
-relizy provider-release --provider gitlab --token your_token
-
-# Creates release at:
-# https://gitlab.com/user/repo/-/releases/v1.0.0
-```
-
-### --ai / --no-ai
-
-Force-enable or force-disable AI enhancement for release notes:
-
-```bash
-# Force AI-enhanced release notes
-relizy provider-release --ai --provider github --token your_token
-
-# Force disable AI (even if enabled in config)
-relizy provider-release --no-ai --provider github --token your_token
-```
-
-These flags override the `ai.providerRelease` setting in your config file. See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
-
-### Pre-release
-
-```bash
-relizy provider-release --prerelease
-
-# Mark as pre-release (beta, alpha, rc)
-```
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
-
-```bash
-relizy provider-release --group header
-relizy provider-release --group main,header
-```
-
-## Bitbucket Support
-
-Bitbucket is partially supported with some limitations:
-
-::: warning Bitbucket Limitations
-Bitbucket Cloud does not provide an API for creating releases. When using Bitbucket:
-
-- **Release creation is skipped** - No releases will be created
-- **Git tags are still created** - During the commit step
-- **All other features work** - Versioning, changelog, publishing, and social media posting
-
-Relizy will detect Bitbucket automatically and show a warning that release creation is skipped.
-:::
-
-```bash
-# With Bitbucket, this skips release creation but everything else works
-relizy provider-release --provider bitbucket
-
-# You can still use the full release workflow
-relizy release --patch
-# ✅ Versions bumped
-# ✅ Changelog generated
-# ✅ Git tag created
-# ⚠️  Release creation skipped (Bitbucket limitation)
-# ✅ Published to npm
-# ✅ Posted to social media
-```
-
-### Bitbucket Workarounds
-
-While you can't create releases via API, you can still:
-
-1. **Use Git tags** - Tags are created and pushed normally
-2. **View tags on Bitbucket** - At `https://bitbucket.org/user/repo/commits/tag/v1.0.0`
-3. **Use Bitbucket Pipelines** - Automate the release workflow
-4. **Social media announcements** - Keep users informed via Twitter/Slack
-
-## Authentication
-
-### GitHub
-
-```bash
-relizy provider-release --provider github --token ghp_xxxxx --prerelease
-```
-
-Create token at: Settings → Developer settings → Personal access tokens
-
-### GitLab
-
-```bash
-relizy provider-release --provider gitlab --token glpat-xxxxx
-```
-
-Create token at: Settings → Access Tokens
 
 ## See Also
 
-- [release](/cli/release) - Full release workflow
-- [AI-Enhanced Changelogs](/guide/ai-changelog) - AI-powered release notes
-- [AI Configuration](/config/ai) - AI settings reference
-- [CI/CD Setup](/guide/ci-cd) - Automate provider releases
+- [release](./release.md)
+- [GitHub Actions](./../guide/github-actions.md), [GitLab CI](./../guide/gitlab-ci.md)
+- [AI config](./../config/ai.md)
+- [`providerRelease()`](./../api/provider-release.md)

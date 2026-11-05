@@ -132,7 +132,7 @@ With `onlyStable` (the default of Slack), a post announcing several versions lea
 
 ### Arrays Replace the Defaults
 
-An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `--dependency-types devDependencies` could only add to the list of the config, and `relizy release` passed every `publish.args` twice.
+An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file, and `relizy release` passed every `publish.args` twice.
 
 If you set `bump.dependencyTypes` (globally or on a version group) without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
 
@@ -147,7 +147,7 @@ export default defineConfig({
 
 ### Changelog Linter of commitlint
 
-`commitlint.codeBlocksLinter` is renamed [`commitlint.changelogLinter`](../commitlint/config.md#changeloglinter), with the same values: with ESLint, it checks the whole changelog entry of the commit, not only its code blocks. The type `CommitlintCodeBlocksLinter` is renamed `CommitlintChangelogLinter`.
+`commitlint.codeBlocksLinter` is renamed [`commitlint.changelogLinter`](./../commitlint/config.md#changeloglinter), with the same values: with ESLint, it checks the whole changelog entry of the commit, not only its code blocks. The type `CommitlintCodeBlocksLinter` is renamed `CommitlintChangelogLinter`.
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -161,7 +161,7 @@ export default defineConfig({
 
 ### Private Packages
 
-`monorepo.includePrivates` is renamed [`monorepo.privatePackages`](../config/monorepo.md#privatepackages), with named values: `ignore` (default) or `release`. The `--include-private` flag of `bump`, `changelog` and `release` becomes `--private-packages <mode>`, and the `includePrivates` option of `bump()`, `changelog()` and `release()` becomes `privatePackages`.
+`monorepo.includePrivates` is renamed [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages), with named values: `ignore` (default) or `release`. The `--include-private` flag of `bump`, `changelog` and `release` becomes `--private-packages <mode>`, and the `includePrivates` option of `bump()`, `changelog()` and `release()` becomes `privatePackages`.
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -180,11 +180,11 @@ relizy release --private-packages release
 
 ### Removed publish.private
 
-`publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.privatePackages: 'release'`](../config/monorepo.md#privatepackages) to release them.
+`publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.privatePackages: 'release'`](./../config/monorepo.md#privatepackages) to release them.
 
 ### AI Attribution in Commits
 
-`relizy commitlint` has a new rule, [`no-ai-attribution`](../commitlint/rules.md#no-ai-attribution), on by default (`error`): it rejects the commits crediting an AI tool, with an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer or a "Generated with" line. Turn off the attribution in the settings of your AI tools, or turn off the rule:
+`relizy commitlint` has a new rule, [`no-ai-attribution`](./../commitlint/rules.md#no-ai-attribution), on by default (`error`): it rejects the commits crediting an AI tool, with an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer or a "Generated with" line. Turn off the attribution in the settings of your AI tools, or turn off the rule:
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -206,7 +206,7 @@ The changelogs no longer show the git trailers of the commit bodies (`Co-authore
 
 ### New Output
 
-The commands show one line per step and end with what they did, the details only with `--log-level verbose` (see [Output](../cli/commands.md#output)). In CI, the logs of each step are in a collapsible group. The banner is only shown by `relizy init`. A script reading the output of relizy 1 can set `RELIZY_REPORTER=classic`, or read the [report](../config/release.md#report) of the release instead.
+The commands show one line per step and end with what they did, the details only with `--log-level verbose` (see [Output](./../cli/commands.md#output)). In CI, the logs of each step are in a collapsible group. The banner is only shown by `relizy init`. A script reading the output of relizy 1 can set `RELIZY_REPORTER=classic`, or read the [report](./../config/release.md#report) of the release instead.
 
 ### Interactive Prompts
 
@@ -214,7 +214,7 @@ The prompts use [@clack/prompts](https://github.com/bombshell-dev/clack) instead
 
 ### Release Summary
 
-`relizy release` ends with a summary of the release: what it contains, what each step did, with the links of what it created (npm pages, provider releases, tweet, pull request), the AI rewrites and the install command. The PR comment of a release, the summary of the GitHub Actions run and the new [`release.report.markdown`](../config/release.md#report) file are this summary, and the report gets the outputs `branch`, `commit`, `dist_tags`, `urls`, `install` and, on GitHub Actions, `summary`. Check the PR comment if a tool reads it.
+`relizy release` ends with a summary of the release: what it contains, what each step did, with the links of what it created (npm pages, provider releases, tweet, pull request), the AI rewrites and the install command. The PR comment of a release, the summary of the GitHub Actions run and the new [`release.report.markdown`](./../config/release.md#report) file are this summary, and the report gets the outputs `branch`, `commit`, `dist_tags`, `urls`, `install` and, on GitHub Actions, `summary`. Check the PR comment if a tool reads it.
 
 ### No AI Call in Dry Run
 
@@ -245,27 +245,27 @@ catch (error) {
 
 ### Public API
 
-`relizy` only exports the functions of the [programmatic API](../api/usage.md) and the types:
+`relizy` only exports the functions of the [programmatic API](./../api/usage.md) and the types:
 
 - The commands: `release()`, `bump()`, `changelog()`, `publish()`, `providerRelease()`, `social()`, `prComment()`, `commitlint()`
 - The config: `defineConfig()`, `loadRelizyConfig()`
 - The errors: `RelizyCancelError`, `isRelizyCancelError()`
 - The commit linter: `lintCommitMessage()`
-- The types of the config, of the options and of the results (`RelizyConfig`, `ReleaseOptions`, `BumpResult`, `ReleaseReport`, `HookContext`...)
+- The types of the config, of the options and of the results (`RelizyConfig`, `RelizyConfigOverrides`, `LoadRelizyConfigOptions`, `ReleaseOptions`, `BumpResult`, `ReleaseReport`, `HookContext`...)
 
 The other functions were internal steps of the commands, and are no longer exported:
 
-| Removed                                                                                                                                                  | Instead                                                                                                                                            |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createCommitAndTags()`, `pushCommitAndTags()`                                                                                                           | `release()`, with its `commit`, `gitTag` and `push` options                                                                                        |
-| `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`                                                                                         | `bump()`, with `dryRun` to preview it                                                                                                              |
-| `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()` | `social()`, and the [templates](../config/social.md) of the posts. A hook gets the packages and versions of the release in its `release` parameter |
-| `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`                                                                    | The report returned by `release()`, see [Release report](#release-report)                                                                          |
-| `generateChangelog()`, `generateMarkDown()`                                                                                                              | `changelog()`                                                                                                                                      |
-| `getDefaultConfig()`, `mergeTypes()`                                                                                                                     | `loadRelizyConfig()`, which returns the config with its defaults (`config.types`...)                                                               |
-| `isPrerelease()`                                                                                                                                         | `prerelease()` of [semver](https://github.com/npm/node-semver)                                                                                     |
-| `init()`                                                                                                                                                 | `relizy init`                                                                                                                                      |
-| The helpers of git, npm, the tags, the versions, the dependencies, Slack and X                                                                           | The commands, or the CLI                                                                                                                           |
+| Removed                                                                                                                                                  | Instead                                                                                                                                              |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createCommitAndTags()`, `pushCommitAndTags()`                                                                                                           | `release()`, with its `commit`, `gitTag` and `push` options                                                                                          |
+| `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`                                                                                         | `bump()`, with `dryRun` to preview it                                                                                                                |
+| `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()` | `social()`, and the [templates](./../config/social.md) of the posts. A hook gets the packages and versions of the release in its `release` parameter |
+| `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`                                                                    | The report returned by `release()`, see [Release report](#release-report)                                                                            |
+| `generateChangelog()`, `generateMarkDown()`                                                                                                              | `changelog()`                                                                                                                                        |
+| `getDefaultConfig()`, `mergeTypes()`                                                                                                                     | `loadRelizyConfig()`, which returns the config with its defaults (`config.types`...)                                                                 |
+| `isPrerelease()`                                                                                                                                         | `prerelease()` of [semver](https://github.com/npm/node-semver)                                                                                       |
+| `init()`                                                                                                                                                 | `relizy init`                                                                                                                                        |
+| The helpers of git, npm, the tags, the versions, the dependencies, Slack and X                                                                           | The commands, or the CLI                                                                                                                             |
 
 ```ts
 // v1
@@ -278,7 +278,7 @@ const types = Object.keys(config.types)
 
 ### Release Report
 
-`release()` returns the [report of the release](../config/release.md#report) instead of nothing, and `buildReleaseSummary()` is removed. The summary of the release is written to the outputs and the summary of GitHub Actions, and with `release.report`, to a markdown, JSON or dotenv file (GitLab CI).
+`release()` returns the [report of the release](./../config/release.md#report) instead of nothing, and `buildReleaseSummary()` is removed. The summary of the release is written to the outputs and the summary of GitHub Actions, and with `release.report`, to a markdown, JSON or dotenv file (GitLab CI).
 
 ```ts
 const report = await release({ yes: true })
@@ -294,7 +294,7 @@ if (report.released) {
 
 ### Hook Context
 
-The function hooks of the steps after the bump get a third parameter when the release is known: its `bumpResult`, and its `release` (the packages and versions by version group). Optional, nothing to change. See [Hooks](../config/hooks.md#parameters).
+The function hooks of the steps after the bump get a third parameter when the release is known: its `bumpResult`, and its `release` (the packages and versions by version group). Optional, nothing to change. See [Hooks](./../config/hooks.md#parameters).
 
 ## Fixes
 

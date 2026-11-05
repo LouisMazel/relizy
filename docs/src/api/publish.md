@@ -1,7 +1,7 @@
 ---
 title: publish()
-description: Publish packages to npm programmatically.
-keywords: relizy publish api, npm publish api, programmatic publishing, package publishing api
+description: Publish the packages to the registry from Node.js.
+keywords: relizy publish api, npm publish api, programmatic publishing, PublishOptions, PublishResponse, dist-tag
 category: API Reference
 tags: [api, publish, npm, registry, typescript]
 ---
@@ -10,70 +10,46 @@ tags: [api, publish, npm, registry, typescript]
 
 {{ $frontmatter.description }}
 
-## Signature
-
 ```ts
-function publish(options?: PublishOptions): Promise<void>
+function publish(options?: Partial<PublishOptions>): Promise<PublishResponse | undefined>
 ```
+
+`publish()` runs [`relizy publish`](./../cli/publish.md): it checks the registry access and the `workspace:` dependencies, runs the build command when one is set, and publishes the public packages in dependency order. It returns `{ publishedPackages }`, or `undefined` when there is no package to publish.
 
 ## Options
 
-```ts
-interface PublishOptions {
-  registry?: string
-  /**
-   * Additional registries to publish to, on top of `registry`. See the
-   * [publish config reference](../config/publish.md#registries) for details.
-   * @default undefined
-   */
-  registries?: RegistryTarget[]
-  tag?: string
-  access?: 'public' | 'restricted'
-  otp?: string
-  /**
-   * Glob pattern matching for packages to publish.
-   * @default undefined
-   */
-  packages?: string[]
-  /**
-   * Command to build your packages before publishing.
-   * @default undefined
-   */
-  buildCmd?: string
+The flags of [`relizy publish`](./../cli/publish.md#options), camelCased, and the [shared options](./usage.md#shared-options). Each overrides its [publish config](./../config/publish.md) option:
 
-  dryRun?: boolean
-  config?: ResolvedRelizyConfig
-  bumpedPackages?: PackageInfo[]
-  logLevel?: LogLevel
-  configName?: string
-  /**
-   * Check the `workspace:` dependencies before publishing. See the
-   * [publish config reference](../config/publish.md#checkworkspacedependencies).
-   * @default true
-   */
-  checkWorkspaceDependencies?: boolean
-  /**
-   * Only process these version groups of `monorepo.groups`, by name
-   * @default undefined (every group)
-   */
-  groups?: string[]
+| Option                       | Description                                                                                         |
+| ---------------------------- | --------------------------------------------------------------------------------------------------- |
+| `bumpResult`                 | `BumpResultTruthy`, the result of [`bump()`](./bump.md): publishes the bumped packages              |
+| `registry`, `registries`     | The registry, and the [additional registries](./../config/publish.md#registries)                    |
+| `tag`                        | The dist-tag: `latest` for a stable version, `next` for a prerelease by default                     |
+| `access`, `otp`              | `'public'` or `'restricted'`, and the one-time password of the registry                             |
+| `buildCmd`                   | Command run before publishing                                                                       |
+| `token`                      | Registry token, for npm, pnpm and bun                                                               |
+| `skipExistingVersions`       | Skips the versions already on the registry instead of failing                                       |
+| `checkWorkspaceDependencies` | Overrides [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies) |
+| `safetyCheck`                | `false` skips the registry access check                                                             |
+| `force`, `suffix`            | Without `bumpResult`, as for [`bump()`](./bump.md)                                                  |
+
+`PublishOptions` also has `args`, `packageManager` and `safetyCheckTimeout`, which `publish()` does not override: set them in the [config](./../config/publish.md). Its `packages` field is not read. See [PublishOptions](./../typedoc/interfaces/PublishOptions.md).
+
+## Examples
+
+```ts
+import { bump, publish } from 'relizy'
+
+const bumpResult = await bump({ yes: true })
+
+if (bumpResult.bumped) {
+  const response = await publish({ bumpResult, tag: 'next', buildCmd: 'pnpm build' })
+
+  console.log(response?.publishedPackages.map(pkg => pkg.name))
 }
-```
-
-## Example
-
-```ts
-import { publish } from 'relizy'
-
-await publish({
-  tag: 'latest',
-  access: 'public',
-  dryRun: false,
-  buildCmd: 'pnpm build',
-})
 ```
 
 ## See Also
 
-- [CLI reference](../cli/publish.md)
-- [API usage](usage.md)
+- [`relizy publish`](./../cli/publish.md)
+- [Publish config](./../config/publish.md)

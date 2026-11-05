@@ -1,78 +1,68 @@
 ---
 title: PR Comments
-description: Automatically post release information as comments on your pull requests and merge requests with Relizy.
-keywords: pr comment, pull request comment, merge request comment, release notification, github pr, gitlab mr, relizy pr comment
+description: Post the summary of each release on the pull request or merge request it comes from, on GitHub and GitLab, with Relizy.
+keywords: pr comment, pull request comment, merge request comment, release comment, github pr, gitlab mr, pr-number, relizy pr comment
 category: Guide
-tags: [pr-comment, github, gitlab, pull-request, merge-request, automation, notifications]
+tags: [guide, pr-comment, github, gitlab, pull-request, merge-request]
 ---
 
-# PR Comments
+# {{ $frontmatter.title }}
 
-Relizy can automatically post a comment on your pull request or merge request with release information after running `relizy release`. This keeps your team informed about what was released directly in the PR/MR where the work happened.
+{{ $frontmatter.description }}
 
 ## How It Works
 
-When you run the `release` command (or use the standalone `pr-comment` command), Relizy will:
+`relizy release` comments the pull request as its last step (see [the steps of a release](./../cli/release.md#steps)), when [`release.prComment`](./../config/release.md#steps) is `true` (the default). `--no-pr-comment` skips it. [`relizy pr-comment`](./../cli/pr-comment.md) posts a comment on its own.
 
-1. 🔍 Detect the current PR/MR from the git branch
-2. 📝 Build a comment with release information
-3. 💬 Post it as a comment on the PR/MR
+A comment that cannot be posted (no pull request, no token, an API error) is reported with a warning: it never fails the release.
 
-PR comment posting is part of the release workflow and runs after:
+By default, Relizy edits its previous comment on the pull request instead of adding one: see [`prComment.mode`](./../config/pr-comment.md#mode).
 
-- Version bumping
-- Changelog generation
-- Git commit and tag creation
-- Provider release (GitHub/GitLab)
-- npm publishing
-- Social media posting
+## Finding the Pull Request
 
-## Comment Statuses
+Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, or the `origin` remote). It finds nothing:
 
-Relizy generates different comments depending on the release outcome:
+- once the pull request is merged or closed, e.g. in a job running on the push to `main`;
+- on a detached `HEAD` (a CI checking out a commit);
+- for a pull request opened from a fork;
+- on Bitbucket, not supported.
 
-### ✅ Success
+Give the number with `--pr-number` in these cases:
 
-With `relizy release`, the comment is the **summary of the release**, as at the end of the terminal output and in the summary of the GitHub Actions run (see [`release.report`](/config/release#report)):
-
-- The versions and tags
-- What the release contains: features, fixes, breaking changes, contributors
-- Each step and what it did, with the links of what it created: the npm pages (with the dist-tag and the registry), the GitHub or GitLab releases, the tweet
-- The AI rewrites, the install command
-- The package table with version transitions (private packages are listed with [`monorepo.privatePackages: 'release'`](/config/monorepo#privatepackages)). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
-
-::: info Projects that publish nothing
-The install command is only shown for packages that are actually published: it is omitted when `release.publish` is `false`, and never shown for private packages. See [Private Projects & Apps](/guide/private-projects).
-:::
-
-Example:
-
-```markdown
-## 🚀 Released relizy 2.0.0
-
-|                         |                                                                                            |
-| ----------------------- | ------------------------------------------------------------------------------------------ |
-| **Version**             | `2.0.0`                                                                                    |
-| **Tag**                 | `v2.0.0`                                                                                   |
-| **Content**             | 11 features · 7 fixes · 7 breaking · 2 contributors                                        |
-| ✅ **Changelog**        | done                                                                                       |
-| ✅ **Publish**          | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |
-| ✅ **Commit and tags**  | a1b2c3d · v2.0.0                                                                           |
-| ✅ **Push**             | main → origin/main                                                                         |
-| ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/LouisMazel/relizy/releases/tag/v2.0.0)  |
-| ✨ **AI**               | 1 rewrite by claude-code in 27.4s · 8.2k tokens · $0.031                                   |
-| **Install**             | `pnpm add relizy@2.0.0`                                                                    |
-
-### Packages
-
-| Package  | Version            |
-| -------- | ------------------ |
-| `relizy` | `1.14.3` → `2.0.0` |
+```bash
+pnpm exec relizy release --yes --pr-number 42
 ```
 
-With version groups, one table per group:
+```yaml
+# GitHub Actions, in a workflow triggered by pull_request
+- run: pnpm exec relizy release --yes --pr-number ${{ github.event.pull_request.number }}
+```
+
+Without pull request, the comment is skipped with the warning `No PR/MR detected. Use --pr-number to specify one manually.`
+
+## Tokens
+
+The comment uses the token of the provider releases (`tokens.github` or `tokens.gitlab`, else `repo.token`): see [Tokens](./../config/overview.md#tokens).
+
+- **GitHub**: the token needs the permission to comment the pull requests. With the `GITHUB_TOKEN` of GitHub Actions, grant `pull-requests: write` to the job (see [GitHub Actions](./github-actions.md)).
+- **GitLab**: the token is sent in the `PRIVATE-TOKEN` header: use a project or personal access token with the `api` scope (see [GitLab CI](./gitlab-ci.md)).
+
+A self-hosted instance is reached on the domain of `repo` (`https://<domain>/api/v3` for GitHub Enterprise, `https://<domain>/api/v4` for GitLab).
+
+## The Comment of a Release
+
+With `relizy release`, the comment is the **summary of the release**, the same as the end of the terminal output and the summary of the GitHub Actions run (see [`release.report`](./../config/release.md#report)):
+
+- a title: `🚀 Released <name> <version>`, `🧪 Dry run: <name> <version>`, `ℹ️ Nothing to release` or `❌ Release failed` with the error;
+- a table: the versions, the tags, what the release contains (`3 features · 2 fixes · 1 contributor`), each step with its status and the links of what it created (npm pages, provider releases, tweet), the AI rewrites and the install command;
+- the packages and their versions: one table, or one per [version group](./version-groups.md) titled with its `title`, its version and its version mode, the `unified`/`selective` group first;
+- a footer: the branch, the date, and a link to Relizy.
 
 ```markdown
+## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0
+
+...
+
 ### maz-ui `5.2.1` (selective)
 
 | Package       | Version           |
@@ -87,197 +77,31 @@ With version groups, one table per group:
 | `@maz-ui/eslint-config` | `5.0.0` → `5.1.0` |
 ```
 
-`relizy pr-comment` on its own (without a release) comments the versions, the tags, the dist-tag and the install commands of the packages.
+When nothing is released, the comment says so (`No commit since the last release triggers a new version.`). When the release fails, it shows the error and the steps done before it.
 
-### ℹ️ No Release
+The private packages are listed only with [`monorepo.privatePackages: 'release'`](./../config/monorepo.md#privatepackages), and never get an install command: see [Private Projects](./private-projects.md).
 
-When no qualifying commits exist (nothing to release):
+## The Comment of `relizy pr-comment`
 
-```markdown
-## ℹ️ Nothing to release
+Without a release, `relizy pr-comment` comments the current state of the project, read from the `package.json` files:
 
-No commit since the last release triggers a new version.
-```
-
-### ❌ Failed
-
-When the release fails, the error and the steps done before it:
-
-```markdown
-## ❌ Release failed
-
-> Failed to publish to npm
-```
-
-## Comment Modes
-
-Relizy supports two comment modes:
-
-### Append Mode
-
-In `append` mode, Relizy creates a **new comment** each time. This is useful when you want a full history of release attempts on the PR.
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  prComment: {
-    mode: 'append',
-  },
-})
-```
-
-### Update Mode (Default)
-
-In `update` mode, Relizy **finds and updates** an existing comment instead of creating a new one. It uses a hidden HTML marker (`<!-- relizy-pr-comment -->`) to identify its previous comment.
-
-If no previous comment is found, it creates a new one.
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  prComment: {
-    mode: 'update',
-  },
-})
-```
-
-::: tip
-`update` is the default: only one Relizy comment ever appears on the PR. Use `append` to keep a comment per release attempt.
-:::
-
-## Supported Providers
-
-| Provider | API         | Enterprise/Self-hosted |
-| -------- | ----------- | ---------------------- |
-| GitHub   | REST API v3 | ✅ Supported           |
-| GitLab   | API v4      | ✅ Supported           |
-
-Relizy automatically detects the provider from your git remote URL.
-
-## PR Detection
-
-Relizy auto-detects the PR/MR number from the current git branch by querying the provider's API. You can also manually specify the PR number:
-
-```bash
-# Auto-detect PR from current branch
-relizy pr-comment
-
-# Manually specify PR number
-relizy pr-comment --pr-number 42
-```
-
-::: tip
-In CI/CD environments like GitHub Actions, you can pass the PR number from the environment:
-
-```bash
-relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
-```
-
-:::
-
-## Standalone vs Release Integration
-
-### As Part of Release Workflow
-
-PR commenting is **enabled by default** in the release workflow. Just run:
-
-```bash
-relizy release --patch
-```
-
-To disable it:
-
-```bash
-relizy release --patch --no-pr-comment
-```
-
-Or in your config:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    prComment: false,
-  },
-})
-```
-
-### Standalone Command
-
-You can also post PR comments independently:
-
-```bash
-# Post a PR comment about the current state
-relizy pr-comment
-
-# Preview without posting
-relizy pr-comment --dry-run
-```
-
-## Authentication
-
-PR comments use the same tokens as provider releases:
-
-### GitHub
-
-```bash
-# Any of these (checked in order):
-export RELIZY_GITHUB_TOKEN="your-token"
-export GITHUB_TOKEN="your-token"
-export GH_TOKEN="your-token"
-```
-
-Required token scope: `pull-requests: write` (or `repo` for classic tokens).
-
-### GitLab
-
-```bash
-# Any of these (checked in order):
-export RELIZY_GITLAB_TOKEN="your-token"
-export GITLAB_TOKEN="your-token"
-export GITLAB_API_TOKEN="your-token"
-export CI_JOB_TOKEN="your-token"  # Available in GitLab CI
-```
+- the title `🚀 Release published`;
+- the version of the root `package.json` (not with the `independent` mode), the dist-tag when it is not `latest`, the date and the branch;
+- the packages and their versions;
+- the install commands of the published packages (with `release.publish` not `false`), and of their dist-tag.
 
 ## Dry Run
 
-Preview the comment without posting:
-
 ```bash
+relizy release --dry-run
 relizy pr-comment --dry-run
 ```
 
-This will:
+The dry run looks for the pull request (it calls the API of the provider to find it), then shows the comment with the pull request found, the mode and the status. It posts nothing.
 
-- Detect the PR/MR
-- Generate the comment body
-- Log what would be posted
-- **NOT** make any API calls
+## See Also
 
-## Quick Setup
-
-No additional configuration is needed! PR commenting works out of the box when a GitHub/GitLab token is available and the command is run from a branch with an open PR/MR.
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  // PR comment is enabled by default in release workflow
-  // Customize if needed:
-  prComment: {
-    mode: 'update', // or 'append'
-  },
-})
-```
-
-## Learn More
-
-- [PR Comment CLI Reference](/cli/pr-comment)
-- [PR Comment Configuration](/config/pr-comment)
-- [PR Comment API](/api/pr-comment)
-- [Release Configuration](/config/release)
-- [GitHub Actions Guide](/guide/github-actions)
-- [GitLab CI Guide](/guide/gitlab-ci)
+- [`relizy pr-comment`](./../cli/pr-comment.md)
+- [`prComment()`](./../api/pr-comment.md)
+- [PR Comment Configuration](./../config/pr-comment.md)
+- [CI/CD](./ci-cd.md)

@@ -1,7 +1,7 @@
 ---
 title: bump
-description: Update version numbers in package.json files according to the release type and commits.
-keywords: relizy bump, version bump, semver, package version, monorepo versioning, npm version
+description: Compute the new versions from the commits and write them to the package.json files, without changelog, commit, tag nor publication.
+keywords: relizy bump, version bump, semver, prerelease, canary version, package version, monorepo versioning
 category: CLI Reference
 tags: [cli, bump, versioning, semver, monorepo]
 ---
@@ -16,124 +16,55 @@ tags: [cli, bump, versioning, semver, monorepo]
 relizy bump [options]
 ```
 
-## What It Does
+`bump` is the first [step of `release`](./release.md#steps). It:
 
-The `bump` command:
+1. checks the working directory is clean (unless `--no-clean`);
+2. computes the version of each package from its commits (see [SemVer Convention](./../guide/semver-convention.md)), and its dependents (see [Dependency Management](./../guide/dependency-management.md));
+3. asks to confirm the new versions, unless `--yes`;
+4. writes them to the `package.json` files.
 
-1. ✅ Calculates the new version
-2. ✅ Updates package.json
-3. ✅ Updates dependencies in monorepos
-4. ❌ Does NOT create commits or tags
-5. ❌ Does NOT generate changelogs
+It exits with code `0` when no commit triggers a bump. The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`...).
 
 ## Options
 
-### Release Type
-
-```bash
-# Patch (1.0.0 → 1.0.1)
-relizy bump --patch
-
-# Minor (1.0.0 → 1.1.0)
-relizy bump --minor
-
-# Major (1.0.0 → 2.0.0)
-relizy bump --major
-```
-
-### --dry-run
-
-Preview version changes:
-
-```bash
-relizy bump --minor --dry-run
-```
-
-### --canary
-
-Compute and write a canary version without publishing:
-
-```bash
-relizy bump --canary
-# 1.2.3 → 1.3.0-0.canary-a3f4b2c
-```
-
-The canary version is based on the next version auto-detected from commits, with a canary suffix appended. Use `--preid` to customize the prerelease identifier:
-
-```bash
-relizy bump --canary --preid snapshot
-# 1.2.3 → 1.3.0-0.snapshot-a3f4b2c
-```
-
-See the [Canary Releases guide](/guide/canary-releases) for full details.
-
-### --yes
-
-Skip confirmations:
-
-```bash
-relizy bump --minor --yes
-```
-
-### --private-packages
-
-`release` also bumps the private packages of the workspace (`"private": true` in
-their `package.json`), `ignore` leaves them out. Overrides [`monorepo.privatePackages`](../config/monorepo.md#privatepackages).
-
-```bash
-relizy bump --minor --private-packages release
-```
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
-
-```bash
-relizy bump --group header
-relizy bump --group main,header
-```
+| Flag                                                     | Description                                                                                                              | Config                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------- |
+| `--major`, `--minor`, `--patch`                          | Force the bump type, instead of the one computed from the commits                                                        | [`bump.type`](./../config/bump.md#type)                               |
+| `--prerelease`, `--premajor`, `--preminor`, `--prepatch` | Bump to a prerelease version, see [Prerelease Versions](./../guide/prereleases.md#prerelease-versions)                   | [`bump.type`](./../config/bump.md#type)                               |
+| `--preid <id>`                                           | Prerelease identifier: `alpha`, `beta`, `rc`...                                                                          | [`bump.preid`](./../config/bump.md#preid)                             |
+| `--suffix <suffix>`                                      | With a prerelease type, replace the last number: `1.0.0-beta.0` becomes `1.0.0-beta.<suffix>`                            | -                                                                     |
+| `--canary`                                               | Write a canary version, `{nextVersion}-0.canary-{sha}`, see [Canary Releases](./../guide/prereleases.md#canary-releases) | -                                                                     |
+| `--force`                                                | Bump the packages even without a commit triggering a bump                                                                | -                                                                     |
+| `--no-clean`                                             | Bump with uncommitted changes                                                                                            | [`bump.clean`](./../config/bump.md#clean)                             |
+| `--yes`                                                  | Confirm the new versions without asking. Required without an interactive terminal (CI)                                   | [`bump.yes`](./../config/bump.md#yes)                                 |
+| `--private-packages <mode>`                              | `release`: bump the private packages too, `ignore`: leave them out                                                       | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages) |
 
 ## Examples
 
-### Single Package
-
 ```bash
-relizy bump --patch
+# Preview the new versions
+relizy bump --dry-run
 
-# Before: "version": "1.0.0"
-# After:  "version": "1.0.1"
-```
+# Computed from the commits, without confirmation
+relizy bump --yes
 
-### Monorepo
-
-```bash
+# Force a minor
 relizy bump --minor
 
-# packages/core: 1.0.0 → 1.1.0
-# packages/ui: 1.0.0 → 1.1.0 (depends on core)
-```
+# 1.2.0 -> 1.3.0-beta.0, then 1.3.0-beta.1
+relizy bump --preminor --preid beta
+relizy bump --prerelease --preid beta
 
-### Preview Changes
+# 1.3.0-beta.0 -> 1.3.0-beta.<short sha>
+relizy bump --prerelease --preid beta --suffix "$(git rev-parse --short HEAD)"
 
-```bash
-relizy bump --major --dry-run
-
-# Output:
-# Packages to bump:
-# ✓ @myorg/core: 1.5.0 → 2.0.0
-# ✓ @myorg/ui: 1.5.0 → 2.0.0
-```
-
-### Canary Version
-
-```bash
+# 1.2.3 -> 1.3.0-0.canary-a3f4b2c
 relizy bump --canary
-
-# Before: "version": "1.2.3"
-# After:  "version": "1.3.0-0.canary-a3f4b2c"
 ```
 
 ## See Also
 
-- [Canary Releases](/guide/canary-releases) - Full guide on canary releases
-- [release](release.md) - Full release workflow
+- [release](./release.md)
+- [Bump config](./../config/bump.md)
+- [Version Modes](./../guide/version-modes.md)
+- [`bump()`](./../api/bump.md)

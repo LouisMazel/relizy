@@ -1,7 +1,7 @@
 ---
 title: Publish Configuration
-description: Configure NPM publishing.
-keywords: publish config, npm config, registry config, package access, npm publishing, package manager
+description: Reference of the publish options - package manager, registry, dist-tag, access, OTP, token, build command, several registries, safety check, idempotent reruns and the check of the workspace dependencies.
+keywords: publish config, npm publish, registry, dist-tag, access, otp, npm token, buildCmd, registries, packageFilter, exclusive, skipExistingVersions, checkWorkspaceDependencies, safetyCheckTimeout
 category: Configuration
 tags: [config, publish, npm, registry]
 ---
@@ -10,400 +10,146 @@ tags: [config, publish, npm, registry]
 
 {{ $frontmatter.description }}
 
-## packageManager
-
-Set the package manager to use for publishing:
-
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   publish: {
-    packageManager: 'pnpm', // 'npm' | 'yarn' | 'pnpm' | 'bun'
-  },
-})
-```
-
-## registry
-
-Use a custom npm registry:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    registry: 'https://registry.npmjs.org',
-  },
-})
-```
-
-::: tip Registry resolution
-When `registry` is **not** set, Relizy resolves the effective registry from your environment (`npm config get registry`), which respects the `registry=` value in your `.npmrc` and falls back to `https://registry.npmjs.org/`.
-
-This means a custom registry (for example a corporate proxy) configured in your `.npmrc` is honored automatically. Set `publish.registry` explicitly only when you want to force a specific registry regardless of your `.npmrc`.
-:::
-
-## tag
-
-Set npm dist-tag:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    tag: 'latest', // or 'beta', 'next', etc.
-  },
-})
-```
-
-## access
-
-Set package access level:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    access: 'public', // or 'restricted'
-  },
-})
-```
-
-## otp
-
-Provide OTP (One-Time Password) for npm publishing with 2FA enabled:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    otp: '123456',
-  },
-})
-```
-
-## packages
-
-Glob pattern matching for packages to publish (useful for monorepos):
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    packages: ['packages/*'],
-  },
-})
-```
-
-## buildCmd
-
-Command to build your packages before publishing:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
+    access: 'public',
     buildCmd: 'pnpm build',
   },
 })
 ```
 
+The released packages are published in dependency order (see [`bump.dependencyTypes`](./bump.md#dependencytypes)), the private ones never (see [`monorepo.privatePackages`](./monorepo.md#privatepackages)). In `relizy release`, a failed publish restores the files the release wrote.
+
+## packageManager
+
+- **Type:** `'npm' | 'pnpm' | 'yarn' | 'bun'`
+- **Default:** detected from the `packageManager` field of the root `package.json`, then the lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`), then the package manager running relizy, else `npm`
+
+Package manager of the publish command (`yarn npm publish` with Yarn Berry).
+
+## registry
+
+- **Type:** `string`
+- **Default:** the registry of your npm config (`npm config get registry`, which reads `.npmrc`), else `https://registry.npmjs.org/`
+- **CLI:** `--registry <url>`
+
+Registry to publish to. Set it only to force a registry whatever the `.npmrc`.
+
+## tag
+
+- **Type:** `string`
+- **Default:** `latest` for a stable version, `next` for a prerelease, `canary` with `--canary`
+- **CLI:** `--tag <tag>`
+
+npm dist-tag of the published versions. Relizy warns when a prerelease is published with `latest`.
+
+## access
+
+- **Type:** `'public' | 'restricted'`
+- **Default:** none (the default of the registry: `restricted` for a new scoped package on npm)
+- **CLI:** `--access <type>`
+
+## otp
+
+- **Type:** `string`
+- **Default:** none
+- **CLI:** `--otp <code>`
+
+One-time password of a registry with 2FA. Without it, relizy asks for one when the registry requires it, and reuses it for the next packages of the same registry.
+
 ## token
 
-NPM token for authentication. Supported for `npm`, `pnpm` and `bun`:
+- **Type:** `string`
+- **Default:** `RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN`, then `tokens.registry` (see [Tokens](./overview.md#tokens))
+- **CLI:** `--publish-token <token>`
 
-```ts
-import { defineConfig } from 'relizy'
+Registry token, for npm, pnpm and bun (Yarn reads its auth from `.yarnrc.yml`: configure it yourself). Relizy writes it, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without `token`, your `.npmrc` is left untouched.
 
-export default defineConfig({
-  publish: {
-    token: process.env.NPM_TOKEN,
-  },
-})
-```
+## buildCmd
 
-::: tip
-You can also configure the token in the `tokens.registry` field or via environment variables: `NPM_TOKEN`, `RELIZY_NPM_TOKEN`, or `NODE_AUTH_TOKEN`.
-:::
+- **Type:** `string`
+- **Default:** none
+- **CLI:** `--build-cmd <cmd>`
 
-::: info How the token is applied
-Relizy writes the token (and, for scoped packages, the matching `@scope:registry`) to the project `.npmrc` only for the duration of each `whoami`/`publish`, then restores your `.npmrc` exactly as it was - creating no file if none existed. It never passes the token as a CLI flag, because the pnpm 10+ argument parser rejects rc-option flags like `--//host:_authToken=`. This makes authentication work identically across npm, pnpm (every version) and bun.
+Command run once from the root before publishing (`pnpm build`), after the versions are written. Not run in dry-run.
 
-Any auth or registry you already set in your own `.npmrc` keeps working untouched: if you do not configure `publish.token`/`publish.registry`, relizy leaves your `.npmrc` alone. Yarn is not covered (it uses `.yarnrc.yml`) - configure its auth yourself.
-:::
+## packages
+
+- **Type:** `string[]`
+- **Default:** none
+
+Declared in the types, not read by `publish`: the published packages are the released ones that are not private. To leave a package out, use [`monorepo.ignored`](./monorepo.md#ignored) or make it private.
+
+## args
+
+- **Type:** `string[]`
+- **Default:** `[]`
+
+Declared as extra arguments of the publish command, not passed to it by `publish`: set the options of the package manager in `.npmrc` instead.
 
 ## registries
 
-Publish to additional registries, on top of the one configured via `registry` (e.g. `https://registry.npmjs.org`). Each entry can be scoped to specific packages with a glob pattern matched against the package name; entries without a `packageFilter` are mirrored to every publishable package. You can also omit `registry` and list every target here - see [Listing every registry explicitly](#listing-every-registry-explicitly-no-default).
-
-This is fully opt-in and additive: leaving `registries` unset keeps the exact single-registry behavior described above.
-
 - **Type:** `RegistryTarget[]`
+- **Default:** none
+
+Registries to publish to on top of `registry`. An entry without `packageFilter` applies to every package (a mirror), an entry with it only to the packages whose name matches.
+
+| Field           | Type                        | Effect                                                                             |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------------- |
+| `registry`      | `string` (required)         | Registry URL                                                                       |
+| `name`          | `string`                    | Label in the logs                                                                  |
+| `token`         | `string`                    | Token of this registry, wins over `publish.token` (npm, pnpm, bun)                 |
+| `tag`           | `string`                    | Dist-tag on this registry, wins over `publish.tag`                                 |
+| `access`        | `'public' \| 'restricted'`  | Access on this registry                                                            |
+| `otp`           | `string`                    | OTP of this registry                                                               |
+| `packageFilter` | `string[]`                  | Glob patterns of package names routed to this registry (all packages when omitted) |
+| `exclusive`     | `boolean` (default `false`) | The matching packages are not published to the default `registry`                  |
 
 ```ts
-interface RegistryTarget {
-  name?: string // label used in logs, e.g. 'nexus'
-  registry: string // registry URL
-  token?: string
-  tag?: string
-  access?: 'public' | 'restricted'
-  otp?: string
-  packageFilter?: string[] // glob patterns - omitted = applies to every package
-  exclusive?: boolean // skip the default `registry` for matching packages
-}
-```
-
-::: tip Why `packageFilter` and not `packages`
-`publish.packages` (top-level) controls _which packages get published at all_. `RegistryTarget.packageFilter` is a different concern: it only routes already-publishable packages to this specific registry. Distinct names avoid confusing the two.
-:::
-
-### Mirroring to every package
-
-```ts
-import { defineConfig } from 'relizy'
-
 export default defineConfig({
   publish: {
-    registry: 'https://registry.npmjs.org',
     registries: [
-      {
-        name: 'nexus',
-        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
-        token: process.env.NEXUS_TOKEN,
-      },
+      // every package is also published to Nexus
+      { name: 'nexus', registry: 'https://nexus.mycompany.com/repository/npm-internal/', token: process.env.NEXUS_TOKEN },
+      // @internal/* goes to JFrog only
+      { name: 'jfrog', registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/', token: process.env.JFROG_TOKEN, packageFilter: ['@internal/*'], exclusive: true },
     ],
   },
 })
 ```
 
-Every package is published to `https://registry.npmjs.org` **and** to the internal Nexus registry.
-
-### Routing specific packages to a registry
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    registry: 'https://registry.npmjs.org',
-    registries: [
-      {
-        name: 'jfrog-internal',
-        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
-        token: process.env.JFROG_TOKEN,
-        packageFilter: ['@internal/*'],
-      },
-    ],
-  },
-})
-```
-
-Here, only packages whose name matches `@internal/*` are additionally published to the JFrog registry; every package still goes to the default `registry`.
-
-### Excluding the default registry for specific packages
-
-By default, entries in `registries` are purely additive: a matching package is published to that registry **on top of** the default `registry`. Set `exclusive: true` on an entry when matching packages should be published **only** to it (and any other matching registry), and never to the default one:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    registry: 'https://registry.npmjs.org',
-    registries: [
-      {
-        name: 'jfrog-internal',
-        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
-        token: process.env.JFROG_TOKEN,
-        packageFilter: ['@internal/*'],
-        exclusive: true,
-      },
-    ],
-  },
-})
-```
-
-Here, `@internal/*` packages are published **only** to the JFrog registry; every other package still goes to `https://registry.npmjs.org` as usual. `exclusive` only suppresses the default registry - it has no effect on other, non-exclusive `registries` entries that also match the package (they still apply).
-
-### Listing every registry explicitly (no default)
-
-You can omit `registry` entirely and declare every target in `registries`. When no default `registry` is set but `registries` has entries, Relizy does **not** inject an implicit default target - packages are published only to their applicable `registries`. This makes "N registries, none of them the default" expressible directly, without having to mark one entry `exclusive` just to suppress the default.
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    // no `registry` - both targets are equal peers
-    registries: [
-      {
-        name: 'nexus',
-        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
-        token: process.env.NEXUS_TOKEN,
-      },
-      {
-        name: 'jfrog',
-        registry: 'https://mycompany.jfrog.io/artifactory/api/npm/npm-internal/',
-        token: process.env.JFROG_TOKEN,
-      },
-    ],
-  },
-})
-```
-
-::: tip `.npmrc` fallback is preserved
-Omitting `registry` when `registries` is **also** empty keeps the original single-registry behavior: Relizy resolves the effective registry from your environment (`.npmrc`). The implicit default is only dropped when explicit `registries` entries exist. Likewise, if a package is not covered by any `registries` entry (all of them are scoped via `packageFilter` and none match), that package still falls back to the `.npmrc`-resolved registry.
-:::
-
-::: tip Authentication safety check
-When `publish.safetyCheck` is enabled, Relizy authenticates against every distinct registry actually needed by the packages being published this release (including the default registry, even if some of those packages exclude it via `exclusive`), so a misconfigured registry fails fast rather than mid-release. A `registries` entry scoped to packages that are not part of this release (via `packageFilter`) is **not** checked, so it cannot block an unrelated release.
-:::
-
-::: tip Failure behavior is fail-fast, not atomic
-If a package fails to publish to one of its resolved registries, Relizy stops immediately: no further registry or package is attempted. This bounds how much of a broken release can happen, but publishing to a single package's multiple registries is **not transactional** - if a package already succeeded on registry A and then fails on registry B, A's publish is not rolled back.
-:::
+`exclusive` only removes the default registry: the other matching entries still apply. The publish stops at the first failure and is not transactional: a package already published to one registry is not unpublished when the next one fails.
 
 ## safetyCheck
-
-Enable or disable the safety check before publishing. When enabled, Relizy will verify that the required tokens are set.
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    safetyCheck: true,
-  },
-})
-```
+Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. A registry scoped by `packageFilter` to packages outside of the release is not checked. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`) or `release.publish: false`.
 
 ## safetyCheckTimeout
-
-Maximum time, in milliseconds, allowed for the registry authentication safety check (`npm`/`pnpm whoami`) before it is aborted. This prevents the release from hanging indefinitely when the registry, or a proxy in front of it, never answers.
 
 - **Type:** `number`
 - **Default:** `15000`
 
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    safetyCheckTimeout: 15000,
-  },
-})
-```
-
-::: tip
-If your registry is behind a slow proxy and you hit timeouts, increase this value. To skip the authentication check entirely, run the command with `--no-safety-check`.
-:::
+Time, in milliseconds, after which the authentication check is aborted, so a registry or a proxy that never answers does not hang the release.
 
 ## skipExistingVersions
 
-Skip a package (per registry) instead of failing when its version already exists on the registry.
-
 - **Type:** `boolean`
 - **Default:** `false`
+- **CLI:** `--skip-existing-versions`
 
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    skipExistingVersions: true,
-  },
-})
-```
-
-By default, if a package version is already published, the registry rejects the upload (npm returns `EPUBLISHCONFLICT`, Nexus returns `Repository does not allow updating assets`, etc.) and Relizy fails the release.
-
-When `skipExistingVersions` is enabled, Relizy checks each package **before** publishing by querying the registry. If the version is already there, the package is skipped with a warning; only versions still missing from the registry are published.
-
-This makes re-running a release **idempotent**: retrying a job whose version is already published succeeds and only publishes what is still missing, instead of crashing.
-
-::: info How the check works
-The proactive check relies on the standard registry metadata endpoint that every npm-compatible registry (npm, Nexus, JFrog, Verdaccio, GitHub/GitLab Packages) implements to serve `install` - so it does not depend on the wording of any error message.
-
-The query works for **every package manager**: with npm/pnpm it uses the `view` command (inheriting your full `.npmrc` environment - proxy, CA, scoped auth), and for yarn/bun (which have no usable `view`) it falls back to a direct HTTPS request to the same metadata endpoint, authenticated with your configured registry token. The direct request is also used for npm/pnpm if `view` is inconclusive.
-
-If the check cannot get a definitive answer (auth, network, or an unreachable registry), Relizy does **not** skip on a guess: it attempts the publish, and a "version already exists" error is still caught there as a safety net (which also covers the rare race where a version is published between the check and the upload). The check only runs when `skipExistingVersions` is enabled, so it adds no round-trip otherwise, and never runs in `--dry-run`.
-:::
-
-::: tip Canary reruns
-This is especially useful for [canary releases](/guide/canary-releases): the canary version is derived from the commit hash, so re-running the pipeline on the **same commit** regenerates the exact same version. Without `skipExistingVersions`, that rerun fails on the first already-published package; with it, the rerun passes cleanly.
-:::
-
-::: info Clear error even when disabled
-When `skipExistingVersions` is **disabled** (the default), an already-published version still fails the release - but Relizy replaces the raw registry error with a clear, actionable message pointing you to this option, instead of surfacing the cryptic underlying error.
-:::
-
-You can also enable it per-run from the CLI with `--skip-existing-versions` on the [`publish`](/cli/publish) and [`release`](/cli/release) commands.
+Skip a package, per registry, when its version is already published, instead of failing: a rerun of a release (a [canary](./../guide/prereleases.md#canary-releases) on the same commit, a partial publish) only publishes what is missing. Relizy queries the registry metadata before each publish (`view` with npm and pnpm, an HTTPS request otherwise) and, when the answer is inconclusive, publishes and still catches the "version already exists" error. Never queried in dry-run. Disabled, an existing version fails the release with an explicit message.
 
 ## checkWorkspaceDependencies
-
-Check, before publishing, that the internal dependencies declared with the `workspace:` protocol resolve to installable versions.
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-```ts
-import { defineConfig } from 'relizy'
+Before publishing, check the internal dependencies declared with `workspace:*`, `workspace:^` or `workspace:~` in `dependencies`, `peerDependencies` and `optionalDependencies`: the version the package manager writes in their place must be published by the release or already be on the registry. The release fails, before publishing anything, when the registry confirms the version is missing (a private package, a package left out of the release), and warns when the registry cannot be queried. Explicit ranges (`workspace:^1.2.0`) are not checked.
 
-export default defineConfig({
-  publish: {
-    checkWorkspaceDependencies: false,
-  },
-})
-```
-
-When a package is published, the package manager replaces `workspace:*`, `workspace:^` and `workspace:~` with the version of the workspace package (e.g. `workspace:^` becomes `^1.2.0`). If that version is never published (a private package, a package excluded from the release, a version bumped but not published), the published package cannot be installed.
-
-Before publishing, Relizy reads these specifiers in `dependencies`, `peerDependencies` and `optionalDependencies` of the packages to publish, and checks the version they resolve to:
-
-- published by the release itself: nothing to check;
-- otherwise, the registry is queried (as for [`skipExistingVersions`](#skipexistingversions)). The release **fails** when the registry confirms the version is missing, and nothing is published. When the registry cannot be queried (network, auth), Relizy only **warns**.
-
-The check is read-only: the replacement itself stays the package manager's job. Explicit ranges (`workspace:^1.2.0`) are published as they are, so they are not checked.
-
-During a release, Relizy also reports the packages **not released** whose published peer dependency ranges reject the new version of an internal dependency. For example, `"@scope/components": "workspace:*"` was published as `"6.19.1"` and does not accept `@scope/components@6.20.0`: the consumers of that package get peer dependency warnings, or errors with `strict-peer-dependencies`. By default, such packages are bumped and released with their dependency (see [`bump.outOfRangePeers`](./bump.md#outofrangepeers)), so only the packages outside the release are reported: with a warning, or an error with `bump.outOfRangePeers: 'error'`.
-
-::: info Publish order
-Relizy publishes each package after the internal packages it depends on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever [`bump.dependencyTypes`](./bump.md) is (that option only drives which dependents get bumped).
-:::
-
-## Complete Example
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  publish: {
-    packageManager: 'pnpm',
-    registry: 'https://registry.npmjs.org',
-    tag: 'latest',
-    access: 'public',
-    packages: ['packages/*'],
-    buildCmd: 'pnpm build',
-    token: process.env.NPM_TOKEN,
-    registries: [
-      {
-        name: 'nexus',
-        registry: 'https://nexus.mycompany.com/repository/npm-internal/',
-        token: process.env.NEXUS_TOKEN,
-      },
-    ],
-    safetyCheck: true,
-    safetyCheckTimeout: 15000,
-    skipExistingVersions: false,
-  },
-})
-```
+The packages whose published peer dependency ranges reject a new version are handled by [`bump.outOfRangePeers`](./bump.md#outofrangepeers).

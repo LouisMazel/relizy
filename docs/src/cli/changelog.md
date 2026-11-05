@@ -1,9 +1,9 @@
 ---
 title: changelog
-description: Generate or update CHANGELOG.md files.
-keywords: relizy changelog, changelog generation, CHANGELOG.md, git commits, conventional commits
+description: Write the CHANGELOG.md files from the commits, without bump, commit nor publication.
+keywords: relizy changelog, changelog generation, CHANGELOG.md, conventional commits, root changelog, monorepo changelog
 category: CLI Reference
-tags: [cli, changelog, documentation, git, commits]
+tags: [cli, changelog, commits, monorepo]
 ---
 
 # {{ $frontmatter.title }}
@@ -16,97 +16,36 @@ tags: [cli, changelog, documentation, git, commits]
 relizy changelog [options]
 ```
 
-## What It Does
+`changelog` is the second [step of `release`](./release.md#steps). Alone, it writes the entry of the current version of each package, from the commits since its last release tag: run it after [`bump`](./bump.md). In a monorepo, it also writes the root `CHANGELOG.md`, then runs the format command. The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`...).
 
-The `changelog` command:
-
-1. ✅ Analyzes git commits
-2. ✅ Groups commits by type
-3. ✅ Generates markdown changelog
-4. ✅ Updates CHANGELOG.md
-5. ❌ Does NOT bump versions
-6. ❌ Does NOT create commits
+See [Changelog](./../guide/changelog.md) for the content of the entries.
 
 ## Options
 
-### --from
-
-Start changelog from specific version:
-
-```bash
-relizy changelog --from v1.0.0
-```
-
-### --to
-
-End changelog at specific version:
-
-```bash
-relizy changelog --to v2.0.0
-```
-
-### --private-packages
-
-`release` also generates the changelogs of the private packages of the
-workspace (`"private": true` in their `package.json`), and their commits go to
-the root changelog. `ignore` leaves them out. Overrides [`monorepo.privatePackages`](../config/monorepo.md#privatepackages).
-
-```bash
-relizy changelog --private-packages release
-```
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
-
-```bash
-relizy changelog --group header
-relizy changelog --group main,header
-```
+| Flag                        | Description                                                                           | Config                                                                |
+| --------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `--from <ref>`              | Start of the commit range (tag or commit), instead of the last release tag            | [`from`](./../config/overview.md#from)                                |
+| `--to <ref>`                | End of the commit range, `HEAD` by default                                            | [`to`](./../config/overview.md#to)                                    |
+| `--format-cmd <cmd>`        | Command run after writing the changelogs, e.g. `"pnpm lint:fix"`                      | [`changelog.formatCmd`](./../config/changelog.md#formatcmd)           |
+| `--no-root-changelog`       | Do not write the root `CHANGELOG.md` of a monorepo                                    | [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)   |
+| `--private-packages <mode>` | `release`: write the changelogs of the private packages too, `ignore`: leave them out | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages) |
 
 ## Examples
 
-### Basic Usage
-
 ```bash
-relizy changelog
+# Preview the changelogs
+relizy changelog --dry-run
 
-# Generates changelog from last tag to HEAD
-```
+# A given range
+relizy changelog --from v1.0.0 --to v1.1.0
 
-### Custom Range
-
-```bash
-relizy changelog --from v1.0.0 --to v2.0.0
-
-# Generates changelog for specific version range
-```
-
-### Monorepo
-
-```bash
-relizy changelog
-
-# Generates changelogs for all packages
-```
-
-## Output Format
-
-```md
-# Changelog
-
-## v1.2.0
-
-### 🚀 Features
-
-- Add authentication ([a1b2c3d](https://github.com/user/repo/commit/a1b2c3d))
-
-### 🐛 Bug Fixes
-
-- Fix memory leak ([e4f5g6h](https://github.com/user/repo/commit/e4f5g6h))
+# Format the files once written
+relizy changelog --format-cmd "pnpm exec prettier --write '**/CHANGELOG.md'"
 ```
 
 ## See Also
 
-- [release](release.md) - Full release workflow
-- [Changelog Guide](../guide/changelog.md) - Detailed changelog documentation
+- [release](./release.md)
+- [Changelog config](./../config/changelog.md)
+- [AI-Enhanced Changelogs](./../guide/ai-changelog.md)
+- [`changelog()`](./../api/changelog.md)

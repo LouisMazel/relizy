@@ -1,352 +1,194 @@
 ---
 title: Configuration
-description: Complete guide to configuring Relizy.
-keywords: relizy config, configuration guide, relizy.config.ts, configuration options, relizy setup
+description: The relizy.config.ts file, its sections, the top-level options, the tokens and their environment variables, and how to keep several configs.
+keywords: relizy config, relizy.config.ts, configuration reference, defineConfig, tokens, environment variables, GITHUB_TOKEN, NPM_TOKEN, multiple configs, --config, projectName, repo, scopeMap, safetyCheck, signTags, logLevel
 category: Configuration
-tags: [config, configuration, setup, guide]
+tags: [config, configuration, reference, tokens]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Configuration File
-
-Create a configuration file in your project root:
-
-::: code-group
-
-```ts [relizy.config.ts]
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-  },
-})
-```
-
-```js [relizy.config.js]
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-  },
-})
-```
-
-```json [relizy.config.json]
-{
-  "monorepo": {
-    "versionMode": "selective",
-    "packages": ["packages/*"]
-  }
-}
-```
-
-```json [package.json]
-{
-  "name": "my-monorepo",
-  "version": "1.0.0",
-  "relizy": {
-    "monorepo": {
-      "versionMode": "selective",
-      "packages": ["packages/*"]
-    }
-  }
-}
-```
-
-```yml [relizy.config.yml]
-monorepo:
-  versionMode: selective
-  packages:
-    - packages/*
-```
-
-```toml [relizy.config.toml]
-[monorepo]
-versionMode = "selective"
-packages = [ "packages/*" ]
-```
-
-:::
-
-## Supported Formats
-
-Relizy supports multiple configuration formats. It loaded with [c12](https://github.com/unjs/c12), check the documentation for more details.
-
-- `relizy.config.ts` (recommended)
-- `relizy.config.js`
-- `relizy.config.mjs`
-- `relizy.config.json`
-- `relizy.config.yaml`
-- `relizy.config.yml`
-- `relizy.config.toml`
-- And more...
-
-## Zero Configuration
-
-Relizy works out of the box without any configuration (for single package):
-
-```bash
-relizy release
-```
-
-Configuration is only needed for:
-
-- Monorepo settings (needs `monorepo` section with `versionMode` and `packages` glob patterns to find your packages)
-- Custom commit types
-- Multiple release strategies
-
-## Quick Start
-
-### Single Package
-
-No configuration needed! Just run:
-
-```bash
-relizy release --minor
-```
-
-### Monorepo - Basic
+## Config File
 
 ```ts
 // relizy.config.ts
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-  },
-})
-```
-
-### Monorepo - Advanced
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  projectName: 'My project', // replace the name in your root package.json (Useful for Twitter (X) and Slack posts)
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-    ignorePackageNames: ['pacakge-a'],
-  },
-  bump: {
-    dependencyTypes: ['dependencies', 'devDependencies'],
-  },
-  types: {
-    feat: { title: '🎉 Features', semver: 'minor' },
-    fix: { title: '🐛 Fixes', semver: 'patch' },
-  },
-  publish: {
-    access: 'public',
-    tag: 'latest',
-  },
-})
-```
-
-## Configuration Sections
-
-| Section                                 | Description                               |
-| --------------------------------------- | ----------------------------------------- |
-| [monorepo](monorepo.md)                 | Monorepo-specific settings                |
-| [types](changelog.md#commit-types)      | Commit type customization                 |
-| [bump](bump.md)                         | Version bump settings                     |
-| [changelog](changelog.md)               | Changelog generation settings             |
-| [publish](publish.md)                   | NPM publishing options                    |
-| [release](release.md)                   | Release workflow settings                 |
-| [ai](ai.md)                             | AI-enhanced changelogs and announcements  |
-| [social](social.md)                     | Social media integration (Twitter, Slack) |
-| [prComment](pr-comment.md)              | PR comment settings                       |
-| [hooks](hooks.md)                       | Lifecycle hooks for custom scripts        |
-| [multiple-configs](multiple-configs.md) | Using multiple configuration files        |
-
-## TypeScript Support
-
-Get full IntelliSense with TypeScript:
-
-```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
-  // Full type checking and autocomplete
   monorepo: {
-    versionMode: 'selective', // ← Autocompleted
+    versionMode: 'selective',
+    packages: ['packages/*'],
   },
 })
 ```
 
-## Multiple Configurations
+The config is loaded with [c12](https://github.com/unjs/c12) from the root of the project and merged with the defaults. Supported files:
 
-Use different configs for different workflows:
+- `relizy.config.ts` (recommended, typed by `defineConfig`), `.mts`, `.cts`, `.js`, `.mjs`, `.cjs`
+- `relizy.config.json`, `.yaml`, `.yml`, `.toml`
+- the `relizy` field of the root `package.json`
 
-```bash
-# Use default config
-relizy release
+A standalone package needs no config. A monorepo needs `monorepo.versionMode` and `monorepo.packages`, or `monorepo.groups` (see [Monorepo](./monorepo.md)). Run `relizy init` to generate the file.
 
-# Use staging config
-relizy release --config relizy.staging
+An array of the config replaces the default one instead of being merged with it: `bump.dependencyTypes: ['peerDependencies']` does not keep `dependencies`.
 
-# Uses relizy.staging.config.ts
-```
+## Sections
 
-Learn more in [Multiple Configs](/config/multiple-configs).
+| Key                                                                                                                                                            | Page                                    |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| `monorepo`                                                                                                                                                     | [Monorepo](./monorepo.md)               |
+| `bump`                                                                                                                                                         | [Bump](./bump.md)                       |
+| `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                                         | [Changelog](./changelog.md)             |
+| `publish`                                                                                                                                                      | [Publish](./publish.md)                 |
+| `release`                                                                                                                                                      | [Release](./release.md)                 |
+| `templates`                                                                                                                                                    | [Templates](./commit-templates.md)      |
+| `ai`                                                                                                                                                           | [AI](./ai.md)                           |
+| `social`                                                                                                                                                       | [Social](./social.md)                   |
+| `prComment`                                                                                                                                                    | [PR Comment](./pr-comment.md)           |
+| `hooks`                                                                                                                                                        | [Hooks](./hooks.md)                     |
+| `commitlint`                                                                                                                                                   | [Commitlint](./../commitlint/config.md) |
+| `projectName`, `cwd`, `from`, `to`, `newVersion`, `logLevel`, `safetyCheck`, `signTags`, `scopeMap`, `repo`, `tokens`, `detectRewrittenTags`, `onRewrittenTag` | This page                               |
 
-## Default Configuration
+## projectName
 
-If no config file exists, Relizy uses these defaults:
+- **Type:** `string`
+- **Default:** the `name` of the root `package.json`
+
+Name of the project in the social posts, the release titles and the AI prompts.
+
+## cwd
+
+- **Type:** `string`
+- **Default:** `process.cwd()`
+
+Root of the project: where the config, the packages, the git repository and the package manager are read.
+
+## from / to
+
+- **Type:** `string`
+- **Default:** `from`: the last release tag; `to`: the tag of the new version, else `HEAD`
+- **CLI:** `--from <ref>`, `--to <ref>`
+
+Git range of the commits read by the changelog, the provider release and the social posts.
+
+## newVersion
+
+- **Type:** `string`
+
+Declared in the types, not read by the commands: the new versions come from the bump.
+
+## logLevel
+
+- **Type:** `'silent' | 'error' | 'warning' | 'normal' | 'default' | 'debug' | 'trace' | 'verbose'`
+- **Default:** `'default'`
+- **CLI:** `--log-level <level>`
+
+`verbose` shows the logs of each step, `debug` how relizy resolves the config, the tags and the versions.
+
+## safetyCheck
+
+- **Type:** `boolean`
+- **Default:** `true`
+- **CLI:** `--no-safety-check`
+
+Global switch of the checks run before writing anything: the tokens and the registry authentication (`publish`, also gated by [`publish.safetyCheck`](./publish.md#safetycheck)), the provider token (`provider-release`), the social credentials (`social`), and in `relizy release` the branch being up to date with its remote.
+
+## signTags
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Sign the release tags with GPG (`git tag -s`).
+
+## scopeMap
+
+- **Type:** `Record<string, string>`
+- **Default:** `{}`
+
+Renames the scopes of the commits in the changelogs (`{ ui: 'components' }`). Its keys are also allowed scopes for [`relizy commitlint`](./../commitlint/rules.md#scope-enum).
+
+## repo
+
+- **Type:** `{ provider?: 'github' | 'gitlab' | 'bitbucket', domain?: string, repo?: string, token?: string }`
+- **Default:** resolved from the `repository` field of the closest `package.json`, else from the `origin` remote
+
+The repository of the links of the changelogs and of the provider releases. Set it for a self-hosted instance, or when neither the `repository` field nor the remote is usable. When set, it replaces the detected one entirely.
+
+| Key        | Effect                                                        |
+| ---------- | ------------------------------------------------------------- |
+| `provider` | `github`, `gitlab` or `bitbucket`, detected from the domain   |
+| `domain`   | Host of the repository (`github.com`, `gitlab.mycompany.com`) |
+| `repo`     | `owner/name`                                                  |
+| `token`    | Fallback of `tokens.github` and `tokens.gitlab`               |
 
 ```ts
-const defaultConfig = {
-  cwd: process.cwd(),
-  types: {
-    feat: { title: '🚀 Enhancements', semver: 'minor' },
-    perf: { title: '🔥 Performance', semver: 'patch' },
-    fix: { title: '🩹 Fixes', semver: 'patch' },
-    refactor: { title: '💅 Refactors', semver: 'patch' },
-    docs: { title: '📖 Documentation', semver: 'patch' },
-    build: { title: '📦 Build', semver: 'patch' },
-    types: { title: '🌊 Types', semver: 'patch' },
-    chore: { title: '🏡 Chore' },
-    examples: { title: '🏀 Examples' },
-    test: { title: '✅ Tests' },
-    style: { title: '🎨 Styles' },
-    ci: { title: '🤖 CI' },
-  },
-  templates: {
-    // commitMessage / commitBody are resolved based on monorepo.versionMode:
-    //   - independent      → 'chore(release): bump {{packageCount}} packages' + body '{{packageList}}'
-    //   - unified/selective → 'chore(release): bump version to {{newVersion}}' (no body)
-    // See: /config/commit-templates for placeholders and examples.
-    commitMessage: undefined,
-    commitBody: undefined,
-    tagMessage: 'Bump version to {{newVersion}}',
-    tagBody: 'v{{newVersion}}',
-    emptyChangelogContent: 'No relevant changes for this release',
-    twitterMessage: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
-    slackMessage: undefined,
-    changelogTitle: '{{oldVersion}}...{{newVersion}}',
-  },
-  excludeAuthors: [],
-  noAuthors: false,
-  bump: {
-    type: 'release',
-    clean: true,
-    dependencyTypes: ['dependencies'],
-    yes: false,
-  },
-  changelog: {
-    rootChangelog: true,
-    includeCommitBody: true,
-  },
-  publish: {
-    private: false,
-    args: [],
-  },
-  tokens: {
-    gitlab:
-        process.env.RELIZY_GITLAB_TOKEN
-        || process.env.GITLAB_TOKEN
-        || process.env.GITLAB_API_TOKEN
-        || process.env.CI_JOB_TOKEN,
-    github:
-        process.env.RELIZY_GITHUB_TOKEN
-        || process.env.GITHUB_TOKEN
-        || process.env.GH_TOKEN,
-    twitter: {
-      apiKey: process.env.RELIZY_TWITTER_API_KEY || process.env.TWITTER_API_KEY,
-      apiKeySecret: process.env.RELIZY_TWITTER_API_KEY_SECRET || process.env.TWITTER_API_KEY_SECRET,
-      accessToken: process.env.RELIZY_TWITTER_ACCESS_TOKEN || process.env.TWITTER_ACCESS_TOKEN,
-      accessTokenSecret: process.env.RELIZY_TWITTER_ACCESS_TOKEN_SECRET || process.env.TWITTER_ACCESS_TOKEN_SECRET,
-    },
-    slack:
-        process.env.RELIZY_SLACK_TOKEN
-        || process.env.SLACK_TOKEN,
-    ai: {
-      'claude-code': {
-        apiKey: process.env.RELIZY_ANTHROPIC_API_KEY || process.env.ANTHROPIC_API_KEY,
-        oauthToken: process.env.RELIZY_CLAUDE_CODE_OAUTH_TOKEN || process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    },
-  },
-  scopeMap: {},
-  social: {
-    twitter: {
-      enabled: false,
-      onlyStable: true,
-    },
-    slack: {
-      enabled: false,
-      onlyStable: true,
-    },
-  },
-  prComment: {
-    mode: 'update',
-  },
-  ai: {
-    provider: 'claude-code',
-    language: 'en',
-    fallback: 'raw',
-    providers: {
-      'claude-code': { model: 'haiku' },
-    },
-    providerRelease: { enabled: false },
-    social: {
-      twitter: { enabled: false },
-      slack: { enabled: false },
-    },
-  },
-  release: {
-    commit: true,
-    publish: true,
-    changelog: true,
-    push: true,
-    clean: true,
-    providerRelease: true,
-    noVerify: false,
-    gitTag: true,
-    social: true,
-    prComment: true,
-  },
-  logLevel: 'default',
-  detectRewrittenTags: true,
-}
+export default defineConfig({
+  repo: { provider: 'gitlab', domain: 'gitlab.mycompany.com', repo: 'team/project' },
+})
 ```
 
-## Detecting Rewritten Tags
+## tokens
 
-When a release tag is created and pushed, then the branch is later rebased, the
-tag keeps pointing to the old (now orphaned) commit. Resolving a changelog from
-an orphaned tag spans the whole divergent range (often the entire history since
-the last stable release, with duplicated commits) and over-bumps packages.
+The credentials of the commands. Each key falls back to the first environment variable set, in this order (a `.env` file at the root is loaded):
 
-Relizy detects this automatically and recovers safely. Two top-level options
-control the behavior:
+| Key                                   | Environment variables                                                     | Used by                              |
+| ------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
+| `tokens.registry`                     | `RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`                        | `publish` (npm, pnpm, bun)           |
+| `tokens.github`                       | `RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`                         | GitHub releases, PR comment          |
+| `tokens.gitlab`                       | `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`, `CI_JOB_TOKEN` | GitLab releases, MR comment, push    |
+| `tokens.twitter.apiKey`               | `RELIZY_TWITTER_API_KEY`, `TWITTER_API_KEY`                               | Twitter (X)                          |
+| `tokens.twitter.apiKeySecret`         | `RELIZY_TWITTER_API_KEY_SECRET`, `TWITTER_API_KEY_SECRET`                 | Twitter (X)                          |
+| `tokens.twitter.accessToken`          | `RELIZY_TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN`                     | Twitter (X)                          |
+| `tokens.twitter.accessTokenSecret`    | `RELIZY_TWITTER_ACCESS_TOKEN_SECRET`, `TWITTER_ACCESS_TOKEN_SECRET`       | Twitter (X)                          |
+| `tokens.slack`                        | `RELIZY_SLACK_TOKEN`, `SLACK_TOKEN`                                       | Slack (bot token)                    |
+| `tokens.ai['claude-code'].apiKey`     | `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`                           | AI, `claude-code` provider           |
+| `tokens.ai['claude-code'].oauthToken` | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`               | AI, `claude-code` provider           |
+| `social.slack.webhookUrl`             | `RELIZY_SLACK_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`                           | Slack (webhook, wins over the token) |
+| `publish.token`                       | `RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`                        | `publish`                            |
 
-| Option                | Type      | Default | Description                                                                                       |
-| --------------------- | --------- | ------- | ------------------------------------------------------------------------------------------------- |
-| `detectRewrittenTags` | `boolean` | `true`  | Detect when the `from` tag is no longer reachable from `to` and recover.                          |
-| `onRewrittenTag`      | `string`  | auto    | `prompt` \| `ephemeral` \| `rebind` \| `error`. Auto = `prompt` (TTY) / `ephemeral` (CI/`--yes`). |
+A more specific setting wins over these keys:
 
-A commit is **never** rewritten; the only possible mutation is moving a tag.
-See the [Rewritten Tags & Rebases](/guide/rewritten-tags) guide for the full
-explanation and the recommended git workflow.
+- registry: `publish.registries[].token`, then `publish.token` (`--publish-token`), then `tokens.registry`
+- provider: `tokens.github` or `tokens.gitlab` (both set by `--token`), then `repo.token`
+- Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
+- AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)
 
-## Next Steps
+Keep the tokens out of the config file: set the environment variables in the CI (see [CI/CD](./../guide/ci-cd.md)).
 
-Explore specific configuration sections:
+## detectRewrittenTags
 
-- [Monorepo Config](monorepo.md) - Monorepo-specific settings
-- [Changelog Config](changelog.md) - Changelog generation and commit types
-- [Bump Config](bump.md) - Version bump settings
-- [Publish Config](publish.md) - NPM publishing options
-- [Release Config](release.md) - Release workflow settings
-- [AI Config](ai.md) - AI-enhanced changelogs and announcements
-- [Social Config](social.md) - Social media integration (Twitter, Slack)
-- [PR Comment Config](pr-comment.md) - PR comment settings
-- [Hooks Config](hooks.md) - Lifecycle hooks for custom scripts
-- [Multiple Configs](multiple-configs.md) - Using multiple configuration files
+- **Type:** `boolean`
+- **Default:** `true`
+
+Detect a `from` tag no longer reachable from `to` (the history was rebased after the tag was created) and recover, instead of reading the whole diverged range. See [Rewritten Tags](./../guide/rewritten-tags.md).
+
+## onRewrittenTag
+
+- **Type:** `'prompt' | 'ephemeral' | 'rebind' | 'error'`
+- **Default:** `prompt` in an interactive terminal, `ephemeral` otherwise (`--yes`, CI, no TTY)
+
+What to do with a rewritten tag: ask, use the equivalent reachable commit for this run, move the local tag onto it (no push), or fail. See [Rewritten Tags](./../guide/rewritten-tags.md).
+
+## Multiple Configs
+
+Several configs can coexist, named `relizy.<name>.config.ts`, and are selected with `--config` (the name without `.config.<ext>`):
+
+```bash
+relizy release                             # relizy.config.ts
+relizy release --config relizy.standalone  # relizy.standalone.config.ts
+```
+
+```ts
+// relizy.standalone.config.ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: { access: 'public' },
+})
+```
+
+The programmatic API takes the same name in `configName` (`release({ configName: 'relizy.standalone' })`), and `relizy commitlint --config <name>` lints with the scopes of that config. A missing config file given with `--config` is an error.
+
+To release packages with different version modes (a `selective` set and an `independent` one) from the same repository, use [version groups](./../guide/version-groups.md) instead of two configs: a single run bumps, publishes and tags every package with the right dependency versions.

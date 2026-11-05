@@ -1,7 +1,7 @@
 ---
 title: Rewritten Tags & Rebases
-description: Why rebasing a branch after a release orphans its tags, how it breaks changelogs, and how Relizy detects and recovers from it.
-keywords: relizy rebase, orphaned tag, rewritten tag, changelog wrong range, git tag rebase, detectRewrittenTags
+description: Why rebasing a branch after a release orphans its tags and breaks the changelogs, how Relizy detects it and recovers (detectRewrittenTags, onRewrittenTag), and how to repair the tags.
+keywords: relizy rebase, orphaned tag, rewritten tag, changelog wrong range, duplicated commits, git tag rebase, detectRewrittenTags, onRewrittenTag, rejected push
 category: Guide
 tags: [guide, git, tags, rebase, changelog, troubleshooting]
 ---
@@ -10,127 +10,67 @@ tags: [guide, git, tags, rebase, changelog, troubleshooting]
 
 {{ $frontmatter.description }}
 
-## The symptom
+## The Symptom
 
-Between two releases (for example two betas), the changelog suddenly lists the
-**entire history since the last stable release**, often with **duplicated
-commits**, and **every package gets bumped** even though only one or two
-actually changed. The compare link in the changelog header looks correct, but
-the commit list does not.
+Between two releases (two betas, for example), the changelog suddenly lists the whole history since the last stable release, often with duplicated commits, and every package is bumped although only one or two changed.
 
-## The cause: an orphaned tag
+## The Cause: an Orphaned Tag
 
-When Relizy releases a version, it creates a commit (`chore(release): bump
-version to X`) and a tag pointing exactly to that commit, then pushes both.
+A release tags its release commit. When the branch is rebased afterwards, git rewrites that commit with a new SHA, and the tag still points to the old one, which is no longer in the history of the branch:
 
-If the branch is **rebased afterwards**, git rewrites every commit on it,
-including that release commit, giving it a **new SHA**. The tag still points to
-the **old** commit, which is no longer part of the branch history. The tag is
-now _orphaned_.
-
-```
-Before rebase:   ...─ A ─ B(bump 1.1.0) ←── tag v1.1.0
-After  rebase:   ...─ A'─ B'(bump 1.1.0)   ← branch HEAD (new SHA)
-                       └ B (bump 1.1.0)  ←── tag v1.1.0 still here (orphaned)
+```text
+Before the rebase:  A ─ B (bump 1.1.0)  ← tag v1.1.0
+After the rebase:   A'─ B'(bump 1.1.0)  ← branch
+                    B (bump 1.1.0)       ← tag v1.1.0, orphaned
 ```
 
-To build a changelog, Relizy runs `git log "v1.1.0...HEAD"`.
-With an orphaned `v1.1.0`, that range is the **symmetric difference** between
-two divergent lines, so it walks all the way back to their common ancestor
-(near the last stable tag) and returns both the old and the rebased commits,
-hence the bloat and the duplicates.
+The range `v1.1.0...HEAD` then spans both lines down to their common ancestor, with the old and the rebased commits. The usual trigger is rebasing a long-lived branch carrying release commits, such as `develop` onto `main` after a stable release.
 
-## Why it keeps happening
+Never rebase a branch whose commits are tagged or pushed: rebase the feature branches before merging them, and integrate `develop` and `main` with `git merge`.
 
-Every cycle that rebases a branch carrying tagged release commits orphans those
-tags. The most common trigger is rebasing a long-lived branch (`develop`,
-`main`) - for example rebasing `develop` onto `main` after a stable release
-replays every previously-tagged beta commit with new SHAs.
+## Detection and Recovery
 
-## The fix: never rebase tagged/pushed commits
+Before using a tag as the start of a range, Relizy checks that it is reachable from the end of the range, an explicit `--from` included. When it is not, Relizy explains the situation and looks for the equivalent commit: the reachable commit with the same subject (the rebased release commit). No commit is ever rewritten: the only possible change is moving a tag.
 
-A pushed or tagged commit is **published history** and must be treated as
-immutable.
+| Option                | Type                                             | Default                                                              | Description                                                        |
+| --------------------- | ------------------------------------------------ | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `detectRewrittenTags` | `boolean`                                        | `true`                                                               | Check that the `from` tag is reachable. `false` uses the tag as is |
+| `onRewrittenTag`      | `'prompt' \| 'ephemeral' \| 'rebind' \| 'error'` | `prompt` in a terminal, `ephemeral` with `--yes` or without TTY (CI) | What to do with an orphaned tag                                    |
 
-- ✅ **Feature branches**: rebase them onto `develop` freely, before merging.
-  Only the feature's own (unpushed, untagged) commits are rewritten.
-- ✅ **Integrate into `develop`** via merge or fast-forward, not by rebasing
-  `develop` itself.
-- ✅ **`develop` ↔ `main`**: integrate with `git merge`, never `git rebase`.
-  Merging keeps every existing SHA, so tags stay valid.
-- ❌ **Never rebase `develop` or `main`** - they carry tagged release commits.
+- `prompt`: asks what to do (see below). Without a TTY, it behaves as `ephemeral`.
+- `ephemeral`: uses the equivalent commit for this run only, and leaves the tag untouched (a warning tells it). The safe default in CI.
+- `rebind`: moves the local tag onto the equivalent commit, without pushing it.
+- `error`: stops the release with the explanation.
 
-## How Relizy recovers
-
-Relizy detects when the resolved `from` tag is no longer reachable from `to`.
-Instead of silently producing a wrong changelog, it explains the situation and
-recovers safely. **No commit is ever rewritten** - the only possible mutation is
-moving a tag.
-
-When a `git rebase` is detected, Relizy locates the _equivalent_ commit (the
-release commit with the same message that is actually reachable from the current
-branch) and:
-
-- **Interactively** (TTY, no `--yes`): prompts you to choose between
-  - using the equivalent commit for this run only (recommended, non-destructive),
-  - re-binding the tag onto the equivalent commit locally,
-  - re-binding **and** force-pushing the corrected tag (asks again before pushing),
-  - keeping the orphaned tag, or
-  - aborting.
-- **Non-interactively** (`--yes` / CI / no TTY): uses the equivalent commit for
-  this run only and logs a warning. Idempotent, and the tag is left untouched.
-
-### Configuration
+The prompt offers to use the equivalent commit for this run only (the default choice), to re-bind the tag locally, to re-bind it **and** force-push it (asked again before pushing), to keep the orphaned tag, or to abort. When no equivalent commit is found, the prompt only offers to keep the tag or to abort, and the other strategies keep the tag with a warning, except `error`.
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
-  // Enabled by default. Set to false to opt out entirely.
-  detectRewrittenTags: true,
-
-  // Force a strategy instead of the auto behavior (prompt on TTY, ephemeral on CI):
-  //   'prompt'    → interactive selection
-  //   'ephemeral' → use the reachable equivalent commit for this run only
-  //   'rebind'    → move the local tag onto the equivalent commit (no push)
-  //   'error'     → stop the release with an explanation
-  onRewrittenTag: 'ephemeral',
+  onRewrittenTag: 'error',
 })
 ```
 
-| Option                | Type      | Default | Description                                                                    |
-| --------------------- | --------- | ------- | ------------------------------------------------------------------------------ |
-| `detectRewrittenTags` | `boolean` | `true`  | Detect an unreachable `from` tag and recover instead of failing silently.      |
-| `onRewrittenTag`      | `string`  | auto    | `prompt` \| `ephemeral` \| `rebind` \| `error`. Auto = `prompt` / `ephemeral`. |
+## Repairing a Tag
 
-## Repairing already-orphaned tags
-
-The ephemeral correction fixes the current run without touching anything. To fix
-a tag permanently, point it at its equivalent commit and force-push it:
+The `ephemeral` strategy fixes the current run only. To fix the tag for good, point it at the equivalent commit and push it:
 
 ```bash
-# Find the equivalent commit (the bump commit that IS on your branch)
+# The release commit that is on the branch
 git log --grep="bump version to 1.1.0" --format=%H -n 1
 
-# Re-bind the tag and publish the correction
 git tag -f v1.1.0 <equivalent-commit-sha>
 git push origin v1.1.0 --force
 ```
 
-Force-pushing a tag rewrites already-published history; only do it on
-repositories where that is acceptable.
+Force-pushing a tag rewrites published history: only do it where that is acceptable.
 
-## Tags orphaned by a rejected push
+## Tags Orphaned by a Rejected Push
 
-A tag can also be orphaned without any rebase: a release publishes its packages
-and pushes its tag, but the push of the branch is rejected because new commits
-landed on it in the meantime. The release commit then only exists behind the
-tag, and the branch stays on the previous version, so the next release computes
-the same version again.
+A tag can also be orphaned without rebase: the release publishes its packages and pushes its tag, but the push of the branch is rejected because new commits landed on it. The release commit then only exists behind the tag, and the next release computes the same version again.
 
-Relizy now prevents this situation (see [Branch Safety](/cli/release#branch-safety))
-and stops a release whose tag already exists. If it still happens, there is no
-equivalent commit to re-bind the tag to: merge the release commit back instead.
+Relizy prevents it (see [Branch Safety](./../cli/release.md#branch-safety)) and stops a release whose tag already exists. If it still happens, there is no equivalent commit to re-bind the tag to: merge the release commit back instead.
 
 ```bash
 git fetch --tags
@@ -138,5 +78,4 @@ git merge v1.1.0
 git push
 ```
 
-The branch gets the bumped versions and changelogs, and the tag becomes part of
-its history again.
+The branch gets the bumped versions and changelogs, and the tag is part of its history again.

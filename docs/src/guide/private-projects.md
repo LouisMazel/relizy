@@ -1,7 +1,7 @@
 ---
 title: Private Projects & Apps
-description: Relizy is not only for packages published to npm. Version your private apps, services and internal monorepos automatically, with changelogs, git tags and GitHub or GitLab releases, without ever publishing anything.
-keywords: private project versioning, app versioning, version without npm, internal monorepo, private packages, changelog for apps, git tags, github releases, gitlab releases, release automation without publishing
+description: Version private apps, services and internal monorepos with Relizy - versions, changelogs, git tags, GitHub or GitLab releases and PR comments - without ever publishing anything to a registry.
+keywords: private project versioning, app versioning, version without npm, internal monorepo, private packages, privatePackages, changelog for apps, git tags, github releases, gitlab releases, release without publishing, no-publish
 category: Guide
 tags: [guide, private, apps, monorepo, versioning, changelog, github, gitlab]
 ---
@@ -10,121 +10,71 @@ tags: [guide, private, apps, monorepo, versioning, changelog, github, gitlab]
 
 {{ $frontmatter.description }}
 
-## Not Only for npm Packages
+## What a Release Does
 
-Most release tools assume you publish libraries to a registry. But a lot of code never leaves the company: web apps, APIs, workers, internal tools, monorepos of private services. These projects deserve the same release discipline as open-source libraries:
+On a private project, `relizy release` bumps the versions from the commits, writes the `CHANGELOG.md` files, commits, tags and pushes, creates a GitHub or GitLab release per tag and comments on the pull requests or merge requests of the release.
 
-- 🔢 **A real version number** for every deploy, instead of "the commit from Tuesday"
-- 📝 **A changelog** your team, your QA and your clients can read
-- 🏷️ **Git tags** to know exactly what is running in production, and to roll back to it
-- 🚀 **GitHub or GitLab releases** with release notes, attached to those tags
-- 💬 **A PR comment** that tells the team what was just released
-
-Relizy gives you all of this from your Conventional Commits, with a single command, and without publishing anything.
-
-## What Relizy Does for a Private Project
-
-Running `relizy release` on a private project will:
-
-1. ✅ Analyze your commits since the last release
-2. ✅ Bump the `version` in each `package.json` that has changes
-3. ✅ Generate or update `CHANGELOG.md` files
-4. ✅ Create a release commit and a git tag per version
-5. ✅ Push the commit and the tags
-6. ✅ Create a GitHub or GitLab release for each tag, with its release notes
-7. ✅ Post a summary comment on your pull request or merge request
-
-And it will **never**:
-
-- ❌ Publish a package to npm or any other registry
-- ❌ Ask for an npm token or check registry authentication
-- ❌ Show install commands (`pnpm add ...`) in the PR comment
+It never publishes a package, never asks for an npm token and never shows install commands in the PR comment.
 
 ## Your Code Stays Private
 
 ::: tip Nothing is published, ever
 Two independent safeguards keep your code where it is:
 
-1. **`release.publish: false`** turns the publish step off entirely. Relizy does not build, pack, authenticate to a registry, or publish anything.
-2. **Packages with `"private": true` are never published**, even if the publish step is enabled. This is a hard rule in Relizy, not an option.
+1. **`release.publish: false`** turns the publish step off: Relizy does not build, pack, authenticate to a registry nor publish anything. `--no-publish` does the same for one run.
+2. **Packages with `"private": true` are never published**, even when the publish step runs. There is no option to change this.
 
 :::
 
-The GitHub or GitLab releases are created **in your own repository**, so they have exactly the same visibility as your code: a private repository gets private releases. Their content is the changelog, built from commits that anyone with access to the repository can already read.
+The GitHub or GitLab releases are created in your own repository, with its visibility: a private repository gets private releases. They contain the changelog, built from commits that anyone with access to the repository can already read.
 
-## Recommended Configuration
+## Set Up With relizy init
 
-### A Single App
+[`relizy init`](./../cli/init.md) asks what a release should do: choose **Version only**. It is suggested when the root `package.json` is private, or when no workspace package can be published. Relizy then writes `release.publish: false` and, in a monorepo of private packages, `monorepo.privatePackages: 'release'`. The generated CI workflow does not ask for an npm token.
 
-For a project with a single `package.json` at the root (a Nuxt app, an API, a CLI used internally...):
+## A Single App
 
-```ts
-// relizy.config.ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  projectName: 'My App',
-
-  release: {
-    publish: false, // never publish anything
-    social: false, // no public announcements
-    changelog: true,
-    commit: true,
-    gitTag: true,
-    push: true,
-    providerRelease: true, // GitHub or GitLab release
-    prComment: true,
-  },
-})
-```
-
-Each release creates a tag like `v1.4.0` and a matching GitHub or GitLab release.
-
-### A Monorepo of Apps and Private Packages
-
-For a monorepo where every package is private (apps, workers, shared internal libraries), use the `independent` mode so each app gets its own version, and release the private packages with `privatePackages: 'release'`:
+A project with a single `package.json` at the root (a Nuxt app, an API, an internal CLI) is released even with `"private": true`, and never published. No option is needed. To skip the publish step entirely and the social posts:
 
 ```ts
 // relizy.config.ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
-  projectName: 'My Platform',
-
-  monorepo: {
-    versionMode: 'independent',
-    packages: ['apps/*', 'packages/*'],
-    privatePackages: 'release', // version and release private packages too
-  },
-
-  changelog: {
-    rootChangelog: true, // also keep an aggregated CHANGELOG.md at the root
-  },
-
   release: {
     publish: false,
     social: false,
-    changelog: true,
-    commit: true,
-    gitTag: true,
-    push: true,
-    providerRelease: true,
-    prComment: true,
   },
 })
 ```
 
-With this configuration, a release that touches `apps/web` and `packages/core` creates the tags `@my-platform/web@1.3.0` and `@my-platform/core@2.1.0`, each with its own `CHANGELOG.md` entry and its own GitHub or GitLab release.
+Each release creates a tag like `v1.4.0` and its GitHub or GitLab release.
 
-::: info Why `privatePackages: 'release'`?
-By default, Relizy skips the workspace packages marked `"private": true`, because in a library monorepo they are usually internal tooling. In a private project, they are the whole point: `privatePackages: 'release'` tells Relizy to version, tag and release them. See [`monorepo.privatePackages`](/config/monorepo#privatepackages).
-:::
+## A Monorepo of Apps and Private Packages
 
-Prefer one shared version for the whole platform? Use `versionMode: 'unified'` or `'selective'` instead: Relizy then creates a single tag (`v1.3.0`) and a single release for the repository. See [Version Modes](/guide/version-modes).
+By default, Relizy leaves out the workspace packages marked `"private": true`: in a library monorepo, they are usually internal tooling. In a private project, they are the whole point: release them with [`monorepo.privatePackages: 'release'`](./../config/monorepo.md#privatepackages) (or `--private-packages release` for one run).
+
+```ts
+// relizy.config.ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    versionMode: 'independent',
+    packages: ['apps/*', 'packages/*'],
+    privatePackages: 'release',
+  },
+  release: {
+    publish: false,
+  },
+})
+```
+
+In `independent` mode, a release touching `apps/web` and `packages/core` creates the tags `@my-platform/web@1.3.0` and `@my-platform/core@2.1.0`, each with its `CHANGELOG.md` entry and its GitHub or GitLab release. With `unified` or `selective`, the whole platform shares one version, one tag (`v1.3.0`) and one release. See [Version Modes](./version-modes.md).
 
 ## Before Your First Release
 
-Private apps often have no `version` field, since they are never published. Relizy needs one in every `package.json` it versions. Start at `0.0.0`:
+Relizy needs a `version` in every `package.json` it releases, and private apps often have none. Start at `0.0.0`:
 
 ```json
 {
@@ -134,82 +84,33 @@ Private apps often have no `version` field, since they are never published. Reli
 }
 ```
 
-Then preview the release without changing anything:
+`relizy init` adds it to the root `package.json` when it is missing, and leaves out the workspace packages without a version (`monorepo.ignored`).
+
+Then preview the release:
 
 ```bash
-relizy release --dry-run
+npx relizy release --dry-run
 ```
 
-The dry run shows the versions, changelogs, tags, release notes and PR comment that a real release would produce. When it looks right, run it for real:
-
-```bash
-relizy release
-```
-
-::: tip First release of a package
-A package that has never been released has no previous tag to compare with. Relizy reads its history from the first commit that touched its folder, and the compare link of its first changelog points to the commit just before it.
-:::
+A package never released has no previous tag: Relizy reads its history from the first commit that touched its folder.
 
 ## In CI
 
-Only a token for your git provider is needed. No npm token, no registry configuration:
-
-```yaml
-# .github/workflows/release.yml
-name: Release
-
-on:
-  workflow_dispatch:
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-
-      - run: npm ci
-
-      - name: Release
-        run: npx relizy release --yes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-```
-
-See [GitHub Actions](/guide/github-actions) and [GitLab CI](/guide/gitlab-ci) for more setups.
-
-## Ideas for Using Your Versions
-
-Once every deploy has a version and a tag, you can build on it:
-
-- 🐳 **Tag your Docker images** with the package version instead of a commit hash
-- 🔙 **Roll back** by redeploying a previous tag
-- 🩺 **Expose the version** in a health check or an "About" page, to know what runs where
-- 📣 **Share the release notes** with QA, support or clients from the GitHub or GitLab release page
-- ✨ **Rewrite release notes** for a non-technical audience with [AI-Enhanced Changelogs](/guide/ai-changelog)
+The workflow is the one of [GitHub Actions](./github-actions.md) or [GitLab CI](./gitlab-ci.md), without the npm token: only the token of the git provider is needed (see [Tokens](./../config/overview.md#tokens)).
 
 ## FAQ
 
 ### Can Relizy publish my code to npm by mistake?
 
-No. With `release.publish: false`, the publish step does not run at all. And even if it did, packages with `"private": true` are always skipped by `relizy publish`.
+No. With `release.publish: false`, the publish step does not run. And even when it runs, the packages with `"private": true` are always skipped.
 
 ### Do I need an npm account or token?
 
-No. Without the publish step, Relizy never contacts a registry.
+No. When no package can be published, Relizy never contacts a registry.
 
 ### Does a GitHub or GitLab release make my code public?
 
-No. The release lives in your repository and inherits its visibility. It only contains the changelog and points to a tag you already pushed.
+No. The release lives in your repository and has its visibility. It contains the changelog and points to a tag you already pushed.
 
 ### Can I skip the GitHub or GitLab releases and only keep tags and changelogs?
 
@@ -217,4 +118,4 @@ Yes. Set `release.providerRelease: false`, or pass `--no-provider-release` to `r
 
 ### What if only some of my packages are published?
 
-That works too. In the same monorepo, public packages are published to npm while private ones are only versioned, tagged and released on GitHub or GitLab. Keep `release.publish: true` and set `monorepo.privatePackages: 'release'`. The PR comment only shows install commands for the published packages.
+Keep the publish step and set `monorepo.privatePackages: 'release'`: in the same monorepo, the public packages are published to npm while the private ones are only versioned, tagged and released on GitHub or GitLab. The PR comment only shows install commands for the published packages.
