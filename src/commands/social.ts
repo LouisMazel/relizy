@@ -1,10 +1,10 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig } from '../core'
-import type { BumpResultTruthy, GitCommit, GroupBumpResult, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
+import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -121,11 +121,13 @@ async function handleTwitterPost({
   dryRun,
   variables,
   prerelease,
+  hookContext,
 }: {
   config: ResolvedRelizyConfig
   changelog: string | TweetSection[]
   dryRun: boolean
   variables: SocialTemplateVariables
+  hookContext?: HookContext
   /**
    * True when every version of the release is a prerelease
    */
@@ -159,7 +161,7 @@ async function handleTwitterPost({
       return { success: true, response: undefined }
     }
 
-    await executeHook('before:twitter', config, dryRun)
+    await executeHook('before:twitter', config, dryRun, hookContext)
 
     try {
       logger.debug(`Release URL: ${variables.releaseUrl || 'none'}`)
@@ -173,12 +175,12 @@ async function handleTwitterPost({
         postMaxLength: config.social.twitter.postMaxLength,
       })
 
-      await executeHook('success:twitter', config, dryRun)
+      await executeHook('success:twitter', config, dryRun, hookContext)
 
       return { success: true, response }
     }
     catch (error) {
-      await executeHook('error:twitter', config, dryRun)
+      await executeHook('error:twitter', config, dryRun, hookContext)
       logger.error('Error posting to Twitter:', error)
       const errorMessage = error instanceof Error ? error.message : String(error)
       return { success: false, error: `Error posting to Twitter: ${errorMessage}` }
@@ -200,6 +202,7 @@ async function handleSlackPost({
   commits,
   packages: releasedPackages,
   prerelease,
+  hookContext,
 }: {
   config: ResolvedRelizyConfig
   changelog: string | SlackReleaseSection[]
@@ -210,6 +213,7 @@ async function handleSlackPost({
    * Packages of the release, listed after the changelog
    */
   packages: PackageBumpEntry[]
+  hookContext?: HookContext
   /**
    * True when every version of the release is a prerelease
    */
@@ -254,7 +258,7 @@ async function handleSlackPost({
     }
 
     try {
-      await executeHook('before:slack', config, dryRun)
+      await executeHook('before:slack', config, dryRun, hookContext)
 
       logger.debug(`Release URL: ${variables.releaseUrl || 'none'}`)
       logger.debug(`Changelog URL: ${variables.changelogUrl || 'none'}`)
@@ -288,12 +292,12 @@ async function handleSlackPost({
         dryRun,
       })
 
-      await executeHook('success:slack', config, dryRun)
+      await executeHook('success:slack', config, dryRun, hookContext)
 
       return { success: true, response }
     }
     catch (error) {
-      await executeHook('error:slack', config, dryRun)
+      await executeHook('error:slack', config, dryRun, hookContext)
       logger.error('Error posting to Slack:', error)
 
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -779,14 +783,17 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       return { results: [], hasErrors: false }
     }
 
-    await executeHook('before:social', config, dryRun)
+    await executeHook('before:social', config, dryRun, getHookContext(config, options.bumpResult))
 
     const hasGroups = hasVersionGroups(config)
     const { overview, versions, commits, rootTag } = await collectAnnouncedRelease({ config, options, dryRun })
 
+    // The hooks get what the posts announce
+    const getPostHookContext = (release: ReleaseOverview) => options.bumpResult ? { bumpResult: options.bumpResult, release } : undefined
+
     if (versions.length === 0) {
       logger.info('No version to announce on social media')
-      await executeHook('success:social', config, dryRun)
+      await executeHook('success:social', config, dryRun, getPostHookContext(overview))
       return { results: [], hasErrors: false }
     }
 
@@ -801,6 +808,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       dryRun,
       variables: twitterPost.variables,
       prerelease: twitterPost.prerelease,
+      hookContext: getPostHookContext(twitterPost.overview),
     })
 
     const slackResponse = await handleSlackPost({
@@ -813,6 +821,7 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
       commits,
       packages: toSlackPackages(slackPost.overview),
       prerelease: slackPost.prerelease,
+      hookContext: getPostHookContext(slackPost.overview),
     })
 
     // The results of the enabled platforms
@@ -830,12 +839,12 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
     const hasErrors = results.some(r => !r.success)
 
     if (hasErrors) {
-      await executeHook('error:social', config, dryRun)
+      await executeHook('error:social', config, dryRun, getPostHookContext(overview))
       logger.warn('Some social media posts failed')
     }
     else {
       logger.success('Social media posts completed!')
-      await executeHook('success:social', config, dryRun)
+      await executeHook('success:social', config, dryRun, getPostHookContext(overview))
     }
 
     return { results, hasErrors }

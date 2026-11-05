@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, github, gitlab, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, getHookContext, github, gitlab, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 
 /**
@@ -171,12 +171,13 @@ export async function providerRelease(
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
   let detectedProvider: GitProvider | null = null
+  const hookContext = getHookContext(config, options.bumpResult)
 
   try {
     detectedProvider = options.provider || detectGitProvider()
     await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
 
-    await executeHook('before:provider-release', config, dryRun)
+    await executeHook('before:provider-release', config, dryRun, hookContext)
 
     logger.start('Start provider release')
 
@@ -200,7 +201,7 @@ export async function providerRelease(
       logger.info('Skipping release creation for Bitbucket')
       logger.info('Git tags will still be created during the commit step')
 
-      await executeHook('success:provider-release', config, dryRun)
+      await executeHook('success:provider-release', config, dryRun, hookContext)
 
       return {
         detectedProvider,
@@ -221,7 +222,7 @@ export async function providerRelease(
       })
     }
 
-    await executeHook('success:provider-release', config, dryRun)
+    await executeHook('success:provider-release', config, dryRun, hookContext)
 
     return {
       detectedProvider,
@@ -238,7 +239,7 @@ export async function providerRelease(
       logger.error('Error publishing releases!\n\n', error)
     }
 
-    await executeHook('error:provider-release', config, dryRun)
+    await executeHook('error:provider-release', config, dryRun, hookContext)
 
     const errorMessage = error instanceof Error ? error.message : String(error)
     return {

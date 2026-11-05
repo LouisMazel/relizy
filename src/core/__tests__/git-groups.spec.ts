@@ -15,6 +15,7 @@ vi.mock('../repo', () => ({
 
 vi.mock('../utils', () => ({
   executeHook: vi.fn(),
+  getHookContext: vi.fn(),
 }))
 
 function bumpedPackage(name: string, newVersion: string): BumpResultTruthy['bumpedPackages'][number] {

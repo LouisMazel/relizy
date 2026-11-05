@@ -1,7 +1,7 @@
 import type { GroupBumpResult } from '../../types'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import { collectContributorNames, executeHook, generateChangelog, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog, generateAISocialReleases } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
@@ -23,6 +23,7 @@ vi.mock('../../core/repo', async importActual => ({
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  getHookContext: (await vi.importActual<typeof import('../../core/utils')>('../../core/utils')).getHookContext,
   ...await vi.importActual<typeof import('../../core/release-overview')>('../../core/release-overview'),
   loadRelizyConfig: vi.fn(),
   getPackagesOrBumpedPackages: vi.fn(),
@@ -268,7 +269,7 @@ describe('Given social command', () => {
       })
 
       expect(loadRelizyConfig).toHaveBeenCalled()
-      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), false, anyHookContext)
     })
 
     it('Then applies the safetyCheck option to the config', async () => {
@@ -376,7 +377,7 @@ describe('Given social command', () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       await social({ dryRun: true, bumpResult: { bumped: true, bumpedPackages: [] } })
 
-      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), true, anyHookContext)
     })
   })
 
@@ -418,7 +419,7 @@ describe('Given social command', () => {
           error: expect.stringContaining('Twitter API error'),
         }),
       ])
-      expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -995,6 +996,11 @@ describe('Given social command with version groups', () => {
     }))
     // The release URL links to the release of the unified/selective group
     expect(getReleaseUrl).toHaveBeenCalledWith(expect.anything(), 'v7.0.0')
+    // The hooks of a platform get what it posts
+    expect(executeHook).toHaveBeenCalledWith('before:twitter', expect.any(Object), false, {
+      bumpResult: expect.objectContaining({ groups: [headerGroup, mainGroup] }),
+      release: expect.objectContaining({ groups: [expect.objectContaining({ title: 'Maz UI' }), expect.objectContaining({ title: 'Header' })] }),
+    })
     for (const hook of ['before:social', 'before:twitter', 'before:slack', 'success:social']) {
       expect(vi.mocked(executeHook).mock.calls.filter(([name]) => name === hook)).toHaveLength(1)
     }
@@ -1078,6 +1084,6 @@ describe('Given social command with version groups', () => {
     const result = await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [mainGroup, headerGroup] } })
 
     expect(result.hasErrors).toBe(true)
-    expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false)
+    expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
   })
 })

@@ -14,7 +14,7 @@ import { getRootGroupBumpResult } from './groups'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
-import { executeHook, isInCI } from './utils'
+import { executeHook, getHookContext, isInCI } from './utils'
 
 export function getGitStatus(cwd?: string, trim = true) {
   const status = execSync('git status --porcelain', {
@@ -202,9 +202,10 @@ export async function createCommitAndTags({
   logLevel: LogLevel
 }): Promise<string[]> {
   const internalConfig = config || await loadRelizyConfig()
+  const hookContext = getHookContext(internalConfig, { bumped: true, bumpedPackages, newVersion, groups })
 
   try {
-    await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
     // The files written by this run, or the modified release files when they were written by another process
     const releaseFiles = getReleaseFiles(internalConfig.cwd)
@@ -346,14 +347,14 @@ export async function createCommitAndTags({
 
     logger.success('Commit and tag completed!')
 
-    await executeHook('success:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('success:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
     return createdTags
   }
   catch (error) {
     logger.error('Error committing and tagging:', error)
 
-    await executeHook('error:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('error:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
     throw error
   }

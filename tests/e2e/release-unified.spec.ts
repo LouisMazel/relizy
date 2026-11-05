@@ -6,7 +6,7 @@ import { publish } from '../../src/commands/publish'
 import { release } from '../../src/commands/release'
 import { social } from '../../src/commands/social'
 import { executeHook, generateChangelog, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags } from '../../src/core'
-import { createMockConfig } from '../mocks'
+import { anyHookContext, createMockConfig } from '../mocks'
 
 vi.mock('../../src/core', async () => {
   const actual = await vi.importActual('../../src/core')
@@ -138,7 +138,7 @@ describe('Given unified mode release workflow', () => {
       await release({})
 
       expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), false)
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -276,7 +276,7 @@ describe('Given unified mode release workflow', () => {
       await release({ dryRun: true })
 
       expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true, anyHookContext)
     })
   })
 
@@ -287,7 +287,7 @@ describe('Given unified mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then stops execution and does not run subsequent steps', async () => {
@@ -314,7 +314,7 @@ describe('Given unified mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Changelog failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
       expect(publish).not.toHaveBeenCalled()
     })
   })
@@ -325,7 +325,7 @@ describe('Given unified mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Publish failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
       expect(providerRelease).not.toHaveBeenCalled()
     })
   })
@@ -344,7 +344,7 @@ describe('Given unified mode release workflow', () => {
 
       expect(social).toHaveBeenCalled()
       // Release succeeds despite social errors
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -372,7 +372,7 @@ describe('Given unified mode release workflow', () => {
     it('Then success hook is called', async () => {
       await release({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, anyHookContext)
     })
   })
 })

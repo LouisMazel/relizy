@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockCommit } from '../../../tests/mocks'
+import { anyHookContext, createMockCommit } from '../../../tests/mocks'
 import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
@@ -28,6 +28,7 @@ vi.mock('node:process', () => ({
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
   ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  getHookContext: (await vi.importActual<typeof import('../../core/utils')>('../../core/utils')).getHookContext,
   checkGitStatusIfDirty: vi.fn(),
   confirmDirtyGitStatus: vi.fn(),
   resetReleaseFiles: vi.fn(),
@@ -215,6 +216,7 @@ describe('Given bump command', () => {
         'success:bump',
         expect.any(Object),
         false,
+        anyHookContext,
       )
       expect(checkGitStatusIfDirty).toHaveBeenCalledWith()
       expect(confirmDirtyGitStatus).not.toHaveBeenCalled()

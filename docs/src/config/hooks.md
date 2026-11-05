@@ -139,6 +139,21 @@ All hooks (except `generate:changelog`) receive:
 
 1. **`config`** (`ResolvedRelizyConfig`) - The resolved configuration object
 2. **`dryRun`** (`boolean`) - Whether the command is running in dry-run mode
+3. **`context`** (`HookContext | undefined`) - The release, for the hooks of the steps after the bump (`success:bump`, `changelog`, `publish`, `commit-and-tag`, `push`, `provider-release`, `social`, `twitter`, `slack`, `success:release` and `error:release` once the bump is done), when the release is known (in `relizy release`, or a command given a bump result):
+   - `bumpResult` (`BumpResultTruthy`) - The result of the bump
+   - `release` (`ReleaseOverview`) - The packages and versions of the release, by version group (in the `twitter` and `slack` hooks, what the post announces)
+
+```ts
+export default defineConfig({
+  hooks: {
+    'success:release': (config, dryRun, context) => {
+      for (const group of context?.release.groups ?? []) {
+        console.log(group.title, group.version ?? group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', '))
+      }
+    },
+  },
+})
+```
 
 ### Dry Run Mode
 
@@ -345,13 +360,11 @@ export default defineConfig({
 
 ```ts
 type HookType = 'before' | 'success' | 'error'
-type HookStep
-  = | 'bump'
-    | 'changelog'
-    | 'commit-and-tag'
-    | 'provider-release'
-    | 'publish'
-    | 'push'
+
+interface HookContext {
+  bumpResult: BumpResultTruthy
+  release: ReleaseOverview
+}
 
 type HookStep
   = | 'bump'
@@ -368,7 +381,7 @@ type HookStep
 type HookConfig = {
   [K in `${HookType}:${HookStep}`]?:
     | string
-    | ((config: ResolvedRelizyConfig, dryRun: boolean) => any)
+    | ((config: ResolvedRelizyConfig, dryRun: boolean, context?: HookContext) => any)
 } & {
   'generate:changelog'?: (
     config: ResolvedRelizyConfig,

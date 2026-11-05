@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
 import { RelizyCancelError } from '../errors'
 import {
@@ -55,6 +55,7 @@ vi.mock('../repo', () => {
 vi.mock('../utils', () => {
   return {
     executeHook: vi.fn(),
+    getHookContext: vi.fn(),
     isInCI: vi.fn(() => false),
   }
 })
@@ -501,8 +502,8 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(executeHook).toHaveBeenCalledWith('before:commit-and-tag', config, true)
-      expect(executeHook).toHaveBeenCalledWith('success:commit-and-tag', config, true)
+      expect(executeHook).toHaveBeenCalledWith('before:commit-and-tag', config, true, anyHookContext)
+      expect(executeHook).toHaveBeenCalledWith('success:commit-and-tag', config, true, anyHookContext)
     })
 
     it('Then logs tag creation in dry-run', async () => {
@@ -1025,7 +1026,7 @@ describe('Given createCommitAndTags function', () => {
         // Expected
       }
 
-      expect(executeHook).toHaveBeenCalledWith('error:commit-and-tag', config, false)
+      expect(executeHook).toHaveBeenCalledWith('error:commit-and-tag', config, false, anyHookContext)
     })
   })
 
@@ -1047,7 +1048,7 @@ describe('Given createCommitAndTags function', () => {
         // Expected
       }
 
-      expect(executeHook).toHaveBeenCalledWith('error:commit-and-tag', config, false)
+      expect(executeHook).toHaveBeenCalledWith('error:commit-and-tag', config, false, anyHookContext)
     })
   })
 

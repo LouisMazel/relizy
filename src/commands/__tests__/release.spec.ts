@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
@@ -187,7 +187,21 @@ describe('Given release command', () => {
         'success:release',
         expect.any(Object),
         false,
+        anyHookContext,
       )
+    })
+
+    it('Then gives the bump result and the overview of the release to the hooks after the bump', async () => {
+      const bumpResult = { newVersion: '1.0.0', oldVersion: '0.9.0', bumpedPackages: [], bumped: true as const }
+      vi.mocked(bump).mockResolvedValue(bumpResult)
+
+      await release({})
+
+      expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, {
+        bumpResult,
+        release: expect.objectContaining({ groups: [expect.objectContaining({ version: '1.0.0', tag: 'v1.0.0' })] }),
+      })
     })
   })
 
@@ -324,7 +338,7 @@ describe('Given release command', () => {
       await release({ dryRun: true })
 
       expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true, anyHookContext)
     })
   })
 
@@ -334,7 +348,7 @@ describe('Given release command', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then rethrows a cancelled prompt without the error hook nor the failed PR comment', async () => {
@@ -342,7 +356,7 @@ describe('Given release command', () => {
 
       await expect(release({})).rejects.toThrow(RelizyCancelError)
 
-      expect(executeHook).not.toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).not.toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
       expect(prComment).not.toHaveBeenCalled()
     })
 

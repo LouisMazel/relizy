@@ -1,9 +1,17 @@
-import type { BumpResultTruthy, HookConfig, PackageBase } from '../types'
+import type { BumpResultTruthy, HookConfig, HookContext, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
+import { getReleaseOverview } from './release-overview'
 import { getPackages } from './repo'
+
+/**
+ * Context of the hooks of the steps of a release, undefined without bump result
+ */
+export function getHookContext(config: ResolvedRelizyConfig, bumpResult: BumpResultTruthy | undefined): HookContext | undefined {
+  return bumpResult ? { bumpResult, release: getReleaseOverview({ config, bumpResult }) } : undefined
+}
 
 /**
  * Execute a hook

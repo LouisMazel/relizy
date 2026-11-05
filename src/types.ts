@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseType } from 'semver'
-import type { ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
@@ -1556,11 +1556,27 @@ export interface TokensConfig {
 }
 
 /**
+ * Third parameter of the function hooks of the steps, when the release is
+ * known (in `relizy release`, and in the commands given a bump result)
+ */
+export interface HookContext {
+  /**
+   * Result of the bump of the release
+   */
+  bumpResult: BumpResultTruthy
+  /**
+   * The packages and versions of the release, by version group (in the
+   * `twitter` and `slack` hooks, what the post announces)
+   */
+  release: ReleaseOverview
+}
+
+/**
  * Hooks configuration
  * Useful to run custom scripts before, after a step or on error
  */
 export type HookConfig = {
-  [K in `${HookType}:${HookStep}`]?: string | ((config: ResolvedRelizyConfig, dryRun: boolean) => any)
+  [K in `${HookType}:${HookStep}`]?: string | ((config: ResolvedRelizyConfig, dryRun: boolean, context?: HookContext) => any)
 } & {
   'generate:changelog'?: (config: ResolvedRelizyConfig, dryRun: boolean, params: {
     commits: GitCommit[]

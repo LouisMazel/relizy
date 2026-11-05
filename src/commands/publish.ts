@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getGroupBumpResult, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
 
 /**
@@ -257,8 +257,10 @@ export async function publish(options: Partial<PublishOptions> = {}) {
     logger.debug(`Tag: ${config.publish.tag}`)
   }
 
+  const hookContext = getHookContext(config, options.bumpResult)
+
   try {
-    await executeHook('before:publish', config, dryRun)
+    await executeHook('before:publish', config, dryRun, hookContext)
 
     const rootPackage = readPackageJson(config.cwd)
 
@@ -327,7 +329,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
 
     logger.success('Publishing packages completed!')
 
-    await executeHook('success:publish', config, dryRun)
+    await executeHook('success:publish', config, dryRun, hookContext)
 
     return {
       publishedPackages,
@@ -343,7 +345,7 @@ export async function publish(options: Partial<PublishOptions> = {}) {
       logger.error('Error during publishing packages!\n\n', error)
     }
 
-    await executeHook('error:publish', config, dryRun)
+    await executeHook('error:publish', config, dryRun, hookContext)
 
     throw error
   }

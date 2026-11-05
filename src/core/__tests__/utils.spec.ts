@@ -2,7 +2,7 @@ import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCIName, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
+import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCIName, getHookContext, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
 
 vi.mock('../repo', () => ({
   getPackages: vi.fn().mockResolvedValue([
@@ -879,6 +879,22 @@ describe('Given filterPrivatePackagesUnlessIncluded function', () => {
     it('Then removes private packages', () => {
       expect(filterPrivatePackagesUnlessIncluded(packages, false)).toEqual([{ name: 'a', private: false }])
       expect(filterPrivatePackagesUnlessIncluded(packages, undefined)).toEqual([{ name: 'a', private: false }])
+    })
+  })
+})
+
+describe('Given getHookContext function', () => {
+  it('Then is undefined without bump result', () => {
+    expect(getHookContext(createMockConfig({ bump: { type: 'release' } }), undefined)).toBeUndefined()
+  })
+
+  it('Then gives the bump result and the overview of the release', () => {
+    const config = createMockConfig({ bump: { type: 'release' }, projectName: 'my-lib', monorepo: { versionMode: 'unified' } })
+    const bumpResult = { bumped: true as const, newVersion: '2.0.0', oldVersion: '1.0.0', bumpedPackages: [] }
+
+    expect(getHookContext(config, bumpResult)).toEqual({
+      bumpResult,
+      release: { projectName: 'my-lib', groups: [expect.objectContaining({ versionMode: 'unified', version: '2.0.0', tag: 'v2.0.0' })] },
     })
   })
 })

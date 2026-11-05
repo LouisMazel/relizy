@@ -1,6 +1,6 @@
 import type { GroupBumpResult } from '../../types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
 import { aiSafetyCheck, applyAIOverride } from '../../core/ai'
 import { providerRelease, providerReleaseSafetyCheck } from '../provider-release'
@@ -25,6 +25,7 @@ vi.mock('../../core/github', () => {
 vi.mock('../../core/utils', () => {
   return {
     executeHook: vi.fn(),
+    getHookContext: vi.fn(),
   }
 })
 vi.mock('../../core/ai', () => ({
@@ -48,7 +49,7 @@ describe('Given providerRelease command', () => {
       await providerRelease({})
 
       expect(loadRelizyConfig).toHaveBeenCalled()
-      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then calls github function', async () => {
@@ -60,7 +61,7 @@ describe('Given providerRelease command', () => {
     it('Then executes success hook', async () => {
       await providerRelease({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:provider-release', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -82,7 +83,7 @@ describe('Given providerRelease command', () => {
     it('Then passes dryRun to hooks and provider function', async () => {
       await providerRelease({ dryRun: true })
 
-      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), true, anyHookContext)
       expect(github).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
@@ -100,7 +101,7 @@ describe('Given providerRelease command', () => {
         postedReleases: [],
         error: 'Release failed',
       })
-      expect(executeHook).toHaveBeenCalledWith('error:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:provider-release', expect.any(Object), false, anyHookContext)
     })
   })
 

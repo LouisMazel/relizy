@@ -1,11 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
-import type { BumpResultTruthy, GitProvider, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
+import type { BumpResultTruthy, GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
   createCommitAndTags,
   executeHook,
+  getHookContext,
   getReleaseTagNames,
   isRelizyCancelError,
   loadRelizyConfig,
@@ -245,6 +246,9 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
   await releaseSafetyCheck({ config, provider: options.provider, ai: options.ai })
 
+  // Known once the bump is done, for the hooks of the next steps
+  let hookContext: HookContext | undefined
+
   try {
     await executeHook('before:release', config, dryRun)
 
@@ -267,6 +271,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       includePrivates: options.includePrivates,
       groups: options.groups,
     })
+
+    hookContext = getHookContext(config, bumpResult.bumped ? bumpResult : undefined)
 
     if (!bumpResult.bumped) {
       logger.debug('No packages bumped')
@@ -382,7 +388,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
 
     logger.box('Push changes and tags')
     if (config.release.push && config.release.commit) {
-      await executeHook('before:push', config, dryRun)
+      await executeHook('before:push', config, dryRun, hookContext)
 
       try {
         await pushCommitAndTags({
@@ -393,10 +399,10 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
           tags: createdTags,
         })
 
-        await executeHook('success:push', config, dryRun)
+        await executeHook('success:push', config, dryRun, hookContext)
       }
       catch (error) {
-        await executeHook('error:push', config, dryRun)
+        await executeHook('error:push', config, dryRun, hookContext)
         throw error
       }
     }
@@ -480,7 +486,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       prCommentPosted,
     }))
 
-    await executeHook('success:release', config, dryRun)
+    await executeHook('success:release', config, dryRun, hookContext)
   }
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure
@@ -503,7 +509,7 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
       configName: options.configName,
     })
 
-    await executeHook('error:release', config, dryRun)
+    await executeHook('error:release', config, dryRun, hookContext)
 
     throw error
   }

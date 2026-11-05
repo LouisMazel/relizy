@@ -6,7 +6,7 @@ import { publish } from '../../src/commands/publish'
 import { release } from '../../src/commands/release'
 import { social } from '../../src/commands/social'
 import { checkGitStatusIfDirty, executeHook, fetchGitTags, generateChangelog, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags } from '../../src/core'
-import { createMockConfig } from '../mocks'
+import { anyHookContext, createMockConfig } from '../mocks'
 
 vi.mock('../../src/core', async () => {
   const actual = await vi.importActual('../../src/core')
@@ -319,7 +319,7 @@ describe('Given selective mode release workflow', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then stops execution', async () => {
@@ -386,7 +386,7 @@ describe('Given selective mode release workflow', () => {
     it('Then executes success hook', async () => {
       await release({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then all enabled steps are executed', async () => {

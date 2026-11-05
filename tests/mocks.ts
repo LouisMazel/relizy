@@ -1,6 +1,7 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ResolvedRelizyConfig } from '../src/core/config'
 import type { GitCommit, PackageBase, RelizyConfig, SocialTemplateVariables } from '../src/types'
+import { expect } from 'vitest'
 import { getDefaultConfig } from '../src/core/config'
 
 export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
@@ -66,3 +67,8 @@ export function socialVariables({ projectName = 'pkg', newVersion = '1.0.0', ...
     ...overrides,
   }
 }
+
+/**
+ * The context of a step hook: undefined without bump result
+ */
+export const anyHookContext = expect.toBeOneOf([undefined, expect.objectContaining({ bumpResult: expect.any(Object), release: expect.any(Object) })])

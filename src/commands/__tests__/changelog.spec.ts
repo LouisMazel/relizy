@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../../core'
 import { changelog } from '../changelog'
 
@@ -44,7 +44,7 @@ describe('Given changelog command', () => {
       await changelog({})
 
       expect(loadRelizyConfig).toHaveBeenCalled()
-      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), false, anyHookContext)
     })
 
     it('Then generates changelog for root package', async () => {
@@ -57,7 +57,7 @@ describe('Given changelog command', () => {
     it('Then executes success hook', async () => {
       await changelog({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:changelog', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:changelog', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -79,7 +79,7 @@ describe('Given changelog command', () => {
     it('Then passes dryRun to hooks and functions', async () => {
       await changelog({ dryRun: true })
 
-      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:changelog', expect.any(Object), true, anyHookContext)
       expect(writeChangelogToFile).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
@@ -100,7 +100,7 @@ describe('Given changelog command', () => {
 
       await expect(changelog({})).rejects.toThrow('Failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:changelog', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:changelog', expect.any(Object), false, anyHookContext)
     })
   })
 

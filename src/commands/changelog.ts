@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -247,8 +247,10 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
+  const hookContext = getHookContext(config, options.bumpResult)
+
   try {
-    await executeHook('before:changelog', config, dryRun)
+    await executeHook('before:changelog', config, dryRun, hookContext)
 
     logger.start('Start generating changelogs')
 
@@ -295,7 +297,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
 
     logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
 
-    await executeHook('success:changelog', config, dryRun)
+    await executeHook('success:changelog', config, dryRun, hookContext)
   }
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure
@@ -307,7 +309,7 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
       logger.error('Error generating changelogs!\n\n', error)
     }
 
-    await executeHook('error:changelog', config, dryRun)
+    await executeHook('error:changelog', config, dryRun, hookContext)
 
     throw error
   }

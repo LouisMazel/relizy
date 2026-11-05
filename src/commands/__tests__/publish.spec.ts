@@ -1,6 +1,6 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
@@ -304,7 +304,7 @@ describe('Given publish command', () => {
       await publish({})
 
       expect(loadRelizyConfig).toHaveBeenCalled()
-      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), false, anyHookContext)
     })
 
     it('Then executes success hook', async () => {
@@ -315,7 +315,7 @@ describe('Given publish command', () => {
 
       await publish({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:publish', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:publish', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -356,7 +356,7 @@ describe('Given publish command', () => {
 
       await publish({ dryRun: true })
 
-      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:publish', expect.any(Object), true, anyHookContext)
       expect(publishPackage).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
@@ -395,7 +395,7 @@ describe('Given publish command', () => {
 
       await expect(publish({})).rejects.toThrow('Publish failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false, anyHookContext)
     })
   })
 })
@@ -432,7 +432,7 @@ describe('Given publish command and the workspace dependencies', () => {
 
     expect(execPromise).not.toHaveBeenCalledWith('pnpm build', expect.anything())
     expect(publishPackage).not.toHaveBeenCalled()
-    expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false)
+    expect(executeHook).toHaveBeenCalledWith('error:publish', expect.any(Object), false, anyHookContext)
   })
 
   it('Then fails when targeting version groups on a config without groups', async () => {
