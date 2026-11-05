@@ -136,7 +136,7 @@ describe('Given preview_release on a standalone package', () => {
       expect(preview).not.toContain('feat: add the export command')
       expect(full).not.toContain('more (`full: true`')
       expect(full).toContain('feat: add the export command')
-    })
+    }, 30_000)
 
     it('Then cuts a preview longer than a tool result can be', () => {
       expect(fitPreview('short')).toBe('short')

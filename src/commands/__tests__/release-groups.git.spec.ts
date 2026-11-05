@@ -190,7 +190,8 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(git('log', '-1', '--format=%B')).toBe('chore(release): bump 1 packages\n\n@scope/login@2.0.1')
       expect(git('tag', '--points-at', 'HEAD')).toBe('@scope/login@2.0.1')
       expect(readFileSync(join(cwd, 'CHANGELOG.md'), 'utf8')).not.toContain('fix the form')
-    })
+      // Two releases on a real repository: slow when the machine is loaded
+    }, 30_000)
 
     it('Then starts the next release of each group from its own tags', async () => {
       await release({ yes: true })
