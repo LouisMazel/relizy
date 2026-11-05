@@ -63,7 +63,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When package manager is not pnpm or npm', () => {
     it('Then skips auth check', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: undefined as any }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: undefined as any }, safetyCheck: true, release: { publish: true } })
 
       await publishSafetyCheck({ config })
 
@@ -73,7 +73,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check fails', () => {
     it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
       await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
@@ -82,7 +82,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When the auth check times out', () => {
     it('Then throws a clear timeout error mentioning --no-safety-check', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 30000 }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 30000 }, safetyCheck: true, release: { publish: true } })
       // execPromise kills the command on timeout: error.killed is then true.
       vi.mocked(execPromise).mockRejectedValue(Object.assign(new Error('killed'), { killed: true }))
 
@@ -91,7 +91,7 @@ describe('Given publishSafetyCheck function', () => {
     })
 
     it('Then passes the configured timeout to execPromise', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 12345 }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 12345 }, safetyCheck: true, release: { publish: true } })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -107,7 +107,7 @@ describe('Given publishSafetyCheck function', () => {
     it('Then logs a patience message before the timeout', async () => {
       vi.useFakeTimers()
       try {
-        const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm', safetyCheckTimeout: 15000 }, safetyCheck: true, release: { publish: true } })
+        const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 15000 }, safetyCheck: true, release: { publish: true } })
         let resolveExec: (value: { stdout: string, stderr: string }) => void = () => {}
         vi.mocked(execPromise).mockReturnValue(new Promise((resolve) => {
           resolveExec = resolve
@@ -129,7 +129,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check succeeds', () => {
     it('Then does not exit', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -140,7 +140,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When safety check is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: false, private: false, args: [] }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: false, args: [] }, safetyCheck: true, release: { publish: true } })
 
       await publishSafetyCheck({ config })
 
@@ -150,7 +150,7 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When publish is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, private: false, args: [] }, safetyCheck: true, release: { publish: false } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [] }, safetyCheck: true, release: { publish: false } })
 
       await publishSafetyCheck({ config })
 
@@ -164,7 +164,6 @@ describe('Given publishSafetyCheck function', () => {
         bump: { type: 'patch' },
         publish: {
           safetyCheck: true,
-          private: false,
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
@@ -191,7 +190,6 @@ describe('Given publishSafetyCheck function', () => {
         bump: { type: 'patch' },
         publish: {
           safetyCheck: true,
-          private: false,
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
@@ -214,7 +212,6 @@ describe('Given publishSafetyCheck function', () => {
         bump: { type: 'patch' },
         publish: {
           safetyCheck: true,
-          private: false,
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
@@ -239,7 +236,6 @@ describe('Given publishSafetyCheck function', () => {
         bump: { type: 'patch' },
         publish: {
           safetyCheck: true,
-          private: false,
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
@@ -266,7 +262,6 @@ describe('Given publishSafetyCheck function', () => {
         bump: { type: 'patch' },
         publish: {
           safetyCheck: true,
-          private: false,
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',

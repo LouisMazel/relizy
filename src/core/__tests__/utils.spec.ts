@@ -630,7 +630,7 @@ describe('Given executeBuildCmd function', () => {
   describe('When buildCmd is configured', () => {
     it('Then executes build command successfully', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: false })
 
@@ -646,7 +646,7 @@ describe('Given executeBuildCmd function', () => {
     })
 
     it('Then skips execution in dry run mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'pnpm build', private: false, args: [], safetyCheck: false } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'pnpm build', args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: true })
 
@@ -656,7 +656,7 @@ describe('Given executeBuildCmd function', () => {
 
     it('Then throws error when build command fails', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('Build failed'))
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', private: false, args: [], safetyCheck: false } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', args: [], safetyCheck: false } })
 
       await expect(executeBuildCmd({ config, dryRun: false })).rejects.toThrow()
     })
@@ -664,7 +664,7 @@ describe('Given executeBuildCmd function', () => {
 
   describe('When buildCmd is not configured', () => {
     it('Then logs debug message and returns', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: '', private: false, args: [], safetyCheck: false } })
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: '', args: [], safetyCheck: false } })
 
       await executeBuildCmd({ config, dryRun: false })
 

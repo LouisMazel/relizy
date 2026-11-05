@@ -159,6 +159,10 @@ export default defineConfig({
 })
 ```
 
+### Removed publish.private
+
+`publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.includePrivates`](../config/monorepo.md#includeprivates) to bump them and generate their changelogs.
+
 ### AI Attribution in Commits
 
 `relizy commitlint` has a new rule, [`no-ai-attribution`](../commitlint/rules.md#no-ai-attribution), on by default (`error`): it rejects the commits crediting an AI tool, with an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer or a "Generated with" line. Turn off the attribution in the settings of your AI tools, or turn off the rule:

@@ -133,18 +133,31 @@ function checkDependencyTypes(config: ResolvedRelizyConfig, configFiles: { file:
     : []
 }
 
-function checkRenamedOptions(configFiles: { file: string, text: string }[]): MigrationFinding[] {
-  const locations = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bcodeBlocksLinter\b/)))
+function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
+  const findings: MigrationFinding[] = []
+  const renamed = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bcodeBlocksLinter\b/)))
 
-  return locations.length > 0
-    ? [{
-        severity: 'change',
-        title: '`commitlint.codeBlocksLinter` is renamed `commitlint.changelogLinter`',
-        section: 'Changelog Linter of commitlint',
-        detail: 'Rename the option, with the same values (`auto`, `eslint`, `oxc`): relizy 2 ignores `codeBlocksLinter`.',
-        locations,
-      }]
-    : []
+  if (renamed.length > 0) {
+    findings.push({
+      severity: 'change',
+      title: '`commitlint.codeBlocksLinter` is renamed `commitlint.changelogLinter`',
+      section: 'Changelog Linter of commitlint',
+      detail: 'Rename the option, with the same values (`auto`, `eslint`, `oxc`): relizy 2 ignores `codeBlocksLinter`.',
+      locations: renamed,
+    })
+  }
+
+  if ((config.publish as { private?: unknown } | undefined)?.private !== undefined) {
+    findings.push({
+      severity: 'change',
+      title: '`publish.private` is removed',
+      section: 'Removed publish.private',
+      detail: 'relizy never read it: the private packages are never published. Remove the option, and set `monorepo.includePrivates` to version them.',
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bprivate\s*:/))),
+    })
+  }
+
+  return findings
 }
 
 function checkVersionGroups(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
@@ -408,7 +421,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkDependency(config.cwd),
     ...checkTemplates(config, configFiles, severalVersions),
     ...checkDependencyTypes(config, configFiles),
-    ...checkRenamedOptions(configFiles),
+    ...checkRenamedOptions(config, configFiles),
     ...checkVersionGroups(config, configFiles),
     ...checkAIDryRun(config),
     ...checkAIAttribution(config),

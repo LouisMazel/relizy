@@ -59,7 +59,6 @@ export function getDefaultConfig() {
       includePrivates: false,
     } as MonorepoConfig,
     publish: {
-      private: false,
       args: [],
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       // registry is intentionally left undefined: it is resolved later from the

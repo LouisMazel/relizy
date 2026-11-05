@@ -153,4 +153,15 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**`commitlint.codeBlocksLinter` is renamed `commitlint.changelogLinter`** (`relizy.config.mjs:3`)')
     expect(text).toContain('**The `CommitlintCodeBlocksLinter` type is renamed `CommitlintChangelogLinter`** (`scripts/lint.ts:1`, `scripts/lint.ts:3`)')
   })
+
+  it('Then points out the removed publish.private', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  publish: {\n    private: false,\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`publish.private` is removed** (`relizy.config.mjs:3`)')
+  })
 })

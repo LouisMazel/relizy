@@ -161,12 +161,6 @@ describe('Given getDefaultConfig function', () => {
   })
 
   describe('When checking publish defaults', () => {
-    it('Then does not publish private packages by default', () => {
-      const config = getDefaultConfig()
-
-      expect(config.publish.private).toBe(false)
-    })
-
     it('Then has empty publish args by default', () => {
       const config = getDefaultConfig()
 
@@ -1170,7 +1164,7 @@ describe('Given defineConfig function', () => {
         types: {},
         bump: { type: 'minor' },
         changelog: { rootChangelog: false },
-        publish: { private: true },
+        publish: { access: 'public' },
       }
 
       const result = defineConfig(config)
@@ -1194,7 +1188,7 @@ describe('Given defineConfig function', () => {
         cwd: '/project',
         bump: { type: 'major' },
         changelog: { rootChangelog: true },
-        publish: { private: false },
+        publish: { tag: 'next' },
         release: { commit: true },
         social: { twitter: { enabled: true } },
       }

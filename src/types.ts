@@ -760,11 +760,6 @@ export interface PublishConfig {
    */
   args?: string[]
   /**
-   * Publish the private packages
-   * @default false
-   */
-  private?: boolean
-  /**
    * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
    */
   packageManager?: PackageManager

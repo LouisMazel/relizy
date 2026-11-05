@@ -448,7 +448,7 @@ describe('Given getAuthCommand function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' }, publish: { private: false, args: [], safetyCheck: false } })
+    config = createMockConfig({ bump: { type: 'patch' }, publish: { args: [], safetyCheck: false } })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
   })
@@ -505,7 +505,7 @@ describe('Given withRegistryNpmrc function', () => {
   const config = createMockConfig({
     cwd: '/project',
     bump: { type: 'patch' },
-    publish: { private: false, args: [] },
+    publish: { args: [] },
   })
 
   beforeEach(() => {
@@ -755,7 +755,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
     it('Then returns a single target built from the legacy fields', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { private: false, args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
+        publish: { args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)
@@ -771,7 +771,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' }],
@@ -789,7 +788,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
@@ -807,7 +805,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
@@ -825,7 +822,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
@@ -842,7 +838,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org', // no trailing slash
           registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }], // trailing slash
@@ -861,7 +856,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -881,7 +875,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -899,7 +892,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -923,7 +915,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' },
@@ -943,7 +934,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
         },
@@ -961,7 +951,7 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
     it('Then keeps the empty legacy target so the .npmrc-resolved registry is used', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { private: false, args: [] },
+        publish: { args: [] },
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)
@@ -983,7 +973,6 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -1004,7 +993,6 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org',
           registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
@@ -1023,7 +1011,6 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
@@ -1043,7 +1030,7 @@ describe('Given resolveAllConfiguredRegistryTargets function', () => {
     it('Then keeps the empty legacy target as the .npmrc fallback', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { private: false, args: [] },
+        publish: { args: [] },
       })
 
       const result = resolveAllConfiguredRegistryTargets(config)
@@ -1096,7 +1083,7 @@ describe('Given isVersionPublished function', () => {
     vi.stubEnv('RELIZY_NPM_TOKEN', undefined)
     vi.stubEnv('NPM_TOKEN', undefined)
     vi.stubEnv('NODE_AUTH_TOKEN', undefined)
-    config = createMockConfig({ cwd: '/project', publish: { private: false, args: [], safetyCheck: false } })
+    config = createMockConfig({ cwd: '/project', publish: { args: [], safetyCheck: false } })
     pkg = { ...createMockPackageInfo(), name: '@scope/pkg', path: '/packages/pkg', version: '1.0.0' }
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(readFileSync).mockReturnValue('')
@@ -1271,7 +1258,7 @@ describe('Given publishPackage function', () => {
         domain: 'gitlab.com',
         repo: 'user/repo',
       },
-      publish: { private: false, args: [], safetyCheck: false },
+      publish: { args: [], safetyCheck: false },
     })
     pkg = {
       ...createMockPackageInfo(),
