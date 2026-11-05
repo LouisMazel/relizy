@@ -1,6 +1,7 @@
+import type { ChildProcess } from 'node:child_process'
 import type { BumpResultTruthy } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { execSync } from 'node:child_process'
+import { execFile, execFileSync, execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
@@ -15,6 +16,7 @@ import {
   createCommitAndTags,
   detectGitProvider,
   fetchGitTags,
+  formatGitCommand,
   getCurrentGitBranch,
   getCurrentGitRef,
   getFirstCommit,
@@ -423,6 +425,19 @@ describe('Given parseGitRemoteUrl function', () => {
   })
 })
 
+/** The git commands run without shell (`execFile`), as shown in the logs */
+function getGitCommands(): string[] {
+  return vi.mocked(execFile).mock.calls.map(([, args]) => formatGitCommand(args as string[]))
+}
+
+/** `execFile` calling back as git does, failing the commands containing `failing.match` */
+function mockGitExecFile(failing?: { match: string, error: Error }) {
+  vi.mocked(execFile).mockImplementation(((_file: string, args: string[], _options: unknown, callback: (error: Error | null) => void) => {
+    callback(failing && formatGitCommand(args).includes(failing.match) ? failing.error : null)
+    return {} as ChildProcess
+  }) as unknown as typeof execFile)
+}
+
 describe('Given createCommitAndTags function', () => {
   let config: ResolvedRelizyConfig
   let bumpedPackages: BumpResultTruthy['bumpedPackages']
@@ -460,8 +475,8 @@ describe('Given createCommitAndTags function', () => {
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
     vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/project', private: false })
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
     vi.mocked(execSync).mockReturnValue('')
+    mockGitExecFile()
   })
 
   describe('When creating commit in dry-run mode', () => {
@@ -472,10 +487,9 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: true,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).not.toHaveBeenCalled()
+      expect(execFile).not.toHaveBeenCalled()
     })
 
     it('Then executes before and after hooks', async () => {
@@ -485,7 +499,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: true,
-        logLevel: 'normal',
       })
 
       expect(executeHook).toHaveBeenCalledWith('before:commit-and-tag', config, true, anyHookContext)
@@ -501,7 +514,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '2.0.0',
         dryRun: true,
-        logLevel: 'normal',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('[dry-run] git tag'))
@@ -516,13 +528,9 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.stringContaining('git commit --no-verify'),
-        expect.any(Object),
-      )
+      expect(getGitCommands()).toContainEqual(expect.stringContaining('git commit --no-verify'))
     })
 
     it('Then logs no-verify flag usage', async () => {
@@ -534,7 +542,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('--no-verify'))
@@ -549,12 +556,10 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const calls = vi.mocked(execPromise).mock.calls
-      const commitCall = calls.find(call => call[0].includes('git commit'))
-      expect(commitCall?.[0]).not.toContain('--no-verify')
+      const commitCall = getGitCommands().find(command => command.includes('git commit'))
+      expect(commitCall).not.toContain('--no-verify')
     })
   })
 
@@ -568,12 +573,10 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const calls = vi.mocked(execPromise).mock.calls
-      const tagCall = calls.find(call => call[0].includes('git tag'))
-      expect(tagCall?.[0]).toContain('git tag -s')
+      const tagCall = getGitCommands().find(command => command.includes('git tag'))
+      expect(tagCall).toContain('git tag -s')
     })
   })
 
@@ -595,7 +598,6 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(result).toEqual(['package-a@1.1.0', 'package-b@2.1.0'])
@@ -615,13 +617,9 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.stringContaining('pkg-a@1.1.0'),
-        expect.any(Object),
-      )
+      expect(getGitCommands()).toContainEqual(expect.stringContaining('pkg-a@1.1.0'))
     })
 
     it('Then skips packages without newVersion', async () => {
@@ -636,7 +634,6 @@ describe('Given createCommitAndTags function', () => {
         config,
         noVerify: false,
         bumpedPackages,
-        logLevel: 'normal',
       })
 
       expect(result).toHaveLength(2)
@@ -654,7 +651,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '3.0.0',
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(result).toEqual(['v3.0.0'])
@@ -669,7 +665,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '2.5.0',
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(result).toEqual(['release-2.5.0'])
@@ -684,12 +679,10 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.2.3',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const calls = vi.mocked(execPromise).mock.calls
-      const tagCall = calls.find(call => call[0].includes('git tag'))
-      expect(tagCall?.[0]).toContain('Version 1.2.3 released')
+      const tagCall = getGitCommands().find(command => command.includes('git tag'))
+      expect(tagCall).toContain('Version 1.2.3 released')
     })
   })
 
@@ -703,12 +696,10 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(result).toEqual([])
-      const calls = vi.mocked(execPromise).mock.calls
-      const tagCalls = calls.filter(call => call[0].includes('git tag'))
+      const tagCalls = getGitCommands().filter(command => command.includes('git tag'))
       expect(tagCalls).toHaveLength(0)
     })
   })
@@ -729,12 +720,11 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add package.json', { cwd: config.cwd })
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/CHANGELOG.md', { cwd: config.cwd })
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json', { cwd: config.cwd })
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'package.json'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/CHANGELOG.md'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/package.json'], { cwd: config.cwd, stdio: 'ignore' })
     })
 
     it('Then only adds the files written by the run, and forgets them once committed', async () => {
@@ -752,12 +742,11 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add package.json', { cwd: config.cwd })
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json', { cwd: config.cwd })
-      expect(execSync).not.toHaveBeenCalledWith('git add packages/b/package.json', expect.anything())
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'package.json'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/package.json'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(execFileSync).not.toHaveBeenCalledWith('git', ['add', 'packages/b/package.json'], expect.anything())
       expect(resetReleaseFiles).toHaveBeenCalled()
     })
 
@@ -778,7 +767,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'verbose',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Skipping lerna.json'))
@@ -801,18 +789,15 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add lerna.json', { cwd: config.cwd })
+      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'lerna.json'], { cwd: config.cwd, stdio: 'ignore' })
     })
 
     it('Then ignores errors when pattern matches no files', async () => {
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (cmd === 'git add **/CHANGELOG.md') {
-          throw new Error('No files matched')
-        }
-        return ''
+      vi.mocked(execSync).mockReturnValue(' M packages/a/CHANGELOG.md\n')
+      vi.mocked(execFileSync).mockImplementation(() => {
+        throw new Error('No files matched')
       })
 
       await expect(createCommitAndTags({
@@ -821,7 +806,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })).resolves.toBeDefined()
     })
   })
@@ -836,13 +820,26 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '5.0.0',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.stringContaining('release: 5.0.0'),
-        expect.any(Object),
-      )
+      expect(getGitCommands()).toContainEqual(expect.stringContaining('release: 5.0.0'))
+    })
+
+    it('Then passes the messages to git as they are, without shell', async () => {
+      config.templates.commitMessage = 'release: `whoami` $HOME "{{newVersion}}"'
+      config.templates.tagMessage = 'Tag \'{{newVersion}}\' $(id)'
+
+      await createCommitAndTags({
+        config,
+        noVerify: false,
+        bumpedPackages,
+        newVersion: '5.0.0',
+        dryRun: false,
+      })
+
+      const gitArgs = vi.mocked(execFile).mock.calls.map(([file, args]) => [file, args])
+      expect(gitArgs).toContainEqual(['git', ['commit', '-m', 'release: `whoami` $HOME "5.0.0"']])
+      expect(gitArgs).toContainEqual(['git', ['tag', '-a', 'v5.0.0', '-m', 'Tag \'5.0.0\' $(id)']])
     })
 
     it('Then uses default message when template is undefined', async () => {
@@ -854,13 +851,9 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.stringContaining('chore(release): bump version to 1.0.1'),
-        expect.any(Object),
-      )
+      expect(getGitCommands()).toContainEqual(expect.stringContaining('chore(release): bump version to 1.0.1'))
     })
 
     it('Then replaces new placeholders {{packageCount}}, {{packageNames}}, {{packageList}}, {{rootVersion}}', async () => {
@@ -878,10 +871,9 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      const cmd = getGitCommands().find(command => command.startsWith('git commit'))
       expect(cmd).toContain('chore(release): bump 2 packages (root 1.0.0) - @scope/a, @scope/b')
       expect(cmd).toContain('Packages: @scope/a@1.1.0, @scope/b@1.0.1')
     })
@@ -903,10 +895,9 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      const cmd = getGitCommands().find(command => command.startsWith('git commit'))
       expect(cmd).toContain('-m "chore(release): bump 3 packages"')
       expect(cmd).toContain('-m "@scope/a@1.1.0, @scope/b@1.0.1, @scope/c@1.0.1"')
     })
@@ -924,10 +915,9 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      const cmd = vi.mocked(execPromise).mock.calls[0][0] as string
+      const cmd = getGitCommands().find(command => command.startsWith('git commit'))
       expect(cmd).toContain('release: 1')
       // No auto-body when user customized the title
       expect(cmd).not.toContain('-m "@scope/a@1.1.0"')
@@ -943,13 +933,9 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.stringContaining('4.5.6'),
-        expect.any(Object),
-      )
+      expect(getGitCommands()).toContainEqual(expect.stringContaining('4.5.6'))
     })
   })
 
@@ -962,7 +948,6 @@ describe('Given createCommitAndTags function', () => {
         noVerify: false,
         bumpedPackages,
         dryRun: false,
-        logLevel: 'normal',
       })).rejects.toThrow('Failed to read root package.json')
     })
   })
@@ -970,12 +955,7 @@ describe('Given createCommitAndTags function', () => {
   describe('When tag creation fails', () => {
     it('Then logs error and throws', async () => {
       const error = new Error('Tag already exists')
-      vi.mocked(execPromise).mockImplementation((cmd) => {
-        if (cmd.includes('git tag')) {
-          return Promise.reject(error)
-        }
-        return Promise.resolve({ stdout: '', stderr: '' })
-      })
+      mockGitExecFile({ match: 'git tag', error })
       const loggerSpy = vi.spyOn(logger, 'error')
 
       await expect(createCommitAndTags({
@@ -984,19 +964,13 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })).rejects.toThrow('Tag already exists')
 
       expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Failed to create tag'), error)
     })
 
     it('Then executes error hook', async () => {
-      vi.mocked(execPromise).mockImplementation((cmd) => {
-        if (cmd.includes('git tag')) {
-          return Promise.reject(new Error('Failed'))
-        }
-        return Promise.resolve({ stdout: '', stderr: '' })
-      })
+      mockGitExecFile({ match: 'git tag', error: new Error('Failed') })
 
       try {
         await createCommitAndTags({
@@ -1005,7 +979,6 @@ describe('Given createCommitAndTags function', () => {
           bumpedPackages,
           newVersion: '1.0.1',
           dryRun: false,
-          logLevel: 'normal',
         })
       }
       catch {
@@ -1018,7 +991,7 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When commit fails', () => {
     it('Then executes error hook', async () => {
-      vi.mocked(execPromise).mockRejectedValue(new Error('Commit failed'))
+      mockGitExecFile({ match: 'git commit', error: new Error('Commit failed') })
 
       try {
         await createCommitAndTags({
@@ -1027,7 +1000,6 @@ describe('Given createCommitAndTags function', () => {
           bumpedPackages,
           newVersion: '1.0.1',
           dryRun: false,
-          logLevel: 'normal',
         })
       }
       catch {
@@ -1048,7 +1020,6 @@ describe('Given createCommitAndTags function', () => {
         bumpedPackages,
         newVersion: '1.0.1',
         dryRun: false,
-        logLevel: 'normal',
       })
 
       expect(loadRelizyConfig).toHaveBeenCalled()

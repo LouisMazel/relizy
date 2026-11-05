@@ -2,7 +2,7 @@ import type { LogLevel } from '@maz-ui/node'
 
 import type { BumpResultTruthy, GitProvider, GroupBumpResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import { execSync } from 'node:child_process'
+import { execFile, execFileSync, execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
@@ -17,6 +17,31 @@ import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './relea
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
 import { executeHook, getHookContext, isInCI } from './utils'
+
+/**
+ * Runs git without a shell: the arguments are passed as they are, so the
+ * messages of the templates can contain quotes, `$` or backticks, on every
+ * platform.
+ */
+function runGit(args: string[], cwd: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    execFile('git', args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (error) => {
+      if (error) {
+        reject(error)
+        return
+      }
+
+      resolve()
+    })
+  })
+}
+
+/**
+ * A git command as shown in the logs: the arguments with spaces or quotes are quoted
+ */
+export function formatGitCommand(args: string[]): string {
+  return ['git', ...args.map(arg => /^[\w@./:=+-]+$/.test(arg) ? arg : JSON.stringify(arg))].join(' ')
+}
 
 export function getGitStatus(cwd?: string, trim = true) {
   const status = execSync('git status --porcelain', {
@@ -232,7 +257,6 @@ export async function createCommitAndTags({
   newVersion,
   groups,
   dryRun,
-  logLevel,
 }: {
   config: ResolvedRelizyConfig
   noVerify: boolean
@@ -243,7 +267,6 @@ export async function createCommitAndTags({
    */
   groups?: GroupBumpResult[]
   dryRun?: boolean
-  logLevel: LogLevel
 }): Promise<string[]> {
   const internalConfig = config || await loadRelizyConfig()
   const hookContext = getHookContext(internalConfig, { bumped: true, bumpedPackages, newVersion, groups })
@@ -276,7 +299,7 @@ export async function createCommitAndTags({
 
       try {
         logger.debug(`git add ${pattern}`)
-        execSync(`git add ${pattern}`, { cwd: internalConfig.cwd })
+        execFileSync('git', ['add', pattern], { cwd: internalConfig.cwd, stdio: 'ignore' })
       }
       catch {
         // Ignore errors if pattern doesn't match any files
@@ -325,29 +348,21 @@ export async function createCommitAndTags({
     const commitMessage = applyPlaceholders(titleTemplate)
     const commitBody = bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined
 
-    const noVerifyFlag = (noVerify) ? '--no-verify ' : ''
     logger.debug(`No verify: ${noVerify}`)
 
-    const bodyFlag = commitBody ? ` -m "${commitBody.replaceAll('"', '\\"')}"` : ''
-    const fullCommitCmd = `git commit ${noVerifyFlag}-m "${commitMessage.replaceAll('"', '\\"')}"${bodyFlag}`
+    const commitArgs = ['commit', ...(noVerify ? ['--no-verify'] : []), '-m', commitMessage, ...(commitBody ? ['-m', commitBody] : [])]
 
     if (dryRun) {
-      logger.info(`[dry-run] ${fullCommitCmd}`)
+      logger.info(`[dry-run] ${formatGitCommand(commitArgs)}`)
     }
     else {
-      logger.debug(`Executing: ${fullCommitCmd}`)
-      await execPromise(fullCommitCmd, {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        cwd: internalConfig.cwd,
-      })
+      logger.debug(`Executing: ${formatGitCommand(commitArgs)}`)
+      await runGit(commitArgs, internalConfig.cwd)
       clearGitCache()
       logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
       resetReleaseFiles()
     }
 
-    const signTags = internalConfig.signTags ? '-s' : ''
     logger.debug(`Sign tags: ${internalConfig.signTags}`)
     const createdTags: string[] = []
 
@@ -360,19 +375,15 @@ export async function createCommitAndTags({
         ?.replaceAll('{{newVersion}}', version)
         || tagName
 
+      const tagArgs = ['tag', ...(internalConfig.signTags ? ['-s'] : []), '-a', tagName, '-m', tagMessage]
+
       if (dryRun) {
-        logger.info(`[dry-run] git tag ${signTags} -a ${tagName} -m "${tagMessage}"`)
+        logger.info(`[dry-run] ${formatGitCommand(tagArgs)}`)
       }
       else {
-        const cmd = `git tag ${signTags} -a ${tagName} -m "${tagMessage}"`
-        logger.debug(`Executing: ${cmd}`)
+        logger.debug(`Executing: ${formatGitCommand(tagArgs)}`)
         try {
-          await execPromise(cmd, {
-            logLevel,
-            noStderr: true,
-            noStdout: true,
-            cwd: internalConfig.cwd,
-          })
+          await runGit(tagArgs, internalConfig.cwd)
           clearGitCache()
           logger.debug(`Tag created: ${tagName}`)
         }

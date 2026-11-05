@@ -1,9 +1,9 @@
+import type { ChildProcess } from 'node:child_process'
 import type { BumpResultTruthy, GroupBumpResult } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { execSync } from 'node:child_process'
-import { execPromise } from '@maz-ui/node'
+import { execFile, execSync } from 'node:child_process'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { createCommitAndTags, getReleaseTagNames, getReleaseTags } from '../git'
+import { createCommitAndTags, formatGitCommand, getReleaseTagNames, getReleaseTags } from '../git'
 import { readPackageJson } from '../repo'
 
 vi.mock('node:child_process')
@@ -54,7 +54,7 @@ function createGroupsConfig(): ResolvedRelizyConfig {
 }
 
 function getExecutedCommands(): string[] {
-  return vi.mocked(execPromise).mock.calls.map(([command]) => command as string)
+  return vi.mocked(execFile).mock.calls.map(([, args]) => formatGitCommand(args as string[]))
 }
 
 describe('Given the release tags of version groups', () => {
@@ -101,7 +101,10 @@ describe('Given createCommitAndTags function with version groups', () => {
     vi.clearAllMocks()
     vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '7.0.0', path: '/project', private: true })
     vi.mocked(execSync).mockReturnValue('')
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' } as any)
+    vi.mocked(execFile).mockImplementation(((_file: string, _args: string[], _options: unknown, callback: (error: null) => void) => {
+      callback(null)
+      return {} as ChildProcess
+    }) as unknown as typeof execFile)
   })
 
   function commit(groups: GroupBumpResult[], config = createGroupsConfig()) {
@@ -112,7 +115,6 @@ describe('Given createCommitAndTags function with version groups', () => {
       newVersion: groups.find(group => group.versionMode !== 'independent')?.newVersion,
       groups,
       dryRun: false,
-      logLevel: 'silent',
     })
   }
 
@@ -131,9 +133,9 @@ describe('Given createCommitAndTags function with version groups', () => {
 
     expect(tags).toEqual(['v7.0.0', '@scope/nav@1.2.1', '@scope/login@2.0.0'])
     expect(getExecutedCommands()).toEqual(expect.arrayContaining([
-      'git tag  -a v7.0.0 -m "Bump version to 7.0.0"',
-      'git tag  -a @scope/nav@1.2.1 -m "Bump version to 1.2.1"',
-      'git tag  -a @scope/login@2.0.0 -m "Bump version to 2.0.0"',
+      'git tag -a v7.0.0 -m "Bump version to 7.0.0"',
+      'git tag -a @scope/nav@1.2.1 -m "Bump version to 1.2.1"',
+      'git tag -a @scope/login@2.0.0 -m "Bump version to 2.0.0"',
     ]))
   })
 

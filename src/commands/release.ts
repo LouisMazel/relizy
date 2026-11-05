@@ -421,7 +421,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           newVersion: bumpResult.newVersion,
           groups: bumpResult.groups,
           dryRun,
-          logLevel: config.logLevel,
         }),
       })
     }
