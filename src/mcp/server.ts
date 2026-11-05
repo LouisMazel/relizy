@@ -9,6 +9,7 @@ import { createContext } from './context'
 import { buildInstructions } from './instructions'
 import { registerPrompts } from './prompts'
 import { captureLogs, redirectConsoleToStderr } from './runtime'
+import { checkMigrationTool } from './tools/check-migration'
 import { getConfigOptionTool } from './tools/get-config-option'
 import { getDocTool } from './tools/get-doc'
 import { getProjectTool } from './tools/get-project'
@@ -27,6 +28,7 @@ export const TOOLS: ToolDefinition[] = [
   getConfigOptionTool,
   searchDocsTool,
   getDocTool,
+  checkMigrationTool,
 ]
 
 export async function runTool(context: ServerContext, tool: ToolDefinition, args: unknown): Promise<CallToolResult> {

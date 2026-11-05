@@ -52,6 +52,17 @@ export function registerPrompts(server: McpServer): void {
 4. Run \`relizy mcp init\` to give the rules and this MCP server to the AI agents of the project.
 5. Check the setup with \`preview_release()\` and \`relizy release --dry-run\`.`))
 
+  server.registerPrompt('migrate-to-v2', {
+    title: 'Migrate to relizy 2',
+    description: 'Upgrade this project from relizy 1 to relizy 2: config, social templates, version groups, hooks and the code calling the relizy API',
+  }, () => userMessage(`Migrate this project from relizy 1 to relizy 2.
+
+1. Read the migration guide: \`get_doc({ id: "guide/migration-v2" })\`.
+2. Call \`check_migration()\` (with \`{ config }\` for each relizy config of the project, see \`get_project()\`): it lists what to change and what to review, with the file and line of each place.
+3. Propose the changes to the user, file by file: the relizy dependency, the social templates (\`{{releaseTitle}}\` instead of \`{{projectName}} {{newVersion}} is out!\`), a \`title\` for each version group, the hooks, and the code calling the relizy API (\`RelizyCancelError\`, \`confirmBump\`, social functions). Check every option with \`get_config_option\`.
+4. Once the user agrees, apply them, then call \`check_migration()\` again until nothing is left to change.
+5. Check the next release with \`preview_release()\` and \`relizy release --dry-run\` (it shows the social posts and the PR comment), and run nothing else without the approval of the user.`))
+
   server.registerPrompt('setup-ci', {
     title: 'Release from the CI',
     description: 'Add a CI workflow that releases with relizy (GitHub Actions or GitLab CI)',

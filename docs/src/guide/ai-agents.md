@@ -33,8 +33,9 @@ Install Relizy as a devDependency of the project: the agents then start the inst
 | `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                             |
 | `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                 |
 | `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                              |
+| `check_migration`   | What to change to upgrade from Relizy 1: the dependency, the social templates, the version groups, the hooks and the code calling the API, file by file and line by line      |
 
-It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy` and `setup-ci`.
+It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy`, `migrate-to-v2` and `setup-ci`. To upgrade from Relizy 1, ask your agent for `migrate-to-v2`: it reads the [migration guide](./migration-v2.md), runs `check_migration` and proposes the changes.
 
 ## Guarantees
 
