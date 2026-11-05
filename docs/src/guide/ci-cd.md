@@ -282,6 +282,43 @@ workflows:
               only: main
 ```
 
+## Run Something Only When a Release Happens
+
+`relizy release` exits with code `0` whether it released or there was nothing to release: run what follows a release (a message to the team, a deployment of the docs) from a **hook**, which only runs when a release happens.
+
+```ts
+export default defineConfig({
+  hooks: {
+    // A command, run after a successful release only
+    'success:release': 'node ./scripts/notify-teams.mjs',
+  },
+})
+```
+
+The hooks also run with `--dry-run`: a command hook would then notify for nothing. A function hook gets `dryRun`, and the release as third parameter (see [Hooks](../config/hooks.md#parameters)), to tell what was released:
+
+```ts
+export default defineConfig({
+  hooks: {
+    'success:release': async (config, dryRun, context) => {
+      if (dryRun || !context) {
+        return
+      }
+
+      const versions = context.release.groups.flatMap(group => group.version
+        ? [`${group.title} ${group.version}`]
+        : group.packages.map(pkg => `${pkg.name} ${pkg.newVersion}`))
+
+      await fetch(process.env.TEAMS_WEBHOOK_URL!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `Released: ${versions.join(', ')}` }),
+      })
+    },
+  },
+})
+```
+
 ## Canary Releases in CI
 
 Canary releases are ideal for CI pipelines. Publish a temporary test version on every pull request so reviewers can install and test the changes before merging.
