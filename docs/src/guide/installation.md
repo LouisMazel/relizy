@@ -12,7 +12,7 @@ tags: [guide, installation, setup, configuration]
 
 ## Prerequisites
 
-- **Node.js** 22.12 or higher
+- **Node.js** `^22.23.4`, `^24.22.1` or `>=26.12.1` (the releases with the October 2026 security fixes)
 - **npm**, **pnpm**, **bun** or **yarn** package manager
 - **Git** initialized in your project
 
