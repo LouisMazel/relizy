@@ -9,7 +9,7 @@ import { getDoc } from '../tools/get-doc'
 import { getProject } from '../tools/get-project'
 import { lintCommit } from '../tools/lint-commit'
 import { previewChangelog } from '../tools/preview-changelog'
-import { previewRelease } from '../tools/preview-release'
+import { fitPreview, previewRelease } from '../tools/preview-release'
 import { searchDocs } from '../tools/search-docs'
 import { ToolInputError } from '../tools/types'
 import { cleanTempDirs, createRepository, createTempDir, createTestContext } from './helpers'
@@ -116,6 +116,31 @@ describe('Given preview_release on a standalone package', () => {
       expect(await previewRelease(context, { type: 'major' })).toContain('1.0.0 → 2.0.0')
       expect(await previewRelease(context, { from: 'HEAD~1' })).toContain('**Version:** 1.0.0 → 1.0.1 (commits since `HEAD~1`)')
       expect(await previewRelease(context, { from: 'HEAD' })).toContain('Nothing to release: none of the commits since `HEAD` triggers a bump')
+    })
+  })
+
+  describe('When the release has more commits than the preview lists', () => {
+    it('Then it lists the first ones, and every one with full', async () => {
+      const busy = createStandalone()
+      for (let index = 1; index <= 10; index++) {
+        busy.commit(`fix: fix the case ${index}`, { [`case-${index}.js`]: 'export {}' })
+      }
+      const context = createTestContext(busy.cwd)
+
+      const preview = await previewRelease(context, {})
+      const full = await previewRelease(context, { full: true })
+
+      expect(preview).toContain('; and 3 more (`full: true` lists them all)')
+      // The latest commits first
+      expect(preview).toContain('fix: fix the case 10 (')
+      expect(preview).not.toContain('feat: add the export command')
+      expect(full).not.toContain('more (`full: true`')
+      expect(full).toContain('feat: add the export command')
+    })
+
+    it('Then cuts a preview longer than a tool result can be', () => {
+      expect(fitPreview('short')).toBe('short')
+      expect(fitPreview('x'.repeat(80_000))).toMatch(/^x{75000}\n\n_The preview is cut at 75000 characters: preview fewer version groups/)
     })
   })
 

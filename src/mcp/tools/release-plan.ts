@@ -81,17 +81,17 @@ export function formatCommit(commit: GitCommit): string {
   return `${commit.type}${scope}${commit.isBreaking ? '!' : ''}: ${commit.description} (${commit.shortHash})`
 }
 
-/** The first commits of a list, on one line */
-export function formatCommits(commits: GitCommit[], max: number): string {
-  const more = commits.length > max ? `; and ${commits.length - max} more` : ''
+/** The first commits of a list (all of them without `max`), on one line */
+export function formatCommits(commits: GitCommit[], max = Infinity): string {
+  const more = commits.length > max ? `; and ${commits.length - max} more (\`full: true\` lists them all)` : ''
 
   return `${commits.slice(0, max).map(formatCommit).join('; ')}${more}`
 }
 
 /** Why a package is released, in words */
-export function explainBump(pkg: PackageBase, { set, plan }: { set: PackageSet, plan: ReleasePlan }): string {
+export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set: PackageSet, plan: ReleasePlan, full?: boolean }): string {
   const commits = pkg.commits ?? []
-  const commitsText = commits.length > 0 ? `${commits.length} commit(s): ${formatCommits(commits, 5)}` : ''
+  const commitsText = commits.length > 0 ? `${commits.length} commit(s): ${formatCommits(commits, full ? undefined : 5)}` : ''
 
   if (set.versionMode === 'unified') {
     return commitsText ? `follows the unified version, ${commitsText}` : 'follows the unified version'
