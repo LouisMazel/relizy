@@ -130,8 +130,56 @@ describe('Given the docs bundle generated from the sources', () => {
       expect(commands.length).toBeGreaterThan(5)
       expect(pages.filter(page => !knowledge.docsById.has(page))).toEqual([])
     })
+
+    it('Then each of its flags is on its page, and the global ones on cli/commands', () => {
+      const missing = Object.entries(getCliFlags()).flatMap(([page, flags]) => flags
+        .filter(flag => !new RegExp(`${flag}(?![\\w-])`).test(knowledge.readDoc(page)))
+        .map(flag => `${page}: ${flag}`))
+
+      expect(missing).toEqual([])
+    })
+  })
+
+  describe('When a config option is added', () => {
+    it('Then it is named on its doc page', () => {
+      const missing = knowledge.config
+        .filter((option) => {
+          const key = option.path.split('.').at(-1)!.replace('[]', '')
+          return !new RegExp(`(?<![\\w-])${key}(?![\\w-])`).test(knowledge.readDoc(option.docId))
+        })
+        .map(option => `${option.docId}: ${option.path}`)
+
+      expect(missing).toEqual([])
+    })
   })
 })
+
+/**
+ * The long flags of each command of `src/cli.ts`, by doc page: `cli/commands`
+ * for the global options, `cli/mcp` for the subcommands of `relizy mcp`
+ */
+function getCliFlags(): Record<string, string[]> {
+  const source = readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8')
+  const commands = [...source.matchAll(/\.command\('([a-z-]+)'/g)]
+  // The options shared by several commands: `function slackFormatOption() { return new Option('--slack-format...`
+  const sharedOptions = [...source.matchAll(/function (\w+Option)\(\) \{\n {2}return new Option\('(--[a-z-]+)/g)].map(match => ({ call: `${match[1]}()`, flag: match[2]! }))
+  const flagsOf = (text: string, withOptionObjects = true) => [
+    ...[...text.matchAll(/\.option\('(?:-\w, )?(--[a-z-]+)/g)].map(match => match[1]!),
+    ...(withOptionObjects ? [...text.matchAll(/new Option\('(--[a-z-]+)/g)].map(match => match[1]!) : []),
+    ...(withOptionObjects ? sharedOptions.filter(option => text.includes(option.call)).map(option => option.flag) : []),
+  ]
+  const pages: Record<string, string[]> = { 'cli/commands': flagsOf(source.slice(0, commands[0]!.index), false) }
+
+  commands.forEach((match, index) => {
+    const name = match[1]!
+    const previous = commands[index - 1]?.[1]
+    const page = name === 'commitlint' ? 'commitlint/cli' : name === 'serve' || previous === 'mcp' || previous === 'serve' ? 'cli/mcp' : `cli/${name}`
+
+    pages[page] = [...new Set([...(pages[page] ?? []), ...flagsOf(source.slice(match.index, commands[index + 1]?.index))])]
+  })
+
+  return pages
+}
 
 describe('Given parseFrontmatter', () => {
   describe('When the page has a frontmatter', () => {
