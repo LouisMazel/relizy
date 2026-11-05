@@ -7,6 +7,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
+import { ensurePushAccess } from '../ci'
 import { RelizyCancelError } from '../errors'
 import {
   checkGitStatusIfDirty,
@@ -1087,6 +1088,16 @@ describe('Given pushCommitAndTags function', () => {
           cwd: '/project',
         },
       )
+    })
+
+    it('Then makes sure the release can be pushed first (the GitLab token may be needed), not in dry-run', async () => {
+      await pushCommitAndTags({ config, dryRun: false, logLevel: 'normal', cwd: '/project' })
+      expect(ensurePushAccess).toHaveBeenCalledWith({ config })
+      expect(vi.mocked(ensurePushAccess).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(execPromise).mock.invocationCallOrder[0]!)
+
+      vi.mocked(ensurePushAccess).mockClear()
+      await pushCommitAndTags({ config, dryRun: true, logLevel: 'normal', cwd: '/project' })
+      expect(ensurePushAccess).not.toHaveBeenCalled()
     })
 
     it('Then logs success message', async () => {

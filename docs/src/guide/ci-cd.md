@@ -31,14 +31,15 @@ RELIZY_GITHUB_TOKEN=your_github_token
 RELIZY_GITLAB_TOKEN=your_gitlab_token
 ```
 
-### Git Configuration
+### What Relizy Handles in CI
 
-Configure git in your CI environment:
+Relizy prepares the clone of the CI job itself, whatever the provider:
 
-```bash
-git config --global user.name "github-actions[bot]"
-git config --global user.email "github-actions[bot]@users.noreply.github.com"
-```
+- **Shallow clone**: the full history and the tags are fetched (`fetch-depth: 1` of GitHub Actions, `GIT_DEPTH` of GitLab CI), as the versions and the changelogs need every commit since the last release.
+- **Detached HEAD**: GitLab CI (and others) check out the commit; Relizy checks out the branch of the job (`CI_COMMIT_BRANCH`...), tracking the remote one, so the release commit can be pushed.
+- **Git identity**: without `git config user.name` in the job, the release commit and the tags are made by the person who started the release, with the noreply email their provider links to their profile (`12446546+octocat@users.noreply.github.com`, `42-jdoe@users.noreply.gitlab.com`). A bot, or a CI that does not tell, gets `relizy[bot]`.
+- **Push**: before publishing anything, Relizy checks that the release commit and the tags can be pushed, and fails with the fix otherwise: a push failing after the publish would leave versions on the registry without their commit nor their tags. On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot.
+- **Confirmation**: without `--yes`, `relizy release` and `relizy bump` fail right away, as nobody can confirm the new versions (see [Important Flags for CI](#important-flags-for-ci)).
 
 ## Common Patterns
 
@@ -219,11 +220,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: relizy release --${{ inputs.release_type }} --yes
         env:
@@ -242,11 +238,8 @@ release:
   when: manual
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --yes
   variables:
-    RELIZY_GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
 ```
 
@@ -267,11 +260,6 @@ jobs:
       - run:
           name: Install dependencies
           command: npm ci
-      - run:
-          name: Configure Git
-          command: |
-            git config user.name "CircleCI"
-            git config user.email "ci@circleci.com"
       - run:
           name: Release
           command: relizy release --yes

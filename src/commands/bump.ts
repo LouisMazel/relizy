@@ -4,6 +4,7 @@ import type { BumpOptions, BumpResult, BumpResultTruthy, PackageBase, SemverBump
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, createCommandUi, describeBumpResult, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getBumpResultDetails, getCanaryVersion, getDependencyReleaseType, getHookContext, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
+import { prepareCiRepository } from '../core/ci'
 import { getCIName } from '../core/utils'
 
 interface BumpStrategyInput {
@@ -1041,6 +1042,8 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
 
   try {
     assertBumpConfirmable({ command: 'bump', yes: config.bump.yes, ciName: getCIName() })
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
 
     await executeHook('before:bump', config, dryRun)
 

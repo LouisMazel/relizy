@@ -3,6 +3,7 @@ import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
 import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { prepareCiRepository } from '../core/ci'
 import { recordLink, showPreview } from '../core/progress'
 
 export interface PrCommentOptions {
@@ -371,6 +372,9 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
   const ui = createCommandUi({ title: 'relizy pr-comment', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
     const { posted, pr } = await ui.step({
       running: 'Commenting the pull request',
       done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',

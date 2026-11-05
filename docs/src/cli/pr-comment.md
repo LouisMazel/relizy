@@ -212,11 +212,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
         env:
@@ -237,11 +232,8 @@ release:
   when: manual
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --patch --yes --pr-number $CI_MERGE_REQUEST_IID
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - merge_requests

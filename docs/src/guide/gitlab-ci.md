@@ -21,14 +21,12 @@ release:
   when: manual
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --$RELEASE_TYPE --yes
-  variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
   only:
     - main
 ```
+
+Add `GITLAB_TOKEN` (a project access token able to push) and `NPM_TOKEN` as masked CI/CD variables: see [Authentication](#authentication).
 
 ## Pipeline Triggers
 
@@ -78,8 +76,6 @@ release:
   stage: deploy
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --yes
   only:
     - main
@@ -128,23 +124,14 @@ Set up the schedule in GitLab: CI/CD → Schedules → New schedule
 
 ### GitLab Token
 
-Use the predefined `CI_JOB_TOKEN`:
+Relizy pushes the release commit and the tags, and creates the GitLab release. The `CI_JOB_TOKEN` of the job can create the release, but cannot push by default. Use a project access token:
 
-```yaml
-variables:
-  GITLAB_TOKEN: $CI_JOB_TOKEN
-```
+1. Go to Settings → Access Tokens, and create a token with the `api` and `write_repository` scopes, and the Maintainer role (or a role allowed to push to the protected branch)
+2. Add it as a masked CI/CD variable: `GITLAB_TOKEN` (Settings → CI/CD → Variables)
 
-For wider permissions, use a Project Access Token:
+Relizy first pushes with the remote of the job, then with `GITLAB_TOKEN` when the job token cannot push. It checks it before publishing anything: without a token able to push, the release fails before the npm publish, with the fix. You can instead allow the job token to push (Settings → CI/CD → Job token permissions → Allow Git push requests to the repository, GitLab 18.4 and later): its push does not start a new pipeline.
 
-1. Go to Settings → Access Tokens
-2. Create token with `api` scope
-3. Add as CI/CD variable: `GITLAB_TOKEN`
-
-```yaml
-variables:
-  GITLAB_TOKEN: $GITLAB_PROJECT_TOKEN
-```
+The release commit and the tags are made by the person who started the pipeline (or the manual job), with their noreply email (`42-jdoe@users.noreply.gitlab.com`), not by the user of the token. A `git config user.name` in the job is kept.
 
 ### NPM Token
 
@@ -170,11 +157,8 @@ canary:
   script:
     - npm ci
     - npm run build
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --canary --yes --no-clean --pr-number $CI_MERGE_REQUEST_IID
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - merge_requests
@@ -234,11 +218,8 @@ release:
   dependencies:
     - build
   script:
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --$RELEASE_TYPE --yes
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main
@@ -288,11 +269,8 @@ release:selective:
   dependencies:
     - build
   script:
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --selective --$RELEASE_TYPE --yes
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main
@@ -312,16 +290,12 @@ bump_version:
   when: manual
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy bump --$RELEASE_TYPE --yes
     - relizy changelog
     - git add .
     - git commit -m "chore(release):$(node -p "require('./package.json').version")"
     - git tag "v$(node -p "require('./package.json').version")"
     - git push origin main --follow-tags
-  variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
   only:
     - main
   artifacts:
@@ -491,11 +465,8 @@ release_with_mr_comment:
   when: manual
   script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --patch --yes --pr-number $CI_MERGE_REQUEST_IID
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - merge_requests
@@ -514,8 +485,6 @@ mr_comment:
   script:
     - npm ci
     - relizy pr-comment --pr-number $CI_MERGE_REQUEST_IID
-  variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
   only:
     - merge_requests
 ```
@@ -584,17 +553,7 @@ test:
 
 ### Permission Denied on Git Push
 
-Ensure `CI_JOB_TOKEN` has write access:
-
-```yaml
-variables:
-  GIT_STRATEGY: clone
-  GIT_DEPTH: 0
-before_script:
-  - git config user.name "GitLab CI"
-  - git config user.email "ci@gitlab.com"
-  - git remote set-url origin "https://gitlab-ci-token:${CI_JOB_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-```
+The release stops before publishing with `The release commit and the tags cannot be pushed to "origin" from GitLab CI`: set a `GITLAB_TOKEN` variable able to push (see [GitLab Token](#gitlab-token)), or allow the job token to push.
 
 ### NPM Publish Fails
 
@@ -608,7 +567,7 @@ before_script:
 
 ### No Git History
 
-Fetch full history:
+Relizy fetches the full history and the tags of a shallow clone itself. To save the fetch, clone it in full:
 
 ```yaml
 variables:
@@ -676,10 +635,7 @@ build:
     - build
   before_script:
     - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - main

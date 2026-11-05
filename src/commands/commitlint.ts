@@ -24,6 +24,7 @@ import {
   stripGitComments,
   summarizeResults,
 } from '../core'
+import { ensureFullHistory } from '../core/ci'
 
 export interface CommitlintOptions {
   /**
@@ -102,6 +103,9 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
     const messageFile = relative(config.cwd, path).startsWith('..') ? path : relative(config.cwd, path)
     return { mode: 'edit', entries: [{ result }], messageFile, helpUrl }
   }
+
+  // A range needs the history: a shallow CI clone may miss its start
+  ensureFullHistory(config.cwd)
 
   let from = options.from
   if (!from) {

@@ -21,6 +21,19 @@ vi.mock('./src/core/repo-config', async (importOriginal) => {
   }
 })
 
+// The preparation of a CI clone runs git on the repository: none in the tests, but in ci.spec.ts
+vi.mock('./src/core/ci', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./src/core/ci')>()
+  return {
+    ...actual,
+    prepareCiRepository: vi.fn(),
+    ensureFullHistory: vi.fn(),
+    attachCiBranch: vi.fn(),
+    applyCiGitIdentity: vi.fn(),
+    ensurePushAccess: vi.fn(() => Promise.resolve()),
+  }
+})
+
 vi.mock('@maz-ui/node', async (importActual) => {
   return {
     ...await importActual<typeof import('@maz-ui/node')>(),

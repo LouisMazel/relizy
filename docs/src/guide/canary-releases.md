@@ -206,11 +206,8 @@ canary:
   script:
     - npm ci
     - npm run build
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
     - relizy release --canary --yes --no-clean --pr-number $CI_MERGE_REQUEST_IID
   variables:
-    GITLAB_TOKEN: $CI_JOB_TOKEN
     NODE_AUTH_TOKEN: $NPM_TOKEN
   only:
     - merge_requests

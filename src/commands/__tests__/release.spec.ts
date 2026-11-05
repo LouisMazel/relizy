@@ -13,6 +13,7 @@ import {
   RelizyCancelError,
   rollbackModifiedFiles,
 } from '../../core'
+import { ensurePushAccess, prepareCiRepository } from '../../core/ci'
 import { recordAIRewrite } from '../../core/progress'
 
 import { bump } from '../bump'
@@ -534,6 +535,23 @@ describe('Given release command', () => {
 
       expect(assertBranchUpToDateWithRemote).toHaveBeenCalledTimes(2)
       expect(vi.mocked(assertBranchUpToDateWithRemote).mock.invocationCallOrder[1]).toBeLessThan(vi.mocked(publish).mock.invocationCallOrder[0]!)
+    })
+
+    it('Then prepares the CI clone, and checks during the safety checks that the release can be pushed', async () => {
+      await release({})
+
+      expect(prepareCiRepository).toHaveBeenCalledWith(expect.any(String))
+      expect(ensurePushAccess).toHaveBeenCalledWith({ config: expect.objectContaining({ release: expect.objectContaining({ push: true }) }) })
+      expect(vi.mocked(ensurePushAccess).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(publish).mock.invocationCallOrder[0]!)
+    })
+
+    it('Then fails before publishing when the release cannot be pushed', async () => {
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('The release commit and the tags cannot be pushed to "origin" from GitLab CI.'))
+
+      await expect(release({})).rejects.toThrow('cannot be pushed')
+
+      expect(bump).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
     })
 
     it('Then checks that the release tag is still available', async () => {

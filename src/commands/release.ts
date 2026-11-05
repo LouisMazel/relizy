@@ -21,6 +21,7 @@ import {
 } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
+import { ensurePushAccess, prepareCiRepository } from '../core/ci'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { getCIName } from '../core/utils'
@@ -127,7 +128,7 @@ async function releaseSafetyCheck({
       publishSafetyCheck({ config }),
       // The release only posts with release.social (disabled by --no-social and --canary)
       ...(config.release.social ? [socialSafetyCheck({ config })] : []),
-      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd })] : []),
+      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd }), ensurePushAccess({ config })] : []),
     ])
 
     logger.success('Safety checks passed')
@@ -186,6 +187,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<Re
 
   try {
     assertBumpConfirmable({ command: 'release', yes: config.bump.yes, ciName: getCIName() })
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
 
     if (config.safetyCheck) {
       await ui.step({

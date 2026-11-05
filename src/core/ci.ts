@@ -1,0 +1,305 @@
+import type { ResolvedRelizyConfig } from './config'
+import { execFileSync } from 'node:child_process'
+import process from 'node:process'
+import { logger } from '@maz-ui/node'
+import { getCIName, isInCI } from './utils'
+
+/**
+ * What relizy does for itself in a CI job, whatever the provider: the full
+ * history of a shallow clone, the branch of a detached HEAD, the identity of
+ * the release commit, and a push that works (or fails before publishing).
+ */
+
+export interface GitIdentity {
+  name: string
+  email: string
+}
+
+/**
+ * The release commit of a bot, or of a CI that does not tell who started it
+ */
+export const RELIZY_BOT_IDENTITY: GitIdentity = { name: 'relizy[bot]', email: 'noreply@relizy.dev' }
+
+type Env = NodeJS.ProcessEnv
+
+function git(args: string[], cwd: string, env: Env = process.env): string {
+  return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+}
+
+function tryGit(args: string[], cwd: string, env: Env = process.env): string | undefined {
+  try {
+    return git(args, cwd, env)
+  }
+  catch {
+    return undefined
+  }
+}
+
+function getHost(url: string | undefined, fallback: string): string {
+  try {
+    return url ? new URL(url).host : fallback
+  }
+  catch {
+    return fallback
+  }
+}
+
+/**
+ * The person who started the release, with the noreply email their provider
+ * links to their profile: `12446546+octocat@users.noreply.github.com` on
+ * GitHub, `42-octocat@users.noreply.gitlab.com` on GitLab. A bot, or a CI
+ * that does not tell, gets `relizy[bot]`.
+ */
+export function getCiGitIdentity(env: Env = process.env): GitIdentity {
+  if (env.GITHUB_ACTIONS === 'true') {
+    const login = env.GITHUB_ACTOR
+    const id = env.GITHUB_ACTOR_ID
+
+    if (!login || !id || login.endsWith('[bot]')) {
+      return RELIZY_BOT_IDENTITY
+    }
+
+    return { name: login, email: `${id}+${login}@users.noreply.${getHost(env.GITHUB_SERVER_URL, 'github.com')}` }
+  }
+
+  if (env.GITLAB_CI === 'true') {
+    const login = env.GITLAB_USER_LOGIN
+    const id = env.GITLAB_USER_ID
+
+    // The users of the access tokens: `project_42_bot_...`, `group_42_bot_...`
+    if (!login || !id || /^(?:project|group)_\d+_bot/.test(login)) {
+      return RELIZY_BOT_IDENTITY
+    }
+
+    return { name: env.GITLAB_USER_NAME || login, email: `${id}-${login}@users.noreply.${env.CI_SERVER_HOST || 'gitlab.com'}` }
+  }
+
+  return RELIZY_BOT_IDENTITY
+}
+
+/**
+ * The branch a CI job runs on, when its HEAD is detached: none for the pull
+ * request, merge request and tag pipelines
+ */
+
+export function getCiBranch(env: Env = process.env): string | undefined {
+  if (env.GITHUB_ACTIONS === 'true') {
+    return env.GITHUB_REF_TYPE === 'branch' ? env.GITHUB_REF_NAME : undefined
+  }
+  if (env.GITLAB_CI === 'true') {
+    return env.CI_COMMIT_BRANCH
+  }
+  if (env.TRAVIS === 'true') {
+    return env.TRAVIS_PULL_REQUEST === 'false' ? env.TRAVIS_BRANCH : undefined
+  }
+  if (env.TF_BUILD === 'True' && env.BUILD_SOURCEBRANCH?.startsWith('refs/heads/')) {
+    return env.BUILD_SOURCEBRANCH.slice('refs/heads/'.length)
+  }
+
+  return env.BITBUCKET_BRANCH
+    || env.CIRCLE_BRANCH
+    || env.BUILDKITE_BRANCH
+    || env.DRONE_BRANCH
+    || env.BRANCH_NAME
+    || env.GIT_BRANCH?.replace(/^origin\//, '')
+    || undefined
+}
+
+/**
+ * Fetch the full history and the tags of a shallow clone (`fetch-depth: 1` of
+ * GitHub Actions, `GIT_DEPTH` of GitLab CI): the versions and the changelogs
+ * need every commit since the last release. Outside a CI, a warning tells
+ * how to fetch it.
+ */
+export function ensureFullHistory(cwd: string): void {
+  if (tryGit(['rev-parse', '--is-shallow-repository'], cwd) !== 'true') {
+    return
+  }
+
+  if (!isInCI()) {
+    logger.warn('The repository is a shallow clone: the versions and the changelogs may miss commits. Fetch its history with "git fetch --unshallow --tags"')
+    return
+  }
+
+  try {
+    git(['fetch', '--unshallow', '--tags', '--quiet'], cwd)
+    logger.info('Fetched the full git history of the shallow clone')
+  }
+  catch (error) {
+    throw new Error(
+      'The repository is a shallow clone and its history could not be fetched: the versions and the changelogs need every commit since the last release.\n'
+      + 'Clone the full history: "fetch-depth: 0" in the actions/checkout step on GitHub, the "GIT_DEPTH: 0" variable on GitLab.',
+      { cause: error },
+    )
+  }
+}
+
+/**
+ * Put a detached HEAD (GitLab CI and others check out the commit) on the
+ * branch of the job, tracking the remote one: the release commit can then be
+ * pushed, and checked against the remote before publishing.
+ */
+export function attachCiBranch(cwd: string, env: Env = process.env): void {
+  if (!isInCI() || tryGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) !== 'HEAD') {
+    return
+  }
+
+  const branch = getCiBranch(env)
+  if (!branch) {
+    logger.debug('Detached HEAD without the branch of the CI job: left as is')
+    return
+  }
+
+  git(['checkout', '-B', branch], cwd)
+
+  const tracked = tryGit(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], cwd) !== undefined
+  if (tracked) {
+    git(['branch', `--set-upstream-to=origin/${branch}`], cwd)
+  }
+
+  logger.info(`Checked out the branch "${branch}" of the CI job (detached HEAD)`)
+}
+
+/**
+ * The release commit and the tags of a CI job without git identity (none in
+ * the git config nor the GIT_AUTHOR_* variables) are made by the person who
+ * started the release, through the environment: the git config is not
+ * changed.
+ */
+export function applyCiGitIdentity(cwd: string, env: Env = process.env): GitIdentity | undefined {
+  if (!isInCI() || env.GIT_AUTHOR_NAME || env.GIT_COMMITTER_NAME) {
+    return undefined
+  }
+
+  if (tryGit(['config', 'user.name'], cwd) && tryGit(['config', 'user.email'], cwd)) {
+    return undefined
+  }
+
+  const identity = getCiGitIdentity(env)
+  Object.assign(env, {
+    GIT_AUTHOR_NAME: identity.name,
+    GIT_AUTHOR_EMAIL: identity.email,
+    GIT_COMMITTER_NAME: identity.name,
+    GIT_COMMITTER_EMAIL: identity.email,
+  })
+  logger.info(`The release commit and tags are made by ${identity.name} <${identity.email}>`)
+
+  return identity
+}
+
+const prepared = new Set<string>()
+
+/**
+ * Prepare the repository of a CI job for a command reading the history or
+ * committing: once per repository and run, a no-op outside a CI (except the
+ * shallow clone warning).
+ */
+export function prepareCiRepository(cwd: string): void {
+  if (prepared.has(cwd)) {
+    return
+  }
+  prepared.add(cwd)
+
+  ensureFullHistory(cwd)
+  attachCiBranch(cwd)
+  applyCiGitIdentity(cwd)
+}
+
+/**
+ * A token able to push to the GitLab project, other than the job token of
+ * the remote (it cannot push by default)
+ */
+function getGitlabPushToken(config: ResolvedRelizyConfig, env: Env): string | undefined {
+  const token = config.tokens.gitlab || config.repo?.token
+  return env.GITLAB_CI === 'true' && token && token !== env.CI_JOB_TOKEN ? token : undefined
+}
+
+/**
+ * Push through `url` instead of the URL of `remote`, without changing the
+ * remote: the `pushInsteadOf` of git, given by the environment, so the token
+ * is in no command line nor log
+ */
+function pushThrough({ url, remoteUrl, env }: { url: string, remoteUrl: string, env: Env }): void {
+  const index = Number(env.GIT_CONFIG_COUNT) || 0
+  Object.assign(env, {
+    GIT_CONFIG_COUNT: String(index + 1),
+    [`GIT_CONFIG_KEY_${index}`]: `url.${url}.pushInsteadOf`,
+    [`GIT_CONFIG_VALUE_${index}`]: remoteUrl,
+  })
+}
+
+function canPush({ remote, branch, cwd, env }: { remote: string, branch: string, cwd: string, env: Env }): boolean {
+  return tryGit(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], cwd, env) !== undefined
+}
+
+function getPushFix(env: Env): string {
+  if (env.GITLAB_CI === 'true') {
+    return 'Set a GITLAB_TOKEN variable (a project access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.'
+  }
+  if (env.GITHUB_ACTIONS === 'true') {
+    return 'Give the workflow "permissions: contents: write", or check out the repository with a token allowed to push (the "token" input of actions/checkout).'
+  }
+  return 'Give the CI job credentials allowed to push to the repository.'
+}
+
+const pushAccess = new Map<string, Promise<void>>()
+
+/**
+ * Check, before publishing anything, that the release commit and the tags can
+ * be pushed: a push failing after the publish leaves versions on the registry
+ * without their commit nor their tags. On GitLab, when the remote cannot push
+ * (the job token), the push goes through the GitLab token instead. Once per
+ * repository and run. The rules of the protected branches are only checked
+ * by the real push.
+ */
+export function ensurePushAccess({ config, env = process.env }: { config: ResolvedRelizyConfig, env?: Env }): Promise<void> {
+  const cwd = config.cwd
+  const cached = pushAccess.get(cwd)
+  if (cached) {
+    return cached
+  }
+
+  const check = Promise.resolve().then(() => {
+    const branch = tryGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+    if (!branch || branch === 'HEAD') {
+      logger.debug('Detached HEAD: the push access is not checked')
+      return
+    }
+
+    const remote = tryGit(['config', `branch.${branch}.remote`], cwd) || 'origin'
+    if (canPush({ remote, branch, cwd, env })) {
+      logger.debug(`The release can be pushed to "${remote}"`)
+      return
+    }
+
+    const token = getGitlabPushToken(config, env)
+    const remoteUrl = tryGit(['remote', 'get-url', '--push', remote], cwd)
+    if (token && remoteUrl?.startsWith('http') && env.CI_SERVER_URL && env.CI_PROJECT_PATH) {
+      const url = new URL(env.CI_SERVER_URL)
+      url.username = 'oauth2'
+      url.password = token
+      url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
+      pushThrough({ url: url.toString(), remoteUrl, env })
+
+      if (canPush({ remote, branch, cwd, env })) {
+        logger.info('The release is pushed with the GitLab token (the job token cannot push)')
+        return
+      }
+    }
+
+    const ci = getCIName()
+    const where = ci && ci !== 'Unknown CI' ? ` from ${ci}` : ''
+    throw new Error(`The release commit and the tags cannot be pushed to "${remote}"${where}.\n${getPushFix(env)}`)
+  })
+
+  pushAccess.set(cwd, check)
+  return check
+}
+
+/**
+ * Forget what was prepared, for the tests
+ */
+export function resetCiState(): void {
+  prepared.clear()
+  pushAccess.clear()
+}

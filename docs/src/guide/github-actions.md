@@ -47,11 +47,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: relizy release --${{ inputs.release_type }} --yes
         env:
@@ -290,11 +285,6 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: |
           relizy release --${{ inputs.release_type }} --yes
@@ -355,11 +345,6 @@ jobs:
       - name: Build packages
         run: pnpm run build
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: |
           relizy release --${{ inputs.release_type }} --yes
@@ -401,11 +386,6 @@ jobs:
           node-version: '24'
 
       - run: npm ci
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Bump version
         id: bump
@@ -544,11 +524,6 @@ jobs:
           node-version: '24'
 
       - run: npm ci
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
 
       - name: Release
         run: relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}

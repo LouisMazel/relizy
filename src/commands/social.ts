@@ -7,6 +7,7 @@ import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertVersionGroupsOption, collectContributorNames, createCommandUi, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isFancyUi, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
+import { prepareCiRepository } from '../core/ci'
 import { reportProgress } from '../core/progress'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -777,6 +778,9 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
     logger.debug(`Version mode: ${config.monorepo?.versionMode || (hasVersionGroups(config) ? 'version groups' : 'standalone')}`)
 
     ui = createCommandUi({ title: 'relizy social', dryRun, logLevel: config.logLevel, cwd: config.cwd })
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
     const result = await ui.step({
       running: 'Posting the release',
       done: describeSocialResult,

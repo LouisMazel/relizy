@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { prepareCiRepository } from '../core/ci'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
@@ -263,6 +264,9 @@ export async function publish(options: Partial<PublishOptions> = {}) {
   const ui = createCommandUi({ title: 'relizy publish', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
     await executeHook('before:publish', config, dryRun, hookContext)
 
     const { toPublish, publishedPackages } = await ui.step({

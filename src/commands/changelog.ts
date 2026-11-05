@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { prepareCiRepository } from '../core/ci'
 import { reportProgress, showPreview } from '../core/progress'
 
 async function generateIndependentRootChangelog({
@@ -253,6 +254,9 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
   const ui = createCommandUi({ title: 'relizy changelog', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
     await executeHook('before:changelog', config, dryRun, hookContext)
 
     const generatedCount = await ui.step({

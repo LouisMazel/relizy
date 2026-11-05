@@ -3,6 +3,7 @@ import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptio
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, createCommandUi, detectGitProvider, executeHook, getGroupBumpResult, getHookContext, github, gitlab, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
+import { prepareCiRepository } from '../core/ci'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
 
@@ -177,6 +178,9 @@ export async function providerRelease(
   const ui = createCommandUi({ title: 'relizy provider-release', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
     const result = await ui.step({
       running: 'Creating the releases',
       done: describeProviderReleaseResult,

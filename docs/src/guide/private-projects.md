@@ -179,11 +179,6 @@ jobs:
 
       - run: npm ci
 
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
       - name: Release
         run: npx relizy release --yes
         env:

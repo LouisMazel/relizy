@@ -6,6 +6,7 @@ import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
+import { ensurePushAccess } from './ci'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
 import { isAncestor, tagExists } from './git-refs'
@@ -585,6 +586,9 @@ export async function pushCommitAndTags({
   }
   else {
     logger.debug(`Executing: ${command}`)
+
+    // Checked before publishing by the safety checks, unless disabled: the GitLab token may be needed to push
+    await ensurePushAccess({ config })
 
     try {
       await execPromise(command, { noStderr: true, noStdout: true, noError: true, logLevel, cwd })
