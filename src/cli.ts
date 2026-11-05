@@ -215,6 +215,7 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
+        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
     catch (error) {
