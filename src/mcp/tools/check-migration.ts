@@ -240,6 +240,29 @@ function checkAIDryRun(config: ResolvedRelizyConfig): MigrationFinding[] {
     : []
 }
 
+/**
+ * The hooks of the project running `relizy commitlint`
+ */
+const COMMIT_HOOK_FILES = ['.husky/commit-msg', '.git/hooks/commit-msg', 'lefthook.yml', 'lefthook.yaml', '.lefthook.yml', 'package.json']
+
+function usesRelizyCommitlint(cwd: string): boolean {
+  return COMMIT_HOOK_FILES.some((file) => {
+    const path = join(cwd, file)
+    return existsSync(path) && /\brelizy\s+commitlint\b/.test(readFileSync(path, 'utf8'))
+  })
+}
+
+function checkAIAttribution(config: ResolvedRelizyConfig): MigrationFinding[] {
+  return config.commitlint?.rules?.['no-ai-attribution'] === undefined && !isOnRelizy2(config.cwd) && usesRelizyCommitlint(config.cwd)
+    ? [{
+        severity: 'review',
+        title: '`relizy commitlint` rejects the commits crediting an AI tool',
+        section: 'AI Attribution in Commits',
+        detail: 'The new rule `no-ai-attribution` (`error`) reports the AI co-authors (`Co-authored-by: Claude <noreply@anthropic.com>`), the `Claude-Session:` trailers and the "Generated with" lines: turn off the attribution of your AI tools, or the rule with `commitlint.rules: { \'no-ai-attribution\': \'off\' }`.',
+      }]
+    : []
+}
+
 function checkSourceFiles(cwd: string): MigrationFinding[] {
   const files = readSourceFiles(cwd)
   const collect = (pattern: RegExp, only?: (text: string) => boolean) => files
@@ -354,6 +377,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkRenamedOptions(configFiles),
     ...checkVersionGroups(config, configFiles),
     ...checkAIDryRun(config),
+    ...checkAIAttribution(config),
     ...checkReleaseSummary(config),
     ...checkSourceFiles(config.cwd),
   ]

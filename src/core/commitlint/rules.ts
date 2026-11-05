@@ -1,5 +1,6 @@
 import type { Code, Heading, Link, Nodes } from 'mdast'
 import type { CommitlintCommit, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, GitCommit } from '../../types'
+import type { AIAttributionOptions } from '../ai-attribution'
 import type { ResolvedRelizyConfig } from '../config'
 import type { CommitMessageParts } from './message'
 import type { WorkspacePackage } from './workspace'
@@ -7,6 +8,7 @@ import { logger } from '@maz-ui/node'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
+import { findAIAttributions } from '../ai-attribution'
 import { getChangelogLinter, renderChangelogEntry } from './changelog-entry'
 import { findClosest } from './suggest'
 import { findPackageByScope } from './workspace'
@@ -334,6 +336,13 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
     check: ({ commit }) => commit.isBreaking
       ? [{ message: 'Breaking changes are not allowed', fix: 'remove the "!" and the "BREAKING CHANGE:" footer' }]
       : [],
+  },
+  'no-ai-attribution': {
+    severity: 'error',
+    check: ({ parts, value }) => findAIAttributions(parts.raw, value as AIAttributionOptions | undefined).map(line => ({
+      message: `The message credits an AI tool: "${line}"`,
+      fix: 'remove this line, and turn off the commit attribution in the settings of the tool',
+    })),
   },
 }
 

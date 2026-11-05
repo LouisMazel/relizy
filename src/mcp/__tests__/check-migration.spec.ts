@@ -123,6 +123,20 @@ describe('Given check_migration on a project already on relizy 2', () => {
   })
 })
 
+describe('Given check_migration on a relizy 1 project linting its commits', () => {
+  it('Then points out the commits crediting an AI tool, unless the rule is configured', async () => {
+    const files = {
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      '.husky/commit-msg': 'pnpm exec relizy commitlint --edit "$1"\n',
+    }
+
+    expect(await checkMigration(createTestContext(writeProject(files)), {})).toContain('`relizy commitlint` rejects the commits crediting an AI tool')
+
+    const configured = writeProject({ ...files, 'relizy.config.mjs': `export default { commitlint: { rules: { 'no-ai-attribution': 'off' } } }\n` })
+    expect(await checkMigration(createTestContext(configured), {})).not.toContain('crediting an AI tool')
+  })
+})
+
 describe('Given check_migration on a project with the options renamed in relizy 2', () => {
   it('Then points out commitlint.codeBlocksLinter and the CommitlintCodeBlocksLinter type', async () => {
     const cwd = writeProject({

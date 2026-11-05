@@ -1732,6 +1732,13 @@ export interface CommitlintBuiltInRules {
    * @default 'off'
    */
   'no-breaking': never
+  /**
+   * The message does not credit an AI tool: no AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`),
+   * no session trailer (`Claude-Session:`), no "Generated with" line. The value adds
+   * names or emails of AI authors (matched as substrings) and trailers.
+   * @default 'error'
+   */
+  'no-ai-attribution': { authors?: string[], trailers?: string[] }
 }
 
 export type CommitlintRuleName = keyof CommitlintBuiltInRules

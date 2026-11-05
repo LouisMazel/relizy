@@ -46,6 +46,7 @@ The levels `0`, `1` and `2` and the commitlint tuples `[2, 'always', value]` are
 | [`body-changelog-lint`](#body-changelog-lint)   | `error` |                                  |
 | [`body-breaking-change`](#body-breaking-change) | `error` |                                  |
 | [`no-breaking`](#no-breaking)                   | `off`   |                                  |
+| [`no-ai-attribution`](#no-ai-attribution)       | `error` | Extra authors and trailers       |
 
 The rules of the header, the type, the scope and the subject only run on conventional commits: a message that is not one only reports `header-format`. There is no length limit on the body, as there is none in the changelogs.
 
@@ -217,6 +218,37 @@ Relizy bumps the major version when `breaking change:` appears **anywhere** in t
 ### `no-breaking`
 
 Forbid breaking changes. Off by default.
+
+## AI attribution
+
+### `no-ai-attribution`
+
+Reject the commits crediting an AI tool: an AI co-author, a session trailer or the "Generated with" line some tools add.
+
+```text
+✖ feat: add the parser
+
+  🤖 Generated with [Claude Code](https://claude.com/claude-code)
+
+  Claude-Session: https://claude.ai/code/session_01
+  Co-authored-by: Claude <noreply@anthropic.com>
+```
+
+The tools are recognized by their email (`noreply@anthropic.com`, `cursoragent` or `Copilot` on GitHub...) or by a full name (`Claude Opus 4.5`, `GitHub Copilot`): a person named Claude is a real co-author. The trailers are `Claude-Session:`, `Generated-by:` and `Assisted-by:`. Add your own, matched as substrings of `name <email>` for the authors:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    rules: {
+      'no-ai-attribution': ['error', { authors: ['agent@acme.dev'], trailers: ['Agent-Session'] }],
+    },
+  },
+})
+```
+
+Whatever this rule, the changelogs never show these lines nor credit the AI tools as contributors.
 
 ## Ignored commits
 

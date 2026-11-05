@@ -34,6 +34,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [New version variable](#new-version-variable)                 | Custom social templates with `monorepo.groups` or `independent` mode                             | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
 | [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                                            | Check the templates                                                           |
 | [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                                                    | Add `dependencies` to keep the v1 bumps                                       |
+| [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                                              | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                                                   | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                                               | None                                                                          |
 | [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                                                   | None, or stop treating the exit code 1 as nothing to bump                     |
@@ -158,6 +159,22 @@ export default defineConfig({
   },
 })
 ```
+
+### AI Attribution in Commits
+
+`relizy commitlint` has a new rule, [`no-ai-attribution`](../commitlint/rules.md#no-ai-attribution), on by default (`error`): it rejects the commits crediting an AI tool, with an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer or a "Generated with" line. Turn off the attribution in the settings of your AI tools, or turn off the rule:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    rules: { 'no-ai-attribution': 'off' },
+  },
+})
+```
+
+The changelogs no longer show the git trailers of the commit bodies (`Co-authored-by:`, `Signed-off-by:`, `Closes #12`...), only a `BREAKING CHANGE:` footer, and the AI tools are not credited as contributors.
 
 ## CLI
 
