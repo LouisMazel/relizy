@@ -11,11 +11,19 @@ describe('Given redactSecrets function', () => {
         },
       })
 
-      // long secrets keep their first/last 4 chars, the middle is masked
-      expect(result.tokens.registry).not.toContain('ZJLIEE5NB9oDZIqNrHqAbST62Hwk')
+      // long secrets keep their known prefix and their last 4 chars
       expect(result.tokens.registry).toBe('npm_***2Hwk')
-      expect(result.tokens.github).not.toContain('11ACYEURI0Az3sxaTxp0Ia')
-      expect(result.tokens.github).toBe('gith***p0Ia')
+      expect(result.tokens.github).toBe('github_pat_***p0Ia')
+    })
+
+    it('Then reveals no character of a secret without known prefix but its last 4', () => {
+      const result = redactSecrets({
+        tokens: { twitter: { apiKey: 'Xq81bZr0aT5mKe9LwYv3', accessToken: '1234567890-AbCdEfGhIjKlMnOp' }, slack: 'sk-ant-oat01-abcdefghij1234' },
+      })
+
+      expect(result.tokens.twitter.apiKey).toBe('***wYv3')
+      expect(result.tokens.twitter.accessToken).toBe('***MnOp')
+      expect(result.tokens.slack).toBe('sk-ant-oat***1234')
     })
 
     it('Then fully masks short secrets (no extract revealed)', () => {
@@ -41,7 +49,7 @@ describe('Given redactSecrets function', () => {
       expect(result.publish.token).toBe('npm_***IqNr')
       expect(result.repo.token).toBe('***')
       expect(result.social.slack.credentials.token).toBe('***')
-      expect(result.social.slack.webhookUrl).not.toContain('AAAA')
+      expect(result.social.slack.webhookUrl).toBe('https://hooks.slack.com/***')
       expect(result.ai.providers['claude-code'].oauthToken).not.toContain('abcdefghij')
       expect(result.ai.providers['claude-code'].apiKey).toBe('***')
     })
@@ -100,7 +108,7 @@ describe('Given redactSecrets function', () => {
       const result = redactSecrets({ ai: { providers: { 'ai-sdk': { model } } } }) as any
 
       expect(result.ai.providers['ai-sdk'].model.config.client).toBe('[Circular]')
-      expect(result.ai.providers['ai-sdk'].model.config.apiKey).toBe('sk-1***cdef')
+      expect(result.ai.providers['ai-sdk'].model.config.apiKey).toBe('sk-***cdef')
       expect(() => JSON.stringify(result)).not.toThrow()
     })
 

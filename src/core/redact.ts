@@ -1,20 +1,53 @@
 const MASK = '***'
-const VISIBLE_PREFIX = 4
 const VISIBLE_SUFFIX = 4
-// Below this length, revealing 4+4 chars would expose too much, so mask fully.
+// Below this length, revealing the last chars would expose too much, so mask fully.
 const MIN_LENGTH_TO_REVEAL = 16
 
 /**
- * Mask a secret string while keeping a recognizable extract: the first and last
- * few characters stay visible (e.g. `npm_***2Hwk`) so the right credential can
- * still be identified, while the secret itself is never fully exposed. Secrets
- * shorter than {@link MIN_LENGTH_TO_REVEAL} are masked entirely.
+ * Prefixes of the known secret formats: they tell the kind of secret without
+ * being part of it (longest first, so `sk-ant-` wins over `sk-`)
+ */
+const KNOWN_PREFIXES = [
+  'github_pat_',
+  'sk-ant-oat',
+  'sk-ant-api',
+  'sk-ant-',
+  'glpat-',
+  'xoxb-',
+  'xoxp-',
+  'xapp-',
+  'ghp_',
+  'gho_',
+  'ghu_',
+  'ghs_',
+  'ghr_',
+  'npm_',
+  'sk-',
+]
+
+/**
+ * Mask a secret string while keeping what identifies it without revealing it:
+ * a URL keeps its origin (`https://hooks.slack.com/***`), a token its known
+ * prefix and its last 4 characters (`npm_***2Hwk`, `***2Hwk` without known
+ * prefix). Secrets shorter than {@link MIN_LENGTH_TO_REVEAL} are masked entirely.
  */
 function maskSecretValue(value: string): string {
+  if (/^https?:\/\//.test(value)) {
+    try {
+      return `${new URL(value).origin}/${MASK}`
+    }
+    catch {
+      return MASK
+    }
+  }
+
   if (value.length < MIN_LENGTH_TO_REVEAL) {
     return MASK
   }
-  return `${value.slice(0, VISIBLE_PREFIX)}${MASK}${value.slice(-VISIBLE_SUFFIX)}`
+
+  const prefix = KNOWN_PREFIXES.find(known => value.startsWith(known)) ?? ''
+
+  return `${prefix}${MASK}${value.slice(-VISIBLE_SUFFIX)}`
 }
 
 /**
