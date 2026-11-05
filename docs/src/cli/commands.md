@@ -256,7 +256,7 @@ relizy publish || exit 1
 
 Relizy uses standard exit codes:
 
-- `0` - Success
+- `0` - Success, or a prompt refused or cancelled (bump confirmation, uncommitted changes, rewritten tag): nothing was written
 - `1` - Error occurred
 - `2` - Invalid arguments
 

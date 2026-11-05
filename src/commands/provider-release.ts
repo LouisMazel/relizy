@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, github, gitlab, hasVersionGroups, loadRelizyConfig, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, detectGitProvider, executeHook, getGroupBumpResult, github, gitlab, hasVersionGroups, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 
 export async function providerReleaseSafetyCheck({ config, provider }: { config: ResolvedRelizyConfig, provider?: GitProvider | null }) {
@@ -179,6 +179,11 @@ export async function providerRelease(
     }
   }
   catch (error) {
+    // Refused or cancelled prompt: nothing was written, it is not a failure
+    if (isRelizyCancelError(error)) {
+      throw error
+    }
+
     if (!options.config) {
       logger.error('Error publishing releases!\n\n', error)
     }

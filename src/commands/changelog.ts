@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -298,6 +298,11 @@ export async function changelog(options: Partial<ChangelogOptions> = {}): Promis
     await executeHook('success:changelog', config, dryRun)
   }
   catch (error) {
+    // Refused or cancelled prompt: nothing was written, it is not a failure
+    if (isRelizyCancelError(error)) {
+      throw error
+    }
+
     if (!options.config) {
       logger.error('Error generating changelogs!\n\n', error)
     }

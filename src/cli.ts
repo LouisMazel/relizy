@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
 import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
+import { isRelizyCancelError } from './core/errors'
 import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
@@ -81,6 +82,21 @@ function slackFormatOption() {
   return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
 }
 
+/**
+ * Exit after a failed command: with code 0 when the user refused or cancelled
+ * a prompt (nothing was written), with code 1 otherwise.
+ */
+function exitWithError(message: string, error: unknown): never {
+  if (isRelizyCancelError(error)) {
+    logger.log('')
+    logger.fail(error.message)
+    process.exit(0)
+  }
+
+  logger.error(message, error)
+  process.exit(1)
+}
+
 program
   .name('relizy')
   .description('Release management tool for monorepos and standalone packages')
@@ -130,8 +146,7 @@ program
       }
     }
     catch (error) {
-      logger.error('Failed to bump packages -', error)
-      process.exit(1)
+      exitWithError('Failed to bump packages -', error)
     }
   })
 
@@ -158,8 +173,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to generate changelog -', error)
-      process.exit(1)
+      exitWithError('Failed to generate changelog -', error)
     }
   })
 
@@ -190,8 +204,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to publish packages -', error)
-      process.exit(1)
+      exitWithError('Failed to publish packages -', error)
     }
   })
 
@@ -220,8 +233,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to publish release -', error)
-      process.exit(1)
+      exitWithError('Failed to publish release -', error)
     }
   })
 
@@ -247,8 +259,8 @@ program
         slackFormat: options.slackFormat,
       })
     }
-    catch {
-      process.exit(1)
+    catch (error) {
+      exitWithError('Failed to post the release on social media -', error)
     }
   })
 
@@ -381,8 +393,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to post PR comment -', error)
-      process.exit(1)
+      exitWithError('Failed to post PR comment -', error)
     }
   })
 
@@ -471,8 +482,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to release -', error)
-      process.exit(1)
+      exitWithError('Failed to release -', error)
     }
   })
 

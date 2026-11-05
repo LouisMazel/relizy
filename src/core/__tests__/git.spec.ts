@@ -8,6 +8,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
+import { RelizyCancelError } from '../errors'
 import {
   checkGitStatusIfDirty,
   confirmDirtyGitStatus,
@@ -1460,22 +1461,14 @@ describe('Given confirmDirtyGitStatus function', () => {
 
     it('Then cancels the run when refused', async () => {
       vi.mocked(confirm).mockResolvedValueOnce(false)
-      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
 
-      await confirmDirtyGitStatus({ dryRun: false })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
-      exitSpy.mockRestore()
+      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then cancels the run when the prompt is cancelled (Ctrl+C)', async () => {
       vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
-      const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
 
-      await confirmDirtyGitStatus({ dryRun: false })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
-      exitSpy.mockRestore()
+      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then only warns in dry-run, in the CI or without a terminal', async () => {

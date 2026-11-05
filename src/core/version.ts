@@ -8,6 +8,7 @@ import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
+import { isPromptExitError, RelizyCancelError } from './errors'
 import { recordReleaseFile } from './release-files'
 import { hasLernaJson } from './repo'
 
@@ -744,29 +745,19 @@ export async function confirmBump({
     displayIndependentModePackages({ packages, force })
   }
 
-  try {
-    const confirmed = await confirm({
-      message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
-      default: true,
-    })
-
-    if (!confirmed) {
-      logger.log('')
-      logger.fail('Bump refused')
-      process.exit(0)
-    }
-  }
-  catch (error) {
-    const userHasExited = error instanceof Error && error.name === 'ExitPromptError'
-
-    if (userHasExited) {
-      logger.log('')
-      logger.fail('Bump cancelled')
-      process.exit(0)
+  const confirmed = await confirm({
+    message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
+    default: true,
+  }).catch((error: unknown) => {
+    if (isPromptExitError(error)) {
+      throw new RelizyCancelError('Bump cancelled', { cause: error })
     }
 
-    logger.fail('Error while confirming bump')
-    process.exit(1)
+    throw error
+  })
+
+  if (!confirmed) {
+    throw new RelizyCancelError('Bump refused')
   }
 
   logger.log('')

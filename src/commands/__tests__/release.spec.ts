@@ -9,6 +9,7 @@ import {
   fetchGitTags,
   loadRelizyConfig,
   pushCommitAndTags,
+  RelizyCancelError,
   rollbackModifiedFiles,
 } from '../../core'
 import { bump } from '../bump'
@@ -334,6 +335,15 @@ describe('Given release command', () => {
       await expect(release({})).rejects.toThrow('Bump failed')
 
       expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+    })
+
+    it('Then rethrows a cancelled prompt without the error hook nor the failed PR comment', async () => {
+      vi.mocked(bump).mockRejectedValue(new RelizyCancelError('Bump refused'))
+
+      await expect(release({})).rejects.toThrow(RelizyCancelError)
+
+      expect(executeHook).not.toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(prComment).not.toHaveBeenCalled()
     })
 
     it('Then stops execution on error', async () => {

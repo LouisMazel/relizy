@@ -7,6 +7,7 @@ import {
   createCommitAndTags,
   executeHook,
   getReleaseTagNames,
+  isRelizyCancelError,
   loadRelizyConfig,
   pushCommitAndTags,
   readPackageJson,
@@ -479,6 +480,11 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<vo
     await executeHook('success:release', config, dryRun)
   }
   catch (error) {
+    // Refused or cancelled prompt: nothing was written, it is not a failure
+    if (isRelizyCancelError(error)) {
+      throw error
+    }
+
     logger.error('Error during release workflow!\n\n', error)
 
     logger.box('Post PR comment')

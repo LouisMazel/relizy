@@ -1,4 +1,5 @@
 import { createMockConfig } from '../../../tests/mocks'
+import { RelizyCancelError } from '../errors'
 import { reconcileFromTag, resetRewrittenTagCache } from '../rewritten-tags'
 
 const TO = 'develop'
@@ -164,20 +165,17 @@ describe('Given reconcileFromTag', () => {
 
   describe('When strategy resolves to interactive prompt', () => {
     let ttyDescriptor: PropertyDescriptor | undefined
-    let exitSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
       // Force a TTY so the default strategy resolves to `prompt`.
       ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
       Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-      exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
     })
 
     afterEach(() => {
       if (ttyDescriptor) {
         Object.defineProperty(process.stdout, 'isTTY', ttyDescriptor)
       }
-      exitSpy.mockRestore()
     })
 
     it('Then "ephemeral" choice returns the equivalent commit without mutating the tag', async () => {
@@ -256,14 +254,12 @@ describe('Given reconcileFromTag', () => {
       expect(git.pushTagForce).not.toHaveBeenCalled()
     })
 
-    it('Then "abort" exits the process', async () => {
+    it('Then "abort" cancels the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
       vi.mocked(prompts.select).mockResolvedValue('abort')
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
+      await expect(reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then "keep" returns the orphaned tag unchanged', async () => {
@@ -277,26 +273,25 @@ describe('Given reconcileFromTag', () => {
       expect(git.retagAnnotatedLocal).not.toHaveBeenCalled()
     })
 
-    it('Then a cancelled prompt (Ctrl-C) exits cleanly with code 0', async () => {
+    it('Then a cancelled prompt (Ctrl-C) cancels the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
       const exitError = new Error('cancelled')
       exitError.name = 'ExitPromptError'
       vi.mocked(prompts.select).mockRejectedValue(exitError)
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
+      await expect(reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })).rejects.toThrow(RelizyCancelError)
     })
 
-    it('Then an unexpected prompt error exits with code 1', async () => {
+    it('Then an unexpected prompt error fails the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
       vi.mocked(prompts.select).mockRejectedValue(new Error('boom'))
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
+      const error = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config }).catch((error: unknown) => error)
 
-      expect(exitSpy).toHaveBeenCalledWith(1)
+      expect(error).not.toBeInstanceOf(RelizyCancelError)
+      expect(error).toEqual(expect.objectContaining({ message: `Error while resolving the rewritten tag "${ORPHAN_TAG}"` }))
     })
 
     it('Then prompts only when twin exists; otherwise offers keep/abort', async () => {

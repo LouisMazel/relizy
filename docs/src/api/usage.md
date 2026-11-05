@@ -165,7 +165,7 @@ await release({
 ## Error Handling
 
 ```ts
-import { release } from 'relizy'
+import { isRelizyCancelError, release } from 'relizy'
 
 try {
   await release({
@@ -174,10 +174,18 @@ try {
   console.log('Release successful!')
 }
 catch (error) {
-  console.error('Release failed:', error.message)
-  process.exit(1)
+  if (isRelizyCancelError(error)) {
+    // A prompt was refused or cancelled: nothing was written
+    console.log(error.message)
+  }
+  else {
+    console.error('Release failed:', error.message)
+    process.exit(1)
+  }
 }
 ```
+
+When a prompt is refused or cancelled (the bump confirmation, the uncommitted changes, a rewritten tag), the commands throw a `RelizyCancelError` before writing anything. They do not run their `error:*` hooks for it, and `release()` does not post a failed PR comment.
 
 ## TypeScript Support
 

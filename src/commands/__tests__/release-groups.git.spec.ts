@@ -6,7 +6,7 @@ import { join } from 'node:path'
 import process from 'node:process'
 import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
-import { loadRelizyConfig } from '../../core'
+import { loadRelizyConfig, RelizyCancelError } from '../../core'
 import { isVersionPublished, publishPackage } from '../../core/npm'
 import { bump, planBumps } from '../bump'
 import { release } from '../release'
@@ -562,18 +562,13 @@ describe('Given a release with version groups on a real git repository', () => {
 
   describe('When the bump of a group is refused at the confirmation prompt', () => {
     it('Then restores the files written for the previous groups', async () => {
-      const exit = vi.spyOn(process, 'exit').mockImplementation(((code: number) => {
-        throw new Error(`process.exit(${code})`)
-      }) as never)
       vi.mocked(confirm).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
 
-      await expect(bump({})).rejects.toThrow('process.exit')
+      await expect(bump({})).rejects.toThrow(RelizyCancelError)
 
-      expect(exit).toHaveBeenNthCalledWith(1, 0)
       expect(confirm).toHaveBeenCalledTimes(2)
       expect(git('status', '--porcelain')).toBe('')
       expect(readVersion('packages/components')).toBe('6.19.1')
-      exit.mockRestore()
     })
   })
 

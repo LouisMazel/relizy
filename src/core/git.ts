@@ -8,6 +8,7 @@ import { join } from 'node:path'
 import { confirm } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { loadRelizyConfig } from './config'
+import { RelizyCancelError } from './errors'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
@@ -68,9 +69,7 @@ export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Pr
   }).catch(() => false)
 
   if (!confirmed) {
-    logger.log('')
-    logger.fail('Release cancelled: commit or stash your changes first')
-    process.exit(0)
+    throw new RelizyCancelError('Release cancelled: commit or stash your changes first')
   }
 }
 

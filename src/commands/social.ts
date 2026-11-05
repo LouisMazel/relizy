@@ -4,7 +4,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { GitCommit, SocialNetworkResult, SocialOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, collectPackageBumps, executeHook, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getIndependentTag, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, hasVersionGroups, isBumpedPackage, isPrerelease, isRelizyCancelError, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, isAISocialEnabled } from '../core/ai'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -688,6 +688,11 @@ export async function social(options: Partial<SocialOptions> = {}): Promise<Soci
     return { results, hasErrors }
   }
   catch (error) {
+    // Refused or cancelled prompt: nothing was written, it is not a failure
+    if (isRelizyCancelError(error)) {
+      throw error
+    }
+
     logger.error('Error during social media posting:', error)
     const errorMessage = error instanceof Error ? error.message : String(error)
     return {

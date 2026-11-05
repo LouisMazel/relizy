@@ -1,7 +1,9 @@
+import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { RelizyCancelError } from '../errors'
 import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 vi.mock('@inquirer/prompts', () => ({
@@ -2304,6 +2306,38 @@ describe('Given confirmBump function', () => {
       expect(logged).toContain('dependent package(s)')
       expect(logged).toContain('graduation package(s)')
       expect(logged).toContain('🔒')
+    })
+  })
+
+  describe('When the bump is refused', () => {
+    it('Then cancels the run', async () => {
+      vi.mocked(confirm).mockResolvedValueOnce(false)
+
+      await expect(confirmBump({
+        versionMode: 'unified',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [buildPackage({ name: '@scope/a' })],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })).rejects.toThrow(new RelizyCancelError('Bump refused'))
+    })
+  })
+
+  describe('When the prompt is closed (Ctrl+C)', () => {
+    it('Then cancels the run', async () => {
+      vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
+
+      await expect(confirmBump({
+        versionMode: 'unified',
+        config: createMockConfig({ cwd: '/tmp' }),
+        packages: [buildPackage({ name: '@scope/a' })],
+        force: false,
+        currentVersion: '1.0.0',
+        newVersion: '1.1.0',
+        dryRun: false,
+      })).rejects.toThrow(new RelizyCancelError('Bump cancelled'))
     })
   })
 

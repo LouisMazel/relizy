@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -27,6 +27,7 @@ vi.mock('node:process', () => ({
 // Mock core functions
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
+  ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
   checkGitStatusIfDirty: vi.fn(),
   confirmDirtyGitStatus: vi.fn(),
   resetReleaseFiles: vi.fn(),
@@ -884,6 +885,17 @@ describe('Given bump command', () => {
       })
 
       expect(result.bumped).toBe(false)
+    })
+  })
+
+  describe('When a prompt is refused', () => {
+    it('Then rethrows the cancellation without the error hook nor writing', async () => {
+      vi.mocked(confirmDirtyGitStatus).mockRejectedValueOnce(new RelizyCancelError('Release cancelled: commit or stash your changes first'))
+
+      await expect(bump({ type: 'patch' })).rejects.toThrow(RelizyCancelError)
+
+      expect(executeHook).not.toHaveBeenCalledWith('error:bump', expect.any(Object), false)
+      expect(writeVersion).not.toHaveBeenCalled()
     })
   })
 

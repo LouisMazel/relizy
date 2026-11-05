@@ -15,6 +15,7 @@ vi.mock('../../core/ai', () => ({
 
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
+  ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
   loadRelizyConfig: vi.fn(),
   getPackagesOrBumpedPackages: vi.fn(),
   executeHook: vi.fn(),

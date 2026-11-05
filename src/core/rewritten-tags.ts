@@ -3,6 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { confirm, select } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
+import { isPromptExitError, RelizyCancelError } from './errors'
 import {
   findReachableCommitBySubject,
   getCommitSubject,
@@ -153,10 +154,11 @@ async function promptOrphan({
     })
   }
   catch (error) {
-    const userHasExited = error instanceof Error && error.name === 'ExitPromptError'
-    logger.log('')
-    logger.fail(userHasExited ? 'Cancelled' : 'Error while resolving rewritten tag')
-    process.exit(userHasExited ? 0 : 1)
+    if (isPromptExitError(error)) {
+      throw new RelizyCancelError('Cancelled', { cause: error })
+    }
+
+    throw new Error(`Error while resolving the rewritten tag "${from}"`, { cause: error })
   }
 
   switch (answer) {
@@ -182,9 +184,7 @@ async function promptOrphan({
       return from
     case 'abort':
     default:
-      logger.log('')
-      logger.fail('Aborted. Re-bind the tag or fix your history, then retry.')
-      process.exit(0)
+      throw new RelizyCancelError('Aborted. Re-bind the tag or fix your history, then retry.')
   }
 }
 
