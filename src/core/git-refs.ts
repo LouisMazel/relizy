@@ -2,11 +2,13 @@ import type { LogLevel } from '@maz-ui/node'
 import type { RawGitCommit } from '../types'
 import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
+import { cachedGitRead, clearGitCache } from './git-cache'
 
 /**
  * Low-level git ref/tag helpers. This module is intentionally a leaf (it only
- * depends on `@maz-ui/node`) so it can be imported from anywhere -- including
- * `rewritten-tags.ts` -- without creating an import cycle through `repo.ts`.
+ * depends on `@maz-ui/node` and the leaf `git-cache.ts`) so it can be imported
+ * from anywhere -- including `rewritten-tags.ts` -- without creating an import
+ * cycle through `repo.ts`.
  */
 
 /**
@@ -25,17 +27,23 @@ function shellSingleQuote(value: string): string {
  * non-zero otherwise. Any error (e.g. unknown ref) is treated as "not an
  * ancestor".
  */
-export async function isAncestor(ancestor: string, descendant: string, cwd?: string): Promise<boolean> {
-  try {
-    await execPromise(
-      `git merge-base --is-ancestor ${shellSingleQuote(ancestor)} ${shellSingleQuote(descendant)}`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return true
-  }
-  catch {
-    return false
-  }
+export function isAncestor(ancestor: string, descendant: string, cwd?: string): Promise<boolean> {
+  return cachedGitRead({
+    key: ['is-ancestor', ancestor, descendant],
+    cwd,
+    read: async () => {
+      try {
+        await execPromise(
+          `git merge-base --is-ancestor ${shellSingleQuote(ancestor)} ${shellSingleQuote(descendant)}`,
+          { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
+        )
+        return true
+      }
+      catch {
+        return false
+      }
+    },
+  })
 }
 
 /**
@@ -75,18 +83,24 @@ export async function findReachableCommitBySubject(subject: string, to: string, 
 /**
  * Returns true when a tag with the given name exists locally.
  */
-export async function tagExists(tag: string, cwd?: string): Promise<boolean> {
-  try {
-    const tagRef = `refs/tags/${tag}`
-    await execPromise(
-      `git rev-parse --verify --quiet ${shellSingleQuote(tagRef)}`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return true
-  }
-  catch {
-    return false
-  }
+export function tagExists(tag: string, cwd?: string): Promise<boolean> {
+  return cachedGitRead({
+    key: ['tag-exists', tag],
+    cwd,
+    read: async () => {
+      try {
+        const tagRef = `refs/tags/${tag}`
+        await execPromise(
+          `git rev-parse --verify --quiet ${shellSingleQuote(tagRef)}`,
+          { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
+        )
+        return true
+      }
+      catch {
+        return false
+      }
+    },
+  })
 }
 
 // Large enough for every tag of a repository with a long release history: the
@@ -109,16 +123,24 @@ export async function listTags({
 } = {}): Promise<string[]> {
   const list = pattern ? ` --list ${shellSingleQuote(pattern)}` : ''
 
-  try {
-    const { stdout } = await execPromise(
-      `git tag${list} --sort=-creatordate`,
-      { cwd, logLevel, noStderr: true, noStdout: true, noSuccess: true, maxBuffer: LIST_TAGS_MAX_BUFFER },
-    )
-    return stdout.trim().split('\n').filter(tag => tag.length > 0)
-  }
-  catch {
-    return []
-  }
+  const tags = await cachedGitRead({
+    key: ['list-tags', pattern ?? ''],
+    cwd,
+    read: async () => {
+      try {
+        const { stdout } = await execPromise(
+          `git tag${list} --sort=-creatordate`,
+          { cwd, logLevel, noStderr: true, noStdout: true, noSuccess: true, maxBuffer: LIST_TAGS_MAX_BUFFER },
+        )
+        return stdout.trim().split('\n').filter(tag => tag.length > 0)
+      }
+      catch {
+        return []
+      }
+    },
+  })
+
+  return [...tags]
 }
 
 /**
@@ -145,6 +167,7 @@ export async function retagAnnotatedLocal({
     `git tag -f ${sign}-a ${shellSingleQuote(tag)} ${shellSingleQuote(commit)} -m ${shellSingleQuote(message)}`,
     { cwd, logLevel, noStderr: true, noStdout: true },
   )
+  clearGitCache()
 }
 
 /**
@@ -231,6 +254,13 @@ const GIT_LOG_MAX_BUFFER = 1024 ** 3
  */
 export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string): RawGitCommit[] {
   const range = from ? `${from}...${to}` : to
+  // The same range is read for each package and each step: parsed once, a copy returned to each caller
+  const commits = cachedGitRead({ key: ['log', range], cwd, read: () => readGitLog(range, cwd) })
+
+  return commits.map(commit => ({ ...commit, author: { ...commit.author } }))
+}
+
+function readGitLog(range: string, cwd?: string): RawGitCommit[] {
   const output = execSync(
     `git --no-pager log "${range}" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
     { cwd, encoding: 'utf8', maxBuffer: GIT_LOG_MAX_BUFFER },

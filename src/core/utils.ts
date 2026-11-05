@@ -3,6 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
+import { clearGitCache } from './git-cache'
 import { reportProgress } from './progress'
 import { getReleaseOverview } from './release-overview'
 import { getPackages } from './repo'
@@ -28,6 +29,8 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
   if (typeof hookInput === 'function') {
     logger.info(`Executing hook ${hook}`)
     const result = await hookInput(config, dryRun, params)
+    // A hook can commit, tag or check out
+    clearGitCache()
 
     if (result)
       logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
@@ -45,6 +48,7 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
       noStderr: true,
       noStdout: true,
     })
+    clearGitCache()
 
     if (result)
       logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
@@ -170,6 +174,7 @@ export async function executeFormatCmd({
           logLevel: config.logLevel,
           cwd: config.cwd,
         })
+        clearGitCache()
         logger.info('Format completed')
       }
       else {
@@ -208,6 +213,7 @@ export async function executeBuildCmd({
         logLevel: config.logLevel,
         cwd: config.cwd,
       })
+      clearGitCache()
       logger.info('Build completed')
     }
     else {

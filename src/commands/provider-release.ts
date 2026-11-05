@@ -4,6 +4,7 @@ import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, createCommandUi, detectGitProvider, executeHook, getGroupBumpResult, getHookContext, github, gitlab, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
 
@@ -148,7 +149,14 @@ async function postVersionGroupsReleases({
   return postedReleases
 }
 
-export async function providerRelease(
+export function providerRelease(
+  options: Partial<ProviderReleaseOptions> = {},
+): Promise<ProviderReleaseResult> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runProviderRelease(options))
+}
+
+async function runProviderRelease(
   options: Partial<ProviderReleaseOptions> = {},
 ): Promise<ProviderReleaseResult> {
   const config = await loadRelizyConfig({

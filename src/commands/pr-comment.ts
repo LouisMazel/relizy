@@ -4,6 +4,7 @@ import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
 import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { recordLink, showPreview } from '../core/progress'
 
 export interface PrCommentOptions {
@@ -358,7 +359,12 @@ export function buildCommentBody(params: CommentBodyParams): string {
   }
 }
 
-export async function prComment(options: PrCommentOptions = {}): Promise<boolean> {
+export function prComment(options: PrCommentOptions = {}): Promise<boolean> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runPrComment(options))
+}
+
+async function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 

@@ -9,6 +9,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { ensurePushAccess } from './ci'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
+import { cachedGitRead, clearGitCache } from './git-cache'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
 import { askConfirm } from './prompts'
@@ -124,6 +125,8 @@ export async function fetchGitTags(cwd?: string): Promise<void> {
     logger.fail('Failed to fetch some git tags from remote (tags might already exist locally)', error)
     logger.info('Continuing with local tags')
   }
+
+  clearGitCache()
 }
 
 export function detectGitProvider(cwd: string = process.cwd()): GitProvider | null {
@@ -339,6 +342,7 @@ export async function createCommitAndTags({
         noStdout: true,
         cwd: internalConfig.cwd,
       })
+      clearGitCache()
       logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
       resetReleaseFiles()
     }
@@ -369,6 +373,7 @@ export async function createCommitAndTags({
             noStdout: true,
             cwd: internalConfig.cwd,
           })
+          clearGitCache()
           logger.debug(`Tag created: ${tagName}`)
         }
         catch (error) {
@@ -450,6 +455,7 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
 
 async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> {
   await execPromise(`git fetch ${upstream.remote} +${upstream.mergeRef}:${upstream.trackingRef}`, { cwd, ...quietExec })
+  clearGitCache()
 }
 
 /**
@@ -540,6 +546,7 @@ async function recoverRejectedPush({
     await fetchUpstream(upstream, cwd)
     const noVerifyFlag = config.release.noVerify ? ' --no-verify' : ''
     await execPromise(`git merge --no-edit${noVerifyFlag} ${upstream.name}`, { cwd, ...quietExec })
+    clearGitCache()
   }
   catch (mergeError) {
     await execPromise('git merge --abort', { cwd, ...quietExec }).catch(() => {})
@@ -756,23 +763,35 @@ export async function rollbackModifiedFiles({
 }
 
 export function getFirstCommit(cwd: string): string {
-  const result = execSync(
-    'git rev-list --max-parents=0 HEAD',
-    {
-      cwd,
-      encoding: 'utf8',
+  return cachedGitRead({
+    key: ['first-commit'],
+    cwd,
+    read: () => {
+      const result = execSync(
+        'git rev-list --max-parents=0 HEAD',
+        {
+          cwd,
+          encoding: 'utf8',
+        },
+      )
+      return result.trim()
     },
-  )
-  return result.trim()
+  })
 }
 
 export function getCurrentGitBranch(cwd: string): string {
-  const result = execSync('git rev-parse --abbrev-ref HEAD', {
+  return cachedGitRead({
+    key: ['current-branch'],
     cwd,
-    encoding: 'utf8',
-  })
+    read: () => {
+      const result = execSync('git rev-parse --abbrev-ref HEAD', {
+        cwd,
+        encoding: 'utf8',
+      })
 
-  return result.trim()
+      return result.trim()
+    },
+  })
 }
 
 export function getCurrentGitRef(cwd: string): string {

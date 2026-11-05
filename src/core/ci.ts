@@ -2,6 +2,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { clearGitCache } from './git-cache'
 import { getCIName, isInCI } from './utils'
 
 /**
@@ -123,6 +124,7 @@ export function ensureFullHistory(cwd: string): void {
 
   try {
     git(['fetch', '--unshallow', '--tags', '--quiet'], cwd)
+    clearGitCache()
     logger.info('Fetched the full git history of the shallow clone')
   }
   catch (error) {
@@ -151,6 +153,7 @@ export function attachCiBranch(cwd: string, env: Env = process.env): void {
   }
 
   git(['checkout', '-B', branch], cwd)
+  clearGitCache()
 
   const tracked = tryGit(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], cwd) !== undefined
   if (tracked) {

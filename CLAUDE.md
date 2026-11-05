@@ -106,6 +106,14 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - the moves of `monorepo.movedPackages` (`old path: new path`), for the moves git does not detect, applied as is;
 - followed through the chains. Applied to the package commits, to the ignored paths of the root filter (`isCommitOnlyInIgnoredPackages()`) and to the first commit of a new package (`getFirstPackageCommitHash()`, which follows its `package.json` with `git log --follow`).
 
+### Git Cache
+
+`src/core/git-cache.ts` caches the git reads of a command run: the same branch, tags and commit ranges are read for each package and each step (a release of maz-ui went from 207 git calls to 78).
+
+- Active only inside `withGitCache()`, opened by each command (`bump`, `release`...; a command run by another one shares the cache) and by each MCP tool call. Outside it, `cachedGitRead()` always runs git, so the low-level functions behave as before.
+- Cached: `getCurrentGitBranch()`, `getFirstCommit()`, `tagExists()`, `isAncestor()`, `listTags()` and `getGitDiff()` (a copy of the commits is returned to each caller).
+- A git write changing HEAD, a branch or a tag must call `clearGitCache()` (commit, tag, fetch, checkout, merge), as do the commands of the user (`executeHook()`, `formatCmd`, `buildCmd`).
+
 ### Configuration Loading
 
 - Uses [c12](https://github.com/unjs/c12) for config file discovery and loading

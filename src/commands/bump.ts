@@ -5,6 +5,7 @@ import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, createCommandUi, describeBumpResult, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getBumpResultDetails, getCanaryVersion, getDependencyReleaseType, getHookContext, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { getCIName } from '../core/utils'
 
 interface BumpStrategyInput {
@@ -1013,7 +1014,12 @@ export async function planBumps({
   return { result: plan.result, plans: [plan] }
 }
 
-export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
+export function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runBump(options))
+}
+
+async function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   const config = await loadRelizyConfig({
     configFile: options.configName,
     baseConfig: options.config,

@@ -3,6 +3,7 @@ import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase }
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { reportProgress, showPreview } from '../core/progress'
 
 async function generateIndependentRootChangelog({
@@ -227,7 +228,12 @@ async function generateChangelogs({
   return generatedCount
 }
 
-export async function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
+export function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runChangelog(options))
+}
+
+async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
   const config = await loadRelizyConfig({
     configFile: options.configName,
     baseConfig: options.config,

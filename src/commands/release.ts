@@ -22,6 +22,7 @@ import {
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess, prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { getCIName } from '../core/utils'
@@ -148,8 +149,13 @@ function describePublished(packages: PublishResponse['publishedPackages']): stri
   return packages.length === 1 ? `${packages[0]!.name}@${packages[0]!.newVersion ?? packages[0]!.version}` : plural(packages.length, 'package')
 }
 
+export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runRelease(options))
+}
+
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
-export async function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
+async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
   const isCanary = options.canary ?? false
 
   if (isCanary) {

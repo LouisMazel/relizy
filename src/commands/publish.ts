@@ -3,6 +3,7 @@ import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, Re
 import { execPromise, logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
@@ -225,7 +226,12 @@ function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<strin
     .map(pkg => [pkg.name, pkg.newVersion!]))
 }
 
-export async function publish(options: Partial<PublishOptions> = {}) {
+export function publish(options: Partial<PublishOptions> = {}) {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runPublish(options))
+}
+
+async function runPublish(options: Partial<PublishOptions> = {}) {
   const config = await loadRelizyConfig({
     configFile: options.configName,
     baseConfig: options.config,

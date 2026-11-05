@@ -8,6 +8,7 @@ import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertVersionGroupsOption, collectContributorNames, createCommandUi, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isFancyUi, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 import { prepareCiRepository } from '../core/ci'
+import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
@@ -749,7 +750,12 @@ function toSlackPackages(overview: ReleaseOverview): PackageBumpEntry[] {
   }))
 }
 
-export async function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
+export function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runSocial(options))
+}
+
+async function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
   const dryRun = options.dryRun ?? false
   let ui: ReleaseUi | undefined
 

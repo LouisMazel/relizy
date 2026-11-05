@@ -4,6 +4,7 @@ import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'n
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { clearGitCache } from '../git-cache'
 import { getLastTag } from '../tags'
 
 function git(args: string[], cwd: string): string {
@@ -114,6 +115,7 @@ function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?:
   logger.debug(`commitlint: git ${args.join(' ')}`)
   try {
     git(args, cwd)
+    clearGitCache()
     return true
   }
   catch (error) {
