@@ -1,8 +1,8 @@
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
+  describeAIUsage,
   isAIPreviewEnabled,
-  recordAICost,
   recordAIRewrite,
   recordLink,
   reportProgress,
@@ -10,7 +10,6 @@ import {
   setDryRunOptions,
   setProgressHandlers,
   showPreview,
-  takeAICost,
   takeReleaseFacts,
 } from '../progress'
 
@@ -80,7 +79,6 @@ describe('Given the progress of a step', () => {
 describe('Given the facts of a release', () => {
   beforeEach(() => {
     takeReleaseFacts()
-    takeAICost()
   })
 
   it('Then gives the links and the AI rewrites recorded since the last call', () => {
@@ -94,10 +92,11 @@ describe('Given the facts of a release', () => {
     expect(takeReleaseFacts()).toEqual({ links: [], aiRewrites: [] })
   })
 
-  it('Then gives the cost of the last AI call once', () => {
-    recordAICost(0.02)
-
-    expect(takeAICost()).toBeCloseTo(0.02)
-    expect(takeAICost()).toBeUndefined()
+  it('Then describes the tokens and the cost of the AI calls, when known', () => {
+    expect(describeAIUsage({ inputTokens: 10_200, outputTokens: 2_200, costUsd: 0.0421 })).toEqual(['12.4k tokens', '$0.042'])
+    expect(describeAIUsage({ inputTokens: 800, outputTokens: 50 })).toEqual(['850 tokens'])
+    expect(describeAIUsage({ inputTokens: 1_000_000, outputTokens: 0 })).toEqual(['1M tokens'])
+    expect(describeAIUsage({ costUsd: 0.003 })).toEqual(['$0.003'])
+    expect(describeAIUsage({})).toEqual([])
   })
 })

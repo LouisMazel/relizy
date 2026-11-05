@@ -87,7 +87,7 @@ function summary(dryRun: boolean): Box {
       ...summaryRow('done', 'Provider release', '1 release on github', 'https://github.com/acme/acme/releases/tag/v2.4.0'),
       ...summaryRow('done', 'Social media', 'twitter, slack'),
       ...summaryRow('done', 'PR comment', dryRun ? 'previewed' : 'posted'),
-      ...summaryRow('none', 'AI', dryRun ? '2 rewrites simulated (claude-code)' : '2 rewrites by claude-code in 21.3s · $0.019'),
+      ...summaryRow('none', 'AI', dryRun ? '2 rewrites simulated (claude-code)' : '2 rewrites by claude-code in 21.3s · 5.8k tokens · $0.019'),
       ...dryRun ? summaryRow('none', 'For real', 'relizy release') : summaryRow('none', 'Install', 'pnpm add @acme/core@2.4.0'),
     ],
   }
@@ -137,7 +137,7 @@ export const releaseScenario: Action[] = [
     ],
     done: [plain('1 GitHub release created')],
     duration: '18.4s',
-    after: [{ symbol: { text: '✨' }, segments: [{ text: 'The notes of v2.4.0 rewritten by AI (claude-code) in 16.9s, $0.012', tone: 'magenta' }] }],
+    after: [{ symbol: { text: '✨' }, segments: [{ text: 'The notes of v2.4.0 rewritten by AI (claude-code) in 16.9s, 3.6k tokens, $0.012', tone: 'magenta' }] }],
   },
   {
     do: 'step',
@@ -194,7 +194,7 @@ export const ciScenario: CiGroup[] = [
   { title: 'Publishing the packages', lines: [[dim('› '), plain('Building the packages (pnpm build)')], [dim('› '), plain('Publishing @acme/core@2.4.0 (1/3)')], [dim('› '), plain('Publishing @acme/ui@2.4.0 (2/3)')], [dim('› '), plain('Publishing @acme/cli@2.4.0 (3/3)')]], result: [plain('Published @acme/core@2.4.0, @acme/ui@2.4.0, @acme/cli@2.4.0'), dim('  6.8s')] },
   { title: 'Committing and tagging', lines: [[plain('chore(release): bump version to 2.4.0')]], result: [plain('Committed and tagged v2.4.0'), dim('  41ms')] },
   { title: 'Pushing', lines: [[plain('git push --follow-tags')]], result: [plain('Pushed the commit and the tags'), dim('  1.1s')] },
-  { title: 'Creating the releases', lines: [[dim('› '), plain('Writing the notes of v2.4.0')], [plain('✨ '), { text: 'Rewriting the notes of v2.4.0 with AI (claude-code)', tone: 'magenta' }], [dim('› '), plain('Creating the GitHub release v2.4.0')]], result: [plain('1 GitHub release created'), dim('  18.4s')], after: [[plain('  ✨ '), { text: 'The notes of v2.4.0 rewritten by AI (claude-code) in 16.9s, $0.012', tone: 'magenta' }]] },
+  { title: 'Creating the releases', lines: [[dim('› '), plain('Writing the notes of v2.4.0')], [plain('✨ '), { text: 'Rewriting the notes of v2.4.0 with AI (claude-code)', tone: 'magenta' }], [dim('› '), plain('Creating the GitHub release v2.4.0')]], result: [plain('1 GitHub release created'), dim('  18.4s')], after: [[plain('  ✨ '), { text: 'The notes of v2.4.0 rewritten by AI (claude-code) in 16.9s, 3.6k tokens, $0.012', tone: 'magenta' }]] },
   { title: 'Posting the release', lines: [[dim('› '), plain('Posting on Twitter')], [dim('› '), plain('Posting on Slack')]], result: [plain('Posted on twitter'), plain(', '), { text: 'slack failed', tone: 'yellow' }, dim('  2.3s')], failed: true },
 ]
 

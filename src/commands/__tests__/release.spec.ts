@@ -13,6 +13,7 @@ import {
   RelizyCancelError,
   rollbackModifiedFiles,
 } from '../../core'
+import { recordAIRewrite } from '../../core/progress'
 import { bump } from '../bump'
 
 import { changelog } from '../changelog'
@@ -809,6 +810,33 @@ describe('Given the output of release in CI', () => {
     const { releaseContext } = vi.mocked(prComment).mock.calls[0]![0]!
     expect(releaseContext?.report?.steps.map(step => step.name)).toEqual(['changelog', 'publish', 'commit', 'push', 'providerRelease', 'social'])
     expect(output.join('')).toMatch(/✔ Pull request commented {2}\d+ms\n/)
+  })
+
+  it('Then gives the AI rewrites, their tokens and their cost to the comment and to the summary of the release', async () => {
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      release: { commit: true, changelog: true, publish: false, push: false, providerRelease: true, social: true, prComment: true, clean: true, noVerify: false, gitTag: true },
+      social: { twitter: { enabled: true } },
+    })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    // The steps record their AI rewrites, as the real ones do
+    vi.mocked(providerRelease).mockImplementation(() => {
+      recordAIRewrite({ subject: 'the notes of v1.0.0', provider: 'claude-code', simulated: false, durationMs: 4000, inputTokens: 3000, outputTokens: 600, costUsd: 0.01 })
+      return Promise.resolve({ detectedProvider: 'github', postedReleases: [] })
+    })
+    vi.mocked(social).mockImplementation(() => {
+      recordAIRewrite({ subject: 'the Twitter post', provider: 'claude-code', simulated: false, durationMs: 2000, inputTokens: 1200, outputTokens: 200, costUsd: 0.02 })
+      return Promise.resolve({ results: [{ platform: 'twitter', success: true }], hasErrors: false })
+    })
+    vi.mocked(prComment).mockResolvedValue(true)
+
+    const report = await release({})
+
+    const ai = { provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 6000, inputTokens: 4200, outputTokens: 800, costUsd: 0.03 }
+    expect(vi.mocked(prComment).mock.calls[0]![0]!.releaseContext?.report?.ai).toEqual(ai)
+    expect(report.ai).toEqual(ai)
+    expect(output.join('')).toContain('2 rewrites by claude-code in 6.0s · 5k tokens · $0.030')
   })
 
   it('Then comments the pull request when there is nothing to release', async () => {

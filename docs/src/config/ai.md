@@ -450,7 +450,8 @@ export const myProvider: AIProvider = {
     // Call your model with request.systemPrompt and
     // wrapChangelogPrompt(request.prompt, request.context) (../prompts).
     // Honor request.maxLength for Twitter-like targets.
-    // Return the trimmed output.
+    // Return the trimmed output, with the tokens and the cost when known:
+    // { text, usage: { inputTokens, outputTokens, costUsd } }
   },
 }
 ```

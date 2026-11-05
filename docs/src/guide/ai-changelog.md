@@ -396,6 +396,8 @@ Counts per release:
 
 `--dry-run` makes no AI call, so it costs nothing (unless `--ai-preview`).
 
+Each call shows its duration and its tokens, and its cost with `claude-code` (the `ai-sdk` models give their tokens, not a price). The [summary of the release](../config/release.md) adds up the calls of the release.
+
 ## Before / after
 
 ### Provider release — raw commits

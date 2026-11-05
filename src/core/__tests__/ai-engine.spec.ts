@@ -3,7 +3,7 @@ import type { ResolvedRelizyConfig } from '../config'
 import { createMockConfig } from '../../../tests/mocks'
 import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog, generateAISocialReleases } from '../ai/index'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT, wrapChangelogPrompt } from '../ai/prompts'
-import { recordAICost, setDryRunOptions, setProgressHandlers, takeReleaseFacts } from '../progress'
+import { setDryRunOptions, setProgressHandlers, takeReleaseFacts } from '../progress'
 
 let fakeProvider: AIProvider & { lastRequest?: AIGenerateRequest, safetyCheckCalled: boolean }
 
@@ -25,7 +25,7 @@ function createFakeProvider(overrides?: Partial<AIProvider>) {
     },
     generate(_config: ResolvedRelizyConfig, request: AIGenerateRequest) {
       fakeProvider.lastRequest = request
-      return Promise.resolve('AI generated output')
+      return Promise.resolve({ text: 'AI generated output' })
     },
     ...overrides,
   }
@@ -242,7 +242,7 @@ describe('generateAISocialReleases', () => {
 
   it('returns the rewritten changelog of each release found in the output', async () => {
     fakeProvider = createFakeProvider({
-      generate: () => Promise.resolve('<release id="2">\nFixed b\n</release>\n<release id="1" title="x">A is new</release>'),
+      generate: () => Promise.resolve({ text: '<release id="2">\nFixed b\n</release>\n<release id="1" title="x">A is new</release>' }),
     })
 
     const result = await generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })
@@ -309,21 +309,38 @@ describe('Given the AI in a dry run', () => {
     expect(fakeProvider.lastRequest?.prompt).toBe('raw notes')
   })
 
-  it('Then shows the rewrite while it runs, then its duration and cost', async () => {
+  it('Then shows the rewrite while it runs, then its duration, tokens and cost', async () => {
     fakeProvider = createFakeProvider({
-      generate: () => {
-        recordAICost(0.0123)
-        return Promise.resolve('rewritten')
-      },
+      generate: () => Promise.resolve({ text: 'rewritten', usage: { inputTokens: 1800, outputTokens: 450, costUsd: 0.0123 } }),
     })
     const config = createMockConfig({})
 
-    await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0' })
+    expect(await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0' })).toBe('rewritten')
 
     expect(progress).toHaveBeenCalledWith('Rewriting the notes of v2.0.0 with AI (fake)', { ai: true })
-    expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms, \$0\.012$/), { ai: true })
+    expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms, 2\.3k tokens, \$0\.012$/), { ai: true })
     expect(takeReleaseFacts().aiRewrites).toEqual([
-      { subject: 'the notes of v2.0.0', provider: 'fake', simulated: false, durationMs: expect.any(Number), costUsd: 0.0123 },
+      { subject: 'the notes of v2.0.0', provider: 'fake', simulated: false, durationMs: expect.any(Number), inputTokens: 1800, outputTokens: 450, costUsd: 0.0123 },
     ])
+  })
+
+  it('Then records each call of a release with its own usage, so they add up', async () => {
+    const usages = [{ inputTokens: 1000, outputTokens: 200, costUsd: 0.01 }, { inputTokens: 500, outputTokens: 100, costUsd: 0.005 }]
+    fakeProvider = createFakeProvider({ generate: () => Promise.resolve({ text: 'rewritten', usage: usages.shift() }) })
+    const config = createMockConfig({})
+
+    await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0' })
+    await generateAISocialChangelog({ config, rawBody: 'rich', platform: 'twitter', maxLength: 200 })
+
+    expect(takeReleaseFacts().aiRewrites.map(({ inputTokens, outputTokens, costUsd }) => ({ inputTokens, outputTokens, costUsd }))).toEqual([
+      { inputTokens: 1000, outputTokens: 200, costUsd: 0.01 },
+      { inputTokens: 500, outputTokens: 100, costUsd: 0.005 },
+    ])
+  })
+
+  it('Then shows no usage when the provider gives none', async () => {
+    await generateAIProviderReleaseBody({ config: createMockConfig({}), rawBody: 'raw notes', label: 'v2.0.0' })
+
+    expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms$/), { ai: true })
   })
 })

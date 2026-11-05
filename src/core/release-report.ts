@@ -5,6 +5,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { describeAIUsage } from './progress'
 import { getReleaseLines } from './release-overview'
 
 export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'prComment'
@@ -71,6 +72,11 @@ export interface ReleaseAI {
    */
   simulated: boolean
   durationMs: number
+  /**
+   * Sums of the calls, when their provider gives them
+   */
+  inputTokens?: number
+  outputTokens?: number
   costUsd?: number
 }
 
@@ -176,15 +182,14 @@ export function describeReleaseContent(content: ReleaseContent): string {
 }
 
 /**
- * The AI of the release, in words: `2 rewrites in 31.2s · $0.042`
+ * The AI of the release, in words: `2 rewrites by claude-code in 31.2s · 12.4k tokens · $0.042`
  */
 export function describeReleaseAI(ai: ReleaseAI): string {
   if (ai.simulated) {
     return `${plural(ai.rewrites, 'rewrite')} simulated (${ai.provider})`
   }
 
-  const cost = ai.costUsd === undefined ? '' : ` · $${ai.costUsd.toFixed(3)}`
-  return `${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDurationMs(ai.durationMs)}${cost}`
+  return [`${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDurationMs(ai.durationMs)}`, ...describeAIUsage(ai)].join(' · ')
 }
 
 /**

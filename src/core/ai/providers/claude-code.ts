@@ -1,9 +1,29 @@
 import type { ResolvedRelizyConfig } from '../../config'
-import type { AIGenerateRequest, AIProvider } from '../provider'
+import type { AIUsage } from '../../progress'
+import type { AIGenerateRequest, AIGenerateResult, AIProvider } from '../provider'
 import { spawnSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
-import { recordAICost } from '../../progress'
 import { wrapChangelogPrompt } from '../prompts'
+
+function toTokenCount(value: unknown): number {
+  return typeof value === 'number' ? value : 0
+}
+
+/**
+ * The tokens of the `result` event (the cached prompt tokens are input tokens
+ * too) and the cost estimated by the CLI
+ */
+function getUsage(result: { events?: { type: string }[], costUsd?: number }): AIUsage {
+  const usage = (result.events?.find(event => event.type === 'result') as { usage?: Record<string, unknown> } | undefined)?.usage
+
+  return {
+    ...(usage && {
+      inputTokens: toTokenCount(usage.input_tokens) + toTokenCount(usage.cache_creation_input_tokens) + toTokenCount(usage.cache_read_input_tokens),
+      outputTokens: toTokenCount(usage.output_tokens),
+    }),
+    ...(result.costUsd !== undefined && { costUsd: result.costUsd }),
+  }
+}
 
 function claudeBinaryAvailable(): boolean {
   try {
@@ -60,7 +80,7 @@ export const claudeCodeProvider: AIProvider = {
     }
   },
 
-  async generate(config: ResolvedRelizyConfig, request: AIGenerateRequest): Promise<string> {
+  async generate(config: ResolvedRelizyConfig, request: AIGenerateRequest): Promise<AIGenerateResult> {
     const { claudeRun } = await import('@yoloship/claude-sdk')
     const auth = resolveAuth(config)
     const model = config.ai?.providers?.['claude-code']?.model
@@ -82,8 +102,7 @@ export const claudeCodeProvider: AIProvider = {
     )
 
     logger.verbose('Claude SDK events:', result.events?.map(e => e.type).join(', '))
-    recordAICost(result.costUsd)
 
-    return (result.output ?? '').trim()
+    return { text: (result.output ?? '').trim(), usage: getUsage(result) }
   },
 }

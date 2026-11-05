@@ -110,7 +110,19 @@ export interface ReleaseLink {
   url: string
 }
 
-export interface AIRewrite {
+/**
+ * What an AI call used, when its provider gives it
+ */
+export interface AIUsage {
+  inputTokens?: number
+  outputTokens?: number
+  /**
+   * Estimated by the provider (claude-code)
+   */
+  costUsd?: number
+}
+
+export interface AIRewrite extends AIUsage {
   subject: string
   provider: string
   /**
@@ -118,13 +130,34 @@ export interface AIRewrite {
    */
   simulated: boolean
   durationMs?: number
-  /**
-   * When the provider gives it (claude-code)
-   */
-  costUsd?: number
 }
 
-const facts = { links: [] as ReleaseLink[], aiRewrites: [] as AIRewrite[], aiCost: undefined as number | undefined }
+/**
+ * `850`, `12.4k`, `1.2M`
+ */
+function formatTokenCount(count: number): string {
+  if (count < 1000) {
+    return String(count)
+  }
+  const [value, unit] = count < 1_000_000 ? [count / 1000, 'k'] : [count / 1_000_000, 'M']
+  return `${value.toFixed(1).replace(/\.0$/, '')}${unit}`
+}
+
+/**
+ * The usage of AI calls, in words: `['12.4k tokens', '$0.042']`
+ */
+export function describeAIUsage(usage: AIUsage): string[] {
+  const tokens = usage.inputTokens === undefined && usage.outputTokens === undefined
+    ? undefined
+    : (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
+
+  return [
+    tokens === undefined ? '' : `${formatTokenCount(tokens)} ${tokens === 1 ? 'token' : 'tokens'}`,
+    usage.costUsd === undefined ? '' : `$${usage.costUsd.toFixed(3)}`,
+  ].filter(Boolean)
+}
+
+const facts = { links: [] as ReleaseLink[], aiRewrites: [] as AIRewrite[] }
 
 export function recordLink(link: ReleaseLink): void {
   facts.links.push(link)
@@ -132,19 +165,6 @@ export function recordLink(link: ReleaseLink): void {
 
 export function recordAIRewrite(rewrite: AIRewrite): void {
   facts.aiRewrites.push(rewrite)
-}
-
-/**
- * The cost of the last AI call, given by its provider
- */
-export function recordAICost(costUsd: number | undefined): void {
-  facts.aiCost = costUsd
-}
-
-export function takeAICost(): number | undefined {
-  const cost = facts.aiCost
-  facts.aiCost = undefined
-  return cost
 }
 
 /**

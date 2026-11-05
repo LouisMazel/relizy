@@ -249,7 +249,7 @@ export default defineConfig({
                     <span class="text-muted">✅ Provider release</span><span class="text-primary">v2.4.0</span>
                   </p>
                   <p class="flex justify-between px-3 py-1.5">
-                    <span class="text-muted">✨ AI</span><span>2 rewrites · $0.019</span>
+                    <span class="text-muted">✨ AI</span><span>2 rewrites · 5.8k tokens · $0.019</span>
                   </p>
                 </div>
               </div>

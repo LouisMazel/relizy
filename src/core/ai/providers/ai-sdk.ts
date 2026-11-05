@@ -1,6 +1,6 @@
 import type { LanguageModel } from 'ai'
 import type { ResolvedRelizyConfig } from '../../config'
-import type { AIGenerateRequest, AIProvider } from '../provider'
+import type { AIGenerateRequest, AIGenerateResult, AIProvider } from '../provider'
 import { logger } from '@maz-ui/node'
 import { wrapChangelogPrompt } from '../prompts'
 
@@ -31,7 +31,7 @@ export const aiSdkProvider: AIProvider = {
     }
   },
 
-  async generate(config: ResolvedRelizyConfig, request: AIGenerateRequest): Promise<string> {
+  async generate(config: ResolvedRelizyConfig, request: AIGenerateRequest): Promise<AIGenerateResult> {
     // The safety check can be skipped (--no-safety-check): check the model again
     const model = getModel(config)
     const { generateText } = await import('ai')
@@ -46,6 +46,15 @@ export const aiSdkProvider: AIProvider = {
 
     logger.verbose('AI SDK steps:', result.steps?.flatMap(step => step.content.map(part => part.type)).join(', '))
 
-    return result.text.trim()
+    // Every step of the call, not only the last one
+    const { inputTokens, outputTokens } = result.totalUsage ?? {}
+
+    return {
+      text: result.text.trim(),
+      usage: {
+        ...(inputTokens !== undefined && { inputTokens }),
+        ...(outputTokens !== undefined && { outputTokens }),
+      },
+    }
   },
 }

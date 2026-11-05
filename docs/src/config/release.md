@@ -197,7 +197,7 @@ On GitHub Actions, the step also gets `report` (the whole report, as JSON) and `
 
 ### The Summary
 
-The same summary closes the output of `relizy release` in the terminal, fills the summary of the GitHub Actions run, the [PR comment](/guide/pr-comment) of the release and the `markdown` file: the versions, what the release contains (features, fixes, breaking changes, contributors), what each step did with the links of what it created (npm pages, GitHub or GitLab releases, tweet, pull request), the AI rewrites (with their cost for `claude-code`), the install command and the packages with their versions.
+The same summary closes the output of `relizy release` in the terminal, fills the summary of the GitHub Actions run, the [PR comment](/guide/pr-comment) of the release and the `markdown` file: the versions, what the release contains (features, fixes, breaking changes, contributors), what each step did with the links of what it created (npm pages, GitHub or GitLab releases, tweet, pull request), the AI rewrites (with the sum of their tokens, and of their cost for `claude-code`), the install command and the packages with their versions.
 
 ## Canary Mode Behavior
 

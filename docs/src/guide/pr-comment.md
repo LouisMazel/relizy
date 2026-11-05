@@ -60,7 +60,7 @@ Example:
 | ✅ **Commit and tags**  | a1b2c3d · v2.0.0                                                                           |
 | ✅ **Push**             | main → origin/main                                                                         |
 | ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/LouisMazel/relizy/releases/tag/v2.0.0)  |
-| ✨ **AI**               | 1 rewrite by claude-code in 27.4s · $0.031                                                 |
+| ✨ **AI**               | 1 rewrite by claude-code in 27.4s · 8.2k tokens · $0.031                                   |
 | **Install**             | `pnpm add relizy@2.0.0`                                                                    |
 
 ### Packages

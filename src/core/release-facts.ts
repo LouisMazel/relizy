@@ -128,14 +128,20 @@ export function getReleaseAI(rewrites: AIRewrite[]): ReleaseAI | undefined {
     return undefined
   }
 
-  const costs = rewrites.map(rewrite => rewrite.costUsd).filter(cost => cost !== undefined)
+  // The sum of the calls giving the value, none when no call gives it
+  const sum = (key: 'inputTokens' | 'outputTokens' | 'costUsd') => {
+    const values = rewrites.map(rewrite => rewrite[key]).filter(value => value !== undefined)
+    return values.length > 0 ? { [key]: values.reduce((total, value) => total + value, 0) } : {}
+  }
 
   return {
     provider: rewrites[0]!.provider,
     rewrites: rewrites.length,
     simulated: rewrites.every(rewrite => rewrite.simulated),
     durationMs: rewrites.reduce((total, rewrite) => total + (rewrite.durationMs ?? 0), 0),
-    ...(costs.length > 0 ? { costUsd: costs.reduce((total, cost) => total + cost, 0) } : {}),
+    ...sum('inputTokens'),
+    ...sum('outputTokens'),
+    ...sum('costUsd'),
   }
 }
 

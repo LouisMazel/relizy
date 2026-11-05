@@ -112,9 +112,15 @@ describe('Given the provider releases and the AI of a release', () => {
   it('Then sums the AI rewrites, simulated only when none was called', () => {
     expect(getReleaseAI([])).toBeUndefined()
     expect(getReleaseAI([
-      { subject: 'the notes of v2.0.0', provider: 'claude-code', simulated: false, durationMs: 1000, costUsd: 0.01 },
-      { subject: 'the Twitter post', provider: 'claude-code', simulated: false, durationMs: 500, costUsd: 0.02 },
-    ])).toEqual({ provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 1500, costUsd: 0.03 })
+      { subject: 'the notes of v2.0.0', provider: 'claude-code', simulated: false, durationMs: 1000, inputTokens: 3000, outputTokens: 600, costUsd: 0.01 },
+      { subject: 'the Twitter post', provider: 'claude-code', simulated: false, durationMs: 500, inputTokens: 1000, outputTokens: 100, costUsd: 0.02 },
+      { subject: 'the Slack post', provider: 'claude-code', simulated: false, durationMs: 500, inputTokens: 1000, outputTokens: 200, costUsd: 0.015 },
+    ])).toEqual({ provider: 'claude-code', rewrites: 3, simulated: false, durationMs: 2000, inputTokens: 5000, outputTokens: 900, costUsd: 0.045 })
+    // A call without usage (failed provider, older SDK) does not hide the others
+    expect(getReleaseAI([
+      { subject: 'the notes of v2.0.0', provider: 'ai-sdk', simulated: false, durationMs: 1000 },
+      { subject: 'the Twitter post', provider: 'ai-sdk', simulated: false, durationMs: 500, inputTokens: 800, outputTokens: 50 },
+    ])).toEqual({ provider: 'ai-sdk', rewrites: 2, simulated: false, durationMs: 1500, inputTokens: 800, outputTokens: 50 })
     expect(getReleaseAI([{ subject: 'the Twitter post', provider: 'ai-sdk', simulated: true }])).toEqual({ provider: 'ai-sdk', rewrites: 1, simulated: true, durationMs: 0 })
   })
 

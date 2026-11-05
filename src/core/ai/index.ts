@@ -1,9 +1,10 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { AIReleaseContext } from './prompts'
+import type { AIGenerateRequest } from './provider'
 import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
-import { isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote, takeAICost } from '../progress'
+import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -111,22 +112,28 @@ function simulateRewrite({ subject, provider }: { subject: string, provider: str
   recordAIRewrite({ subject, provider, simulated: true })
 }
 
-function startRewrite({ subject, provider }: { subject: string, provider: string }): () => void {
+/**
+ * Call the provider, and record the rewrite with its duration, tokens and cost
+ */
+async function rewrite({ subject, config, request }: {
+  subject: string
+  config: ResolvedRelizyConfig
+  request: AIGenerateRequest
+}): Promise<string> {
+  const provider = getAIProvider(config)
   const started = Date.now()
-  logger.info(`✨ Rewriting ${subject} with AI (${provider})`)
-  reportProgress(`Rewriting ${subject} with AI (${provider})`, { ai: true })
+  logger.info(`✨ Rewriting ${subject} with AI (${provider.name})`)
+  reportProgress(`Rewriting ${subject} with AI (${provider.name})`, { ai: true })
 
-  takeAICost()
+  const { text, usage = {} } = await provider.generate(config, request)
 
-  return () => {
-    const durationMs = Date.now() - started
-    const costUsd = takeAICost()
-    const cost = costUsd === undefined ? '' : `, $${costUsd.toFixed(3)}`
-    const elapsed = formatElapsed(durationMs)
-    logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${elapsed}${cost}`)
-    reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider}) in ${elapsed}${cost}`, { ai: true })
-    recordAIRewrite({ subject, provider, simulated: false, durationMs, costUsd })
-  }
+  const durationMs = Date.now() - started
+  const details = [formatElapsed(durationMs), ...describeAIUsage(usage)].join(', ')
+  logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${details}`)
+  reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider.name}) in ${details}`, { ai: true })
+  recordAIRewrite({ subject, provider: provider.name, simulated: false, durationMs, ...usage })
+
+  return text
 }
 
 export async function generateAIProviderReleaseBody({ config, rawBody, label, context, dryRun = false }: {
@@ -158,9 +165,7 @@ export async function generateAIProviderReleaseBody({ config, rawBody, label, co
   }
 
   try {
-    const done = startRewrite({ subject, provider: provider.name })
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, context })
-    done()
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
     logger.verbose('AI output body:', output)
     return output
   }
@@ -201,9 +206,7 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
 
   try {
-    const done = startRewrite({ subject, provider: provider.name })
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, maxLength, context })
-    done()
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, maxLength, context } })
     logger.verbose(`AI output body (${platform}):`, output)
     return output
   }
@@ -278,9 +281,7 @@ export async function generateAISocialReleases({ config, releases, platform, max
   }
 
   try {
-    const done = startRewrite({ subject, provider: provider.name })
-    const output = await provider.generate(config, { systemPrompt, prompt, maxLength })
-    done()
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt, maxLength } })
     const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
     const missing = input.filter(release => !rewritten.get(release.id))
 

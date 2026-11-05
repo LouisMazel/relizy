@@ -74,7 +74,8 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
       expect(system).toBe('Rewrite the notes.')
       expect(user).toContain(`<changelog>\n${RAW_BODY}\n</changelog>`)
       expect(user).toContain('Output ONLY the rewritten content')
-      expect(result).toBe('AI rewritten notes')
+      // The tokens of the mock model
+      expect(result).toEqual({ text: 'AI rewritten notes', usage: { inputTokens: 10, outputTokens: 5 } })
     })
 
     it('Then sends no tool and lets the provider default reasoning apply', async () => {
@@ -98,7 +99,7 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
       const model = new MockLanguageModelV3({ doGenerate: () => Promise.resolve(generateResult('v3 notes') as any) })
       const result = await aiSdkProvider.generate(createConfig(model), { systemPrompt: 'Rewrite.', prompt: RAW_BODY })
 
-      expect(result).toBe('v3 notes')
+      expect(result.text).toBe('v3 notes')
       expect(lastMessages(model).user).toContain(RAW_BODY)
     })
 

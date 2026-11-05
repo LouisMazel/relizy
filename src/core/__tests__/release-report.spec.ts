@@ -51,7 +51,7 @@ const detailed: ReleaseReport = {
   content: { commits: 21, features: 11, fixes: 7, breaking: 7, contributors: 2 },
   git: { branch: 'main', commit: 'a1b2c3d', remote: 'origin/main' },
   publish: { tags: ['latest'], registries: ['registry.npmjs.org'], install: 'pnpm add relizy@2.0.0' },
-  ai: { provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 31200, costUsd: 0.0421 },
+  ai: { provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 31200, inputTokens: 10200, outputTokens: 2200, costUsd: 0.0421 },
 }
 
 describe('Given the renderers of the release report', () => {
@@ -91,7 +91,7 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).toContain('| ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/user/relizy/releases/tag/v2.0.0) |')
     expect(markdown).toContain('| ✅ **Commit and tags** | a1b2c3d · v2.0.0 |')
     expect(markdown).toContain('| ✅ **Push** | main → origin/main |')
-    expect(markdown).toContain('| ✨ **AI** | 2 rewrites by claude-code in 31.2s · $0.042 |')
+    expect(markdown).toContain('| ✨ **AI** | 2 rewrites by claude-code in 31.2s · 12.4k tokens · $0.042 |')
     expect(markdown).toContain('| **Install** | `pnpm add relizy@2.0.0` |')
     // The packages and their versions, even for a single package
     expect(markdown).toContain('### Packages\n\n| Package | Version |\n| --- | --- |\n| `relizy` | `1.14.3` → `2.0.0` |')
@@ -115,7 +115,7 @@ describe('Given the renderers of the release report', () => {
       'Push: main → origin/main',
       'Provider release: 1 release on github',
       'Social media: skipped',
-      'AI: 2 rewrites by claude-code in 31.2s · $0.042',
+      'AI: 2 rewrites by claude-code in 31.2s · 12.4k tokens · $0.042',
       'Install: pnpm add relizy@2.0.0',
     ])
     expect(getReleaseSummary(nothing)).toEqual([])
