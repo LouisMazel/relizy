@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
-import { anyHookContext, createMockCommit } from '../../../tests/mocks'
+import { anyHookContext, createMockCommit, setInteractiveTerminal } from '../../../tests/mocks'
 import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
@@ -106,6 +106,17 @@ vi.mock('../../core', async () => ({
   writeVersion: vi.fn(),
   executeHook: vi.fn(() => {}),
 }))
+
+// The commands run as in a terminal, where the bump is confirmed (`confirmBump` is mocked)
+let restoreTerminal: () => void
+
+beforeEach(() => {
+  restoreTerminal = setInteractiveTerminal(true)
+})
+
+afterEach(() => {
+  restoreTerminal()
+})
 
 describe('Given bump command', () => {
   const mockCwd = '/test-repo'
@@ -1315,6 +1326,16 @@ describe('Given the output of bump in CI', () => {
     await bump({ type: 'minor', yes: true })
 
     expect(output.lines().at(-1)).toMatch(/^○ Nothing to bump: no commit since the last release triggers a new version {2}\d+ms$/)
+  })
+
+  it('Then fails right away without --yes when nobody can confirm, with the fix', async () => {
+    setInteractiveTerminal(false)
+    vi.mocked(loadRelizyConfig).mockReset().mockResolvedValueOnce({ ...config, bump: { ...config.bump, yes: false } })
+
+    await expect(bump({ type: 'minor' })).rejects.toThrow('relizy bump asks to confirm the new versions, but the terminal is not interactive: run "relizy bump --yes" to confirm them in advance')
+
+    expect(getPackages).not.toHaveBeenCalled()
+    expect(output.lines()).toEqual(expect.arrayContaining(['✖ Bump failed', '  relizy bump asks to confirm the new versions, but the terminal is not interactive: run "relizy bump --yes" to confirm them in advance']))
   })
 
   it('Then shows the error once', async () => {

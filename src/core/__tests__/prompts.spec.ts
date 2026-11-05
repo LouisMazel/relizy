@@ -1,7 +1,8 @@
 import { confirm, isCancel, select, text } from '@clack/prompts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { setInteractiveTerminal } from '../../../tests/mocks'
 import { RelizyCancelError } from '../errors'
-import { askConfirm, askSelect, askText } from '../prompts'
+import { askConfirm, askSelect, askText, assertInteractivePrompt } from '../prompts'
 
 const CANCEL = Symbol('clack:cancel')
 
@@ -51,6 +52,25 @@ describe('Given the prompts', () => {
       await expect(askConfirm({ message: 'Release?', cancelMessage: 'Bump cancelled' })).rejects.toThrow(new RelizyCancelError('Bump cancelled'))
       await expect(askSelect({ message: 'What now?', options: [{ value: 'keep', label: 'Keep' }], cancelMessage: 'Tag cancelled' })).rejects.toThrow(new RelizyCancelError('Tag cancelled'))
       await expect(askText({ message: 'OTP' })).rejects.toThrow(new RelizyCancelError('Cancelled'))
+    })
+  })
+
+  describe('When the terminal is not interactive (CI, piped input)', () => {
+    it('Then asks nothing and fails with what to do, as nobody can answer', () => {
+      const restore = setInteractiveTerminal(false)
+
+      expect(() => assertInteractivePrompt({ message: 'Release?', whenNotInteractive: 'run with --yes to confirm it in advance' }))
+        .toThrow('"Release?" needs an answer, but the terminal is not interactive: run with --yes to confirm it in advance')
+
+      restore()
+    })
+
+    it('Then lets the prompt run in an interactive terminal', () => {
+      const restore = setInteractiveTerminal(true)
+
+      expect(() => assertInteractivePrompt({ message: 'Release?', whenNotInteractive: 'run with --yes' })).not.toThrow()
+
+      restore()
     })
   })
 })

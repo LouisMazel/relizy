@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { setInteractiveTerminal } from '../../../tests/mocks'
 import { loadRelizyConfig, RelizyCancelError } from '../../core'
 import { isVersionPublished, publishPackage } from '../../core/npm'
 import { askConfirm } from '../../core/prompts'
@@ -14,7 +15,7 @@ import { release } from '../release'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
-vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn() }))
+vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn(), assertInteractivePrompt: vi.fn(), BUMP_NOT_INTERACTIVE: '' }))
 
 // Only the registry is mocked: publishing and querying the published versions
 vi.mock('../../core/npm', async (importActual) => {
@@ -562,6 +563,17 @@ describe('Given a release with version groups on a real git repository', () => {
   })
 
   describe('When confirming the bump', () => {
+    let restoreTerminal: () => void
+
+    // Someone answers the prompt in a terminal
+    beforeEach(() => {
+      restoreTerminal = setInteractiveTerminal(true)
+    })
+
+    afterEach(() => {
+      restoreTerminal()
+    })
+
     it('Then displays every group, by title, and asks once', async () => {
       writeConfig({ headerOptions: ', title: \'Header\'' })
       git('add', '-A')

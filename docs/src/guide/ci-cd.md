@@ -150,6 +150,13 @@ Skip all interactive prompts:
 relizy release --minor --yes
 ```
 
+Without it, `relizy release` and `relizy bump` fail right away in CI, with the exit code 1 and the fix, as nobody can confirm the new versions:
+
+```text
+✖ Release failed
+  relizy release asks to confirm the new versions, but the terminal is not interactive (GitHub Actions): run "relizy release --yes" to confirm them in advance
+```
+
 ### --no-clean
 
 Skip git status checks (useful in CI where working directory may have artifacts):

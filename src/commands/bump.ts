@@ -3,6 +3,8 @@ import type { BumpOptions, BumpResult, BumpResultTruthy, PackageBase, SemverBump
 
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, createCommandUi, describeBumpResult, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getBumpResultDetails, getCanaryVersion, getDependencyReleaseType, getHookContext, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertBumpConfirmable } from '../core/bump-prompt'
+import { getCIName } from '../core/utils'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -1038,6 +1040,8 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
   const ui = createCommandUi({ title: 'relizy bump', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
   try {
+    assertBumpConfirmable({ command: 'bump', yes: config.bump.yes, ciName: getCIName() })
+
     await executeHook('before:bump', config, dryRun)
 
     const result = await ui.step({

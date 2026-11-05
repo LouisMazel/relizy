@@ -12,6 +12,7 @@ import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
 import { markErrorReported, RelizyCancelError } from './errors'
 import { reportProgress, setProgressHandlers } from './progress'
+import { assertInteractivePrompt, BUMP_NOT_INTERACTIVE } from './prompts'
 import { getReleaseLines } from './release-overview'
 import { formatReleaseReportText, getReleaseSummary } from './release-report'
 
@@ -1019,6 +1020,7 @@ export function confirmBumpInReleaseUi({ packages }: { packages: (PackageBase & 
     spacedBox(describeBumpedPackages(packages).join('\n'), ` ${title} `, 2)
 
     const versions = packages.length === 1 ? 'this version' : `these ${packages.length} versions`
+    assertInteractivePrompt({ message: `${action} ${versions}?`, whenNotInteractive: BUMP_NOT_INTERACTIVE })
     const dryRunNote = ui.isDryRun ? `  ${DRY_RUN_BADGE} ${dim('nothing will be written')}` : ''
     const answer = await promptConfirm({ message: `${action} ${versions}?${dryRunNote}`, active: action, inactive: 'Cancel' })
 

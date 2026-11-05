@@ -1,13 +1,14 @@
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
-import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
 import { setBumpConfirmation } from '../bump-prompt'
 import { RelizyCancelError } from '../errors'
 import { askConfirm } from '../prompts'
 import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, displayBump, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
-vi.mock('../prompts', () => ({
+vi.mock('../prompts', async importActual => ({
+  ...await importActual<typeof import('../prompts')>(),
   askConfirm: vi.fn(() => Promise.resolve(true)),
 }))
 
@@ -2292,6 +2293,7 @@ describe('Given displayBump function', () => {
 
 describe('Given confirmBump function', () => {
   let logSpy: ReturnType<typeof vi.spyOn>
+  let restoreTerminal: () => void
 
   beforeEach(() => {
     logSpy = vi.spyOn(logger, 'log').mockImplementation(() => undefined)
@@ -2299,10 +2301,13 @@ describe('Given confirmBump function', () => {
     vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
     vi.mocked(askConfirm).mockClear()
     logSpy.mockClear()
+    // An interactive terminal, unless a test says otherwise
+    restoreTerminal = setInteractiveTerminal(true)
   })
 
   afterEach(() => {
     vi.restoreAllMocks()
+    restoreTerminal()
   })
 
   function logged(): string {
@@ -2316,6 +2321,17 @@ describe('Given confirmBump function', () => {
       await confirmBump({ packages: [], display, dryRun: false })
 
       expect(display).not.toHaveBeenCalled()
+      expect(askConfirm).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When the terminal is not interactive (CI without --yes)', () => {
+    it('Then fails with what to do instead of cancelling the run, before prompting', async () => {
+      setInteractiveTerminal(false)
+
+      await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
+        .rejects
+        .toThrow('"Do you want to proceed with these version updates?" needs an answer, but the terminal is not interactive: run with --yes to confirm it in advance')
       expect(askConfirm).not.toHaveBeenCalled()
     })
   })

@@ -20,8 +20,10 @@ import {
   writeReleaseReport,
 } from '../core'
 import { applyAIOverride } from '../core/ai'
+import { assertBumpConfirmable } from '../core/bump-prompt'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
+import { getCIName } from '../core/utils'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
@@ -183,6 +185,8 @@ export async function release(options: Partial<ReleaseOptions> = {}): Promise<Re
   let currentStep = 'Checks'
 
   try {
+    assertBumpConfirmable({ command: 'release', yes: config.bump.yes, ciName: getCIName() })
+
     if (config.safetyCheck) {
       await ui.step({
         running: 'Checking the release',

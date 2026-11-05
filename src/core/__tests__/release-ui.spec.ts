@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockCommit, createMockPackageInfo } from '../../../tests/mocks'
+import { createMockCommit, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
 
 const CANCEL = Symbol('clack:cancel')
 const spin = { start: vi.fn(), stop: vi.fn(), error: vi.fn(), clear: vi.fn(), message: vi.fn() }
@@ -526,6 +526,17 @@ describe('Given the terminal output', () => {
 describe('Given the confirmation of a bump', () => {
   const packages = [{ ...createMockPackageInfo({ name: 'relizy', version: '1.14.4-beta.0', newVersion: '2.0.0' }), oldVersion: '1.14.4-beta.0', reason: 'graduation' as const }]
 
+  let restoreTerminal: () => void
+
+  // An interactive terminal, unless a test says otherwise
+  beforeEach(() => {
+    restoreTerminal = setInteractiveTerminal(true)
+  })
+
+  afterEach(() => {
+    restoreTerminal()
+  })
+
   it('Then is asked by the terminal output, in its words, after the warnings', async () => {
     const { ui, bumpPrompt, clack } = await load({ RELIZY_REPORTER: 'pretty' })
     const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: true, cwd })
@@ -559,6 +570,15 @@ describe('Given the confirmation of a bump', () => {
     vi.mocked(clack.confirm).mockResolvedValueOnce(CANCEL as never)
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
     expect(vi.mocked(clack.box).mock.calls[0]![1]).toBe(' Release plan ')
+  })
+
+  it('Then fails with what to do when nobody can answer, instead of cancelling the run', async () => {
+    setInteractiveTerminal(false)
+    const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
+    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+
+    await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow('"Release this version?" needs an answer, but the terminal is not interactive: run with --yes to confirm it in advance')
+    expect(clack.confirm).not.toHaveBeenCalled()
   })
 
   it('Then is left to the default prompt by the other outputs', async () => {

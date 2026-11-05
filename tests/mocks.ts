@@ -1,6 +1,7 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ResolvedRelizyConfig } from '../src/core/config'
 import type { GitCommit, PackageBase, RelizyConfig, SocialTemplateVariables } from '../src/types'
+import process from 'node:process'
 import { expect } from 'vitest'
 import { getDefaultConfig } from '../src/core/config'
 
@@ -72,3 +73,29 @@ export function socialVariables({ projectName = 'pkg', newVersion = '1.0.0', ...
  * The context of a step hook: undefined without bump result
  */
 export const anyHookContext = expect.toBeOneOf([undefined, expect.objectContaining({ bumpResult: expect.any(Object), release: expect.any(Object) })])
+
+/**
+ * Make the standard input an interactive terminal or not, for the prompts:
+ * returns the function giving back its previous state
+ */
+export function setInteractiveTerminal(isTTY: boolean): () => void {
+  // A test may mock node:process without stdin
+  const stubbed = !process.stdin
+  if (stubbed) {
+    Object.assign(process, { stdin: {} })
+  }
+  const previous = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
+  Object.defineProperty(process.stdin, 'isTTY', { value: isTTY, configurable: true, writable: true })
+
+  return () => {
+    if (stubbed) {
+      Object.assign(process, { stdin: undefined })
+    }
+    else if (previous) {
+      Object.defineProperty(process.stdin, 'isTTY', previous)
+    }
+    else {
+      delete (process.stdin as { isTTY?: boolean }).isTTY
+    }
+  }
+}

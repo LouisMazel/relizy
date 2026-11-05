@@ -7,7 +7,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import micromatch from 'micromatch'
 import { isRelizyCancelError } from './errors'
-import { askText } from './prompts'
+import { askText, assertInteractivePrompt } from './prompts'
 import { getIndependentTag, resolveTags } from './tags'
 import { isInCI } from './utils'
 import { isPrerelease } from './version'
@@ -775,14 +775,21 @@ export async function isVersionPublished({
 }
 
 function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
+  const message = 'This operation requires a one-time password (OTP). Please enter your OTP:'
+
+  try {
+    assertInteractivePrompt({ message, whenNotInteractive: 'pass the one-time password with --otp' })
+  }
+  catch (error) {
+    return Promise.reject(error)
+  }
+
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => {
       reject(new Error('OTP input timeout'))
     }, timeout)
 
-    askText({
-      message: 'This operation requires a one-time password (OTP). Please enter your OTP:',
-    })
+    askText({ message })
       .then((otp) => {
         clearTimeout(timer)
         resolve(otp)

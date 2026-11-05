@@ -9,7 +9,7 @@ import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
 import { confirmBumpWithOutput } from './bump-prompt'
 import { RelizyCancelError } from './errors'
-import { askConfirm } from './prompts'
+import { askConfirm, assertInteractivePrompt, BUMP_NOT_INTERACTIVE } from './prompts'
 import { recordReleaseFile } from './release-files'
 import { hasLernaJson } from './repo'
 
@@ -782,8 +782,11 @@ export async function confirmBump({
 
   display()
 
+  const message = `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`
+  assertInteractivePrompt({ message, whenNotInteractive: BUMP_NOT_INTERACTIVE })
+
   const confirmed = await askConfirm({
-    message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
+    message,
     initialValue: true,
     cancelMessage: 'Bump cancelled',
   })

@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { anyHookContext, createMockConfig } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig, setInteractiveTerminal } from '../../../tests/mocks'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
@@ -14,8 +14,8 @@ import {
   rollbackModifiedFiles,
 } from '../../core'
 import { recordAIRewrite } from '../../core/progress'
-import { bump } from '../bump'
 
+import { bump } from '../bump'
 import { changelog } from '../changelog'
 import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
@@ -81,6 +81,17 @@ vi.mock('../pr-comment', () => {
     }
   })
   return { prComment, tryPostPrComment }
+})
+
+// The commands run as in a terminal, where the bump is confirmed (`confirmBump` is mocked)
+let restoreTerminal: () => void
+
+beforeEach(() => {
+  restoreTerminal = setInteractiveTerminal(true)
+})
+
+afterEach(() => {
+  restoreTerminal()
 })
 
 describe('Given release command', () => {
@@ -754,6 +765,19 @@ describe('Given the output of release in CI', () => {
   afterEach(() => {
     process.env = { ...env }
     vi.restoreAllMocks()
+  })
+
+  it('Then fails right away without --yes in CI, with the fix, before any step', async () => {
+    setInteractiveTerminal(false)
+    process.env.GITHUB_ACTIONS = 'true'
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch', yes: false } }))
+    const message = 'relizy release asks to confirm the new versions, but the terminal is not interactive (GitHub Actions): run "relizy release --yes" to confirm them in advance'
+
+    await expect(release({})).rejects.toThrow(message)
+
+    expect(bump).not.toHaveBeenCalled()
+    // An annotation of the run, with the fix
+    expect(output.join('').split('\n')).toContain(`::error title=relizy: Checks failed::${message}%0AFull log: node_modules/.cache/relizy/release.log`)
   })
 
   it('Then shows what each step did, then the summary', async () => {
