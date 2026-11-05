@@ -37,7 +37,7 @@ export async function providerReleaseSafetyCheck({ config, provider, ai }: {
 
   logger.debug('Start checking provider release config')
 
-  const internalProvider = provider || config.repo?.provider || detectGitProvider()
+  const internalProvider = provider || config.repo?.provider || detectGitProvider(config.cwd)
 
   // Bitbucket doesn't support releases via API
   if (internalProvider === 'bitbucket') {
@@ -194,7 +194,7 @@ async function runProviderRelease(
       done: describeProviderReleaseResult,
       failed: result => Boolean(result.error),
       run: async (): Promise<ProviderReleaseResult> => {
-        detectedProvider = options.provider || detectGitProvider()
+        detectedProvider = options.provider || detectGitProvider(config.cwd)
         reportProgress('Checking the release')
         await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
 

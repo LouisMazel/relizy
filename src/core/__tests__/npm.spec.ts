@@ -1776,6 +1776,23 @@ describe('Given publishPackage function', () => {
       )
     })
 
+    it('Then detects Yarn Berry from the .yarnrc.yml of the project, whatever the current directory', async () => {
+      cwdSpy.mockReturnValue('/elsewhere')
+      vi.mocked(existsSync).mockImplementation(file => file === '/project/.yarnrc.yml')
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringMatching(/^yarn npm publish .*--no-git-checks/),
+        expect.any(Object),
+      )
+    })
+
     it('Then includes no-git-checks for pnpm', async () => {
       await publishPackage({
         pkg,

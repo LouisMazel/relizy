@@ -30,11 +30,11 @@ export function getGitStatus(cwd?: string, trim = true) {
   return status
 }
 
-export function checkGitStatusIfDirty() {
+export function checkGitStatusIfDirty(cwd: string) {
   logger.debug('Checking git status')
 
   // Untrimmed: the first column of the first line is significant
-  const changes = parseGitStatus(getGitStatus(undefined, false))
+  const changes = parseGitStatus(getGitStatus(cwd, false))
 
   if (changes.length > 0) {
     const names = changes.map(({ path, change }) => `${path} (${change})`)
@@ -84,9 +84,9 @@ const RELEASE_FILE_NAMES = new Set(['package.json', 'CHANGELOG.md', 'lerna.json'
  * the files a release writes are worth a warning: they go in the release
  * commit. They are confirmed in an interactive terminal (not in dry-run).
  */
-export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Promise<void> {
+export async function confirmDirtyGitStatus({ dryRun, cwd }: { dryRun: boolean, cwd: string }): Promise<void> {
   // Untrimmed: the first column of the first line is significant
-  const changes = parseGitStatus(getGitStatus(undefined, false))
+  const changes = parseGitStatus(getGitStatus(cwd, false))
 
   if (changes.length === 0) {
     return
@@ -276,7 +276,7 @@ export async function createCommitAndTags({
 
       try {
         logger.debug(`git add ${pattern}`)
-        execSync(`git add ${pattern}`)
+        execSync(`git add ${pattern}`, { cwd: internalConfig.cwd })
       }
       catch {
         // Ignore errors if pattern doesn't match any files

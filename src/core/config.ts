@@ -13,9 +13,12 @@ import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
 import { getRepoConfig, resolveRepoConfig } from './repo-config'
 
-export function getDefaultConfig() {
+/**
+ * @param cwd - Root of the project, where the package manager is detected
+ */
+export function getDefaultConfig(cwd = process.cwd()) {
   return {
-    cwd: process.cwd(),
+    cwd,
     types: {
       feat: { title: '🚀 Enhancements', semver: 'minor' },
       perf: { title: '🔥 Performance', semver: 'patch' },
@@ -70,7 +73,7 @@ export function getDefaultConfig() {
       // config type stays assignable to true when overridden by config/CLI.
       skipExistingVersions: false as boolean,
       checkWorkspaceDependencies: true as boolean,
-      packageManager: detectPackageManager(process.cwd()),
+      packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
       registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
@@ -318,7 +321,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   const configFile = options?.configFile ?? 'relizy'
 
-  const defaultConfig = getDefaultConfig()
+  const defaultConfig = getDefaultConfig(cwd)
 
   // Extract types from defaults to handle them separately
   const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig

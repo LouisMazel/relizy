@@ -1,5 +1,8 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { RelizyConfig } from '../../types'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
@@ -43,6 +46,22 @@ describe('Given getDefaultConfig function', () => {
       const config = getDefaultConfig()
 
       expect(config.cwd).toBe('/project/path')
+    })
+
+    it('Then detects the package manager in the given cwd, not the current directory', () => {
+      const dir = mkdtempSync(join(tmpdir(), 'relizy-config-'))
+      writeFileSync(join(dir, 'yarn.lock'), '')
+      vi.mocked(process.cwd).mockReturnValue('/elsewhere')
+
+      try {
+        const config = getDefaultConfig(dir)
+
+        expect(config.cwd).toBe(dir)
+        expect(config.publish.packageManager).toBe('yarn')
+      }
+      finally {
+        rmSync(dir, { recursive: true, force: true })
+      }
     })
 
     it('Then includes default commit types with semver mappings', () => {

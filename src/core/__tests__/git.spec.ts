@@ -129,14 +129,22 @@ describe('Given checkGitStatusIfDirty function', () => {
     it('Then does not throw error', () => {
       vi.mocked(execSync).mockReturnValue('')
 
-      expect(() => checkGitStatusIfDirty()).not.toThrow()
+      expect(() => checkGitStatusIfDirty('/repo')).not.toThrow()
+    })
+
+    it('Then reads the status of the project directory', () => {
+      vi.mocked(execSync).mockReturnValue('')
+
+      checkGitStatusIfDirty('/repo')
+
+      expect(execSync).toHaveBeenCalledWith('git status --porcelain', expect.objectContaining({ cwd: '/repo' }))
     })
 
     it('Then logs debug message', () => {
       vi.mocked(execSync).mockReturnValue('  ')
       const loggerSpy = vi.spyOn(logger, 'debug')
 
-      checkGitStatusIfDirty()
+      checkGitStatusIfDirty('/repo')
 
       expect(loggerSpy).toHaveBeenCalledWith('Checking git status')
     })
@@ -146,14 +154,14 @@ describe('Given checkGitStatusIfDirty function', () => {
     it('Then throws error with dirty status message', () => {
       vi.mocked(execSync).mockReturnValue(' M package.json\n?? src/new.ts\n')
 
-      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: package.json (modified), src/new.ts (new)\nCommit or stash them first, or keep them with --no-clean.')
+      expect(() => checkGitStatusIfDirty('/repo')).toThrow('Uncommitted changes: package.json (modified), src/new.ts (new)\nCommit or stash them first, or keep them with --no-clean.')
     })
 
     it('Then names each change of the porcelain status', () => {
       vi.mocked(execSync).mockReturnValue('M  file1.ts\nA  file2.ts\nR  old.ts -> new.ts\n D "with space.ts"\nUU conflict.ts\n')
       const debugSpy = vi.spyOn(logger, 'debug')
 
-      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), and 2 more')
+      expect(() => checkGitStatusIfDirty('/repo')).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), and 2 more')
       expect(debugSpy).toHaveBeenCalledWith('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), with space.ts (deleted), conflict.ts (conflict)')
     })
   })
@@ -724,9 +732,9 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add package.json')
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/CHANGELOG.md')
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json')
+      expect(execSync).toHaveBeenCalledWith('git add package.json', { cwd: config.cwd })
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/CHANGELOG.md', { cwd: config.cwd })
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json', { cwd: config.cwd })
     })
 
     it('Then only adds the files written by the run, and forgets them once committed', async () => {
@@ -747,9 +755,9 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add package.json')
-      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json')
-      expect(execSync).not.toHaveBeenCalledWith('git add packages/b/package.json')
+      expect(execSync).toHaveBeenCalledWith('git add package.json', { cwd: config.cwd })
+      expect(execSync).toHaveBeenCalledWith('git add packages/a/package.json', { cwd: config.cwd })
+      expect(execSync).not.toHaveBeenCalledWith('git add packages/b/package.json', expect.anything())
       expect(resetReleaseFiles).toHaveBeenCalled()
     })
 
@@ -796,7 +804,7 @@ describe('Given createCommitAndTags function', () => {
         logLevel: 'normal',
       })
 
-      expect(execSync).toHaveBeenCalledWith('git add lerna.json')
+      expect(execSync).toHaveBeenCalledWith('git add lerna.json', { cwd: config.cwd })
     })
 
     it('Then ignores errors when pattern matches no files', async () => {
@@ -1423,7 +1431,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       mockGitStatus('')
       const warnSpy = vi.spyOn(logger, 'warn')
 
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).not.toHaveBeenCalled()
       expect(askConfirm).not.toHaveBeenCalled()
@@ -1440,7 +1448,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       vi.mocked(askConfirm).mockResolvedValueOnce(true)
       const exitSpy = vi.spyOn(process, 'exit').mockImplementation((() => {}) as never)
 
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('packages/a/package.json'))
       expect(askConfirm).toHaveBeenCalledWith(expect.objectContaining({ initialValue: false }))
@@ -1451,25 +1459,25 @@ describe('Given confirmDirtyGitStatus function', () => {
     it('Then cancels the run when refused', async () => {
       vi.mocked(askConfirm).mockResolvedValueOnce(false)
 
-      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(RelizyCancelError)
+      await expect(confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then cancels the run when the prompt is cancelled (Ctrl+C)', async () => {
       // askConfirm throws its cancel message when the prompt is cancelled (see prompts.spec)
       vi.mocked(askConfirm).mockImplementationOnce(({ cancelMessage }) => Promise.reject(new RelizyCancelError(cancelMessage)))
 
-      await expect(confirmDirtyGitStatus({ dryRun: false })).rejects.toThrow(new RelizyCancelError('Release cancelled: commit or stash the changes of these files first'))
+      await expect(confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })).rejects.toThrow(new RelizyCancelError('Release cancelled: commit or stash the changes of these files first'))
     })
 
     it('Then only warns in dry-run, in the CI or without a terminal', async () => {
       const warnSpy = vi.spyOn(logger, 'warn')
 
-      await confirmDirtyGitStatus({ dryRun: true })
+      await confirmDirtyGitStatus({ dryRun: true, cwd: '/repo' })
       vi.mocked(isInCI).mockReturnValue(true)
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
       vi.mocked(isInCI).mockReturnValue(false)
       process.stdin.isTTY = false
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).toHaveBeenCalledTimes(3)
       expect(askConfirm).not.toHaveBeenCalled()
@@ -1480,7 +1488,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       const warnSpy = vi.spyOn(logger, 'warn')
       vi.mocked(askConfirm).mockResolvedValueOnce(true)
 
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).toHaveBeenCalledWith('Uncommitted changes in files the release commits: packages/a/package.json (modified), CHANGELOG.md (new)')
     })
@@ -1492,7 +1500,7 @@ describe('Given confirmDirtyGitStatus function', () => {
       const warnSpy = vi.spyOn(logger, 'warn')
       const debugSpy = vi.spyOn(logger, 'debug')
 
-      await confirmDirtyGitStatus({ dryRun: false })
+      await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).not.toHaveBeenCalled()
       expect(askConfirm).not.toHaveBeenCalled()

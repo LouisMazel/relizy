@@ -158,8 +158,8 @@ export async function getPackagesToPublishInIndependentMode(
   return packagesToPublish
 }
 
-function isYarnBerry() {
-  return existsSync(path.join(process.cwd(), '.yarnrc.yml'))
+function isYarnBerry(cwd: string) {
+  return existsSync(path.join(cwd, '.yarnrc.yml'))
 }
 
 /**
@@ -456,6 +456,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   otp,
   type,
   dryRun,
+  cwd,
 }: {
   packageManager: PackageManager
   tag: T extends 'publish' ? string : undefined
@@ -463,6 +464,10 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   otp?: string
   type: T
   dryRun?: boolean
+  /**
+   * Root of the project, where `.yarnrc.yml` tells Yarn Berry
+   */
+  cwd: string
 }) {
   const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
 
@@ -497,7 +502,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   else if (packageManager === 'yarn') {
     args.push('--non-interactive')
     // Yarn Berry only
-    if (isYarnBerry())
+    if (isYarnBerry(cwd))
       args.push('--no-git-checks')
   }
   else if (packageManager === 'npm') {
@@ -877,6 +882,7 @@ export function getAuthCommand({
     registryTarget: registryTarget ?? buildLegacyRegistryTarget(config),
     otp,
     type: 'auth',
+    cwd: config.cwd,
   })
 
   return `${packageManager} ${args.join(' ')}`
@@ -888,12 +894,14 @@ function getPublishCommand({
   registryTarget,
   otp,
   dryRun,
+  cwd,
 }: {
   packageManager: PackageManager
   tag: string
   registryTarget: RegistryTarget
   otp?: string
   dryRun: boolean
+  cwd: string
 }): string {
   const args = getCommandArgs<'publish'>({
     packageManager,
@@ -902,9 +910,10 @@ function getPublishCommand({
     otp,
     dryRun,
     type: 'publish',
+    cwd,
   })
 
-  const baseCommand = packageManager === 'yarn' && isYarnBerry() ? 'yarn npm' : packageManager
+  const baseCommand = packageManager === 'yarn' && isYarnBerry(cwd) ? 'yarn npm' : packageManager
 
   return `${baseCommand} ${args.join(' ')}`
 }
@@ -961,6 +970,7 @@ async function publishToRegistryTarget({
         registryTarget,
         otp: dynamicOtp,
         dryRun,
+        cwd: config.cwd,
       })
 
       process.chdir(pkg.path)

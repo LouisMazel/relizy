@@ -231,7 +231,7 @@ describe('Given bump command', () => {
         false,
         anyHookContext,
       )
-      expect(checkGitStatusIfDirty).toHaveBeenCalledWith()
+      expect(checkGitStatusIfDirty).toHaveBeenCalledWith(mockCwd)
       expect(confirmDirtyGitStatus).not.toHaveBeenCalled()
       expect(resetReleaseFiles).toHaveBeenCalled()
       expect(fetchGitTags).toHaveBeenCalledWith(mockCwd)
@@ -325,7 +325,7 @@ describe('Given bump command', () => {
       await bump({ type: 'patch', yes: true, dryRun: true })
 
       expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
-      expect(confirmDirtyGitStatus).toHaveBeenCalledWith({ dryRun: true })
+      expect(confirmDirtyGitStatus).toHaveBeenCalledWith({ dryRun: true, cwd: mockCwd })
     })
 
     it('Then updates lerna.json in unified mode', async () => {

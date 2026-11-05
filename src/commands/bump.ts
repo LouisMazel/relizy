@@ -1061,10 +1061,10 @@ async function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> 
         logger.start('Start bumping versions')
 
         if (config.bump.clean && config.release.clean) {
-          checkGitStatusIfDirty()
+          checkGitStatusIfDirty(config.cwd)
         }
         else {
-          await confirmDirtyGitStatus({ dryRun })
+          await confirmDirtyGitStatus({ dryRun, cwd: config.cwd })
         }
 
         // A new run: only the files written from now on are restored and committed
