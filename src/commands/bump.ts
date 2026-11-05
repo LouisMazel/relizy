@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionCh
 import type { BumpOptions, BumpResult, PackageBase, SemverBumpType, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineReleaseType, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, hasVersionGroups, isBreakingVersionChange, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getDependencyReleaseType, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -23,7 +23,14 @@ interface BumpStrategyInput {
  */
 export interface BumpPlan {
   result: BumpResult
-  confirm?: () => Promise<void>
+  /**
+   * Version group of the plan, with `monorepo.groups`
+   */
+  group?: VersionGroup
+  /**
+   * Print the bump: its packages before the confirmation, a summary with `bump.yes`
+   */
+  display?: () => void
   write?: () => void
 }
 
@@ -239,9 +246,9 @@ async function planUnifiedMode({
         reason: 'commits',
       })),
     },
-    confirm: async () => {
+    display: () => {
       if (!config.bump.yes) {
-        await confirmBump({
+        displayBump({
           versionMode: 'unified',
           packages,
           config,
@@ -353,9 +360,9 @@ async function planSelectiveMode({
         newVersion,
       })),
     },
-    confirm: async () => {
+    display: () => {
       if (!config.bump.yes) {
-        await confirmBump({
+        displayBump({
           versionMode: 'selective',
           config,
           packages,
@@ -435,9 +442,9 @@ async function planIndependentMode({
         oldVersion: pkg.version,
       })),
     } as BumpResult,
-    confirm: async () => {
+    display: () => {
       if (!config.bump.yes) {
-        await confirmBump({
+        displayBump({
           versionMode: 'independent',
           config,
           packages: packagesToBump,
@@ -595,9 +602,9 @@ async function planCanaryMode({
         fromTag: from,
       })),
     },
-    confirm: async () => {
+    display: () => {
       if (!config.bump.yes) {
-        await confirmBump({
+        displayBump({
           versionMode,
           config,
           packages: packagesWithCanaryVersion,
@@ -666,9 +673,9 @@ function planCanaryIndependentMode({
         oldVersion: pkg.version,
       })),
     },
-    confirm: async () => {
+    display: () => {
       if (!config.bump.yes) {
-        await confirmBump({
+        displayBump({
           versionMode: 'independent',
           config,
           packages: packagesWithCanaryVersion,
@@ -732,14 +739,36 @@ function planBump({
 }
 
 /**
- * Ask for the confirmation of every plan, then write them: a refused
- * confirmation leaves every file untouched.
+ * Display the plans and ask once for their confirmation (unless `bump.yes`),
+ * then write them: a refused confirmation leaves every file untouched.
  */
-async function applyBumpPlans(plans: BumpPlan[]): Promise<void> {
+async function applyBumpPlans({ plans, config, dryRun }: {
+  plans: BumpPlan[]
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+}): Promise<void> {
   const bumpedPlans = plans.filter(plan => plan.result.bumped)
 
-  for (const plan of bumpedPlans) {
-    await plan.confirm?.()
+  const display = () => {
+    for (const plan of bumpedPlans) {
+      if (plan.group) {
+        logger.log(`${getVersionGroupTitle(plan.group)} (${plan.group.versionMode} mode)`)
+        logger.log('')
+      }
+
+      plan.display?.()
+    }
+  }
+
+  if (config.bump.yes) {
+    display()
+  }
+  else {
+    await confirmBump({
+      packages: bumpedPlans.flatMap(plan => plan.result.bumped ? plan.result.bumpedPackages : []),
+      display,
+      dryRun,
+    })
   }
 
   for (const plan of bumpedPlans) {
@@ -888,7 +917,7 @@ async function planVersionGroups({
 
   return {
     result: mergeGroupBumpResults(results),
-    plans: resolvedGroups.map(({ group }) => plans.get(group.name)!.plan),
+    plans: resolvedGroups.map(({ group }) => ({ ...plans.get(group.name)!.plan, group })),
     groups: results,
   }
 }
@@ -926,7 +955,7 @@ export interface PlannedBumps {
    */
   result: BumpResult
   /**
-   * Plans to confirm then write (`plan.confirm`, `plan.write`)
+   * Plans to display, confirm then write (`plan.display`, `plan.write`)
    */
   plans: BumpPlan[]
   /**
@@ -1022,7 +1051,7 @@ export async function bump(options: Partial<BumpOptions> = {}): Promise<BumpResu
       groups: options.groups,
     })
 
-    await applyBumpPlans(plans)
+    await applyBumpPlans({ plans, config, dryRun })
 
     if (result.bumped) {
       const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length

@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -31,7 +31,8 @@ vi.mock('../../core', async () => ({
   checkGitStatusIfDirty: vi.fn(),
   confirmDirtyGitStatus: vi.fn(),
   resetReleaseFiles: vi.fn(),
-  confirmBump: vi.fn(() => true),
+  confirmBump: vi.fn(({ display }: { display: () => void }) => display()),
+  displayBump: vi.fn(),
   determineSemverChange: vi.fn(() => 'minor'),
   fetchGitTags: vi.fn(() => {}),
   getCanaryVersion: vi.fn(() => '1.1.0-0.canary-abc1234'),
@@ -224,9 +225,8 @@ describe('Given bump command', () => {
         ignorePackageNames: undefined,
         patterns: ['packages/*'],
       })
-      expect(confirmBump).toHaveBeenCalledWith(
-        expect.any(Object),
-      )
+      expect(confirmBump).toHaveBeenCalledTimes(1)
+      expect(displayBump).toHaveBeenCalledWith(expect.objectContaining({ versionMode: 'unified', currentVersion: '1.0.0', newVersion: '1.1.0' }))
       expect(result.bumped).toBe(true)
       if (result.bumped) {
         expect(result.newVersion).toBe('1.1.0')
@@ -1060,7 +1060,7 @@ describe('Given bump command', () => {
         canary: true,
       })
 
-      expect(confirmBump).toHaveBeenCalledWith(
+      expect(displayBump).toHaveBeenCalledWith(
         expect.objectContaining({
           currentVersion: '1.0.0',
           newVersion: '1.1.0-0.canary-abc1234',
@@ -1244,7 +1244,7 @@ describe('Given bump command', () => {
         canary: true,
       })
 
-      expect(confirmBump).toHaveBeenCalledWith(
+      expect(displayBump).toHaveBeenCalledWith(
         expect.objectContaining({
           versionMode: 'independent',
           force: false,

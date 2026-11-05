@@ -688,7 +688,11 @@ function displayIndependentModePackages({
   }
 }
 
-export async function confirmBump({
+/**
+ * Print the packages a bump updates (and the root and `lerna.json` versions),
+ * before its confirmation.
+ */
+export function displayBump({
   versionMode,
   config,
   packages,
@@ -710,7 +714,54 @@ export async function confirmBump({
     return
   }
 
-  const lernaJsonExists = hasLernaJson(config.cwd)
+  displayRootAndLernaUpdates({
+    versionMode,
+    currentVersion,
+    newVersion,
+    lernaJsonExists: hasLernaJson(config.cwd),
+    dryRun,
+  })
+
+  if (versionMode === 'unified') {
+    if (!newVersion) {
+      throw new Error('Cannot display a bump in unified mode without a new version')
+    }
+
+    displayUnifiedModePackages({ packages, newVersion, force })
+  }
+  else if (versionMode === 'selective') {
+    if (!newVersion) {
+      throw new Error('Cannot display a bump in selective mode without a new version')
+    }
+
+    displaySelectiveModePackages({ packages, newVersion, force })
+  }
+  else if (versionMode === 'independent') {
+    displayIndependentModePackages({ packages, force })
+  }
+}
+
+/**
+ * Ask once to confirm the bumps of a run: `display` prints them (see
+ * `displayBump`), for every version group. Throws a `RelizyCancelError` when
+ * the bump is refused or the prompt cancelled.
+ */
+export async function confirmBump({
+  packages,
+  display,
+  dryRun,
+}: {
+  /**
+   * Every package the run bumps
+   */
+  packages: Pick<PackageBase, 'private'>[]
+  display: () => void
+  dryRun: boolean
+}) {
+  if (packages.length === 0) {
+    logger.debug('No packages to bump')
+    return
+  }
 
   logger.log('')
   logger.info(`${dryRun ? '[dry-run] ' : ''}The following packages will be updated:\n`)
@@ -719,42 +770,23 @@ export async function confirmBump({
     logger.log('🔒 Private packages are versioned and get a CHANGELOG, but are never published to a registry, nor included in provider releases or PR comments.\n')
   }
 
-  displayRootAndLernaUpdates({
-    versionMode,
-    currentVersion,
-    newVersion,
-    lernaJsonExists,
-    dryRun,
-  })
+  display()
 
-  if (versionMode === 'unified') {
-    if (!newVersion) {
-      throw new Error('Cannot confirm bump in unified mode without a new version')
-    }
+  let confirmed: boolean
 
-    displayUnifiedModePackages({ packages, newVersion, force })
+  try {
+    confirmed = await confirm({
+      message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
+      default: true,
+    })
   }
-  else if (versionMode === 'selective') {
-    if (!newVersion) {
-      throw new Error('Cannot confirm bump in selective mode without a new version')
-    }
-
-    displaySelectiveModePackages({ packages, newVersion, force })
-  }
-  else if (versionMode === 'independent') {
-    displayIndependentModePackages({ packages, force })
-  }
-
-  const confirmed = await confirm({
-    message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
-    default: true,
-  }).catch((error: unknown) => {
+  catch (error) {
     if (isPromptExitError(error)) {
       throw new RelizyCancelError('Bump cancelled', { cause: error })
     }
 
     throw error
-  })
+  }
 
   if (!confirmed) {
     throw new RelizyCancelError('Bump refused')

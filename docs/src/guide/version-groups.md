@@ -83,7 +83,7 @@ The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and
 
 `relizy release` processes every group in one run:
 
-1. **Bump**: each group is bumped with its own version mode and options. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped too, see [Dependencies Between Groups](#dependencies-between-groups).
+1. **Bump**: each group is bumped with its own version mode and options, after a single confirmation for every group. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped too, see [Dependencies Between Groups](#dependencies-between-groups).
 2. **Changelog**: each group generates its changelogs. Set `changelog.rootChangelog: false` on a group to keep it out of the root `CHANGELOG.md`.
 3. **Publish**: the packages of every group are published in a single order, each package after the internal packages it depends on (`dependencies`, `peerDependencies` and `optionalDependencies`), whatever their group.
 4. **Commit and tags**: a single release commit, with the tags of every group.
@@ -141,7 +141,7 @@ A dependent whose peer dependency makes a breaking change (`@scope/components` f
 
 With the configuration of the example above, `@scope/navigation` (peer dependency `"@scope/components": "workspace:*"`) is released with a patch each time `@scope/components` is, without any other option.
 
-The groups are computed in dependency order, and again until no group changes when they depend on each other (a package of `main` depending on a package of `header`, itself depending on `main`). Everything is computed and confirmed before any file is written. Canary releases follow the same rules.
+The groups are computed in dependency order, and again until no group changes when they depend on each other (a package of `main` depending on a package of `header`, itself depending on `main`). Everything is computed before any file is written, then confirmed **once**: the prompt lists the packages of every group, each group under its `title`. Refusing it writes nothing. Canary releases follow the same rules.
 
 Two checks run before publishing (see [`publish.checkWorkspaceDependencies`](../config/publish.md#checkworkspacedependencies)):
 

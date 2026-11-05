@@ -4,7 +4,7 @@ import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { RelizyCancelError } from '../errors'
-import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, displayBump, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 vi.mock('@inquirer/prompts', () => ({
   confirm: vi.fn(() => Promise.resolve(true)),
@@ -2151,14 +2151,12 @@ describe('Given prerelease lifecycle (determineReleaseType + getPackageNewVersio
   })
 })
 
-describe('Given confirmBump function', () => {
+describe('Given displayBump function', () => {
   let logSpy: ReturnType<typeof vi.spyOn>
 
   beforeEach(() => {
     logSpy = vi.spyOn(logger, 'log').mockImplementation(() => undefined)
-    vi.spyOn(logger, 'info').mockImplementation(() => undefined)
     vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
-    vi.spyOn(logger, 'fail').mockImplementation(() => undefined)
     logSpy.mockClear()
   })
 
@@ -2166,23 +2164,13 @@ describe('Given confirmBump function', () => {
     vi.restoreAllMocks()
   })
 
-  function buildPackage(overrides: { name: string, isPrivate?: boolean, reason?: 'commits' | 'dependency' | 'graduation' }) {
-    return createMockPackageInfo({
-      name: overrides.name,
-      version: '1.0.0',
-      newVersion: '1.1.0',
-      path: `/tmp/${overrides.name}`,
-      private: overrides.isPrivate ?? false,
-      commits: [createMockCommit('feat', 'a change')],
-      dependencies: [],
-      reason: overrides.reason ?? 'commits',
-      fromTag: `${overrides.name}@1.0.0`,
-    })
+  function logged(): string {
+    return logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
   }
 
   describe('When called with no packages', () => {
-    it('Then returns early without prompting', async () => {
-      await confirmBump({
+    it('Then displays nothing', () => {
+      displayBump({
         versionMode: 'unified',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [],
@@ -2197,13 +2185,13 @@ describe('Given confirmBump function', () => {
   })
 
   describe('When called in unified mode with private and public packages', () => {
-    it('Then displays the private notice and marks private packages', async () => {
-      await confirmBump({
+    it('Then displays the root version and marks private packages', () => {
+      displayBump({
         versionMode: 'unified',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [
-          buildPackage({ name: '@scope/public' }),
-          buildPackage({ name: '@scope/private', isPrivate: true }),
+          buildBumpPackage({ name: '@scope/public' }),
+          buildBumpPackage({ name: '@scope/private', isPrivate: true }),
         ],
         force: false,
         currentVersion: '1.0.0',
@@ -2211,22 +2199,20 @@ describe('Given confirmBump function', () => {
         dryRun: false,
       })
 
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).toContain('🔒')
-      expect(logged).toContain('@scope/private')
-      expect(logged).toContain('@scope/public')
-      expect(logged).toContain('Private packages are versioned')
+      expect(logged()).toContain('Root package.json: 1.0.0 → 1.1.0')
+      expect(logged()).toContain('@scope/private: 1.0.0 → 1.1.0 (1 commits)  🔒')
+      expect(logged()).toContain('@scope/public')
     })
   })
 
   describe('When called in selective mode with force', () => {
-    it('Then displays packages with force suffix and private marker', async () => {
-      await confirmBump({
+    it('Then displays packages with force suffix and private marker', () => {
+      displayBump({
         versionMode: 'selective',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [
-          buildPackage({ name: '@scope/public' }),
-          buildPackage({ name: '@scope/private', isPrivate: true }),
+          buildBumpPackage({ name: '@scope/public' }),
+          buildBumpPackage({ name: '@scope/private', isPrivate: true }),
         ],
         force: true,
         currentVersion: '1.0.0',
@@ -2234,21 +2220,20 @@ describe('Given confirmBump function', () => {
         dryRun: false,
       })
 
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).toContain('(force)')
-      expect(logged).toContain('🔒')
+      expect(logged()).toContain('(force)')
+      expect(logged()).toContain('🔒')
     })
   })
 
   describe('When called in selective mode with mixed reasons', () => {
-    it('Then groups packages by reason and keeps private markers', async () => {
-      await confirmBump({
+    it('Then groups packages by reason and keeps private markers', () => {
+      displayBump({
         versionMode: 'selective',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [
-          buildPackage({ name: '@scope/a', reason: 'commits' }),
-          buildPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
-          buildPackage({ name: '@scope/c', reason: 'graduation' }),
+          buildBumpPackage({ name: '@scope/a', reason: 'commits' }),
+          buildBumpPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
+          buildBumpPackage({ name: '@scope/c', reason: 'graduation' }),
         ],
         force: false,
         currentVersion: '1.0.0',
@@ -2256,56 +2241,110 @@ describe('Given confirmBump function', () => {
         dryRun: false,
       })
 
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).toContain('package(s) with commits')
-      expect(logged).toContain('dependent package(s)')
-      expect(logged).toContain('graduation package(s)')
-      expect(logged).toContain('🔒')
+      expect(logged()).toContain('package(s) with commits')
+      expect(logged()).toContain('dependent package(s)')
+      expect(logged()).toContain('graduation package(s)')
+      expect(logged()).toContain('🔒')
     })
   })
 
   describe('When called in independent mode with force', () => {
-    it('Then displays each package with its own newVersion and private marker', async () => {
-      await confirmBump({
+    it('Then displays each package with its own newVersion and private marker', () => {
+      displayBump({
         versionMode: 'independent',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [
-          buildPackage({ name: '@scope/public' }),
-          buildPackage({ name: '@scope/private', isPrivate: true }),
+          buildBumpPackage({ name: '@scope/public' }),
+          buildBumpPackage({ name: '@scope/private', isPrivate: true }),
         ],
         force: true,
-        currentVersion: undefined,
-        newVersion: undefined,
         dryRun: false,
       })
 
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).toContain('(force)')
-      expect(logged).toContain('🔒')
+      expect(logged()).toContain('(force)')
+      expect(logged()).toContain('🔒')
+      expect(logged()).not.toContain('Root package.json')
     })
   })
 
   describe('When called in independent mode with mixed reasons', () => {
-    it('Then groups packages by reason and keeps private markers', async () => {
-      await confirmBump({
+    it('Then groups packages by reason and keeps private markers', () => {
+      displayBump({
         versionMode: 'independent',
         config: createMockConfig({ cwd: '/tmp' }),
         packages: [
-          buildPackage({ name: '@scope/a', reason: 'commits' }),
-          buildPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
-          buildPackage({ name: '@scope/c', reason: 'graduation' }),
+          buildBumpPackage({ name: '@scope/a', reason: 'commits' }),
+          buildBumpPackage({ name: '@scope/b', reason: 'dependency', isPrivate: true }),
+          buildBumpPackage({ name: '@scope/c', reason: 'graduation' }),
         ],
         force: false,
-        currentVersion: undefined,
-        newVersion: undefined,
         dryRun: false,
       })
 
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).toContain('package(s) with commits')
-      expect(logged).toContain('dependent package(s)')
-      expect(logged).toContain('graduation package(s)')
-      expect(logged).toContain('🔒')
+      expect(logged()).toContain('package(s) with commits')
+      expect(logged()).toContain('dependent package(s)')
+      expect(logged()).toContain('graduation package(s)')
+      expect(logged()).toContain('🔒')
+    })
+  })
+})
+
+describe('Given confirmBump function', () => {
+  let logSpy: ReturnType<typeof vi.spyOn>
+
+  beforeEach(() => {
+    logSpy = vi.spyOn(logger, 'log').mockImplementation(() => undefined)
+    vi.spyOn(logger, 'info').mockImplementation(() => undefined)
+    vi.spyOn(logger, 'debug').mockImplementation(() => undefined)
+    vi.mocked(confirm).mockClear()
+    logSpy.mockClear()
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  function logged(): string {
+    return logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
+  }
+
+  describe('When called with no packages', () => {
+    it('Then returns without displaying nor prompting', async () => {
+      const display = vi.fn()
+
+      await confirmBump({ packages: [], display, dryRun: false })
+
+      expect(display).not.toHaveBeenCalled()
+      expect(confirm).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When called with the packages of every version group', () => {
+    it('Then displays them, then asks once', async () => {
+      const display = vi.fn(() => {
+        expect(confirm).not.toHaveBeenCalled()
+      })
+
+      await confirmBump({ packages: [{ private: false }, { private: false }], display, dryRun: false })
+
+      expect(display).toHaveBeenCalledTimes(1)
+      expect(confirm).toHaveBeenCalledTimes(1)
+    })
+  })
+
+  describe('When a package is private', () => {
+    it('Then displays the private notice', async () => {
+      await confirmBump({ packages: [{ private: false }, { private: true }], display: vi.fn(), dryRun: false })
+
+      expect(logged()).toContain('Private packages are versioned')
+    })
+  })
+
+  describe('When only public packages are provided', () => {
+    it('Then does not display the private notice', async () => {
+      await confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false })
+
+      expect(logged()).not.toContain('Private packages are versioned')
     })
   })
 
@@ -2313,15 +2352,9 @@ describe('Given confirmBump function', () => {
     it('Then cancels the run', async () => {
       vi.mocked(confirm).mockResolvedValueOnce(false)
 
-      await expect(confirmBump({
-        versionMode: 'unified',
-        config: createMockConfig({ cwd: '/tmp' }),
-        packages: [buildPackage({ name: '@scope/a' })],
-        force: false,
-        currentVersion: '1.0.0',
-        newVersion: '1.1.0',
-        dryRun: false,
-      })).rejects.toThrow(new RelizyCancelError('Bump refused'))
+      await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
+        .rejects
+        .toThrow(new RelizyCancelError('Bump refused'))
     })
   })
 
@@ -2329,36 +2362,26 @@ describe('Given confirmBump function', () => {
     it('Then cancels the run', async () => {
       vi.mocked(confirm).mockRejectedValueOnce(Object.assign(new Error('User force closed the prompt'), { name: 'ExitPromptError' }))
 
-      await expect(confirmBump({
-        versionMode: 'unified',
-        config: createMockConfig({ cwd: '/tmp' }),
-        packages: [buildPackage({ name: '@scope/a' })],
-        force: false,
-        currentVersion: '1.0.0',
-        newVersion: '1.1.0',
-        dryRun: false,
-      })).rejects.toThrow(new RelizyCancelError('Bump cancelled'))
-    })
-  })
-
-  describe('When only public packages are provided', () => {
-    it('Then does not display the private notice', async () => {
-      await confirmBump({
-        versionMode: 'unified',
-        config: createMockConfig({ cwd: '/tmp' }),
-        packages: [buildPackage({ name: '@scope/a' })],
-        force: false,
-        currentVersion: '1.0.0',
-        newVersion: '1.1.0',
-        dryRun: false,
-      })
-
-      const logged = logSpy.mock.calls.map((c: unknown[]) => c[0] as string).join('\n')
-      expect(logged).not.toContain('🔒')
-      expect(logged).not.toContain('Private packages are versioned')
+      await expect(confirmBump({ packages: [{ private: false }], display: vi.fn(), dryRun: false }))
+        .rejects
+        .toThrow(new RelizyCancelError('Bump cancelled'))
     })
   })
 })
+
+function buildBumpPackage(overrides: { name: string, isPrivate?: boolean, reason?: 'commits' | 'dependency' | 'graduation' }) {
+  return createMockPackageInfo({
+    name: overrides.name,
+    version: '1.0.0',
+    newVersion: '1.1.0',
+    path: `/tmp/${overrides.name}`,
+    private: overrides.isPrivate ?? false,
+    commits: [createMockCommit('feat', 'a change')],
+    dependencies: [],
+    reason: overrides.reason ?? 'commits',
+    fromTag: `${overrides.name}@1.0.0`,
+  })
+}
 
 describe('Given capReleaseTypeForZeroMajor', () => {
   it('Then downgrades major to minor when major is 0', () => {

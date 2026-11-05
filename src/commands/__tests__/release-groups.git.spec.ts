@@ -560,15 +560,33 @@ describe('Given a release with version groups on a real git repository', () => {
     })
   })
 
-  describe('When the bump of a group is refused at the confirmation prompt', () => {
-    it('Then restores the files written for the previous groups', async () => {
-      vi.mocked(confirm).mockResolvedValueOnce(true).mockResolvedValueOnce(false)
+  describe('When confirming the bump', () => {
+    it('Then displays every group, by title, and asks once', async () => {
+      writeConfig({ headerOptions: ', title: \'Header\'' })
+      git('add', '-A')
+      git('commit', '--no-verify', '-m', 'chore: update the config')
+      const log = vi.spyOn(logger, 'log')
+      vi.mocked(confirm).mockResolvedValueOnce(true)
+
+      await bump({})
+
+      const logged = log.mock.calls.map(([message]) => String(message))
+      expect(confirm).toHaveBeenCalledTimes(1)
+      expect(logged).toContain('main (selective mode)')
+      expect(logged).toContain('Header (independent mode)')
+      expect(logged.indexOf('main (selective mode)')).toBeLessThan(logged.indexOf('Header (independent mode)'))
+      log.mockRestore()
+    })
+
+    it('Then writes nothing when refused', async () => {
+      vi.mocked(confirm).mockResolvedValueOnce(false)
 
       await expect(bump({})).rejects.toThrow(RelizyCancelError)
 
-      expect(confirm).toHaveBeenCalledTimes(2)
+      expect(confirm).toHaveBeenCalledTimes(1)
       expect(git('status', '--porcelain')).toBe('')
       expect(readVersion('packages/components')).toBe('6.19.1')
+      expect(readVersion('shared/nav')).toBe('1.2.0')
     })
   })
 
