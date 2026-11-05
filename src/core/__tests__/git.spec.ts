@@ -143,40 +143,15 @@ describe('Given checkGitStatusIfDirty function', () => {
 
   describe('When git status is dirty', () => {
     it('Then throws error with dirty status message', () => {
-      vi.mocked(execSync).mockReturnValue('M package.json')
+      vi.mocked(execSync).mockReturnValue(' M package.json\n?? src/new.ts\n')
 
-      expect(() => checkGitStatusIfDirty()).toThrow('Git status is dirty!')
-      expect(() => checkGitStatusIfDirty()).toThrow('Please commit or stash your changes')
-      expect(() => checkGitStatusIfDirty()).toThrow('M package.json')
+      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: package.json (modified), src/new.ts (new)\nCommit or stash them first, or keep them with --no-clean.')
     })
 
-    it('Then includes --no-clean flag hint in error', () => {
-      vi.mocked(execSync).mockReturnValue('?? new-file.ts')
+    it('Then names each change of the porcelain status', () => {
+      vi.mocked(execSync).mockReturnValue('M  file1.ts\nA  file2.ts\nR  old.ts -> new.ts\n D "with space.ts"\nUU conflict.ts\n')
 
-      expect(() => checkGitStatusIfDirty()).toThrow('--no-clean flag')
-    })
-
-    it('Then logs debug with formatted status', () => {
-      vi.mocked(execSync).mockReturnValue('M file1.ts\nA file2.ts')
-      const loggerSpy = vi.spyOn(logger, 'debug')
-
-      try {
-        checkGitStatusIfDirty()
-      }
-      catch {
-        // Expected
-      }
-
-      expect(loggerSpy).toHaveBeenCalledWith('git status:', expect.stringContaining('M file1.ts'))
-    })
-  })
-
-  describe('When git status has whitespace', () => {
-    it('Then trims and formats dirty status', () => {
-      vi.mocked(execSync).mockReturnValue('  M  src/file.ts  \n  ?? another.ts  ')
-
-      expect(() => checkGitStatusIfDirty()).toThrow('M  src/file.ts')
-      expect(() => checkGitStatusIfDirty()).toThrow('?? another.ts')
+      expect(() => checkGitStatusIfDirty()).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), with space.ts (deleted), conflict.ts (conflict)')
     })
   })
 })

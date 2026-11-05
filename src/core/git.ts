@@ -31,14 +31,13 @@ export function getGitStatus(cwd?: string, trim = true) {
 export function checkGitStatusIfDirty() {
   logger.debug('Checking git status')
 
-  const dirty = getGitStatus()
+  // Untrimmed: the first column of the first line is significant
+  const changes = parseGitStatus(getGitStatus(undefined, false))
 
-  if (dirty) {
-    logger.debug('git status:', `\n${dirty.trim().split('\n').map(line => line.trim()).join('\n')}`)
+  if (changes.length > 0) {
+    const files = changes.map(({ path, change }) => `${path} (${change})`).join(', ')
 
-    const error = `Git status is dirty!\n\nPlease commit or stash your changes before bumping or use --no-clean flag. \n\nUnstaged files:\n\n ${dirty.trim()}`
-
-    throw new Error(error)
+    throw new Error(`Uncommitted changes: ${files}\nCommit or stash them first, or keep them with --no-clean.`)
   }
 }
 
