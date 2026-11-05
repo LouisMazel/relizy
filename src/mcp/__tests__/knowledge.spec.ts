@@ -93,6 +93,21 @@ describe('Given the docs bundle generated from the sources', () => {
       expect(knowledge.configByPath.get('scopeMap')?.docId).toBe('config/overview')
     })
 
+    it('Then the @default of the JSDoc match the default config', () => {
+      const defaults = getDefaultConfig() as Record<string, unknown>
+      const mismatches = knowledge.config.flatMap((option) => {
+        const value = option.path.split('.').reduce<unknown>((parent, key) => (parent as Record<string, unknown> | undefined)?.[key], defaults)
+
+        if (option.path === 'cwd' || option.default === undefined || value === undefined || (typeof value === 'object' && !Array.isArray(value))) {
+          return []
+        }
+
+        return option.default.replaceAll('\'', '"') === JSON.stringify(value) ? [] : [`${option.path}: ${option.default} !== ${JSON.stringify(value)}`]
+      })
+
+      expect(mismatches).toEqual([])
+    })
+
     it('Then every option points to an existing doc page', () => {
       expect(knowledge.config.filter(option => !knowledge.docsById.has(option.docId)).map(option => `${option.path} -> ${option.docId}`)).toEqual([])
     })

@@ -932,12 +932,13 @@ export interface ReleaseConfig {
   publish?: boolean
   /**
    * Skip git verification while committing by using --no-verify flag
-   * @default true
+   * @default false
    */
   noVerify?: boolean
   /**
-   * Determine if the working directory is clean and if it is not clean, exit
-   * @default false
+   * Check that the working directory is clean before the release (with
+   * `bump.clean`), a confirmation is asked otherwise
+   * @default true
    */
   clean?: boolean
   /**
@@ -946,13 +947,14 @@ export interface ReleaseConfig {
    */
   gitTag?: boolean
   /**
-   * Post release announcements to social media platforms
-   * @default false
+   * Post release announcements to social media platforms (the platforms
+   * enabled in `social`)
+   * @default true
    */
   social?: boolean
   /**
    * Post a comment with the outcome of the release on the pull request
-   * @default false
+   * @default true
    */
   prComment?: boolean
   /**
@@ -1497,15 +1499,15 @@ export interface TemplatesConfig {
    */
   commitBody?: string
   /**
-   * Tag message template
+   * Message of the annotated tags. Available variables: {{newVersion}}
    * @default 'Bump version to {{newVersion}}'
-   * Available variables: {{newVersion}}
    */
   tagMessage?: string
   /**
-   * Not used with "independent" version mode
+   * Name of the repository tag (`unified` and `selective` modes, standalone
+   * projects), also used to find the previous release. The packages of an
+   * `independent` mode are tagged `<name>@<version>`. Available variables: {{newVersion}}
    * @default 'v{{newVersion}}'
-   * Available variables: {{newVersion}}
    */
   tagBody?: string
   /**
