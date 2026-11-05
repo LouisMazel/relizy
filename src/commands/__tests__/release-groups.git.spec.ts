@@ -627,6 +627,12 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(readVersion('shared/nav')).toBe('1.2.0')
     })
 
+    it('Then keeps them with bump.clean: false in the config, as with --no-clean', async () => {
+      writeConfig({ options: 'bump: { clean: false },' })
+
+      await expect(release({ yes: true, dryRun: true })).resolves.toMatchObject({ status: 'released' })
+    })
+
     it('Then leaves every file untouched in dry-run', async () => {
       const files = ['package.json', 'shared/nav/package.json', ...Object.keys(changedFiles)]
       const before = readFiles(files)

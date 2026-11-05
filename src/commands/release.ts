@@ -271,7 +271,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         dryRun,
         config,
         force,
-        clean: config.release.clean,
         configName: options.configName,
         suffix: options.suffix,
         canary: isCanary,
