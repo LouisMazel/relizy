@@ -556,7 +556,7 @@ describe('Given the confirmation of a bump', () => {
 
     vi.mocked(clack.confirm).mockResolvedValueOnce(false)
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
-    vi.mocked(clack.confirm).mockResolvedValueOnce(CANCEL)
+    vi.mocked(clack.confirm).mockResolvedValueOnce(CANCEL as never)
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
     expect(vi.mocked(clack.box).mock.calls[0]![1]).toBe(' Release plan ')
   })

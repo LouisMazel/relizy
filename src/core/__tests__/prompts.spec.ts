@@ -44,9 +44,9 @@ describe('Given the prompts', () => {
 
   describe('When the prompt is cancelled (Ctrl+C, Escape)', () => {
     it('Then throws a RelizyCancelError with the cancel message', async () => {
-      vi.mocked(confirm).mockResolvedValueOnce(CANCEL)
-      vi.mocked(select).mockResolvedValueOnce(CANCEL)
-      vi.mocked(text).mockResolvedValueOnce(CANCEL)
+      vi.mocked(confirm).mockResolvedValueOnce(CANCEL as never)
+      vi.mocked(select).mockResolvedValueOnce(CANCEL as never)
+      vi.mocked(text).mockResolvedValueOnce(CANCEL as never)
 
       await expect(askConfirm({ message: 'Release?', cancelMessage: 'Bump cancelled' })).rejects.toThrow(new RelizyCancelError('Bump cancelled'))
       await expect(askSelect({ message: 'What now?', options: [{ value: 'keep', label: 'Keep' }], cancelMessage: 'Tag cancelled' })).rejects.toThrow(new RelizyCancelError('Tag cancelled'))
