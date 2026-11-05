@@ -271,14 +271,29 @@ export function mergeTypes<T extends Record<string, unknown>>(
 }
 
 /**
+ * Options of the config file, each one optional (a mapped type, not
+ * `DeepPartial<RelizyConfig>`, so that the API docs keep its name)
+ */
+export type RelizyConfigOverrides = { [Key in keyof RelizyConfig]?: DeepPartial<RelizyConfig[Key]> }
+
+export interface LoadRelizyConfigOptions {
+  /** Config already resolved, merged under the overrides instead of the defaults */
+  baseConfig?: ResolvedRelizyConfig
+  /** Options applied over the config file */
+  overrides?: RelizyConfigOverrides
+  /**
+   * Name of the config, as `--config`: `relizy.standalone` loads `relizy.standalone.config.ts`
+   * @default 'relizy'
+   */
+  configFile?: string
+}
+
+/**
  * A config derived for a version group (see `resolveVersionGroups`) is already
  * resolved: the overrides are applied to it without loading the config file
  * again, which would bring `monorepo.groups` back into it.
  */
-function applyOverridesToGroupConfig(options?: {
-  baseConfig?: ResolvedRelizyConfig
-  overrides?: DeepPartial<RelizyConfig>
-}): ResolvedRelizyConfig | undefined {
+function applyOverridesToGroupConfig(options?: LoadRelizyConfigOptions): ResolvedRelizyConfig | undefined {
   const groupName = options?.baseConfig && getVersionGroupName(options.baseConfig)
 
   if (!options?.baseConfig || !groupName) {
@@ -291,11 +306,7 @@ function applyOverridesToGroupConfig(options?: {
   return markVersionGroupConfig(groupConfig, groupName)
 }
 
-export async function loadRelizyConfig(options?: {
-  baseConfig?: ResolvedRelizyConfig
-  overrides?: DeepPartial<RelizyConfig>
-  configFile?: string
-}) {
+export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
   const groupConfig = applyOverridesToGroupConfig(options)
 
   if (groupConfig) {

@@ -24,7 +24,7 @@ export type {
   WorkspacePackage,
 } from './core/commitlint'
 export { lintCommitMessage } from './core/commitlint'
-export type { ResolvedConfig, ResolvedRelizyConfig } from './core/config'
+export type { LoadRelizyConfigOptions, RelizyConfigOverrides, ResolvedConfig, ResolvedRelizyConfig } from './core/config'
 export { defineConfig, loadRelizyConfig } from './core/config'
 export { isRelizyCancelError, RelizyCancelError } from './core/errors'
 export type { ReleaseLine, ReleaseOverview, ReleaseOverviewGroup, ReleaseOverviewPackage } from './core/release-overview'
