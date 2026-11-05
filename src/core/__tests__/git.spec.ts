@@ -1485,5 +1485,29 @@ describe('Given confirmDirtyGitStatus function', () => {
       expect(warnSpy).toHaveBeenCalledTimes(3)
       expect(confirm).not.toHaveBeenCalled()
     })
+
+    it('Then names the release files with what changed', async () => {
+      mockGitStatus(' M packages/a/package.json\n?? CHANGELOG.md\n M src/index.ts')
+      const warnSpy = vi.spyOn(logger, 'warn')
+      vi.mocked(confirm).mockResolvedValueOnce(true)
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(warnSpy).toHaveBeenCalledWith('Uncommitted changes in files the release commits: packages/a/package.json (modified), CHANGELOG.md (new)')
+    })
+  })
+
+  describe('When only other files have uncommitted changes', () => {
+    it('Then neither warns nor asks: --no-clean keeps them as they are', async () => {
+      mockGitStatus(' M plans/v2.md\n?? src/core/release-ui.ts\nR  old.ts -> new.ts')
+      const warnSpy = vi.spyOn(logger, 'warn')
+      const debugSpy = vi.spyOn(logger, 'debug')
+
+      await confirmDirtyGitStatus({ dryRun: false })
+
+      expect(warnSpy).not.toHaveBeenCalled()
+      expect(confirm).not.toHaveBeenCalled()
+      expect(debugSpy).toHaveBeenCalledWith('Uncommitted changes kept (--no-clean): plans/v2.md (modified), src/core/release-ui.ts (new), new.ts (renamed)')
+    })
   })
 })

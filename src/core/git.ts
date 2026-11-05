@@ -50,26 +50,66 @@ export function checkGitStatusIfDirty() {
  * changes it contains, and `changelog.formatCmd` runs on the working directory.
  * Nothing to confirm in dry-run, which writes nothing.
  */
-export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Promise<void> {
-  const dirty = getGitStatus()
+const GIT_STATUS_LABELS: Record<string, string> = {
+  '?': 'new',
+  'A': 'added',
+  'M': 'modified',
+  'D': 'deleted',
+  'R': 'renamed',
+  'C': 'copied',
+  'U': 'conflict',
+}
 
-  if (!dirty) {
+/**
+ * The uncommitted changes of `git status --porcelain`: the path of each file and what changed
+ */
+export function parseGitStatus(status: string): { path: string, change: string }[] {
+  return status.split('\n').filter(line => line.trim()).map((line) => {
+    const code = line.slice(0, 2).trim()[0] ?? 'M'
+    const path = line.slice(3).split(' -> ').at(-1)!.replace(/^"|"$/g, '')
+
+    return { path, change: GIT_STATUS_LABELS[code] ?? 'changed' }
+  })
+}
+
+/** The files a release writes and commits */
+const RELEASE_FILE_NAMES = new Set(['package.json', 'CHANGELOG.md', 'lerna.json'])
+
+/**
+ * With `--no-clean`, the uncommitted changes stay as they are. Only the ones of
+ * the files a release writes are worth a warning: they go in the release
+ * commit. They are confirmed in an interactive terminal (not in dry-run).
+ */
+export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Promise<void> {
+  // Untrimmed: the first column of the first line is significant
+  const changes = parseGitStatus(getGitStatus(undefined, false))
+
+  if (changes.length === 0) {
     return
   }
 
-  logger.warn(`The working directory has uncommitted changes (--no-clean):\n\n${dirty}\n\nThe files Relizy writes (package.json, CHANGELOG.md, lerna.json) are committed with the changes they contain, and changelog.formatCmd runs on the working directory. The other files are left untouched.`)
+  const describe = (files: typeof changes) => files.map(({ path, change }) => `${path} (${change})`).join(', ')
+  const releaseFiles = changes.filter(({ path }) => RELEASE_FILE_NAMES.has(path.split('/').at(-1)!))
+
+  logger.debug(`Uncommitted changes kept (--no-clean): ${describe(changes)}`)
+
+  if (releaseFiles.length === 0) {
+    return
+  }
+
+  logger.warn(`Uncommitted changes in files the release commits: ${describe(releaseFiles)}`)
 
   if (dryRun || isInCI() || !process.stdin.isTTY) {
     return
   }
 
   const confirmed = await confirm({
-    message: 'Do you want to continue with these uncommitted changes?',
+    message: 'Commit these changes with the release?',
     default: false,
   }).catch(() => false)
 
   if (!confirmed) {
-    throw new RelizyCancelError('Release cancelled: commit or stash your changes first')
+    throw new RelizyCancelError('Release cancelled: commit or stash the changes of these files first')
   }
 }
 
