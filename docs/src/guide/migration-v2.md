@@ -33,6 +33,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Release title](#release-title)                               | Custom `twitterMessage`                                                                          | Use <code v-pre>{{releaseTitle}}</code>                                       |
 | [New version variable](#new-version-variable)                 | Custom social templates with `monorepo.groups` or `independent` mode                             | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
 | [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                                            | Check the templates                                                           |
+| [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                                                    | Add `dependencies` to keep the v1 bumps                                       |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                                                   | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                                               | None                                                                          |
 | [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                                                 | Catch `RelizyCancelError`                                                     |
@@ -124,6 +125,23 @@ Every occurrence of a variable of a social template is replaced, instead of the 
 ### Prereleases with onlyStable
 
 With `onlyStable` (the default of Slack), a post announcing several versions leaves its prereleases out, instead of posting every version as soon as one is stable. Nothing is posted when every version is a prerelease, as before.
+
+## Config
+
+### Arrays Replace the Defaults
+
+An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `--dependency-types devDependencies` could only add to the list of the config, and `relizy release` passed every `publish.args` twice.
+
+If you set `bump.dependencyTypes` (globally or on a version group) without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
+
+```ts
+export default defineConfig({
+  bump: {
+    // v1 resolved ['peerDependencies'] to ['peerDependencies', 'dependencies']
+    dependencyTypes: ['dependencies', 'peerDependencies'],
+  },
+})
+```
 
 ## Programmatic API
 

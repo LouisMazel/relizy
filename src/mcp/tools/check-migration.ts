@@ -112,6 +112,26 @@ function checkTemplates(config: ResolvedRelizyConfig, configFiles: { file: strin
   return findings
 }
 
+/**
+ * `bump.dependencyTypes` lists without `dependencies`: v1 added the default
+ * `dependencies` to them
+ */
+function checkDependencyTypes(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
+  const lists = [config.bump?.dependencyTypes, ...(config.monorepo?.groups ?? []).map(group => group.bump?.dependencyTypes)]
+  const withoutDependencies = lists.some(list => list && !list.includes('dependencies'))
+  const locations = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bdependencyTypes\b/).filter(line => !/['"]dependencies['"]/.test(text.split('\n')[line - 1]!))))
+
+  return withoutDependencies
+    ? [{
+        severity: 'change',
+        title: '`bump.dependencyTypes` without `dependencies`',
+        section: 'Arrays Replace the Defaults',
+        detail: 'relizy 1 added the default `dependencies` to the list: add it to keep bumping the packages on every bump of their `dependencies`, or leave it out on purpose.',
+        locations,
+      }]
+    : []
+}
+
 function checkVersionGroups(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
   if (!hasVersionGroups(config)) {
     return []
@@ -263,6 +283,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
   const findings = [
     ...checkDependency(config.cwd),
     ...checkTemplates(config, configFiles, severalVersions),
+    ...checkDependencyTypes(config, configFiles),
     ...checkVersionGroups(config, configFiles),
     ...checkSourceFiles(config.cwd),
   ]
@@ -291,7 +312,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
 export const checkMigrationTool = defineTool({
   name: 'check_migration',
   title: 'Check the migration from relizy 1',
-  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), the version groups (one release, group titles, hooks), and the code calling the relizy API (cancelled prompts, `confirmBump`, social functions), with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
+  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), `bump.dependencyTypes`, the version groups (one release, group titles, hooks), and the code calling the relizy API (cancelled prompts, `confirmBump`, social functions), with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
   inputSchema: {
     config: configArgSchema,
   },

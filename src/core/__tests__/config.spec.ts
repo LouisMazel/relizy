@@ -4,9 +4,8 @@ import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { loadConfig, setupDotenv } from 'c12'
-import { defu } from 'defu'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { defineConfig, getDefaultConfig, loadRelizyConfig } from '../config'
+import { defineConfig, getDefaultConfig, loadRelizyConfig, mergeConfig } from '../config'
 import { getVersionGroupName, markVersionGroupConfig } from '../groups'
 import { getNpmRegistry } from '../npm'
 import { getRepoConfig, resolveRepoConfig } from '../repo-config'
@@ -30,7 +29,6 @@ vi.mock('@maz-ui/utils/helpers/formatJson', () => ({
 }))
 vi.mock('c12')
 vi.mock('../repo-config')
-vi.mock('defu')
 
 describe('Given getDefaultConfig function', () => {
   beforeEach(() => {
@@ -514,7 +512,6 @@ describe('Given loadRelizyConfig function', () => {
     vi.clearAllMocks()
     vi.mocked(process.cwd).mockReturnValue('/project')
     vi.mocked(setupDotenv).mockResolvedValue({} as any)
-    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
     vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
   })
 
@@ -809,10 +806,11 @@ describe('Given loadRelizyConfig function', () => {
 
       await loadRelizyConfig({ overrides: { cwd: '/custom' } })
 
-      expect(defu).toHaveBeenCalled()
       expect(loadConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           cwd: '/custom',
+          overrides: { cwd: '/custom' },
+          merger: mergeConfig,
         }),
       )
     })
@@ -847,9 +845,11 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ baseConfig: baseConfig as any })
+      await loadRelizyConfig({ baseConfig: baseConfig as any, overrides: { bump: { yes: true } } })
 
-      expect(defu).toHaveBeenCalled()
+      expect(loadConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: { bump: { type: 'minor', yes: true } },
+      }))
     })
   })
 
@@ -1032,7 +1032,6 @@ describe('Given loadRelizyConfig types resolution', () => {
     vi.clearAllMocks()
     vi.mocked(process.cwd).mockReturnValue('/project')
     vi.mocked(setupDotenv).mockResolvedValue({} as any)
-    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
     vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
   })
 
@@ -1217,7 +1216,6 @@ describe('Given loadRelizyConfig with version groups', () => {
     vi.clearAllMocks()
     vi.mocked(process.cwd).mockReturnValue('/project')
     vi.mocked(setupDotenv).mockResolvedValue({} as any)
-    vi.mocked(defu).mockImplementation((a, b) => ({ ...(b || {}), ...(a || {}) }))
     vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
     vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
   })
@@ -1238,10 +1236,10 @@ describe('Given loadRelizyConfig with version groups', () => {
 
   describe('When the base config has version groups', () => {
     it('Then keeps its groups instead of concatenating them with the ones of the config file', async () => {
-      vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', monorepo: { groups: [...groups, ...groups] } },
+      vi.mocked(loadConfig).mockImplementation(options => Promise.resolve({
+        config: options.merger!(options.overrides, { cwd: '/project', monorepo: { groups } }),
         _configFile: 'relizy.config.ts',
-      } as any)
+      }) as any)
       const baseConfig = { ...getDefaultConfig(), monorepo: { groups } } as any
 
       const config = await loadRelizyConfig({ baseConfig })
@@ -1271,5 +1269,33 @@ describe('Given loadRelizyConfig with version groups', () => {
 
       await expect(loadRelizyConfig()).rejects.toThrow('cannot be used with monorepo.groups')
     })
+  })
+})
+
+describe('Given mergeConfig function', () => {
+  it('Then gives the priority to the first configs and merges the objects deeply', () => {
+    expect(mergeConfig<Record<string, unknown>>(
+      { bump: { type: 'minor' }, logLevel: undefined },
+      { bump: { type: 'patch', yes: true }, logLevel: 'debug' },
+      undefined,
+      null,
+    )).toEqual({ bump: { type: 'minor', yes: true }, logLevel: 'debug' })
+  })
+
+  it('Then replaces the arrays of the next configs instead of concatenating them', () => {
+    const merged = mergeConfig<Record<string, any>>(
+      { bump: { dependencyTypes: ['devDependencies'] } },
+      { bump: { dependencyTypes: ['dependencies', 'peerDependencies'] }, publish: { args: ['--provenance'] } },
+      { bump: { dependencyTypes: ['dependencies'] }, publish: { args: [] } },
+    )
+
+    expect(merged.bump.dependencyTypes).toEqual(['devDependencies'])
+    expect(merged.publish.args).toEqual(['--provenance'])
+  })
+
+  it('Then does not duplicate the arrays of a config merged with itself', () => {
+    const config = { publish: { args: ['--provenance'] }, excludeAuthors: ['bot'] }
+
+    expect(mergeConfig(config, config)).toEqual(config)
   })
 })

@@ -7,8 +7,7 @@ import { readdirSync } from 'node:fs'
 import process from 'node:process'
 import { format, stripVTControlCharacters } from 'node:util'
 import { logger } from '@maz-ui/node'
-import { defu } from 'defu'
-import { loadRelizyConfig, resetRewrittenTagCache } from '../core'
+import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache } from '../core'
 import { ToolInputError } from './tools/types'
 
 /**
@@ -111,7 +110,7 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
   const resolved = await loadRelizyConfig({
     configFile: config,
     // The logs are captured for the agent whatever the log level of the project (the debug ones are left out)
-    overrides: defu(overrides, { cwd, logLevel: 'default', bump: { yes: true }, onRewrittenTag: 'ephemeral' } satisfies DeepPartial<RelizyConfig>),
+    overrides: mergeConfig(overrides, { cwd, logLevel: 'default', bump: { yes: true }, onRewrittenTag: 'ephemeral' } satisfies DeepPartial<RelizyConfig>),
   })
 
   resolved.hooks = {}

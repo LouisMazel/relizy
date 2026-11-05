@@ -55,6 +55,8 @@ export default defineConfig({
 })
 ```
 
+The list replaces the default one: list `dependencies` too to keep it.
+
 This option only drives which dependents get bumped: the [publish order](./publish.md#checkworkspacedependencies) always follows `dependencies`, `peerDependencies` and `optionalDependencies`.
 
 With [version groups](/guide/version-groups#dependencies-between-groups), each group can set its own `dependencyTypes`, which also decides whether its packages are bumped when they depend on packages bumped by another group.

@@ -21,6 +21,7 @@ const V1_CONFIG = `export default {
       { name: 'tooling', title: 'Tooling', versionMode: 'independent', packages: ['tooling/*'] },
     ],
   },
+  bump: { dependencyTypes: ['peerDependencies'] },
   ai: { providerRelease: { enabled: true } },
   templates: {
     commitMessage: 'chore(release): {{newVersion}}',
@@ -70,15 +71,19 @@ describe('Given check_migration on a relizy 1 project', () => {
   })
 
   it('Then points out the social templates to change, with their lines', () => {
-    expect(text).toContain('**`{{version}}` is not a variable of the social templates** (`relizy.config.mjs:15`)')
-    expect(text).toContain('**A social template builds the title of the release from `{{projectName}}` and `{{newVersion}}`** (`relizy.config.mjs:11`)')
+    expect(text).toContain('**`{{version}}` is not a variable of the social templates** (`relizy.config.mjs:16`)')
+    expect(text).toContain('**A social template builds the title of the release from `{{projectName}}` and `{{newVersion}}`** (`relizy.config.mjs:12`)')
     expect(text).toContain('sections: ["Release Title"]')
+  })
+
+  it('Then points out the dependency types that relied on the default ones', () => {
+    expect(text).toContain('**`bump.dependencyTypes` without `dependencies`** (`relizy.config.mjs:8`)')
   })
 
   it('Then points out what changes with the version groups', () => {
     expect(text).toContain('**The version groups are released as one release**')
     expect(text).toContain('**Version groups without `title`: `main`**')
-    expect(text).toContain('**Hooks of `social`, `twitter` or `slack` with version groups** (`relizy.config.mjs:18`)')
+    expect(text).toContain('**Hooks of `social`, `twitter` or `slack` with version groups** (`relizy.config.mjs:19`)')
     expect(text).toContain('**AI provider releases for the `independent` groups `tooling`**')
   })
 
@@ -94,7 +99,7 @@ describe('Given check_migration on a relizy 1 project', () => {
     const toChange = text.slice(text.indexOf('## To change'), text.indexOf('## To review'))
     const toReview = text.slice(text.indexOf('## To review'))
 
-    expect(toChange).toContain('## To change (5)')
+    expect(toChange).toContain('## To change (6)')
     expect(toChange).toContain('`confirmBump()`')
     expect(toReview).toContain('## To review (6)')
     expect(toReview).toContain('`GroupBumpResult` objects')

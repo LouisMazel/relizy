@@ -7,7 +7,7 @@ import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
-import { defu } from 'defu'
+import { createDefu } from 'defu'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
@@ -234,6 +234,23 @@ async function resolveConfig(
 }
 
 /**
+ * Merge configs, the first one winning, as `defu` does, except that an array
+ * replaces the array of the next configs instead of being concatenated with
+ * it: `bump.dependencyTypes: ['peerDependencies']` is not completed with the
+ * default `dependencies`, and a resolved config merged again is not duplicated.
+ */
+const replaceArrays = createDefu((object, key, value) => {
+  if (Array.isArray(value)) {
+    (object as Record<PropertyKey, unknown>)[key] = value
+    return true
+  }
+})
+
+export function mergeConfig<T>(...configs: Array<T | null | undefined>): T {
+  return replaceArrays({}, ...configs.filter(config => config != null) as Record<PropertyKey, unknown>[]) as T
+}
+
+/**
  * Merge user types with defaults: each user-defined entry replaces the default entirely.
  * This prevents defu's deep merge from adding default sub-properties
  * the user intentionally omitted (e.g. `docs: { title: '...' }` without `semver`).
@@ -267,22 +284,10 @@ function applyOverridesToGroupConfig(options?: {
     return undefined
   }
 
-  const groupConfig = defu(options.overrides, options.baseConfig) as ResolvedRelizyConfig
+  const groupConfig = mergeConfig(options.overrides, options.baseConfig) as ResolvedRelizyConfig
   setupLogger(options.overrides?.logLevel || groupConfig.logLevel)
 
   return markVersionGroupConfig(groupConfig, groupName)
-}
-
-/**
- * Validate `monorepo.groups`. A base config is already resolved: its groups
- * replace the ones of the config file instead of being concatenated with them.
- */
-function resolveConfigVersionGroups(config: ResolvedConfig, baseConfig?: ResolvedRelizyConfig): void {
-  if (baseConfig?.monorepo?.groups && config.monorepo) {
-    config.monorepo.groups = baseConfig.monorepo.groups
-  }
-
-  validateVersionGroups(config as ResolvedRelizyConfig)
 }
 
 export async function loadRelizyConfig(options?: {
@@ -307,7 +312,7 @@ export async function loadRelizyConfig(options?: {
   // Extract types from defaults to handle them separately
   const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig
 
-  const overridesConfig = defu(options?.overrides, options?.baseConfig)
+  const overridesConfig = mergeConfig(options?.overrides, options?.baseConfig)
 
   const results = await loadConfig<ResolvedConfig>({
     dotenv: true,
@@ -316,6 +321,7 @@ export async function loadRelizyConfig(options?: {
     packageJson: true,
     defaults: defaultsWithoutTypes as ResolvedConfig,
     overrides: overridesConfig as ResolvedConfig,
+    merger: mergeConfig,
   })
 
   // Merge types: user entries replace defaults entirely (no deep merge)
@@ -335,7 +341,7 @@ export async function loadRelizyConfig(options?: {
 
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
-  resolveConfigVersionGroups(results.config, options?.baseConfig)
+  validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))
 
