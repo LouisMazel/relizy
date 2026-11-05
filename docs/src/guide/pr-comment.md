@@ -39,7 +39,7 @@ When the release succeeds, the comment includes:
 - Git tags created
 - Dist-tag used
 - Date and branch
-- Package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled)
+- Package table with version transitions (private packages are listed when [`monorepo.includePrivates`](/config/monorepo#includeprivates) is enabled). With several [version groups](/guide/version-groups) released, one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first
 - Installation commands for each package manager
 
 ::: info Projects that publish nothing
@@ -69,6 +69,23 @@ Example:
 ### 📥 Install
 
 pnpm add @myorg/core@1.1.0
+```
+
+With version groups:
+
+```markdown
+### maz-ui `5.2.1` (selective)
+
+| Package       | Version           |
+| ------------- | ----------------- |
+| `maz-ui`      | `5.2.0` → `5.2.1` |
+| `@maz-ui/mcp` | `5.2.0` → `5.2.1` |
+
+### Tooling (independent)
+
+| Package                 | Version           |
+| ----------------------- | ----------------- |
+| `@maz-ui/eslint-config` | `5.0.0` → `5.1.0` |
 ```
 
 ### ⏭️ No Release

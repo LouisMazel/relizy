@@ -9,7 +9,10 @@ vi.mock('../../core', async () => {
   const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
   const versionActual = await vi.importActual<typeof import('../../core')>('../../core/version')
   const groupsActual = await vi.importActual<typeof import('../../core')>('../../core/groups')
+  const overviewActual = await vi.importActual<typeof import('../../core')>('../../core/release-overview')
   return {
+    getReleaseOverview: overviewActual.getReleaseOverview,
+    withoutPrivatePackages: overviewActual.withoutPrivatePackages,
     getMonorepoPackagePatterns: groupsActual.getMonorepoPackagePatterns,
     hasRepositoryVersion: groupsActual.hasRepositoryVersion,
     loadRelizyConfig: vi.fn(),
@@ -751,9 +754,46 @@ describe('Given buildCommentBody with version groups', () => {
 
     expect(body).toContain('**Version**')
     expect(body).toContain('`6.19.1` → `6.20.0`')
-    expect(body).toContain('| `@scope/nav` | `1.2.0` → `2.0.0` |')
+    expect(body).toContain([
+      '### main `6.20.0` (selective)',
+      '',
+      '| Package | Version |',
+      '| --- | --- |',
+      '| `@scope/components` | `6.19.1` → `6.20.0` |',
+      '',
+      '### header (independent)',
+      '',
+      '| Package | Version |',
+      '| --- | --- |',
+      '| `@scope/nav` | `1.2.0` → `2.0.0` |',
+    ].join('\n'))
+    expect(body).not.toContain('### Packages')
     expect(body).toContain('pnpm add @scope/components@6.20.0')
     expect(body).toContain('pnpm add @scope/nav@2.0.0')
+  })
+
+  it('Then titles the tables after the title of the groups, the unified/selective group first, without the private packages', () => {
+    const login = { ...nav, name: '@scope/login', private: true }
+    const body = buildCommentBody({
+      config: createGroupsConfig(),
+      branch: 'main',
+      date: '2026-02-22 14:30 UTC',
+      releaseContext: {
+        status: 'success',
+        bumpResult: {
+          bumped: true,
+          newVersion: '6.20.0',
+          bumpedPackages: [components, nav, login],
+          groups: [
+            { name: 'header', title: 'Header', versionMode: 'independent', bumped: true, bumpedPackages: [nav, login] },
+            { name: 'main', title: 'Maz UI', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+          ],
+        },
+      },
+    })
+
+    expect(body.indexOf('### Maz UI `6.20.0` (selective)')).toBeLessThan(body.indexOf('### Header (independent)'))
+    expect(body).not.toContain('@scope/login')
   })
 
   it('Then omits the global version when only an independent group is released', () => {

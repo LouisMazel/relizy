@@ -1,8 +1,8 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { ResolvedRelizyConfig } from '../core'
+import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, getMonorepoPackagePatterns, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, getMonorepoPackagePatterns, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -105,6 +105,39 @@ function buildPackageTableLines(
     )
   }
   return lines
+}
+
+/**
+ * One table per version group (its title, version and version mode), when
+ * the release has several groups
+ */
+function buildGroupTableLines(overview: ReleaseOverview): string[] {
+  return overview.groups.flatMap((group) => {
+    const version = group.version ? ` \`${group.version}\`` : ''
+    const lines = ['', `### ${group.title}${version} (${group.versionMode})`, '', '| Package | Version |', '| --- | --- |']
+
+    for (const pkg of group.packages) {
+      lines.push(pkg.oldVersion !== pkg.newVersion
+        ? `| \`${pkg.name}\` | \`${pkg.oldVersion}\` → \`${pkg.newVersion}\` |`
+        : `| \`${pkg.name}\` | \`${pkg.newVersion}\` |`)
+    }
+
+    return group.packages.length > 0 ? lines : lines.slice(0, 2)
+  })
+}
+
+/**
+ * The overview of a release of several version groups, with the packages the
+ * comment lists (the private ones with `monorepo.includePrivates` only)
+ */
+function getGroupsOverview(config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy): ReleaseOverview | undefined {
+  if (!bumpResult?.groups || bumpResult.groups.length < 2) {
+    return undefined
+  }
+
+  const overview = getReleaseOverview({ config, bumpResult })
+
+  return config.monorepo?.includePrivates ? overview : withoutPrivatePackages(overview)
 }
 
 function resolvePackageNames(
@@ -260,7 +293,8 @@ function buildSuccessComment({
     branch,
   }))
 
-  lines.push(...buildPackageTableLines(bumpedPackages, listedPackages))
+  const groupsOverview = getGroupsOverview(config, bumpResult)
+  lines.push(...(groupsOverview ? buildGroupTableLines(groupsOverview) : buildPackageTableLines(bumpedPackages, listedPackages)))
 
   if (isPublishing) {
     lines.push(...buildPublishedInstallLines({ config, bumpedPackages: allBumpedPackages, packages, version, distTag }))
