@@ -1,4 +1,4 @@
-import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SocialTemplateVariables } from '../types'
+import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SlackReleaseSection, SocialTemplateVariables } from '../types'
 import type { PackageBumpEntry } from './packages'
 import type { SlackRichTextBlock } from './slack-markdown'
 import { logger } from '@maz-ui/node'
@@ -123,6 +123,139 @@ function renderSlackTemplate({ template, variables, changelog, contributorsLine,
 }
 
 /**
+ * Share a budget between demands: each one gets what it asks within an equal
+ * share, what the small ones leave goes to the others.
+ */
+export function shareBudget(budget: number, demands: number[]): number[] {
+  const shares = demands.map(() => 0)
+  const pending = demands.map((demand, index) => ({ demand, index })).sort((a, b) => a.demand - b.demand)
+  let remaining = Math.max(0, budget)
+
+  while (pending.length > 0) {
+    const fairShare = Math.floor(remaining / pending.length)
+
+    if (pending[0]!.demand > fairShare) {
+      for (const { index } of pending) {
+        shares[index] = fairShare
+      }
+      break
+    }
+
+    const { demand, index } = pending.shift()!
+    shares[index] = demand
+    remaining -= demand
+  }
+
+  return shares
+}
+
+function formatSlackPackageLine(pkg: NonNullable<SlackReleaseSection['packages']>[number]): string {
+  return pkg.oldVersion && pkg.oldVersion !== pkg.newVersion
+    ? `*${pkg.name}* \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
+    : `*${pkg.name}* \`${pkg.newVersion}\``
+}
+
+/**
+ * The sections of a release of several versions as a single markdown
+ * changelog: the title of each section, then its changelog or its packages.
+ */
+export function slackSectionsToMarkdown(sections: SlackReleaseSection[]): string {
+  return sections.map((section) => {
+    const parts = section.title ? [`## ${section.title}`] : []
+
+    if (section.changelog?.trim()) {
+      parts.push(section.changelog.trim())
+    }
+
+    for (const pkg of section.packages ?? []) {
+      parts.push(formatSlackPackageLine(pkg).replace(/^\*([^*]+)\*/, '**$1**'), ...(pkg.changelog.trim() ? [pkg.changelog.trim()] : []))
+    }
+
+    return parts.join('\n\n')
+  }).join('\n\n')
+}
+
+function getSectionBodies(section: SlackReleaseSection): string[] {
+  return section.changelog !== undefined ? [section.changelog] : (section.packages ?? []).map(pkg => pkg.changelog)
+}
+
+/**
+ * The mrkdwn of a section in `summary` format: its title, then its changelog,
+ * or each package (always) with its changelog, within `maxLength`.
+ * `renderedBodies` are the changelogs rendered without limit.
+ */
+function formatSlackSummarySection(section: SlackReleaseSection, maxLength: number, renderedBodies: string[]): string {
+  const lines = section.title ? [`*${section.title}*`] : []
+  const packages = section.packages ?? []
+  const bodies = getSectionBodies(section)
+  // The lines always shown, and the line break before each changelog
+  const fixedLength = [...lines, ...packages.map(formatSlackPackageLine)].join('\n').length + renderedBodies.filter(Boolean).length
+  const shares = shareBudget(maxLength - fixedLength, renderedBodies.map(body => body.length))
+  const renderBody = (index: number) => {
+    const share = shares[index]!
+    return share >= renderedBodies[index]!.length ? renderedBodies[index]! : share > 0 ? formatChangelogForSlack(bodies[index]!, share) : ''
+  }
+
+  if (section.changelog !== undefined) {
+    lines.push(renderBody(0))
+  }
+
+  for (const [index, pkg] of packages.entries()) {
+    lines.push(formatSlackPackageLine(pkg), renderBody(index))
+  }
+
+  return truncateSlackText(lines.filter(Boolean).join('\n'), SLACK_SECTION_MAX_LENGTH)
+}
+
+/**
+ * The blocks of the sections of a release of several versions: one per
+ * section in `summary` format, its title and rich text blocks in `full`
+ * format. The budgets (characters, blocks, payload) are shared between the
+ * sections, so that each one keeps at least its title and version lines.
+ */
+function formatSlackSections({ sections, changelogFormat, maxLength, surroundingBlocks }: {
+  sections: SlackReleaseSection[]
+  changelogFormat: SlackChangelogFormat
+  maxLength?: number
+  surroundingBlocks: any[]
+}): any[] {
+  if (changelogFormat !== 'full') {
+    const renderedBodies = sections.map(section => getSectionBodies(section).map(body => formatChangelogForSlack(body, Number.MAX_SAFE_INTEGER)))
+    const demands = sections.map((section, index) => formatSlackSummarySection(section, SLACK_SECTION_MAX_LENGTH, renderedBodies[index]!).length)
+    const shares = shareBudget(maxLength ?? SLACK_SUMMARY_MAX_LENGTH, demands)
+
+    return sections.map((section, index) => ({
+      type: 'section',
+      text: { type: 'mrkdwn', text: formatSlackSummarySection(section, Math.min(shares[index]!, SLACK_SECTION_MAX_LENGTH), renderedBodies[index]!) },
+    }))
+  }
+
+  const titleBlocks = sections.map(section => section.title
+    ? { type: 'section', text: { type: 'mrkdwn', text: truncateSlackText(`*${section.title}*`, SLACK_SECTION_MAX_LENGTH) } }
+    : undefined)
+  const markdowns = sections.map(section => slackSectionsToMarkdown([{ ...section, title: undefined }]))
+  const fixedBlocks = [...surroundingBlocks, ...titleBlocks.filter(Boolean)]
+  const rendered = markdowns.map(markdown => markdownToSlackRichText(markdown, { maxLength, maxBlocks: SLACK_MAX_BLOCKS, maxPayloadLength: SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH }))
+  const blockShares = shareBudget(SLACK_MAX_BLOCKS - fixedBlocks.length, rendered.map(blocks => blocks.length))
+  const payloadShares = shareBudget(SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH - JSON.stringify(fixedBlocks).length, rendered.map(blocks => JSON.stringify(blocks).length))
+  const lengthShares = maxLength === undefined ? undefined : shareBudget(maxLength, markdowns.map(markdown => markdown.length))
+
+  return sections.flatMap((_section, index) => {
+    const blocks = rendered[index]!
+    const fits = blocks.length <= blockShares[index]! && JSON.stringify(blocks).length <= payloadShares[index]! && lengthShares === undefined
+
+    return [
+      ...(titleBlocks[index] ? [titleBlocks[index]] : []),
+      ...(fits
+        ? blocks
+        : blockShares[index]! > 0
+          ? markdownToSlackRichText(markdowns[index]!, { maxLength: lengthShares?.[index], maxBlocks: blockShares[index]!, maxPayloadLength: payloadShares[index]! })
+          : []),
+    ]
+  })
+}
+
+/**
  * Format the Slack message using blocks.
  * - `summary` format: the changelog is a single mrkdwn section (2500 chars by default).
  * - `full` format: the changelog is rendered as rich_text blocks, commit bodies
@@ -133,7 +266,10 @@ function renderSlackTemplate({ template, variables, changelog, contributorsLine,
 export function formatSlackMessage({ variables, changelog, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary' }: {
   template?: string
   variables: SocialTemplateVariables
-  changelog: string
+  /**
+   * Changelog of a single version (markdown), or the sections of a release of several versions
+   */
+  changelog: string | SlackReleaseSection[]
   contributors?: string[]
   packages?: PackageBumpEntry[]
   postMaxLength?: number
@@ -149,7 +285,15 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   if (template) {
     const templateContext = { template, variables, contributorsLine, packagesLine }
     let changelogText: string
-    if (changelogFormat === 'full') {
+    if (typeof changelog !== 'string') {
+      // The sections of several versions are kept: they are fitted as a whole, not summarized
+      const overhead = renderSlackTemplate({ ...templateContext, changelog: '\u0000' }).length - 1
+      changelogText = markdownToSlackMrkdwn(slackSectionsToMarkdown(changelog), {
+        maxLength: Math.max(0, Math.min(maxLength ?? Infinity, SLACK_SECTION_MAX_LENGTH - overhead)),
+        cutCommits: true,
+      })
+    }
+    else if (changelogFormat === 'full') {
       // A template is a single section: the changelog gets what the template leaves of its limit.
       // Measured with a 1 char placeholder the template trimming cannot remove
       const overhead = renderSlackTemplate({ ...templateContext, changelog: '\u0000' }).length - 1
@@ -251,7 +395,15 @@ export function formatSlackMessage({ variables, changelog, template, contributor
 
   // Add changelog blocks
   const changelogBlocks: any[] = []
-  if (changelogFormat === 'full') {
+  if (typeof changelog !== 'string') {
+    changelogBlocks.push(...formatSlackSections({
+      sections: changelog,
+      changelogFormat,
+      maxLength,
+      surroundingBlocks: [headerBlock, ...trailingBlocks],
+    }))
+  }
+  else if (changelogFormat === 'full') {
     // Messages with rich_text blocks are capped by Slack: the changelog gets what the other blocks leave.
     const surroundingBlocks = [headerBlock, ...trailingBlocks]
     changelogBlocks.push(...markdownToSlackRichText(changelog, {

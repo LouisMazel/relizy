@@ -1,7 +1,7 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
 const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
@@ -147,6 +147,86 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
   catch (error) {
     return handleFallback(config, fallbackValue, error)
+  }
+}
+
+/**
+ * A version of a post announcing several versions
+ */
+export interface AISocialRelease {
+  id: string
+  /**
+   * `<name> <version>`
+   */
+  title: string
+  /**
+   * Changelog of the version (markdown)
+   */
+  body: string
+  /**
+   * Maximum number of highlights (Twitter)
+   */
+  highlights?: number
+}
+
+const RELEASE_OUTPUT_REGEX = /<release\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/release>/g
+
+function escapeAttribute(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
+}
+
+/**
+ * Rewrite the changelogs of the versions of a post in a single AI call. Returns
+ * the rewritten changelog of each version found in the output, by id: the
+ * missing ones (or all of them when the call fails and `ai.fallback` is `raw`)
+ * keep their raw changelog.
+ */
+export async function generateAISocialReleases({ config, releases, platform, maxLength }: {
+  config: ResolvedRelizyConfig
+  releases: AISocialRelease[]
+  platform: 'twitter' | 'slack'
+  maxLength?: number
+}): Promise<Map<string, string>> {
+  const input = releases.filter(release => release.body.trim())
+
+  if (input.length === 0) {
+    logger.debug(`AI skipped for ${platform}: empty changelogs`)
+    return new Map()
+  }
+
+  const provider = getAIProvider(config)
+  const releasesPrompt = platform === 'twitter' ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}` : RELEASES_PROMPT
+  const systemPrompt = `${assemblePrompt(config, platform, maxLength)}\n\n${releasesPrompt}`
+  const prompt = input
+    .map((release) => {
+      const highlights = release.highlights ? ` highlights="${release.highlights}"` : ''
+      return `<release id="${escapeAttribute(release.id)}" title="${escapeAttribute(release.title)}"${highlights}>\n${release.body}\n</release>`
+    })
+    .join('\n\n')
+
+  const maxLengthHint = maxLength ? `, max ${maxLength} chars` : ''
+  logger.info(`✨ Rewriting ${platform} post of ${input.length} versions with AI (provider: ${provider.name}${maxLengthHint})`)
+  logger.verbose(`AI system prompt (${platform}):`, systemPrompt)
+  logger.verbose(`AI input body (${platform}):`, prompt)
+
+  try {
+    const started = Date.now()
+    const output = await provider.generate(config, { systemPrompt, prompt, maxLength })
+    const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
+    const missing = input.filter(release => !rewritten.get(release.id))
+
+    logger.info(`✅ AI rewrite done for ${platform} in ${Date.now() - started}ms (${rewritten.size}/${input.length} versions)`)
+    logger.verbose(`AI output body (${platform}):`, output)
+
+    if (missing.length > 0) {
+      logger.warn(`AI output has no changelog for ${missing.map(release => release.title).join(', ')}: their raw changelog is used`)
+    }
+
+    return rewritten
+  }
+  catch (error) {
+    handleFallback(config, '', error)
+    return new Map()
   }
 }
 

@@ -1,4 +1,4 @@
-import type { SocialTemplateVariables, TwitterCredentials, TwitterOptions } from '../types'
+import type { SocialTemplateVariables, TweetSection, TwitterCredentials, TwitterOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { fillSocialTemplate } from './release-overview'
 import { extractChangelogSummary } from './social'
@@ -117,25 +117,103 @@ function truncateTweetText(text: string, maxLength: number, ellipsis: string): s
   return `${segments.join('')}${ellipsis}`
 }
 
+// Escape @ mentions to prevent unintended Twitter mentions by inserting a
+// zero-width space after @ (e.g., scoped package names like @scope/pkg)
+function escapeMentions(text: string): string {
+  return text.replace(/@\b/g, '@\u200B')
+}
+
+interface TweetSectionState {
+  collapsed: boolean
+  highlights: number
+  packageHighlights: boolean[]
+}
+
+function renderTweetSection(section: TweetSection, state: TweetSectionState): string {
+  const lines: string[] = section.title ? [section.title] : []
+
+  if (section.packages) {
+    if (state.collapsed) {
+      const count = `${section.packages.length} packages`
+      return section.title ? `${section.title}: ${count}` : count
+    }
+
+    lines.push(...section.packages.map((pkg, index) => state.packageHighlights[index] ? `• ${pkg.label}: ${pkg.highlights[0]}` : `• ${pkg.label}`))
+  }
+
+  lines.push(...(section.highlights ?? []).slice(0, state.highlights).map(highlight => `• ${highlight}`))
+
+  return lines.join('\n')
+}
+
+/**
+ * Render the sections of a tweet within `maxLength` (as X counts it), by
+ * priority: the version line of every section (an `independent` group is
+ * collapsed to `<title>: N packages` when its packages do not fit, the last
+ * groups first), then the highlights, the first sections first.
+ */
+export function fitTweetSections(sections: TweetSection[], maxLength: number): string {
+  const states: TweetSectionState[] = sections.map(section => ({
+    collapsed: false,
+    highlights: 0,
+    packageHighlights: (section.packages ?? []).map(() => false),
+  }))
+  const render = () => escapeMentions(sections.map((section, index) => renderTweetSection(section, states[index]!)).join('\n\n'))
+  const fits = () => getTweetLength(render()) <= maxLength
+
+  for (let index = sections.length - 1; index >= 0 && !fits(); index--) {
+    states[index]!.collapsed = Boolean(sections[index]!.packages)
+  }
+
+  for (const [index, section] of sections.entries()) {
+    const state = states[index]!
+
+    while (state.highlights < (section.highlights?.length ?? 0)) {
+      state.highlights++
+      if (!fits()) {
+        state.highlights--
+        break
+      }
+    }
+
+    if (state.collapsed) {
+      continue
+    }
+
+    for (const [pkgIndex, pkg] of (section.packages ?? []).entries()) {
+      if (pkg.highlights.length === 0) {
+        continue
+      }
+
+      state.packageHighlights[pkgIndex] = true
+      if (!fits()) {
+        state.packageHighlights[pkgIndex] = false
+      }
+    }
+  }
+
+  return render()
+}
+
 export function formatTweetMessage({ template, variables, changelog, postMaxLength }: {
   template: string
   variables: SocialTemplateVariables
-  changelog: string
+  /**
+   * Changelog of a single version (markdown, summarized to fit), or the
+   * sections of a release of several versions
+   */
+  changelog: string | TweetSection[]
   postMaxLength: number
 }): string {
   const ELLIPSIS = '...'
 
-  const changelogSummary = extractChangelogSummary(changelog, { maxLength: postMaxLength, stripBoldMarkers: true })
-
   // Every placeholder but the changelog, whose length depends on the space they leave
   const templateWithValues = fillSocialTemplate(template, variables)
-  const availableForChangelog = postMaxLength - getTweetLength(templateWithValues.replaceAll('{{changelog}}', ''))
+  const availableForChangelog = Math.max(0, postMaxLength - getTweetLength(templateWithValues.replaceAll('{{changelog}}', '')))
 
-  // Escape @ mentions in changelog to prevent unintended Twitter mentions
-  // by inserting a zero-width space after @ (e.g., scoped package names like @scope/pkg)
-  const escapedChangelog = changelogSummary.replace(/@\b/g, '@\u200B')
-
-  const finalChangelog = truncateTweetText(escapedChangelog, Math.max(0, availableForChangelog), ELLIPSIS)
+  const finalChangelog = typeof changelog === 'string'
+    ? truncateTweetText(escapeMentions(extractChangelogSummary(changelog, { maxLength: postMaxLength, stripBoldMarkers: true })), availableForChangelog, ELLIPSIS)
+    : fitTweetSections(changelog, availableForChangelog)
 
   const message = templateWithValues.replaceAll('{{changelog}}', finalChangelog).trim()
 

@@ -1,6 +1,6 @@
 import type { BumpResultTruthy, GroupBumpResult } from '../../types'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { fillSocialTemplate, fillTemplate, getReleaseLines, getReleaseOverview, getReleaseTitle, getSocialTemplateVariables, withoutPrivatePackages } from '../release-overview'
+import { fillSocialTemplate, fillTemplate, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTitle, getSocialTemplateVariables, keepReleaseLines, withoutPrivatePackages } from '../release-overview'
 
 vi.mock('../repo', async importActual => ({
   ...await importActual<typeof import('../repo')>(),
@@ -138,5 +138,27 @@ describe('Given the template helpers', () => {
     const variables = { projectName: 'p', releaseTitle: 'p 1.0.0 is out!', newVersion: '1.0.0', packageList: 'p@1.0.0', packageCount: '1' }
 
     expect(fillSocialTemplate('{{releaseTitle}} {{releaseUrl}}{{changelogUrl}}{{changelog}}', variables, { changelog: '!' })).toBe('p 1.0.0 is out! !')
+  })
+})
+
+describe('Given the version lines to post', () => {
+  const config = createMockConfig({ bump: { type: 'release' } })
+  const beta = bumped('@scope/nav', '1.2.0', '1.3.0-beta.0', '@scope/nav@1.2.0')
+  const overview = getReleaseOverview({ config, bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, { ...headerGroup, bumpedPackages: [beta, login] }] } })
+
+  it('Then keeps the groups and packages of the kept lines', () => {
+    const stable = keepReleaseLines(overview, line => !line.version.includes('-'))
+
+    expect(stable.groups.map(group => [group.name, group.packages.map(pkg => pkg.name)])).toEqual([
+      ['main', ['@scope/components', '@scope/theme']],
+      ['header', ['@scope/login']],
+    ])
+    expect(keepReleaseLines(overview, line => line.name === '@scope/login').groups.map(group => group.name)).toEqual(['header'])
+  })
+
+  it('Then links the only version line, else the unified/selective group', () => {
+    expect(getReleaseTag(overview)).toBe('v7.0.0')
+    expect(getReleaseTag(keepReleaseLines(overview, line => line.name === '@scope/login'))).toBe('@scope/login@2.0.1')
+    expect(getReleaseTag(keepReleaseLines(overview, line => line.group.versionMode === 'independent'))).toBeUndefined()
   })
 })

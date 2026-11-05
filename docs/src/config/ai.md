@@ -326,6 +326,8 @@ Overrides replace **everything**. If you only want to add rules on top of
 the defaults, use `extraGuidelines` instead.
 :::
 
+When a post announces several versions ([version groups](../guide/version-groups.md#one-release-presented-by-group), or several packages in `independent` mode), the changelog of each version is sent in a `<release id="..." title="...">` element, and the instructions to rewrite each one in a `<release id="...">` element are always appended to the prompt, overridden or not: Relizy reads the output back version by version, and keeps the raw changelog of a version missing from it.
+
 ## `providerRelease.enabled`
 
 - **Type:** `boolean`

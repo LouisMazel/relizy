@@ -1287,15 +1287,36 @@ export interface SocialTemplateVariables {
   changelogUrl?: string
 }
 
+/**
+ * A section of a tweet announcing several versions: a `unified`/`selective`
+ * group (its version line and highlights), or an `independent` group (its
+ * packages, each with its highlights).
+ */
+export interface TweetSection {
+  /**
+   * `<title> <version>` of a `unified`/`selective` group, the title of an
+   * `independent` group (none without version groups)
+   */
+  title?: string
+  /**
+   * Highlights of a `unified`/`selective` group, one bullet each
+   */
+  highlights?: string[]
+  /**
+   * Packages of an `independent` group: `<name> <version>`, followed by its first highlight
+   */
+  packages?: { label: string, highlights: string[] }[]
+}
+
 export interface TwitterOptions {
   /**
    * Variables of the template
    */
   variables: SocialTemplateVariables
   /**
-   * Changelog content
+   * Changelog of a single version (markdown), or the sections of a release of several versions
    */
-  changelog: string
+  changelog: string | TweetSection[]
   /**
    * Twitter credentials (all fields required)
    */
@@ -1321,15 +1342,36 @@ export interface TwitterOptions {
   postMaxLength: number
 }
 
+/**
+ * A section of a Slack message announcing several versions: a
+ * `unified`/`selective` group (its changelog), or an `independent` group (its
+ * packages, each with its changelog).
+ */
+export interface SlackReleaseSection {
+  /**
+   * `<title> <version>` of a `unified`/`selective` group, the title of an
+   * `independent` group (none without version groups)
+   */
+  title?: string
+  /**
+   * Changelog of a `unified`/`selective` group (markdown)
+   */
+  changelog?: string
+  /**
+   * Packages of an `independent` group, with their changelog (markdown)
+   */
+  packages?: { name: string, oldVersion?: string, newVersion: string, changelog: string }[]
+}
+
 export interface SlackOptions {
   /**
    * Variables of the template, and of the header of the rich blocks format
    */
   variables: SocialTemplateVariables
   /**
-   * Changelog content
+   * Changelog of a single version (markdown), or the sections of a release of several versions
    */
-  changelog: string
+  changelog: string | SlackReleaseSection[]
   /**
    * Slack channel ID or name. Required when using token-based auth.
    */

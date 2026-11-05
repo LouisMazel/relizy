@@ -85,7 +85,7 @@ export default defineConfig({
 - **Type:** `boolean`
 - **Default:** `true`
 
-Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted:
+Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted: when a release has several versions (version groups, `independent` mode), the prereleases are left out of the post, and nothing is posted when every version is a prerelease:
 
 ```ts
 export default defineConfig({
@@ -199,7 +199,7 @@ export default defineConfig({
 - **Type:** `boolean`
 - **Default:** `true`
 
-Skip Slack posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted:
+Skip Slack posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted: when a release has several versions (version groups, `independent` mode), the prereleases are left out of the post, and nothing is posted when every version is a prerelease:
 
 ```ts
 export default defineConfig({

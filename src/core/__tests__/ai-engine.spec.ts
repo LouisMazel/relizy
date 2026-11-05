@@ -1,8 +1,8 @@
 import type { AIGenerateRequest, AIProvider } from '../ai/provider'
 import type { ResolvedRelizyConfig } from '../config'
 import { createMockConfig } from '../../../tests/mocks'
-import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog } from '../ai/index'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from '../ai/prompts'
+import { aiSafetyCheck, generateAIProviderReleaseBody, generateAISocialChangelog, generateAISocialReleases } from '../ai/index'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from '../ai/prompts'
 
 let fakeProvider: AIProvider & { lastRequest?: AIGenerateRequest, safetyCheckCalled: boolean }
 
@@ -177,5 +177,46 @@ describe('unknown provider error', () => {
     }).rejects.toThrow('Unknown AI provider')
 
     vi.restoreAllMocks()
+  })
+})
+
+describe('generateAISocialReleases', () => {
+  const releases = [
+    { id: '1', title: 'Maz UI 7.0.0', body: '- feat a', highlights: 3 },
+    { id: '2', title: '@scope/nav 1.3.0', body: '- fix b', highlights: 1 },
+  ]
+
+  it('sends every release in one call, with the release instructions even over an overridden prompt', async () => {
+    const config = createMockConfig({ ai: { systemPromptOverrides: { twitter: 'Custom prompt' } } })
+
+    await generateAISocialReleases({ config, releases, platform: 'twitter', maxLength: 200 })
+
+    expect(fakeProvider.lastRequest?.systemPrompt).toBe(`Custom prompt\n\n${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}`)
+    expect(fakeProvider.lastRequest?.prompt).toBe('<release id="1" title="Maz UI 7.0.0" highlights="3">\n- feat a\n</release>\n\n<release id="2" title="@scope/nav 1.3.0" highlights="1">\n- fix b\n</release>')
+    expect(fakeProvider.lastRequest?.maxLength).toBe(200)
+  })
+
+  it('returns the rewritten changelog of each release found in the output', async () => {
+    fakeProvider = createFakeProvider({
+      generate: () => Promise.resolve('<release id="2">\nFixed b\n</release>\n<release id="1" title="x">A is new</release>'),
+    })
+
+    const result = await generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })
+
+    expect(result).toEqual(new Map([['2', 'Fixed b'], ['1', 'A is new']]))
+  })
+
+  it('leaves out the releases without changelog and skips the call when none has one', async () => {
+    const result = await generateAISocialReleases({ config: createMockConfig({}), releases: [{ id: '1', title: 'a 1.0.0', body: '  ' }], platform: 'slack' })
+
+    expect(result).toEqual(new Map())
+    expect(fakeProvider.lastRequest).toBeUndefined()
+  })
+
+  it('returns no changelog when the call fails with the raw fallback, throws with the fail one', async () => {
+    fakeProvider = createFakeProvider({ generate: () => Promise.reject(new Error('down')) })
+
+    await expect(generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })).resolves.toEqual(new Map())
+    await expect(generateAISocialReleases({ config: createMockConfig({ ai: { fallback: 'fail' } }), releases, platform: 'slack' })).rejects.toThrow('AI generation failed: down')
   })
 })

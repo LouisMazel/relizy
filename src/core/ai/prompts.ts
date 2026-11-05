@@ -34,6 +34,17 @@ Keep it scannable: 3 to 8 bullets in total, one line each, focused on what chang
 Tone: factual, oriented toward an internal team audience.`
 
 /**
+ * Appended to the system prompt (built-in or overridden) when a post announces
+ * several versions: the output is parsed back, one release at a time.
+ */
+export const RELEASES_PROMPT = `The input has one <release id="..." title="..."> element per version released. Rewrite the content of each one on its own, and output it in a <release id="..."> element with the same id, in the same order. Never merge, drop nor add a release, and never repeat its title inside: the outer message adds the titles and the versions.`
+
+/**
+ * Appended to RELEASES_PROMPT for Twitter
+ */
+export const TWITTER_RELEASES_PROMPT = `Inside each <release>, write its most user-visible changes as short highlights, one per line, without bullet: at most as many as its "highlights" attribute.`
+
+/**
  * Appended to the built-in prompts when the target has a length budget.
  */
 export const MAX_LENGTH_PROMPT = `Hard maximum: {{maxLength}} characters. Never exceed it.`
@@ -42,5 +53,5 @@ export const MAX_LENGTH_PROMPT = `Hard maximum: {{maxLength}} characters. Never 
  * Wraps the changelog sent to the model in the <changelog> tag the system prompt refers to.
  */
 export function wrapChangelogPrompt(prompt: string): string {
-  return `<changelog>\n${prompt}\n</changelog>\n\nRewrite the content inside the <changelog> tag per the rules in the system prompt. Output ONLY the rewritten content, with no preamble, no explanation, no surrounding tags.`
+  return `<changelog>\n${prompt}\n</changelog>\n\nRewrite the content inside the <changelog> tag per the rules in the system prompt. Output ONLY the rewritten content, with no preamble, no explanation, no surrounding <changelog> tag.`
 }

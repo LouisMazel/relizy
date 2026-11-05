@@ -1,7 +1,8 @@
+import type { TweetSection } from '../../types'
 import { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { socialVariables } from '../../../tests/mocks'
-import { formatTweetMessage, getTweetLength, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
+import { fitTweetSections, formatTweetMessage, getTweetLength, getTwitterCredentials, postReleaseToTwitter } from '../twitter'
 
 logger.setLevel = vi.fn()
 
@@ -689,5 +690,64 @@ describe('Given postReleaseToTwitter function', () => {
       )
       expect(logger.error).toHaveBeenCalledWith('HTTP code: 500')
     })
+  })
+})
+
+describe('Given fitTweetSections function', () => {
+  const sections: TweetSection[] = [
+    { title: 'Maz UI 7.0.0', highlights: ['menu: Add a menu', 'Faster builds', 'Fix the dark mode'] },
+    { title: 'Tooling', packages: [{ label: '@maz-ui/eslint-config 5.1.0', highlights: ['Stop enforcing the catalog'] }, { label: '@maz-ui/upgrade 5.2.1', highlights: [] }] },
+  ]
+
+  it('Then renders every section with its highlights when they fit', () => {
+    expect(fitTweetSections(sections, 280)).toBe([
+      'Maz UI 7.0.0',
+      '• menu: Add a menu',
+      '• Faster builds',
+      '• Fix the dark mode',
+      '',
+      'Tooling',
+      '• @\u200Bmaz-ui/eslint-config 5.1.0: Stop enforcing the catalog',
+      '• @\u200Bmaz-ui/upgrade 5.2.1',
+    ].join('\n'))
+  })
+
+  it('Then keeps the version lines first, the highlights of the first section next', () => {
+    const result = fitTweetSections(sections, 110)
+
+    expect(getTweetLength(result)).toBeLessThanOrEqual(110)
+    expect(result).toContain('Maz UI 7.0.0\n• menu: Add a menu')
+    expect(result).toContain('• @\u200Bmaz-ui/eslint-config 5.1.0')
+    expect(result).toContain('• @\u200Bmaz-ui/upgrade 5.2.1')
+    expect(result).not.toContain('Stop enforcing the catalog')
+  })
+
+  it('Then collapses the packages of an independent group when they do not fit', () => {
+    const result = fitTweetSections(sections, 40)
+
+    expect(result).toBe('Maz UI 7.0.0\n\nTooling: 2 packages')
+  })
+
+  it('Then collapses the packages without group title', () => {
+    expect(fitTweetSections([{ packages: sections[1]!.packages }], 15)).toBe('2 packages')
+  })
+})
+
+describe('Given formatTweetMessage function with the sections of several versions', () => {
+  it('Then fits them in the post, URLs included', () => {
+    const result = formatTweetMessage({
+      template: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+      variables: socialVariables({ releaseTitle: 'New releases of maz-ui', newVersion: '', releaseUrl: 'https://github.com/LouisMazel/maz-ui/releases/tag/v7.0.0', changelogUrl: 'https://maz-ui.com/changelog' }),
+      changelog: [
+        { title: 'Maz UI 7.0.0', highlights: Array.from({ length: 20 }, (_, index) => `A long highlight number ${index} about the components`) },
+        { title: 'Tooling', packages: [{ label: '@maz-ui/eslint-config 5.1.0', highlights: ['Stop enforcing the catalog'] }] },
+      ],
+      postMaxLength: 280,
+    })
+
+    expect(getTweetLength(result)).toBeLessThanOrEqual(280)
+    expect(result.startsWith('📣 New releases of maz-ui\n\nMaz UI 7.0.0\n• A long highlight number 0')).toBe(true)
+    expect(result).toContain('Tooling\n• @\u200Bmaz-ui/eslint-config 5.1.0')
+    expect(result.endsWith('https://github.com/LouisMazel/maz-ui/releases/tag/v7.0.0\nhttps://maz-ui.com/changelog')).toBe(true)
   })
 })

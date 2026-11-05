@@ -1,3 +1,4 @@
+import type { SlackReleaseSection } from '../../types'
 import type { PackageBumpEntry } from '../packages'
 import { socialVariables } from '../../../tests/mocks'
 import { validateSlackBlocks } from '../../../tests/slack-block-kit'
@@ -80,7 +81,7 @@ const manyPackages: PackageBumpEntry[] = Array.from({ length: 400 }, (_, index) 
 
 const manyContributors = Array.from({ length: 300 }, (_, index) => `Contributor With A Long Name ${index}`)
 
-const SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessage>[0] }> = [
+const SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessage>[0] & { changelog: string } }> = [
   { name: 'a huge changelog with nasty bodies', input: { changelog: hugeChangelog(), variables: socialVariables({ projectName: 'big-project', newVersion: '12.0.0' }) } },
   { name: 'an independent release of 60 packages', input: { changelog: independentChangelog(60), variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }) } },
   { name: 'hundreds of packages and contributors', input: { changelog: hugeChangelog({ sections: 2 }), packages: manyPackages, contributors: manyContributors, variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }) } },
@@ -127,7 +128,45 @@ describe('Given the Block Kit validator', () => {
   })
 })
 
+const SEVERAL_VERSIONS = socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' })
+
+function independentSection(packageCount: number, body = commit(1, NASTY_BODY)): SlackReleaseSection {
+  return {
+    title: 'Tooling',
+    packages: Array.from({ length: packageCount }, (_, index) => ({ name: `@scope/package-${index}`, oldVersion: '1.0.0', newVersion: `1.${index + 1}.0`, changelog: `### 🩹 Fixes\n\n${body}` })),
+  }
+}
+
+const SECTION_SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessage>[0] & { changelog: SlackReleaseSection[] } }> = [
+  { name: 'a huge root changelog and a small group', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(2)], variables: SEVERAL_VERSIONS } },
+  { name: 'an independent group of 80 packages', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 1 }) }, independentSection(80)], variables: SEVERAL_VERSIONS } },
+  { name: 'many groups', input: { changelog: Array.from({ length: 30 }, () => independentSection(3)), variables: SEVERAL_VERSIONS, packages: manyPackages, contributors: manyContributors } },
+  { name: 'a tiny postMaxLength', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(5)], postMaxLength: 50, variables: SEVERAL_VERSIONS } },
+  { name: 'a template', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(5)], template: '*{{releaseTitle}}*\n{{changelog}}', variables: SEVERAL_VERSIONS } },
+]
+
 describe('Given formatSlackMessage against the Slack limits', () => {
+  describe.each(['summary', 'full'] as const)('When the changelog of several versions is in %s format', (changelogFormat) => {
+    it.each(SECTION_SCENARIOS)('Then produces a valid message for $name', ({ input }) => {
+      const blocks = formatSlackMessage({ ...input, changelogFormat })
+
+      expect(validateSlackBlocks(blocks)).toEqual([])
+    })
+
+    it('Then keeps the title of every section and the version of every package, whatever the size of the others', () => {
+      const blocks = formatSlackMessage({ changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(3)], changelogFormat, variables: SEVERAL_VERSIONS })
+
+      const text = blocks.map((block: any) => block.type === 'rich_text' ? richTextToPlainText(block) : block.text?.text ?? '').join('\n')
+      expect(text).toContain('Maz UI 7.0.0')
+      expect(text).toContain('Tooling')
+      if (changelogFormat === 'summary') {
+        for (const index of [0, 1, 2]) {
+          expect(text).toContain(`*@scope/package-${index}* \`1.0.0\` → \`1.${index + 1}.0\``)
+        }
+      }
+    })
+  })
+
   describe.each(['summary', 'full'] as const)('When the changelog format is %s', (changelogFormat) => {
     it.each(SCENARIOS)('Then produces a valid message for $name', ({ input }) => {
       const blocks = formatSlackMessage({ ...input, changelogFormat })

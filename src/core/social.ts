@@ -67,3 +67,19 @@ export function getReleaseUrl(config: ResolvedRelizyConfig, tag: string): string
 
   return undefined
 }
+
+/**
+ * The entries of a changelog, one per change: its bullets without the
+ * markdown of the scope, the breaking changes first, without duplicates.
+ */
+export function extractChangelogHighlights(changelog: string): string[] {
+  const highlights = changelog
+    .split('\n')
+    .filter(line => line.startsWith('- '))
+    .map(line => line.slice(2).replace(/\*\*([^*]+):\*\*/g, '$1:').replace(/\s{2,}/g, ' ').trim())
+    .filter(Boolean)
+
+  const unique = [...new Set(highlights)]
+
+  return [...unique.filter(highlight => highlight.includes('⚠️')), ...unique.filter(highlight => !highlight.includes('⚠️'))]
+}

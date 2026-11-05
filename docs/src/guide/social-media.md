@@ -37,6 +37,8 @@ When you run the `release` command with social media configured, Relizy will:
 2. Format a message appropriate for each platform
 3. Post the announcement automatically
 
+A release of several versions ([version groups](./version-groups.md), or several packages in `independent` mode) gives **one** post per platform, with a section per group: see [One Release, Presented by Group](./version-groups.md#one-release-presented-by-group).
+
 Social media posting is part of the release workflow and runs after:
 
 - Version bumping

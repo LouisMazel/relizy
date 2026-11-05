@@ -87,10 +87,37 @@ The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and
 2. **Changelog**: each group generates its changelogs. Set `changelog.rootChangelog: false` on a group to keep it out of the root `CHANGELOG.md`.
 3. **Publish**: the packages of every group are published in a single order, each package after the internal packages it depends on (`dependencies`, `peerDependencies` and `optionalDependencies`), whatever their group.
 4. **Commit and tags**: a single release commit, with the tags of every group.
-5. **Provider releases and social posts**: one per group, as each group would do on its own. Set `release.providerRelease: false` or `release.social: false` on a group to leave it out, or `ai.providerRelease.enabled: false` to create its provider releases without AI (an `independent` group gets one provider release per package).
-6. **PR comment**: a single comment listing the packages of every group.
+5. **Provider releases**: one per tag, as each group would do on its own (one for the `unified`/`selective` group, one per package of an `independent` group). Set `release.providerRelease: false` on a group to leave it out, or `ai.providerRelease.enabled: false` to create its provider releases without AI.
+6. **Social posts**: **one** post per platform for the whole release, with a section per group (see [One Release, Presented by Group](#one-release-presented-by-group)). Set `release.social: false` on a group to leave it out of the posts.
+7. **PR comment**: a single comment, with a table per group.
+
+The hooks of each step (`before:social`, `success:twitter`...) run once per release, with the config of the release.
 
 A group without relevant commits is skipped: it is not bumped, published nor tagged.
+
+### One Release, Presented by Group
+
+A release of several versions (several groups, or several packages of an `independent` group) is announced as **one** release: the title is `New releases of <projectName>` (<code v-pre>{{releaseTitle}}</code>), then a section per group, under its `title`, the `unified`/`selective` group first. A release of a single version keeps `<name> <version> is out!`.
+
+On **Twitter**, the post is filled by priority so that it never exceeds `postMaxLength`: the version line of every group first (an `independent` group is collapsed to `Tooling: 3 packages` when its packages do not fit), then the highlights, the `unified`/`selective` group first:
+
+```text
+📣 New releases of maz-ui
+
+maz-ui 5.2.1
+• mcp: label the bundled docs with their maz-ui version
+
+Tooling
+• @maz-ui/eslint-config 5.1.0: stop enforcing the pnpm catalog
+• @maz-ui/upgrade 5.2.1
+
+https://github.com/LouisMazel/maz-ui/releases/tag/v5.2.1
+https://maz-ui.com/changelog
+```
+
+On **Slack**, the message has a section per group (each package of an `independent` group with its old and new versions), the contributors of every group once, and the budget of the message (`postMaxLength`, 3000 characters per section, 50 blocks) shared between the groups: each one keeps at least its title and version lines.
+
+With AI ([`ai.social`](../config/ai.md)), each platform makes **one** call for the whole release: the changelog of each version is rewritten, the titles and the versions stay as computed. With `onlyStable`, the prereleases are left out of the post; nothing is posted when every version is a prerelease.
 
 ### Canary Releases
 

@@ -1,7 +1,9 @@
+import type { SlackReleaseSection } from '../../types'
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, vi } from 'vitest'
 import { socialVariables } from '../../../tests/mocks'
-import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack, resolveSlackPostMaxLength } from '../slack'
+import { formatChangelogForSlack, formatPackagesForSlack, formatSlackMessage, getSlackToken, getSlackWebhookUrl, postReleaseToSlack, resolveSlackPostMaxLength, shareBudget, slackSectionsToMarkdown } from '../slack'
+import { richTextToPlainText } from '../slack-markdown'
 
 vi.mock('../social', () => ({
   extractChangelogSummary: vi.fn((changelog: string, opts?: { maxLength?: number }) => changelog.substring(0, opts?.maxLength ?? 2500)),
@@ -1305,5 +1307,66 @@ describe('Given formatSlackMessage with packages', () => {
       expect(blocks[0].text.text).not.toContain('{{packages}}')
       expect(blocks[0].text.text).not.toContain('•')
     })
+  })
+})
+
+describe('Given shareBudget function', () => {
+  it('Then gives each demand what it asks within an equal share, the rest to the others', () => {
+    expect(shareBudget(100, [10, 80, 80])).toEqual([10, 45, 45])
+    expect(shareBudget(100, [10, 20])).toEqual([10, 20])
+    expect(shareBudget(-5, [10])).toEqual([0])
+  })
+})
+
+describe('Given formatSlackMessage with the sections of several versions', () => {
+  const sections: SlackReleaseSection[] = [
+    { title: 'Maz UI 7.0.0', changelog: '### 🚀 Features\n\n- **menu:** Add a menu' },
+    { title: 'Tooling', packages: [
+      { name: '@maz-ui/eslint-config', oldVersion: '5.0.0', newVersion: '5.1.0', changelog: '### 🚀 Features\n\n- Stop enforcing the catalog' },
+      { name: '@maz-ui/upgrade', oldVersion: '5.2.1', newVersion: '5.2.1', changelog: '' },
+    ] },
+  ]
+  const variables = socialVariables({ projectName: 'maz-ui', newVersion: '', releaseTitle: 'New releases of maz-ui', releaseUrl: 'https://example.com/v7.0.0' })
+
+  it('Then renders a header and one section per group in summary format', () => {
+    const blocks = formatSlackMessage({ variables, changelog: sections })
+
+    expect(blocks[0].text.text).toBe('📣 New releases of maz-ui')
+    expect(blocks[1].text.text).toBe('*Maz UI 7.0.0*\n*🚀 Features*\n• *menu:* Add a menu')
+    expect(blocks[2].text.text).toBe('*Tooling*\n*@maz-ui/eslint-config* `5.0.0` → `5.1.0`\n*🚀 Features*\n• Stop enforcing the catalog\n*@maz-ui/upgrade* `5.2.1`')
+  })
+
+  it('Then renders the title of each group before its rich text in full format', () => {
+    const blocks = formatSlackMessage({ variables, changelog: sections, changelogFormat: 'full' })
+
+    const titleIndexes = blocks.flatMap((block: any, index: number) => block.type === 'section' ? [index] : [])
+    expect(blocks.filter((block: any) => block.type === 'section').map((block: any) => block.text.text)).toEqual(['*Maz UI 7.0.0*', '*Tooling*'])
+    expect(richTextToPlainText(blocks[titleIndexes[0] + 1])).toContain('menu: Add a menu')
+    expect(blocks.slice(titleIndexes[1] + 1).filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n')).toContain('@maz-ui/eslint-config 5.0.0 → 5.1.0')
+    expect(blocks.at(-1).type).toBe('actions')
+  })
+
+  it('Then keeps the sections in a template', () => {
+    const blocks = formatSlackMessage({ variables, changelog: sections, template: '{{releaseTitle}}\n{{changelog}}' })
+
+    expect(blocks[0].text.text).toContain('New releases of maz-ui\n*Maz UI 7.0.0*')
+    expect(blocks[0].text.text).toContain('*Tooling*')
+    expect(blocks[0].text.text).toContain('*@maz-ui/eslint-config* `5.0.0` → `5.1.0`')
+  })
+
+  it('Then renders them as a markdown changelog', () => {
+    expect(slackSectionsToMarkdown(sections)).toBe([
+      '## Maz UI 7.0.0',
+      '',
+      '### 🚀 Features\n\n- **menu:** Add a menu',
+      '',
+      '## Tooling',
+      '',
+      '**@maz-ui/eslint-config** `5.0.0` → `5.1.0`',
+      '',
+      '### 🚀 Features\n\n- Stop enforcing the catalog',
+      '',
+      '**@maz-ui/upgrade** `5.2.1`',
+    ].join('\n'))
   })
 })

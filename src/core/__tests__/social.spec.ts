@@ -1,5 +1,5 @@
 import { createMockConfig } from '../../../tests/mocks'
-import { extractChangelogSummary, getReleaseUrl } from '../social'
+import { extractChangelogHighlights, extractChangelogSummary, getReleaseUrl } from '../social'
 
 describe('Given extractChangelogSummary function', () => {
   describe('When changelog contains headers', () => {
@@ -422,5 +422,26 @@ describe('Given getReleaseUrl function', () => {
 
       expect(result).toBe(expected)
     })
+  })
+})
+
+describe('Given extractChangelogHighlights function', () => {
+  it('Then returns the changes without markdown, the breaking ones first, once', () => {
+    const changelog = [
+      '### 🚀 Features',
+      '',
+      '- **menu:** Add a menu',
+      '- Faster  builds',
+      '',
+      '### 🩹 Fixes',
+      '',
+      '- **api:** ⚠️  Remove the legacy API',
+      '',
+      '#### ⚠️ Breaking Changes',
+      '',
+      '- **api:** ⚠️  Remove the legacy API',
+    ].join('\n')
+
+    expect(extractChangelogHighlights(changelog)).toEqual(['api: ⚠️ Remove the legacy API', 'menu: Add a menu', 'Faster builds'])
   })
 })

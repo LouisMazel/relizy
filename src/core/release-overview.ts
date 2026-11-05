@@ -234,3 +234,41 @@ export function fillTemplate(template: string, variables: Record<string, string 
 export function fillSocialTemplate(template: string, variables: SocialTemplateVariables, extraVariables: Record<string, string | undefined> = {}): string {
   return fillTemplate(template, { releaseUrl: undefined, changelogUrl: undefined, ...variables, ...extraVariables })
 }
+
+/**
+ * Tag of the release linked by the posts: the tag of its only version line,
+ * else the repository tag of its `unified`/`selective` group.
+ */
+export function getReleaseTag(overview: ReleaseOverview): string | undefined {
+  const lines = getReleaseLines(overview)
+
+  if (lines.length === 1) {
+    return lines[0]!.tag
+  }
+
+  return overview.groups.find(group => group.versionMode !== 'independent' && group.version)?.tag
+}
+
+/**
+ * The overview restricted to the version lines to keep (e.g. the stable ones):
+ * a `unified`/`selective` group is left out when its line is, an `independent`
+ * group keeps the packages of the kept lines.
+ */
+export function keepReleaseLines(overview: ReleaseOverview, keep: (line: ReleaseLine) => boolean): ReleaseOverview {
+  const keptLines = getReleaseLines(overview).filter(keep)
+
+  return {
+    ...overview,
+    groups: overview.groups.flatMap((group) => {
+      const groupLines = keptLines.filter(line => line.group === group)
+
+      if (group.versionMode !== 'independent') {
+        return groupLines.length > 0 ? [group] : []
+      }
+
+      const packages = group.packages.filter(pkg => groupLines.some(line => line.name === pkg.name))
+
+      return packages.length > 0 ? [{ ...group, packages }] : []
+    }),
+  }
+}
