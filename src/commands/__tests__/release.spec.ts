@@ -599,9 +599,17 @@ describe('Given release command', () => {
     })
 
     it('Then fails in dry-run too when the release cannot be pushed', async () => {
+      // Set when the tests run on a pull request
+      vi.stubEnv('GITHUB_EVENT_NAME', undefined)
+      vi.stubEnv('CI_PIPELINE_SOURCE', undefined)
       vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin": git push --dry-run was refused.'))
 
-      await expect(release({ dryRun: true })).rejects.toThrow('cannot push')
+      try {
+        await expect(release({ dryRun: true })).rejects.toThrow('cannot push')
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
 
       expect(bump).not.toHaveBeenCalled()
     })
