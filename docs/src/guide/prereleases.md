@@ -127,6 +127,9 @@ The next version is computed from the commits (`patch` when no commit sets a bum
 | `1.2.3`         | `fix: ...`   | `1.2.4-0.canary-a3f4b2c` |
 | `1.2.3`         | `feat!: ...` | `2.0.0-0.canary-a3f4b2c` |
 | `2.0.0-beta.1`  | `feat: ...`  | `2.0.0-0.canary-a3f4b2c` |
+| `0.5.2`         | `feat!: ...` | `0.6.0-0.canary-a3f4b2c` |
+
+As for a release, a breaking change of a `0.x` version bumps the minor with [`bump.capZeroMajor`](./../config/bump.md#capzeromajor) (the default).
 
 `--preid snapshot` gives `1.3.0-0.snapshot-a3f4b2c`, still published with the `canary` dist-tag.
 

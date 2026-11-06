@@ -7,6 +7,7 @@ import { assertBumpConfirmable } from '../core/bump-prompt'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { getCIName } from '../core/utils'
+import { capReleaseTypeForZeroMajor } from '../core/version'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -489,6 +490,14 @@ async function planIndependentMode({
   }
 }
 
+/**
+ * The release type a breaking change of a peer dependency gives, as a breaking
+ * commit does: a major, or a minor for a `0.x` version with `bump.capZeroMajor`
+ */
+function getBreakingPeerReleaseType(currentVersion: string, capZeroMajor: boolean | undefined): 'major' | 'minor' {
+  return capZeroMajor === false ? 'major' : capReleaseTypeForZeroMajor(currentVersion, 'major') === 'minor' ? 'minor' : 'major'
+}
+
 async function planCanaryMode({
   config,
   dryRun,
@@ -539,7 +548,8 @@ async function planCanaryMode({
     dryRun,
   })
 
-  const releaseType = determineSemverChange(commits, config.types as Record<string, { title: string, semver?: SemverBumpType }>)
+  // As for a release: `bump.capZeroMajor` keeps a breaking change of a 0.x version a minor
+  const releaseType = determineSemverChange(commits, config.types as Record<string, { title: string, semver?: SemverBumpType }>, currentVersion, config.bump.capZeroMajor)
 
   const sha = getShortCommitSha(config.cwd)
 
@@ -567,9 +577,11 @@ async function planCanaryMode({
 
   let packages = await getCanaryPackages(canaryVersion)
 
-  // A package released with a peer dependency of another group making a breaking change gives a major to the group
-  if (releaseType !== 'major' && hasExternalBreakingPeer(packages, externalBumps)) {
-    canaryVersion = getCanaryVersion({ currentVersion, releaseType: 'major', preid, sha })
+  // A package released with a peer dependency of another group making a breaking change bumps the group as for a breaking commit
+  const peerReleaseType = getBreakingPeerReleaseType(currentVersion, config.bump.capZeroMajor)
+
+  if (releaseType !== 'major' && releaseType !== peerReleaseType && hasExternalBreakingPeer(packages, externalBumps)) {
+    canaryVersion = getCanaryVersion({ currentVersion, releaseType: peerReleaseType, preid, sha })
     packages = await getCanaryPackages(canaryVersion)
   }
 
@@ -653,8 +665,10 @@ function planCanaryIndependentMode({
 
   // Compute per-package canary versions based on each package's own version and commits
   const packagesWithCanaryVersion = packages.map((pkg) => {
-    // A peer dependency making a breaking change counts as a breaking commit
-    const releaseType = pkg.breakingPeerDependency ? 'major' : determineSemverChange(pkg.commits, typesConfig)
+    // A peer dependency making a breaking change counts as a breaking commit, and `bump.capZeroMajor` applies as for a release
+    const releaseType = pkg.breakingPeerDependency
+      ? getBreakingPeerReleaseType(pkg.version, config.bump.capZeroMajor)
+      : determineSemverChange(pkg.commits, typesConfig, pkg.version, config.bump.capZeroMajor)
 
     const canaryVersion = getCanaryVersion({
       currentVersion: pkg.version,
