@@ -1,8 +1,9 @@
 import type { RepoConfig } from '../../types'
-import { execSync } from 'node:child_process'
+import { execSync, spawnSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import process from 'node:process'
 import { formatCompareChanges, formatReference, getRepoConfig, resolveRepoConfig } from '../repo-config'
 
 // Mocked globally in `vitest.setup.ts`
@@ -184,5 +185,16 @@ describe('Given resolveRepoConfig', () => {
 
       expect(await resolveRepoConfig(root)).toBeUndefined()
     })
+
+    it('Then git writes nothing to the stderr of the user', () => {
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'a' }))
+      execSync('git init -q', { cwd: root })
+      const modulePath = join(process.cwd(), 'src/core/repo-config.ts')
+
+      const result = spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), ['--eval', `import(${JSON.stringify(modulePath)}).then(({ resolveRepoConfig }) => resolveRepoConfig(process.cwd()))`], { cwd: root, encoding: 'utf8' })
+
+      expect(result.status).toBe(0)
+      expect(result.stderr).not.toContain('No such remote')
+    }, 30_000)
   })
 })

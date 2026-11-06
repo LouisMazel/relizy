@@ -98,7 +98,8 @@ function readClosestPackageJson(cwd: string): { repository?: string | { url?: st
 }
 
 function getGitRemoteURL(cwd: string, remote = 'origin'): string {
-  return execSync(`git --work-tree="${cwd}" remote get-url "${remote}"`, { encoding: 'utf8', cwd }).trim()
+  // A repository without remote is expected: no `error: No such remote` on the stderr of the user
+  return execSync(`git --work-tree="${cwd}" remote get-url "${remote}"`, { encoding: 'utf8', cwd, stdio: ['ignore', 'pipe', 'ignore'] }).trim()
 }
 
 /**
