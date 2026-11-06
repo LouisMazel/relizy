@@ -226,7 +226,7 @@ describe('Given init command', () => {
 
       expect(result).toEqual(expect.objectContaining({ kept: true, written: false, workflow: { file: '.github/workflows/release.yml' } }))
       expect(read('relizy.config.ts')).toBe('export default {}')
-      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('keep     relizy.config.ts'), 'Changes')
+      expect(notes()).toContainEqual([expect.stringContaining('keep     relizy.config.ts'), 'Changes'])
       expect(readJson('package.json').scripts.release).toBe('relizy release')
     })
 
