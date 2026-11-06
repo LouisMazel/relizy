@@ -404,6 +404,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         await guardBeforePublish({ config, dryRun, guard: () => assertBranchUpToDateWithRemote({ cwd: config.cwd }) })
       }
       ui.skip({ title: 'Publish packages to registry', label: 'Publish', reason: '--no-publish' })
+
+      // A canary is never committed: its versions are restored, as after its publish
+      if (isCanary) {
+        await rollbackModifiedFiles({ config })
+      }
     }
     addStep('publish', Boolean(config.release.publish), publishResponse && describePublished(publishResponse.publishedPackages))
     if (publishResponse) {

@@ -110,7 +110,7 @@ relizy release --canary --yes
 
 The other steps run as usual: the safety checks, the check of uncommitted changes (`--no-clean` skips it), the bump confirmation (`--yes` in CI), the publish (`--no-publish` skips it) and the PR comment (`--no-pr-comment` skips it).
 
-The canary versions are written to the `package.json` files for the publish, then restored once the packages are published (or when the publish fails). With `--no-publish`, or with `relizy bump --canary`, the canary versions stay in the files.
+The canary versions are written to the `package.json` files for the publish, then restored once the packages are published, when the publish fails, or right away with `--no-publish`. With `relizy bump --canary`, the canary versions stay in the files.
 
 ### Version Format
 

@@ -229,6 +229,15 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(git('rev-list', '--count', 'HEAD')).toBe('3')
       expect(git('tag', '--points-at', 'HEAD')).toBe('')
     })
+
+    it('Then rolls back the versions without publishing either (--no-publish)', async () => {
+      await release({ canary: true, yes: true, publish: false })
+
+      expect(publishedPackages).toEqual([])
+      expect(readVersion('packages/components')).toBe('6.19.1')
+      expect(readVersion('shared/nav')).toBe('1.2.0')
+      expect(git('status', '--porcelain')).toBe('')
+    })
   })
 
   describe('When packages depend on packages of another group', () => {
