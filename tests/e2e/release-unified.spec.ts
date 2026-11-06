@@ -99,19 +99,6 @@ describe('Given unified mode release workflow', () => {
   })
 
   describe('When running full release workflow', () => {
-    it('Then executes all steps in correct order', async () => {
-      await release({})
-
-      const callOrder: string[] = []
-      vi.mocked(bump).mock.invocationCallOrder.forEach(() => callOrder.push('bump'))
-      vi.mocked(changelog).mock.invocationCallOrder.forEach(() => callOrder.push('changelog'))
-      vi.mocked(publish).mock.invocationCallOrder.forEach(() => callOrder.push('publish'))
-      vi.mocked(providerRelease).mock.invocationCallOrder.forEach(() => callOrder.push('providerRelease'))
-      vi.mocked(social).mock.invocationCallOrder.forEach(() => callOrder.push('social'))
-
-      expect(callOrder).toEqual(['bump', 'changelog', 'publish', 'providerRelease', 'social'])
-    })
-
     it('Then passes bumpResult to subsequent steps', async () => {
       const bumpResult = {
         newVersion: '1.0.0',

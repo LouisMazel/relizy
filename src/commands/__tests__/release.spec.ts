@@ -152,11 +152,10 @@ describe('Given release command', () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
       await release({})
 
-      expect(bump).toHaveBeenCalled()
-      expect(changelog).toHaveBeenCalled()
-      expect(publish).toHaveBeenCalled()
-      expect(providerRelease).toHaveBeenCalled()
-      expect(social).toHaveBeenCalled()
+      const callOrder = [bump, changelog, publish, providerRelease, social].map(step => vi.mocked(step).mock.invocationCallOrder[0])
+
+      expect(callOrder.every(Boolean)).toBe(true)
+      expect(callOrder).toEqual([...callOrder].sort((a, b) => a! - b!))
     })
 
     it('Then checks the social config when the release posts', async () => {
