@@ -36,6 +36,7 @@ Thank you for considering contributing to Relizy! We appreciate your interest in
     - [Types](#types)
     - [Examples](#examples)
     - [Git Hooks](#git-hooks)
+  - [Adding an AI Provider](#adding-an-ai-provider)
   - [Pull Request Process](#pull-request-process)
     - [Before Submitting](#before-submitting)
     - [Submitting the PR](#submitting-the-pr)
@@ -87,11 +88,11 @@ We welcome code contributions! Here's how to get started:
 
 Before you begin, ensure you have:
 
-- **Node.js** >= 20.0.0
-- **pnpm** (this project uses pnpm exclusively)
+- **Node.js** `^22.23.4 || ^24.22.1 || >=26.12.1` (the `engines` of `package.json`, `.nvmrc` for the version of the CI)
+- **pnpm**, the version of the `packageManager` field of `package.json`, through corepack (Node 25+ no longer ships it):
 
   ```bash
-  npm install -g pnpm
+  npm install -g corepack && corepack enable
   ```
 
 - **Git** installed and configured
@@ -136,7 +137,7 @@ pnpm typecheck
 #### Testing Commands
 
 ```bash
-# Run unit tests
+# Run unit tests (generates the docs bundle of the MCP server, agent-docs/, first)
 pnpm test:unit
 
 # Run tests in watch mode
@@ -144,6 +145,9 @@ pnpm test:unit:watch
 
 # Run tests with coverage report
 pnpm test:unit:coverage
+
+# Run a single spec file
+pnpm vitest run src/core/__tests__/version.spec.ts
 ```
 
 #### Linting Commands
@@ -159,7 +163,7 @@ pnpm lint:fix
 #### Testing the CLI Locally
 
 ```bash
-# Run the CLI during development
+# Run the CLI from the sources (tsx src/cli.ts)
 pnpm relizy <command> [options]
 # or
 pnpm rly <command> [options]
@@ -180,37 +184,44 @@ Understanding the project structure will help you navigate the codebase:
 relizy/
 ├── src/
 │   ├── cli.ts                  # CLI entry point with Commander.js
-│   ├── types.ts                # TypeScript type definitions
-│   ├── commands/               # CLI command implementations
-│   │   ├── bump.ts             # Version bumping logic
-│   │   ├── changelog.ts        # Changelog generation
-│   │   ├── provider-release.ts # GitHub/GitLab release creation
-│   │   ├── publish.ts          # NPM publishing
-│   │   ├── release.ts          # Complete release workflow
-│   │   └── social.ts           # Social media posting
-│   └── core/                   # Core business logic
+│   ├── index.ts                # Public API (an explicit list, see src/__tests__/index.spec.ts)
+│   ├── types.ts                # Types of the config, the options and the results
+│   ├── commands/               # One file per command
+│   │   ├── bump.ts             # Versions
+│   │   ├── changelog.ts        # Changelogs
+│   │   ├── commitlint.ts       # Commit message linter
+│   │   ├── init.ts             # relizy init (config, CI workflow, AI agents)
+│   │   ├── pr-comment.ts       # Comment of the pull request
+│   │   ├── provider-release.ts # GitHub/GitLab releases
+│   │   ├── publish.ts          # npm publishing
+│   │   ├── release.ts          # The whole release
+│   │   └── social.ts           # Twitter (X) and Slack posts
+│   ├── core/                   # Logic of the commands (git, tags, versions, npm, AI, commitlint...)
+│   ├── mcp/                    # MCP server for the AI agents (relizy mcp)
+│   └── **/__tests__/           # Specs, *.git.spec.ts on real git repositories
+├── agent-docs/                 # Docs bundle of the MCP server, generated (gitignored, published)
 ├── bin/
 │   └── relizy.mjs              # CLI executable entry point
+├── scripts/                    # Generation of agent-docs, AI evaluations, peer dependency check
 ├── .github/                    # GitHub templates and workflows
 ├── docs/                       # VitePress documentation
-└── tests/                      # Test files
+└── tests/                      # Shared mocks and e2e specs
 ```
 
 ### Key Files to Know
 
 - **`src/cli.ts`**: CLI argument parsing and command routing
-- **`src/core/version.ts`**: Core versioning logic (covered by tests)
-- **`src/core/config.ts`**: Default configuration and config loading
-- **`src/types.ts`**: All TypeScript interfaces and types
-- **`vitest.config.ts`**: Test configuration
+- **`src/core/version.ts`**: Semver logic of the bumps
+- **`src/core/config.ts`**: Default configuration (`getDefaultConfig()`) and config loading
+- **`src/types.ts`**: All the types, with the JSDoc read by the API reference and the MCP server
+- **`CLAUDE.md`**: Architecture of the codebase
+- **`vitest.config.ts`**: Test configuration and coverage thresholds
 
 ## Testing
 
 ### Unit Tests
 
-Tests are written using [Vitest](https://vitest.dev/).
-
-Currently, unit tests focus on `src/core/version.ts` (see `vitest.config.ts`).
+Tests are written using [Vitest](https://vitest.dev/), next to the code in `src/**/__tests__/`. The coverage covers `src/`, with the thresholds of `vitest.config.ts`. The specs named `*.git.spec.ts` run on real git repositories, created in a temporary directory.
 
 ```bash
 # Run all tests
@@ -227,10 +238,12 @@ pnpm test:unit:coverage
 
 When adding new functionality:
 
-1. Add tests in `/__tests__/` directory
-2. Follow the existing test patterns
+1. Add tests in the `__tests__/` directory of the module, with the `Given / When / Then` names of the existing specs
+2. For a fix, write a test that fails without it
 3. Ensure tests are deterministic and isolated
 4. Aim for meaningful coverage, not just high percentages
+
+The docs are checked too, by `src/mcp/__tests__/knowledge.spec.ts`: it fails when a page cited by the code or the MCP server is renamed, when a CLI flag or a config option is missing from its page, or when a documented default differs from `getDefaultConfig()`. The links between the pages of the docs are relative (`./../config/bump.md`).
 
 **Example test:**
 
@@ -303,39 +316,66 @@ This project follows [Conventional Commits](https://www.conventionalcommits.org/
 
 ### Types
 
-- **feat**: New feature
-- **fix**: Bug fix
-- **docs**: Documentation changes
-- **chore**: Maintenance tasks
-- **refactor**: Code refactoring
-- **test**: Adding or updating tests
-- **perf**: Performance improvements
-- **ci**: CI/CD changes
-- **build**: Build system changes
+The `types` of `relizy.config.ts`:
+
+- **feat**: New feature (minor bump)
+- **fix**, **perf**, **refactor**, **types**, **style**, **build**: patch bump
+- **docs**, **test**: in the changelog, without bump
+- **chore**, **examples**, **ci**: neither bump nor changelog
+
+A commit has no scope, except `docs`, `release` and `deps` (`commitlint.scopes` of `relizy.config.ts`). The body of a commit can end up in the changelog: write it for the users of relizy.
 
 ### Examples
 
 ```bash
-feat(bump): add support for custom suffix in prerelease versions
-fix(publish): handle 2FA OTP prompt correctly
-docs(readme): update installation instructions
-refactor(git): extract tag resolution logic
-test(version): add tests for semver calculations
+feat: add support for custom suffix in prerelease versions
+fix: handle the 2FA OTP prompt of npm
+docs: update the installation instructions
+refactor: extract the tag resolution logic
+build(deps): upgrade commander to v15
 ```
 
 ### Git Hooks
 
-Pre-commit hooks are set up with Husky and lint-staged:
+The git hooks are set up with Husky:
 
-- Lints staged files before commit
-- Runs type-checking
-- Validates commit message format
+- `pre-commit` runs lint-staged: `eslint --fix` on the staged files
+- `commit-msg` runs `pnpm relizy commitlint --edit "$1"`: the commit message is linted with the rules of relizy itself
+
+The `no-ai-attribution` rule rejects the commits crediting an AI tool (an AI `Co-authored-by:` trailer, a "Generated with" line): turn off the attribution in the settings of your AI tools.
 
 If your commit is rejected:
 
 1. Fix linting issues: `pnpm lint:fix`
-2. Fix type errors: `pnpm typecheck`
-3. Follow commit message format
+2. Follow the problems and the fix printed by commitlint
+
+The hooks do not run the type-checking: run `pnpm typecheck` before opening the pull request.
+
+## Adding an AI Provider
+
+The AI rewrites go through a small registry of providers behind one interface (`src/core/ai/`), today `claude-code` and `ai-sdk`. To add one:
+
+1. Implement `AIProvider` (`src/core/ai/provider.ts`) in `src/core/ai/providers/my-provider.ts`:
+
+   ```ts
+   import type { AIProvider } from '../provider'
+
+   export const myProvider: AIProvider = {
+     name: 'my-provider',
+     async safetyCheck(config) {
+       // Throw an actionable error when the auth or a dependency is missing
+     },
+     async generate(config, request) {
+       // Call the model with request.systemPrompt and request.prompt (and request.context),
+       // and return { text, usage? }
+     },
+   }
+   ```
+
+2. Register it in `src/core/ai/registry.ts`, in the `providers` map.
+3. Add its name to `AIProviderName` and its options to `AIConfig.providers` in `src/types.ts`, then document them in `docs/src/config/ai.md` (`knowledge.spec.ts` checks it).
+
+The prompts, the fallbacks and the call sites need no change.
 
 ## Pull Request Process
 
