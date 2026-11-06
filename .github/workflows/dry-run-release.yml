@@ -25,4 +25,4 @@ jobs:
           RELIZY_TWITTER_API_KEY_SECRET: test
           RELIZY_TWITTER_ACCESS_TOKEN: test
           RELIZY_TWITTER_ACCESS_TOKEN_SECRET: test
-        run: pnpm relizy release --yes --dry-run --log-level debug --no-ai
+        run: pnpm relizy release --yes --dry-run --log-level debug
