@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, getPackagesToPublishInIndependentMode, getPackagesToPublishInSelectiveMode, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -139,14 +139,12 @@ async function getPackagesToPublish({
   suffix,
   force,
   dryRun,
-  rootVersion,
 }: {
   config: ResolvedRelizyConfig
   bumpResult: BumpResultTruthy | undefined
   suffix: string | undefined
   force: boolean
   dryRun: boolean
-  rootVersion: string
 }): Promise<PackagesToPublish> {
   const discoveredPackages = await getPackagesOrBumpedPackages({
     config,
@@ -167,28 +165,7 @@ async function getPackagesToPublish({
   logger.debug('Building dependency graph and sorting...')
   const sortedPackages = sortPackagesForPublish(packages)
 
-  let publishedPackages: PackageBase[] = packages || []
-
-  if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'independent') {
-    logger.debug('Determining packages to publish in independent mode...')
-
-    publishedPackages = await getPackagesToPublishInIndependentMode(sortedPackages, config)
-
-    logger.info(`Publishing ${publishedPackages.length} package(s) (independent mode)`)
-    logger.debug(`Packages: ${publishedPackages.join(', ')}`)
-  }
-  else if (publishedPackages.length === 0 && config.monorepo?.versionMode === 'selective') {
-    logger.debug('Determining packages to publish in selective mode...')
-    publishedPackages = getPackagesToPublishInSelectiveMode(sortedPackages, rootVersion)
-    logger.info(`Publishing ${publishedPackages.length} package(s) matching root version (selective mode)`)
-    logger.debug(`Packages: ${publishedPackages.join(', ')}`)
-  }
-  else if (publishedPackages.length === 0) {
-    publishedPackages = sortedPackages
-    logger.info(`Publishing ${publishedPackages.length} package(s) (unified mode)`)
-  }
-
-  return { sortedPackages, publishedPackages }
+  return { sortedPackages, publishedPackages: packages }
 }
 
 /**
@@ -199,12 +176,10 @@ async function getGroupsPackagesToPublish({
   config,
   options,
   dryRun,
-  rootVersion,
 }: {
   config: ResolvedRelizyConfig
   options: Partial<PublishOptions>
   dryRun: boolean
-  rootVersion: string
 }): Promise<PackagesToPublish> {
   const publishedPackages: PackageBase[] = []
 
@@ -222,7 +197,6 @@ async function getGroupsPackagesToPublish({
       suffix: options.suffix,
       force: options.force ?? false,
       dryRun,
-      rootVersion: groupBumpResult?.newVersion ?? rootVersion,
     })
 
     logger.info(`Version group "${group.name}": ${groupPackages.length} package(s) to publish`)
@@ -382,9 +356,7 @@ async function getCheckedPackagesToPublish({ config, options, dryRun }: {
   options: Partial<PublishOptions>
   dryRun: boolean
 }): Promise<{ toPublish: PackageBase[], publishedPackages: PackageBase[] }> {
-  const rootPackage = readPackageJson(config.cwd)
-
-  if (!rootPackage) {
+  if (!readPackageJson(config.cwd)) {
     throw new Error('Failed to read root package.json')
   }
 
@@ -393,14 +365,13 @@ async function getCheckedPackagesToPublish({ config, options, dryRun }: {
   assertVersionGroupsOption({ config, groups: options.groups })
 
   const { sortedPackages, publishedPackages } = hasVersionGroups(config)
-    ? await getGroupsPackagesToPublish({ config, options, dryRun, rootVersion: rootPackage.version })
+    ? await getGroupsPackagesToPublish({ config, options, dryRun })
     : await getPackagesToPublish({
         config,
         bumpResult: options.bumpResult,
         suffix: options.suffix,
         force: options.force ?? false,
         dryRun,
-        rootVersion: rootPackage.version,
       })
 
   if (publishedPackages.length === 0) {

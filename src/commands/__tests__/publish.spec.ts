@@ -2,7 +2,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, getPackagesToPublishInSelectiveMode, loadRelizyConfig, publishPackage, readPackageJson, readPackages, topologicalSort } from '../../core'
+import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, loadRelizyConfig, publishPackage, readPackageJson, readPackages, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -25,8 +25,6 @@ vi.mock('../../core/npm', async (importActual) => {
   return {
     ...actual,
     publishPackage: vi.fn(),
-    getPackagesToPublishInSelectiveMode: vi.fn().mockReturnValue([]),
-    getPackagesToPublishInIndependentMode: vi.fn().mockReturnValue([]),
   }
 })
 vi.mock('../../core/dependencies', async (importActual) => {
@@ -318,7 +316,7 @@ describe('Given publish command', () => {
     })
 
     it('Then executes success hook', async () => {
-      vi.mocked(getPackagesToPublishInSelectiveMode).mockReturnValue([
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
         createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
       ])
@@ -497,7 +495,6 @@ describe('Given the output of publish in CI', () => {
 
   it('Then tells when there is nothing to publish', async () => {
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(getPackagesToPublishInSelectiveMode).mockReturnValue([])
 
     await publish({})
 

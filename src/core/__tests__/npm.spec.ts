@@ -13,8 +13,6 @@ import {
   determinePublishTag,
   getAuthCommand,
   getNpmRegistry,
-  getPackagesToPublishInIndependentMode,
-  getPackagesToPublishInSelectiveMode,
   isVersionAlreadyPublishedError,
   isVersionPublished,
   publishPackage,
@@ -23,7 +21,7 @@ import {
   withRegistryNpmrc,
 } from '../npm'
 import { askText } from '../prompts'
-import { getIndependentTag, resolveTags } from '../tags'
+import { getIndependentTag } from '../tags'
 import { isInCI } from '../utils'
 import { isPrerelease } from '../version'
 
@@ -264,181 +262,6 @@ describe('Given determinePublishTag function', () => {
       const result = determinePublishTag('1.0.0-beta.1', 'latest')
 
       expect(result).toBe('latest')
-    })
-  })
-})
-
-describe('Given getPackagesToPublishInSelectiveMode function', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(join).mockImplementation((...args) => args.join('/'))
-  })
-
-  describe('When filtering by root version', () => {
-    it('Then returns packages matching root version', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '1.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', path: '/packages/b', version: '1.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-c', path: '/packages/c', version: '0.9.0' },
-      ]
-      vi.mocked(readFileSync)
-        .mockReturnValueOnce(JSON.stringify({ version: '1.0.0' }))
-        .mockReturnValueOnce(JSON.stringify({ version: '1.0.0' }))
-        .mockReturnValueOnce(JSON.stringify({ version: '0.9.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '1.0.0')
-
-      expect(result).toHaveLength(2)
-      expect(result.map(p => p.name)).toEqual(['pkg-a', 'pkg-b'])
-    })
-
-    it('Then returns empty array when no packages match', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '0.9.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '0.9.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '1.0.0')
-
-      expect(result).toHaveLength(0)
-    })
-
-    it('Then handles all packages matching', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '2.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', path: '/packages/b', version: '2.0.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '2.0.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '2.0.0')
-
-      expect(result).toHaveLength(2)
-    })
-  })
-
-  describe('When root version is undefined', () => {
-    it('Then returns empty array', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '1.0.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '1.0.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, undefined)
-
-      expect(result).toHaveLength(0)
-    })
-  })
-})
-
-describe('Given getPackagesToPublishInIndependentMode function', () => {
-  let config: ResolvedRelizyConfig
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
-    vi.mocked(resolveTags).mockResolvedValue({ from: 'v1.0.0', to: 'v1.1.0' })
-  })
-
-  describe('When filtering packages with commits', () => {
-    it('Then returns packages with commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [{ message: 'commit 1' } as any],
-        },
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-b',
-          path: '/packages/b',
-          version: '1.0.0',
-          commits: [],
-        },
-      ]
-
-      const result = await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('pkg-a')
-    })
-
-    it('Then excludes packages without commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [],
-        },
-      ]
-
-      const result = await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(result).toHaveLength(0)
-    })
-
-    it('Then uses newVersion when available', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          newVersion: '1.1.0',
-          commits: [{ message: 'commit' } as any],
-        },
-      ]
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(resolveTags).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newVersion: '1.1.0',
-        }),
-      )
-    })
-
-    it('Then falls back to version when no newVersion', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          newVersion: undefined,
-          commits: [{ message: 'commit' } as any],
-        },
-      ]
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(resolveTags).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newVersion: '1.0.0',
-        }),
-      )
-    })
-
-    it('Then logs debug info for packages with commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [{ message: 'c1' } as any, { message: 'c2' } as any],
-        },
-      ]
-      const loggerSpy = vi.spyOn(logger, 'debug')
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('pkg-a: 2 commit(s)'),
-      )
     })
   })
 })

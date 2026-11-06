@@ -8,7 +8,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import micromatch from 'micromatch'
 import { isRelizyCancelError } from './errors'
 import { askText, assertInteractivePrompt } from './prompts'
-import { getIndependentTag, resolveTags } from './tags'
+import { getIndependentTag } from './tags'
 import { isInCI } from './utils'
 import { isPrerelease } from './version'
 
@@ -115,47 +115,6 @@ export function determinePublishTag(version: string, configTag?: string): string
   }
 
   return tag
-}
-
-export function getPackagesToPublishInSelectiveMode(
-  sortedPackages: PackageBase[],
-  rootVersion: string | undefined,
-): PackageBase[] {
-  const packagesToPublish: PackageBase[] = []
-
-  for (const pkg of sortedPackages) {
-    const pkgJsonPath = join(pkg.path, 'package.json')
-    const pkgJson = JSON.parse(readFileSync(pkgJsonPath, 'utf-8'))
-
-    if (pkgJson.version === rootVersion) {
-      packagesToPublish.push(pkg)
-    }
-  }
-
-  return packagesToPublish
-}
-
-export async function getPackagesToPublishInIndependentMode(
-  sortedPackages: PackageBase[],
-  config: ResolvedRelizyConfig,
-): Promise<PackageBase[]> {
-  const packagesToPublish: PackageBase[] = []
-
-  for (const pkg of sortedPackages) {
-    const { from, to } = await resolveTags<'publish'>({
-      config,
-      step: 'publish',
-      pkg,
-      newVersion: pkg.newVersion || pkg.version,
-    })
-
-    if (pkg.commits.length > 0) {
-      packagesToPublish.push(pkg)
-      logger.debug(`${pkg.name}: ${pkg.commits.length} commit(s) since ${from} → ${to}`)
-    }
-  }
-
-  return packagesToPublish
 }
 
 function isYarnBerry(cwd: string) {
