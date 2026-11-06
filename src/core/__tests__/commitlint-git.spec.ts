@@ -1,8 +1,10 @@
+import type { GitRepository } from '../../../tests/git-repository'
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { createGitRepository } from '../../../tests/git-repository'
 import {
   assertRefAvailable,
   getCommentChar,
@@ -18,6 +20,7 @@ import {
 vi.mock('@maz-ui/node', importActual => importActual())
 
 describe('Given the commitlint git helpers on a real repository', () => {
+  let repository: GitRepository
   let cwd: string
   let clock = 0
 
@@ -53,12 +56,8 @@ describe('Given the commitlint git helpers on a real repository', () => {
 
   beforeEach(() => {
     // Real path: git resolves the symbolic links of the temporary directory (e.g. /var on macOS)
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-git-')))
-    git('init', '--initial-branch=main')
-    git('config', 'user.name', 'Test')
-    git('config', 'user.email', 'test@example.com')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-commitlint-git-')
+    cwd = repository.cwd
     // The CI running these tests may itself be a pull request
     for (const name of ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA']) {
       vi.stubEnv(name, '')
@@ -66,7 +65,7 @@ describe('Given the commitlint git helpers on a real repository', () => {
   })
 
   afterEach(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
     shallowClones.splice(0).forEach(shallow => rmSync(shallow, { recursive: true, force: true }))
     vi.unstubAllEnvs()
   })

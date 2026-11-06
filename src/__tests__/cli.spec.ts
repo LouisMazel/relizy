@@ -1,37 +1,31 @@
-import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import type { GitRepository } from '../../tests/git-repository'
+import { spawnSync } from 'node:child_process'
 import { join } from 'node:path'
 import process from 'node:process'
+import { createGitRepository } from '../../tests/git-repository'
 
 /** The variables that would give relizy a token, or the output of a CI */
 const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITLAB_CI|FORCE_COLOR|NO_COLOR)$|TOKEN|TWITTER|SLACK/
 
 describe('Given the relizy CLI', () => {
+  let repository: GitRepository
   let cwd: string
 
   beforeAll(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-cli-')))
-    const git = (...args: string[]) => execFileSync('git', args, { cwd, stdio: 'ignore' })
+    repository = createGitRepository('relizy-cli-')
+    cwd = repository.cwd
 
-    git('init', '--initial-branch=main')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
-    git('remote', 'add', 'origin', 'https://github.com/acme/app.git')
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'app', version: '1.0.0' }))
-    writeFileSync(join(cwd, 'relizy.config.json'), JSON.stringify({ logLevel: 'silent', social: { twitter: { enabled: true } } }))
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', 'chore: init')
-    git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
-    writeFileSync(join(cwd, 'parser.js'), 'export {}\n')
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', 'feat: add the parser')
+    repository.git('remote', 'add', 'origin', 'https://github.com/acme/app.git')
+    repository.commit('chore: init', {
+      'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
+      'relizy.config.json': JSON.stringify({ logLevel: 'silent', social: { twitter: { enabled: true } } }),
+    })
+    repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
+    repository.commit('feat: add the parser', { 'parser.js': 'export {}\n' })
   })
 
   afterAll(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
   })
 
   function run(...args: string[]) {

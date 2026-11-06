@@ -1,4 +1,4 @@
-import type { TestRepository } from './helpers'
+import type { GitRepository } from '../../../tests/git-repository'
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -21,15 +21,15 @@ const BASE_CONFIG = `logLevel: 'silent', safetyCheck: false, noAuthors: true,
   // Never run by the MCP server
   hooks: { 'before:bump': 'touch hooked', 'generate:changelog': () => { throw new Error('hook ran') } },`
 
-function snapshot(repository: TestRepository) {
+function snapshot(repository: GitRepository) {
   return { status: repository.git('status', '--porcelain'), tags: repository.git('tag'), head: repository.git('rev-parse', 'HEAD') }
 }
 
-function createStandalone(): TestRepository {
+function createStandalone(): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'standalone', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} tokens: { registry: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} tokens: { registry: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
   repository.commit('feat: add the export command', { 'export.js': 'export {}' })
@@ -39,14 +39,14 @@ function createStandalone(): TestRepository {
   return repository
 }
 
-function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): TestRepository {
+function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '2.0.0', private: true })
   repository.writeJson('packages/core', { name: '@scope/core', version: '2.0.0' })
   repository.writeJson('packages/ui', { name: '@scope/ui', version: '2.0.0', dependencies: { '@scope/core': 'workspace:^' } })
   repository.writeJson('packages/docs', { name: '@scope/docs', version: '2.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v2.0.0', '-m', 'v2.0.0')
 
@@ -59,14 +59,14 @@ function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): T
   return repository
 }
 
-function createGroups(): TestRepository {
+function createGroups(): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '6.19.1', private: true })
   repository.writeJson('packages/components', { name: '@scope/components', version: '6.19.1' })
   repository.writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:*' } })
   repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG}
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG}
   monorepo: { groups: [
     { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
     { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
@@ -87,7 +87,7 @@ afterAll(() => {
 })
 
 describe('Given preview_release on a standalone package', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createStandalone()
@@ -271,13 +271,13 @@ describe('Given preview_release on a monorepo', () => {
   })
 })
 
-function createMovedPackage({ movedPackages }: { movedPackages?: Record<string, string> } = {}): TestRepository {
+function createMovedPackage({ movedPackages }: { movedPackages?: Record<string, string> } = {}): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '1.0.0', private: true })
   repository.writeJson('packages/components', { name: '@scope/components', version: '1.0.0' })
   repository.writeJson('packages/icons', { name: '@scope/icons', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: ${JSON.stringify(movedPackages ?? {})} } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: ${JSON.stringify(movedPackages ?? {})} } }\n`)
   repository.commit('chore: init', { 'packages/components/button.js': 'export const button = 1\n' })
 
   for (const name of ['components', 'icons']) {
@@ -346,7 +346,7 @@ describe('Given preview_release on a monorepo whose package moved', () => {
   })
 
   describe('When git cannot see the move (package.json rewritten)', () => {
-    function rewriteAndMove(repository: TestRepository) {
+    function rewriteAndMove(repository: GitRepository) {
       repository.git('mv', 'packages/components', 'packages/ui')
       repository.writeJson('packages/ui', {
         name: '@scope/components',
@@ -380,7 +380,7 @@ describe('Given preview_release on a monorepo whose package moved', () => {
 })
 
 describe('Given preview_release with version groups', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createGroups()
@@ -437,7 +437,7 @@ describe('Given preview_release with a package depending on a package of another
 })
 
 describe('Given lint_commit', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createMonorepo('selective')

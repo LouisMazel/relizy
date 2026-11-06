@@ -1,29 +1,27 @@
-import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import type { GitRepository } from '../../../tests/git-repository'
+import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
+import { createGitRepository } from '../../../tests/git-repository'
 import { bump } from '../bump'
 
 vi.mock('@maz-ui/node', importActual => importActual())
 
 describe('Given a canary bump on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let initialCwd: string
 
   function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+    return repository.git(...args)
   }
 
   function writeJson(dir: string, content: Record<string, unknown>) {
-    mkdirSync(join(cwd, dir), { recursive: true })
-    writeFileSync(join(cwd, dir, 'package.json'), `${JSON.stringify(content, null, 2)}\n`)
+    repository.writeJson(dir, content)
   }
 
   function commit(message: string, file: string) {
-    writeFileSync(join(cwd, file), `${message}\n`)
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', message)
+    repository.commit(message, { [file]: `${message}\n` })
   }
 
   function init(config: string) {
@@ -34,18 +32,14 @@ describe('Given a canary bump on a real git repository', () => {
 
   beforeEach(() => {
     initialCwd = process.cwd()
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-canary-')))
-    git('init', '--initial-branch=main')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-canary-')
+    cwd = repository.cwd
     process.chdir(cwd)
   })
 
   afterEach(() => {
     process.chdir(initialCwd)
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
   })
 
   describe('When a 0.x package has a breaking change', () => {

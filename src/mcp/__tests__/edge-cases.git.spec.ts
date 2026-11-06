@@ -36,7 +36,7 @@ function createApp(config: string) {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'app', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { logLevel: 'silent', ${config} }\n`)
+  repository.write('relizy.config.mjs', `export default { logLevel: 'silent', ${config} }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
 
@@ -86,11 +86,11 @@ describe('Given get_project with relizy rules in the project', () => {
     it('Then it asks to run relizy mcp init, and says nothing once up to date', async () => {
       const repository = createApp('')
 
-      repository.writeFile('.claude/rules/relizy.md', '<!-- Managed by relizy 0.1.0 (sha256:abc): x -->\n\n# relizy\n')
+      repository.write('.claude/rules/relizy.md', '<!-- Managed by relizy 0.1.0 (sha256:abc): x -->\n\n# relizy\n')
 
       expect(await getProject(createTestContext(repository.cwd), {})).toContain('`.claude/rules/relizy.md` holds the rules of relizy 0.1.0: ask the user to run `relizy mcp init`')
 
-      repository.writeFile('.claude/rules/relizy.md', `<!-- Managed by relizy ${readOwnVersion()} (sha256:abc): x -->\n\n# relizy\n`)
+      repository.write('.claude/rules/relizy.md', `<!-- Managed by relizy ${readOwnVersion()} (sha256:abc): x -->\n\n# relizy\n`)
 
       const text = await getProject(createTestContext(repository.cwd), {})
 
@@ -136,7 +136,7 @@ describe('Given preview_release with every step of the release turned off', () =
       const repository = createRepository()
       repository.writeJson('.', { name: 'mono', version: '0.0.0', private: true })
       repository.writeJson('packages/a', { name: 'a', version: '1.0.0' })
-      repository.writeFile('relizy.config.mjs', `export default { logLevel: 'silent', monorepo: { versionMode: 'independent', packages: ['packages/*'] } }\n`)
+      repository.write('relizy.config.mjs', `export default { logLevel: 'silent', monorepo: { versionMode: 'independent', packages: ['packages/*'] } }\n`)
       repository.commit('chore: init')
       repository.git('tag', '-a', 'a@1.0.0', '-m', 'a@1.0.0')
 

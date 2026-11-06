@@ -1,10 +1,10 @@
+import type { GitRepository } from '../../../tests/git-repository'
 import type { PackageBase } from '../../types'
-import { execFileSync } from 'node:child_process'
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { createGitRepository } from '../../../tests/git-repository'
 import { setInteractiveTerminal } from '../../../tests/mocks'
 import { loadRelizyConfig, RelizyCancelError } from '../../core'
 import { isVersionPublished, publishPackage } from '../../core/npm'
@@ -34,6 +34,7 @@ vi.mock('../../core/npm', async (importActual) => {
  * dependencies on the packages of the first one.
  */
 describe('Given a release with version groups on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let initialCwd: string
   /**
@@ -42,12 +43,11 @@ describe('Given a release with version groups on a real git repository', () => {
   let publishedPackages: { name: string, version: string, componentsVersionOnDisk: string, dryRun: boolean }[]
 
   function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+    return repository.git(...args)
   }
 
   function writeJson(path: string, content: Record<string, unknown>) {
-    mkdirSync(join(cwd, path), { recursive: true })
-    writeFileSync(join(cwd, path, 'package.json'), `${JSON.stringify(content, null, 2)}\n`)
+    repository.writeJson(path, content)
   }
 
   function readVersion(path: string): string {
@@ -55,9 +55,7 @@ describe('Given a release with version groups on a real git repository', () => {
   }
 
   function commitFile(path: string, message: string) {
-    writeFileSync(join(cwd, path), `${message}\n`)
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', message)
+    repository.commit(message, { [path]: `${message}\n` })
   }
 
   function writeConfig({ headerOptions = '', options = '' }: { headerOptions?: string, options?: string } = {}) {
@@ -81,13 +79,8 @@ describe('Given a release with version groups on a real git repository', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     initialCwd = process.cwd()
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-release-groups-')))
-
-    git('init', '--initial-branch=main')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-release-groups-')
+    cwd = repository.cwd
 
     writeJson('.', { name: 'monorepo', version: '6.19.1', private: true })
     writeJson('packages/components', { name: '@scope/components', version: '6.19.1' })
@@ -128,7 +121,7 @@ describe('Given a release with version groups on a real git repository', () => {
 
   afterEach(() => {
     process.chdir(initialCwd)
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
   })
 
   describe('When releasing stable versions', () => {

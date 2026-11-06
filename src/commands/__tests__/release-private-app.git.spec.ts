@@ -1,9 +1,9 @@
-import { execFileSync } from 'node:child_process'
-import { mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import type { GitRepository } from '../../../tests/git-repository'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { execPromise } from '@maz-ui/node'
+import { createGitRepository } from '../../../tests/git-repository'
 import { publishPackage } from '../../core/npm'
 import { release } from '../release'
 
@@ -25,29 +25,23 @@ vi.mock('../../core/npm', async (importActual) => {
  * versioned like a library, never published.
  */
 describe('Given the release of a private app on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let initialCwd: string
 
   function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
+    return repository.git(...args)
   }
 
   function commitFile(path: string, message: string) {
-    writeFileSync(join(cwd, path), `${message}\n`)
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', message)
+    repository.commit(message, { [path]: `${message}\n` })
   }
 
   beforeEach(() => {
     vi.clearAllMocks()
     initialCwd = process.cwd()
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-private-app-')))
-
-    git('init', '--initial-branch=main')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-private-app-')
+    cwd = repository.cwd
 
     writeFileSync(join(cwd, 'package.json'), `${JSON.stringify({ name: 'app', version: '1.0.0', private: true }, null, 2)}\n`)
     // `release.publish` stays on: the private app is still never published
@@ -69,7 +63,7 @@ describe('Given the release of a private app on a real git repository', () => {
 
   afterEach(() => {
     process.chdir(initialCwd)
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
   })
 
   describe('When it is released', () => {

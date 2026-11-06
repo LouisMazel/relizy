@@ -54,7 +54,7 @@ describe('Given relizy mcp started on stdio', () => {
     it('Then stdout only carries the protocol, without banner nor log, and the repository is untouched', async () => {
       const repository = createRepository()
       repository.writeJson('.', { name: 'app', version: '1.0.0' })
-      repository.writeFile('relizy.config.mjs', `export default { hooks: { 'before:bump': 'touch hooked' } }\n`)
+      repository.write('relizy.config.mjs', `export default { hooks: { 'before:bump': 'touch hooked' } }\n`)
       repository.commit('chore: init')
       repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
       repository.commit('feat: add the export', { 'export.js': 'export {}' })
