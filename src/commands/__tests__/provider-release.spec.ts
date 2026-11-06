@@ -78,6 +78,18 @@ describe('Given providerRelease command', () => {
 
       expect(gitlab).toHaveBeenCalled()
     })
+
+    it('Then uses the provider of the repo config without --provider', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false })
+      config.repo = { provider: 'gitlab', domain: 'gitlab.example.com', repo: 'team/app' }
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      const result = await providerRelease({})
+
+      expect(gitlab).toHaveBeenCalled()
+      expect(github).not.toHaveBeenCalled()
+      expect(result.detectedProvider).toBe('gitlab')
+    })
   })
 
   describe('When in dry-run mode', () => {
@@ -106,15 +118,17 @@ describe('Given providerRelease command', () => {
     })
   })
 
-  describe('When provider is not supported', () => {
-    it('Then returns error', async () => {
+  describe('When the provider is Bitbucket, without releases API', () => {
+    it('Then creates no release, without error', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = { provider: 'bitbucket' as any, domain: 'bitbucket.org', repo: 'user/repo' }
+      config.repo = { provider: 'bitbucket', domain: 'bitbucket.org', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       const result = await providerRelease({})
 
-      expect(result.error).toBeDefined()
+      expect(result).toEqual({ detectedProvider: 'bitbucket', postedReleases: [] })
+      expect(github).not.toHaveBeenCalled()
+      expect(gitlab).not.toHaveBeenCalled()
     })
   })
 })

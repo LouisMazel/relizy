@@ -194,7 +194,7 @@ async function runProviderRelease(
       done: describeProviderReleaseResult,
       failed: result => Boolean(result.error),
       run: async (): Promise<ProviderReleaseResult> => {
-        detectedProvider = options.provider || detectGitProvider(config.cwd)
+        detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
         reportProgress('Checking the release')
         await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
 
@@ -208,7 +208,7 @@ async function runProviderRelease(
         }
         else {
           logger.info(
-            options.provider ? `Using Git provider: ${options.provider}` : `Detected Git provider: ${detectedProvider}`,
+            options.provider || config.repo?.provider ? `Using Git provider: ${detectedProvider}` : `Detected Git provider: ${detectedProvider}`,
           )
         }
 
