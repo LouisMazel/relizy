@@ -137,6 +137,38 @@ const apiSidebar = [
   },
 ]
 
+// The section of a page in its breadcrumbs links to the first page of the section: /guide, /config... do not exist
+const breadcrumbSections: Record<string, { name: string, link: string }> = {
+  guide: { name: 'Guide', link: guideSidebar[0]!.items[0]!.link },
+  config: { name: 'Config', link: configSidebar[0]!.items[0]!.link },
+  cli: { name: 'CLI', link: cliSidebar[0]!.items[0]!.link },
+  commitlint: { name: 'Commitlint', link: commitlintSidebar[0]!.items[0]!.link },
+  api: { name: 'API', link: apiSidebar[0]!.items[0]!.link },
+}
+
+function getBreadcrumbList(url: string, title: string): HeadConfig {
+  const path = url.slice(SITE_URL.length)
+  const section = breadcrumbSections[path.split('/')[1]!]
+  const breadcrumbs = [{ name: 'Home', url: SITE_URL }]
+
+  if (section && section.link !== path) {
+    breadcrumbs.push({ name: section.name, url: `${SITE_URL}${section.link}` })
+  }
+
+  breadcrumbs.push({ name: title, url })
+
+  return ['script', { type: 'application/ld+json' }, JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': breadcrumbs.map((crumb, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'name': crumb.name,
+      'item': crumb.url,
+    })),
+  })]
+}
+
 export default defineConfig({
   srcDir: 'src',
   lang: 'en-US',
@@ -289,25 +321,7 @@ export default defineConfig({
 
     // Add JSON-LD BreadcrumbList for article pages
     if (isArticle) {
-      const parts = slug.split('/')
-      const breadcrumbs = [
-        { name: 'Home', url: SITE_URL },
-        ...parts.map((part, i) => ({
-          name: part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
-          url: `${SITE_URL}/${parts.slice(0, i + 1).join('/')}`,
-        })),
-      ]
-
-      pageHead.push(['script', { type: 'application/ld+json' }, JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        'itemListElement': breadcrumbs.map((crumb, i) => ({
-          '@type': 'ListItem',
-          'position': i + 1,
-          'name': crumb.name,
-          'item': crumb.url,
-        })),
-      })])
+      pageHead.push(getBreadcrumbList(currentUrl, pageData.title))
     }
 
     return [...head, ...pageHead]
