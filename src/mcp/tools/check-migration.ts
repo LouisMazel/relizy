@@ -46,6 +46,32 @@ function findLines(text: string, pattern: RegExp): number[] {
   return text.split('\n').flatMap((line, index) => pattern.test(line) ? [index + 1] : [])
 }
 
+/**
+ * The lines setting `key` directly in a `block` of a config file
+ * (`repo: { token: ... }`), found by indentation: none when the block is not
+ * written one key per line, rather than a line of another block
+ */
+function findBlockKeyLines(text: string, block: string, key: string): number[] {
+  const lines = text.split('\n')
+  const indentOf = (line: string) => line.length - line.trimStart().length
+  const opening = new RegExp(`^\\s*["']?${block}["']?\\s*:\\s*\\{?\\s*$`)
+  const keyLine = new RegExp(`^["']?${key}["']?\\s*:`)
+
+  return lines.flatMap((line, index) => {
+    if (!opening.test(line)) {
+      return []
+    }
+
+    const blockIndent = indentOf(line)
+    const children = lines.slice(index + 1)
+    const end = children.findIndex(child => child.trim() && indentOf(child) <= blockIndent)
+    const body = end === -1 ? children : children.slice(0, end)
+    const childIndent = Math.min(...body.filter(child => child.trim()).map(indentOf))
+
+    return body.flatMap((child, offset) => indentOf(child) === childIndent && keyLine.test(child.trim()) ? [index + offset + 2] : [])
+  })
+}
+
 function locate(file: string, lines: number[]): string[] {
   return lines.map(line => `${file}:${line}`)
 }
@@ -193,7 +219,7 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
       title: '`repo.token` is removed',
       section: 'Repository Token',
       detail: 'Set the token of the provider releases and of the PR comment in `tokens.github` or `tokens.gitlab` (read from `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`... by default): relizy 2 ignores `repo.token`.',
-      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\btoken\s*:/))),
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findBlockKeyLines(text, 'repo', 'token'))),
     })
   }
 
@@ -203,7 +229,7 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
       title: '`publish.token` is removed',
       section: 'Registry Token',
       detail: 'Set the registry token in `tokens.registry` (read from `RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default), or per registry in `publish.registries[].token`: relizy 2 ignores `publish.token`. `--publish-token` and the `token` option of `publish()` set `tokens.registry`.',
-      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\btoken\s*:/))),
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findBlockKeyLines(text, 'publish', 'token'))),
     })
   }
 

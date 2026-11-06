@@ -212,6 +212,29 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**`repo.token` is removed** (`relizy.config.mjs:4`)')
   })
 
+  it('Then only points out repo.token, not the token of a registry nor of Slack', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  repo: {\n    provider: 'github', repo: 'org/app',\n    token: 'ghp_test',\n  },\n  publish: {\n    registries: [{ url: 'https://npm.example.com', token: 'npm_test' }],\n  },\n  social: {\n    slack: {\n      token: 'xoxb_test',\n    },\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`repo.token` is removed** (`relizy.config.mjs:4`):')
+    expect(text).not.toContain('`publish.token` is removed')
+  })
+
+  it('Then points out no line rather than a wrong one when the block is written on one line', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  repo: { provider: 'github', repo: 'org/app', token: 'ghp_test' },\n  social: {\n    slack: {\n      token: 'xoxb_test',\n    },\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`repo.token` is removed**:')
+  })
+
   it('Then points out the removed publish.token', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
