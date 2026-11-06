@@ -202,6 +202,20 @@ describe('Given github function', () => {
       expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'v1.1.0' }))
     })
 
+    it('Then reads the prerelease from the version, whatever the tag template', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        templates: { tagBody: 'release-{{newVersion}}' },
+      }))
+      vi.mocked(isPrerelease).mockImplementation(version => version === '1.0.0')
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'release-1.0.0', prerelease: true }))
+    })
+
     it('Then marks as prerelease when version is prerelease', async () => {
       vi.mocked(isPrerelease).mockReturnValue(true)
 

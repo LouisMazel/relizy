@@ -182,7 +182,7 @@ async function githubUnified({
     tag_name: to,
     name: to,
     body: releaseBody,
-    prerelease: isPrerelease(to),
+    prerelease: isPrerelease(newVersion),
   }
 
   logger.debug(`Creating release for ${to}${release.prerelease ? ' (prerelease)' : ''}`)
