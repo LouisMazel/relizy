@@ -1,6 +1,6 @@
 ---
 title: release()
-description: Run the whole release from Node.js and get its report.
+description: Run the whole release from Node.js with release() - bump, changelog, publish, git tags and provider releases - and read the report of the release.
 keywords: relizy release api, programmatic release, release report, canary release api, ReleaseOptions
 category: API Reference
 tags: [api, release, workflow, typescript]

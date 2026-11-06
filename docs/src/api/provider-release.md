@@ -1,6 +1,6 @@
 ---
 title: providerRelease()
-description: Create the GitHub or GitLab releases from Node.js.
+description: Create the GitHub or GitLab releases from Node.js with providerRelease(), their notes optionally rewritten by AI, and read the posted releases.
 keywords: relizy provider release api, github release api, gitlab release api, ProviderReleaseOptions, ProviderReleaseResult
 category: API Reference
 tags: [api, provider-release, github, gitlab, typescript]

@@ -1,6 +1,6 @@
 ---
 title: publish()
-description: Publish the packages to the registry from Node.js.
+description: Publish the packages to npm or another registry from Node.js with publish(), with registry checks, build command, dist-tag and dependency order.
 keywords: relizy publish api, npm publish api, programmatic publishing, PublishOptions, PublishResponse, dist-tag
 category: API Reference
 tags: [api, publish, npm, registry, typescript]

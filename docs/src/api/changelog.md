@@ -1,6 +1,6 @@
 ---
 title: changelog()
-description: Write the CHANGELOG.md files from Node.js.
+description: Write the CHANGELOG.md files from Node.js with changelog(), the changelog of each package and the root one, for a bump result or a range of commits.
 keywords: relizy changelog api, programmatic changelog, ChangelogOptions, bumpResult, CHANGELOG.md
 category: API Reference
 tags: [api, changelog, typescript]
