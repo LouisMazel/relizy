@@ -1373,6 +1373,23 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
     expect(blocks.at(-1).type).toBe('actions')
   })
 
+  it('Then keeps every package of a group in full format when the first one is long', () => {
+    const longChangelog = Array.from({ length: 80 }, (_, index) => `- Change ${index}\n\n  ${'A long body. '.repeat(30)}`).join('\n')
+    const blocks = formatSlackMessage({
+      variables,
+      changelog: [{ title: 'Tooling', packages: [
+        { name: '@maz-ui/eslint-config', newVersion: '5.1.0', changelog: `### 🚀 Features\n\n${longChangelog}` },
+        { name: '@maz-ui/upgrade', newVersion: '5.2.1', changelog: '### 🩹 Fixes\n\n- Fix the upgrade' },
+      ] }],
+      changelogFormat: 'full',
+    })
+    const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n')
+
+    expect(text).toContain('@maz-ui/eslint-config 5.1.0')
+    expect(text).toContain('@maz-ui/upgrade 5.2.1')
+    expect(text).toContain('Fix the upgrade')
+  })
+
   it('Then keeps the sections in a template', () => {
     const blocks = formatSlackMessage({ variables, changelog: sections, template: '{{releaseTitle}}\n{{changelog}}' })
 

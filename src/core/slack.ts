@@ -232,7 +232,8 @@ function formatSlackSummarySection(section: SlackReleaseSection, maxLength: numb
  * The blocks of the sections of a release of several versions: one per
  * section in `summary` format, its title and rich text blocks in `full`
  * format. The budgets (characters, blocks, payload) are shared between the
- * sections, so that each one keeps at least its title and version lines.
+ * sections, and between the packages of a section in `full` format, so that
+ * each one keeps at least its title and version lines.
  */
 function formatSlackSections({ sections, changelogFormat, maxLength, surroundingBlocks }: {
   sections: SlackReleaseSection[]
@@ -254,26 +255,32 @@ function formatSlackSections({ sections, changelogFormat, maxLength, surrounding
   const titleBlocks = sections.map(section => section.title
     ? { type: 'section', text: { type: 'mrkdwn', text: truncateSlackText(`*${section.title}*`, SLACK_SECTION_MAX_LENGTH) } }
     : undefined)
-  const markdowns = sections.map(section => slackSectionsToMarkdown([{ ...section, title: undefined }]))
+  // The budgets are shared by version, so that a long package does not leave out the next ones of its group
+  const units = sections.flatMap((section, index) => section.changelog === undefined && section.packages?.length
+    ? section.packages.map(pkg => ({ section: index, markdown: slackSectionsToMarkdown([{ packages: [pkg] }]) }))
+    : [{ section: index, markdown: slackSectionsToMarkdown([{ ...section, title: undefined }]) }])
   const fixedBlocks = [...surroundingBlocks, ...titleBlocks.filter(Boolean)]
-  const rendered = markdowns.map(markdown => markdownToSlackRichText(markdown, { maxLength, maxBlocks: SLACK_MAX_BLOCKS, maxPayloadLength: SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH }))
+  const rendered = units.map(unit => markdownToSlackRichText(unit.markdown, { maxLength, maxBlocks: SLACK_MAX_BLOCKS, maxPayloadLength: SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH }))
   const blockShares = shareBudget(SLACK_MAX_BLOCKS - fixedBlocks.length, rendered.map(blocks => blocks.length))
   const payloadShares = shareBudget(SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH - JSON.stringify(fixedBlocks).length, rendered.map(blocks => JSON.stringify(blocks).length))
-  const lengthShares = maxLength === undefined ? undefined : shareBudget(maxLength, markdowns.map(markdown => markdown.length))
-
-  return sections.flatMap((_section, index) => {
+  const lengthShares = maxLength === undefined ? undefined : shareBudget(maxLength, units.map(unit => unit.markdown.length))
+  const renderUnit = (index: number) => {
     const blocks = rendered[index]!
     const fits = blocks.length <= blockShares[index]! && JSON.stringify(blocks).length <= payloadShares[index]! && lengthShares === undefined
 
-    return [
-      ...(titleBlocks[index] ? [titleBlocks[index]] : []),
-      ...(fits
-        ? blocks
-        : blockShares[index]! > 0
-          ? markdownToSlackRichText(markdowns[index]!, { maxLength: lengthShares?.[index], maxBlocks: blockShares[index]!, maxPayloadLength: payloadShares[index]! })
-          : []),
-    ]
-  })
+    if (fits) {
+      return blocks
+    }
+
+    return blockShares[index]! > 0
+      ? markdownToSlackRichText(units[index]!.markdown, { maxLength: lengthShares?.[index], maxBlocks: blockShares[index]!, maxPayloadLength: payloadShares[index]! })
+      : []
+  }
+
+  return sections.flatMap((_section, sectionIndex) => [
+    ...(titleBlocks[sectionIndex] ? [titleBlocks[sectionIndex]] : []),
+    ...units.flatMap((unit, index) => unit.section === sectionIndex ? renderUnit(index) : []),
+  ])
 }
 
 /**
