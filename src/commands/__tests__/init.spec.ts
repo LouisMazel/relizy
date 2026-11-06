@@ -153,10 +153,22 @@ describe('Given init command', () => {
       vi.unstubAllEnvs()
     })
 
-    it('Then refuses to replace an existing config without --force', async () => {
-      write('relizy.config.mjs', 'export default {}')
+    it('Then keeps an existing config without --force, and sets up the rest from it', async () => {
+      const config = 'export default { release: { publish: false }, social: { slack: { enabled: true } } }'
+      write('relizy.config.mjs', config)
 
-      await expect(init({ cwd, yes: true })).rejects.toThrow('A relizy config already exists (relizy.config.mjs), run with --force to replace it')
+      const result = await init({ cwd, yes: true })
+
+      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, configFile: join(cwd, 'relizy.config.mjs'), scripts: ['release'] }))
+      expect(read('relizy.config.mjs')).toBe(config)
+      expect(existsSync(join(cwd, 'relizy.config.ts'))).toBe(false)
+      expect(vi.mocked(log.info)).toHaveBeenCalledWith('A relizy config already exists (relizy.config.mjs): kept, run with --force to replace it')
+      expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint --edit')
+      // The secrets follow the kept config: Slack, nothing published
+      const workflow = read('.github/workflows/release.yml')
+      expect(workflow).toContain('slack-token')
+      expect(workflow).not.toContain('npm-token')
+      expect(readJson('package.json').version).toBeUndefined()
     })
 
     it('Then replaces an existing config of another format with --force', async () => {
@@ -205,14 +217,28 @@ describe('Given init command', () => {
       restoreTerminal()
     })
 
-    it('Then cancels when the existing config is kept', async () => {
+    it('Then keeps the existing config and asks the other steps only', async () => {
       write('relizy.config.ts', 'export default {}')
-      answer(confirm, [false])
+      answer(select, ['keep', 'manual'])
+      answer(confirm, [true, true, true, true])
+
+      const result = await init({ cwd })
+
+      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, workflow: { file: '.github/workflows/release.yml' } }))
+      expect(read('relizy.config.ts')).toBe('export default {}')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('keep     relizy.config.ts'), 'Changes')
+      expect(readJson('package.json').scripts.release).toBe('relizy release')
+    })
+
+    it('Then cancels from the existing config, nothing written', async () => {
+      write('relizy.config.ts', 'export default {}')
+      answer(select, ['cancel'])
 
       const result = await init({ cwd })
 
       expect(result.written).toBe(false)
-      expect(read('relizy.config.ts')).toBe('export default {}')
+      expect(vi.mocked(cancel)).toHaveBeenCalledWith('Init cancelled, nothing written')
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
     })
 
     it('Then stops without writing when a question is cancelled', async () => {

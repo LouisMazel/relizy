@@ -1,5 +1,6 @@
 import type { BumpConfig, GitProvider, PackageManager, PrCommentMode, RelizyConfig, VersionMode } from '../types'
 import type { ChangelogFormatter } from './changelog-format'
+import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import fastGlob from 'fast-glob'
@@ -7,6 +8,7 @@ import * as semver from 'semver'
 import { findChangelogFormatter } from './changelog-format'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
 import { getDefaultConfig } from './config'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { detectGitProvider } from './git'
 import { GLOB_IGNORE } from './glob'
 import { detectPackageManager } from './npm-registry'
@@ -304,6 +306,35 @@ export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns 
     ai: [],
     aiLanguage: defaults.ai.language,
   }
+}
+
+/**
+ * The answers of an existing config kept by `relizy init`: the steps after
+ * the config (the secrets of the release workflow) follow what it releases
+ */
+export function getAnswersFromConfig(detection: ProjectDetection, config: ResolvedRelizyConfig): InitAnswers {
+  const goal: InitGoal = config.release?.publish === false ? 'version' : 'publish'
+  const socials = ['twitter', 'slack', 'teams'] as const
+
+  return {
+    ...getDefaultAnswers(detection, { goal, patterns: [] }),
+    twitter: Boolean(config.social?.twitter?.enabled),
+    slack: Boolean(config.social?.slack?.enabled),
+    teams: Boolean(config.social?.teams?.enabled),
+    ai: [
+      ...(config.ai?.providerRelease?.enabled ? ['providerRelease' as const] : []),
+      ...socials.filter(target => config.ai?.social?.[target]?.enabled),
+    ],
+  }
+}
+
+/**
+ * `templates.commitMessage` of a resolved config, unless it is a default of
+ * relizy
+ */
+export function getCustomCommitMessage(config: ResolvedRelizyConfig): string | undefined {
+  const message = config.templates?.commitMessage
+  return message && !Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES).includes(message as never) ? message : undefined
 }
 
 export function isPublicNpmRegistry(registry: string): boolean {

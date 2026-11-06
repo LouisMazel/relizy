@@ -33,7 +33,7 @@ npx relizy init [options]
 
 ### Asked to you
 
-Every question has a default deduced from the repository:
+Every question has a default deduced from the repository. When a config already exists, `init` first offers to keep it and set up the rest (the default), to replace it, or to cancel: a kept config skips the questions 1 to 4, and the workflow takes its secrets from it.
 
 1. **What a release does**: publish to npm, or only version the project (bump, changelog, tag, provider release). Private packages are suggested for versioning only.
 2. **Folders to release** (monorepo with several workspace globs): the globs with publishable packages are checked.
@@ -96,11 +96,11 @@ Accept the detected values without asking, for scripts and AI agents:
 npx relizy init --yes
 ```
 
-The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up, and the release workflow is written, run on demand (an existing one is kept). `init` also runs without questions when there is no terminal, or in CI.
+The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up, and the release workflow is written, run on demand (an existing one is kept). An existing config is kept, and the other steps follow it. `init` also runs without questions when there is no terminal, or in CI.
 
 ### --force
 
-Replace an existing config file. Without it, `init` asks for confirmation, or fails when it runs without questions (`--yes`, no terminal, CI):
+Replace an existing config file. Without it, `init` asks whether to keep it, or keeps it when it runs without questions (`--yes`, no terminal, CI), and sets up the rest:
 
 ```bash
 npx relizy init --yes --force

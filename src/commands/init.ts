@@ -10,7 +10,9 @@ import {
   buildInitConfig,
   createStyles,
   detectProject,
+  getAnswersFromConfig,
   getCandidateWorkspaces,
+  getCustomCommitMessage,
   getDefaultAnswers,
   getDefaultConfig,
   getDetectedPublishConfig,
@@ -26,6 +28,7 @@ import {
   isInCI,
   isMonorepoProject,
   isReleasablePackage,
+  loadRelizyConfig,
   renderConfigFile,
   shouldUseColors,
   suggestGoal,
@@ -64,8 +67,10 @@ export interface InitResult {
   config: RelizyConfig
   /** Content of the config file */
   content: string
-  /** `false` when cancelled or with `dryRun` */
+  /** `false` when cancelled, with `dryRun`, or when the existing config is kept */
   written: boolean
+  /** The existing config was kept and the other steps ran: `config` and `content` are empty */
+  kept?: boolean
   /** Set when the commit-msg hook was installed */
   hook?: InstalledHook
   /** Scripts added to the root package.json */
@@ -357,6 +362,8 @@ function describeRootFields(fields: { name?: string, version?: string }, answers
 
 interface InitPlan {
   configFile: string
+  /** The existing config is kept, not written */
+  keepConfig: boolean
   replacedFile?: string
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
@@ -377,7 +384,7 @@ interface PlannedWorkflow {
 
 function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   const rows = [
-    `${c.green('create')}   ${relative(cwd, plan.configFile)}`,
+    plan.keepConfig ? `${c.dim('keep')}     ${relative(cwd, plan.configFile)}` : `${c.green('create')}   ${relative(cwd, plan.configFile)}`,
     ...(plan.replacedFile ? [`${c.red('remove')}   ${plan.replacedFile} ${c.dim('replaced by the new config')}`] : []),
   ]
   const packageChanges = [
@@ -437,10 +444,11 @@ function setUpAgents(cwd: string, targets: AgentTarget[]): SetupAgentsResult | u
  * The release workflow of the CI: offered when the provider is GitHub or
  * GitLab, an existing file is only replaced once confirmed
  */
-async function askWorkflow({ detection, answers, config, interactive }: {
+async function askWorkflow({ detection, answers, commitMessage, interactive }: {
   detection: ProjectDetection
   answers: InitAnswers
-  config: RelizyConfig
+  /** `templates.commitMessage` of the config, when set */
+  commitMessage?: string
   interactive: boolean
 }): Promise<PlannedWorkflow | undefined> {
   const provider = detection.provider === 'github' || detection.provider === 'gitlab' ? detection.provider : undefined
@@ -466,7 +474,7 @@ async function askWorkflow({ detection, answers, config, interactive }: {
     initialValue: 'manual',
   }))
 
-  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage: config.templates?.commitMessage })
+  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage })
   const file = getWorkflowFile(options, detection.cwd)
   const exists = existsSync(join(detection.cwd, file.path))
   if (exists && !await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
@@ -503,23 +511,46 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
   note(steps.join('\n'), 'Next steps')
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-async function runInit({ options, detection, configFile, interactive }: {
-  options: InitOptions
+/**
+ * Keep an existing config (the default, also without questions) or replace
+ * it: `--force` replaces it
+ */
+async function askExistingConfig(existing: string, options: InitOptions, interactive: boolean): Promise<'keep' | 'replace'> {
+  if (options.force) {
+    return 'replace'
+  }
+  if (!interactive) {
+    log.info(`A relizy config already exists (${existing}): kept, run with --force to replace it`)
+    return 'keep'
+  }
+
+  const choice = await answer(select<'keep' | 'replace' | 'cancel'>({
+    message: `A relizy config already exists (${existing})`,
+    options: [
+      { value: 'keep', label: 'Keep it and set up the rest', hint: 'commit-msg hook, release script, AI agents, release workflow' },
+      { value: 'replace', label: 'Replace it', hint: 'answer the questions of the config again' },
+      { value: 'cancel', label: 'Cancel' },
+    ],
+    initialValue: 'keep',
+  }))
+  if (choice === 'cancel') {
+    throw new InitCancelledError('Init cancelled, nothing written')
+  }
+  return choice
+}
+
+/**
+ * The answers of the config: asked, or read from the existing config kept
+ */
+async function askConfig({ detection, options, interactive, keep }: {
   detection: ProjectDetection
-  configFile: string
+  options: InitOptions
   interactive: boolean
-}): Promise<InitResult> {
-  const { cwd } = detection
-  const existing = detection.existingConfigFile
-  if (existing && !options.force) {
-    if (!interactive) {
-      throw new Error(`A relizy config already exists (${existing}), run with --force to replace it`)
-    }
-    const replace = await answer(confirm({ message: `A relizy config already exists (${existing}), replace it?`, initialValue: false }))
-    if (!replace) {
-      throw new InitCancelledError('Init cancelled, the existing config is kept')
-    }
+  keep: boolean
+}): Promise<{ answers: InitAnswers, config?: RelizyConfig, commitMessage?: string }> {
+  if (keep) {
+    const resolved = await loadRelizyConfig({ configFile: options.configName, overrides: { cwd: detection.cwd } })
+    return { answers: getAnswersFromConfig(detection, resolved), commitMessage: getCustomCommitMessage(resolved) }
   }
 
   const basics = await askBasics(detection, interactive)
@@ -532,6 +563,22 @@ async function runInit({ options, detection, configFile, interactive }: {
   if (advanced) {
     answers = await askAdvanced(detection, answers)
   }
+
+  const config = buildInitConfig(detection, answers)
+  return { answers, config, commitMessage: config.templates?.commitMessage }
+}
+
+// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+async function runInit({ options, detection, configFile, interactive }: {
+  options: InitOptions
+  detection: ProjectDetection
+  configFile: string
+  interactive: boolean
+}): Promise<InitResult> {
+  const { cwd } = detection
+  const existing = detection.existingConfigFile
+  const keep = existing ? await askExistingConfig(existing, options, interactive) === 'keep' : false
+  const { answers, config, commitMessage } = await askConfig({ detection, options, interactive, keep })
 
   const withHook = await ask(interactive, true, () => confirm({
     message: 'Check the commit messages at each commit with relizy commitlint? (types, scopes, changelog preview)',
@@ -551,26 +598,30 @@ async function runInit({ options, detection, configFile, interactive }: {
     initialValue: true,
   }))
 
-  const config = buildInitConfig(detection, answers)
-  const workflow = options.workflow === false ? undefined : await askWorkflow({ detection, answers, config, interactive })
+  const workflow = options.workflow === false ? undefined : await askWorkflow({ detection, answers, commitMessage, interactive })
 
-  const content = renderConfigFile(config)
-  note(content.trimEnd(), relative(cwd, configFile))
+  const content = config ? renderConfigFile(config) : ''
+  if (config) {
+    note(content.trimEnd(), relative(cwd, configFile))
+  }
 
   if (options.dryRun) {
     if (workflow) {
       note(workflow.file.content.trimEnd(), workflow.file.path)
     }
     outro('Dry run, nothing written')
-    return { configFile, config, content, written: false, scripts: [] }
+    return { configFile, config: config ?? {}, content, written: false, scripts: [], ...(keep && { kept: true }) }
   }
 
   const existingPath = existing && existing !== 'package.json' ? join(cwd, existing) : undefined
   const plan: InitPlan = {
-    configFile,
+    // The kept config stays where it is
+    configFile: keep && existing ? join(cwd, existing) : configFile,
+    keepConfig: keep,
     // A config in another format would take precedence over the new file
-    replacedFile: existingPath && existingPath !== configFile && existsSync(existingPath) ? existing : undefined,
-    rootFields: getMissingRootFields(detection, answers),
+    replacedFile: !keep && existingPath && existingPath !== configFile && existsSync(existingPath) ? existing : undefined,
+    // The fields the questions of the config need
+    rootFields: keep ? {} : getMissingRootFields(detection, answers),
     scripts: withScripts ? scriptsToAdd : {},
     hook: withHook,
     agents: withAgents ? agentTargets : [],
@@ -585,11 +636,13 @@ async function runInit({ options, detection, configFile, interactive }: {
   if (plan.replacedFile) {
     rmSync(join(cwd, plan.replacedFile))
   }
-  writeFileSync(configFile, content)
-  log.success(`Created ${relative(cwd, configFile)}`)
+  if (config) {
+    writeFileSync(configFile, content)
+    log.success(`Created ${relative(cwd, configFile)}`)
 
-  if (existing === 'package.json') {
-    log.warn('Remove the "relizy" key of the package.json: it is merged with the new config file')
+    if (existing === 'package.json') {
+      log.warn('Remove the "relizy" key of the package.json: it is merged with the new config file')
+    }
   }
 
   const scripts = Object.keys(plan.scripts)
@@ -616,10 +669,11 @@ async function runInit({ options, detection, configFile, interactive }: {
   outro(c.green('relizy is ready'))
 
   return {
-    configFile,
-    config,
+    configFile: plan.configFile,
+    config: config ?? {},
     content,
-    written: true,
+    written: Boolean(config),
+    ...(keep && { kept: true }),
     hook,
     scripts,
     ...(agents && { agents }),

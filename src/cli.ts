@@ -341,7 +341,7 @@ program
   .command('init')
   .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
   .option('--yes', 'Accept the detected values without asking')
-  .option('--force', 'Replace an existing config file')
+  .option('--force', 'Replace an existing config file (kept by default, the other steps still run)')
   .option('--no-workflow', 'Do not offer the release workflow of the CI (GitHub Actions, GitLab CI)')
   .action(async (options) => {
     try {
