@@ -28,6 +28,7 @@ import { BranchBehindRemoteError, getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
+import { describeTags } from '../core/release-report'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
@@ -463,7 +464,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       ui.skip({ title: 'Commit changes and create tag', label: 'Commit and tags', reason: '--no-commit' })
     }
     committed = Boolean(config.release.commit)
-    addStep('commit', committed, committed ? createdTags.join(', ') : undefined)
+    addStep('commit', committed, committed ? describeTags(createdTags) : undefined)
 
     currentStep = 'Push'
     if (config.release.push && config.release.commit) {

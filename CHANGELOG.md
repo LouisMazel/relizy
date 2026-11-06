@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.0.1-beta.0 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0...v2.0.1-beta.0)
+
+### 🩹 Fixes
+
+- Keep the release summary short when it releases many versions ([f85bd99](https://github.com/LouisMazel/relizy/commit/f85bd99))
+
+  Beyond two versions, the title of the summary counts them (`🚀 Released 13 versions of acme`) instead of listing every package. In the PR comment, the summary of the GitHub Actions run and `release.report.markdown`, the first table becomes a short recap: the versions and the tags are left to the tables of the packages, and a step creating more than two releases or tags counts them instead of listing their links.
+
+  The end of the terminal output keeps a line per version group, `Version (<title>)`, counting the packages of an `independent` group and the tags beyond two.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.4...v2.0.0)

@@ -135,10 +135,26 @@ const STATUS_ICONS: Record<ReleaseStepReport['status'], string> = {
   failed: '⚠️',
 }
 
-function getVersionLines(report: ReleaseReport): string[] {
-  return (report.release?.groups ?? []).map((group) => {
-    const versions = group.version ?? group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', ')
-    return report.release!.groups.length > 1 || group.name ? `${group.title}: ${versions}` : versions
+/** Beyond it, the summary counts the versions instead of listing them: the tables list them */
+const RELEASE_NAME_MAX_VERSIONS = 2
+
+/**
+ * A version line per group: `Version (ADS)` with its version, or the
+ * packages of an `independent` group, counted beyond 2 (the table of the group lists them)
+ */
+function getVersionEntries(report: ReleaseReport): ReleaseSummaryEntry[] {
+  const groups = report.release?.groups ?? []
+
+  return groups.map((group) => {
+    const label = groups.length > 1 || group.name ? `Version (${group.title})` : 'Version'
+
+    if (group.version) {
+      return { label, value: group.version, code: true }
+    }
+
+    return group.packages.length > RELEASE_NAME_MAX_VERSIONS
+      ? { label, value: plural(group.packages.length, 'package') }
+      : { label, value: group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', '), code: true }
   })
 }
 
@@ -155,6 +171,8 @@ function getHeadline(report: ReleaseReport): string {
 export interface ReleaseSummaryEntry {
   label: string
   value: string
+  /** A value shown as code: versions, tags, install command */
+  code?: boolean
   status?: ReleaseStepReport['status']
   links?: { label: string, url: string }[]
 }
@@ -210,16 +228,25 @@ function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
 }
 
 /**
- * The report as label and value pairs: the versions and what the release
- * contains, then each step with what it created, then the AI and the install
+ * The tags of a release: `v2.0.0, @scope/nav@1.3.0`, or their count beyond 2
  */
-export function getReleaseSummary(report: ReleaseReport): ReleaseSummaryEntry[] {
-  const entries: ReleaseSummaryEntry[] = report.status === 'nothing'
-    ? []
-    : getVersionLines(report).map(line => ({ label: 'Version', value: line }))
+export function describeTags(tags: string[]): string {
+  return tags.length > RELEASE_NAME_MAX_VERSIONS ? plural(tags.length, 'tag') : tags.join(', ')
+}
 
-  if (report.tags.length > 0) {
-    entries.push({ label: report.tags.length === 1 ? 'Tag' : 'Tags', value: report.tags.join(', ') })
+/**
+ * The report as label and value pairs: the versions and what the release
+ * contains, then each step with what it created, then the AI and the install.
+ * Without `versions`, the versions and the tags are left out: the tables of
+ * the packages give them (markdown).
+ */
+export function getReleaseSummary(report: ReleaseReport, { versions = true }: { versions?: boolean } = {}): ReleaseSummaryEntry[] {
+  const entries: ReleaseSummaryEntry[] = report.status === 'nothing' || !versions
+    ? []
+    : getVersionEntries(report)
+
+  if (versions && report.tags.length > 0) {
+    entries.push({ label: report.tags.length === 1 ? 'Tag' : 'Tags', value: describeTags(report.tags), code: report.tags.length <= RELEASE_NAME_MAX_VERSIONS })
   }
 
   // A forced release without commit has nothing to tell
@@ -239,7 +266,7 @@ export function getReleaseSummary(report: ReleaseReport): ReleaseSummaryEntry[] 
   }
 
   if (report.publish?.install) {
-    entries.push({ label: 'Install', value: report.publish.install })
+    entries.push({ label: 'Install', value: report.publish.install, code: true })
   }
 
   return entries
@@ -264,7 +291,7 @@ export function formatReleaseReportText(report: ReleaseReport): string {
   }
 
   if (report.status !== 'nothing') {
-    lines.push(...getVersionLines(report).map(line => `Version: ${line}`))
+    lines.push(...getVersionEntries(report).map(({ label, value }) => `${label}: ${value}`))
   }
 
   if (report.status === 'released' || report.tags.length > 0) {
@@ -276,18 +303,23 @@ export function formatReleaseReportText(report: ReleaseReport): string {
   return lines.join('\n').trim()
 }
 
-/** Values shown as code */
-const CODE_LABELS = new Set(['Version', 'Tag', 'Tags', 'Install'])
-
 function formatMarkdownLink({ label, url }: { label: string, url: string }): string {
   return `[${label}](${url})`
 }
 
 /**
- * The released versions: `relizy 2.0.0, @scope/nav 1.3.0`
+ * The released versions: `relizy 2.0.0, @scope/nav 1.3.0`, or their count
+ * beyond 2 (`13 versions of acme`): the tables of the summary list them
  */
 export function getReleaseName(report: ReleaseReport): string {
-  return getReleaseLines(report.release ?? { projectName: '', groups: [] }).map(line => `${line.name} ${line.version}`).join(', ')
+  const release = report.release ?? { projectName: '', groups: [] }
+  const lines = getReleaseLines(release)
+
+  if (lines.length > RELEASE_NAME_MAX_VERSIONS) {
+    return release.projectName ? `${plural(lines.length, 'version')} of ${release.projectName}` : plural(lines.length, 'version')
+  }
+
+  return lines.map(line => `${line.name} ${line.version}`).join(', ')
 }
 
 function getMarkdownHeadline(report: ReleaseReport): string[] {
@@ -331,25 +363,28 @@ function getMarkdownPackages(report: ReleaseReport): string[] {
  * a GitHub Actions run, the comment of the pull request, and `release.report.markdown`
  */
 export function formatReleaseReportMarkdown(report: ReleaseReport): string {
-  const rows = getReleaseSummary(report).map(({ label, value, status, links = [] }) => {
+  const packages = getMarkdownPackages(report)
+  // The tables of the packages give the versions and the tags: the summary tells what the release did
+  const rows = getReleaseSummary(report, { versions: packages.length === 0 }).map(({ label, value, code, status, links = [] }) => {
     const icon = status ? `${STATUS_ICONS[status]} ` : label === 'AI' ? '✨ ' : ''
-    let text = CODE_LABELS.has(label) ? `\`${value}\`` : value
+    let text = code ? `\`${value}\`` : value
     // A link replaces its label in the value, else follows it
     const others = links.filter((link) => {
-      if (!CODE_LABELS.has(label) && text.includes(link.label)) {
+      if (!code && text.includes(link.label)) {
         text = text.replace(link.label, formatMarkdownLink(link))
         return false
       }
       return true
     })
-    const linksText = others.length > 0 ? `<br>${others.map(formatMarkdownLink).join(' · ')}` : ''
+    // Beyond 2, the value counts what the step created (`13 releases on github`): no list of links
+    const linksText = others.length > 0 && others.length <= RELEASE_NAME_MAX_VERSIONS ? `<br>${others.map(formatMarkdownLink).join(' · ')}` : ''
     return `| ${icon}**${label}** | ${text}${linksText} |`
   })
 
   const lines = [
     ...getMarkdownHeadline(report),
     ...(rows.length > 0 ? ['| Step | Result |', '| --- | --- |', ...rows, ''] : []),
-    ...getMarkdownPackages(report),
+    ...packages,
     `<sub>${getMarkdownFooter(report)}</sub>`,
   ]
 
