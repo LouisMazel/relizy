@@ -103,6 +103,8 @@ describe('Given the branch of a CI job', () => {
   it('Then is read from the variables of the CI, none for the pull requests and the tags', () => {
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'main' })).toBe('main')
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: 'v1.0.0' })).toBeUndefined()
+    // A pull request: its branch, not `<number>/merge`
+    expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: '123/merge', GITHUB_HEAD_REF: 'feat/parser' })).toBe('feat/parser')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'develop' })).toBe('develop')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_MERGE_REQUEST_IID: '12' })).toBeUndefined()
     expect(getCiBranch({ TF_BUILD: 'True', BUILD_SOURCEBRANCH: 'refs/heads/release' })).toBe('release')

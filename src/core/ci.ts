@@ -85,6 +85,11 @@ export function getCiGitIdentity(env: Env = process.env): GitIdentity {
 
 export function getCiBranch(env: Env = process.env): string | undefined {
   if (env.GITHUB_ACTIONS === 'true') {
+    // A pull request checks out its merge commit: GITHUB_REF_NAME is `<number>/merge`, GITHUB_HEAD_REF its branch
+    if (env.GITHUB_HEAD_REF) {
+      return env.GITHUB_HEAD_REF
+    }
+
     return env.GITHUB_REF_TYPE === 'branch' ? env.GITHUB_REF_NAME : undefined
   }
   if (env.GITLAB_CI === 'true') {
