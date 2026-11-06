@@ -2,10 +2,10 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
 import { stripVTControlCharacters } from 'node:util'
 import { cancel, confirm, log, multiselect, note, select, text } from '@clack/prompts'
 import { logger } from '@maz-ui/node'
+import { setInteractiveTerminal } from '../../../tests/mocks'
 import { getDefaultConfig } from '../../core'
 import { init } from '../init'
 
@@ -195,20 +195,14 @@ describe('Given init command', () => {
   })
 
   describe('When answering the questions', () => {
-    let ttyDescriptor: PropertyDescriptor | undefined
+    let restoreTerminal: () => void
 
     beforeEach(() => {
-      ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      restoreTerminal = setInteractiveTerminal(true)
     })
 
     afterEach(() => {
-      if (ttyDescriptor) {
-        Object.defineProperty(process.stdin, 'isTTY', ttyDescriptor)
-      }
-      else {
-        delete (process.stdin as { isTTY?: boolean }).isTTY
-      }
+      restoreTerminal()
     })
 
     it('Then cancels when the existing config is kept', async () => {
@@ -330,14 +324,13 @@ describe('Given init command', () => {
       execFileSync('git', ['remote', 'set-url', 'origin', 'git@gitlab.com:acme/mono.git'], { cwd })
       write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
       write('.nvmrc', 'v24.11.0\n')
-      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
       answer(select, ['publish', 'selective', 'push'])
       answer(multiselect, [['packages/*']])
       // advanced, hook, script, workflow, apply
       answer(confirm, [false, false, false, true, true])
 
-      const result = await init({ cwd })
-      delete (process.stdin as { isTTY?: boolean }).isTTY
+      const restoreTerminal = setInteractiveTerminal(true)
+      const result = await init({ cwd }).finally(restoreTerminal)
 
       expect(result.workflow).toEqual({ file: '.gitlab/ci/relizy.yml', include: 'include:\n  - local: .gitlab/ci/relizy.yml' })
       expect(read('.gitlab-ci.yml')).toBe('test:\n  script: [pnpm test]\n')
@@ -393,20 +386,14 @@ describe('Given init command', () => {
     })
 
     describe('And answering the questions', () => {
-      let ttyDescriptor: PropertyDescriptor | undefined
+      let restoreTerminal: () => void
 
       beforeEach(() => {
-        ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-        Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+        restoreTerminal = setInteractiveTerminal(true)
       })
 
       afterEach(() => {
-        if (ttyDescriptor) {
-          Object.defineProperty(process.stdin, 'isTTY', ttyDescriptor)
-        }
-        else {
-          delete (process.stdin as { isTTY?: boolean }).isTTY
-        }
+        restoreTerminal()
       })
 
       it('Then only asks the questions relevant to a standalone package', async () => {

@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { anyHookContext, createMockConfig, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
 import { ensurePushAccess } from '../ci'
 import { isInCI } from '../ci-env'
@@ -1303,16 +1303,16 @@ describe('Given rollbackModifiedFiles function', () => {
 })
 
 describe('Given confirmDirtyGitStatus function', () => {
-  const isTTY = process.stdin.isTTY
+  let restoreTerminal: () => void
 
   beforeEach(() => {
     vi.clearAllMocks()
-    process.stdin.isTTY = true
+    restoreTerminal = setInteractiveTerminal(true)
     vi.mocked(isInCI).mockReturnValue(false)
   })
 
   afterEach(() => {
-    process.stdin.isTTY = isTTY
+    restoreTerminal()
   })
 
   function mockGitStatus(status: string) {
@@ -1369,7 +1369,8 @@ describe('Given confirmDirtyGitStatus function', () => {
       vi.mocked(isInCI).mockReturnValue(true)
       await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
       vi.mocked(isInCI).mockReturnValue(false)
-      process.stdin.isTTY = false
+      // Restored by the afterEach, to the terminal before the beforeEach
+      setInteractiveTerminal(false)
       await confirmDirtyGitStatus({ dryRun: false, cwd: '/repo' })
 
       expect(warnSpy).toHaveBeenCalledTimes(3)
