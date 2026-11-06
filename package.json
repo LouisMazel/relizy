@@ -97,8 +97,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "@maz-ui/node": "5.2.0",
-    "@maz-ui/utils": "5.2.0",
+    "@maz-ui/node": "^5.2.0",
+    "@maz-ui/utils": "^5.2.0",
     "c12": "^3.3.4",
     "commander": "^15.0.0",
     "confbox": "^0.3.2",
@@ -114,7 +114,7 @@
     "semver": "^7.8.6"
   },
   "devDependencies": {
-    "@maz-ui/eslint-config": "5.0.0",
+    "@maz-ui/eslint-config": "^5.0.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@slack/web-api": "8.3.0",
     "@types/mdast": "^4.0.4",
