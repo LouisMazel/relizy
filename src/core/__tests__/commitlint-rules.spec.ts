@@ -455,6 +455,12 @@ describe('Given lintCommitMessage function', () => {
         .toEqual(['The header is 35 characters long, the maximum is 20'])
     })
 
+    it('Then fails clearly when a commitlint tuple misses the number of its rule', async () => {
+      await expect(lint('feat: add a new thing', { config: { commitlint: { rules: { 'header-max-length': [2, 'always'] as never } } } }))
+        .rejects
+        .toThrow('commitlint: the rule "header-max-length" needs a number, e.g. [\'error\', 500] or [2, \'always\', 500], got "always"')
+    })
+
     it('Then warns about the unknown rules once per config, not once per commit', async () => {
       const config = createMockConfig({ cwd, commitlint: { rules: { 'footer-empty': 'error' } } })
       vi.mocked(logger.warn).mockClear()

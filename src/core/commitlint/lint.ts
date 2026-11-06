@@ -143,6 +143,10 @@ function resolveRules(config: ResolvedRelizyConfig, context: Omit<RuleContext, '
       continue
     }
     const value = ruleConfig?.value ?? definition.value
+    // `[2, 'always']` without its number would silence the rule (NaN)
+    if (typeof definition.value === 'number' && !Number.isFinite(Number(value))) {
+      throw new TypeError(`commitlint: the rule "${name}" needs a number, e.g. ['error', ${definition.value}] or [2, 'always', ${definition.value}], got ${JSON.stringify(value)}`)
+    }
     rules.push({
       name,
       severity,
