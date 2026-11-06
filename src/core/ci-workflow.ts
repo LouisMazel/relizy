@@ -233,7 +233,8 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
 
 function getGitlabSetup(options: WorkflowOptions): string[] {
   return [
-    ...(options.packageManager === 'pnpm' || options.packageManager === 'yarn' ? ['    - corepack enable'] : []),
+    // Node 25+ no longer ships corepack: installed first, it pins the version of the `packageManager` field
+    ...(options.packageManager === 'pnpm' || options.packageManager === 'yarn' ? ['    - npm install -g corepack && corepack enable'] : []),
     ...(options.packageManager === 'bun' ? ['    - npm install -g bun'] : []),
     `    - ${getInstallDependenciesCommand(options)}`,
     ...(options.ai ? ['    # The claude-code provider of the AI rewrites runs the claude CLI', '    - npm install -g @anthropic-ai/claude-code'] : []),

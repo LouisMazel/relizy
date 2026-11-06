@@ -70,6 +70,11 @@ describe('Given the release job of GitLab CI', () => {
 })
 
 describe('Given the commands of a package manager', () => {
+  it('Then installs corepack before enabling it, as Node 25+ no longer ships it', () => {
+    expect(getWorkflowFile({ ...options, provider: 'gitlab' }, '/nonexistent').content).toContain('    - npm install -g corepack && corepack enable\n    - pnpm install --frozen-lockfile\n')
+    expect(getWorkflowFile({ ...options, provider: 'gitlab', packageManager: 'npm' }, '/nonexistent').content).not.toContain('corepack')
+  })
+
   it('Then installs from the lockfile and runs the relizy of the project', () => {
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getInstallDependenciesCommand({ packageManager: packageManager as WorkflowOptions['packageManager'], yarnBerry: false })))
       .toEqual(['npm ci', 'pnpm install --frozen-lockfile', 'yarn install --frozen-lockfile', 'bun install --frozen-lockfile'])

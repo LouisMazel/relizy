@@ -36,7 +36,7 @@ release:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\(release\): /'
       when: manual
   before_script:
-    - corepack enable
+    - npm install -g corepack && corepack enable
     - pnpm install --frozen-lockfile
   script:
     - if [ "$RELEASE_TYPE" != "auto" ]; then RELEASE_FLAG="--$RELEASE_TYPE"; fi
@@ -50,7 +50,7 @@ release:
 - **Release type**: choose it in the form of Build > Pipelines > Run pipeline (`RELEASE_TYPE`, `auto` releases the bump computed from the commits), or as a variable of the manual job before running it. With the push trigger, `init` writes the same rule without `when: manual`, and no `RELEASE_TYPE`.
 - **Rules**: only on the default branch, and never on the release commit pushed by Relizy (the rule follows your [`templates.commitMessage`](./../config/commit-templates.md)). The tag pipelines have no `CI_COMMIT_BRANCH`: the job does not run there either.
 - **Stage**: `deploy` is a default stage of GitLab. When your `.gitlab-ci.yml` declares its own `stages:`, add `deploy` to them, or change the stage of the job.
-- **Image**: the Node version of `.nvmrc` or `.node-version`, else `node:lts`. Relizy needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`. pnpm and yarn come from `corepack enable`, bun from `npm install -g bun`. With AI rewrites, the job installs the `claude` CLI: `npm install -g @anthropic-ai/claude-code`.
+- **Image**: the Node version of `.nvmrc` or `.node-version`, else `node:lts`. Relizy needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`. pnpm and yarn come from corepack (`npm install -g corepack && corepack enable`: Node 25+ no longer ships it), bun from `npm install -g bun`. With AI rewrites, the job installs the `claude` CLI: `npm install -g @anthropic-ai/claude-code`.
 - **Build**: `publish.buildCmd` builds the packages before publishing (set by `init` from your `build` script).
 - **`GIT_DEPTH: 0`** only saves a fetch: Relizy fetches the history of a shallow clone, checks out the branch of the detached HEAD and sets the git identity itself (see [What Relizy Handles in CI](./ci-cd.md#what-relizy-handles-in-ci)).
 
@@ -139,7 +139,7 @@ canary:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
   before_script:
-    - corepack enable
+    - npm install -g corepack && corepack enable
     - pnpm install --frozen-lockfile
   script:
     # The merge request pipelines check out a detached commit: give the merge request
