@@ -40,6 +40,8 @@ jobs:
       # The comment of the pull request of the release
       pull-requests: write
       issues: write
+      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com
+      id-token: write
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,6 +53,8 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
       - run: pnpm install --frozen-lockfile
+      # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing
+      - run: npm install -g npm@latest
       - id: release
         run: pnpm exec relizy release --yes ${{ inputs.release != 'auto' && format('--{0}', inputs.release) || '' }}
         env:
@@ -70,13 +74,13 @@ jobs:
 
 Create the secrets in Settings > Secrets and variables > Actions. GitHub gives `GITHUB_TOKEN` to each run.
 
-| Secret                                                                                             | Passed to the step as                                      | When                               |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ---------------------------------- |
-| (none)                                                                                             | `GITHUB_TOKEN`                                             | Always                             |
-| `NPM_TOKEN`                                                                                        | `RELIZY_NPM_TOKEN`                                         | Publishing to npm                  |
-| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | `RELIZY_TWITTER_API_KEY`... (same names, `RELIZY_` prefix) | [Twitter posts](./social-media.md) |
-| `SLACK_TOKEN`                                                                                      | `RELIZY_SLACK_TOKEN`                                       | [Slack posts](./social-media.md)   |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`                           | [AI rewrites](./ai-changelog.md)   |
+| Secret                                                                                             | Passed to the step as                                      | When                                                                     |
+| -------------------------------------------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------------------------------ |
+| (none)                                                                                             | `GITHUB_TOKEN`                                             | Always                                                                   |
+| `NPM_TOKEN`                                                                                        | `RELIZY_NPM_TOKEN`                                         | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
+| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | `RELIZY_TWITTER_API_KEY`... (same names, `RELIZY_` prefix) | [Twitter posts](./social-media.md)                                       |
+| `SLACK_TOKEN`                                                                                      | `RELIZY_SLACK_TOKEN`                                       | [Slack posts](./social-media.md)                                         |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`                           | [AI rewrites](./ai-changelog.md)                                         |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `registry-url` nor `NODE_AUTH_TOKEN` needed.
 
@@ -84,6 +88,7 @@ The permissions of the job:
 
 - `contents: write`: push the release commit and the tags, create the GitHub release. Without it, the release stops before publishing, with the fix.
 - `pull-requests: write` and `issues: write`: the [PR comment](./pr-comment.md).
+- `id-token: write`: publish to npm without `NPM_TOKEN`, with [trusted publishing](./trusted-publishing.md).
 
 ## Protected Branches and Rulesets
 

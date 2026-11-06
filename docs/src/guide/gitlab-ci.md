@@ -32,6 +32,10 @@ release:
   variables:
     # The changelogs need the history since the last release
     GIT_DEPTH: 0
+  # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com
+  id_tokens:
+    NPM_ID_TOKEN:
+      aud: npm:registry.npmjs.org
   rules:
     # On the default branch, not on the release commit it pushes
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\(release\): /'
@@ -39,6 +43,8 @@ release:
   before_script:
     - npm install -g corepack && corepack enable
     - pnpm install --frozen-lockfile
+    # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing
+    - npm install -g npm@latest
   script:
     - if [ "$RELEASE_TYPE" != "auto" ]; then RELEASE_FLAG="--$RELEASE_TYPE"; fi
     - pnpm exec relizy release --yes $RELEASE_FLAG --report-dotenv relizy.env
@@ -59,13 +65,13 @@ release:
 
 Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job under the same names.
 
-| Variable                                                                                           | When                                     |
-| -------------------------------------------------------------------------------------------------- | ---------------------------------------- |
-| `GITLAB_TOKEN`                                                                                     | Always: push, GitLab release, MR comment |
-| `NPM_TOKEN`                                                                                        | Publishing to npm                        |
-| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | [Twitter posts](./social-media.md)       |
-| `SLACK_TOKEN`                                                                                      | [Slack posts](./social-media.md)         |
-| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | [AI rewrites](./ai-changelog.md)         |
+| Variable                                                                                           | When                                                                     |
+| -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| `GITLAB_TOKEN`                                                                                     | Always: push, GitLab release, MR comment                                 |
+| `NPM_TOKEN`                                                                                        | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
+| `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | [Twitter posts](./social-media.md)                                       |
+| `SLACK_TOKEN`                                                                                      | [Slack posts](./social-media.md)                                         |
+| `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | [AI rewrites](./ai-changelog.md)                                         |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.
 

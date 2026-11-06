@@ -50,6 +50,7 @@ const guideSidebar = [
       { text: 'Release from CI', link: '/guide/ci-cd' },
       { text: 'GitHub Actions', link: '/guide/github-actions' },
       { text: 'GitLab CI', link: '/guide/gitlab-ci' },
+      { text: 'Trusted Publishing (OIDC)', link: '/guide/trusted-publishing' },
     ],
   },
   {

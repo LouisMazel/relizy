@@ -38,13 +38,13 @@ On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the insta
 
 ## Tokens
 
-| Needed for                        | Variable read by Relizy                                        |
-| --------------------------------- | -------------------------------------------------------------- |
-| npm publish                       | `RELIZY_NPM_TOKEN`                                             |
-| GitHub release, PR comment        | `GITHUB_TOKEN`                                                 |
-| GitLab release, MR comment, push  | `GITLAB_TOKEN`                                                 |
-| [Social posts](./social-media.md) | `RELIZY_TWITTER_*`, `RELIZY_SLACK_TOKEN`                       |
-| [AI rewrites](./ai-changelog.md)  | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `RELIZY_ANTHROPIC_API_KEY` |
+| Needed for                        | Variable read by Relizy                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| npm publish                       | `RELIZY_NPM_TOKEN`, or none with [trusted publishing](./trusted-publishing.md) |
+| GitHub release, PR comment        | `GITHUB_TOKEN`                                                                 |
+| GitLab release, MR comment, push  | `GITLAB_TOKEN`                                                                 |
+| [Social posts](./social-media.md) | `RELIZY_TWITTER_*`, `RELIZY_SLACK_TOKEN`                                       |
+| [AI rewrites](./ai-changelog.md)  | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `RELIZY_ANTHROPIC_API_KEY`                 |
 
 Every variable has aliases (`NPM_TOKEN`, `NODE_AUTH_TOKEN`, `GH_TOKEN`...): see [Tokens](./../config/overview.md#tokens). The secrets to create on each CI are listed in [GitHub Actions](./github-actions.md#secrets-and-permissions) and [GitLab CI](./gitlab-ci.md#ci-cd-variables).
 
@@ -123,7 +123,8 @@ A branch requiring pull requests or status checks rejects the push of the releas
 
 ### npm Publish Fails
 
-- **Authentication**: the token check before the bump fails. Check the secret is passed to the step, as `RELIZY_NPM_TOKEN` or `NPM_TOKEN`, and that the token can publish the packages.
+- **Authentication**: the token check before the bump fails. Check the secret is passed to the step, as `RELIZY_NPM_TOKEN` or `NPM_TOKEN`, and that the token can publish the packages. Or publish without token: [trusted publishing](./trusted-publishing.md).
+- **E404 with trusted publishing**: the package is not on npm yet (publish its first version with a token), or its trusted publisher does not match the repository, the workflow file or the environment of the job.
 - **OTP required**: a CI cannot type a one-time password. Use a token allowed to publish without 2FA.
 - **Version already published**: a previous run published it but did not push. Follow the recovery printed by Relizy, or add `--skip-existing-versions`.
 

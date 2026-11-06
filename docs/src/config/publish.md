@@ -65,6 +65,8 @@ One-time password of a registry with 2FA. Without it, relizy asks for one when t
 
 The registry token is [`tokens.registry`](./overview.md#tokens) (`RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default, `--publish-token <token>` from the CLI), or the `token` of each of the [`registries`](#registries). It works for npm, pnpm and bun: Yarn reads its auth from `.yarnrc.yml`, configure it yourself.
 
+Without token, a GitHub Actions or GitLab CI job can publish to npmjs.org with [trusted publishing](./../guide/trusted-publishing.md) (OIDC): the safety check then checks the npm of the job instead of `whoami`.
+
 Relizy writes the token, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without token, only the `@scope:registry` line of a scoped package is written.
 
 ## buildCmd
