@@ -460,6 +460,12 @@ describe('Given getAuthCommand function', () => {
       expect(result).toBe('npm whoami')
     })
 
+    it('Then leaves out the arguments of publish.args', () => {
+      config.publish.args = ['--provenance']
+
+      expect(getAuthCommand({ packageManager: 'npm', config })).toBe('npm whoami')
+    })
+
     it('Then includes registry when specified', () => {
       config.publish.registry = 'https://registry.npmjs.org/'
 
@@ -1789,6 +1795,22 @@ describe('Given publishPackage function', () => {
 
       expect(execPromise).toHaveBeenCalledWith(
         expect.stringMatching(/^yarn npm publish .*--no-git-checks/),
+        expect.any(Object),
+      )
+    })
+
+    it('Then adds the arguments of publish.args after the ones of relizy, before --dry-run', async () => {
+      config.publish.args = ['--provenance', '--json']
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringMatching(/^pnpm publish .*--no-git-checks --provenance --json --dry-run$/),
         expect.any(Object),
       )
     })

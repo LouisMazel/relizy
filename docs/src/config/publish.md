@@ -88,7 +88,17 @@ Declared in the types, not read by `publish`: the published packages are the rel
 - **Type:** `string[]`
 - **Default:** `[]`
 
-Declared as extra arguments of the publish command, not passed to it by `publish`: set the options of the package manager in `.npmrc` instead.
+Extra arguments of the publish command, added after the ones of relizy, for every package and every registry. Each item is one argument.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  publish: {
+    args: ['--provenance'],
+  },
+})
+```
 
 ## registries
 

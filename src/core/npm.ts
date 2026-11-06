@@ -457,6 +457,7 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   type,
   dryRun,
   cwd,
+  extraArgs = [],
 }: {
   packageManager: PackageManager
   tag: T extends 'publish' ? string : undefined
@@ -468,6 +469,10 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
    * Root of the project, where `.yarnrc.yml` tells Yarn Berry
    */
   cwd: string
+  /**
+   * Arguments of `publish.args`, added to the publish command
+   */
+  extraArgs?: string[]
 }) {
   const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
 
@@ -508,6 +513,8 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
   else if (packageManager === 'npm') {
     args.push('--yes')
   }
+
+  args.push(...extraArgs)
 
   if (dryRun) {
     args.push('--dry-run')
@@ -895,6 +902,7 @@ function getPublishCommand({
   otp,
   dryRun,
   cwd,
+  extraArgs,
 }: {
   packageManager: PackageManager
   tag: string
@@ -902,6 +910,7 @@ function getPublishCommand({
   otp?: string
   dryRun: boolean
   cwd: string
+  extraArgs?: string[]
 }): string {
   const args = getCommandArgs<'publish'>({
     packageManager,
@@ -911,6 +920,7 @@ function getPublishCommand({
     dryRun,
     type: 'publish',
     cwd,
+    extraArgs,
   })
 
   const baseCommand = packageManager === 'yarn' && isYarnBerry(cwd) ? 'yarn npm' : packageManager
@@ -971,6 +981,7 @@ async function publishToRegistryTarget({
         otp: dynamicOtp,
         dryRun,
         cwd: config.cwd,
+        extraArgs: config.publish.args,
       })
 
       process.chdir(pkg.path)

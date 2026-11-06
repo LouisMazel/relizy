@@ -761,7 +761,9 @@ export interface RegistryTarget {
 
 export interface PublishConfig {
   /**
-   * Arguments passed to the publish command
+   * Extra arguments of the publish command of every package and registry,
+   * after the ones of relizy (e.g. `['--provenance']`)
+   * @default []
    */
   args?: string[]
   /**
