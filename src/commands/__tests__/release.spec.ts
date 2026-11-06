@@ -770,6 +770,22 @@ describe('Given release command', () => {
         expect(assertBranchUpToDateWithRemote).not.toHaveBeenCalled()
       })
     })
+
+    describe('When the publish is disabled and the push enabled', () => {
+      it('Then still checks the remote branch right before the push', async () => {
+        const config = createMockConfig({
+          bump: { type: 'patch' },
+          release: { commit: true, push: true, publish: false, changelog: true, gitTag: true },
+        })
+        vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+        await release({})
+
+        expect(publish).not.toHaveBeenCalled()
+        expect(assertBranchUpToDateWithRemote).toHaveBeenCalledTimes(2)
+        expect(vi.mocked(assertBranchUpToDateWithRemote).mock.invocationCallOrder[1]).toBeLessThan(vi.mocked(pushCommitAndTags).mock.invocationCallOrder[0]!)
+      })
+    })
   })
 
   describe('When running in canary mode', () => {

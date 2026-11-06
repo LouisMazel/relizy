@@ -205,7 +205,7 @@ relizy/
 ├── scripts/                    # Generation of agent-docs, AI evaluations, peer dependency check
 ├── .github/                    # GitHub templates and workflows
 ├── docs/                       # VitePress documentation
-└── tests/                      # Shared mocks and e2e specs
+└── tests/                      # Shared mocks and test helpers
 ```
 
 ### Key Files to Know
