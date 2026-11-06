@@ -2,7 +2,7 @@ import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { executeBuildCmd, executeFormatCmd, executeHook, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCIName, getHookContext, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
+import { executeBuildCmd, executeHook, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCIName, getHookContext, getPackagesOrBumpedPackages, isBumpedPackage, isInCI } from '../utils'
 
 vi.mock('../repo', () => ({
   getPackages: vi.fn().mockResolvedValue([
@@ -554,70 +554,6 @@ describe('Given getCIName function', () => {
   describe('When no CI environment is detected', () => {
     it('Then returns null', () => {
       expect(getCIName()).toBeNull()
-    })
-  })
-})
-
-describe('Given executeFormatCmd function', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('When formatCmd is configured', () => {
-    it('Then executes format command successfully', async () => {
-      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { formatCmd: 'prettier --write *.md', rootChangelog: true, includeCommitBody: false }
-
-      await executeFormatCmd({ config, dryRun: false })
-
-      expect(logger.info).toHaveBeenCalledWith('Running format command')
-      expect(logger.debug).toHaveBeenCalledWith('Running format command: prettier --write *.md')
-      expect(execPromise).toHaveBeenCalledWith('prettier --write *.md', {
-        noStderr: true,
-        noStdout: true,
-        logLevel: config.logLevel,
-        cwd: config.cwd,
-      })
-      expect(logger.info).toHaveBeenCalledWith('Format completed')
-    })
-
-    it('Then skips execution in dry run mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { formatCmd: 'prettier --write *.md', rootChangelog: true, includeCommitBody: false }
-
-      await executeFormatCmd({ config, dryRun: true })
-
-      expect(logger.log).toHaveBeenCalledWith('[dry-run] exec format command: ', 'prettier --write *.md')
-      expect(execPromise).not.toHaveBeenCalled()
-    })
-
-    it('Then throws error when format command fails', async () => {
-      vi.mocked(execPromise).mockRejectedValue(new Error('Command failed'))
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { formatCmd: 'invalid-command', rootChangelog: true, includeCommitBody: false }
-
-      await expect(executeFormatCmd({ config, dryRun: false })).rejects.toThrow('Format command failed')
-    })
-  })
-
-  describe('When formatCmd is not configured', () => {
-    it('Then logs debug message and returns', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.changelog = { rootChangelog: true, includeCommitBody: false, formatCmd: '' }
-
-      await executeFormatCmd({ config, dryRun: false })
-
-      expect(logger.debug).toHaveBeenCalledWith('No format command specified')
-      expect(execPromise).not.toHaveBeenCalled()
-    })
-
-    it('Then does nothing in dry run mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-
-      await executeFormatCmd({ config, dryRun: true })
-
-      expect(execPromise).not.toHaveBeenCalled()
     })
   })
 })

@@ -80,7 +80,7 @@ The section lists the authors of the commits and their co-authors (`Co-authored-
 
 [`changelog.rootChangelog: false`](./../config/changelog.md#rootchangelog) (or `--no-root-changelog`) skips the root `CHANGELOG.md` of a monorepo. With [version groups](./version-groups.md), each group writes its changelogs, and `changelog.rootChangelog: false` on a group keeps it out of the root one.
 
-Format the files after they are written with [`changelog.formatCmd`](./../config/changelog.md#formatcmd) (or `--format-cmd`), e.g. `pnpm lint:fix`.
+The formatter of the project (Biome, Prettier, oxfmt, dprint or ESLint, from the root `package.json`) formats the changelogs written. Choose the command with [`changelog.formatCmd`](./../config/changelog.md#formatcmd) (or `--format-cmd`), <code v-pre>{{files}}</code> replaced by their paths, e.g. <code v-pre>eslint --fix {{files}}</code>, or turn it off with `false`.
 
 ## Range of Commits
 

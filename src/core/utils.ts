@@ -2,7 +2,6 @@ import type { BumpResultTruthy, HookConfig, HookContext, PackageBase, PrivatePac
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
-import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { clearGitCache } from './git-cache'
 import { reportProgress } from './progress'
 import { getReleaseOverview } from './release-overview'
@@ -150,44 +149,6 @@ export function getCIName(): string | null {
     return 'Unknown CI'
 
   return null
-}
-
-/**
- * Execute format command
- */
-export async function executeFormatCmd({
-  config,
-  dryRun,
-}: {
-  config: ResolvedRelizyConfig
-  dryRun: boolean
-}) {
-  if (config.changelog?.formatCmd) {
-    logger.info('Running format command')
-
-    logger.debug(`Running format command: ${config.changelog.formatCmd}`)
-    try {
-      if (!dryRun) {
-        await execPromise(config.changelog.formatCmd, {
-          noStderr: true,
-          noStdout: true,
-          logLevel: config.logLevel,
-          cwd: config.cwd,
-        })
-        clearGitCache()
-        logger.info('Format completed')
-      }
-      else {
-        logger.log('[dry-run] exec format command: ', config.changelog.formatCmd)
-      }
-    }
-    catch (error) {
-      throw new Error(`Format command failed: ${getErrorMessage(error)}`, { cause: error })
-    }
-  }
-  else {
-    logger.debug('No format command specified')
-  }
 }
 
 /**

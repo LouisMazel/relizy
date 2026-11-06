@@ -15,7 +15,7 @@ import { defineConfig } from 'relizy'
 
 export default defineConfig({
   changelog: {
-    formatCmd: 'pnpm prettier --write "**/CHANGELOG.md"',
+    formatCmd: 'pnpm prettier --write {{files}}',
   },
   types: {
     feat: { title: '✨ Features', semver: 'minor' },
@@ -42,11 +42,23 @@ Include the body of the commits in the entries, without its git trailers (`Co-au
 
 ## formatCmd
 
-- **Type:** `string`
-- **Default:** none
-- **CLI:** `--format-cmd <cmd>`
+- **Type:** `string | false`
+- **Default:** the formatter detected
+- **CLI:** `--format-cmd <cmd>`, `--no-format-cmd`
 
-Command run from the root after the changelogs are written, e.g. to format them with Prettier (not run in dry-run).
+Command run from the root after the changelogs are written (not run in dry-run). <code v-pre>{{files}}</code> is replaced by the paths of the changelogs written, quoted: <code v-pre>eslint --fix {{files}}</code> formats only them, without touching the rest of the project.
+
+Without it, relizy formats the changelogs written with the first formatter found in the dependencies of the root `package.json`:
+
+| Dependency       | Command                                                                     |
+| ---------------- | --------------------------------------------------------------------------- |
+| `@biomejs/biome` | `biome format --write --files-ignore-unknown=true --no-errors-on-unmatched` |
+| `prettier`       | `prettier --write --ignore-unknown --no-error-on-unmatched-pattern`         |
+| `oxfmt`          | `oxfmt --no-error-on-unmatched-pattern`                                     |
+| `dprint`         | `dprint fmt --allow-no-files`                                               |
+| `eslint`         | `eslint --fix --no-warn-ignored`                                            |
+
+The command runs with the package manager (`pnpm exec`, `yarn`, `bunx`, `npx`), and its failure is only a warning: the changelogs stay as written. The failure of a `formatCmd` you set stops the release. `false` (or `--no-format-cmd`) formats nothing.
 
 ## types
 

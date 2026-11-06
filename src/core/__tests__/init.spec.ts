@@ -131,11 +131,12 @@ describe('Given the init helpers', () => {
 
   describe('When detecting a standalone package', () => {
     it('Then suggests publishing a public package and versioning a private one', () => {
-      writePackage('.', { name: 'lib', version: '0.3.0', devDependencies: { relizy: '^1.0.0' } })
+      writePackage('.', { name: 'lib', version: '0.3.0', devDependencies: { relizy: '^1.0.0', eslint: '^9.0.0' } })
       const detection = detectProject({ cwd })
 
       expect(detection.workspaces).toEqual([])
       expect(detection.root.hasRelizy).toBe(true)
+      expect(detection.root.formatter).toBe('eslint')
       expect(suggestGoal(detection)).toBe('publish')
       expect(suggestPatterns(detection, 'publish')).toEqual([])
 

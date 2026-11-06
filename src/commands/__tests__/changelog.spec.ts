@@ -30,6 +30,7 @@ describe('Given changelog command', () => {
     vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
     vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(writeChangelogToFile).mockImplementation(({ pkg }) => `${pkg.path}/CHANGELOG.md`)
     vi.mocked(getRootPackage).mockResolvedValue({
       name: 'test',
       version: '1.0.0',
@@ -107,6 +108,21 @@ describe('Given changelog command', () => {
     })
   })
 
+  describe('When the changelogs are written', () => {
+    it('Then formats each changelog written once', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
+        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
+      ])
+
+      await changelog({})
+
+      expect(executeFormatCmd).toHaveBeenCalledWith({ config, dryRun: false, files: ['/root/CHANGELOG.md', '/pkg-a/CHANGELOG.md'] })
+    })
+  })
+
   describe('When error occurs', () => {
     it('Then executes error hook', async () => {
       vi.mocked(generateChangelog).mockRejectedValue(new Error('Failed'))
@@ -148,6 +164,7 @@ describe('Given the output of changelog in CI', () => {
     vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
     vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
+    vi.mocked(writeChangelogToFile).mockImplementation(({ pkg }) => `${pkg.path}/CHANGELOG.md`)
     vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', path: '/root', private: false, fromTag: 'v0.9.0', commits: [] })
     output = captureCliOutput()
   })

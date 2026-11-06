@@ -140,6 +140,19 @@ describe('Given check_migration on a relizy 1 project linting its commits', () =
   })
 })
 
+describe('Given check_migration on a relizy 1 project with a formatter', () => {
+  it('Then points out the changelogs formatted by it, unless changelog.formatCmd is set', async () => {
+    const files = {
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0', eslint: '^9.0.0' } }),
+    }
+
+    expect(await checkMigration(createTestContext(writeProject(files)), {})).toContain('The changelogs are formatted with eslint')
+
+    const configured = writeProject({ ...files, 'relizy.config.mjs': `export default { changelog: { formatCmd: false } }\n` })
+    expect(await checkMigration(createTestContext(configured), {})).not.toContain('The changelogs are formatted')
+  })
+})
+
 describe('Given check_migration on a project with the options renamed in relizy 2', () => {
   it('Then points out commitlint.codeBlocksLinter and the CommitlintCodeBlocksLinter type', async () => {
     const cwd = writeProject({

@@ -4,6 +4,7 @@ import type { ServerContext } from '../context'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import fastGlob from 'fast-glob'
+import { resolveFormatCommand } from '../../core/changelog-format'
 import { RemovedConfigOptionError } from '../../core/config'
 import { GLOB_IGNORE } from '../../core/glob'
 import { hasVersionGroups } from '../../core/groups'
@@ -356,6 +357,19 @@ function checkAIDryRun(config: ResolvedRelizyConfig): MigrationFinding[] {
     : []
 }
 
+function checkChangelogFormatting(config: ResolvedRelizyConfig): MigrationFinding[] {
+  const formatter = config.changelog?.formatCmd ? undefined : resolveFormatCommand({ config, files: [join(config.cwd, 'CHANGELOG.md')] })?.formatter
+
+  return formatter && !isOnRelizy2(config.cwd)
+    ? [{
+        severity: 'review',
+        title: `The changelogs are formatted with ${formatter}`,
+        section: 'Changelog Formatting',
+        detail: `Without \`changelog.formatCmd\`, the formatter of the root \`package.json\` formats the changelogs written. Set \`changelog.formatCmd\` to choose the command (\`{{files}}\` is replaced by the changelogs), or \`false\` to keep them as written.`,
+      }]
+    : []
+}
+
 /**
  * The hooks of the project running `relizy commitlint`
  */
@@ -564,6 +578,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkVersionGroups(config, configFiles),
     ...checkAIDryRun(config),
     ...checkAIAttribution(config),
+    ...checkChangelogFormatting(config),
     ...checkReleaseSummary(config),
     ...checkSourceFiles(config.cwd),
     ...checkCliCalls(config.cwd),

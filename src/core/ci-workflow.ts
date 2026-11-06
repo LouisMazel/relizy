@@ -3,6 +3,7 @@ import type { InitAnswers, ProjectDetection } from './init'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { getExecCommand } from './npm'
 
 /**
  * The release workflow written by `relizy init`: a GitHub Actions workflow
@@ -121,16 +122,7 @@ export function getInstallDependenciesCommand(options: Pick<WorkflowOptions, 'pa
 }
 
 export function getRelizyCommand(packageManager: PackageManager): string {
-  switch (packageManager) {
-    case 'pnpm':
-      return 'pnpm exec relizy'
-    case 'yarn':
-      return 'yarn relizy'
-    case 'bun':
-      return 'bunx relizy'
-    default:
-      return 'npx relizy'
-  }
+  return getExecCommand(packageManager, 'relizy')
 }
 
 /**

@@ -22,13 +22,14 @@ See [Changelog](./../guide/changelog.md) for the content of the entries.
 
 ## Options
 
-| Flag                        | Description                                                                           | Config                                                                |
-| --------------------------- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| `--from <ref>`              | Start of the commit range (tag or commit), instead of the last release tag            | [`from`](./../config/overview.md#from-to)                             |
-| `--to <ref>`                | End of the commit range, `HEAD` by default                                            | [`to`](./../config/overview.md#from-to)                               |
-| `--format-cmd <cmd>`        | Command run after writing the changelogs, e.g. `"pnpm lint:fix"`                      | [`changelog.formatCmd`](./../config/changelog.md#formatcmd)           |
-| `--no-root-changelog`       | Do not write the root `CHANGELOG.md` of a monorepo                                    | [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)   |
-| `--private-packages <mode>` | `release`: write the changelogs of the private packages too, `ignore`: leave them out | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages) |
+| Flag                        | Description                                                                                    | Config                                                                |
+| --------------------------- | ---------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `--from <ref>`              | Start of the commit range (tag or commit), instead of the last release tag                     | [`from`](./../config/overview.md#from-to)                             |
+| `--to <ref>`                | End of the commit range, `HEAD` by default                                                     | [`to`](./../config/overview.md#from-to)                               |
+| `--format-cmd <cmd>`        | Command run after writing the changelogs, <code v-pre>{{files}}</code> replaced by their paths | [`changelog.formatCmd`](./../config/changelog.md#formatcmd)           |
+| `--no-format-cmd`           | Do not format the changelogs (no formatter detected)                                           | [`changelog.formatCmd: false`](./../config/changelog.md#formatcmd)    |
+| `--no-root-changelog`       | Do not write the root `CHANGELOG.md` of a monorepo                                             | [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)   |
+| `--private-packages <mode>` | `release`: write the changelogs of the private packages too, `ignore`: leave them out          | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages) |
 
 ## Examples
 

@@ -429,6 +429,22 @@ describe('Given init command', () => {
         expect(result.hook).toBeUndefined()
       })
 
+      it('Then leaves the formatting of the changelogs to the formatter detected', async () => {
+        writePackage('.', { name: 'lib', version: '0.4.0', scripts: { format: 'prettier -w .' }, devDependencies: { prettier: '^3.0.0' } })
+        answer(select, ['publish', 'public'])
+        answer(confirm, [true, true, false, true])
+        answer(multiselect, [typesExcept(), ['twitter'], ['twitter']])
+        answer(text, ['', '', '', '', ''])
+
+        const result = await init({ cwd })
+
+        expect(result.config.changelog).toBeUndefined()
+        expect(vi.mocked(text)).toHaveBeenCalledWith(expect.objectContaining({
+          message: 'Command formatting the changelogs once written (leave empty to use prettier, detected):',
+          initialValue: undefined,
+        }))
+      })
+
       it('Then keeps an existing commit-msg hook when the replacement is declined', async () => {
         write('.git/hooks/commit-msg', '#!/bin/sh\nnpx commitlint --edit "$1"\n')
         answer(select, ['version'])

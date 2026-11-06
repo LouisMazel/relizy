@@ -235,10 +235,14 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
     options: types.map(({ type, title }) => ({ value: type, label: type, hint: title })),
   }))
   result.hiddenTypes = types.map(({ type }) => type).filter(type => !shown.includes(type))
+  // Without formatCmd, the detected formatter formats the changelogs written
+  const { formatter } = detection.root
   result.formatCmd = await askText({
-    message: 'Command formatting the changelogs once written (leave empty to skip):',
-    placeholder: 'e.g. prettier --write CHANGELOG.md',
-    initialValue: detection.root.scripts.format ? getRunCommand(detection.packageManager, 'format') : undefined,
+    message: formatter
+      ? `Command formatting the changelogs once written (leave empty to use ${formatter}, detected):`
+      : 'Command formatting the changelogs once written (leave empty to skip):',
+    placeholder: 'e.g. eslint --fix {{files}}',
+    initialValue: !formatter && detection.root.scripts.format ? getRunCommand(detection.packageManager, 'format') : undefined,
   })
 
   return result

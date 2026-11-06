@@ -1,8 +1,10 @@
 import type { BumpConfig, GitProvider, PackageManager, PrCommentMode, RelizyConfig, VersionMode } from '../types'
+import type { ChangelogFormatter } from './changelog-format'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import fastGlob from 'fast-glob'
 import * as semver from 'semver'
+import { findChangelogFormatter } from './changelog-format'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
 import { getDefaultConfig } from './config'
 import { detectGitProvider } from './git'
@@ -47,6 +49,8 @@ export interface ProjectDetection {
     scripts: Record<string, string>
     /** relizy is in the dependencies of the root package.json */
     hasRelizy: boolean
+    /** The formatter of the changelogs, from the dependencies of the root package.json */
+    formatter?: ChangelogFormatter
     access?: 'public' | 'restricted'
     registry?: string
   }
@@ -190,6 +194,7 @@ export function detectProject({ cwd, configName = 'relizy' }: { cwd: string, con
       private: rootJson.private === true,
       scripts: rootJson.scripts && typeof rootJson.scripts === 'object' ? rootJson.scripts : {},
       hasRelizy: 'relizy' in dependencies,
+      formatter: findChangelogFormatter(dependencies),
       access: getAccess(rootJson),
       registry: getRegistry(rootJson),
     },

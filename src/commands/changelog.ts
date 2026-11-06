@@ -5,7 +5,7 @@ import { aggregateIndependentChangelogs, assertVersionGroupsOption, createComman
 import { prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
-import { reportProgress, showPreview } from '../core/progress'
+import { showPreview } from '../core/progress'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -18,10 +18,10 @@ async function generateIndependentRootChangelog({
   dryRun: boolean
   /** The changelog of a package, generated once for its file and the root one */
   getPackageChangelog: (pkg: PackageBase) => Promise<string>
-}): Promise<boolean> {
+}): Promise<string | undefined> {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
-    return false
+    return undefined
   }
 
   logger.debug('Generating aggregated root changelog for independent mode')
@@ -36,7 +36,7 @@ async function generateIndependentRootChangelog({
 
   if (!aggregatedChangelog) {
     logger.debug('No changelogs to aggregate')
-    return false
+    return undefined
   }
 
   logger.verbose(`Aggregated root changelog: ${aggregatedChangelog}`)
@@ -47,7 +47,7 @@ async function generateIndependentRootChangelog({
     throw new Error('Failed to read root package.json')
   }
 
-  writeChangelogToFile({
+  const changelogPath = writeChangelogToFile({
     cwd: config.cwd,
     pkg: rootPackageRead,
     changelog: aggregatedChangelog,
@@ -61,7 +61,7 @@ async function generateIndependentRootChangelog({
     logger.debug('Aggregated root changelog written')
   }
 
-  return true
+  return changelogPath
 }
 
 async function generateSimpleRootChangelog({
@@ -76,10 +76,10 @@ async function generateSimpleRootChangelog({
   force: boolean
   suffix: string | undefined
   bumpResult: BumpResultTruthy | undefined
-}): Promise<boolean> {
+}): Promise<string | undefined> {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
-    return false
+    return undefined
   }
 
   logger.debug('Generating simple root changelog')
@@ -120,7 +120,7 @@ async function generateSimpleRootChangelog({
     newVersion,
   })
 
-  writeChangelogToFile({
+  const changelogPath = writeChangelogToFile({
     cwd: config.cwd,
     changelog: rootChangelog,
     pkg: rootPackage,
@@ -134,12 +134,12 @@ async function generateSimpleRootChangelog({
     logger.debug('Root changelog written')
   }
 
-  return true
+  return changelogPath
 }
 
 /**
  * Generate the root and package changelogs of the packages of the config.
- * Returns the number of changelogs written, the root one included.
+ * Returns the paths of the changelogs written, the root one included.
  */
 async function generateChangelogs({
   config,
@@ -153,7 +153,7 @@ async function generateChangelogs({
   dryRun: boolean
   force: boolean
   suffix: string | undefined
-}): Promise<number> {
+}): Promise<string[]> {
   const packages = await getPackagesOrBumpedPackages({
     config,
     bumpResult,
@@ -173,10 +173,10 @@ async function generateChangelogs({
     return changelogs.get(pkg.name)!
   }
 
-  let rootWritten = false
+  let rootChangelogPath: string | undefined
 
   if (config.changelog?.rootChangelog && config.monorepo?.versionMode) {
-    rootWritten = config.monorepo.versionMode === 'independent'
+    rootChangelogPath = config.monorepo.versionMode === 'independent'
       ? await generateIndependentRootChangelog({
           packages,
           config,
@@ -199,20 +199,19 @@ async function generateChangelogs({
 
   logger.debug(`Processing ${packages.length} package(s)`)
 
-  let generatedCount = rootWritten ? 1 : 0
+  const written = rootChangelogPath ? [rootChangelogPath] : []
 
   for await (const pkg of packages) {
     logger.debug(`Processing ${pkg.name}`)
 
     const changelog = await getPackageChangelog(pkg)
 
-    writeChangelogToFile({
+    written.push(writeChangelogToFile({
       cwd: config.cwd,
       pkg,
       changelog,
       dryRun,
-    })
-    generatedCount++
+    }))
 
     if (dryRun) {
       showPreview({ title: `Changelog of ${pkg.name}`, content: changelog })
@@ -222,7 +221,7 @@ async function generateChangelogs({
     }
   }
 
-  return generatedCount
+  return written
 }
 
 export function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
@@ -308,7 +307,7 @@ async function writeChangelogs({ config, options, dryRun }: {
 
   assertVersionGroupsOption({ config, groups: options.groups })
 
-  let generatedCount = 0
+  const written: string[] = []
 
   if (hasVersionGroups(config)) {
     for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
@@ -321,35 +320,33 @@ async function writeChangelogs({ config, options, dryRun }: {
 
       logger.debug(`Generating changelogs of version group "${group.name}"`)
 
-      generatedCount += await generateChangelogs({
+      written.push(...await generateChangelogs({
         config: groupConfig,
         bumpResult: groupBumpResult,
         dryRun,
         force: options.force ?? false,
         suffix: options.suffix,
-      })
+      }))
     }
   }
   else {
-    generatedCount = await generateChangelogs({
+    written.push(...await generateChangelogs({
       config,
       bumpResult: options.bumpResult,
       dryRun,
       force: options.force ?? false,
       suffix: options.suffix,
-    })
+    }))
   }
 
-  logger.debug(`Generated ${generatedCount} changelog(s)`)
+  logger.debug(`Generated ${written.length} changelog(s)`)
 
-  if (config.changelog.formatCmd) {
-    reportProgress('Formatting the changelogs')
-  }
-
+  // The root changelog is written by each version group
   await executeFormatCmd({
     config,
     dryRun,
+    files: [...new Set(written)],
   })
 
-  return generatedCount
+  return written.length
 }

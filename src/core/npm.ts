@@ -96,6 +96,22 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
 }
 
 /**
+ * Run a binary of the dependencies with the package manager: `pnpm exec eslint`
+ */
+export function getExecCommand(packageManager: PackageManager, command: string): string {
+  switch (packageManager) {
+    case 'pnpm':
+      return `pnpm exec ${command}`
+    case 'yarn':
+      return `yarn ${command}`
+    case 'bun':
+      return `bunx ${command}`
+    default:
+      return `npx ${command}`
+  }
+}
+
+/**
  * The dist-tag of a version: the configured one, else `next` for a
  * prerelease and `latest` otherwise
  */

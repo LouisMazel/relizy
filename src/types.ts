@@ -519,9 +519,13 @@ export interface BumpOptions extends BumpConfig {
 
 export interface ChangelogConfig {
   /**
-   * Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
+   * Command formatting the changelogs once written, run from the root: `{{files}}` is
+   * replaced by their paths (e.g. `eslint --fix {{files}}`). Without it, the formatter
+   * of the root `package.json` (Biome, Prettier, oxfmt, dprint, else ESLint) formats
+   * the changelogs written; `false` formats nothing.
+   * @default the formatter detected
    */
-  formatCmd?: string
+  formatCmd?: string | false
   /**
    * Generate changelog at root level with all changes
    * @default true

@@ -10,7 +10,7 @@ tags: [guide, migration, upgrade]
 
 Relizy 2 releases [version groups](./version-groups.md) as **one** release, presented by group: one bump confirmation, one post per social platform, one PR comment with a table per group. It also fixes the social posts of the `independent` mode and cleans up the programmatic API.
 
-Every project should read the [CLI](#cli) changes (confirmation in CI, push access, exit codes) and the new commitlint rule ([AI attribution in commits](#ai-attribution-in-commits)). The other changes only concern the projects using version groups, custom social templates, renamed or removed options, or the programmatic API.
+Every project should read the [CLI](#cli) changes (confirmation in CI, push access, exit codes) the new commitlint rule ([AI attribution in commits](#ai-attribution-in-commits)) and the [formatting of the changelogs](#changelog-formatting). The other changes only concern the projects using version groups, custom social templates, renamed or removed options, or the programmatic API.
 
 ::: tip Let your AI agent do it
 With the [MCP server](./ai-agents.md) of Relizy 2, ask your agent for the `migrate-to-v2` prompt, or let it call the `check_migration` tool: it lists what to change in your config and your code, file by file and line by line, with the fix of each place.
@@ -260,6 +260,22 @@ export default defineConfig({
 ```
 
 The changelogs no longer show the git trailers of the commit bodies (`Co-authored-by:`, `Signed-off-by:`, `Closes #12`...), only a `BREAKING CHANGE:` footer, and the AI tools are not credited as contributors.
+
+### Changelog Formatting
+
+Without [`changelog.formatCmd`](./../config/changelog.md#formatcmd), the formatter in the dependencies of the root `package.json` (Biome, Prettier, oxfmt, dprint, else ESLint) formats the changelogs written, and only them. If it fails, the release goes on with a warning. `formatCmd` replaces <code v-pre>{{files}}</code> by the paths of the changelogs written, so a command staging the files for lint-staged is no longer needed:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  changelog: {
+    // v1: 'git add --all && pnpm lint-staged && git reset'
+    formatCmd: 'eslint --fix {{files}}',
+    // or false to keep the changelogs as written
+  },
+})
+```
 
 ## CLI
 

@@ -34,10 +34,6 @@ export default defineConfig({
     changelogTitle: '{{newVersion}} ({{date}})',
   },
 
-  changelog: {
-    formatCmd: 'git add --all && pnpm pre-commit && git reset',
-  },
-
   publish: {
     registry: 'https://registry.npmjs.org',
     buildCmd: process.env.CI ? undefined : 'pnpm build',

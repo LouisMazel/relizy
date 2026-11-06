@@ -317,6 +317,7 @@ export async function generateChangelog(
 
 /**
  * Write changelog to file
+ * @returns The path of the changelog, also in dry-run
  */
 export function writeChangelogToFile({
   cwd,
@@ -328,7 +329,7 @@ export function writeChangelogToFile({
   pkg: ReadPackage | PackageBase
   changelog: string
   dryRun: boolean
-}) {
+}): string {
   const changelogPath = join(pkg.path, 'CHANGELOG.md')
 
   let existingChangelog = ''
@@ -360,4 +361,6 @@ export function writeChangelogToFile({
     writeFileSync(changelogPath, updatedChangelog, 'utf8')
     logger.info(`Changelog updated for ${pkg.name} (${('newVersion' in pkg && pkg.newVersion) || pkg.version})`)
   }
+
+  return changelogPath
 }
