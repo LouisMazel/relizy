@@ -3,6 +3,7 @@ import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
+import llmstxt from 'vitepress-plugin-llms'
 import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 
@@ -386,7 +387,11 @@ export default defineConfig({
 
   vite: {
     // The utilities of the custom pages (the homepage), see theme/tailwind.css
-    plugins: [tailwindcss()],
+    plugins: [
+      tailwindcss(),
+      // llms.txt, llms-full.txt and a .md file per page, read by the AI assistants
+      llmstxt({ title: 'Relizy', domain: SITE_URL }),
+    ],
     build: {
       target: 'esnext',
       minify: 'esbuild',
