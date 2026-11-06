@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.14.4-beta.0",
   "packageManager": "pnpm@12.4.1",
-  "description": "Release automation for monorepos and single packages, driven by your commits: versions, changelogs, npm publishing, GitHub and GitLab releases",
+  "description": "Release automation - Ship every release in one command",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
   "homepage": "https://relizy.dev",
