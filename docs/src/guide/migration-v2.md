@@ -132,7 +132,7 @@ With `onlyStable` (the default of Slack), a post announcing several versions lea
 
 ### Arrays Replace the Defaults
 
-An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file, and `relizy release` passed every `publish.args` twice.
+An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file.
 
 If you set `bump.dependencyTypes` (globally or on a version group) without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
 
@@ -302,3 +302,9 @@ No action needed:
 
 - The length of a tweet is counted as X counts it: every URL counts 23 characters, an emoji or a CJK character counts 2.
 - `social()` applies its `safetyCheck` option: `relizy release` no longer checks the social config twice.
+- [`publish.args`](../config/publish.md#args) is passed to the publish command: it was ignored.
+- `bump.clean: false` applies to `relizy release` too, not only to `relizy bump`.
+- The `logLevel` of the config applies when `--log-level` is not passed.
+- `relizy publish --no-safety-check` skips the safety check of the publication.
+- The messages of `templates.commitMessage`, `commitBody` and `tagMessage` are passed to git as they are: a quote, a `$` or a backtick is no longer run by a shell.
+- A GitHub release authenticates with `repo.token` when `tokens.github` is not set.
