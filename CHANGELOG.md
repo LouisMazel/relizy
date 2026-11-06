@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.0.0-beta.5 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.4...v2.0.0-beta.5)
+
+### 🩹 Fixes
+
+- Tell why the release cannot be pushed, and report a branch behind its remote as such ([3f50e48](https://github.com/LouisMazel/relizy/commit/3f50e48))
+
+  A branch behind its remote no longer fails the release as if the git credentials could not push: the check of the branch reports how many commits are missing, with the fix (`git pull --rebase` locally, run the job again in CI).
+
+  When git really refuses the push, the error shows why (permission denied, protected branch, unreachable host...), without the credentials of the remote.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0-beta.4 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.3...v2.0.0-beta.4)
