@@ -1,5 +1,1316 @@
 # Changelog
 
+## v2.0.0-beta.0 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.4-beta.0...v2.0.0-beta.0)
+
+### 🚀 Features
+
+- ⚠️ Throw a RelizyCancelError on a refused prompt instead of exiting the process ([ac14ad2](https://github.com/LouisMazel/relizy/commit/ac14ad2))
+
+  A refused or cancelled prompt (bump confirmation, uncommitted changes, rewritten tag) no longer calls `process.exit()`: the commands throw a `RelizyCancelError` before writing anything, without their `error:*` hooks nor a failed PR comment. The CLI still exits with code 0.
+
+  ```ts
+  import { isRelizyCancelError, release } from 'relizy'
+
+  try {
+    await release()
+  }
+  catch (error) {
+    if (!isRelizyCancelError(error)) {
+      throw error
+    }
+  }
+  ```
+
+- Add the title, release and ai options to the version groups ([3393af4](https://github.com/LouisMazel/relizy/commit/3393af4))
+
+  A version group gets a `title`, shown in the outputs of a release, and can override `release.providerRelease`, `release.social` and `ai.providerRelease`, e.g. to create the provider releases of an `independent` group (one per package) without AI:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      groups: [
+        { name: 'ecosystem', title: 'maz-ui', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'tooling', title: 'Tooling', versionMode: 'independent', packages: ['tooling/*'], ai: { providerRelease: { enabled: false } } },
+      ],
+    },
+  })
+  ```
+
+  The `--ai`/`--no-ai` options still apply to every group.
+
+- ⚠️ Confirm the bump once for every version group ([985a5f7](https://github.com/LouisMazel/relizy/commit/985a5f7))
+
+  With `monorepo.groups`, the bump prompt lists the packages of every group, each under its `title`, and asks once instead of once per group.
+
+  `confirmBump()` only asks, `displayBump()` prints a bump, and the plans of `planBumps()` get `display()` instead of `confirm()`:
+
+  ```ts
+  const { plans } = await planBumps({ config })
+
+  await confirmBump({
+    packages: plans.flatMap(plan => plan.result.bumped ? plan.result.bumpedPackages : []),
+    display: () => {
+      for (const plan of plans) {
+        plan.display?.()
+      }
+    },
+    dryRun: false,
+  })
+  ```
+
+- ⚠️ Add releaseTitle, packageList and packageCount to the social templates ([99cd9c8](https://github.com/LouisMazel/relizy/commit/99cd9c8))
+
+  The social posts are built from a model of the release (`getReleaseOverview()`), which fixes the posts of the `independent` mode: no more "my-lib 3 packages is out!", nor the project name with the version of its only package.
+
+  - `{{releaseTitle}}`: `<name> <version> is out!` for a single version (`@scope/pkg 5.1.0 is out!` for a single package), `New releases of <project>` for several
+  - `{{packageList}}` and `{{packageCount}}`, as in the commit templates
+  - `{{newVersion}}` is empty when several versions are released
+  - every occurrence of a variable is replaced, not only the first one
+
+  The default `templates.twitterMessage` uses `{{releaseTitle}}`, same text for a single version:
+
+  ```ts
+  export default defineConfig({
+    templates: {
+      twitterMessage: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+    },
+  })
+  ```
+
+  `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()` and `postReleaseToSlack()` take the `variables` of the template instead of `projectName`, `version`, `releaseUrl` and `changelogUrl`:
+
+  ```ts
+  const variables = getSocialTemplateVariables({ overview: getReleaseOverview({ config, bumpResult }), releaseUrl })
+
+  formatTweetMessage({ template, changelog, postMaxLength: 280, variables })
+  ```
+
+- ⚠️ Post a release of several versions once per platform, by group ([6e30ca4](https://github.com/LouisMazel/relizy/commit/6e30ca4))
+
+  With `monorepo.groups`, a release is announced as one release: one post per platform instead of one per group, one AI call per platform instead of one per group and platform, and the `social`, `twitter` and `slack` hooks run once. Same for several packages released in `independent` mode.
+
+  - the post is titled `New releases of <project>`, then a section per group (its `title`), the `unified`/`selective` group first
+  - Twitter: filled by priority within `postMaxLength`, every group keeps its version line (an `independent` group collapses to `Tooling: 3 packages` when needed)
+  - Slack: a section per group, the budget of the message shared between them, the contributors once
+  - `onlyStable` leaves the prereleases out of the post instead of posting all the versions or none
+
+  ```text
+  📣 New releases of maz-ui
+
+  maz-ui 5.2.1
+  • mcp: label the bundled docs with their maz-ui version
+
+  Tooling
+  • @maz-ui/eslint-config 5.1.0: stop enforcing the pnpm catalog
+  • @maz-ui/upgrade 5.2.1
+  ```
+
+- List the packages of each version group in its own table in the PR comment ([3190f36](https://github.com/LouisMazel/relizy/commit/3190f36))
+
+  With several version groups released, the PR comment has one table per group, titled with its `title`, its version and its version mode, the `unified`/`selective` group first:
+
+  ```text
+  ### maz-ui `5.2.1` (selective)
+  | `@maz-ui/mcp` | `5.2.0` → `5.2.1` |
+
+  ### Tooling (independent)
+  | `@maz-ui/eslint-config` | `5.0.0` → `5.1.0` |
+  ```
+
+- Give the release to the hooks of the steps after the bump ([b06146b](https://github.com/LouisMazel/relizy/commit/b06146b))
+
+  The function hooks of the steps after the bump get a third parameter when the release is known (in `relizy release`, ...
+
+  ```ts
+  export default defineConfig({
+    hooks: {
+      'success:release': (config, dryRun, context) => {
+        for (const group of context?.release.groups ?? []) {
+          console.log(group.title, group.version)
+        }
+      },
+    },
+  })
+  ```
+
+- Check the migration from relizy 1 with the MCP server ([8c734b3](https://github.com/LouisMazel/relizy/commit/8c734b3))
+
+  The `check_migration` tool lists what to change in the project to upgrade from relizy 1, with the file and line of each place, the fix and the section of the migration guide: the relizy dependency, the social templates, the version groups (titles, hooks, AI provider releases) and the code calling the relizy API. The `migrate-to-v2` prompt drives the whole migration.
+
+  ```ts
+  check_migration({ config: 'relizy' })
+  ```
+
+- List the values of the union types in get_config_option ([bfc1d4a](https://github.com/LouisMazel/relizy/commit/bfc1d4a))
+
+  `get_config_option` lists the values an option accepts when its type hides them behind an alias, so the agents no longer need the docs to know them. `bump.type` and `logLevel` are typed with `BumpReleaseType` and `RelizyLogLevel`, the same types as the ones of semver and `@maz-ui/node`, declared by relizy.
+
+  ```text
+  # `monorepo.versionMode`
+
+  - **Type:** `VersionMode`
+  - **Values:** `"unified"`, `"independent"`, `"selective"`
+  ```
+
+- List every commit with preview_release({ full: true }) ([0b0f16b](https://github.com/LouisMazel/relizy/commit/0b0f16b))
+
+  `preview_release` lists the first 10 commits of a version and the first 5 of a package, and says how to list them all: with `full: true`, every commit explaining a bump is listed. A preview longer than a tool result can be is cut with a note.
+
+  ```ts
+  preview_release({ full: true })
+  ```
+
+- ⚠️ Report the outcome of the release to the CI ([53c44a9](https://github.com/LouisMazel/relizy/commit/53c44a9))
+
+  `relizy release` reports what it did (released, nothing to release or failed, the versions by group, the tags, and the outcome of each step), to run something only when a release happens:
+
+  - in GitHub Actions, the outputs of the step (`released`, `status`, `version`, `tags`, `packages`, `report`) and the summary of the run, without option
+  - `release.report.dotenv` (`--report-dotenv`): a dotenv file for the `artifacts:reports:dotenv` of GitLab CI (`RELIZY_RELEASED`, `RELIZY_VERSION`...)
+  - `release.report.json` (`--report-json`): the whole report as JSON
+  - `release()` returns it, and `formatReleaseReportText()` replaces `buildReleaseSummary()`
+
+  ```yaml
+  - id: release
+    run: pnpm relizy release --yes
+  - if: steps.release.outputs.released == 'true'
+    run: ./scripts/notify-teams.sh
+  ```
+
+- ⚠️ Show each command step by step, with previews and a summary of the release ([dbc523b](https://github.com/LouisMazel/relizy/commit/dbc523b))
+
+  Every command shows one line per step, with its duration and what it did, the details only with `--log-level verbose`. In CI, each step is a collapsible group of GitHub Actions or GitLab CI. `RELIZY_REPORTER=classic` gives back the logs of relizy 1.
+
+  A dry run shows what it would generate (changelogs, release notes, posts, PR comment) and no longer calls the AI: `--ai-preview` calls it, `--no-preview` hides the previews.
+
+  `relizy release` ends with a summary, also used for the PR comment, the summary of the GitHub Actions run and the new `release.report.markdown`. See [Migrating from v1 to v2](https://relizy.dev/guide/migration-v2).
+
+- ⚠️ Rename commitlint.codeBlocksLinter to changelogLinter ([4b2073f](https://github.com/LouisMazel/relizy/commit/4b2073f))
+
+  The option chooses the tool checking the changelog entry of a commit, not only its code blocks: with ESLint, the whole entry is linted. Rename `codeBlocksLinter` to `changelogLinter` in the `commitlint` config, with the same values (`auto`, `eslint`, `oxc`), and the type `CommitlintCodeBlocksLinter` to `CommitlintChangelogLinter`. See [Migrating from v1 to v2](https://relizy.dev/guide/migration-v2).
+
+- Give the AI the context of the release and keep the structure of the changelog ([9015b72](https://github.com/LouisMazel/relizy/commit/9015b72))
+
+  The AI now receives the project, the version, the previous one and the kind of release before the changelog. Its rewrites keep every change, the section headings of your `types` (even in another `language`), the code blocks of the commit bodies and the references, and never follow an instruction written in a commit.
+
+  With `social.slack.changelogFormat: 'full'`, the Slack message keeps every change instead of 3 to 8 bullets. See the [AI guide](https://relizy.dev/guide/ai-changelog).
+
+- Show the tokens of the AI calls in the summary of the release ([b3ccd09](https://github.com/LouisMazel/relizy/commit/b3ccd09))
+
+  Each AI rewrite shows its tokens, with `claude-code` and `ai-sdk`, and the summary of the release (terminal, PR comment, GitHub Actions summary) adds up the tokens and the cost of every call: `2 rewrites by claude-code in 21.3s · 5.8k tokens · $0.019`.
+
+- ⚠️ Reject the commits crediting an AI tool ([2123f4a](https://github.com/LouisMazel/relizy/commit/2123f4a))
+
+  The new `no-ai-attribution` rule of `relizy commitlint` reports an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer and the "Generated with" line of the AI tools. It is an error by default: turn off the attribution in the settings of your tools, or the rule, as told in the [migration guide](https://relizy.dev/guide/migration-v2#ai-attribution-in-commits).
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    commitlint: {
+      rules: { 'no-ai-attribution': 'off' },
+    },
+  })
+  ```
+
+- ⚠️ Only export the commands, the config and the types ([f5fb638](https://github.com/LouisMazel/relizy/commit/f5fb638))
+
+  `relizy` exported every internal function of its commands (about 300: git, npm, tags, Slack, the steps of the commands...). It now only exports the programmatic API: the commands (`release()`, `bump()`, `changelog()`, `publish()`, `providerRelease()`, `social()`, `prComment()`, `commitlint()`), `defineConfig()`, `loadRelizyConfig()`, `RelizyCancelError`, `isRelizyCancelError()`, `lintCommitMessage()` and the types.
+
+  The functions no longer exported have a replacement, listed in the [migration guide](https://relizy.dev/guide/migration-v2#public-api):
+
+  - `createCommitAndTags()`, `pushCommitAndTags()`: `release()` with its `commit`, `gitTag` and `push` options
+  - `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`: `bump()`, with `dryRun` to preview it
+  - `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()`: `social()`, or the `release` parameter of a hook
+  - `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`: the report returned by `release()`
+  - `generateChangelog()`, `generateMarkDown()`: `changelog()`
+  - `getDefaultConfig()`, `mergeTypes()`: `loadRelizyConfig()`, which returns the config with its defaults
+  - `isPrerelease()`: `prerelease()` of semver
+  - `init()`: `relizy init`
+
+  ```ts
+  // v1
+  const types = Object.keys(mergeTypes(relizyConfig.types, getDefaultConfig().types))
+
+  // v2
+  const config = await loadRelizyConfig()
+  const types = Object.keys(config.types)
+  ```
+
+  The `check_migration` tool of the MCP server lists the imports to change.
+
+- Prepare the git clone of the CI job for the release ([aa78eeb](https://github.com/LouisMazel/relizy/commit/aa78eeb))
+
+  In CI, Relizy fetches the history of a shallow clone, checks out the branch of a detached HEAD, and makes the release commit and tags as the person who started the release, with their noreply email, when the job sets no git identity.
+
+  Before publishing, it checks that the release can be pushed and fails with the fix otherwise. On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. See [CI/CD](https://relizy.dev/guide/ci-cd#what-relizy-handles-in-ci).
+
+- Generate the release workflow of the CI with relizy init ([1bb3686](https://github.com/LouisMazel/relizy/commit/1bb3686))
+
+  On GitHub or GitLab, `relizy init` writes the release workflow (`.github/workflows/release.yml`, or the `release` job of `.gitlab-ci.yml`): run on demand with the release type, or at each push, with the permissions, the secrets of your config and the outputs of the release. Skip it with `--no-workflow`, see [relizy init](https://relizy.dev/cli/init#release-workflow).
+
+- ⚠️ Rename monorepo.includePrivates to privatePackages ([26b4711](https://github.com/LouisMazel/relizy/commit/26b4711))
+
+  The option says what relizy does with the private packages of the
+  workspace, with named values: `ignore` (default) or `release` (released as
+  the other packages, never published). The flag and the options of the
+  commands follow:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      // includePrivates: true,
+      privatePackages: 'release',
+    },
+  })
+  ```
+
+  ```bash
+  relizy release --private-packages release
+  ```
+
+  `check_migration` points out `includePrivates` in the config.
+
+- ⚠️ Remove monorepo.ignorePackageNames, replaced by monorepo.ignored ([798faeb](https://github.com/LouisMazel/relizy/commit/798faeb))
+
+  `monorepo.ignorePackageNames`, deprecated, is removed: list the directories of these packages in `monorepo.ignored`, path globs matched as `monorepo.packages`. A config that still sets it fails to load with the fix, rather than releasing the packages it left out, and `check_migration` points it out first.
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      packages: ['packages/*'],
+      // ignorePackageNames: ['@scope/legacy'],
+      ignored: ['packages/legacy'],
+    },
+  })
+  ```
+
+- ⚠️ Remove publish.token, replaced by tokens.registry ([1e8eb42](https://github.com/LouisMazel/relizy/commit/1e8eb42))
+
+  `publish.token` read the same environment variables as `tokens.registry` (`RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`). Set the registry token in `tokens.registry`, or per registry in `publish.registries[].token`. `--publish-token` and the `token` option of `publish()` now set `tokens.registry`, and `token` of `ReleaseOptions` is only the git token.
+
+  ```ts
+  export default defineConfig({
+    // publish: { token: process.env.MY_NPM_TOKEN },
+    tokens: { registry: process.env.MY_NPM_TOKEN },
+  })
+  ```
+
+- ⚠️ Remove repo.token, replaced by tokens.github and tokens.gitlab ([6d6c280](https://github.com/LouisMazel/relizy/commit/6d6c280))
+
+  `repo.token` was a fallback of `tokens.github` and `tokens.gitlab`, which read `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`... by default and are set by `--token`. Set the token of the provider releases and of the PR comment there. A PR comment on Bitbucket now says the provider is not supported, instead of asking for a GitLab token.
+
+  ```ts
+  export default defineConfig({
+    repo: { provider: 'gitlab', domain: 'gitlab.mycompany.com', repo: 'team/app' },
+    tokens: { gitlab: process.env.MY_TOKEN },
+  })
+  ```
+
+- ⚠️ Remove the relizy/types entry of the package ([ae17dae](https://github.com/LouisMazel/relizy/commit/ae17dae))
+
+  The entry pointed straight at a declaration file, so a runtime import of it failed. Import the types from `relizy`.
+
+  ```ts
+  // import type { RelizyConfig } from 'relizy/types'
+  import type { RelizyConfig } from 'relizy'
+  ```
+
+- ⚠️ Remove the newVersion and publish.packages options, never read ([1d57afc](https://github.com/LouisMazel/relizy/commit/1d57afc))
+
+  relizy never read the root `newVersion` option nor `publish.packages`: remove them from the config. To leave a package out of the release, use `monorepo.ignored`.
+
+- ⚠️ Format the changelogs written with the formatter of the project ([7009491](https://github.com/LouisMazel/relizy/commit/7009491))
+
+  Without `changelog.formatCmd`, the formatter in the dependencies of the root `package.json` (Biome, Prettier, oxfmt, dprint, else ESLint) formats the changelogs written, and only them. If it fails, the release goes on with a warning.
+
+  To choose the command, set `formatCmd`: its files placeholder is replaced by the paths of the changelogs written. `false` (or `--no-format-cmd`) turns the formatting off:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    changelog: { formatCmd: 'eslint --fix {{files}}' },
+  })
+  ```
+
+- Give the version of each released group and package in the release report ([f6c17e9](https://github.com/LouisMazel/relizy/commit/f6c17e9))
+
+  The report of `relizy release` now has `group_<name>_version` for each released `unified`/`selective` version group and `package_<name>_version` for each released package, only when the release happened (not in dry-run). A CI job can run something for one package without parsing the list of packages:
+
+  ```yaml
+  script:
+    - '[ -n "$RELIZY_PACKAGE_ACME_UI_VERSION" ] && ./scripts/notify.sh'
+  ```
+
+  The dotenv file no longer has `RELIZY_INSTALL`: none of its values has a space, so it can be sourced (`. ./relizy.env`). The install command stays in the GitHub Actions outputs, the JSON report and the summary.
+
+- Publish to npm with trusted publishing (OIDC), without token ([f749167](https://github.com/LouisMazel/relizy/commit/f749167))
+
+  In a GitHub Actions job with the `id-token: write` permission, or a GitLab CI job with the `NPM_ID_TOKEN` id token, relizy publishes to npmjs.org without npm token: npm authenticates the job with OIDC and adds the provenance of the packages. The safety check no longer requires a token there (`npm whoami` does not work with OIDC): it checks that the npm of the job does the OIDC exchange (11.5.1 or later), and warns about the packages that are not on npm yet, which still need a first publish with a token.
+
+  ```yaml
+  permissions:
+    contents: write
+    id-token: write
+  ```
+
+  The placeholder token that `actions/setup-node` writes to `NODE_AUTH_TOKEN` is no longer taken for an npm token. Without token nor OIDC in CI, the authentication error tells both ways to publish.
+
+- Generate release workflows ready for npm trusted publishing ([1643a11](https://github.com/LouisMazel/relizy/commit/1643a11))
+
+  When the project publishes to npm, the workflow of `relizy init` gives the job its OIDC token (`id-token: write` on GitHub Actions, the `NPM_ID_TOKEN` id token on GitLab CI) and updates npm to a version doing the OIDC exchange. Once the trusted publisher of the packages is set up on npmjs.com, the `NPM_TOKEN` secret is no longer needed; it stays the fallback, for the first publish of a package. The next steps of `relizy init` link to the guide.
+
+- Give the steps that failed without stopping the release in its outputs ([c895165](https://github.com/LouisMazel/relizy/commit/c895165))
+
+  A failed social post, provider release or PR comment does not stop the release: the `failed_steps` output (`RELIZY_FAILED_STEPS` in the dotenv file) now lists them, comma-separated, so a next step or job can react without reading the JSON report.
+
+- Post the releases to Microsoft Teams ([ee5bbf3](https://github.com/LouisMazel/relizy/commit/ee5bbf3))
+
+  `social.teams` posts Adaptive Cards to a Teams workflow (trigger "When a Teams webhook request is received"), the Office 365 connectors being retired. A card announces a version: a badge, its title and message, its version and date, and the buttons of its release notes, its changelog and the `links`.
+
+  ```ts
+  export default defineConfig({
+    social: {
+      teams: {
+        enabled: true,
+        cards: 'version', // or 'release': one card with a section per version
+        changelog: 'summary', // the commit titles, rewritten with ai.social.teams
+        locale: 'fr-FR',
+        announcements: [
+          { group: 'shared', links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.acme.dev' }] },
+          { package: '@acme/login', title: '🔐 Login {{newVersion}}' },
+        ],
+        exclude: { packages: ['@acme/*-mock'] },
+      },
+    },
+  })
+  ```
+
+  Without `announcements`, every version is announced; with it, only the versions of its groups and packages, a package entry over its group entry. The URL comes from `TEAMS_WEBHOOK_URL`, or its base64 in `TEAMS_WEBHOOK_URL_B64` (a masked GitLab variable refuses its characters).
+
+  A refused card does not stop the release: it is in the logs, the summary and `failed_steps`, with the hooks `before:teams`, `success:teams` and `error:teams`. `relizy init` sets it up, and `check_migration` points out the scripts posting to Teams and the retired connectors.
+
+- Choose the versions announced on Slack and Twitter ([cd1973a](https://github.com/LouisMazel/relizy/commit/cd1973a))
+
+  `social.slack.announcements` takes the entries of `social.teams.announcements`: without it, every version is announced and the message is unchanged; with it, only the versions matching a `{ group }` or `{ package }` entry. The `title` of an entry replaces the name of its version, its `message` and its links (release notes, changelog, `links`) are shown under it, as the buttons for a single version. `exclude` leaves groups and packages out of Slack, and of Twitter.
+
+  ```ts
+  export default defineConfig({
+    social: {
+      slack: {
+        enabled: true,
+        announcements: [
+          { group: 'ecosystem', title: 'Design System', message: 'Update `@acme/ui` to get it.', links: [{ title: '📚 Docs', url: 'https://design.acme.dev' }] },
+          { package: '@acme/login', title: 'Login' },
+        ],
+        exclude: { packages: ['@acme/*-mock'] },
+      },
+      twitter: { enabled: true, exclude: { groups: ['internal'] } },
+    },
+  })
+  ```
+
+  `check_migration` points to these options for a script posting to Slack.
+
+- ⚠️ Name the changelog of Slack and Teams posts changelog ([1fb6dc2](https://github.com/LouisMazel/relizy/commit/1fb6dc2))
+
+  `social.slack.changelog` and `social.teams.changelog` take the same values: `full` (the commit bodies included), `summary` (the commit titles) or `none` (or `false`, no changelog). Slack gains `none`, Teams gains `full`: the changelogs of a card share what its other texts leave of its 28 KB, each one cut between two changes with an `… and N more changes` line, instead of refusing the card.
+
+  ```ts
+  export default defineConfig({
+    social: {
+      slack: { enabled: true, changelog: 'full' },
+      teams: { enabled: true, changelog: 'summary' },
+    },
+  })
+  ```
+
+  BREAKING CHANGE: `social.slack.changelogFormat` is renamed `social.slack.changelog`, with the same values; relizy 2 ignores `changelogFormat`. `check_migration` finds it.
+
+- Release from the relizy GitHub Action and GitLab CI component ([18e640d](https://github.com/LouisMazel/relizy/commit/18e640d))
+
+  `relizy/action@v2` sets up Node.js and your package manager, installs your dependencies, runs `relizy release` with your tokens and gives its outputs to the next steps. On gitlab.com, the `release` component of the CI/CD catalog (`gitlab.com/relizy/relizy/release@2`) does the same, and `relizy init` now writes them. See [GitHub Actions](https://relizy.dev/guide/github-actions#the-relizy-action) and [GitLab CI](https://relizy.dev/guide/gitlab-ci#the-relizy-component).
+
+  ```yaml
+  - id: release
+    uses: relizy/action@v2
+    with:
+      npm-token: ${{ secrets.NPM_TOKEN }}
+  ```
+
+- Keep an existing config in relizy init and set up the rest ([8a32fcb](https://github.com/LouisMazel/relizy/commit/8a32fcb))
+
+  When a config already exists, `relizy init` now offers to keep it and set up the rest: the `commit-msg` hook, the `release` script, the AI agents and the release workflow, whose secrets follow the kept config. Without questions (`--yes`, CI), the config is kept, `--force` still replaces it.
+
+### 🔥 Performance
+
+- Read each git ref and range once per release ([853dbef](https://github.com/LouisMazel/relizy/commit/853dbef))
+
+  The branch, the tags and the commits of a range were read again for each package and each step of a release. They are now read once per command run (and per MCP tool call), and read again after each git write of relizy (commit, tag, fetch, checkout) and after the hooks, the format and the build commands.
+
+  A dry-run release of the maz-ui monorepo (11 packages, version groups) spawns 78 git processes instead of 207, and takes 7s instead of 15s.
+
+### 🩹 Fixes
+
+- Apply the safetyCheck option in social() ([c91ed9a](https://github.com/LouisMazel/relizy/commit/c91ed9a))
+
+  `social()` ignored `safetyCheck`, so `release` checked the social config (and the AI provider) twice, and `social({ safetyCheck: false })` still ran the check.
+
+- Count the length of the tweets as X does ([d9f9a2c](https://github.com/LouisMazel/relizy/commit/d9f9a2c))
+
+  Every URL counts 23 characters (X shortens them to t.co links), an emoji or a CJK character counts 2. The long release and changelog URLs no longer eat the changelog of the tweet, and a tweet with CJK text no longer exceeds the limit.
+
+- ⚠️ Replace the arrays of the config instead of concatenating them ([f2aca2a](https://github.com/LouisMazel/relizy/commit/f2aca2a))
+
+  An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API. Before, `bump.dependencyTypes: ['dependencies', 'peerDependencies']` resolved to `['dependencies', 'peerDependencies', 'dependencies']`, `--dependency-types devDependencies` could only add to the list of the config, and `relizy release` passed every `publish.args` twice.
+
+  A `bump.dependencyTypes` without `dependencies` no longer bumps the packages on every bump of their `dependencies`: add it to keep them.
+
+  ```ts
+  export default defineConfig({
+    bump: {
+      dependencyTypes: ['dependencies', 'peerDependencies'],
+    },
+  })
+  ```
+
+- Mask the secrets without revealing their first characters ([46813e0](https://github.com/LouisMazel/relizy/commit/46813e0))
+
+  A masked secret keeps its known prefix and its last 4 characters, instead of its first and last 4 characters: the first characters of a secret without fixed prefix (Twitter keys, OAuth tokens) no longer end up in the debug logs nor in the context of the AI agents. A secret URL keeps its origin only.
+
+  ```text
+  npm_***2Hwk
+  ***wYv3
+  https://hooks.slack.com/***
+  ```
+
+- ⚠️ Exit with code 0 when there is nothing to bump ([8c11e3f](https://github.com/LouisMazel/relizy/commit/8c11e3f))
+
+  `relizy bump` exits with code 0 when no commit triggers a bump, as `relizy release` does, instead of 1: a CI job running it no longer fails for nothing. To run something only when a release happens, use a `success:release` hook.
+
+- Only warn about the uncommitted changes of the files a release commits ([b7d53da](https://github.com/LouisMazel/relizy/commit/b7d53da))
+
+  With `--no-clean`, the uncommitted changes are kept as they are, so they no longer print a warning with the raw `git status`: only the changes of the files a release writes and commits (`package.json`, `CHANGELOG.md`, `lerna.json`) are worth one, and their confirmation. The other files are listed with `--log-level debug`.
+
+  ```text
+  Uncommitted changes in files the release commits: packages/core/package.json (modified)
+  ```
+
+- Tell which files are uncommitted when the release needs a clean working directory ([628c29d](https://github.com/LouisMazel/relizy/commit/628c29d))
+
+  The error lists the uncommitted files with what changed, instead of the raw `git status`, and says how to go on.
+
+  ```text
+  Uncommitted changes: plans/v2.md (modified), src/new.ts (new)
+  Commit or stash them first, or keep them with --no-clean.
+  ```
+
+- Remove the npm token from .npmrc when a publish is interrupted ([1c3a004](https://github.com/LouisMazel/relizy/commit/1c3a004))
+
+  The token written to `.npmrc` for a publish, its dry-run too, stayed on disk when the run was stopped (Ctrl+C, kill, closed terminal): the `.npmrc` is now removed, or restored as it was.
+
+- Hide the git trailers of the commit bodies in the changelogs ([6058672](https://github.com/LouisMazel/relizy/commit/6058672))
+
+  The changelog entries no longer show the trailers ending a commit body (`Co-authored-by:`, `Signed-off-by:`, `Claude-Session:`, `Closes #12`...) nor the "Generated with" line of the AI tools. The breaking change footer is kept, as it tells how to migrate.
+
+- Stop crediting the AI tools as contributors in the changelogs ([4eff863](https://github.com/LouisMazel/relizy/commit/4eff863))
+
+  A co-author such as `Claude <noreply@anthropic.com>` or the Cursor agent is no longer listed in the contributors, as the bots already were. The people are still credited, even when named like a tool.
+
+- Fail a release in CI without --yes instead of exiting with code 0 ([3c1be07](https://github.com/LouisMazel/relizy/commit/3c1be07))
+
+  Without an interactive terminal, the confirmation of the new versions was taken as cancelled: the CI job succeeded without releasing anything. `relizy release` and `relizy bump` now fail right away with the exit code 1 and the fix: run them with `--yes`.
+
+- Correct the defaults of the release options in the config reference ([7c8187b](https://github.com/LouisMazel/relizy/commit/7c8187b))
+
+  `release.noVerify`, `clean`, `social` and `prComment` documented the opposite
+  of their real default, in the typedoc and in `get_config_option` of the MCP
+  server. A test now checks every `@default` against the default config.
+
+- Name the options of loadRelizyConfig in the API docs ([0f6f630](https://github.com/LouisMazel/relizy/commit/0f6f630))
+
+  The typedoc page of `loadRelizyConfig()` expanded the whole config inline
+  (1 800 lines). Its options are now named types, exported for the callers:
+
+  ```ts
+  import type { LoadRelizyConfigOptions, RelizyConfigOverrides } from 'relizy'
+  ```
+
+  The README is no longer copied as the index of the typedoc.
+
+- ⚠️ Remove the publish.private option ([acb3416](https://github.com/LouisMazel/relizy/commit/acb3416))
+
+  relizy never read it: the private packages are never published. A config
+  setting it no longer type-checks, `check_migration` points it out:
+
+  ```ts
+  export default defineConfig({
+    // publish: { private: false }, removed
+    monorepo: { privatePackages: 'release' }, // to version the private packages
+  })
+  ```
+
+- Release a private app without workspace packages ([232b42a](https://github.com/LouisMazel/relizy/commit/232b42a))
+
+  A project with a single `package.json` marked `"private": true` (an app,
+  an API) released nothing: its root package was skipped as a private
+  package. It is now bumped, tagged and released as a library, never
+  published, and the safety check no longer asks for a registry token when
+  no package can be published.
+
+- Run the git and package manager checks in the project directory ([9ea2e38](https://github.com/LouisMazel/relizy/commit/9ea2e38))
+
+  The uncommitted changes check, the staging of the release files, the detection of the git provider, of Yarn Berry and of the default package manager now run in the `cwd` of the config, instead of the current directory of the process. A release run from the programmatic API with another `cwd` checked and staged the files of the wrong directory.
+
+- Pass the commit and tag messages to git without shell ([c35b9d8](https://github.com/LouisMazel/relizy/commit/c35b9d8))
+
+  The release commit, its tags and the staging of its files run git with their arguments as they are, instead of a shell command. A `$`, a backtick or a quote in `templates.commitMessage`, `commitBody` or `tagMessage` was run or broke the command, and a tag message was not escaped at all.
+
+- Skip the safety check of relizy publish with --no-safety-check ([25aa365](https://github.com/LouisMazel/relizy/commit/25aa365))
+
+  `relizy publish` ignored the global `--no-safety-check` flag and still checked the authentication to the registry. `relizy release`, `provider-release` and `social` already applied it.
+
+- Apply the logLevel of the config without --log-level ([6dd9f31](https://github.com/LouisMazel/relizy/commit/6dd9f31))
+
+  The `--log-level` flag defaulted to `default` and always replaced the `logLevel` of the config, even when it was not passed. The flag now only applies when it is given.
+
+- Apply bump.clean during relizy release ([6e82878](https://github.com/LouisMazel/relizy/commit/6e82878))
+
+  `relizy release` replaced `bump.clean` with `release.clean`, so a release still failed on uncommitted changes with `bump: { clean: false }` in the config. The uncommitted changes are checked when both are enabled, as `relizy bump` does, and `--no-clean` still turns off both.
+
+- List the steps of the release in their order in preview_release ([880ada2](https://github.com/LouisMazel/relizy/commit/880ada2))
+
+  The `preview_release` tool of the MCP server listed the commit, the tags and the push before the publication, while `relizy release` publishes first, and listed the tags and the push without the release commit, which they need.
+
+- Preview the root changelog of an independent release in preview_changelog ([cd594d3](https://github.com/LouisMazel/relizy/commit/cd594d3))
+
+  The `preview_changelog` tool of the MCP server left out the root changelog that `relizy changelog` writes in `independent` mode (the changelogs of the released packages, with `changelog.rootChangelog`). Both now build it the same way.
+
+- Authenticate the GitHub releases with repo.token ([3d4b2b5](https://github.com/LouisMazel/relizy/commit/3d4b2b5))
+
+  A GitHub release with `repo.token` and without `tokens.github` passed the token check but was sent to the GitHub API without authentication. The token now falls back to `repo.token`, as for GitLab and the PR comment.
+
+- Link to the current pages of the docs ([84d2ad5](https://github.com/LouisMazel/relizy/commit/84d2ad5))
+
+  The error of a provider release without token links to the tokens of the config (`config/overview#tokens`), and the `get_doc` tool of the MCP server names the `guide/prereleases` page, instead of pages removed from the docs.
+
+- Pass publish.args to the publish command ([37942a5](https://github.com/LouisMazel/relizy/commit/37942a5))
+
+  `publish.args` was declared but never read: its arguments are now added to the publish command of every package and registry, after the ones of relizy, and left out of the authentication check.
+
+  ```ts
+  export default defineConfig({
+    publish: {
+      args: ['--provenance'],
+    },
+  })
+  ```
+
+- Type publish.args of the resolved config as strings ([af2518a](https://github.com/LouisMazel/relizy/commit/af2518a))
+
+  Its default, an empty array, typed it as `never[]` in the config returned by `loadRelizyConfig()`.
+
+- Read the provider of a self-hosted repository from its host ([f95ea81](https://github.com/LouisMazel/relizy/commit/f95ea81))
+
+  The repository of a GitHub Enterprise or self-hosted GitLab host (`git@gitlab.example.com:team/app.git`, `https://github.mycompany.com/team/app`) gets the provider its host names, as the detection of the git provider does, and keeps its host as domain. The provider was the host itself (`gitlab.example.com`) for an ssh URL, and undefined for an https one: the references of the changelogs had no links and `relizy release` could not create the provider releases. An unknown host gives no provider.
+
+- Use repo.provider in relizy provider-release ([afe4189](https://github.com/LouisMazel/relizy/commit/afe4189))
+
+  `relizy provider-release` ignored the `repo.provider` of the config and only detected the provider from the `origin` remote, unlike `relizy release` and its safety check.
+
+- Apply the config options given to bump(), changelog(), publish() and release() ([2be2f56](https://github.com/LouisMazel/relizy/commit/2be2f56))
+
+  Their options types declared every option of their config section, but some were ignored: `capZeroMajor` and `outOfRangePeers` of `bump()`, `includeCommitBody` of `changelog()`, `args`, `packageManager` and `safetyCheckTimeout` of `publish()`, and all of them plus `dependencyTypes` and `checkWorkspaceDependencies` for `release()`. They now override the config, as the other options do.
+
+  ```ts
+  await release({ capZeroMajor: false, includeCommitBody: true, args: ['--provenance'] })
+  ```
+
+- Exit with code 1 when relizy provider-release or relizy social fails ([706585e](https://github.com/LouisMazel/relizy/commit/706585e))
+
+  Both commands showed the failure of a provider release or of a post, then exited with code `0`, so a CI job running them never failed. They now exit with code `1`, after the other posts. In `relizy release`, a failed provider release or post still does not stop the release.
+
+- Check out the branch of a GitHub pull request in its CI job ([61bfcb4](https://github.com/LouisMazel/relizy/commit/61bfcb4))
+
+  On a `pull_request` event, relizy put the detached HEAD on a branch named after `GITHUB_REF_NAME`, `<number>/merge`, so it could not detect the pull request of the branch. It now uses the branch of the pull request (`GITHUB_HEAD_REF`).
+
+- Authenticate the GitLab releases with the job token of the CI job ([815ded5](https://github.com/LouisMazel/relizy/commit/815ded5))
+
+  `tokens.gitlab` falls back to `CI_JOB_TOKEN`, but relizy sent it as a personal access token (`PRIVATE-TOKEN`), so GitLab refused the release. The job token is now sent in the `JOB-TOKEN` header. It cannot comment merge requests: instead of a failed request, the MR comment tells to set `GITLAB_TOKEN`.
+
+- Create the provider releases of relizy release --provider on that provider ([50316d1](https://github.com/LouisMazel/relizy/commit/50316d1))
+
+  `--provider` only applied to the safety check of `relizy release`: the provider releases used `repo.provider`, or the provider detected from the remote. They now use the given provider.
+
+- Check the registry access of relizy publish whatever release.publish ([d13954d](https://github.com/LouisMazel/relizy/commit/d13954d))
+
+  The safety check of the publication was skipped as soon as `release.publish` was `false`, also when running `relizy publish` alone, which then published without checking the access to the registries first. Only `relizy release` skips it, when it does not publish.
+
+- Replace every occurrence of the variables of changelogTitle and tagBody ([a2ea161](https://github.com/LouisMazel/relizy/commit/a2ea161))
+
+  `templates.changelogTitle` and `templates.tagBody` only replaced the first occurrence of a variable, unlike the other templates. A `tagBody` repeating `{{newVersion}}` also gave a tag name to the release commit and another one to the changelog and the provider release: they now render it the same way.
+
+- Apply bump.capZeroMajor to the canary versions ([0e2c1a8](https://github.com/LouisMazel/relizy/commit/0e2c1a8))
+
+  A canary computed its version without `bump.capZeroMajor`: a breaking change of `0.5.2` gave `1.0.0-0.canary-<sha>` while the release gives `0.6.0`, and a breaking change of a peer dependency always gave a major. The canary versions now follow the release.
+
+- Restore the canary versions of relizy release --canary --no-publish ([53f7229](https://github.com/LouisMazel/relizy/commit/53f7229))
+
+  The canary versions were restored after their publish only: without it, they stayed in the `package.json` files. A canary is never committed, so they are now restored either way. `relizy bump --canary` still leaves them, to publish them yourself.
+
+- Reject a commitlint tuple without the number of its rule ([87f5800](https://github.com/LouisMazel/relizy/commit/87f5800))
+
+  `'header-max-length': [2, 'always']` set the length to `'always'`, so the rule never reported anything. relizy commitlint now fails with the expected form, `[2, 'always', 200]` or `['error', 200]`.
+
+- Comment the merged pull request of a release run after the merge ([8cf5dbf](https://github.com/LouisMazel/relizy/commit/8cf5dbf))
+
+  The PR comment only looked for an open pull request of the current branch, so a release run on the push to `main` after a merge never found the pull request it merged. Without an open one, the pull request of the commit the release started from is now commented, on GitHub and GitLab, from a detached HEAD too. `ReleaseContext` gets this commit in `sha`.
+
+- Install corepack in the GitLab CI job generated by relizy init ([f2d76ea](https://github.com/LouisMazel/relizy/commit/f2d76ea))
+
+  Node 25+ no longer ships corepack, so `corepack enable` failed on the `node:lts` image (Node 26). The generated job now installs it first, `npm install -g corepack && corepack enable`, which keeps the version of pnpm or yarn pinned by the `packageManager` field.
+
+- Post the changelog of a Slack template in mrkdwn ([9f0a11d](https://github.com/LouisMazel/relizy/commit/9f0a11d))
+
+  With `social.slack.template` and the `summary` format, `{{changelog}}` was a summary cut by sentences, in markdown: the bold scopes and the links arrived as `**scope:**` and `[text](url)`. It is now converted to mrkdwn as without template, within what the template leaves of the block.
+
+- Summarize the changelog of a post without AI by its lines ([a5fec87](https://github.com/LouisMazel/relizy/commit/a5fec87))
+
+  The summary of a tweet without AI was cut by sentences: a commit ending with a period was merged with the next one, and a period was added at the end. It now keeps the first commits that fit, one per line, as they are.
+
+- Remove the line of a URL not set from a social post ([4acda96](https://github.com/LouisMazel/relizy/commit/4acda96))
+
+  A social template line holding only `{{releaseUrl}}` or `{{changelogUrl}}` left an empty line when the URL was not set: the default tweet of an `independent` release, without release URL, had two blank lines before the changelog link. The line is now removed.
+
+- List each package once in a Slack post of several versions ([be2b788](https://github.com/LouisMazel/relizy/commit/be2b788))
+
+  The Slack post of a release of several versions, without template, listed the packages of an `independent` group in their section, then again in the "📦 Packages" block. The block now only lists the packages the sections do not, such as the packages of a `selective` group.
+
+- Return false from a dry-run PR comment without pull request ([518e880](https://github.com/LouisMazel/relizy/commit/518e880))
+
+  `prComment({ dryRun: true })` returned `true` even when no pull request was detected, and `relizy pr-comment --dry-run` then said it would comment. It shows the preview and returns `false`.
+
+- Hide the git error of a repository without origin remote ([9320043](https://github.com/LouisMazel/relizy/commit/9320043))
+
+  Resolving the repository of a project without `origin` remote printed `error: No such remote 'origin'` on stderr, at each `relizy commitlint` for example. The lookup is now silent, as the other git reads of relizy.
+
+- Correct the JSDoc of the options and the help of --publish-token ([48364b1](https://github.com/LouisMazel/relizy/commit/48364b1))
+
+  The `safetyCheck` options said "Skip safety check" while `true` runs the checks, the tokens listed their environment variables out of their reading order (`RELIZY_*` is read first), `publish.registries[].packageFilter` named a removed option, and `--publish-token` said only npm and pnpm while bun is supported too. The JSDoc feeds the API reference and the `get_config_option` tool of the MCP server. The long dashes of the code, the logs and the JSDoc are now simple dashes.
+
+- Name the commitlint pages of the docs in the get_doc tool ([25c2ff1](https://github.com/LouisMazel/relizy/commit/25c2ff1))
+
+  The description of the `get_doc` tool of the MCP server listed `commitlint` among the CLI pages, while its page is `commitlint/cli`. The tests now check the pages it names, and that every `relizy.dev` link of the code reaches an existing page and heading.
+
+- Publish only to the declared registries without publish.registry ([a7c9c3f](https://github.com/LouisMazel/relizy/commit/a7c9c3f))
+
+  With `publish.registries` and without `publish.registry`, the registry of the npm config (`.npmrc`) was always added as the default registry, so every package was also published there. The packages now only go to the declared registries, and a package that no entry covers to the registry of the npm config.
+
+  ```ts
+  export default defineConfig({
+    publish: {
+      // @acme/* only goes to GitHub Packages, the other packages to the .npmrc registry
+      registries: [{ registry: 'https://npm.pkg.github.com/', packageFilter: ['@acme/*'] }],
+    },
+  })
+  ```
+
+- Show the dry-run badge in the light theme of the CI logs ([92d4493](https://github.com/LouisMazel/relizy/commit/92d4493))
+
+  The yellow background of the `DRY RUN` badge turned dark brown in the light theme of the GitHub logs, hiding its black text. In CI, the badge now has fixed colors, a gold background and a black text, readable in the light and dark themes of GitHub and GitLab.
+
+- Only warn about the push in the dry run of a pull request ([45f8a9e](https://github.com/LouisMazel/relizy/commit/45f8a9e))
+
+  The dry run of a pull request (`pull_request` on GitHub Actions, a merge request pipeline on GitLab CI) failed because its token is read-only, while the release never runs there: it now warns that the release job checks the push. Every other dry run still fails when the release cannot be pushed.
+
+  The error of a refused push now tells how to fix it where it runs: the `permissions` to give to a GitHub Actions workflow, the `GITLAB_TOKEN` variable of GitLab CI, or the git credentials outside of a CI.
+
+- Check the registries of every publishable package before a release ([a210b06](https://github.com/LouisMazel/relizy/commit/a210b06))
+
+  With `publish.registries` and without `publish.registry`, a package that no entry covers is published to the registry of the npm config, but `relizy release` did not check the access to this registry before publishing: the release could publish some packages, then fail on the others. The registries the publishable packages need are now all checked before the bump.
+
+- Quote the branch of a pull request in the git commands ([d3a3f91](https://github.com/LouisMazel/relizy/commit/d3a3f91))
+
+  The branch of a GitHub pull request, named by its author, reached `git log` and `git config` through a shell: a branch name such as `feat/a$(cmd)`, valid for git, ran its command during the release of the pull request. The values that are not plain refs are now quoted.
+
+- Report a release whose checks fail ([0e1b584](https://github.com/LouisMazel/relizy/commit/0e1b584))
+
+  When a check of `relizy release` failed (a token, the registry, the push access, `--yes` missing in CI), the release stopped without its report, its PR comment nor its `error:release` hook. A failed check now writes the failed report, comments the pull request and runs `error:release`, as any other error of the release.
+
+- Ignore the release commits of the version groups in relizy commitlint ([ff0b75e](https://github.com/LouisMazel/relizy/commit/ff0b75e))
+
+  With `monorepo.groups` and without `templates.commitMessage`, the release commits (`chore(release): bump version to 2.0.0`, `chore(release): bump 3 packages`) were linted like any commit. They are ignored, as in a project without version groups.
+
+- Read the scopes of the version groups in relizy commitlint ([b86a08a](https://github.com/LouisMazel/relizy/commit/b86a08a))
+
+  The packages of `monorepo.groups` are valid scopes of the commits, as the packages of `monorepo.packages`.
+
+- Run generate:changelog once per package in independent mode ([54d235f](https://github.com/LouisMazel/relizy/commit/54d235f))
+
+  With `changelog.rootChangelog`, the changelog of each package was generated twice in `independent` mode, for its file and for the root changelog: a `generate:changelog` hook (an AI rewrite) ran twice, and the two texts could differ. Each changelog is generated once, and the root changelog gathers them.
+
+- Align check_migration with the migration guide ([783a928](https://github.com/LouisMazel/relizy/commit/783a928))
+
+  The `check_migration` tool of the MCP server no longer flags the `dependencyTypes` of a version group, used as is by relizy 1, nor functions relizy 1 never exported. It also finds `includePrivates` in the code, `--include-private` in the scripts, the `relizy release` and `relizy bump` of a CI without `--yes`, and the variables repeated in `templates.changelogTitle` and `templates.tagBody`.
+
+- Only warn when the dry run of a pull request is outdated ([c588a39](https://github.com/LouisMazel/relizy/commit/c588a39))
+
+  The dry run of a pull request no longer fails when new commits were pushed to the pull request after it started: it warns that the run is outdated, as the run of the latest commit previews the release with them. The release, and the dry run outside a pull request or a merge request, still stop on a branch behind its remote.
+
+- Run the error hook of the push and of twitter when their before hook fails ([7de320d](https://github.com/LouisMazel/relizy/commit/7de320d))
+
+  A failing `before:push` or `before:twitter` hook now runs `error:push` or `error:twitter`, like the other steps.
+
+- Refuse a tagBody template that repeats {{newVersion}} ([5ab1026](https://github.com/LouisMazel/relizy/commit/5ab1026))
+
+  relizy reads the version of a repository tag back between the text before and after `{{newVersion}}` in `templates.tagBody`. A template that repeats it, like `v{{newVersion}}-{{newVersion}}`, created tags relizy could not find again: it silently restarted from the first commit. The config now fails to load with a clear error, and `check_migration` points it out first.
+
+- Point out only the removed token lines in check_migration ([d7721ad](https://github.com/LouisMazel/relizy/commit/d7721ad))
+
+  `check_migration` pointed out every `token:` line of the config for `repo.token` and `publish.token`, so also the tokens to keep (`publish.registries[].token`, `social.slack.token`). It now only points out the `token` key of the `repo` or `publish` block, and no line when it cannot tell.
+
+- Check the push access again in each release run of the same process ([6abe906](https://github.com/LouisMazel/relizy/commit/6abe906))
+
+  The push access check and the preparation of the CI repository were cached for the whole process: a program calling `release()` several times reused the first result, a refused push stayed refused after fixing the token or the remote. They are now done once per run, like the git reads.
+
+- Detect the CI the same way for the output and for the checks ([b3c02eb](https://github.com/LouisMazel/relizy/commit/b3c02eb))
+
+  The output of the CLI and the checks of relizy (prompts, CI clone, npm) did not read the same variables: `CI=1` was a CI for the output only, Vercel, Netlify or Jenkins for the checks only. Both now use the same detection, which accepts any value of a CI flag but `false` and `0`.
+
+- Check the push and the branch in the dry run of a GitLab merge request ([54233f6](https://github.com/LouisMazel/relizy/commit/54233f6))
+
+  A merge request pipeline has no `CI_COMMIT_BRANCH`: relizy left its HEAD detached and silently skipped the checks of the push access and of the remote branch, without their warnings. It now checks out the source branch of the merge request (`CI_MERGE_REQUEST_SOURCE_BRANCH_NAME`), like the head branch of a GitHub pull request.
+
+- Leave a blank line between the command typed and the output of the CLI ([ea408d7](https://github.com/LouisMazel/relizy/commit/ea408d7))
+- Run the error:social hook when the social step itself fails ([9c41eb4](https://github.com/LouisMazel/relizy/commit/9c41eb4))
+
+  `relizy social` only ran `error:social` when a post failed: an error of the step itself (reading the release, a failing hook) skipped it. It now runs it, like the other steps.
+
+  The commands share their run (config, output, CI clone, error handling and `error:*` hook) in `runCommand()`. `provider-release` and `social` still report their errors in their result, so a release goes on without them.
+
+- Name the GitHub release after its version, not after `--to` ([25bd378](https://github.com/LouisMazel/relizy/commit/25bd378))
+
+  `--to` is the end of the commit range: `relizy release --to <commit>` created a GitHub release named after the commit. The release is now named after the version and `templates.tagBody`, as on GitLab. In unified mode, the version also comes from the root package when there is no bump result.
+
+- Mark a GitHub release as a prerelease from its version ([043feb3](https://github.com/LouisMazel/relizy/commit/043feb3))
+
+  In unified mode, the prerelease flag of the GitHub release was read from the tag: with a custom `templates.tagBody` (`release-{{newVersion}}`), a prerelease was published as the latest stable release. It is now read from the version, as on GitLab and in independent mode.
+
+- Skip the GitHub release of a package without changes ([9db0c84](https://github.com/LouisMazel/relizy/commit/9db0c84))
+
+  In independent mode, a package without commit in its range (released with `--force`) got a GitHub release holding only the empty changelog text. It is now skipped with a warning, as on GitLab.
+
+- List the GitLab releases of a dry run in independent mode ([768876d](https://github.com/LouisMazel/relizy/commit/768876d))
+
+  A dry run on GitLab returned no release in independent mode, so its summary said "No release to create". It now lists the releases it would create, as on GitHub.
+
+- Encode the tag of a package in the release links ([ad5cbc0](https://github.com/LouisMazel/relizy/commit/ad5cbc0))
+
+  The links to the release of a package (`@scope/name@1.0.0`) put its `/` as is in the URL: GitLab answered 404 to `/-/releases/@scope/name@1.0.0`. The tag is now a single segment of the URL, `/-/releases/@scope%2Fname@1.0.0`, on GitHub, GitLab and Bitbucket; the tags without `/` are unchanged.
+
+- Keep every package of a group in the full Slack message ([33164d3](https://github.com/LouisMazel/relizy/commit/33164d3))
+
+  In the `full` format, the budget of the message (blocks, payload, `postMaxLength`) was shared between the groups: the first long package of an `independent` group took the share of its group, and the next packages were left out of the message. The budget is now shared between the versions, so each package keeps at least its version line.
+
+- Ask for any access token when GitLab CI cannot push the release ([7fb644a](https://github.com/LouisMazel/relizy/commit/7fb644a))
+
+  On the Free tier of gitlab.com, project access tokens need Premium: the error of a refused push now asks for an access token with the `write_repository` and `api` scopes, a personal one on the Free tier, or for the push of the job token.
+
+- Frame the release plan, previews and summary like relizy init ([0e3fe69](https://github.com/LouisMazel/relizy/commit/0e3fe69))
+
+### 💅 Refactors
+
+- Read the last tag of the repository from the cached tag list ([c3dff38](https://github.com/LouisMazel/relizy/commit/c3dff38))
+
+  The tag lookups with shell pipes (`git tag | grep | head`) are removed: they only served code paths no package could reach, as every package has a version. The last tag used by `relizy commitlint` and the MCP server comes from the cached list of tags.
+
+- Remove the dead package selection of relizy publish ([60c17a1](https://github.com/LouisMazel/relizy/commit/60c17a1))
+
+  Its fallbacks by version mode only ran without package, so they always published nothing.
+
+- Stop reading the packages of planBumps for a debug log ([9d96fe8](https://github.com/LouisMazel/relizy/commit/9d96fe8))
+
+  The bump read every package of the project only to log their count.
+
+- Remove the unread maxLength of the AI requests ([d8d39ee](https://github.com/LouisMazel/relizy/commit/d8d39ee))
+
+  The length budget reaches the model through its prompt: no provider read the field.
+
+- Remove the unused options of the PR comment of a release ([d94573a](https://github.com/LouisMazel/relizy/commit/d94573a))
+
+  The comment posted by `relizy release` uses its config: the log level and the config name were never read.
+
+- Remove the dead functions and the internal-only exports ([67e23d7](https://github.com/LouisMazel/relizy/commit/67e23d7))
+
+  `parseChangelogMarkdown()`, `parseGitRemoteUrl()` and `extractVersionFromPackageTag()` were never called, and about thirty functions and constants were exported without being imported anywhere else. None of them is part of the public API listed by `src/index.ts`.
+
+- Share the text helpers of the outputs ([fe83e3b](https://github.com/LouisMazel/relizy/commit/fe83e3b))
+
+  The pluralized counts, the durations, the UTC dates, the name of a release and the entries of its summary were written several times across the terminal output, the report, the PR comment, commitlint and the AI: one helper each.
+
+- Iterate the version groups of a release step with getReleaseTargets ([3767f27](https://github.com/LouisMazel/relizy/commit/3767f27))
+- Apply the overrides to a resolved config without loading the config file again ([3e952cf](https://github.com/LouisMazel/relizy/commit/3e952cf))
+
+  A command given a resolved config (`release` gives its own to its steps, or `loadRelizyConfig()` in a script) no longer loads the config file and the `.env` file again: the overrides are merged over it, as for the configs of the version groups. A command changing its config still leaves the given one untouched.
+
+- Move the display and the confirmation of a bump to bump-confirm.ts ([52d277c](https://github.com/LouisMazel/relizy/commit/52d277c))
+- Split npm.ts into the registries, the published versions and the publication ([c02725d](https://github.com/LouisMazel/relizy/commit/c02725d))
+- Split createCommitAndTags into the staging, the commit message and the tags ([66d1b63](https://github.com/LouisMazel/relizy/commit/66d1b63))
+- Move the planning of the bumps out of repo.ts to bump-plan.ts ([9a8d4fa](https://github.com/LouisMazel/relizy/commit/9a8d4fa))
+- Run git through a single module without shell ([cbb4c26](https://github.com/LouisMazel/relizy/commit/cbb4c26))
+
+  `git-exec.ts` runs git with `execFile`: the arguments are an array, without shell, so a branch, a tag, a path or a commit message is passed as is, without escaping. It replaces the copies of `git()` / `tryGit()` (`ci.ts`, `commitlint/git.ts`, `ci-workflow.ts`, `git.ts`) and the `execSync` / `execPromise` git command strings; `shell.ts` is removed. The stderr of git is captured, in the error when git fails, instead of being written to the terminal.
+
+- Share the flow of the GitHub and GitLab releases ([6810d4c](https://github.com/LouisMazel/relizy/commit/6810d4c))
+
+  `github.ts` and `gitlab.ts` repeated the tags, the notes (changelog, AI), the empty release check, the dry-run preview and the summary, in unified and independent modes. `postProviderReleases()` (`provider-releases.ts`) runs this flow once; a provider is a `ReleaseProvider` adapter that checks its config and creates a release.
+
+### 📖 Documentation
+
+- Add the migration guide from v1 to v2 ([8064cb6](https://github.com/LouisMazel/relizy/commit/8064cb6))
+
+  What changes in Relizy 2 and how to upgrade: the version groups released as one release, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), the programmatic API (`RelizyCancelError`, `confirmBump`, the social functions). Listed in the "Guide" menu, the version menu and the sidebar.
+
+- Explain how to run something only when a release happens ([4013d48](https://github.com/LouisMazel/relizy/commit/4013d48))
+- Redesign the homepage ([39f13ed](https://github.com/LouisMazel/relizy/commit/39f13ed))
+
+  The homepage presents Relizy with an animated terminal playing a release, a dry run and a GitHub Actions run, then the steps of a release and the features, each one linked to its page of the docs.
+
+  The docs follow a maz-ui theme preset with the colors of Relizy, with Tailwind for the custom pages.
+
+- Rewrite the documentation for relizy 2 ([3253dea](https://github.com/LouisMazel/relizy/commit/3253dea))
+
+  One page per topic, checked against the code, from 16 000 to 6 600 lines:
+  the guides explain, the config, CLI and API pages are an exact reference
+  with every option and flag.
+
+  - `guide/getting-started` absorbs `guide/installation` and starts from
+    `relizy init`
+  - `guide/prereleases` merges the canary and prerelease guides
+  - `guide/social-media` merges the Twitter and Slack guides
+  - `config/overview` absorbs `config/multiple-configs` and lists the tokens
+  - `commitlint/index` absorbs `commitlint/getting-started`
+  - the CI guides follow the workflow generated by `relizy init`
+  - new `api/commitlint` page, README rewritten for v2
+
+- List the fixes of relizy 2 in the migration guide ([4ead599](https://github.com/LouisMazel/relizy/commit/4ead599))
+
+  Also drop the claim that relizy release passed publish.args twice: they never reached the publish command.
+
+- Generate llms.txt for the AI assistants ([2263d91](https://github.com/LouisMazel/relizy/commit/2263d91))
+
+  The docs publish llms.txt (the index of the pages with their descriptions), llms-full.txt (the whole docs in one markdown file) and a .md file per page, so the AI assistants read the docs without running the site.
+
+- Name every template in the migration entry of the replaced variables ([cd004a1](https://github.com/LouisMazel/relizy/commit/cd004a1))
+- Update the contributing guide ([ec7fd01](https://github.com/LouisMazel/relizy/commit/ec7fd01))
+
+  Node and pnpm versions, the git hooks as they run, the commit types and scopes of the repository, the specs next to the code and the checks of the docs, the no-ai-attribution rule, and how to add an AI provider, moved here from the user docs.
+
+- Complete the fixes and the exit codes of the migration guide ([3931bb3](https://github.com/LouisMazel/relizy/commit/3931bb3))
+- Update the illustration of the README ([647e2ed](https://github.com/LouisMazel/relizy/commit/647e2ed))
+- Keep the 404 page out of the search engines ([e1c4771](https://github.com/LouisMazel/relizy/commit/e1c4771))
+
+  The 404 page also answers with a 200 at /404, with a canonical to itself and "index, follow": the search engines could index it. It now has a noindex and no canonical.
+
+- Point the canonical url of the index pages to their served url ([03992eb](https://github.com/LouisMazel/relizy/commit/03992eb))
+
+  commitlint/index.md declared https://relizy.dev/commitlint/index as canonical url, which redirects to /commitlint/. The index pages now declare the url they are served at.
+
+- Link the breadcrumbs of the pages to existing pages ([3a8b2d1](https://github.com/LouisMazel/relizy/commit/3a8b2d1))
+
+  The BreadcrumbList of each page linked its section to /guide, /config, /cli or /api, which answer with a 404, and named the page after its slug. The section now links to its first page and the page is named after its title.
+
+- Keep the typedoc reference out of the search engines ([cc85e3e](https://github.com/LouisMazel/relizy/commit/cc85e3e))
+
+  The 124 pages of the typedoc reference were indexable with the description of the site, out of the sitemap, and covered by the pages of the API section. They now have a noindex: they stay in the docs and in llms-full.txt.
+
+- Cache the hashed assets of the docs for a year ([9b7ff48](https://github.com/LouisMazel/relizy/commit/9b7ff48))
+
+  Cloudflare Pages served the files of /assets with max-age=14400 and must-revalidate. Their name holds a hash of their content, so a _headers file caches them for a year as immutable.
+
+- Serve the logo of the header from the docs ([728ace2](https://github.com/LouisMazel/relizy/commit/728ace2))
+
+  The logo of the header was loaded from raw.githubusercontent.com, an extra connection on each visit. The same logo.svg is in the public files of the docs.
+
+- Give the pages of the commands and the homepage searchable titles ([597f878](https://github.com/LouisMazel/relizy/commit/597f878))
+
+  The pages of the commands were titled "bump | Relizy", "init | Relizy", and "changelog | Relizy" twice with the changelog page. They are now titled "relizy bump command | Relizy", the changelog page "Changelog | Relizy", and the homepage starts with the name of Relizy: "Relizy - Release automation for monorepos and packages".
+
+- Describe the API pages and the changelog page in full ([200eecc](https://github.com/LouisMazel/relizy/commit/200eecc))
+
+  Their descriptions, shown in the search results, in llms.txt and at the top of the API pages, were 25 to 54 characters long. They now say what each function does and returns.
+
+- Stop repeating the head of the site in each page ([34e6f26](https://github.com/LouisMazel/relizy/commit/34e6f26))
+
+  transformHead returned the head of the site with the tags of the page, and VitePress adds what transformHead returns to this head: each page had its JSON-LD WebSite and SoftwareApplication, its favicon and its font preload twice.
+
+- Drop the changefreq and priority of the sitemap ([fc61776](https://github.com/LouisMazel/relizy/commit/fc61776))
+
+  Every page was "daily" with priority 1, values the search engines ignore. The sitemap keeps the lastmod of each page, read from git.
+
+- Drop the published time of the pages ([4e0749d](https://github.com/LouisMazel/relizy/commit/4e0749d))
+
+  article:published_time held the date of the last update of the page, as article:modified_time. The pages keep their modified time.
+
+- Give the version, license and repository of Relizy to the search engines ([af05e25](https://github.com/LouisMazel/relizy/commit/af05e25))
+
+  The JSON-LD SoftwareApplication of the docs now has the softwareVersion, the license and the GitHub and npm pages of Relizy (sameAs).
+
+- Give the long pages a shorter description for the search results ([9974946](https://github.com/LouisMazel/relizy/commit/9974946))
+
+  21 pages had a description of 161 to 251 characters, cut by the search results. Their metaDescription, at most 155 characters, is used for the meta description and the og and twitter descriptions, while the page, llms.txt and the docs of the MCP server keep the full description.
+
+- Correct the migration guide of relizy 2 ([6c59769](https://github.com/LouisMazel/relizy/commit/6c59769))
+- Correct the documentation against the code ([a1f05a9](https://github.com/LouisMazel/relizy/commit/a1f05a9))
+- Update plans ([eafff08](https://github.com/LouisMazel/relizy/commit/eafff08))
+- Update plans ([aaa1976](https://github.com/LouisMazel/relizy/commit/aaa1976))
+- Update plans ([36f16e5](https://github.com/LouisMazel/relizy/commit/36f16e5))
+- Update plans ([d4d46dd](https://github.com/LouisMazel/relizy/commit/d4d46dd))
+- Update plans ([af35044](https://github.com/LouisMazel/relizy/commit/af35044))
+- Run a CI step only when a release happens, from the report ([3a6b480](https://github.com/LouisMazel/relizy/commit/3a6b480))
+- Add the guide of npm trusted publishing ([23f5fcb](https://github.com/LouisMazel/relizy/commit/23f5fcb))
+- Point to the version groups for a root version next to independent packages ([b4750d9](https://github.com/LouisMazel/relizy/commit/b4750d9))
+- Show the Microsoft Teams posts on the homepage ([2e3dc99](https://github.com/LouisMazel/relizy/commit/2e3dc99))
+- Use the relizy illustration as the social preview image ([d7dbb89](https://github.com/LouisMazel/relizy/commit/d7dbb89))
+- Add maz-ui translations ([37a7408](https://github.com/LouisMazel/relizy/commit/37a7408))
+- Fix the build of the GitHub Actions guide ([8894546](https://github.com/LouisMazel/relizy/commit/8894546))
+
+### 📦 Build
+
+- **deps:** Remove @maz-ui/upgrade from the docs ([1db29ea](https://github.com/LouisMazel/relizy/commit/1db29ea))
+- **deps:** Accept the minor versions of @maz-ui/node and @maz-ui/utils ([f6b8375](https://github.com/LouisMazel/relizy/commit/f6b8375))
+- **deps:** Update ai version ([b70d391](https://github.com/LouisMazel/relizy/commit/b70d391))
+
+### 🧪 Tests
+
+- Give the slow git tests more time ([fb6421b](https://github.com/LouisMazel/relizy/commit/fb6421b))
+- Type the cancelled prompts of the tests ([a756f4f](https://github.com/LouisMazel/relizy/commit/a756f4f))
+- Confirm the bump in the release e2e tests ([1ca1d6f](https://github.com/LouisMazel/relizy/commit/1ca1d6f))
+
+  The release now fails without --yes when the terminal is not interactive, as in the workers of vitest.
+
+- Check that the docs name every CLI flag and config option ([269a2fb](https://github.com/LouisMazel/relizy/commit/269a2fb))
+
+  A flag of `src/cli.ts` missing from the page of its command (the global
+  ones from `cli/commands`), or a config option missing from its doc page,
+  now fails `knowledge.spec.ts`, as an undocumented command already did.
+
+- Search the prereleases page of the docs ([c421e2a](https://github.com/LouisMazel/relizy/commit/c421e2a))
+
+  The canary releases and the prerelease versioning are now documented on one page, guide/prereleases.
+
+- Check the order of the release steps ([bae9d3c](https://github.com/LouisMazel/relizy/commit/bae9d3c))
+
+  The test named after the order only checked that each step ran, and its e2e twin pushed the names in a fixed order, so neither could fail.
+
+- Stop loading the source code in the vitest config ([d386bf7](https://github.com/LouisMazel/relizy/commit/d386bf7))
+- Pass the tests of init and of the release report in CI ([04fd1a5](https://github.com/LouisMazel/relizy/commit/04fd1a5))
+- Check the push of a dry run outside of a pull request in CI ([c779dd6](https://github.com/LouisMazel/relizy/commit/c779dd6))
+- Check the links between the doc pages ([5dbf050](https://github.com/LouisMazel/relizy/commit/5dbf050))
+- Replace the e2e specs of the release with a unit test ([ecf91a8](https://github.com/LouisMazel/relizy/commit/ecf91a8))
+
+  The specs of `tests/e2e` mocked everything but `release.ts` and only covered the check of the remote branch with the publish disabled and the push enabled. This case is now tested in `release.spec.ts`.
+
+- Toggle the interactive terminal with setInteractiveTerminal ([0233a0e](https://github.com/LouisMazel/relizy/commit/0233a0e))
+- Create the temporary git repositories with a shared helper ([7a5a41d](https://github.com/LouisMazel/relizy/commit/7a5a41d))
+- Share the commit and version group config factories ([6a1fae2](https://github.com/LouisMazel/relizy/commit/6a1fae2))
+- Ignore the OIDC token of the CI job running the tests ([caa6a7e](https://github.com/LouisMazel/relizy/commit/caa6a7e))
+- Split the slow specs so that vitest runs them in parallel ([44f313f](https://github.com/LouisMazel/relizy/commit/44f313f))
+
+  The release-groups specs are split in three files sharing their repository (tests/release-groups.ts), the Slack messages of slack-limits are formatted once per scenario, and the commitlint CLI tests join cli.spec.ts.
+
+- Ignore the colors of the init notes in CI ([a5e27e4](https://github.com/LouisMazel/relizy/commit/a5e27e4))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️ Throw a RelizyCancelError on a refused prompt instead of exiting the process ([ac14ad2](https://github.com/LouisMazel/relizy/commit/ac14ad2))
+
+  A refused or cancelled prompt (bump confirmation, uncommitted changes, rewritten tag) no longer calls `process.exit()`: the commands throw a `RelizyCancelError` before writing anything, without their `error:*` hooks nor a failed PR comment. The CLI still exits with code 0.
+
+  ```ts
+  import { isRelizyCancelError, release } from 'relizy'
+
+  try {
+    await release()
+  }
+  catch (error) {
+    if (!isRelizyCancelError(error)) {
+      throw error
+    }
+  }
+  ```
+
+- ⚠️ Confirm the bump once for every version group ([985a5f7](https://github.com/LouisMazel/relizy/commit/985a5f7))
+
+  With `monorepo.groups`, the bump prompt lists the packages of every group, each under its `title`, and asks once instead of once per group.
+
+  `confirmBump()` only asks, `displayBump()` prints a bump, and the plans of `planBumps()` get `display()` instead of `confirm()`:
+
+  ```ts
+  const { plans } = await planBumps({ config })
+
+  await confirmBump({
+    packages: plans.flatMap(plan => plan.result.bumped ? plan.result.bumpedPackages : []),
+    display: () => {
+      for (const plan of plans) {
+        plan.display?.()
+      }
+    },
+    dryRun: false,
+  })
+  ```
+
+- ⚠️ Add releaseTitle, packageList and packageCount to the social templates ([99cd9c8](https://github.com/LouisMazel/relizy/commit/99cd9c8))
+
+  The social posts are built from a model of the release (`getReleaseOverview()`), which fixes the posts of the `independent` mode: no more "my-lib 3 packages is out!", nor the project name with the version of its only package.
+
+  - `{{releaseTitle}}`: `<name> <version> is out!` for a single version (`@scope/pkg 5.1.0 is out!` for a single package), `New releases of <project>` for several
+  - `{{packageList}}` and `{{packageCount}}`, as in the commit templates
+  - `{{newVersion}}` is empty when several versions are released
+  - every occurrence of a variable is replaced, not only the first one
+
+  The default `templates.twitterMessage` uses `{{releaseTitle}}`, same text for a single version:
+
+  ```ts
+  export default defineConfig({
+    templates: {
+      twitterMessage: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+    },
+  })
+  ```
+
+  `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()` and `postReleaseToSlack()` take the `variables` of the template instead of `projectName`, `version`, `releaseUrl` and `changelogUrl`:
+
+  ```ts
+  const variables = getSocialTemplateVariables({ overview: getReleaseOverview({ config, bumpResult }), releaseUrl })
+
+  formatTweetMessage({ template, changelog, postMaxLength: 280, variables })
+  ```
+
+- ⚠️ Post a release of several versions once per platform, by group ([6e30ca4](https://github.com/LouisMazel/relizy/commit/6e30ca4))
+
+  With `monorepo.groups`, a release is announced as one release: one post per platform instead of one per group, one AI call per platform instead of one per group and platform, and the `social`, `twitter` and `slack` hooks run once. Same for several packages released in `independent` mode.
+
+  - the post is titled `New releases of <project>`, then a section per group (its `title`), the `unified`/`selective` group first
+  - Twitter: filled by priority within `postMaxLength`, every group keeps its version line (an `independent` group collapses to `Tooling: 3 packages` when needed)
+  - Slack: a section per group, the budget of the message shared between them, the contributors once
+  - `onlyStable` leaves the prereleases out of the post instead of posting all the versions or none
+
+  ```text
+  📣 New releases of maz-ui
+
+  maz-ui 5.2.1
+  • mcp: label the bundled docs with their maz-ui version
+
+  Tooling
+  • @maz-ui/eslint-config 5.1.0: stop enforcing the pnpm catalog
+  • @maz-ui/upgrade 5.2.1
+  ```
+
+- ⚠️ Report the outcome of the release to the CI ([53c44a9](https://github.com/LouisMazel/relizy/commit/53c44a9))
+
+  `relizy release` reports what it did (released, nothing to release or failed, the versions by group, the tags, and the outcome of each step), to run something only when a release happens:
+
+  - in GitHub Actions, the outputs of the step (`released`, `status`, `version`, `tags`, `packages`, `report`) and the summary of the run, without option
+  - `release.report.dotenv` (`--report-dotenv`): a dotenv file for the `artifacts:reports:dotenv` of GitLab CI (`RELIZY_RELEASED`, `RELIZY_VERSION`...)
+  - `release.report.json` (`--report-json`): the whole report as JSON
+  - `release()` returns it, and `formatReleaseReportText()` replaces `buildReleaseSummary()`
+
+  ```yaml
+  - id: release
+    run: pnpm relizy release --yes
+  - if: steps.release.outputs.released == 'true'
+    run: ./scripts/notify-teams.sh
+  ```
+
+- ⚠️ Show each command step by step, with previews and a summary of the release ([dbc523b](https://github.com/LouisMazel/relizy/commit/dbc523b))
+
+  Every command shows one line per step, with its duration and what it did, the details only with `--log-level verbose`. In CI, each step is a collapsible group of GitHub Actions or GitLab CI. `RELIZY_REPORTER=classic` gives back the logs of relizy 1.
+
+  A dry run shows what it would generate (changelogs, release notes, posts, PR comment) and no longer calls the AI: `--ai-preview` calls it, `--no-preview` hides the previews.
+
+  `relizy release` ends with a summary, also used for the PR comment, the summary of the GitHub Actions run and the new `release.report.markdown`. See [Migrating from v1 to v2](https://relizy.dev/guide/migration-v2).
+
+- ⚠️ Rename commitlint.codeBlocksLinter to changelogLinter ([4b2073f](https://github.com/LouisMazel/relizy/commit/4b2073f))
+
+  The option chooses the tool checking the changelog entry of a commit, not only its code blocks: with ESLint, the whole entry is linted. Rename `codeBlocksLinter` to `changelogLinter` in the `commitlint` config, with the same values (`auto`, `eslint`, `oxc`), and the type `CommitlintCodeBlocksLinter` to `CommitlintChangelogLinter`. See [Migrating from v1 to v2](https://relizy.dev/guide/migration-v2).
+
+- ⚠️ Reject the commits crediting an AI tool ([2123f4a](https://github.com/LouisMazel/relizy/commit/2123f4a))
+
+  The new `no-ai-attribution` rule of `relizy commitlint` reports an AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`), a `Claude-Session:` trailer and the "Generated with" line of the AI tools. It is an error by default: turn off the attribution in the settings of your tools, or the rule, as told in the [migration guide](https://relizy.dev/guide/migration-v2#ai-attribution-in-commits).
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    commitlint: {
+      rules: { 'no-ai-attribution': 'off' },
+    },
+  })
+  ```
+
+- ⚠️ Only export the commands, the config and the types ([f5fb638](https://github.com/LouisMazel/relizy/commit/f5fb638))
+
+  `relizy` exported every internal function of its commands (about 300: git, npm, tags, Slack, the steps of the commands...). It now only exports the programmatic API: the commands (`release()`, `bump()`, `changelog()`, `publish()`, `providerRelease()`, `social()`, `prComment()`, `commitlint()`), `defineConfig()`, `loadRelizyConfig()`, `RelizyCancelError`, `isRelizyCancelError()`, `lintCommitMessage()` and the types.
+
+  The functions no longer exported have a replacement, listed in the [migration guide](https://relizy.dev/guide/migration-v2#public-api):
+
+  - `createCommitAndTags()`, `pushCommitAndTags()`: `release()` with its `commit`, `gitTag` and `push` options
+  - `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`: `bump()`, with `dryRun` to preview it
+  - `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()`: `social()`, or the `release` parameter of a hook
+  - `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`: the report returned by `release()`
+  - `generateChangelog()`, `generateMarkDown()`: `changelog()`
+  - `getDefaultConfig()`, `mergeTypes()`: `loadRelizyConfig()`, which returns the config with its defaults
+  - `isPrerelease()`: `prerelease()` of semver
+  - `init()`: `relizy init`
+
+  ```ts
+  // v1
+  const types = Object.keys(mergeTypes(relizyConfig.types, getDefaultConfig().types))
+
+  // v2
+  const config = await loadRelizyConfig()
+  const types = Object.keys(config.types)
+  ```
+
+  The `check_migration` tool of the MCP server lists the imports to change.
+
+- ⚠️ Rename monorepo.includePrivates to privatePackages ([26b4711](https://github.com/LouisMazel/relizy/commit/26b4711))
+
+  The option says what relizy does with the private packages of the
+  workspace, with named values: `ignore` (default) or `release` (released as
+  the other packages, never published). The flag and the options of the
+  commands follow:
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      // includePrivates: true,
+      privatePackages: 'release',
+    },
+  })
+  ```
+
+  ```bash
+  relizy release --private-packages release
+  ```
+
+  `check_migration` points out `includePrivates` in the config.
+
+- ⚠️ Remove monorepo.ignorePackageNames, replaced by monorepo.ignored ([798faeb](https://github.com/LouisMazel/relizy/commit/798faeb))
+
+  `monorepo.ignorePackageNames`, deprecated, is removed: list the directories of these packages in `monorepo.ignored`, path globs matched as `monorepo.packages`. A config that still sets it fails to load with the fix, rather than releasing the packages it left out, and `check_migration` points it out first.
+
+  ```ts
+  export default defineConfig({
+    monorepo: {
+      packages: ['packages/*'],
+      // ignorePackageNames: ['@scope/legacy'],
+      ignored: ['packages/legacy'],
+    },
+  })
+  ```
+
+- ⚠️ Remove publish.token, replaced by tokens.registry ([1e8eb42](https://github.com/LouisMazel/relizy/commit/1e8eb42))
+
+  `publish.token` read the same environment variables as `tokens.registry` (`RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`). Set the registry token in `tokens.registry`, or per registry in `publish.registries[].token`. `--publish-token` and the `token` option of `publish()` now set `tokens.registry`, and `token` of `ReleaseOptions` is only the git token.
+
+  ```ts
+  export default defineConfig({
+    // publish: { token: process.env.MY_NPM_TOKEN },
+    tokens: { registry: process.env.MY_NPM_TOKEN },
+  })
+  ```
+
+- ⚠️ Remove repo.token, replaced by tokens.github and tokens.gitlab ([6d6c280](https://github.com/LouisMazel/relizy/commit/6d6c280))
+
+  `repo.token` was a fallback of `tokens.github` and `tokens.gitlab`, which read `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`... by default and are set by `--token`. Set the token of the provider releases and of the PR comment there. A PR comment on Bitbucket now says the provider is not supported, instead of asking for a GitLab token.
+
+  ```ts
+  export default defineConfig({
+    repo: { provider: 'gitlab', domain: 'gitlab.mycompany.com', repo: 'team/app' },
+    tokens: { gitlab: process.env.MY_TOKEN },
+  })
+  ```
+
+- ⚠️ Remove the relizy/types entry of the package ([ae17dae](https://github.com/LouisMazel/relizy/commit/ae17dae))
+
+  The entry pointed straight at a declaration file, so a runtime import of it failed. Import the types from `relizy`.
+
+  ```ts
+  // import type { RelizyConfig } from 'relizy/types'
+  import type { RelizyConfig } from 'relizy'
+  ```
+
+- ⚠️ Remove the newVersion and publish.packages options, never read ([1d57afc](https://github.com/LouisMazel/relizy/commit/1d57afc))
+
+  relizy never read the root `newVersion` option nor `publish.packages`: remove them from the config. To leave a package out of the release, use `monorepo.ignored`.
+
+- ⚠️ Format the changelogs written with the formatter of the project ([7009491](https://github.com/LouisMazel/relizy/commit/7009491))
+
+  Without `changelog.formatCmd`, the formatter in the dependencies of the root `package.json` (Biome, Prettier, oxfmt, dprint, else ESLint) formats the changelogs written, and only them. If it fails, the release goes on with a warning.
+
+  To choose the command, set `formatCmd`: its files placeholder is replaced by the paths of the changelogs written. `false` (or `--no-format-cmd`) turns the formatting off:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    changelog: { formatCmd: 'eslint --fix {{files}}' },
+  })
+  ```
+
+- ⚠️ Name the changelog of Slack and Teams posts changelog ([1fb6dc2](https://github.com/LouisMazel/relizy/commit/1fb6dc2))
+
+  `social.slack.changelog` and `social.teams.changelog` take the same values: `full` (the commit bodies included), `summary` (the commit titles) or `none` (or `false`, no changelog). Slack gains `none`, Teams gains `full`: the changelogs of a card share what its other texts leave of its 28 KB, each one cut between two changes with an `… and N more changes` line, instead of refusing the card.
+
+  ```ts
+  export default defineConfig({
+    social: {
+      slack: { enabled: true, changelog: 'full' },
+      teams: { enabled: true, changelog: 'summary' },
+    },
+  })
+  ```
+
+  BREAKING CHANGE: `social.slack.changelogFormat` is renamed `social.slack.changelog`, with the same values; relizy 2 ignores `changelogFormat`. `check_migration` finds it.
+
+- ⚠️ Replace the arrays of the config instead of concatenating them ([f2aca2a](https://github.com/LouisMazel/relizy/commit/f2aca2a))
+
+  An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API. Before, `bump.dependencyTypes: ['dependencies', 'peerDependencies']` resolved to `['dependencies', 'peerDependencies', 'dependencies']`, `--dependency-types devDependencies` could only add to the list of the config, and `relizy release` passed every `publish.args` twice.
+
+  A `bump.dependencyTypes` without `dependencies` no longer bumps the packages on every bump of their `dependencies`: add it to keep them.
+
+  ```ts
+  export default defineConfig({
+    bump: {
+      dependencyTypes: ['dependencies', 'peerDependencies'],
+    },
+  })
+  ```
+
+- ⚠️ Exit with code 0 when there is nothing to bump ([8c11e3f](https://github.com/LouisMazel/relizy/commit/8c11e3f))
+
+  `relizy bump` exits with code 0 when no commit triggers a bump, as `relizy release` does, instead of 1: a CI job running it no longer fails for nothing. To run something only when a release happens, use a `success:release` hook.
+
+- ⚠️ Remove the publish.private option ([acb3416](https://github.com/LouisMazel/relizy/commit/acb3416))
+
+  relizy never read it: the private packages are never published. A config
+  setting it no longer type-checks, `check_migration` points it out:
+
+  ```ts
+  export default defineConfig({
+    // publish: { private: false }, removed
+    monorepo: { privatePackages: 'release' }, // to version the private packages
+  })
+  ```
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v1.14.4-beta.0 (2026-11-05)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.3...v1.14.4-beta.0)

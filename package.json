@@ -1,7 +1,7 @@
 {
   "name": "relizy",
   "type": "module",
-  "version": "1.14.4-beta.0",
+  "version": "2.0.0-beta.0",
   "packageManager": "pnpm@12.4.1",
   "description": "Release automation - Ship every release in one command",
   "author": "Louis Mazel <me@loicmazuel.com>",
