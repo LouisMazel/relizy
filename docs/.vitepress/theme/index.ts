@@ -1,5 +1,6 @@
 import type { MazUiOptions } from 'maz-ui/plugins'
 import type { Theme } from 'vitepress'
+import { en } from '@maz-ui/translations'
 import { MazUi } from 'maz-ui/plugins'
 import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
@@ -21,6 +22,12 @@ export default {
         darkModeStrategy: 'class',
         strategy: 'runtime',
         persistPreset: false,
+      },
+      translations: {
+        locale: 'en',
+        messages: {
+          en,
+        },
       },
       // The props shared by the components of the custom pages, set once
       defaults: {
