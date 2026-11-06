@@ -1,6 +1,7 @@
 ---
 title: CI/CD Integration
 description: Release from your CI with one command - what relizy init generates, what Relizy handles in a CI job, the tokens, running a step only when a release happens, and troubleshooting.
+metaDescription: 'Release from your CI with one command: what relizy init generates, the tokens, running a step only on a release, and troubleshooting.'
 keywords: ci cd, continuous integration, release from ci, relizy init workflow, shallow clone, git identity, push access, release outputs, troubleshooting ci release
 category: Guide
 tags: [guide, ci-cd, automation, github-actions, gitlab-ci]

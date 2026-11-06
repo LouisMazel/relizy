@@ -1,6 +1,7 @@
 ---
 title: Changelog Generation
 description: How Relizy writes the CHANGELOG.md files from the Conventional Commits - format, sections, breaking changes, commit bodies, contributors, files written per version mode and range of commits.
+metaDescription: 'How Relizy writes the CHANGELOG.md files from Conventional Commits: format, sections, breaking changes, commit bodies and contributors.'
 keywords: changelog generation, automatic changelog, conventional commits, CHANGELOG.md, breaking changes, contributors, commit body, changelog range, root changelog
 category: Guide
 tags: [guide, changelog, documentation, commits]

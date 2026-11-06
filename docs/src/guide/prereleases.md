@@ -1,6 +1,7 @@
 ---
 title: Prereleases & Canary
 description: Publish prerelease versions (alpha, beta, rc) that are part of the release history, and canary versions (snapshot, preview) to test a pull request, with their versions, npm dist-tags and graduation to stable.
+metaDescription: 'Publish prereleases (alpha, beta, rc) and canary versions to test a pull request with Relizy: versions, npm dist-tags and graduation to stable.'
 keywords: relizy prerelease, beta version, alpha version, release candidate, preid, canary release, snapshot release, preview version, npm dist-tag, next tag, graduate to stable, test a pull request
 category: Guide
 tags: [guide, prerelease, canary, snapshot, versioning, ci-cd]

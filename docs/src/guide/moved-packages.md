@@ -1,6 +1,7 @@
 ---
 title: Moving & Renaming Packages
 description: How Relizy keeps the commits made before a package directory was moved or renamed (moves detected from git, monorepo.movedPackages for the others), and how to keep their scopes valid.
+metaDescription: 'How Relizy keeps the commits made before a package directory was moved or renamed, detected from git or set in monorepo.movedPackages.'
 keywords: relizy move package, rename package directory, git mv monorepo, lost commits changelog, movedPackages, package history, scopeMap, renamed package.json
 category: Guide
 tags: [guide, monorepo, git, changelog, bump]

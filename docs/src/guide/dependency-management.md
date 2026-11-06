@@ -1,6 +1,7 @@
 ---
 title: Dependency Management
 description: How Relizy bumps the packages depending on a released package in a monorepo - dependency types, transitive dependents, peer dependency ranges, workspace protocol, catalogs and ignored packages.
+metaDescription: 'How Relizy bumps the dependents of a released package in a monorepo: dependency types, transitive dependents, peer ranges and catalogs.'
 keywords: dependency management, monorepo dependencies, dependents, transitive dependencies, dependencyTypes, workspace protocol, peer dependencies, outOfRangePeers, pnpm catalog, bun catalog, yarn catalog
 category: Guide
 tags: [guide, dependencies, monorepo, workspace]

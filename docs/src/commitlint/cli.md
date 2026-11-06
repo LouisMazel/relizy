@@ -1,6 +1,7 @@
 ---
 title: commitlint
 description: Reference of the relizy commitlint command and its flags, to lint the commit being created in a commit-msg hook, a message, or a range of commits and the pull request title in CI.
+metaDescription: 'The relizy commitlint command and its flags: lint a commit in a commit-msg hook, a message, or a range of commits and the PR title in CI.'
 keywords: relizy commitlint cli, commitlint command, commit-msg, --edit, --message, --from, --to, --title, --preview, --format json, --quiet, --install, exit code
 category: Commitlint
 tags: [commitlint, cli, reference]

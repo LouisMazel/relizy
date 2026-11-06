@@ -1,6 +1,7 @@
 ---
 title: What is Relizy?
 description: Relizy automates the releases of single packages and monorepos from Conventional Commits - version bumps, changelogs, git tags, npm publishing, GitHub and GitLab releases, social posts and PR comments - with one command.
+metaDescription: 'Relizy automates the releases of packages and monorepos from Conventional Commits: versions, changelogs, tags, npm, GitHub and GitLab releases.'
 keywords: relizy, release automation, monorepo release tool, version management, conventional commits, changelog generator, npm publishing, github releases, gitlab releases, semantic versioning
 category: Guide
 tags: [guide, introduction, overview, features]

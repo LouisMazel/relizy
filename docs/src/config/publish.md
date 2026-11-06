@@ -1,6 +1,7 @@
 ---
 title: Publish Configuration
 description: Reference of the publish options - package manager, registry, dist-tag, access, OTP, token, build command, several registries, safety check, idempotent reruns and the check of the workspace dependencies.
+metaDescription: 'Reference of the publish options: package manager, registry, dist-tag, access, OTP, token, build command, several registries and safety check.'
 keywords: publish config, npm publish, registry, dist-tag, access, otp, npm token, buildCmd, registries, packageFilter, exclusive, skipExistingVersions, checkWorkspaceDependencies, safetyCheckTimeout
 category: Configuration
 tags: [config, publish, npm, registry]

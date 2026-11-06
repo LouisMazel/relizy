@@ -1,6 +1,7 @@
 ---
 title: AI Agents (MCP)
 description: Give your AI coding agents (Claude Code, Cursor, Copilot, Codex...) the release preview, the commit linting and the docs of the installed Relizy, through its MCP server.
+metaDescription: 'Give your AI coding agents (Claude Code, Cursor, Copilot, Codex) the release preview, commit linting and docs of Relizy through its MCP server.'
 keywords: relizy mcp, mcp server, model context protocol, ai agents, claude code, cursor, github copilot, codex, release preview, commitlint
 category: Guide
 tags: [guide, ai, mcp, agents]

@@ -1,6 +1,7 @@
 ---
 title: Release Configuration
 description: Reference of the release options - the steps of relizy release (changelog, publish, commit, tag, push, provider release, social posts, PR comment) and the report of the release (GitHub Actions outputs, JSON, dotenv, markdown).
+metaDescription: 'Reference of the release options: the steps of relizy release, from the changelog to the social posts, and the report of the release.'
 keywords: release config, relizy release steps, commit, push, gitTag, noVerify, providerRelease, social, prComment, release report, GitHub Actions outputs, dotenv, GitLab CI
 category: Configuration
 tags: [config, release, workflow, report, ci]

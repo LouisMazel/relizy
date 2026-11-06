@@ -1,6 +1,7 @@
 ---
 title: Rewritten Tags & Rebases
 description: Why rebasing a branch after a release orphans its tags and breaks the changelogs, how Relizy detects it and recovers (detectRewrittenTags, onRewrittenTag), and how to repair the tags.
+metaDescription: 'Why rebasing a branch after a release orphans its tags and breaks the changelogs, and how Relizy detects it, recovers and repairs the tags.'
 keywords: relizy rebase, orphaned tag, rewritten tag, changelog wrong range, duplicated commits, git tag rebase, detectRewrittenTags, onRewrittenTag, rejected push
 category: Guide
 tags: [guide, git, tags, rebase, changelog, troubleshooting]

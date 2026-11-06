@@ -269,7 +269,8 @@ export default defineConfig({
 
   transformHead: ({ siteData, pageData, title, description }) => {
     const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
-    const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
+    // metaDescription: a shorter description for the search results, the page and llms.txt keep the full one
+    const currentDescription = pageData.frontmatter.metaDescription ?? description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
 
     const slug = pageData.relativePath.replace('.md', '')
     // commitlint/index.md is served at /commitlint/, index.md at /

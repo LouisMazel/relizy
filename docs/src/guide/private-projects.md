@@ -1,6 +1,7 @@
 ---
 title: Private Projects & Apps
 description: Version private apps, services and internal monorepos with Relizy - versions, changelogs, git tags, GitHub or GitLab releases and PR comments - without ever publishing anything to a registry.
+metaDescription: 'Version private apps, services and internal monorepos with Relizy: changelogs, git tags, GitHub or GitLab releases, without publishing to npm.'
 keywords: private project versioning, app versioning, version without npm, internal monorepo, private packages, privatePackages, changelog for apps, git tags, github releases, gitlab releases, release without publishing, no-publish
 category: Guide
 tags: [guide, private, apps, monorepo, versioning, changelog, github, gitlab]

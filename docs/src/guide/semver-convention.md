@@ -1,6 +1,7 @@
 ---
 title: Semver Convention
 description: How Relizy turns Conventional Commits into Semantic Versioning bumps - the default commit type to bump table, breaking changes, the 0.x rule of bump.capZeroMajor, prerelease identifiers and graduation to 1.0.0.
+metaDescription: 'How Relizy turns Conventional Commits into semver bumps: commit types, breaking changes, the 0.x rule, prerelease identifiers and 1.0.0.'
 keywords: semver, semantic versioning, conventional commits, commit types, version bump, breaking change, capZeroMajor, 0.x versions, initial development, prerelease identifier, graduate to 1.0.0
 category: Guide
 tags: [guide, semver, versioning, convention, conventional-commits, prerelease]

@@ -1,6 +1,7 @@
 ---
 title: Commit linting configuration
 description: Configure relizy commitlint with the commitlint key of relizy.config.ts - packages, scopes, rule levels and values, custom rules, ignores, defaultIgnores, pull request title, changelogLinter and helpUrl.
+metaDescription: 'Configure relizy commitlint in relizy.config.ts: scopes, rule levels and values, custom rules, ignores and the pull request title.'
 keywords: relizy commitlint config, commitlint key, packages, scopes, rules, rule levels, customRules, ignores, defaultIgnores, title, changelogLinter, helpUrl
 category: Commitlint
 tags: [commitlint, configuration, reference]

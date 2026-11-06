@@ -1,6 +1,7 @@
 ---
 title: Commit linting
 description: Lint commit messages with your Relizy config, in a commit-msg hook (husky, simple-git-hooks, lefthook) and in CI (GitHub Actions, GitLab CI). Same parser, types and scopes as your releases, commit bodies checked as they will appear in your changelogs.
+metaDescription: 'Lint commit messages with your Relizy config in a commit-msg hook (husky, lefthook) and in CI, with the same types and scopes as your releases.'
 keywords: relizy commitlint, commit linter, commit message lint, conventional commits, commitlint alternative, commit-msg hook, husky, simple-git-hooks, lefthook, github actions, gitlab ci, squash merge, monorepo scopes
 category: Commitlint
 tags: [commitlint, conventional-commits, git-hooks, husky, ci-cd, github-actions, gitlab-ci, changelog]

@@ -1,6 +1,7 @@
 ---
 title: Migrating from commitlint
 description: Replace commitlint with relizy commitlint - the hook and the CI, the rules of @commitlint/config-conventional and their Relizy equivalent, function rules ported as custom rules.
+metaDescription: 'Replace commitlint with relizy commitlint: the hook, the CI, the rules of @commitlint/config-conventional and your function rules.'
 keywords: migrate from commitlint, commitlint alternative, config-conventional, commitlint-plugin-function-rules, relizy commitlint, header-max-length, subject-case
 category: Commitlint
 tags: [commitlint, migration]

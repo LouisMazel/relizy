@@ -1,6 +1,7 @@
 ---
 title: init
 description: Set up Relizy in a few questions - the config, the commit-msg hook, the release script, the AI agents and the release workflow of GitHub Actions or GitLab CI. Everything else is detected.
+metaDescription: 'Set up Relizy in a few questions: the config, the commit-msg hook, the release script, the AI agents and the CI release workflow.'
 keywords: relizy init, relizy setup, create relizy config, relizy.config.ts, release workflow, github actions workflow, gitlab ci job, commit-msg hook, relizy init --yes
 category: CLI Reference
 tags: [cli, init, setup, configuration, ci-cd, commitlint]

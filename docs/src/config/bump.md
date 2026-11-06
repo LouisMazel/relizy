@@ -1,6 +1,7 @@
 ---
 title: Bump Configuration
 description: Reference of the bump options - release type, prerelease identifier, clean check, confirmation, dependency bumps, out-of-range peer dependencies and the 0.x cap.
+metaDescription: 'Reference of the bump options: release type, prerelease identifier, confirmation, dependency bumps, out-of-range peers and the 0.x cap.'
 keywords: bump config, release type, preid, prerelease, dependencyTypes, outOfRangePeers, peer dependencies, capZeroMajor, clean, yes
 category: Configuration
 tags: [config, bump, versioning, semver, dependencies]
