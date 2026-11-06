@@ -7,6 +7,7 @@ import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { isInCI } from '../ci-env'
 import { RelizyCancelError } from '../errors'
 import {
   detectPackageManager,
@@ -21,7 +22,6 @@ import {
 } from '../npm'
 import { askText } from '../prompts'
 import { getIndependentTag } from '../tags'
-import { isInCI } from '../utils'
 import { isPrerelease } from '../version'
 
 vi.mock('node:child_process')
@@ -39,8 +39,8 @@ vi.mock('node:path', async () => {
 })
 // Remove the node:process mock - we'll spy on globalThis.process directly
 vi.mock('../prompts')
-vi.mock('../utils', async () => {
-  const actual = await vi.importActual('../utils')
+vi.mock('../ci-env', async () => {
+  const actual = await vi.importActual('../ci-env')
   return {
     ...actual,
     isInCI: vi.fn(),

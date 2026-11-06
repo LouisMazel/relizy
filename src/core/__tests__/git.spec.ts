@@ -9,6 +9,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
 import { ensurePushAccess } from '../ci'
+import { isInCI } from '../ci-env'
 import { RelizyCancelError } from '../errors'
 import {
   checkGitStatusIfDirty,
@@ -27,7 +28,7 @@ import {
 } from '../git'
 import { askConfirm } from '../prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from '../release-files'
-import { executeHook, isInCI } from '../utils'
+import { executeHook } from '../utils'
 
 vi.mock('node:child_process')
 vi.mock('node:fs')
@@ -58,9 +59,10 @@ vi.mock('../utils', () => {
   return {
     executeHook: vi.fn(),
     getHookContext: vi.fn(),
-    isInCI: vi.fn(() => false),
   }
 })
+
+vi.mock('../ci-env', () => ({ isInCI: vi.fn(() => false) }))
 
 vi.mock('../release-files', () => {
   return {

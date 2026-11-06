@@ -10,6 +10,7 @@ import { box, intro, isCancel, log, outro, confirm as promptConfirm, spinner } f
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
+import { isInCI } from './ci-env'
 import { markErrorReported, RelizyCancelError } from './errors'
 import { formatDuration } from './format'
 import { reportProgress, setProgressHandlers } from './progress'
@@ -49,7 +50,7 @@ const ERROR_TYPES = new Set(['error', 'fail', 'fatal'])
  * which are not a terminal), unless `NO_COLOR`
  */
 function paint(format: Parameters<typeof styleText>[0], text: string): string {
-  if (!isCi()) {
+  if (!isInCI()) {
     return styleText(format, text)
   }
 
@@ -77,7 +78,7 @@ const bold = (text: string) => paint('bold', text)
  * black text in both themes
  */
 function dryRunBadge(): string {
-  if (!isCi()) {
+  if (!isInCI()) {
     return paint(['bgYellow', 'black', 'bold'], ' DRY RUN ')
   }
 
@@ -139,10 +140,6 @@ function shimmer(text: string, frame: number): string {
   }).join('')
 }
 
-function isCi(): boolean {
-  return ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI'].some(name => process.env[name] && process.env[name] !== 'false')
-}
-
 function getCiProvider(): CiProvider {
   if (process.env.GITHUB_ACTIONS === 'true') {
     return 'github'
@@ -177,7 +174,7 @@ function resolveRenderer(): Renderer {
     return 'classic'
   }
 
-  return isCi() || !process.stdout.isTTY ? 'ci' : 'pretty'
+  return isInCI() || !process.stdout.isTTY ? 'ci' : 'pretty'
 }
 
 export function isFancyUi(): boolean {

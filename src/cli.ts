@@ -8,10 +8,10 @@ import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
 import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
+import { getCIName, isInCI } from './core/ci-env'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
-import { getCIName, isInCI } from './core/utils'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
 // The other commands start with their own title line

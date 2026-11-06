@@ -1,6 +1,5 @@
 import type { BumpResultTruthy, HookConfig, HookContext, PackageBase, PrivatePackages } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
 import { clearGitCache } from './git-cache'
 import { reportProgress } from './progress'
@@ -56,99 +55,6 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
 
     return result
   }
-}
-
-/**
- * Check if we are in a CI environment
- */
-// eslint-disable-next-line complexity
-export function isInCI(): boolean {
-  return Boolean(
-    process.env.CI === 'true'
-    || process.env.CONTINUOUS_INTEGRATION === 'true'
-    || process.env.GITHUB_ACTIONS === 'true'
-    || process.env.GITHUB_WORKFLOW
-    || process.env.GITLAB_CI === 'true'
-    || process.env.CIRCLECI === 'true'
-    || process.env.TRAVIS === 'true'
-    || process.env.JENKINS_HOME
-    || process.env.JENKINS_URL
-    || process.env.BUILD_ID
-    || process.env.TF_BUILD === 'True'
-    || process.env.AZURE_PIPELINES === 'true'
-    || process.env.TEAMCITY_VERSION
-    || process.env.BITBUCKET_BUILD_NUMBER
-    || process.env.DRONE === 'true'
-    || process.env.APPVEYOR === 'True'
-    || process.env.APPVEYOR === 'true'
-    || process.env.BUILDKITE === 'true'
-    || process.env.CODEBUILD_BUILD_ID
-    || process.env.NETLIFY === 'true'
-    || process.env.VERCEL === '1'
-    || process.env.HEROKU_TEST_RUN_ID
-    || process.env.BUDDY === 'true'
-    || process.env.SEMAPHORE === 'true'
-    || process.env.CF_BUILD_ID
-    || process.env.bamboo_buildKey
-    || (process.env.BUILD_ID && process.env.PROJECT_ID)
-    || process.env.SCREWDRIVER === 'true'
-    || process.env.STRIDER === 'true',
-  )
-}
-
-/**
- * Get CI name
- */
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-export function getCIName(): string | null {
-  if (process.env.GITHUB_ACTIONS === 'true')
-    return 'GitHub Actions'
-  if (process.env.GITLAB_CI === 'true')
-    return 'GitLab CI'
-  if (process.env.CIRCLECI === 'true')
-    return 'CircleCI'
-  if (process.env.TRAVIS === 'true')
-    return 'Travis CI'
-  if (process.env.JENKINS_HOME || process.env.JENKINS_URL)
-    return 'Jenkins'
-  if (process.env.TF_BUILD === 'True')
-    return 'Azure Pipelines'
-  if (process.env.TEAMCITY_VERSION)
-    return 'TeamCity'
-  if (process.env.BITBUCKET_BUILD_NUMBER)
-    return 'Bitbucket Pipelines'
-  if (process.env.DRONE === 'true')
-    return 'Drone'
-  if (process.env.APPVEYOR)
-    return 'AppVeyor'
-  if (process.env.BUILDKITE === 'true')
-    return 'Buildkite'
-  if (process.env.CODEBUILD_BUILD_ID)
-    return 'AWS CodeBuild'
-  if (process.env.NETLIFY === 'true')
-    return 'Netlify'
-  if (process.env.VERCEL === '1')
-    return 'Vercel'
-  if (process.env.HEROKU_TEST_RUN_ID)
-    return 'Heroku CI'
-  if (process.env.BUDDY === 'true')
-    return 'Buddy'
-  if (process.env.SEMAPHORE === 'true')
-    return 'Semaphore'
-  if (process.env.CF_BUILD_ID)
-    return 'Codefresh'
-  if (process.env.bamboo_buildKey)
-    return 'Bamboo'
-  if (process.env.BUILD_ID && process.env.PROJECT_ID)
-    return 'Google Cloud Build'
-  if (process.env.SCREWDRIVER === 'true')
-    return 'Screwdriver'
-  if (process.env.STRIDER === 'true')
-    return 'Strider'
-  if (process.env.CI === 'true')
-    return 'Unknown CI'
-
-  return null
 }
 
 /**

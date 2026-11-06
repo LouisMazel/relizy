@@ -37,8 +37,8 @@ function typesExcept(...hidden: string[]) {
 }
 
 // The CI running these tests must not switch the command to the non-interactive mode
-vi.mock('../../core/utils', async importActual => ({
-  ...await importActual<typeof import('../../core/utils')>(),
+vi.mock('../../core/ci-env', async importActual => ({
+  ...await importActual<typeof import('../../core/ci-env')>(),
   isInCI: () => false,
 }))
 

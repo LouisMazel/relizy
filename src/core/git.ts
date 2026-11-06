@@ -7,6 +7,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { ensurePushAccess } from './ci'
+import { isInCI } from './ci-env'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag } from './format'
@@ -18,7 +19,7 @@ import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './relea
 import { hasLernaJson, readPackageJson } from './repo'
 import { shellArg } from './shell'
 import { getIndependentTag } from './tags'
-import { executeHook, getHookContext, isInCI } from './utils'
+import { executeHook, getHookContext } from './utils'
 
 /**
  * Runs git without a shell: the arguments are passed as they are, so the

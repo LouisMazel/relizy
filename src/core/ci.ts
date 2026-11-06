@@ -2,8 +2,8 @@ import type { ResolvedRelizyConfig } from './config'
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { getCIName, isInCI } from './ci-env'
 import { clearGitCache, oncePerRun } from './git-cache'
-import { getCIName, isInCI } from './utils'
 
 /**
  * What relizy does for itself in a CI job, whatever the provider: the full

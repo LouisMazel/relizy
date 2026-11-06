@@ -21,7 +21,8 @@ vi.mock('@clack/prompts', () => ({
 
 interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
 
-const ENV_KEYS = ['RELIZY_REPORTER', 'CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'CIRCLECI', 'NO_COLOR'] as const
+/** The output and the variables of the CI detection (`ci-env.ts`), cleared so the tests run the same locally and in CI */
+const ENV_KEYS = ['RELIZY_REPORTER', 'NO_COLOR', 'CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'CIRCLECI', 'TRAVIS', 'JENKINS_HOME', 'JENKINS_URL', 'BUILD_ID', 'TF_BUILD', 'AZURE_PIPELINES', 'TEAMCITY_VERSION', 'BITBUCKET_BUILD_NUMBER', 'DRONE', 'APPVEYOR', 'BUILDKITE', 'CODEBUILD_BUILD_ID', 'NETLIFY', 'VERCEL', 'HEROKU_TEST_RUN_ID', 'BUDDY', 'SEMAPHORE', 'CF_BUILD_ID', 'bamboo_buildKey', 'SCREWDRIVER', 'STRIDER'] as const
 const env = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]))
 
 let cwd: string
@@ -139,6 +140,21 @@ describe('Given the renderer of the output', () => {
     classic.ui.enableCliUi()
 
     expect(classic.ui.isFancyUi()).toBe(false)
+  })
+
+  it.each([{ CI: '1' }, { VERCEL: '1' }, { BUILD_ID: '42' }])('Then shows the CI output in a terminal of any CI detected (%o)', async (vars) => {
+    const isTTY = process.stdout.isTTY
+    process.stdout.isTTY = true
+
+    try {
+      const { ui } = await load({ ...vars, NO_COLOR: '1' }, { cli: true })
+      ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Bumped' })
+
+      expect(lines()[0]).toBe('relizy bump · ci')
+    }
+    finally {
+      process.stdout.isTTY = isTTY
+    }
   })
 })
 
