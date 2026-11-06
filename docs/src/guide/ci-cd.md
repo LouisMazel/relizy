@@ -115,7 +115,7 @@ or check out the repository with a token allowed to push (actions/checkout, inpu
 
 The dry run of a pull request (`pull_request` on GitHub, a merge request pipeline on GitLab) only warns: its token is read-only, and the release never runs there. The release job checks the push.
 
-On GitLab, the fix is a `GITLAB_TOKEN` variable (a project access token with the `write_repository` and `api` scopes), or allowing the job token to push: see [Push Access](./gitlab-ci.md#push-access).
+On GitLab, the fix is a `GITLAB_TOKEN` variable (an access token with the `write_repository` and `api` scopes), or allowing the job token to push: see [Push Access](./gitlab-ci.md#push-access).
 
 ### Protected Branches
 

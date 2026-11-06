@@ -233,7 +233,7 @@ function canPush({ remote, branch, cwd, env }: { remote: string, branch: string,
 function getPushError({ remote, remoteUrl, env }: { remote: string, remoteUrl?: string, env: Env }): string {
   if (env.GITLAB_CI === 'true') {
     return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n`
-      + 'Fix: add a GITLAB_TOKEN CI/CD variable (a project access token with the "write_repository" and "api" scopes), '
+      + 'Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), '
       + 'or allow the job token to push in Settings > CI/CD > Job token permissions.'
   }
   if (env.GITHUB_ACTIONS === 'true') {

@@ -76,7 +76,7 @@ Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job 
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.
 
-`GITLAB_TOKEN` is a project access token (Settings > Access tokens) with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default). The job token (`CI_JOB_TOKEN`) creates the GitLab releases, but cannot comment the merge requests: the MR comment needs `GITLAB_TOKEN`.
+`GITLAB_TOKEN` is an access token with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default): a project access token (Settings > Access tokens), or on the Free tier of gitlab.com, where project access tokens need Premium, a personal access token (of a bot account, ideally). To push without a token, allow the job token to push (see [Push Access](#push-access)). The job token (`CI_JOB_TOKEN`) creates the GitLab releases, but cannot comment the merge requests: the MR comment needs `GITLAB_TOKEN`.
 
 A protected variable is only given to the pipelines of protected branches and tags: leave `NPM_TOKEN` and `GITLAB_TOKEN` unprotected for the [canary releases](#canary-release-on-merge-requests) of merge requests.
 
@@ -86,7 +86,7 @@ GitLab checks out the commit with the job token, which cannot push by default. B
 
 ```text
 relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.
-Fix: add a GITLAB_TOKEN CI/CD variable (a project access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
+Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
 ```
 
 Instead of pushing with `GITLAB_TOKEN`, you can allow the job token to push (Settings > CI/CD > Job token permissions, Allow Git push requests to the repository): its push starts no pipeline. A push with `GITLAB_TOKEN` starts the pipelines of the release commit and of the tags, which the rules of the `release` job skip.
