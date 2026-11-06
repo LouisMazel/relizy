@@ -354,35 +354,18 @@ export default defineConfig({
   },
 
   buildEnd: ({ outDir }) => {
-    if (!isProduction) {
-      // Overwrite robots.txt to block all crawlers on preview deployments
-      writeFileSync(resolve(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n')
-
-      // Remove sitemap to avoid indexing preview URLs
-      try {
-        unlinkSync(resolve(outDir, 'sitemap.xml'))
-      }
-      catch {}
+    if (isProduction) {
       return
     }
 
-    // Cloudflare Pages worker: 301 redirect pages.dev and www.relizy.dev to
-    // the canonical apex. Cloudflare _redirects only supports relative paths,
-    // so we need a worker to match on hostname.
-    writeFileSync(
-      resolve(outDir, '_worker.js'),
-      `export default {
-  async fetch(request, env) {
-    const url = new URL(request.url)
-    if (url.hostname === 'relizy.pages.dev' || url.hostname === 'www.relizy.dev') {
-      url.hostname = 'relizy.dev'
-      return Response.redirect(url.toString(), 301)
+    // Overwrite robots.txt to block all crawlers on preview deployments
+    writeFileSync(resolve(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n')
+
+    // Remove sitemap to avoid indexing preview URLs
+    try {
+      unlinkSync(resolve(outDir, 'sitemap.xml'))
     }
-    return env.ASSETS.fetch(request)
-  },
-}
-`,
-    )
+    catch {}
   },
 
   vite: {
