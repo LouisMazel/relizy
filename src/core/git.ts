@@ -9,13 +9,14 @@ import { execPromise, logger } from '@maz-ui/node'
 import { ensurePushAccess } from './ci'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
-import { formatRepoTag } from './format'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag } from './format'
 import { cachedGitRead, clearGitCache } from './git-cache'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
 import { askConfirm } from './prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
+import { shellArg } from './shell'
 import { getIndependentTag } from './tags'
 import { executeHook, getHookContext, isInCI } from './utils'
 
@@ -420,9 +421,12 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
       return null
     }
 
+    // The branch of a pull request is named by its author: quoted
+    const remoteKey = shellArg(`branch.${branch}.remote`)
+    const mergeKey = shellArg(`branch.${branch}.merge`)
     const [{ stdout: remote }, { stdout: mergeRef }, { stdout: trackingRef }] = await Promise.all([
-      execPromise(`git config --get branch.${branch}.remote`, { cwd, ...quietExec }),
-      execPromise(`git config --get branch.${branch}.merge`, { cwd, ...quietExec }),
+      execPromise(`git config --get ${remoteKey}`, { cwd, ...quietExec }),
+      execPromise(`git config --get ${mergeKey}`, { cwd, ...quietExec }),
       execPromise('git rev-parse --symbolic-full-name @{upstream}', { cwd, ...quietExec }),
     ])
 
@@ -443,7 +447,8 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
 }
 
 async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> {
-  await execPromise(`git fetch ${upstream.remote} +${upstream.mergeRef}:${upstream.trackingRef}`, { cwd, ...quietExec })
+  const refspec = shellArg(`+${upstream.mergeRef}:${upstream.trackingRef}`)
+  await execPromise(`git fetch ${shellArg(upstream.remote)} ${refspec}`, { cwd, ...quietExec })
   clearGitCache()
 }
 
@@ -476,7 +481,8 @@ export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): 
     return
   }
 
-  const { stdout } = await execPromise(`git rev-list --count HEAD..${upstream.trackingRef}`, { cwd, ...quietExec })
+  const range = shellArg(`HEAD..${upstream.trackingRef}`)
+  const { stdout } = await execPromise(`git rev-list --count ${range}`, { cwd, ...quietExec })
   const missingCommits = Number.parseInt(stdout.trim(), 10) || 0
 
   if (missingCommits > 0) {
@@ -534,15 +540,15 @@ async function recoverRejectedPush({
   try {
     await fetchUpstream(upstream, cwd)
     const noVerifyFlag = config.release.noVerify ? ' --no-verify' : ''
-    await execPromise(`git merge --no-edit${noVerifyFlag} ${upstream.name}`, { cwd, ...quietExec })
+    await execPromise(`git merge --no-edit${noVerifyFlag} ${shellArg(upstream.name)}`, { cwd, ...quietExec })
     clearGitCache()
   }
   catch (mergeError) {
     await execPromise('git merge --abort', { cwd, ...quietExec }).catch(() => {})
 
     if (tags.length > 0) {
-      const tagRefs = tags.map(tag => `refs/tags/${tag}`).join(' ')
-      await execPromise(`git push ${upstream.remote} ${tagRefs}`, { cwd, ...quietExec }).catch(() => {})
+      const tagRefs = tags.map(tag => shellArg(`refs/tags/${tag}`)).join(' ')
+      await execPromise(`git push ${shellArg(upstream.remote)} ${tagRefs}`, { cwd, ...quietExec }).catch(() => {})
     }
 
     const recoverRef = tags[0] ?? 'HEAD'
@@ -622,7 +628,7 @@ function getCommitTemplates({
 
   if (!groups || commitMessage !== undefined) {
     return {
-      title: commitMessage ?? 'chore(release): bump version to {{newVersion}}',
+      title: commitMessage ?? DEFAULT_RELEASE_COMMIT_MESSAGES.version,
       body: commitBody,
     }
   }
@@ -630,7 +636,7 @@ function getCommitTemplates({
   const hasIndependentGroup = groups.some(group => group.versionMode === 'independent')
 
   return {
-    title: isIndependent ? 'chore(release): bump {{packageCount}} packages' : 'chore(release): bump version to {{newVersion}}',
+    title: isIndependent ? DEFAULT_RELEASE_COMMIT_MESSAGES.packages : DEFAULT_RELEASE_COMMIT_MESSAGES.version,
     body: commitBody ?? (hasIndependentGroup ? '{{packageList}}' : undefined),
   }
 }

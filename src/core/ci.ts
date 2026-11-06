@@ -79,10 +79,10 @@ export function getCiGitIdentity(env: Env = process.env): GitIdentity {
 }
 
 /**
- * The branch a CI job runs on, when its HEAD is detached: none for the pull
- * request, merge request and tag pipelines
+ * The branch a CI job runs on, when its HEAD is detached: the head branch of a
+ * GitHub pull request (named by its author, quoted in the shell commands),
+ * none for the merge request and tag pipelines
  */
-
 export function getCiBranch(env: Env = process.env): string | undefined {
   if (env.GITHUB_ACTIONS === 'true') {
     // A pull request checks out its merge commit: GITHUB_REF_NAME is `<number>/merge`, GITHUB_HEAD_REF its branch

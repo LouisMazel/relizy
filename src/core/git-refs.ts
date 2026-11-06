@@ -3,23 +3,14 @@ import type { RawGitCommit } from '../types'
 import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
 import { cachedGitRead, clearGitCache } from './git-cache'
+import { shellArg, shellSingleQuote } from './shell'
 
 /**
  * Low-level git ref/tag helpers. This module is intentionally a leaf (it only
- * depends on `@maz-ui/node` and the leaf `git-cache.ts`) so it can be imported
+ * depends on `@maz-ui/node` and the leaves `git-cache.ts` and `shell.ts`) so it can be imported
  * from anywhere -- including `rewritten-tags.ts` -- without creating an import
  * cycle through `repo.ts`.
  */
-
-/**
- * Wrap a value in single quotes for safe shell interpolation.
- * Single quotes preserve everything literally; embedded single quotes are
- * escaped via the `'\''` idiom. Used for refs, tags and commit subjects that
- * may contain `(`, `)`, `:`, spaces, etc.
- */
-function shellSingleQuote(value: string): string {
-  return `'${value.replaceAll('\'', '\'\\\'\'')}'`
-}
 
 /**
  * Returns true when `ancestor` is an ancestor of `descendant` (i.e. reachable
@@ -262,7 +253,7 @@ export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string):
 
 function readGitLog(range: string, cwd?: string): RawGitCommit[] {
   const output = execSync(
-    `git --no-pager log "${range}" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
+    `git --no-pager log ${shellArg(range)} --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
     { cwd, encoding: 'utf8', maxBuffer: GIT_LOG_MAX_BUFFER },
   ).trim()
 

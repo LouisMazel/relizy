@@ -145,7 +145,7 @@ describe('Given getGitDiff', () => {
     getGitDiff('v1.0.0', 'HEAD', '/repo')
 
     expect(mockExecSync).toHaveBeenCalledWith(
-      'git --no-pager log "v1.0.0...HEAD" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status',
+      'git --no-pager log v1.0.0...HEAD --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status',
       expect.objectContaining({ cwd: '/repo', encoding: 'utf8' }),
     )
   })
@@ -163,7 +163,7 @@ describe('Given getGitDiff', () => {
 
     getGitDiff(undefined, 'HEAD', '/repo')
 
-    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('log "HEAD"'), expect.anything())
+    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('log HEAD '), expect.anything())
   })
 
   it('Then keeps the co-author trailers and changed files of a GitHub squash merge', () => {
