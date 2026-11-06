@@ -68,6 +68,7 @@ Git only runs through `src/core/git-exec.ts` (`runGitSync`, `runGit`, their `try
 - In unified mode, uses root package tags; in selective/independent modes, uses package-specific tags
 - An independent package without a tag of its current version starts at the commit that set this version in its `package.json` (`findVersionCommit()` in `tags.ts`, through its moves), named after its tag (`v6.18.0` when it was released by the selective group); a package created with this version is new (`NEW_PACKAGE_MARKER`)
 - Supports commit type mapping via `types` config (e.g., `feat` → `minor` bump)
+- The GitHub and GitLab releases share one flow, `postProviderReleases()` (`provider-releases.ts`): a provider is a `ReleaseProvider` adapter (`githubReleaseProvider`, `gitlabReleaseProvider`) that checks its config and creates a release
 
 ## Output of the CLI
 
