@@ -176,6 +176,35 @@ export default defineConfig({
 })
 ```
 
+### Announcements on Slack
+
+[`announcements`](./../config/social.md#slack-announcements) chooses the versions of the message, with the same entries as [Teams](#announcements): without it, every version is announced; with it, only the versions matching a `{ group }` or `{ package }` entry. Each entry can set:
+
+- `title`, which replaces the name of the version: `*Design System* 7.0.0` instead of `*Maz UI* 7.0.0`, the header for a single version;
+- `message`, in markdown, under the title;
+- the links **📖 Release notes**, **📝 Changelog** and `links`, under the message (the buttons of the message for a single version).
+
+[`exclude`](./../config/social.md#slack-exclude) leaves groups and packages out, even when an entry matches them. Twitter has [`exclude`](./../config/social.md#twitter-exclude) only.
+
+```ts
+export default defineConfig({
+  social: {
+    slack: {
+      enabled: true,
+      announcements: [
+        { group: 'ecosystem', title: 'Design System', message: 'Update `@acme/ui` to get it.', links: [{ title: '📚 Docs', url: 'https://design.acme.dev' }] },
+        { group: 'shared' },
+      ],
+      exclude: { packages: ['@acme/*-mock'] },
+    },
+    twitter: {
+      enabled: true,
+      exclude: { groups: ['shared'] },
+    },
+  },
+})
+```
+
 ## Microsoft Teams
 
 Relizy posts [Adaptive Cards](https://adaptivecards.io) to a **Teams workflow** (Power Automate). The Office 365 connectors (`https://*.webhook.office.com/...`) are retired: Relizy refuses their URLs.
@@ -234,7 +263,7 @@ Without [`announcements`](./../config/social.md#teams-announcements), every vers
 - `{ group: 'name' }`: the versions of a [version group](./version-groups.md): its root version, or each of its packages when it is `independent`.
 - `{ package: '@scope/nav' }`: the packages whose name matches (a glob, `@scope/*`). Its fields override the ones of its group entry, field by field.
 
-The texts and the links take the variables of the version: <code v-pre>{{name}}</code>, <code v-pre>{{shortName}}</code> (the name without its scope), <code v-pre>{{newVersion}}</code>, <code v-pre>{{tag}}</code>, <code v-pre>{{groupTitle}}</code>, <code v-pre>{{projectName}}</code>, <code v-pre>{{releaseUrl}}</code>, <code v-pre>{{changelogUrl}}</code> (see [Teams Variables](./../config/social.md#teams-variables)).
+The texts and the links take the variables of the version: <code v-pre>{{name}}</code>, <code v-pre>{{shortName}}</code> (the name without its scope), <code v-pre>{{newVersion}}</code>, <code v-pre>{{tag}}</code>, <code v-pre>{{groupTitle}}</code>, <code v-pre>{{projectName}}</code>, <code v-pre>{{releaseUrl}}</code>, <code v-pre>{{changelogUrl}}</code> (see [Announcement Variables](./../config/social.md#announcement-variables)).
 
 ```ts
 export default defineConfig({
@@ -299,7 +328,7 @@ An `independent` release of two packages, without version groups:
 
 **Slack**: the changelog has a block per section (`summary`), or its title and rich text blocks (`full`): each package of an `independent` group with its old and new versions, then its changelog. The budget of the message (`postMaxLength`, the 3000 characters of a block, the 50 blocks and the size of the payload) is shared between the sections: each one gets what it needs within an equal share, what the small ones leave goes to the others, and each one keeps at least its title and its version lines. The contributors of every group are listed once.
 
-With `onlyStable`, the prereleases are left out of the post, and nothing is posted when every version is a prerelease. A version group with `release: { social: false }` is left out of the posts. See [One Release, Presented by Group](./version-groups.md#one-release-presented-by-group) for a release of several groups.
+With `onlyStable`, the prereleases are left out of the post, and nothing is posted when every version is a prerelease. The `announcements` and `exclude` of a platform leave out the versions it does not announce. A version group with `release: { social: false }` is left out of the posts. See [One Release, Presented by Group](./version-groups.md#one-release-presented-by-group) for a release of several groups.
 
 ## AI-Written Posts
 

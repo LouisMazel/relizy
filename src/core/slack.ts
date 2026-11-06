@@ -1,4 +1,4 @@
-import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SlackReleaseSection, SocialTemplateVariables } from '../types'
+import type { SlackChangelogFormat, SlackCredentials, SlackOptions, SlackReleaseSection, SocialLink, SocialTemplateVariables } from '../types'
 import type { PackageBumpEntry } from './packages'
 import type { SlackRichTextBlock } from './slack-markdown'
 import { logger } from '@maz-ui/node'
@@ -150,9 +150,32 @@ export function shareBudget(budget: number, demands: number[]): number[] {
 }
 
 function formatSlackPackageLine(pkg: NonNullable<SlackReleaseSection['packages']>[number]): string {
+  const name = pkg.title ?? pkg.name
+
   return pkg.oldVersion && pkg.oldVersion !== pkg.newVersion
-    ? `*${pkg.name}* \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
-    : `*${pkg.name}* \`${pkg.newVersion}\``
+    ? `*${name}* \`${pkg.oldVersion}\` → \`${pkg.newVersion}\``
+    : `*${name}* \`${pkg.newVersion}\``
+}
+
+/** Slack accepts 75 characters in the text of a button */
+const SLACK_BUTTON_TEXT_MAX_LENGTH = 75
+
+/**
+ * The message and the links of an announcement (markdown), the links on one line
+ */
+function getAnnouncementMarkdown({ message, links = [] }: { message?: string, links?: SocialLink[] }): string {
+  const linksLine = links.map(link => `[${link.title}](${link.url})`).join(' · ')
+
+  return [message?.trim(), linksLine].filter(Boolean).join('\n\n')
+}
+
+/**
+ * The message and the links of an announcement in mrkdwn, `''` without them
+ */
+function formatSlackAnnouncement(announcement: { message?: string, links?: SocialLink[] }): string {
+  const markdown = getAnnouncementMarkdown(announcement)
+
+  return markdown ? formatChangelogForSlack(markdown, SLACK_SECTION_MAX_LENGTH) : ''
 }
 
 /**
@@ -161,17 +184,13 @@ function formatSlackPackageLine(pkg: NonNullable<SlackReleaseSection['packages']
  */
 export function slackSectionsToMarkdown(sections: SlackReleaseSection[]): string {
   return sections.map((section) => {
-    const parts = section.title ? [`## ${section.title}`] : []
-
-    if (section.changelog?.trim()) {
-      parts.push(section.changelog.trim())
-    }
+    const parts = [section.title ? `## ${section.title}` : '', getAnnouncementMarkdown(section), section.changelog?.trim() ?? '']
 
     for (const pkg of section.packages ?? []) {
-      parts.push(formatSlackPackageLine(pkg).replace(/^\*([^*]+)\*/, '**$1**'), ...(pkg.changelog.trim() ? [pkg.changelog.trim()] : []))
+      parts.push(formatSlackPackageLine(pkg).replace(/^\*([^*]+)\*/, '**$1**'), getAnnouncementMarkdown(pkg), pkg.changelog.trim())
     }
 
-    return parts.join('\n\n')
+    return parts.filter(Boolean).join('\n\n')
   }).join('\n\n')
 }
 
@@ -180,16 +199,18 @@ function getSectionBodies(section: SlackReleaseSection): string[] {
 }
 
 /**
- * The mrkdwn of a section in `summary` format: its title, then its changelog,
- * or each package (always) with its changelog, within `maxLength`.
- * `renderedBodies` are the changelogs rendered without limit.
+ * The mrkdwn of a section in `summary` format: its title and its announcement,
+ * then its changelog, or each package (always) with its announcement and its
+ * changelog, within `maxLength`. `renderedBodies` are the changelogs rendered
+ * without limit.
  */
 function formatSlackSummarySection(section: SlackReleaseSection, maxLength: number, renderedBodies: string[]): string {
-  const lines = section.title ? [`*${section.title}*`] : []
+  const lines = [section.title ? `*${section.title}*` : '', formatSlackAnnouncement(section)].filter(Boolean)
   const packages = section.packages ?? []
+  const packageHeads = packages.map(pkg => [formatSlackPackageLine(pkg), formatSlackAnnouncement(pkg)].filter(Boolean).join('\n'))
   const bodies = getSectionBodies(section)
   // The lines always shown, and the line break before each changelog
-  const fixedLength = [...lines, ...packages.map(formatSlackPackageLine)].join('\n').length + renderedBodies.filter(Boolean).length
+  const fixedLength = [...lines, ...packageHeads].join('\n').length + renderedBodies.filter(Boolean).length
   const shares = shareBudget(maxLength - fixedLength, renderedBodies.map(body => body.length))
   const renderBody = (index: number) => {
     const share = shares[index]!
@@ -200,8 +221,8 @@ function formatSlackSummarySection(section: SlackReleaseSection, maxLength: numb
     lines.push(renderBody(0))
   }
 
-  for (const [index, pkg] of packages.entries()) {
-    lines.push(formatSlackPackageLine(pkg), renderBody(index))
+  for (const [index, packageHead] of packageHeads.entries()) {
+    lines.push(packageHead, renderBody(index))
   }
 
   return truncateSlackText(lines.filter(Boolean).join('\n'), SLACK_SECTION_MAX_LENGTH)
@@ -270,6 +291,37 @@ function getUnlistedPackages(packages: PackageBumpEntry[], changelog: string | S
 }
 
 /**
+ * The section of the message of an announcement, none without message
+ */
+function getSlackAnnouncementBlocks(announcement: SlackOptions['announcement']): any[] {
+  const text = announcement?.message ? formatSlackAnnouncement({ message: announcement.message }) : ''
+
+  return text ? [{ type: 'section', text: { type: 'mrkdwn', text } }] : []
+}
+
+/**
+ * The buttons of the message: the links of the announcement of a single
+ * version, else its release and its changelog
+ */
+function getSlackButtons(variables: SocialTemplateVariables, announcement: SlackOptions['announcement']): any[] {
+  const button = (text: string, url: string, actionId: string) => ({
+    type: 'button',
+    text: { type: 'plain_text', text: truncateSlackText(text, SLACK_BUTTON_TEXT_MAX_LENGTH), emoji: true },
+    url,
+    action_id: actionId,
+  })
+
+  if (announcement) {
+    return announcement.links.map((link, index) => button(link.title, link.url, `announcement_link_${index}`))
+  }
+
+  return [
+    ...(variables.releaseUrl ? [button('📦 View Release', variables.releaseUrl, 'view_release')] : []),
+    ...(variables.changelogUrl ? [button('📋 Full Changelog', variables.changelogUrl, 'view_changelog')] : []),
+  ]
+}
+
+/**
  * Format the Slack message using blocks.
  * - `summary` format: the changelog is a single mrkdwn section (2500 chars by default).
  * - `full` format: the changelog is rendered as rich_text blocks, commit bodies
@@ -277,7 +329,7 @@ function getUnlistedPackages(packages: PackageBumpEntry[], changelog: string | S
  *   always by Slack's limits (50 blocks, ~13,200 chars for rich text messages).
  * Every block is kept within Slack's limits so the post is never rejected.
  */
-export function formatSlackMessage({ variables, changelog, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary' }: {
+export function formatSlackMessage({ variables, changelog, template, contributors = [], packages = [], postMaxLength, changelogFormat = 'summary', announcement }: {
   template?: string
   variables: SocialTemplateVariables
   /**
@@ -288,6 +340,10 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   packages?: PackageBumpEntry[]
   postMaxLength?: number
   changelogFormat?: SlackChangelogFormat
+  /**
+   * Announcement of a single version: its message and its links (the buttons)
+   */
+  announcement?: SlackOptions['announcement']
 }): any[] {
   const contributorsLine = contributors.length > 0
     ? contributors.map(n => `• ${n}`).join('\n')
@@ -344,6 +400,9 @@ export function formatSlackMessage({ variables, changelog, template, contributor
     },
   }
 
+  // The announcement of a single version: its message before its changelog, its links as buttons
+  const singleAnnouncement = typeof changelog === 'string' ? announcement : undefined
+  const leadingBlocks = getSlackAnnouncementBlocks(singleAnnouncement)
   const trailingBlocks: any[] = []
 
   // Add packages section
@@ -376,33 +435,7 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   })
 
   // Add action buttons
-  const elements: any[] = []
-
-  if (variables.releaseUrl) {
-    elements.push({
-      type: 'button',
-      text: {
-        type: 'plain_text',
-        text: '📦 View Release',
-        emoji: true,
-      },
-      url: variables.releaseUrl,
-      action_id: 'view_release',
-    })
-  }
-
-  if (variables.changelogUrl) {
-    elements.push({
-      type: 'button',
-      text: {
-        type: 'plain_text',
-        text: '📋 Full Changelog',
-        emoji: true,
-      },
-      url: variables.changelogUrl,
-      action_id: 'view_changelog',
-    })
-  }
+  const elements = getSlackButtons(variables, singleAnnouncement)
 
   if (elements.length > 0) {
     trailingBlocks.push({
@@ -423,7 +456,7 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   }
   else if (changelogFormat === 'full') {
     // Messages with rich_text blocks are capped by Slack: the changelog gets what the other blocks leave.
-    const surroundingBlocks = [headerBlock, ...trailingBlocks]
+    const surroundingBlocks = [headerBlock, ...leadingBlocks, ...trailingBlocks]
     changelogBlocks.push(...markdownToSlackRichText(changelog, {
       maxLength,
       maxBlocks: SLACK_MAX_BLOCKS - surroundingBlocks.length,
@@ -443,7 +476,7 @@ export function formatSlackMessage({ variables, changelog, template, contributor
     }
   }
 
-  return [headerBlock, ...changelogBlocks, ...trailingBlocks]
+  return [headerBlock, ...leadingBlocks, ...changelogBlocks, ...trailingBlocks]
 }
 
 function mapWebhookError(status: number, body: string): string | null {
@@ -552,6 +585,7 @@ export async function postReleaseToSlack({
   packages,
   postMaxLength,
   changelogFormat,
+  announcement,
   dryRun = false,
 }: SlackOptions) {
   const useWebhook = Boolean(webhookUrl)
@@ -574,6 +608,7 @@ export async function postReleaseToSlack({
     packages,
     postMaxLength,
     changelogFormat,
+    announcement,
   })
   const fallbackText = variables.releaseTitle
 

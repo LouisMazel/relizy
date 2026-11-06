@@ -2,11 +2,11 @@ import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig, TeamsCard, TeamsVersion } from '../core'
 import type { AIReleaseContext } from '../core/ai'
-import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
+import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackOptions, SlackReleaseSection, SocialLink, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTeamsCardSection, getTeamsVariables, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -150,6 +150,7 @@ async function handleTwitterPost({
   dryRun,
   variables,
   prerelease,
+  notAnnounced,
   hookContext,
 }: {
   config: ResolvedRelizyConfig
@@ -161,6 +162,10 @@ async function handleTwitterPost({
    * True when every version of the release is a prerelease
    */
   prerelease: boolean
+  /**
+   * True when `social.twitter.exclude` leaves out every version
+   */
+  notAnnounced: boolean
 }): Promise<SocialNetworkResponse<TweetV2PostTweetResult>> {
   // Check if Twitter is enabled specifically
   const twitterConfig = config.social?.twitter
@@ -187,6 +192,11 @@ async function handleTwitterPost({
     // Check if this is a prerelease and if we should skip it
     if (twitterConfig.onlyStable && prerelease) {
       logger.info(`Skipping Twitter post for prerelease ${variables.newVersion || variables.packageList} (social.twitter.onlyStable is enabled)`)
+      return { success: true, response: undefined }
+    }
+
+    if (notAnnounced) {
+      logger.info('No version to announce on Twitter (social.twitter.exclude)')
       return { success: true, response: undefined }
     }
 
@@ -231,6 +241,8 @@ async function handleSlackPost({
   commits,
   packages: releasedPackages,
   prerelease,
+  notAnnounced,
+  announcement,
   hookContext,
 }: {
   config: ResolvedRelizyConfig
@@ -247,6 +259,14 @@ async function handleSlackPost({
    * True when every version of the release is a prerelease
    */
   prerelease: boolean
+  /**
+   * True when `social.slack.announcements` and `exclude` leave out every version
+   */
+  notAnnounced: boolean
+  /**
+   * Announcement of a single version
+   */
+  announcement?: SlackOptions['announcement']
 }): Promise<SocialNetworkResponse<ChatPostMessageResponse | { ok: true, transport: 'webhook' } | undefined>> {
   // Check if Slack is enabled specifically
   const slackConfig = config.social?.slack
@@ -286,6 +306,11 @@ async function handleSlackPost({
       return { success: true, response: undefined }
     }
 
+    if (notAnnounced) {
+      logger.info('No version to announce on Slack (social.slack.announcements, social.slack.exclude)')
+      return { success: true, response: undefined }
+    }
+
     reportProgress('Posting on Slack')
 
     try {
@@ -320,6 +345,7 @@ async function handleSlackPost({
         packages,
         postMaxLength: slackConfig.postMaxLength,
         changelogFormat: slackConfig.changelogFormat ?? 'summary',
+        announcement,
         dryRun,
       })
 
@@ -583,17 +609,19 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
 }
 
 /**
- * What a platform posts: the versions announced, without the prereleases with
- * `onlyStable`, and the variables of its template.
+ * What a platform posts: the versions it announces (`isAnnounced`), without
+ * the prereleases with `onlyStable`, and the variables of its template.
  */
-function getPlatformPost({ config, overview, versions, rootTag, onlyStable }: {
+function getPlatformPost({ config, overview, versions, rootTag, onlyStable, isAnnounced }: {
   config: ResolvedRelizyConfig
   overview: ReleaseOverview
   versions: AnnouncedVersion[]
   rootTag?: string
   onlyStable: boolean
+  isAnnounced: (line: ReleaseLine) => boolean
 }) {
-  const isPosted = (line: ReleaseLine) => !onlyStable || !isPrerelease(line.version)
+  const announcedVersions = versions.filter(version => isAnnounced(version.line))
+  const isPosted = (line: ReleaseLine) => isAnnounced(line) && (!onlyStable || !isPrerelease(line.version))
   const postedOverview = keepReleaseLines(overview, isPosted)
   const postedVersions = versions.filter(version => isPosted(version.line))
   const rootGroup = postedOverview.groups.find(group => group.versionMode !== 'independent')
@@ -605,7 +633,9 @@ function getPlatformPost({ config, overview, versions, rootTag, onlyStable }: {
     versions: postedVersions,
     overview: postedOverview,
     // Nothing stable to announce: the platform skips the post
-    prerelease: versions.length > 0 && postedVersions.length === 0,
+    prerelease: announcedVersions.length > 0 && postedVersions.length === 0,
+    // Nothing the platform announces
+    notAnnounced: announcedVersions.length === 0,
     variables: getSocialTemplateVariables({
       overview: postedVersions.length > 0 ? postedOverview : overview,
       releaseUrl: tag ? getReleaseUrl(config, tag) : undefined,
@@ -660,12 +690,14 @@ function getTweetSections({ overview, versions, highlights, hasGroups }: {
 }
 
 /**
- * The sections of a Slack message announcing several versions, one per group
+ * The sections of a Slack message announcing several versions, one per group.
+ * The title of an announcement replaces the name of its version.
  */
-function getSlackSections({ overview, versions, changelogs, hasGroups }: {
+function getSlackSections({ overview, versions, changelogs, announcements, hasGroups }: {
   overview: ReleaseOverview
   versions: AnnouncedVersion[]
   changelogs: Map<AnnouncedVersion, string>
+  announcements: Map<AnnouncedVersion, SlackAnnouncement>
   hasGroups: boolean
 }): SlackReleaseSection[] {
   return overview.groups.map((group) => {
@@ -673,16 +705,28 @@ function getSlackSections({ overview, versions, changelogs, hasGroups }: {
 
     if (group.versionMode !== 'independent') {
       const [version] = groupVersions
+      const announcement = version && announcements.get(version)
 
-      return { title: version && getVersionTitle(version.line, hasGroups), changelog: version ? changelogs.get(version) ?? '' : '' }
+      return {
+        title: version && (announcement?.title ? `${announcement.title} ${version.line.version}` : getVersionTitle(version.line, hasGroups)),
+        ...(announcement && { message: announcement.message, links: announcement.links }),
+        changelog: version ? changelogs.get(version) ?? '' : '',
+      }
     }
 
     return {
       title: hasGroups ? group.title : undefined,
       packages: groupVersions.map((version) => {
         const pkg = group.packages.find(({ name }) => name === version.line.name)
+        const announcement = announcements.get(version)
 
-        return { name: version.line.name, oldVersion: pkg?.oldVersion, newVersion: version.line.version, changelog: changelogs.get(version) ?? '' }
+        return {
+          name: version.line.name,
+          ...(announcement && { title: announcement.title, message: announcement.message, links: announcement.links }),
+          oldVersion: pkg?.oldVersion,
+          newVersion: version.line.version,
+          changelog: changelogs.get(version) ?? '',
+        }
       }),
     }
   })
@@ -749,10 +793,11 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
  * The changelog of the Slack message: the changelog of its version, or the
  * sections of its versions. With AI, rewritten in a single call.
  */
-async function getSlackChangelog({ config, versions, overview, hasGroups, dryRun }: {
+async function getSlackChangelog({ config, versions, overview, announcements, hasGroups, dryRun }: {
   config: ResolvedRelizyConfig
   versions: AnnouncedVersion[]
   overview: ReleaseOverview
+  announcements: Map<AnnouncedVersion, SlackAnnouncement>
   hasGroups: boolean
   dryRun: boolean
 }): Promise<string | SlackReleaseSection[]> {
@@ -783,7 +828,7 @@ async function getSlackChangelog({ config, versions, overview, hasGroups, dryRun
 
   const changelogs = new Map(versions.map((version, index) => [version, rewritten.get(String(index + 1)) ?? getBody(version)]))
 
-  return getSlackSections({ overview, versions, changelogs, hasGroups })
+  return getSlackSections({ overview, versions, changelogs, announcements, hasGroups })
 }
 
 /** Budget of the changelog of a version in a Teams card */
@@ -827,11 +872,71 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
 }
 
 /**
- * The name of a version on Teams: the package name, the project name (the
- * title of its group with version groups) for the root version
+ * The name of a version in an announcement (`{{name}}`): the package name, the
+ * project name (the title of its group with version groups) for the root version
  */
-function getTeamsVersionName(line: ReleaseLine, hasGroups: boolean): string {
+function getAnnouncedName(line: ReleaseLine, hasGroups: boolean): string {
   return line.group.versionMode !== 'independent' && hasGroups ? line.group.title : line.name
+}
+
+/**
+ * The tag of a version: the root version is linked to the tag resolved for
+ * the post (`--to`)
+ */
+function getAnnouncedTag(line: ReleaseLine, rootTag: string | undefined): string {
+  return line.group.versionMode !== 'independent' && rootTag ? rootTag : line.tag
+}
+
+/**
+ * The announcement of a version on Slack, with its variables replaced
+ */
+interface SlackAnnouncement {
+  title?: string
+  message?: string
+  links: SocialLink[]
+}
+
+/**
+ * The announcements of the versions of the Slack message: only with
+ * `social.slack.announcements`, the other messages are unchanged
+ */
+function getSlackAnnouncements({ config, versions, projectName, rootTag, hasGroups }: {
+  config: ResolvedRelizyConfig
+  versions: AnnouncedVersion[]
+  projectName: string
+  rootTag?: string
+  hasGroups: boolean
+}): Map<AnnouncedVersion, SlackAnnouncement> {
+  const slackConfig = config.social.slack
+  const announcements = new Map<AnnouncedVersion, SlackAnnouncement>()
+
+  if (!slackConfig.announcements) {
+    return announcements
+  }
+
+  for (const version of versions) {
+    const content = resolveAnnouncement(version.line, slackConfig)
+
+    if (!content) {
+      continue
+    }
+
+    const variables = getAnnouncementVariables({
+      config,
+      version: { line: version.line, name: getAnnouncedName(version.line, hasGroups), changelogDir: version.changelogDir },
+      content,
+      projectName,
+      releaseUrl: getReleaseUrl(config, getAnnouncedTag(version.line, rootTag)),
+    })
+
+    announcements.set(version, {
+      title: content.title ? fillAnnouncementText(content.title, variables) || undefined : undefined,
+      message: content.message ? fillAnnouncementText(content.message, variables) || undefined : undefined,
+      links: getAnnouncementLinks(content, variables),
+    })
+  }
+
+  return announcements
 }
 
 /**
@@ -850,7 +955,7 @@ async function getTeamsCards({ config, versions, overview, rootTag, hasGroups, d
   const byLine = new Map(versions.map(version => [version.line, version]))
   const candidates: TeamsVersion[] = versions.map(version => ({
     line: version.line,
-    name: getTeamsVersionName(version.line, hasGroups),
+    name: getAnnouncedName(version.line, hasGroups),
     changelogDir: version.changelogDir,
     changelog: '',
   }))
@@ -858,10 +963,9 @@ async function getTeamsCards({ config, versions, overview, rootTag, hasGroups, d
   const changelogs = await getTeamsChangelogs({ config, versions: announced.map(({ version }) => byLine.get(version.line)!), hasGroups, dryRun })
 
   const sections = announced.map(({ version, content }) => {
-    // The root version is linked to the tag resolved for the post (`--to`)
-    const tag = version.line.group.versionMode !== 'independent' && rootTag ? rootTag : version.line.tag
+    const tag = getAnnouncedTag(version.line, rootTag)
     const withChangelog = { version: { ...version, changelog: changelogs.get(byLine.get(version.line)!) ?? '' }, content }
-    const variables = getTeamsVariables({ config, version: withChangelog.version, content, projectName: overview.projectName, releaseUrl: getReleaseUrl(config, tag) })
+    const variables = getAnnouncementVariables({ config, version: withChangelog.version, content, projectName: overview.projectName, releaseUrl: getReleaseUrl(config, tag) })
 
     return getTeamsCardSection({ announced: withChangelog, variables })
   })
@@ -1058,31 +1162,40 @@ async function postRelease({ config, options, dryRun }: {
     return { results: [], hasErrors: false }
   }
 
-  const twitterPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: !!config.social.twitter.onlyStable })
-  const slackPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.slack.onlyStable ?? true })
-  const teamsPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.teams?.onlyStable ?? true })
+  const twitterPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: !!config.social.twitter.onlyStable, isAnnounced: line => !isExcludedLine(line, config.social.twitter.exclude) })
+  const slackPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.slack.onlyStable ?? true, isAnnounced: line => resolveAnnouncement(line, config.social.slack) !== undefined })
+  const teamsPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.teams?.onlyStable ?? true, isAnnounced: () => true })
+  const slackAnnouncements = getSlackAnnouncements({ config, versions: slackPost.versions, projectName: overview.projectName, rootTag, hasGroups })
+  // The announcement of a single version: its title in the header, its message and its links
+  const slackSingleAnnouncement = slackPost.versions.length === 1 ? slackAnnouncements.get(slackPost.versions[0]!) : undefined
+  const slackVariables = slackSingleAnnouncement?.title
+    ? { ...slackPost.variables, releaseTitle: `${slackSingleAnnouncement.title} ${slackPost.versions[0]!.line.version} is out!` }
+    : slackPost.variables
 
   const twitterResponse = await handleTwitterPost({
     config,
-    changelog: config.social?.twitter?.enabled && !twitterPost.prerelease
+    changelog: config.social?.twitter?.enabled && twitterPost.versions.length > 0
       ? await getTweetChangelog({ config, versions: twitterPost.versions, overview: twitterPost.overview, variables: twitterPost.variables, hasGroups, dryRun })
       : '',
     dryRun,
     variables: twitterPost.variables,
     prerelease: twitterPost.prerelease,
+    notAnnounced: twitterPost.notAnnounced,
     hookContext: getPostHookContext(twitterPost.overview),
   })
 
   const slackResponse = await handleSlackPost({
     config,
-    changelog: config.social?.slack?.enabled && !slackPost.prerelease
-      ? await getSlackChangelog({ config, versions: slackPost.versions, overview: slackPost.overview, hasGroups, dryRun })
+    changelog: config.social?.slack?.enabled && slackPost.versions.length > 0
+      ? await getSlackChangelog({ config, versions: slackPost.versions, overview: slackPost.overview, announcements: slackAnnouncements, hasGroups, dryRun })
       : '',
     dryRun,
-    variables: slackPost.variables,
+    variables: slackVariables,
     commits,
     packages: toSlackPackages(slackPost.overview),
     prerelease: slackPost.prerelease,
+    notAnnounced: slackPost.notAnnounced,
+    announcement: slackSingleAnnouncement && { message: slackSingleAnnouncement.message, links: slackSingleAnnouncement.links },
     hookContext: getPostHookContext(slackPost.overview),
   })
 

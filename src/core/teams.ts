@@ -1,13 +1,11 @@
-import type { SocialLink, TeamsAnnouncementContent, TeamsSocialConfig, TeamsTemplateVariables } from '../types'
-import type { ResolvedRelizyConfig } from './config'
-import type { ReleaseLine } from './release-overview'
+import type { SocialAnnouncementContent, SocialAnnouncementVariables, SocialLink, TeamsSocialConfig } from '../types'
+import type { AnnouncementVersion } from './announcements'
 import { Buffer } from 'node:buffer'
 import process from 'node:process'
 import { setTimeout as wait } from 'node:timers/promises'
 import { logger } from '@maz-ui/node'
-import micromatch from 'micromatch'
+import { fillAnnouncementText, getAnnouncementLinks, resolveAnnouncement } from './announcements'
 import { showPreview } from './progress'
-import { fillTemplate } from './release-overview'
 import { isPrerelease } from './version'
 
 /**
@@ -74,18 +72,7 @@ export function checkTeamsWebhookUrl(url: string): string | undefined {
 /**
  * A version that Teams can announce
  */
-export interface TeamsVersion {
-  line: ReleaseLine
-  /**
-   * The name shown: the package name, the project name (or the title of the
-   * group with version groups) for a `unified`/`selective` version
-   */
-  name: string
-  /**
-   * Directory of its `CHANGELOG.md`, relative to the root of the repository
-   * (`''` for the root), undefined when it has none
-   */
-  changelogDir?: string
+export interface TeamsVersion extends AnnouncementVersion {
   /**
    * Its changelog in markdown, empty with `changelog: 'none'`
    */
@@ -97,119 +84,19 @@ export interface TeamsVersion {
  */
 export interface TeamsAnnouncedVersion {
   version: TeamsVersion
-  content: TeamsAnnouncementContent
-}
-
-function matchesPackage(name: string, patterns: string[] | undefined): boolean {
-  return Boolean(patterns?.length) && micromatch.isMatch(name, patterns!)
-}
-
-function definedFields(content: TeamsAnnouncementContent): TeamsAnnouncementContent {
-  return Object.fromEntries(Object.entries(content).filter(([, value]) => value !== undefined))
-}
-
-function pickContent({ title, message, changelogUrl, links }: TeamsAnnouncementContent): TeamsAnnouncementContent {
-  return definedFields({ title, message, changelogUrl, links })
+  content: SocialAnnouncementContent
 }
 
 /**
- * The versions to announce and their content: every version without
- * `announcements`, else the ones matching an entry, the fields of a package
- * entry over the ones of its group entry, over the ones of `social.teams`.
- * `exclude` always applies.
+ * The versions Teams announces, with their content over the one of
+ * `social.teams` (see `resolveAnnouncement()`)
  */
 export function resolveTeamsAnnouncements(teams: TeamsSocialConfig, versions: TeamsVersion[]): TeamsAnnouncedVersion[] {
   return versions.flatMap((version) => {
-    const groupName = version.line.group.name
-    const packageName = version.line.name
+    const content = resolveAnnouncement(version.line, teams, teams)
 
-    if ((groupName && teams.exclude?.groups?.includes(groupName)) || matchesPackage(packageName, teams.exclude?.packages)) {
-      return []
-    }
-
-    const base = pickContent(teams)
-
-    if (!teams.announcements) {
-      return [{ version, content: base }]
-    }
-
-    const groupEntry = groupName ? teams.announcements.find(entry => entry.group === groupName) : undefined
-    const packageEntry = teams.announcements.find(entry => entry.package !== undefined && micromatch.isMatch(packageName, entry.package))
-
-    if (!groupEntry && !packageEntry) {
-      return []
-    }
-
-    return [{
-      version,
-      content: { ...base, ...(groupEntry && pickContent(groupEntry)), ...(packageEntry && pickContent(packageEntry)) },
-    }]
+    return content ? [{ version, content }] : []
   })
-}
-
-/** `@scope/ui` gives `ui` */
-function getShortName(name: string): string {
-  return name.replace(/^@[^/]+\//, '')
-}
-
-/**
- * The URL of a file of the repository at a tag, undefined when the provider
- * is unknown
- */
-function getRepoFileUrl(config: ResolvedRelizyConfig, tag: string, file: string): string | undefined {
-  const repo = config.repo
-  if (!repo?.domain || !repo?.repo) {
-    return undefined
-  }
-
-  const encode = (value: string) => value.split('/').map(encodeURIComponent).join('/')
-  const path = encode(file)
-  const ref = encode(tag)
-
-  switch (repo.provider || 'github') {
-    case 'github':
-      return `https://${repo.domain}/${repo.repo}/blob/${ref}/${path}`
-    case 'gitlab':
-      return `https://${repo.domain}/${repo.repo}/-/blob/${ref}/${path}`
-    case 'bitbucket':
-      return `https://${repo.domain}/${repo.repo}/src/${ref}/${path}`
-    default:
-      return undefined
-  }
-}
-
-/**
- * The variables of an announcement. The changelog URL is the one of the
- * announcement, else `social.changelogUrl`, else the `CHANGELOG.md` of the
- * version at its tag.
- */
-export function getTeamsVariables({ config, version, content, projectName, releaseUrl }: {
-  config: ResolvedRelizyConfig
-  version: TeamsVersion
-  content: TeamsAnnouncementContent
-  projectName: string
-  releaseUrl: string | undefined
-}): TeamsTemplateVariables {
-  const variables: TeamsTemplateVariables = {
-    name: version.name,
-    shortName: getShortName(version.name),
-    newVersion: version.line.version,
-    tag: version.line.tag,
-    projectName,
-    groupTitle: version.line.group.name ? version.line.group.title : '',
-    releaseUrl: releaseUrl ?? '',
-    changelogUrl: '',
-  }
-
-  const changelogFile = version.changelogDir === undefined ? undefined : [version.changelogDir, 'CHANGELOG.md'].filter(Boolean).join('/')
-  const changelogUrl = content.changelogUrl === false
-    ? ''
-    : (content.changelogUrl && fillTemplate(content.changelogUrl, { ...variables }))
-      || config.social?.changelogUrl
-      || (changelogFile && getRepoFileUrl(config, version.line.tag, changelogFile))
-      || ''
-
-  return { ...variables, changelogUrl }
 }
 
 /**
@@ -234,24 +121,14 @@ export interface TeamsCardSection {
  */
 export function getTeamsCardSection({ announced, variables }: {
   announced: TeamsAnnouncedVersion
-  variables: TeamsTemplateVariables
+  variables: SocialAnnouncementVariables
 }): TeamsCardSection {
-  const values = { ...variables }
-  const fill = (text: string) => fillTemplate(text, values).trim()
-  const links = [
-    { title: '📖 Release notes', url: variables.releaseUrl },
-    { title: '📝 Changelog', url: variables.changelogUrl },
-    ...(announced.content.links ?? []),
-  ]
-    .map(link => ({ title: fill(link.title), url: fill(link.url) }))
-    .filter(link => link.title && link.url)
-
   return {
-    title: fill(announced.content.title ?? DEFAULT_TITLE),
-    message: fill(announced.content.message ?? DEFAULT_MESSAGE),
+    title: fillAnnouncementText(announced.content.title ?? DEFAULT_TITLE, variables),
+    message: fillAnnouncementText(announced.content.message ?? DEFAULT_MESSAGE, variables),
     version: variables.newVersion,
     changelog: toTeamsMarkdown(announced.version.changelog),
-    links,
+    links: getAnnouncementLinks(announced.content, variables),
     groupTitle: variables.groupTitle || undefined,
     prerelease: isPrerelease(variables.newVersion),
   }

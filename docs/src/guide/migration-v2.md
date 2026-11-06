@@ -46,6 +46,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Version placeholder](#version-placeholder)                                           | Templates using <code v-pre>{{version}}</code>                                        | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                                    | None                                                                          |
 | [Microsoft Teams](#microsoft-teams)                                                   | A script or a hook posting to Teams, an Office 365 connector                          | Use `social.teams`                                                            |
+| [Slack and Twitter announcements](#slack-and-twitter-announcements)                   | A script or a hook posting some versions to Slack                                     | Use `social.slack.announcements` and `exclude`                                |
 | [Confirmation in CI](#confirmation-in-ci)                                             | `relizy release` and `relizy bump` in CI, `release()` and `bump()` without a terminal | Add `--yes` (`yes: true`)                                                     |
 | [Push access](#push-access)                                                           | `relizy release` that pushes, in CI                                                   | Give the job the right to push                                                |
 | [Exit code of bump](#exit-code-of-bump)                                               | `relizy bump --yes` in scripts or CI                                                  | None, or stop treating the exit code 1 as nothing to bump                     |
@@ -150,6 +151,15 @@ Relizy 2 posts the releases to Microsoft Teams ([`social.teams`](./../config/soc
 3. Check the cards with `relizy social --dry-run`, then remove the script and its job or hook: else the release is announced twice.
 
 Microsoft retired the Office 365 connectors (`https://*.webhook.office.com/...`): a script posting to one fails. Create a Teams workflow instead, see [Microsoft Teams](./social-media.md#microsoft-teams).
+
+### Slack and Twitter Announcements
+
+Relizy 1 announced every version on Slack and Twitter: a project announcing some versions only, or with its own texts, posted to Slack with a script or a hook. Relizy 2 does it:
+
+1. Map what the script posts to `social.slack`: the versions it announces to [`announcements`](./../config/social.md#slack-announcements) (`{ group }` and `{ package }` entries), their texts and links to the `title`, `message` and `links` of each entry, the versions it skips to [`exclude`](./../config/social.md#slack-exclude). On Twitter, [`exclude`](./../config/social.md#twitter-exclude) leaves versions out.
+2. Check the message with `relizy social --dry-run`, then remove the script and its job or hook: else the release is announced twice.
+
+Without these options, the posts are unchanged.
 
 ## Config
 

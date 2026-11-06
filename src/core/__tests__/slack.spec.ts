@@ -1396,4 +1396,38 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
       '**@maz-ui/upgrade** `5.2.1`',
     ].join('\n'))
   })
+  describe('When the versions have an announcement', () => {
+    const storybook = { title: '🎨 Storybook', url: 'https://storybook.example.com/' }
+    const announced: SlackReleaseSection[] = [
+      { ...sections[0]!, title: 'Maz UI library 7.0.0', message: 'Version **7.0.0** is out', links: [storybook] },
+      { title: 'Tooling', packages: [{ ...sections[1]!.packages![0]!, title: 'ESLint config', message: 'Lint it', links: [storybook] }] },
+    ]
+
+    it('Then shows the message and the links under the title in summary format, the title replacing the package name', () => {
+      const blocks = formatSlackMessage({ variables, changelog: announced })
+
+      expect(blocks[1].text.text).toBe('*Maz UI library 7.0.0*\nVersion *7.0.0* is out\n\n<https://storybook.example.com/|🎨 Storybook>\n*🚀 Features*\n• *menu:* Add a menu')
+      expect(blocks[2].text.text).toBe('*Tooling*\n*ESLint config* `5.0.0` → `5.1.0`\nLint it\n\n<https://storybook.example.com/|🎨 Storybook>\n*🚀 Features*\n• Stop enforcing the catalog')
+    })
+
+    it('Then puts them in the markdown of the full format and of a template', () => {
+      expect(slackSectionsToMarkdown(announced)).toContain('## Maz UI library 7.0.0\n\nVersion **7.0.0** is out\n\n[🎨 Storybook](https://storybook.example.com/)\n\n### 🚀 Features')
+      expect(slackSectionsToMarkdown(announced)).toContain('**ESLint config** `5.0.0` → `5.1.0`\n\nLint it\n\n[🎨 Storybook](https://storybook.example.com/)')
+
+      const blocks = formatSlackMessage({ variables, changelog: announced, changelogFormat: 'full' })
+      expect(blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n')).toContain('Version 7.0.0 is out')
+    })
+
+    it('Then shows the message of a single version before its changelog, and its links as the buttons', () => {
+      const blocks = formatSlackMessage({
+        variables: { ...variables, changelogUrl: 'https://example.com/changelog' },
+        changelog: '### 🚀 Features\n\n- **menu:** Add a menu',
+        announcement: { message: 'Version **7.0.0** is out', links: [storybook] },
+      })
+
+      expect(blocks[1].text.text).toBe('Version *7.0.0* is out')
+      expect(blocks[2].text.text).toContain('Add a menu')
+      expect(blocks.at(-1)).toEqual({ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: '🎨 Storybook', emoji: true }, url: 'https://storybook.example.com/', action_id: 'announcement_link_0' }] })
+    })
+  })
 })

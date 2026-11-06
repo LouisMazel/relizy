@@ -62,6 +62,12 @@ Maximum length of the tweet, counted as X counts it: a URL counts 23 characters,
 
 The `apiKey`, `apiKeySecret`, `accessToken` and `accessTokenSecret` of the X app. Each field set here overrides the one of `tokens.twitter`.
 
+### exclude {#twitter-exclude}
+
+- **Type:** `{ groups?: string[], packages?: string[] }`
+
+Versions left out of the tweet: the [version groups](./monorepo.md#groups) by name, the packages by name or glob (`@scope/*`). Nothing is posted when every version is left out.
+
 ## slack
 
 ### enabled {#slack-enabled}
@@ -135,6 +141,24 @@ Hide the contributors on Slack. The global `noAuthors` hides them everywhere, wh
 
 Hide the block listing the released packages with their old and new versions.
 
+### announcements {#slack-announcements}
+
+- **Type:** `({ group: string } | { package: string } & { title?, message?, changelogUrl?, links? })[]`
+
+The versions to announce and their texts, as [`teams.announcements`](#teams-announcements). Without it, every version is announced and the message is unchanged. With it, only the versions matching an entry, each with:
+
+- `title`: replaces the name of the version (its version stays shown): the title of its section, the name of its package line, or the header `📣 <title> <version> is out!` for a single version.
+- `message`: markdown, under the title.
+- the links **📖 Release notes**, **📝 Changelog** (`changelogUrl`, `false` removes it) and `links`, under the message. For a single version, they replace the buttons **📦 View Release** and **📋 Full Changelog**.
+
+The texts and the links take the [announcement variables](#announcement-variables). With a [`template`](#slack-template), only the title applies to a single version, through <code v-pre>{{releaseTitle}}</code>. See [Announcements on Slack](./../guide/social-media.md#announcements-on-slack).
+
+### exclude {#slack-exclude}
+
+- **Type:** `{ groups?: string[], packages?: string[] }`
+
+Versions never announced on Slack, even when an entry of `announcements` matches them: the groups by name, the packages by name or glob. Nothing is posted when every version is left out.
+
 ## teams
 
 The cards posted to a Teams workflow. Setup of the workflow: [Microsoft Teams](./../guide/social-media.md#microsoft-teams).
@@ -181,27 +205,27 @@ URL of the workflow, with the trigger **When a Teams webhook request is received
 - **Type:** `string`
 - **Default:** <code v-pre>{{name}} {{newVersion}}</code>
 
-Title of the card (of its section with `cards: 'release'`), with the [Teams variables](#teams-variables).
+Title of the card (of its section with `cards: 'release'`), with the [announcement variables](#announcement-variables).
 
 ### message {#teams-message}
 
 - **Type:** `string`
 - **Default:** <code v-pre>A new version of **{{name}}** is available.</code>
 
-Text under the title, in markdown (bold, italic, links, lists), with the [Teams variables](#teams-variables).
+Text under the title, in markdown (bold, italic, links, lists), with the [announcement variables](#announcement-variables).
 
 ### changelogUrl {#teams-changelogurl}
 
 - **Type:** `string | false`
 - **Default:** [`social.changelogUrl`](#changelogurl), else the `CHANGELOG.md` of the version at its tag
 
-URL of the **📝 Changelog** button, with the [Teams variables](#teams-variables). `false` removes the button.
+URL of the **📝 Changelog** button, with the [announcement variables](#announcement-variables). `false` removes the button.
 
 ### links {#teams-links}
 
 - **Type:** `{ title: string, url: string }[]`
 
-Buttons added after **📖 Release notes** and **📝 Changelog**, with the [Teams variables](#teams-variables) in their title and URL. A button whose URL is empty is left out.
+Buttons added after **📖 Release notes** and **📝 Changelog**, with the [announcement variables](#announcement-variables) in their title and URL. A button whose URL is empty is left out.
 
 ```ts
 links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.acme.dev' }]
@@ -238,9 +262,9 @@ The fields of an entry override the ones of `social.teams`. See [Announcements](
 
 Versions never announced, even when an entry of `announcements` matches them: the groups by name, the packages by name or glob.
 
-### Teams Variables
+## Announcement Variables
 
-The texts and the links of a card replace these variables, for each version:
+The texts and the links of the announcements (Teams, and [`slack.announcements`](#slack-announcements)) replace these variables, for each version:
 
 | Variable                            | Value                                                                                              |
 | ----------------------------------- | -------------------------------------------------------------------------------------------------- |
@@ -251,7 +275,7 @@ The texts and the links of a card replace these variables, for each version:
 | <code v-pre>{{groupTitle}}</code>   | The title of its version group, empty without version groups                                       |
 | <code v-pre>{{projectName}}</code>  | `projectName` of the config, else the name of the root `package.json`                              |
 | <code v-pre>{{releaseUrl}}</code>   | Its GitHub/GitLab release                                                                          |
-| <code v-pre>{{changelogUrl}}</code> | The URL of its **📝 Changelog** button                                                             |
+| <code v-pre>{{changelogUrl}}</code> | The URL of its **📝 Changelog** link                                                               |
 
 ## changelogUrl
 
@@ -284,7 +308,7 @@ Use <code v-pre>{{releaseTitle}}</code> rather than <code v-pre>{{projectName}} 
 
 ## Version Groups
 
-A [version group](./monorepo.md#groups) with `release: { social: false }` is left out of the posts. The `social` options are global: one post per platform announces every group (Teams posts a card per version, or one with `cards: 'release'`, and [`teams.announcements`](#teams-announcements) sets the texts of each group).
+A [version group](./monorepo.md#groups) with `release: { social: false }` is left out of the posts. The `social` options are global: one post per platform announces every group (Teams posts a card per version, or one with `cards: 'release'`). The `announcements` of [Teams](#teams-announcements) and [Slack](#slack-announcements) choose the versions and set the texts of each group, `exclude` leaves versions out of Teams, Slack and [Twitter](#twitter-exclude).
 
 ```ts
 export default defineConfig({

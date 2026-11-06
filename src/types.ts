@@ -1085,6 +1085,10 @@ export interface TwitterSocialConfig {
    * @default 280
    */
   postMaxLength?: number
+  /**
+   * Versions never announced in the tweet
+   */
+  exclude?: SocialExclude
 }
 
 export interface SlackCredentials {
@@ -1166,13 +1170,24 @@ export interface SlackSocialConfig {
    * @default false
    */
   noPackages?: boolean
+  /**
+   * The versions to announce and their content (title, message, links).
+   * Without it, every version is announced; with it, only the versions
+   * matching an entry.
+   */
+  announcements?: SocialAnnouncement[]
+  /**
+   * Versions never announced, even when an announcement matches them
+   */
+  exclude?: SocialExclude
 }
 
 /**
- * A button of a Teams card. The `title` and the `url` accept the variables of
- * the announcement (see `TeamsTemplateVariables`), e.g.
+ * A link of an announcement: a button of a Teams card, a link of a Slack
+ * section. The `title` and the `url` accept the variables of the announcement
+ * (see `SocialAnnouncementVariables`), e.g.
  * `{ title: '🎨 Storybook', url: 'https://{{shortName}}.example.com' }`.
- * A button whose URL is empty is left out.
+ * A link whose URL is empty is left out.
  */
 export interface SocialLink {
   title: string
@@ -1180,13 +1195,13 @@ export interface SocialLink {
 }
 
 /**
- * The content of an announcement of a version: each field overrides the one
- * of `social.teams`. The texts accept the variables of the announcement (see
- * `TeamsTemplateVariables`).
+ * The content of the announcement of a version. The texts accept the
+ * variables of the announcement (see `SocialAnnouncementVariables`).
  */
-export interface TeamsAnnouncementContent {
+export interface SocialAnnouncementContent {
   /**
-   * Title of the card (or of the section with `cards: 'release'`)
+   * Title of the version: of its Teams card (or section), of its Slack section
+   * (or header, when the message announces a single version)
    */
   title?: string
   /**
@@ -1194,18 +1209,19 @@ export interface TeamsAnnouncementContent {
    */
   message?: string
   /**
-   * URL of the changelog button; `false` removes the button
+   * URL of the changelog link of the version; `false` removes the link
    */
   changelogUrl?: string | false
   /**
-   * Buttons added after the release notes and the changelog
+   * Links added after the release notes and the changelog
    */
   links?: SocialLink[]
 }
 
 /**
- * An announcement of `social.teams.announcements`: the content of the
- * versions of a version group, or of the packages matching a glob.
+ * An announcement of `social.teams.announcements` or
+ * `social.slack.announcements`: the content of the versions of a version
+ * group, or of the packages matching a glob.
  * - `{ group }`: the root version of a `unified`/`selective` group, each
  *   package of an `independent` group.
  * - `{ package }`: the packages of an `independent` group (or without
@@ -1213,7 +1229,7 @@ export interface TeamsAnnouncementContent {
  *   a project without monorepo is announced under its name. Its fields
  *   override the ones of its group entry.
  */
-export type TeamsAnnouncement = TeamsAnnouncementContent & ({ group: string, package?: never } | { package: string, group?: never })
+export type SocialAnnouncement = SocialAnnouncementContent & ({ group: string, package?: never } | { package: string, group?: never })
 
 /**
  * Versions never announced by a platform
@@ -1231,6 +1247,36 @@ export interface SocialExclude {
 }
 
 /**
+ * Variables of the texts and links of an announcement
+ */
+export interface SocialAnnouncementVariables {
+  /**
+   * The package name, the project name (the title of the group with version
+   * groups) for a `unified`/`selective` version
+   */
+  name: string
+  /**
+   * `name` without its scope (`@scope/ui` gives `ui`)
+   */
+  shortName: string
+  newVersion: string
+  tag: string
+  projectName: string
+  /**
+   * Title of the version group, empty without version groups
+   */
+  groupTitle: string
+  /**
+   * GitHub/GitLab release of the version
+   */
+  releaseUrl: string
+  /**
+   * Changelog of the version
+   */
+  changelogUrl: string
+}
+
+/**
  * - `version`: one card per version released (the root version, each package
  *   of an `independent` group).
  * - `release`: one card for the release, with a section per version.
@@ -1243,7 +1289,7 @@ export type TeamsCardsMode = 'version' | 'release'
  */
 export type TeamsChangelogMode = 'none' | 'summary'
 
-export interface TeamsSocialConfig extends TeamsAnnouncementContent {
+export interface TeamsSocialConfig extends SocialAnnouncementContent {
   /**
    * Enable the Teams cards
    * @default false
@@ -1287,41 +1333,11 @@ export interface TeamsSocialConfig extends TeamsAnnouncementContent {
    * announced with the content of `social.teams`; with it, only the versions
    * matching an entry.
    */
-  announcements?: TeamsAnnouncement[]
+  announcements?: SocialAnnouncement[]
   /**
    * Versions never announced, even when an announcement matches them
    */
   exclude?: SocialExclude
-}
-
-/**
- * Variables of the texts and links of a Teams announcement
- */
-export interface TeamsTemplateVariables {
-  /**
-   * The package name, the project name (the title of the group with version
-   * groups) for a `unified`/`selective` version
-   */
-  name: string
-  /**
-   * `name` without its scope (`@scope/ui` gives `ui`)
-   */
-  shortName: string
-  newVersion: string
-  tag: string
-  projectName: string
-  /**
-   * Title of the version group, empty without version groups
-   */
-  groupTitle: string
-  /**
-   * GitHub/GitLab release of the version
-   */
-  releaseUrl: string
-  /**
-   * Changelog of the version
-   */
-  changelogUrl: string
 }
 
 export type AIProviderName = 'claude-code' | 'ai-sdk'
@@ -1565,13 +1581,23 @@ export interface SlackReleaseSection {
    */
   title?: string
   /**
+   * Message of the announcement of a `unified`/`selective` group (markdown),
+   * shown under its title
+   */
+  message?: string
+  /**
+   * Links of the announcement of a `unified`/`selective` group, shown under its message
+   */
+  links?: SocialLink[]
+  /**
    * Changelog of a `unified`/`selective` group (markdown)
    */
   changelog?: string
   /**
-   * Packages of an `independent` group, with their changelog (markdown)
+   * Packages of an `independent` group, with their changelog (markdown), and
+   * the title (replacing the package name), message and links of their announcement
    */
-  packages?: { name: string, oldVersion?: string, newVersion: string, changelog: string }[]
+  packages?: { name: string, title?: string, oldVersion?: string, newVersion: string, message?: string, links?: SocialLink[], changelog: string }[]
 }
 
 export interface SlackOptions {
@@ -1617,6 +1643,12 @@ export interface SlackOptions {
    * Packages bumped in this release. Empty array or undefined → no packages block.
    */
   packages?: SlackPackageEntry[]
+  /**
+   * Announcement of a single version (`social.slack.announcements`): its
+   * message, shown before the changelog, and its links, replacing the buttons
+   * of the rich blocks format
+   */
+  announcement?: { message?: string, links: SocialLink[] }
   /**
    * Run without side effects
    * @default false

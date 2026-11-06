@@ -1,3 +1,4 @@
+export * from './announcements'
 export * from './bump-confirm'
 export * from './bump-plan'
 export * from './catalogs'

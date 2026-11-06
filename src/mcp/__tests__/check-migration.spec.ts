@@ -154,6 +154,30 @@ await fetch(url, {
   })
 })
 
+describe('Given check_migration on a project posting its releases to Slack', () => {
+  const files = {
+    'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+    '.github/workflows/release.yml': 'env:\n  SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL\n',
+    'scripts/notify-slack.ts': `const url = process.env.SLACK_WEBHOOK_URL!\nconst token = process.env.RELIZY_SLACK_TOKEN\nawait fetch(url, { method: 'POST', body: JSON.stringify({ text }) })\n`,
+  }
+
+  it('Then proposes the announcements of social.slack instead of the script, with its lines', async () => {
+    const cwd = writeProject({ ...files, 'relizy.config.mjs': `export default {}\n` })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**A script posts to Slack** (`scripts/notify-slack.ts:1`)')
+    expect(text).toContain('social.slack.announcements')
+    expect(text).toContain('sections: ["Slack and Twitter Announcements"]')
+  })
+
+  it('Then warns about the double posts once social.slack is enabled', async () => {
+    const cwd = writeProject({ ...files, 'relizy.config.mjs': `export default { social: { slack: { enabled: true } } }\n` })
+
+    expect(await checkMigration(createTestContext(cwd), {})).toContain('**A script posts to Slack while `social.slack` is enabled**')
+  })
+})
+
 describe('Given check_migration on a project already on relizy 2', () => {
   it('Then finds nothing to change', async () => {
     const cwd = writeProject({

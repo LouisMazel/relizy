@@ -2,7 +2,8 @@ import type { ReleaseLine } from '../release-overview'
 import type { TeamsCardSection, TeamsVersion } from '../teams'
 import { Buffer } from 'node:buffer'
 import { createMockConfig } from '../../../tests/mocks'
-import { buildTeamsMessage, checkTeamsWebhookUrl, getTeamsVariables, getTeamsWebhookUrl, postReleaseToTeams, resolveTeamsAnnouncements, toTeamsMarkdown } from '../teams'
+import { getAnnouncementVariables } from '../announcements'
+import { buildTeamsMessage, checkTeamsWebhookUrl, getTeamsWebhookUrl, postReleaseToTeams, resolveTeamsAnnouncements, toTeamsMarkdown } from '../teams'
 
 vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn().mockResolvedValue(undefined) }))
 
@@ -78,7 +79,7 @@ describe('Given the Teams cards', () => {
     const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' } })
 
     it('Then links the CHANGELOG.md of the version at its tag', () => {
-      const variables = getTeamsVariables({ config, version: { ...navVersion, changelogDir: 'shared/nav' }, content: {}, projectName: 'maz-ui', releaseUrl: undefined })
+      const variables = getAnnouncementVariables({ config, version: { ...navVersion, changelogDir: 'shared/nav' }, content: {}, projectName: 'maz-ui', releaseUrl: undefined })
 
       expect(variables).toEqual({
         name: '@scope/nav',
@@ -94,7 +95,7 @@ describe('Given the Teams cards', () => {
 
     it('Then takes the changelog URL of the announcement, then social.changelogUrl, and none with false', () => {
       const withChangelog = { ...rootVersion, changelogDir: '' }
-      const getUrl = (content: { changelogUrl?: string | false }, changelogUrl?: string) => getTeamsVariables({ config: { ...config, social: { ...config.social, changelogUrl } }, version: withChangelog, content, projectName: 'maz-ui', releaseUrl: undefined }).changelogUrl
+      const getUrl = (content: { changelogUrl?: string | false }, changelogUrl?: string) => getAnnouncementVariables({ config: { ...config, social: { ...config.social, changelogUrl } }, version: withChangelog, content, projectName: 'maz-ui', releaseUrl: undefined }).changelogUrl
 
       expect(getUrl({ changelogUrl: 'https://docs/{{shortName}}/changelog' })).toBe('https://docs/Maz UI/changelog')
       expect(getUrl({}, 'https://maz-ui.com/changelog')).toBe('https://maz-ui.com/changelog')

@@ -44,6 +44,7 @@ vi.mock('../../core', async () => ({
   collectContributorNames: vi.fn().mockReturnValue([]),
   collectPackageBumps: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
+  ...await vi.importActual<typeof import('../../core/announcements')>('../../core/announcements'),
   ...await vi.importActual<typeof import('../../core/teams')>('../../core/teams'),
   postReleaseToTeams: vi.fn(),
   resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full' ? undefined : 2500)),
@@ -1253,6 +1254,81 @@ describe('Given social command with version groups', () => {
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
         cards: [{ sections: [expect.objectContaining({ title: '@scope/nav 1.3.0' })] }],
       }))
+    })
+  })
+
+  describe('When Slack and Twitter choose the versions they announce', () => {
+    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...nav, path: '/repo/shared/nav' }], groups: [mainGroup, headerGroup] }
+    const changelog = '### 🚀 Features\n\n- **menu:** Add a menu'
+
+    beforeEach(() => {
+      config.cwd = '/repo'
+      config.repo = { provider: 'github', domain: 'github.com', repo: 'owner/repo' }
+      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [{ ...nav, path: '/repo/shared/nav' }] : []) as any)
+    })
+
+    it('Then posts on Slack the versions of the announcements, with their title, message and links', async () => {
+      config.social.slack = {
+        ...config.social.slack,
+        announcements: [
+          { group: 'main', title: 'Maz UI library', message: 'Version **{{newVersion}}** of {{name}}', changelogUrl: false, links: [{ title: '🎨 Storybook', url: 'https://storybook.example.com/' }] },
+          { package: '@scope/nav', title: 'Navigation' },
+        ],
+      }
+
+      await social({ bumpResult })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+        changelog: [
+          {
+            title: 'Maz UI library 7.0.0',
+            message: 'Version **7.0.0** of Maz UI',
+            links: [{ title: '📖 Release notes', url: 'https://example.com/release' }, { title: '🎨 Storybook', url: 'https://storybook.example.com/' }],
+            changelog,
+          },
+          {
+            title: 'Header',
+            packages: [{
+              name: '@scope/nav',
+              title: 'Navigation',
+              message: undefined,
+              links: [{ title: '📖 Release notes', url: 'https://example.com/release' }, { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/%40scope/nav%401.3.0/shared/nav/CHANGELOG.md' }],
+              oldVersion: '1.2.0',
+              newVersion: '1.3.0',
+              changelog,
+            }],
+          },
+        ],
+      }))
+    })
+
+    it('Then announces a single version on Slack with its title in the header, its message and its links', async () => {
+      config.social.slack = { ...config.social.slack, announcements: [{ group: 'main', title: 'Maz UI library', message: 'Out now', changelogUrl: false }] }
+
+      await social({ bumpResult })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+        variables: expect.objectContaining({ releaseTitle: 'Maz UI library 7.0.0 is out!', newVersion: '7.0.0' }),
+        changelog,
+        packages: [],
+        announcement: { message: 'Out now', links: [{ title: '📖 Release notes', url: 'https://example.com/release' }] },
+      }))
+      // Twitter announces every version
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: expect.any(Array) }))
+    })
+
+    it('Then leaves out the versions of exclude on Slack and Twitter, and skips a platform with none left', async () => {
+      config.social.slack = { ...config.social.slack, exclude: { groups: ['main'], packages: ['@scope/*'] } }
+      config.social.twitter = { ...config.social.twitter, exclude: { packages: ['@scope/nav'] } }
+
+      const result = await social({ bumpResult })
+
+      expect(postReleaseToSlack).not.toHaveBeenCalled()
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
+        variables: expect.objectContaining({ releaseTitle: 'test-package 7.0.0 is out!', packageList: '' }),
+        changelog,
+      }))
+      expect(result).toEqual({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true }], hasErrors: false })
     })
   })
 })

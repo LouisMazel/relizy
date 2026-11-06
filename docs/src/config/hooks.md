@@ -103,9 +103,9 @@ export default defineConfig({
 `relizy social` runs:
 
 1. `before:social`
-2. `before:twitter`, then `success:twitter` or `error:twitter`, when Twitter is enabled and the version is posted (see `onlyStable`)
-3. `before:slack`, then `success:slack` or `error:slack`, likewise for Slack
-4. `before:teams`, then `success:teams` or `error:teams`, likewise for Teams, when a version is announced (see `announcements` and `exclude`)
+2. `before:twitter`, then `success:twitter` or `error:twitter`, when Twitter is enabled and a version is posted (see `onlyStable` and `exclude`)
+3. `before:slack`, then `success:slack` or `error:slack`, likewise for Slack (see `announcements` too)
+4. `before:teams`, then `success:teams` or `error:teams`, likewise for Teams
 5. `success:social`, or `error:social` when a post failed or the step itself failed (reading the release, a failing hook)
 
 `relizy release` runs, for its enabled steps:
