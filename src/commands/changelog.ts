@@ -3,6 +3,7 @@ import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase }
 import { logger } from '@maz-ui/node'
 import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 import { prepareCiRepository } from '../core/ci'
+import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress, showPreview } from '../core/progress'
 
@@ -262,7 +263,7 @@ async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<vo
 
     const generatedCount = await ui.step({
       running: 'Writing the changelogs',
-      done: count => count === 0 ? 'No changelog to write' : `${count} ${count === 1 ? 'changelog' : 'changelogs'} written`,
+      done: count => count === 0 ? 'No changelog to write' : `${plural(count, 'changelog')} written`,
       run: () => writeChangelogs({ config, options, dryRun }),
     })
 
@@ -272,7 +273,7 @@ async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<vo
 
     ui.complete(generatedCount === 0
       ? { message: 'No changelog to write', nothing: true }
-      : { message: `${dryRun ? 'Previewed' : 'Wrote'} ${generatedCount} ${generatedCount === 1 ? 'changelog' : 'changelogs'}` })
+      : { message: `${dryRun ? 'Previewed' : 'Wrote'} ${plural(generatedCount, 'changelog')}` })
   }
   catch (error) {
     // Refused or cancelled prompt: nothing was written, it is not a failure

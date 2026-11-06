@@ -22,6 +22,7 @@ import {
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess, prepareCiRepository } from '../core/ci'
+import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
@@ -138,10 +139,6 @@ async function releaseSafetyCheck({
     logger.error('Safety checks failed')
     throw error
   }
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
 /** The published versions: `relizy@2.0.0`, or their count */
@@ -320,7 +317,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       await ui.step({
         title: 'Generate changelogs',
         running: 'Writing the changelogs',
-        done: () => `${count} ${count === 1 ? 'changelog' : 'changelogs'} written`,
+        done: () => `${plural(count, 'changelog')} written`,
         run: () => changelog({
           from: config.from,
           to: config.to,

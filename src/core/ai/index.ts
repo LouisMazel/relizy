@@ -4,6 +4,7 @@ import type { AIReleaseContext } from './prompts'
 import type { AIGenerateRequest } from './provider'
 import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
+import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
@@ -98,10 +99,6 @@ export async function aiSafetyCheck({ config }: { config: ResolvedRelizyConfig }
   await provider.safetyCheck(config)
 }
 
-function formatElapsed(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}
-
 /**
  * The AI is not called in dry-run (each call costs): the raw text is kept
  * and the output tells that the rewrite is simulated
@@ -128,7 +125,7 @@ async function rewrite({ subject, config, request }: {
   const { text, usage = {} } = await provider.generate(config, request)
 
   const durationMs = Date.now() - started
-  const details = [formatElapsed(durationMs), ...describeAIUsage(usage)].join(', ')
+  const details = [formatDuration(durationMs), ...describeAIUsage(usage)].join(', ')
   logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${details}`)
   reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider.name}) in ${details}`, { ai: true })
   recordAIRewrite({ subject, provider: provider.name, simulated: false, durationMs, ...usage })
@@ -261,7 +258,7 @@ export async function generateAISocialReleases({ config, releases, platform, max
   }
 
   const provider = getAIProvider(config)
-  const subject = `the ${PLATFORM_NAMES[platform]} post of ${input.length} ${input.length === 1 ? 'version' : 'versions'}`
+  const subject = `the ${PLATFORM_NAMES[platform]} post of ${plural(input.length, 'version')}`
 
   const releasesPrompt = platform === 'twitter' ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}` : RELEASES_PROMPT
   const systemPrompt = `${assemblePrompt(config, platform, maxLength)}\n\n${releasesPrompt}`

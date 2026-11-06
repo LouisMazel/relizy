@@ -4,6 +4,7 @@ import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
 import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { prepareCiRepository } from '../core/ci'
+import { formatUtcDate } from '../core/format'
 import { withGitCache } from '../core/git-cache'
 import { recordLink, showPreview } from '../core/progress'
 
@@ -27,16 +28,6 @@ interface CommentBodyParams {
   packages?: Array<{ name: string, version: string, private: boolean }>
   /** Fallback root version for standalone CLI mode */
   rootVersion?: string
-}
-
-function getFormattedDate(): string {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(now.getUTCDate()).padStart(2, '0')
-  const hours = String(now.getUTCHours()).padStart(2, '0')
-  const minutes = String(now.getUTCMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes} UTC`
 }
 
 function getInstallCommand(packageManager?: string): string {
@@ -413,7 +404,7 @@ async function commentPullRequest({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<{ posted: boolean, pr?: { number: number, url: string } }> {
   const branch = getCurrentGitBranch(config.cwd) ?? 'unknown'
-  const date = getFormattedDate()
+  const date = formatUtcDate(new Date())
 
   // For standalone CLI (no releaseContext), read packages from disk as fallback
   let packages: Array<{ name: string, version: string, private: boolean }> = []

@@ -1,7 +1,7 @@
 import type { SpinnerResult } from '@clack/prompts'
 import type { BumpResult, PackageBase } from '../types'
 import type { Preview, ProgressOptions } from './progress'
-import type { ReleaseReport } from './release-report'
+import type { ReleaseReport, ReleaseSummaryEntry } from './release-report'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import process from 'node:process'
@@ -11,10 +11,10 @@ import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
 import { markErrorReported, RelizyCancelError } from './errors'
+import { formatDuration } from './format'
 import { reportProgress, setProgressHandlers } from './progress'
 import { assertInteractivePrompt, BUMP_NOT_INTERACTIVE } from './prompts'
-import { getReleaseLines } from './release-overview'
-import { formatReleaseReportText, getReleaseSummary } from './release-report'
+import { formatReleaseReportText, getReleaseName, getReleaseSummary } from './release-report'
 
 /**
  * The output of the commands of the CLI: one line per step with its duration,
@@ -57,6 +57,18 @@ function paint(format: Parameters<typeof styleText>[0], text: string): string {
 }
 
 const dim = (text: string) => paint('dim', text)
+
+/**
+ * The icon and the styled text of an entry of the summary of a release
+ */
+function formatSummaryEntry({ value, status }: ReleaseSummaryEntry): { icon: string, text: string } {
+  const icons = { done: paint('green', '✔'), skipped: dim('○'), failed: paint('yellow', '▲') }
+
+  return {
+    icon: status ? icons[status] : ' ',
+    text: status === 'skipped' ? dim(value) : status === 'failed' ? paint('yellow', value) : value,
+  }
+}
 const bold = (text: string) => paint('bold', text)
 const DRY_RUN_BADGE = paint(['bgYellow', 'black', 'bold'], ' DRY RUN ')
 const DRY_RUN_TAG = paint('yellow', 'dry run')
@@ -158,10 +170,6 @@ function resolveRenderer(): Renderer {
 
 export function isFancyUi(): boolean {
   return resolveRenderer() !== 'classic'
-}
-
-function formatDuration(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 
 export interface ReleaseStep<T> {
@@ -463,10 +471,6 @@ abstract class StepUi implements ReleaseUi {
   protected abstract onFail(error: unknown, failedStep?: string, report?: ReleaseReport): void
 }
 
-function describeRelease(report: ReleaseReport): string {
-  return getReleaseLines(report.release ?? { projectName: '', groups: [] }).map(line => `${line.name} ${line.version}`).join(', ')
-}
-
 class PrettyUi extends StepUi {
   private spin: SpinnerResult | undefined
   private stepStartedAt = 0
@@ -535,10 +539,9 @@ class PrettyUi extends StepUi {
 
     const width = Math.max(...entries.map(({ label }) => label.length))
     const columns = process.stdout.columns || 80
-    const icons = { done: paint('green', '✔'), skipped: dim('○'), failed: paint('yellow', '▲') }
-    const lines = entries.flatMap(({ label, value, status, links }) => {
-      const icon = status ? icons[status] : ' '
-      const text = status === 'skipped' ? dim(value) : status === 'failed' ? paint('yellow', value) : value
+    const lines = entries.flatMap((entry) => {
+      const { label, links } = entry
+      const { icon, text } = formatSummaryEntry(entry)
       // Under the value when it fits, else under the label
       const urls = formatLinks(links).map(url => `${' '.repeat(width + url.length + 14 <= columns ? width + 4 : 2)}${paint('cyan', url)}`)
       return [`${icon} ${dim(label.padEnd(width))}  ${text}`, ...urls]
@@ -676,8 +679,8 @@ class PrettyUi extends StepUi {
     else {
       this.printSummary(report)
       outro(report.dryRun
-        ? `${DRY_RUN_BADGE} Simulated release of ${bold(describeRelease(report))}, nothing was written  ${duration}`
-        : `${paint('green', '✔')} Released ${bold(describeRelease(report))}  ${duration}`)
+        ? `${DRY_RUN_BADGE} Simulated release of ${bold(getReleaseName(report))}, nothing was written  ${duration}`
+        : `${paint('green', '✔')} Released ${bold(getReleaseName(report))}  ${duration}`)
     }
 
     this.restore()
@@ -729,11 +732,10 @@ class CiUi extends StepUi {
   private writeSummary(report: ReleaseReport): void {
     const entries = getReleaseSummary(report)
     const width = Math.max(0, ...entries.map(({ label }) => label.length))
-    const icons = { done: paint('green', '✔'), skipped: dim('○'), failed: paint('yellow', '▲') }
-
-    for (const { label, value, status, links } of entries) {
-      const text = status === 'skipped' ? dim(value) : status === 'failed' ? paint('yellow', value) : value
-      this.write(`  ${status ? icons[status] : ' '} ${dim(label.padEnd(width))}  ${text}`)
+    for (const entry of entries) {
+      const { label, links } = entry
+      const { icon, text } = formatSummaryEntry(entry)
+      this.write(`  ${icon} ${dim(label.padEnd(width))}  ${text}`)
 
       for (const url of formatLinks(links)) {
         this.write(`    ${' '.repeat(width)}  ${paint('cyan', url)}`)
@@ -865,7 +867,7 @@ class CiUi extends StepUi {
     const duration = dim(formatDuration(Date.now() - this.startedAt))
     const message = report.status === 'nothing'
       ? 'Nothing to release'
-      : `${report.dryRun ? 'Simulated release of' : 'Released'} ${describeRelease(report)}${report.dryRun ? ', nothing was written' : ''}`
+      : `${report.dryRun ? 'Simulated release of' : 'Released'} ${getReleaseName(report)}${report.dryRun ? ', nothing was written' : ''}`
 
     this.writeSummary(report)
     this.write(report.status === 'nothing' ? `${dim('○')} ${message}  ${duration}` : `${this.endSymbol()} ${bold(message)}  ${duration}`)

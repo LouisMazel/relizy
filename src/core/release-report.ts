@@ -5,6 +5,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { formatDuration, formatUtcDate, plural } from './format'
 import { describeAIUsage } from './progress'
 import { getReleaseLines } from './release-overview'
 
@@ -157,14 +158,6 @@ export interface ReleaseSummaryEntry {
   links?: { label: string, url: string }[]
 }
 
-function plural(count: number, word: string, plural = `${word}s`): string {
-  return `${count} ${count === 1 ? word : plural}`
-}
-
-function formatDurationMs(ms: number): string {
-  return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
-}
-
 /**
  * What the release contains, in words: `6 features · 9 fixes · 3 breaking · 2 contributors`,
  * else its commits
@@ -189,7 +182,7 @@ export function describeReleaseAI(ai: ReleaseAI): string {
     return `${plural(ai.rewrites, 'rewrite')} simulated (${ai.provider})`
   }
 
-  return [`${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDurationMs(ai.durationMs)}`, ...describeAIUsage(ai)].join(' · ')
+  return [`${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDuration(ai.durationMs)}`, ...describeAIUsage(ai)].join(' · ')
 }
 
 /**
@@ -281,7 +274,10 @@ function formatMarkdownLink({ label, url }: { label: string, url: string }): str
   return `[${label}](${url})`
 }
 
-function getReleaseName(report: ReleaseReport): string {
+/**
+ * The released versions: `relizy 2.0.0, @scope/nav 1.3.0`
+ */
+export function getReleaseName(report: ReleaseReport): string {
   return getReleaseLines(report.release ?? { projectName: '', groups: [] }).map(line => `${line.name} ${line.version}`).join(', ')
 }
 
@@ -353,11 +349,7 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
 
 function getMarkdownFooter(report: ReleaseReport): string {
   const branch = report.git ? `\`${report.git.branch}\`` : ''
-  return [branch, formatDate(new Date()), 'by [relizy](https://relizy.dev)'].filter(Boolean).join(' · ')
-}
-
-function formatDate(date: Date): string {
-  return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
+  return [branch, formatUtcDate(new Date()), 'by [relizy](https://relizy.dev)'].filter(Boolean).join(' · ')
 }
 
 /**

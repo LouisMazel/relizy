@@ -1,6 +1,7 @@
 import type { PullRequestTitle } from './git'
 import type { CommitlintProblem, CommitlintResult } from './lint'
 import process from 'node:process'
+import { plural } from '../format'
 
 export interface ReportEntry {
   result: CommitlintResult
@@ -180,10 +181,6 @@ export function formatCommitResult(result: CommitlintResult, { label, colors = f
 
   lines.push('')
   return lines
-}
-
-function plural(count: number, word: string): string {
-  return `${count} ${word}${count === 1 ? '' : 's'}`
 }
 
 /** `✖ 1 of 3 commits is invalid: 2 errors, 1 warning` */
