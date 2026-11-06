@@ -1,12 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getHookContext, getIndependentTag, getMonorepoPackagePatterns, getReleaseTargets, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, sortPackagesForPublish, withRegistryNpmrc } from '../core'
-import { prepareCiRepository } from '../core/ci'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getIndependentTag, getMonorepoPackagePatterns, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
 import { executeHook, filterOutPrivatePackages, getPackagesOrBumpedPackages } from '../core/utils'
+import { runCommand } from './run-command'
 
 /**
  * Authenticate against a single registry target, enforcing the configured
@@ -216,126 +216,106 @@ export function publish(options: Partial<PublishOptions> = {}) {
   return withGitCache(() => runPublish(options))
 }
 
-async function runPublish(options: Partial<PublishOptions> = {}) {
-  const config = await loadRelizyConfig({
-    configFile: options.configName,
-    baseConfig: options.config,
-    overrides: {
-      publish: {
-        access: options.access,
-        otp: options.otp,
-        registry: options.registry,
-        registries: options.registries,
-        tag: options.tag,
-        buildCmd: options.buildCmd,
-        skipExistingVersions: options.skipExistingVersions,
-        checkWorkspaceDependencies: options.checkWorkspaceDependencies,
-        args: options.args,
-        packageManager: options.packageManager,
-        safetyCheckTimeout: options.safetyCheckTimeout,
+function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishResponse | undefined> {
+  return runCommand({
+    name: 'publish',
+    label: 'Publish',
+    errorMessage: 'Error during publishing packages!',
+    hook: 'publish',
+    options,
+    loadConfig: () => loadRelizyConfig({
+      configFile: options.configName,
+      baseConfig: options.config,
+      overrides: {
+        publish: {
+          access: options.access,
+          otp: options.otp,
+          registry: options.registry,
+          registries: options.registries,
+          tag: options.tag,
+          buildCmd: options.buildCmd,
+          skipExistingVersions: options.skipExistingVersions,
+          checkWorkspaceDependencies: options.checkWorkspaceDependencies,
+          args: options.args,
+          packageManager: options.packageManager,
+          safetyCheckTimeout: options.safetyCheckTimeout,
+        },
+        tokens: { registry: options.token },
+        logLevel: options.logLevel,
+        safetyCheck: options.safetyCheck,
       },
-      tokens: { registry: options.token },
-      logLevel: options.logLevel,
-      safetyCheck: options.safetyCheck,
+    }),
+    run: async ({ config, dryRun, ui, hookContext }) => {
+      logger.debug(`Package manager: ${config.publish.packageManager}`)
+      logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
+      if (config.publish.registry) {
+        logger.debug(`Registry: ${config.publish.registry}`)
+      }
+      if (config.publish.tag) {
+        logger.debug(`Tag: ${config.publish.tag}`)
+      }
+
+      await executeHook('before:publish', config, dryRun, hookContext)
+
+      const { toPublish, publishedPackages } = await ui.step({
+        running: 'Checking the packages to publish',
+        done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0 ? 'No package to publish' : `${describePackages(toPublish)} to publish`,
+        run: () => getCheckedPackagesToPublish({ config, options, dryRun }),
+      })
+
+      if (publishedPackages.length === 0) {
+        logger.fail('No packages need to be published')
+        ui.complete({ message: 'No package to publish', nothing: true })
+        return
+      }
+
+      if (config.publish.buildCmd) {
+        await ui.step({
+          running: 'Building the packages',
+          done: () => 'Packages built',
+          run: () => executeBuildCmd({ config, dryRun }),
+        })
+      }
+
+      const distTag = config.publish.tag ? ` (${config.publish.tag})` : ''
+      await ui.step({
+        running: 'Publishing the packages',
+        done: () => `Published ${describePackages(toPublish)}${distTag}`,
+        run: async () => {
+          for await (const [index, pkg] of toPublish.entries()) {
+            const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
+            const position = toPublish.length > 1 ? ` (${index + 1}/${toPublish.length})` : ''
+            logger.debug(`Publishing ${tag}...`)
+            reportProgress(`Publishing ${tag}${position}`)
+            await publishPackage({
+              pkg,
+              config,
+              packageManager: config.publish.packageManager,
+              dryRun,
+            })
+          }
+        },
+      })
+
+      if (!dryRun) {
+        logger.info('Package(s) have been published to npm registry')
+      }
+
+      logger.success('Publishing packages completed!')
+
+      await executeHook('success:publish', config, dryRun, hookContext)
+
+      ui.complete({
+        message: `${dryRun ? 'Simulated publication of' : 'Published'} ${describePackages(toPublish)}${distTag}`,
+        links: getNpmLinks({ config, packages: toPublish }),
+      })
+
+      return {
+        publishedPackages,
+      } satisfies PublishResponse
     },
   })
-
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
-
-  logger.debug(`Package manager: ${config.publish.packageManager}`)
-
-  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
-  if (config.publish.registry) {
-    logger.debug(`Registry: ${config.publish.registry}`)
-  }
-  if (config.publish.tag) {
-    logger.debug(`Tag: ${config.publish.tag}`)
-  }
-
-  const hookContext = getHookContext(config, options.bumpResult)
-  const ui = createCommandUi({ title: 'relizy publish', dryRun, logLevel: config.logLevel, cwd: config.cwd })
-
-  try {
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    await executeHook('before:publish', config, dryRun, hookContext)
-
-    const { toPublish, publishedPackages } = await ui.step({
-      running: 'Checking the packages to publish',
-      done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0 ? 'No package to publish' : `${describePackages(toPublish)} to publish`,
-      run: () => getCheckedPackagesToPublish({ config, options, dryRun }),
-    })
-
-    if (publishedPackages.length === 0) {
-      logger.fail('No packages need to be published')
-      ui.complete({ message: 'No package to publish', nothing: true })
-      return
-    }
-
-    if (config.publish.buildCmd) {
-      await ui.step({
-        running: 'Building the packages',
-        done: () => 'Packages built',
-        run: () => executeBuildCmd({ config, dryRun }),
-      })
-    }
-
-    const distTag = config.publish.tag ? ` (${config.publish.tag})` : ''
-    await ui.step({
-      running: 'Publishing the packages',
-      done: () => `Published ${describePackages(toPublish)}${distTag}`,
-      run: async () => {
-        for await (const [index, pkg] of toPublish.entries()) {
-          const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
-          const position = toPublish.length > 1 ? ` (${index + 1}/${toPublish.length})` : ''
-          logger.debug(`Publishing ${tag}...`)
-          reportProgress(`Publishing ${tag}${position}`)
-          await publishPackage({
-            pkg,
-            config,
-            packageManager: config.publish.packageManager,
-            dryRun,
-          })
-        }
-      },
-    })
-
-    if (!dryRun) {
-      logger.info('Package(s) have been published to npm registry')
-    }
-
-    logger.success('Publishing packages completed!')
-
-    await executeHook('success:publish', config, dryRun, hookContext)
-
-    ui.complete({
-      message: `${dryRun ? 'Simulated publication of' : 'Published'} ${describePackages(toPublish)}${distTag}`,
-      links: getNpmLinks({ config, packages: toPublish }),
-    })
-
-    return {
-      publishedPackages,
-    } satisfies PublishResponse
-  }
-  catch (error) {
-    // Refused or cancelled prompt: nothing was written, it is not a failure
-    if (isRelizyCancelError(error)) {
-      ui.fail(error)
-      throw error
-    }
-
-    if (!options.config && !isFancyUi()) {
-      logger.error('Error during publishing packages!\n\n', error)
-    }
-
-    await executeHook('error:publish', config, dryRun, hookContext)
-
-    ui.fail(error, 'Publish')
-    throw error
-  }
 }
 
 /** The published versions: `relizy@2.0.0`, up to 3, else their count */

@@ -424,6 +424,16 @@ describe('Given social command', () => {
       expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
     })
 
+    it('Then runs the error:social hook on an unexpected error, and reports it in the result', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ release: { social: true }, social: { twitter: { enabled: true }, slack: { enabled: false } } }))
+      vi.mocked(getRootPackage).mockRejectedValue(new Error('Cannot read the root package'))
+
+      const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(result).toEqual({ results: [{ platform: 'unknown', success: false, error: 'Cannot read the root package' }], hasErrors: true })
+      expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
+    })
+
     it('Then runs the error:twitter hook when the before:twitter hook fails', async () => {
       const config = createMockConfig({
         release: { social: true },

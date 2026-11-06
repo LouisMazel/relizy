@@ -2,12 +2,12 @@ import type { LogLevel } from '@maz-ui/node'
 import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
-import { prepareCiRepository } from '../core/ci'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { formatUtcDate } from '../core/format'
 import { getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
 import { recordLink, showPreview } from '../core/progress'
+import { runCommand } from './run-command'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -356,40 +356,32 @@ export function prComment(options: PrCommentOptions = {}): Promise<boolean> {
   return withGitCache(() => runPrComment(options))
 }
 
-async function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
+function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
+  return runCommand({
+    name: 'pr-comment',
+    label: 'PR comment',
+    options: { config: options.config, dryRun: options.dryRun },
+    loadConfig: async () => options.config ?? await loadRelizyConfig({
+      configFile: options.configName,
+      overrides: {
+        logLevel: options.logLevel,
+      },
+    }),
+    run: async ({ config, dryRun, ui }) => {
+      const { posted, pr } = await ui.step({
+        running: 'Commenting the pull request',
+        done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',
+        run: () => commentPullRequest({ config, options, dryRun }),
+      })
 
-  const config = options.config ?? await loadRelizyConfig({
-    configFile: options.configName,
-    overrides: {
-      logLevel: options.logLevel,
+      const number = formatPrNumber(pr)
+      ui.complete(posted
+        ? { message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`, links: pr ? [{ label: number.trim(), url: pr.url }] : [] }
+        : { message: 'No pull request to comment', nothing: true })
+
+      return posted
     },
   })
-
-  const ui = createCommandUi({ title: 'relizy pr-comment', dryRun, logLevel: config.logLevel, cwd: config.cwd })
-
-  try {
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    const { posted, pr } = await ui.step({
-      running: 'Commenting the pull request',
-      done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',
-      run: () => commentPullRequest({ config, options, dryRun }),
-    })
-
-    const number = formatPrNumber(pr)
-    ui.complete(posted
-      ? { message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`, links: pr ? [{ label: number.trim(), url: pr.url }] : [] }
-      : { message: 'No pull request to comment', nothing: true })
-
-    return posted
-  }
-  catch (error) {
-    ui.fail(error, 'PR comment')
-    throw error
-  }
 }
 
 function formatPrNumber(pr: { number: number } | undefined): string {

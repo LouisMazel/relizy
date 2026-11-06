@@ -1,12 +1,12 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, createCommandUi, detectGitProvider, executeHook, getHookContext, getReleaseTargets, github, gitlab, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig } from '../core'
+import { assertVersionGroupsOption, detectGitProvider, executeHook, getReleaseTargets, github, gitlab, hasVersionGroups, loadRelizyConfig } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
-import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
+import { runCommand } from './run-command'
 
 /**
  * True when a provider release of the run uses AI: the `ai` option of the run
@@ -155,121 +155,107 @@ export function providerRelease(
   return withGitCache(() => runProviderRelease(options))
 }
 
-async function runProviderRelease(
+function runProviderRelease(
   options: Partial<ProviderReleaseOptions> = {},
 ): Promise<ProviderReleaseResult> {
-  const config = await loadRelizyConfig({
-    configFile: options.configName,
-    baseConfig: options.config,
-    overrides: {
-      from: options.from,
-      to: options.to,
-      tokens: {
-        github: options.token,
-        gitlab: options.token,
-      },
-      logLevel: options.logLevel,
-      safetyCheck: options.safetyCheck,
-    },
-  })
-
-  applyAIOverride(config, options.ai)
-
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
-
-  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
   let detectedProvider: GitProvider | null = null
-  const hookContext = getHookContext(config, options.bumpResult)
-  const ui = createCommandUi({ title: 'relizy provider-release', dryRun, logLevel: config.logLevel, cwd: config.cwd })
 
-  try {
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
+  return runCommand({
+    name: 'provider-release',
+    label: 'Provider release',
+    errorMessage: 'Error publishing releases!',
+    hook: 'provider-release',
+    options,
+    loadConfig: async () => {
+      const config = await loadRelizyConfig({
+        configFile: options.configName,
+        baseConfig: options.config,
+        overrides: {
+          from: options.from,
+          to: options.to,
+          tokens: {
+            github: options.token,
+            gitlab: options.token,
+          },
+          logLevel: options.logLevel,
+          safetyCheck: options.safetyCheck,
+        },
+      })
 
-    const result = await ui.step({
-      running: 'Creating the releases',
-      done: describeProviderReleaseResult,
-      failed: result => Boolean(result.error),
-      run: async (): Promise<ProviderReleaseResult> => {
-        detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
-        reportProgress('Checking the release')
-        await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
+      applyAIOverride(config, options.ai)
 
-        await executeHook('before:provider-release', config, dryRun, hookContext)
+      return config
+    },
+    // The release goes on without its provider releases: the error is in the result
+    recover: error => ({
+      detectedProvider: detectedProvider || 'github',
+      postedReleases: [],
+      error: error instanceof Error ? error.message : String(error),
+    }),
+    run: async ({ config, dryRun, ui, hookContext }) => {
+      logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
-        logger.start('Start provider release')
+      const result = await ui.step({
+        running: 'Creating the releases',
+        done: describeProviderReleaseResult,
+        failed: result => Boolean(result.error),
+        run: async (): Promise<ProviderReleaseResult> => {
+          detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
+          reportProgress('Checking the release')
+          await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
 
-        if (!detectedProvider) {
-          logger.fail('Unable to detect Git provider. Skipping release publication.')
-          throw new Error('Unable to detect Git provider')
-        }
-        else {
-          logger.info(
-            options.provider || config.repo?.provider ? `Using Git provider: ${detectedProvider}` : `Detected Git provider: ${detectedProvider}`,
-          )
-        }
+          await executeHook('before:provider-release', config, dryRun, hookContext)
 
-        assertVersionGroupsOption({ config, groups: options.groups })
+          logger.start('Start provider release')
 
-        // Skip Bitbucket as it doesn't support releases
-        if (detectedProvider === 'bitbucket') {
-          logger.warn('⚠️  Bitbucket does not support releases via API')
-          logger.info('Skipping release creation for Bitbucket')
-          logger.info('Git tags will still be created during the commit step')
+          if (!detectedProvider) {
+            logger.fail('Unable to detect Git provider. Skipping release publication.')
+            throw new Error('Unable to detect Git provider')
+          }
+          else {
+            logger.info(
+              options.provider || config.repo?.provider ? `Using Git provider: ${detectedProvider}` : `Detected Git provider: ${detectedProvider}`,
+            )
+          }
+
+          assertVersionGroupsOption({ config, groups: options.groups })
+
+          // Skip Bitbucket as it doesn't support releases
+          if (detectedProvider === 'bitbucket') {
+            logger.warn('⚠️  Bitbucket does not support releases via API')
+            logger.info('Skipping release creation for Bitbucket')
+            logger.info('Git tags will still be created during the commit step')
+
+            await executeHook('success:provider-release', config, dryRun, hookContext)
+
+            return {
+              detectedProvider,
+              postedReleases: [],
+            }
+          }
+
+          const postedReleases = await postReleases({ provider: detectedProvider, config, options, dryRun })
 
           await executeHook('success:provider-release', config, dryRun, hookContext)
 
           return {
             detectedProvider,
-            postedReleases: [],
+            postedReleases,
           }
-        }
+        },
+      })
 
-        const postedReleases = await postReleases({ provider: detectedProvider, config, options, dryRun })
+      const created = result.postedReleases.length
+      ui.complete(created === 0
+        ? { message: describeProviderReleaseResult(result), nothing: true }
+        : {
+            message: `${dryRun ? 'Previewed' : 'Created'} ${describeReleaseCount(result)}`,
+            links: getProviderReleaseLinks({ config, postedReleases: result.postedReleases }),
+          })
 
-        await executeHook('success:provider-release', config, dryRun, hookContext)
-
-        return {
-          detectedProvider,
-          postedReleases,
-        }
-      },
-    })
-
-    const created = result.postedReleases.length
-    ui.complete(created === 0
-      ? { message: describeProviderReleaseResult(result), nothing: true }
-      : {
-          message: `${dryRun ? 'Previewed' : 'Created'} ${describeReleaseCount(result)}`,
-          links: getProviderReleaseLinks({ config, postedReleases: result.postedReleases }),
-        })
-
-    return result
-  }
-  catch (error) {
-    // Refused or cancelled prompt: nothing was written, it is not a failure
-    if (isRelizyCancelError(error)) {
-      ui.fail(error)
-      throw error
-    }
-
-    if (!options.config && !isFancyUi()) {
-      logger.error('Error publishing releases!\n\n', error)
-    }
-
-    await executeHook('error:provider-release', config, dryRun, hookContext)
-
-    ui.fail(error, 'Provider release')
-
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    return {
-      detectedProvider: detectedProvider || 'github',
-      postedReleases: [],
-      error: errorMessage,
-    }
-  }
+      return result
+    },
+  })
 }
 
 function describeReleaseCount({ detectedProvider, postedReleases }: ProviderReleaseResult): string {

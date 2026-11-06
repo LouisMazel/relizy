@@ -1,11 +1,11 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getHookContext, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
-import { prepareCiRepository } from '../core/ci'
+import { aggregateIndependentChangelogs, assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
 import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
 import { showPreview } from '../core/progress'
+import { runCommand } from './run-command'
 
 async function generateIndependentRootChangelog({
   packages,
@@ -229,69 +229,50 @@ export function changelog(options: Partial<ChangelogOptions> = {}): Promise<void
   return withGitCache(() => runChangelog(options))
 }
 
-async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
-  const config = await loadRelizyConfig({
-    configFile: options.configName,
-    baseConfig: options.config,
-    overrides: {
-      from: options.from,
-      to: options.to,
-      logLevel: options.logLevel,
-      monorepo: options.privatePackages !== undefined
-        ? { privatePackages: options.privatePackages }
-        : undefined,
-      changelog: {
-        rootChangelog: options.rootChangelog,
-        formatCmd: options.formatCmd,
-        includeCommitBody: options.includeCommitBody,
-      } satisfies ChangelogConfig,
+function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
+  return runCommand({
+    name: 'changelog',
+    label: 'Changelog',
+    errorMessage: 'Error generating changelogs!',
+    hook: 'changelog',
+    options,
+    loadConfig: () => loadRelizyConfig({
+      configFile: options.configName,
+      baseConfig: options.config,
+      overrides: {
+        from: options.from,
+        to: options.to,
+        logLevel: options.logLevel,
+        monorepo: options.privatePackages !== undefined
+          ? { privatePackages: options.privatePackages }
+          : undefined,
+        changelog: {
+          rootChangelog: options.rootChangelog,
+          formatCmd: options.formatCmd,
+          includeCommitBody: options.includeCommitBody,
+        } satisfies ChangelogConfig,
+      },
+    }),
+    run: async ({ config, dryRun, ui, hookContext }) => {
+      logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
+
+      await executeHook('before:changelog', config, dryRun, hookContext)
+
+      const generatedCount = await ui.step({
+        running: 'Writing the changelogs',
+        done: count => count === 0 ? 'No changelog to write' : `${plural(count, 'changelog')} written`,
+        run: () => writeChangelogs({ config, options, dryRun }),
+      })
+
+      logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
+
+      await executeHook('success:changelog', config, dryRun, hookContext)
+
+      ui.complete(generatedCount === 0
+        ? { message: 'No changelog to write', nothing: true }
+        : { message: `${dryRun ? 'Previewed' : 'Wrote'} ${plural(generatedCount, 'changelog')}` })
     },
   })
-
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
-
-  logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
-
-  const hookContext = getHookContext(config, options.bumpResult)
-  const ui = createCommandUi({ title: 'relizy changelog', dryRun, logLevel: config.logLevel, cwd: config.cwd })
-
-  try {
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    await executeHook('before:changelog', config, dryRun, hookContext)
-
-    const generatedCount = await ui.step({
-      running: 'Writing the changelogs',
-      done: count => count === 0 ? 'No changelog to write' : `${plural(count, 'changelog')} written`,
-      run: () => writeChangelogs({ config, options, dryRun }),
-    })
-
-    logger.success(`${dryRun ? '[dry run] ' : ''}Changelog generation completed!`)
-
-    await executeHook('success:changelog', config, dryRun, hookContext)
-
-    ui.complete(generatedCount === 0
-      ? { message: 'No changelog to write', nothing: true }
-      : { message: `${dryRun ? 'Previewed' : 'Wrote'} ${plural(generatedCount, 'changelog')}` })
-  }
-  catch (error) {
-    // Refused or cancelled prompt: nothing was written, it is not a failure
-    if (isRelizyCancelError(error)) {
-      ui.fail(error)
-      throw error
-    }
-
-    if (!options.config && !isFancyUi()) {
-      logger.error('Error generating changelogs!\n\n', error)
-    }
-
-    await executeHook('error:changelog', config, dryRun, hookContext)
-
-    ui.fail(error, 'Changelog')
-    throw error
-  }
 }
 
 /**

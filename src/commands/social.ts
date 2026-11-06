@@ -1,15 +1,15 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
-import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ReleaseUi, ResolvedRelizyConfig } from '../core'
+import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { AIReleaseContext } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, createCommandUi, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isFancyUi, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
-import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
+import { runCommand } from './run-command'
 
 type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
 
@@ -747,73 +747,60 @@ export function social(options: Partial<SocialOptions> = {}): Promise<SocialResu
   return withGitCache(() => runSocial(options))
 }
 
-async function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
-  const dryRun = options.dryRun ?? false
-  let ui: ReleaseUi | undefined
+function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
+  return runCommand<SocialResult>({
+    name: 'social',
+    label: 'Social media',
+    errorMessage: 'Error during social media posting!',
+    hook: 'social',
+    options,
+    loadConfig: async () => {
+      const config = await loadRelizyConfig({
+        configFile: options.configName,
+        baseConfig: options.config,
+        overrides: {
+          from: options.from,
+          to: options.to,
+          logLevel: options.logLevel,
+          safetyCheck: options.safetyCheck,
+        },
+      })
 
-  try {
-    logger.debug(`Dry run: ${dryRun}`)
+      applyAIOverride(config, options.ai)
 
-    const config = await loadRelizyConfig({
-      configFile: options.configName,
-      baseConfig: options.config,
-      overrides: {
-        from: options.from,
-        to: options.to,
-        logLevel: options.logLevel,
-        safetyCheck: options.safetyCheck,
-      },
-    })
+      if (options.slackFormat) {
+        config.social.slack = { ...config.social.slack, changelogFormat: options.slackFormat }
+      }
 
-    assertVersionGroupsOption({ config, groups: options.groups })
-
-    applyAIOverride(config, options.ai)
-
-    if (options.slackFormat) {
-      config.social.slack = { ...config.social.slack, changelogFormat: options.slackFormat }
-    }
-
-    logger.debug(`Version mode: ${config.monorepo?.versionMode || (hasVersionGroups(config) ? 'version groups' : 'standalone')}`)
-
-    ui = createCommandUi({ title: 'relizy social', dryRun, logLevel: config.logLevel, cwd: config.cwd })
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    const result = await ui.step({
-      running: 'Posting the release',
-      done: describeSocialResult,
-      failed: result => result.hasErrors,
-      run: () => postRelease({ config, options, dryRun }),
-    })
-
-    const posted = result.results.filter(({ success }) => success)
-    ui.complete(posted.length === 0
-      ? { message: describeSocialResult(result), ...(result.hasErrors ? { failed: true } : { nothing: true }) }
-      : {
-          message: `${dryRun ? 'Simulated posts on' : 'Posted on'} ${posted.map(({ platform }) => platform).join(', ')}`,
-          links: posted.flatMap(({ url }) => url ? [{ label: 'Tweet', url }] : []),
-        })
-
-    return result
-  }
-  catch (error) {
-    // Refused or cancelled prompt: nothing was written, it is not a failure
-    if (isRelizyCancelError(error)) {
-      ui?.fail(error)
-      throw error
-    }
-
-    if (!isFancyUi()) {
-      logger.error('Error during social media posting:', error)
-    }
-
-    ui?.fail(error, 'Social media')
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    return {
-      results: [{ platform: 'unknown', success: false, error: errorMessage }],
+      return config
+    },
+    check: config => assertVersionGroupsOption({ config, groups: options.groups }),
+    // The release goes on without its posts: the error is in the result
+    recover: error => ({
+      results: [{ platform: 'unknown', success: false, error: error instanceof Error ? error.message : String(error) }],
       hasErrors: true,
-    }
-  }
+    }),
+    run: async ({ config, dryRun, ui }) => {
+      logger.debug(`Version mode: ${config.monorepo?.versionMode || (hasVersionGroups(config) ? 'version groups' : 'standalone')}`)
+
+      const result = await ui.step({
+        running: 'Posting the release',
+        done: describeSocialResult,
+        failed: result => result.hasErrors,
+        run: () => postRelease({ config, options, dryRun }),
+      })
+
+      const posted = result.results.filter(({ success }) => success)
+      ui.complete(posted.length === 0
+        ? { message: describeSocialResult(result), ...(result.hasErrors ? { failed: true } : { nothing: true }) }
+        : {
+            message: `${dryRun ? 'Simulated posts on' : 'Posted on'} ${posted.map(({ platform }) => platform).join(', ')}`,
+            links: posted.flatMap(({ url }) => url ? [{ label: 'Tweet', url }] : []),
+          })
+
+      return result
+    },
+  })
 }
 
 /**

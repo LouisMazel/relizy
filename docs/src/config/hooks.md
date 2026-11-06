@@ -104,7 +104,7 @@ export default defineConfig({
 1. `before:social`
 2. `before:twitter`, then `success:twitter` or `error:twitter`, when Twitter is enabled and the version is posted (see `onlyStable`)
 3. `before:slack`, then `success:slack` or `error:slack`, likewise for Slack
-4. `success:social`, or `error:social` when a post failed
+4. `success:social`, or `error:social` when a post failed or the step itself failed (reading the release, a failing hook)
 
 `relizy release` runs, for its enabled steps:
 

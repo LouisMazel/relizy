@@ -2,12 +2,12 @@ import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage, VersionCh
 import type { BumpOptions, BumpResult, BumpResultTruthy, PackageBase, SemverBumpType, VersionGroup } from '../types'
 
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, createCommandUi, describeBumpResult, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getBumpResultDetails, getCanaryVersion, getDependencyReleaseType, getHookContext, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, describeBumpResult, determineReleaseType, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getBumpResultDetails, getCanaryVersion, getDependencyReleaseType, getHookContext, getOutOfRangePeers, getPackageCommits, getPackageDependencies, getPackageNewVersion, getPackages, getRootPackage, getShortCommitSha, getVersionGroupTitle, hasVersionGroups, isBreakingVersionChange, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
-import { prepareCiRepository } from '../core/ci'
 import { getCIName } from '../core/ci-env'
 import { withGitCache } from '../core/git-cache'
 import { capReleaseTypeForZeroMajor } from '../core/version'
+import { runCommand } from './run-command'
 
 interface BumpStrategyInput {
   config: ResolvedRelizyConfig
@@ -1023,105 +1023,88 @@ export function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   return withGitCache(() => runBump(options))
 }
 
-async function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
-  const config = await loadRelizyConfig({
-    configFile: options.configName,
-    baseConfig: options.config,
-    overrides: {
-      bump: {
-        yes: options.yes,
-        type: options.type,
-        clean: options.clean,
-        preid: options.preid,
-        dependencyTypes: options.dependencyTypes,
-        capZeroMajor: options.capZeroMajor,
-        outOfRangePeers: options.outOfRangePeers,
+function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
+  return runCommand({
+    name: 'bump',
+    label: 'Bump',
+    errorMessage: 'Error while bumping version(s)!',
+    hook: 'bump',
+    options,
+    loadConfig: () => loadRelizyConfig({
+      configFile: options.configName,
+      baseConfig: options.config,
+      overrides: {
+        bump: {
+          yes: options.yes,
+          type: options.type,
+          clean: options.clean,
+          preid: options.preid,
+          dependencyTypes: options.dependencyTypes,
+          capZeroMajor: options.capZeroMajor,
+          outOfRangePeers: options.outOfRangePeers,
+        },
+        monorepo: options.privatePackages !== undefined
+          ? { privatePackages: options.privatePackages }
+          : undefined,
+        logLevel: options.logLevel,
       },
-      monorepo: options.privatePackages !== undefined
-        ? { privatePackages: options.privatePackages }
-        : undefined,
-      logLevel: options.logLevel,
+    }),
+    // Before preparing the CI clone: fails at once in a CI without --yes
+    check: config => assertBumpConfirmable({ command: 'bump', yes: config.bump.yes, ciName: getCIName() }),
+    run: async ({ config, dryRun, ui }) => {
+      const force = options.force ?? false
+      logger.debug(`Bump forced: ${force}`)
+
+      await executeHook('before:bump', config, dryRun)
+
+      const result = await ui.step({
+        running: 'Computing the versions',
+        done: describeBumpResult,
+        details: result => getBumpResultDetails(result, config.bump.yes),
+        run: async () => {
+          logger.start('Start bumping versions')
+
+          if (config.bump.clean && config.release.clean) {
+            checkGitStatusIfDirty(config.cwd)
+          }
+          else {
+            await confirmDirtyGitStatus({ dryRun, cwd: config.cwd })
+          }
+
+          // A new run: only the files written from now on are restored and committed
+          resetReleaseFiles()
+
+          await fetchGitTags(config.cwd)
+
+          const { result, plans } = await planBumps({
+            config,
+            dryRun,
+            force,
+            suffix: options.suffix,
+            canary: options.canary ?? false,
+            groups: options.groups,
+          })
+
+          await applyBumpPlans({ plans, config, dryRun })
+
+          return result
+        },
+      })
+
+      if (!result.bumped) {
+        logger.fail('No packages to bump, no relevant commits found')
+        ui.complete({ message: 'Nothing to bump: no commit since the last release triggers a new version', nothing: true })
+        return result
+      }
+
+      const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length
+      logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string' ? '' : 's'} bumped)`)
+
+      await executeHook('success:bump', config, dryRun, getHookContext(config, result))
+
+      ui.complete({ message: describeBumpOutcome(result, dryRun) })
+
+      return result
     },
   })
-
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
-
-  const force = options.force ?? false
-  logger.debug(`Bump forced: ${force}`)
-
-  const ui = createCommandUi({ title: 'relizy bump', dryRun, logLevel: config.logLevel, cwd: config.cwd })
-
-  try {
-    assertBumpConfirmable({ command: 'bump', yes: config.bump.yes, ciName: getCIName() })
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    await executeHook('before:bump', config, dryRun)
-
-    const result = await ui.step({
-      running: 'Computing the versions',
-      done: describeBumpResult,
-      details: result => getBumpResultDetails(result, config.bump.yes),
-      run: async () => {
-        logger.start('Start bumping versions')
-
-        if (config.bump.clean && config.release.clean) {
-          checkGitStatusIfDirty(config.cwd)
-        }
-        else {
-          await confirmDirtyGitStatus({ dryRun, cwd: config.cwd })
-        }
-
-        // A new run: only the files written from now on are restored and committed
-        resetReleaseFiles()
-
-        await fetchGitTags(config.cwd)
-
-        const { result, plans } = await planBumps({
-          config,
-          dryRun,
-          force,
-          suffix: options.suffix,
-          canary: options.canary ?? false,
-          groups: options.groups,
-        })
-
-        await applyBumpPlans({ plans, config, dryRun })
-
-        return result
-      },
-    })
-
-    if (!result.bumped) {
-      logger.fail('No packages to bump, no relevant commits found')
-      ui.complete({ message: 'Nothing to bump: no commit since the last release triggers a new version', nothing: true })
-      return result
-    }
-
-    const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length
-    logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string' ? '' : 's'} bumped)`)
-
-    await executeHook('success:bump', config, dryRun, getHookContext(config, result))
-
-    ui.complete({ message: describeBumpOutcome(result, dryRun) })
-
-    return result
-  }
-  catch (error) {
-    // Refused or cancelled prompt: nothing was written, it is not a failure
-    if (isRelizyCancelError(error)) {
-      ui.fail(error)
-      throw error
-    }
-
-    if (!options.config && !isFancyUi()) {
-      logger.error('Error while bumping version(s)!\n\n', error)
-    }
-
-    await executeHook('error:bump', config, dryRun)
-
-    ui.fail(error, 'Bump')
-    throw error
-  }
 }

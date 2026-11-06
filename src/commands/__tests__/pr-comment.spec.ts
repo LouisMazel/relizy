@@ -14,6 +14,7 @@ vi.mock('../../core', async () => {
   const overviewActual = await vi.importActual<typeof import('../../core')>('../../core/release-overview')
   return {
     ...await vi.importActual<typeof import('../../core/release-ui')>('../../core/release-ui'),
+    ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
     formatReleaseReportMarkdown: (await vi.importActual<typeof import('../../core/release-report')>('../../core/release-report')).formatReleaseReportMarkdown,
     getReleaseOverview: overviewActual.getReleaseOverview,
     withoutPrivatePackages: overviewActual.withoutPrivatePackages,
