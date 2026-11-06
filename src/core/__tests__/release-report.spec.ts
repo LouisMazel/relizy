@@ -80,6 +80,7 @@ describe('Given the renderers of the release report', () => {
     // A failed step does not stop the release
     expect(markdown).toContain('| ⚠️ **Social media** | slack: down |')
     expect(markdown).toContain('| ⏭️ **PR comment** | skipped |')
+    expect(markdown).toContain('| Step | Result |\n| --- | --- |')
   })
 
   it('Then renders the summary of a release as markdown: what each step did, with its links', () => {

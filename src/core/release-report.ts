@@ -339,7 +339,7 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
 
   const lines = [
     ...getMarkdownHeadline(report),
-    ...(rows.length > 0 ? ['| | |', '| --- | --- |', ...rows, ''] : []),
+    ...(rows.length > 0 ? ['| Step | Result |', '| --- | --- |', ...rows, ''] : []),
     ...getMarkdownPackages(report),
     `<sub>${getMarkdownFooter(report)}</sub>`,
   ]
