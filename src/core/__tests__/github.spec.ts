@@ -72,9 +72,10 @@ vi.mock('../git', () => ({
   getCurrentGitRef: vi.fn().mockReturnValue('HEAD'),
 }))
 
-vi.mock('../ai', () => ({
+vi.mock('../ai', async importActual => ({
   generateAIProviderReleaseBody: vi.fn(),
   isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+  isAIRewritingVersion: (await importActual<typeof import('../ai')>()).isAIRewritingVersion,
 }))
 
 describe('Given github function', () => {
@@ -680,6 +681,30 @@ describe('Given github function', () => {
           body: expect.not.stringContaining('Original feature'),
         }),
       )
+    })
+
+    it('Then keeps the raw notes of a prerelease, unless onlyStable is off', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+      vi.mocked(generateAIProviderReleaseBody).mockResolvedValue('### Features\n\n- AI-rewritten feature')
+      vi.mocked(isPrerelease).mockImplementation(version => !!version?.includes('-'))
+
+      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+
+      expect(generateAIProviderReleaseBody).not.toHaveBeenCalled()
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ body: expect.stringContaining('Original feature') }))
+
+      config.ai!.providerRelease!.onlyStable = false
+      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+
+      expect(generateAIProviderReleaseBody).toHaveBeenCalledWith(expect.objectContaining({ label: 'v2.0.0-beta.0' }))
     })
 
     it('Then does not call AI when providerRelease is not enabled', async () => {

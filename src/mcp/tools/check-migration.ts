@@ -395,6 +395,20 @@ function checkAIDryRun(config: ResolvedRelizyConfig): MigrationFinding[] {
     : []
 }
 
+function checkAIPrereleases(config: ResolvedRelizyConfig): MigrationFinding[] {
+  const ai = config.ai
+  const enabled = ai?.providerRelease?.enabled || ai?.social?.twitter?.enabled || ai?.social?.slack?.enabled || ai?.social?.teams?.enabled
+
+  return enabled && !isOnRelizy2(config.cwd)
+    ? [{
+        severity: 'review',
+        title: 'The AI no longer rewrites the prereleases',
+        section: 'AI on Prereleases',
+        detail: 'With `ai.onlyStable` (the default), the provider release notes and the posts of a prerelease keep their raw changelog, without an AI call. Set `ai.onlyStable: false` (or the `onlyStable` of a target) to rewrite them as in v1.',
+      }]
+    : []
+}
+
 function checkChangelogFormatting(config: ResolvedRelizyConfig): MigrationFinding[] {
   const formatter = config.changelog?.formatCmd ? undefined : resolveFormatCommand({ config, files: [join(config.cwd, 'CHANGELOG.md')] })?.formatter
 
@@ -742,6 +756,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkRenamedOptions(config, configFiles),
     ...checkVersionGroups(config, configFiles),
     ...checkAIDryRun(config),
+    ...checkAIPrereleases(config),
     ...checkAIAttribution(config),
     ...checkChangelogFormatting(config),
     ...checkReleaseSummary(config),

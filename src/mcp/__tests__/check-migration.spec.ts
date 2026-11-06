@@ -105,9 +105,10 @@ describe('Given check_migration on a relizy 1 project', () => {
 
     expect(toChange).toContain('## To change (5)')
     expect(toChange).toContain('`confirmBump()`')
-    expect(toReview).toContain('## To review (8)')
+    expect(toReview).toContain('## To review (9)')
     expect(toReview).toContain('`GroupBumpResult` objects')
     expect(toReview).toContain('`--dry-run` no longer calls the AI')
+    expect(toReview).toContain('The AI no longer rewrites the prereleases')
     expect(toReview).toContain('The PR comment of a release is its summary')
   })
 })

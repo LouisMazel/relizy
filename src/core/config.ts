@@ -167,6 +167,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       provider: 'claude-code',
       language: 'en',
       fallback: 'raw',
+      onlyStable: true,
       providers: {
         'claude-code': {
           model: 'haiku',

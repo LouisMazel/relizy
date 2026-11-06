@@ -65,9 +65,10 @@ vi.mock('../git', () => ({
   getCurrentGitBranch: vi.fn().mockReturnValue('main'),
 }))
 
-vi.mock('../ai', () => ({
+vi.mock('../ai', async importActual => ({
   generateAIProviderReleaseBody: vi.fn(),
   isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+  isAIRewritingVersion: (await importActual<typeof import('../ai')>()).isAIRewritingVersion,
 }))
 
 globalThis.fetch = vi.fn()

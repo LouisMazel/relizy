@@ -7,6 +7,7 @@ import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
 import { getSocialChangelog } from '../social'
+import { isPrerelease } from '../version'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -83,12 +84,24 @@ export function applyAIOverride(config: ResolvedRelizyConfig, ai?: boolean): voi
     config.ai = {} as ResolvedRelizyConfig['ai']
   }
   const aiConfig = config.ai as NonNullable<ResolvedRelizyConfig['ai']>
-  aiConfig.providerRelease = { enabled: ai }
+  // `--ai` and `--no-ai` switch the targets, their `onlyStable` stays
+  aiConfig.providerRelease = { ...aiConfig.providerRelease, enabled: ai }
   aiConfig.social = {
-    twitter: { enabled: ai },
-    slack: { enabled: ai },
-    teams: { enabled: ai },
+    twitter: { ...aiConfig.social?.twitter, enabled: ai },
+    slack: { ...aiConfig.social?.slack, enabled: ai },
+    teams: { ...aiConfig.social?.teams, enabled: ai },
   }
+}
+
+/**
+ * True when the AI rewrites this version for the target: with `onlyStable`
+ * (of the target, else `ai.onlyStable`), a prerelease keeps its raw changelog
+ */
+export function isAIRewritingVersion(config: ResolvedRelizyConfig, target: AIPromptTarget, version: string | undefined): boolean {
+  const targetConfig = target === 'providerRelease' ? config.ai?.providerRelease : config.ai?.social?.[target]
+  const onlyStable = targetConfig?.onlyStable ?? config.ai?.onlyStable ?? true
+
+  return !onlyStable || !isPrerelease(version)
 }
 
 export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolean {

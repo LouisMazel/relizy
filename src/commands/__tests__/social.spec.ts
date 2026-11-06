@@ -7,7 +7,8 @@ import { collectContributorNames, executeHook, generateChangelog, getPackageComm
 import { aiSafetyCheck, generateAISocialChangelog, generateAISocialReleases } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
-vi.mock('../../core/ai', () => ({
+vi.mock('../../core/ai', async importActual => ({
+  isAIRewritingVersion: (await importActual<typeof import('../../core/ai')>()).isAIRewritingVersion,
   aiSafetyCheck: vi.fn(),
   generateAISocialChangelog: vi.fn(),
   generateAISocialReleases: vi.fn(),
@@ -902,7 +903,7 @@ describe('Given social command', () => {
       expect(generateAISocialChangelog).not.toHaveBeenCalled()
     })
 
-    it('Then still runs the AI call for a platform where onlyStable is false', async () => {
+    it('Then posts the raw changelog of a prerelease, without AI, with ai.onlyStable', async () => {
       const config = createMockConfig({
         bump: { type: 'prerelease' },
         social: {
@@ -913,6 +914,28 @@ describe('Given social command', () => {
           twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
         },
         ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0-beta.1' } })
+
+      expect(generateAISocialChangelog).not.toHaveBeenCalled()
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: '- Feature A' }))
+    })
+
+    it('Then still runs the AI call for a platform where the onlyStable of the AI is false', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: {
+          twitter: { enabled: true, onlyStable: false },
+          slack: { enabled: false, onlyStable: true },
+        },
+        tokens: {
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+        },
+        ai: { social: { twitter: { enabled: true, onlyStable: false } } },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
@@ -1142,6 +1165,28 @@ describe('Given social command with version groups', () => {
       ],
     }))
     expect(generateAISocialChangelog).not.toHaveBeenCalled()
+  })
+
+  it('Then sends only the stable versions of a post to the AI, the prereleases keep their raw changelog', async () => {
+    const beta = { ...nav, newVersion: '1.3.0-beta.0' }
+    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [beta] : []) as any)
+    config.social.twitter.enabled = false
+    config.social.slack.onlyStable = false
+    config.ai = { ...config.ai, social: { slack: { enabled: true } } }
+    vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([['1', 'A brand new menu']]))
+
+    await social({ bumpResult: { bumped: true, bumpedPackages: [beta], groups: [mainGroup, headerGroup] } })
+
+    expect(generateAISocialReleases).toHaveBeenCalledWith(expect.objectContaining({
+      platform: 'slack',
+      releases: [{ id: '1', title: 'Maz UI 7.0.0', body: '### 🚀 Features\n\n- **menu:** Add a menu' }],
+    }))
+    expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
+      changelog: [
+        { title: 'Maz UI 7.0.0', changelog: 'A brand new menu' },
+        { title: 'Header', packages: [expect.objectContaining({ changelog: expect.stringContaining('Add a menu') })] },
+      ],
+    }))
   })
 
   it('Then reports the errors of a platform', async () => {

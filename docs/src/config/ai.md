@@ -113,6 +113,22 @@ When a call fails (network, quota, credentials):
 - `raw`: warn, and keep the text without AI. With several versions in a post, a version missing from the output also keeps its raw changelog.
 - `fail`: throw. `relizy provider-release` and `relizy social` fail with code `1`; in `relizy release`, the step is marked as failed and the release goes on, as for any failed provider release or post.
 
+## onlyStable
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Rewrite only the stable versions: a prerelease (`2.0.0-beta.0`, a canary) keeps its raw changelog, without an AI call. In a post announcing several versions, only its stable versions are rewritten. The `onlyStable` of a target overrides it, e.g. to rewrite the notes of the prereleases but not their posts:
+
+```ts
+export default defineConfig({
+  ai: {
+    onlyStable: true,
+    providerRelease: { enabled: true, onlyStable: false },
+  },
+})
+```
+
 ## extraGuidelines
 
 - **Type:** `string | { global?: string, providerRelease?: string, twitter?: string, slack?: string, teams?: string }`
@@ -163,7 +179,14 @@ export default defineConfig({
 
 Rewrite the body of the GitHub and GitLab releases: the changes only, the compare link and the contributors are kept as generated. One call per provider release (one per package of an `independent` release).
 
-A [version group](./monorepo.md#groups) can override it with its own `ai.providerRelease`, e.g. to create the releases of an `independent` group without AI:
+### onlyStable {#providerrelease-onlystable}
+
+- **Type:** `boolean`
+- **Default:** [`ai.onlyStable`](#onlystable)
+
+Leave the notes of the prereleases without AI. Overrides [`ai.onlyStable`](#onlystable) for the provider releases.
+
+A [version group](./monorepo.md#groups) can override `enabled` and `onlyStable` with its own `ai.providerRelease`, e.g. to create the releases of an `independent` group without AI:
 
 ```ts
 export default defineConfig({
@@ -181,26 +204,26 @@ export default defineConfig({
 
 ### twitter {#social-twitter}
 
-- **Type:** `{ enabled?: boolean }`
+- **Type:** `{ enabled?: boolean, onlyStable?: boolean }`
 - **Default:** `{ enabled: false }`
 
 Rewrite the changelog of the tweet as plain text, within its length budget. Only when `social.twitter.enabled` is also `true`.
 
 ### slack {#social-slack}
 
-- **Type:** `{ enabled?: boolean }`
+- **Type:** `{ enabled?: boolean, onlyStable?: boolean }`
 - **Default:** `{ enabled: false }`
 
 Rewrite the changelog of the Slack message. The model writes standard markdown (never Slack mrkdwn), that Relizy converts with the [`changelog`](./social.md#slack-changelog) of the message: 3 to 8 bullets in `summary` format, every change in `full` format. Only when `social.slack.enabled` is also `true`.
 
 ### teams {#social-teams}
 
-- **Type:** `{ enabled?: boolean }`
+- **Type:** `{ enabled?: boolean, onlyStable?: boolean }`
 - **Default:** `{ enabled: false }`
 
 Rewrite the changelog of the Teams cards as 3 to 8 short bullets (bold, italic and links only, as a card renders them). Only when `social.teams.enabled` is also `true` and [`social.teams.changelog`](./social.md#teams-changelog) is `'summary'`.
 
-One call per enabled platform and per release, even when the post announces several versions.
+One call per enabled platform and per release, even when the post announces several versions. The `onlyStable` of a platform overrides [`ai.onlyStable`](#onlystable) for its posts.
 
 ## CLI
 

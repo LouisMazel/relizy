@@ -23,6 +23,7 @@ tags: [guide, prerelease, canary, snapshot, versioning, ci-cd]
 | **Commit, tag, push** | Yes                                                  | No                                                     |
 | **Provider release**  | Yes                                                  | No                                                     |
 | **Social posts**      | Skipped with `onlyStable` (the default)              | No                                                     |
+| **AI rewrites**       | Skipped with `ai.onlyStable` (the default)           | No                                                     |
 | **PR comment**        | Yes                                                  | Yes                                                    |
 
 ## Prerelease Versions

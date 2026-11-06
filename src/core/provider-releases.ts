@@ -2,7 +2,7 @@ import type { BumpResultTruthy, PackageBase, PostedRelease, ProviderReleaseOptio
 import type { ResolvedRelizyConfig } from './config'
 import type { RootPackage } from './repo'
 import { logger } from '@maz-ui/node'
-import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
+import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled, isAIRewritingVersion } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { formatRepoTag } from './format'
@@ -66,6 +66,23 @@ async function postRelease({
   await provider.create({ config, release, dryRun })
 }
 
+/**
+ * True when the AI rewrites the notes of this version: off for a prerelease
+ * with `ai.providerRelease.onlyStable` (or `ai.onlyStable`)
+ */
+function usesAIForVersion(config: ResolvedRelizyConfig, version: string): boolean {
+  if (!isAIProviderReleaseEnabled(config)) {
+    return false
+  }
+
+  if (!isAIRewritingVersion(config, 'providerRelease', version)) {
+    logger.info(`Skipping the AI for the notes of the prerelease ${version} (onlyStable of the AI)`)
+    return false
+  }
+
+  return true
+}
+
 async function postPackageRelease({
   provider,
   pkg,
@@ -115,7 +132,7 @@ async function postPackageRelease({
     dryRun,
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
-    transformBody: isAIProviderReleaseEnabled(config)
+    transformBody: usesAIForVersion(config, newVersion)
       ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: pkg.name, version: newVersion, previousVersion: extractVersionFromTag(from, pkg.name) || undefined }, dryRun })
       : undefined,
   })
@@ -194,7 +211,7 @@ async function postRootRelease({
     dryRun,
     newVersion,
     include: { title: false, compareLink: true, body: true, contributors: true },
-    transformBody: isAIProviderReleaseEnabled(config)
+    transformBody: usesAIForVersion(config, newVersion)
       ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: config.projectName || rootPackage.name, version: newVersion, previousVersion: extractVersionFromTag(from) || bumpResult?.oldVersion }, dryRun })
       : undefined,
   })

@@ -1,13 +1,13 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig, TeamsCard, TeamsVersion } from '../core'
-import type { AIReleaseContext } from '../core/ai'
+import type { AIReleaseContext, AISocialPlatform } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackChangelogFormat, SlackOptions, SlackReleaseSection, SocialLink, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
-import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
+import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { runCommand } from './run-command'
@@ -744,6 +744,23 @@ function toAIContext(version: AnnouncedVersion): AIReleaseContext {
 }
 
 /**
+ * The versions of a post that the AI rewrites: none when the AI of the
+ * platform is off, and no prerelease with `onlyStable` (of the platform, else `ai.onlyStable`)
+ */
+function getAIRewrittenVersions(config: ResolvedRelizyConfig, platform: AISocialPlatform, versions: AnnouncedVersion[]): Set<AnnouncedVersion> {
+  if (!isAISocialEnabled(config, platform)) {
+    return new Set()
+  }
+
+  const rewritten = versions.filter(version => version.minified.trim() && isAIRewritingVersion(config, platform, version.line.version))
+  if (rewritten.length < versions.filter(version => version.minified.trim()).length) {
+    logger.info(`Skipping the AI for the prereleases on ${platform} (onlyStable of the AI)`)
+  }
+
+  return new Set(rewritten)
+}
+
+/**
  * The changelog of the tweet: the changelog of its version, or the sections
  * of its versions. With AI, rewritten in a single call.
  */
@@ -755,7 +772,8 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
   hasGroups: boolean
   dryRun: boolean
 }): Promise<string | TweetSection[]> {
-  const useAI = isAISocialEnabled(config, 'twitter') && versions.some(version => version.minified.trim())
+  const rewrites = getAIRewrittenVersions(config, 'twitter', versions)
+  const useAI = rewrites.size > 0
   const maxLength = computeTwitterChangelogBudget({
     template: config.social.twitter.template || config.templates.twitterMessage,
     variables,
@@ -778,12 +796,14 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
         platform: 'twitter',
         maxLength,
         dryRun,
-        releases: versions.map((version, index) => ({
-          id: String(index + 1),
-          title: getVersionTitle(version.line, hasGroups),
-          body: version.rich,
-          highlights: version.line.group.versionMode === 'independent' ? 1 : 3,
-        })),
+        releases: versions.flatMap((version, index) => rewrites.has(version)
+          ? [{
+              id: String(index + 1),
+              title: getVersionTitle(version.line, hasGroups),
+              body: version.rich,
+              highlights: version.line.group.versionMode === 'independent' ? 1 : 3,
+            }]
+          : []),
       })
     : new Map<string, string>()
 
@@ -811,7 +831,8 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
   const changelog = getSocialChangelog(config.social?.slack?.changelog, 'summary')
   const changelogFormat = getSlackChangelogFormat(config)
   const getBody = (version: AnnouncedVersion) => changelog === 'none' ? '' : changelog === 'full' ? version.rich : version.minified
-  const useAI = isAISocialEnabled(config, 'slack') && versions.some(version => version.minified.trim())
+  const rewrites = getAIRewrittenVersions(config, 'slack', versions)
+  const useAI = rewrites.size > 0
   const maxLength = resolveSlackPostMaxLength({ changelogFormat, postMaxLength: config.social.slack.postMaxLength })
 
   if (versions.length === 1) {
@@ -830,7 +851,7 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
         platform: 'slack',
         maxLength,
         dryRun,
-        releases: versions.map((version, index) => ({ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich })),
+        releases: versions.flatMap((version, index) => rewrites.has(version) ? [{ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich }] : []),
       })
     : new Map<string, string>()
 
@@ -865,7 +886,8 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
 
   const raw = new Map(versions.map(version => [version, version.minified]))
 
-  if (!isAISocialEnabled(config, 'teams') || !versions.some(version => version.minified.trim())) {
+  const rewrites = getAIRewrittenVersions(config, 'teams', versions)
+  if (rewrites.size === 0) {
     return raw
   }
 
@@ -880,7 +902,7 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
     platform: 'teams',
     maxLength: TEAMS_CHANGELOG_MAX_LENGTH,
     dryRun,
-    releases: versions.map((version, index) => ({ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich })),
+    releases: versions.flatMap((version, index) => rewrites.has(version) ? [{ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich }] : []),
   })
 
   return new Map(versions.map((version, index) => [version, rewritten.get(String(index + 1)) ?? version.minified]))

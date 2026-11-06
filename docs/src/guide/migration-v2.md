@@ -45,6 +45,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [AI attribution in commits](#ai-attribution-in-commits)                               | `relizy commitlint`                                                                   | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                                           | Templates using <code v-pre>{{version}}</code>                                        | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                                    | None                                                                          |
+| [AI on prereleases](#ai-on-prereleases)                                               | `ai.providerRelease` or `ai.social` on prereleases                                    | None, or set `ai.onlyStable: false`                                           |
 | [Microsoft Teams](#microsoft-teams)                                                   | A script or a hook posting to Teams, an Office 365 connector                          | Use `social.teams`                                                            |
 | [Slack and Twitter announcements](#slack-and-twitter-announcements)                   | A script or a hook posting some versions to Slack                                     | Use `social.slack.announcements` and `exclude`                                |
 | [Changelog of the posts](#changelog-of-the-posts)                                     | `social.slack.changelogFormat`                                                        | Rename it `social.slack.changelog`                                            |
@@ -357,6 +358,20 @@ On GitHub or GitLab, `relizy init` writes the release workflow of the CI (`.gith
 
 ```bash
 relizy release --dry-run --ai-preview
+```
+
+### AI on Prereleases
+
+The AI no longer rewrites the prereleases (beta, canary...): their provider release notes and posts keep their raw changelog, without an AI call. To rewrite them as in v1, turn off [`ai.onlyStable`](./../config/ai.md#onlystable), for every target or for one:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  ai: {
+    providerRelease: { enabled: true, onlyStable: false },
+  },
+})
 ```
 
 ## Programmatic API

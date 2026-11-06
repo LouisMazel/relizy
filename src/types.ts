@@ -1399,6 +1399,12 @@ export interface AITargetConfig {
    * @default false
    */
   enabled?: boolean
+  /**
+   * Rewrite only the stable versions: a prerelease keeps its raw changelog,
+   * without an AI call. Overrides `ai.onlyStable` for this target.
+   * @default ai.onlyStable
+   */
+  onlyStable?: boolean
 }
 
 export interface AISocialConfig {
@@ -1454,6 +1460,12 @@ export interface AIConfig {
    * When set, the extraGuidelines and base prompts are ignored for that target.
    */
   systemPromptOverrides?: AISystemPromptOverrides
+  /**
+   * Rewrite only the stable versions: the prereleases (beta, canary...) keep
+   * their raw changelog, without an AI call. The `onlyStable` of a target overrides it.
+   * @default true
+   */
+  onlyStable?: boolean
   /**
    * Enable AI rewriting for GitHub/GitLab release notes.
    */
