@@ -12,7 +12,7 @@ const spin = { start: vi.fn(), stop: vi.fn(), error: vi.fn(), clear: vi.fn(), me
 vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
   outro: vi.fn(),
-  box: vi.fn(),
+  note: vi.fn(),
   confirm: vi.fn(),
   isCancel: vi.fn((value: unknown) => value === CANCEL),
   spinner: vi.fn(() => spin),
@@ -407,8 +407,8 @@ describe('Given the terminal output', () => {
     expect(clack.log.message).toHaveBeenCalledWith('The notes of v2.0.0 rewritten by AI', { symbol: '✨' })
     expect(clack.log.message).toHaveBeenCalledWith('2 contributors found', { symbol: '·' })
     // Cut to 30 lines, the rest in the log file
-    const [content, title] = vi.mocked(clack.box).mock.calls[0]!
-    expect(title).toBe(' Preview GitHub release v2.0.0 ')
+    const [content, title] = vi.mocked(clack.note).mock.calls[0]!
+    expect(title).toBe('Preview GitHub release v2.0.0')
     expect(content).toContain('line 30')
     expect(content).not.toContain('line 31')
     expect(content).toContain('… 10 more lines (--log-level verbose, or node_modules/.cache/relizy/release.log)')
@@ -432,7 +432,7 @@ describe('Given the terminal output', () => {
     })
 
     expect(clack.log.message).toHaveBeenCalledWith('Publish skipped (--no-publish)', { symbol: '○' })
-    expect(vi.mocked(clack.box).mock.calls[0]![0]).toBe('## v2.0.0\n\n- core: a fix ([a1b2c3d](https://github.com/user/relizy/commit/a1b2c3d))')
+    expect(vi.mocked(clack.note).mock.calls[0]![0]).toBe('## v2.0.0\n\n- core: a fix ([a1b2c3d](https://github.com/user/relizy/commit/a1b2c3d))')
   })
 
   it('Then shows the logs and the whole previews with --log-level verbose', async () => {
@@ -450,7 +450,7 @@ describe('Given the terminal output', () => {
     })
 
     expect(clack.log.message).toHaveBeenCalledWith('Using Git provider: github')
-    expect(vi.mocked(clack.box).mock.calls[0]![0]).toContain('line 40')
+    expect(vi.mocked(clack.note).mock.calls[0]![0]).toContain('line 40')
   })
 
   it('Then shows the progress in the spinner, the AI one with its elapsed time', async () => {
@@ -497,7 +497,7 @@ describe('Given the terminal output', () => {
 
     expect(spin.error).toHaveBeenCalledWith(expect.stringMatching(/^Pushing {2}\d+ms$/))
     expect(clack.log.error).toHaveBeenCalledWith('push rejected\nFull log: node_modules/.cache/relizy/release.log')
-    expect(vi.mocked(clack.box).mock.calls[0]![1]).toBe(' Summary ')
+    expect(vi.mocked(clack.note).mock.calls[0]![1]).toBe('Summary')
     expect(clack.outro).toHaveBeenCalledWith('Release failed')
   })
 
@@ -507,7 +507,7 @@ describe('Given the terminal output', () => {
 
     ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd }).finish(releaseReport)
 
-    const [content, title] = vi.mocked(clack.box).mock.calls[0]!
+    const [content, title] = vi.mocked(clack.note).mock.calls[0]!
     expect(title).toContain('Summary')
     expect(title).toContain('DRY RUN')
     expect(content).toContain('relizy@2.0.0')
@@ -523,7 +523,7 @@ describe('Given the terminal output', () => {
 
     ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd }).finish({ status: 'nothing', released: false, dryRun: false, canary: false, tags: [], steps: [] })
 
-    expect(clack.box).not.toHaveBeenCalled()
+    expect(clack.note).not.toHaveBeenCalled()
     expect(clack.outro).toHaveBeenCalledWith(expect.stringMatching(/^Nothing to release/))
   })
 
@@ -580,9 +580,9 @@ describe('Given the confirmation of a bump', () => {
 
     expect(spin.clear).toHaveBeenCalled()
     expect(clack.log.warn).toHaveBeenCalledTimes(1)
-    expect(vi.mocked(clack.log.warn).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(clack.box).mock.invocationCallOrder[0]!)
-    expect(vi.mocked(clack.box).mock.calls[0]![1]).toBe(' Bump plan · DRY RUN ')
-    expect(vi.mocked(clack.box).mock.calls[0]![0]).toContain('stable release of the beta')
+    expect(vi.mocked(clack.log.warn).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(clack.note).mock.invocationCallOrder[0]!)
+    expect(vi.mocked(clack.note).mock.calls[0]![1]).toBe('Bump plan · DRY RUN')
+    expect(vi.mocked(clack.note).mock.calls[0]![0]).toContain('stable release of the beta')
     expect(clack.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/^Bump this version\? {3}DRY RUN /), active: 'Bump', inactive: 'Cancel' }))
     // The spinner of the step goes on
     expect(spin.start).toHaveBeenCalledTimes(2)
@@ -596,7 +596,7 @@ describe('Given the confirmation of a bump', () => {
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
     vi.mocked(clack.confirm).mockResolvedValueOnce(CANCEL as never)
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
-    expect(vi.mocked(clack.box).mock.calls[0]![1]).toBe(' Release plan ')
+    expect(vi.mocked(clack.note).mock.calls[0]![1]).toBe('Release plan')
   })
 
   it('Then fails with what to do when nobody can answer, instead of cancelling the run', async () => {

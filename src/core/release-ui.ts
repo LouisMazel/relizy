@@ -6,7 +6,7 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import process from 'node:process'
 import { format, stripVTControlCharacters, styleText } from 'node:util'
-import { box, intro, isCancel, log, outro, confirm as promptConfirm, spinner } from '@clack/prompts'
+import { intro, isCancel, log, note, outro, confirm as promptConfirm, spinner } from '@clack/prompts'
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
@@ -103,13 +103,6 @@ function getRealCommand(): string {
   return `relizy ${args.join(' ')}`
 }
 
-/**
- * A box of the guide, after an empty line of the guide
- */
-function spacedBox(content: string, title: string, contentPadding = 1): void {
-  process.stdout.write(`${paint('gray', '│')}\n`)
-  box(content, title, { width: 'auto', rounded: true, contentPadding, formatBorder: dim })
-}
 /** Lines of a preview, unless `--log-level verbose` */
 const PREVIEW_MAX_LINES = 30
 
@@ -530,7 +523,7 @@ class PrettyUi extends StepUi {
         styled.push('', dim(`… ${hidden} more lines (--log-level verbose, or ${this.logFilePath})`))
       }
 
-      spacedBox(styled.join('\n'), ` ${paint('yellow', 'Preview')} ${bold(preview.title)} `)
+      note(styled.join('\n'), `${paint('yellow', 'Preview')} ${bold(preview.title)}`)
     }
   }
 
@@ -557,7 +550,7 @@ class PrettyUi extends StepUi {
     })
     const title = report.dryRun ? `Summary  ${dryRunBadge()}` : 'Summary'
 
-    spacedBox(lines.join('\n'), ` ${bold(title)} `)
+    note(lines.join('\n'), bold(title))
   }
 
   protected onStart(title: string): void {
@@ -1030,7 +1023,7 @@ export function confirmBumpInReleaseUi({ packages }: { packages: (PackageBase & 
     const action = ui.command === 'bump' ? 'Bump' : 'Release'
     const count = packages.length === 1 ? '' : ` · ${packages.length} packages`
     const title = `${action} plan${count}${ui.isDryRun ? ' · DRY RUN' : ''}`
-    spacedBox(describeBumpedPackages(packages).join('\n'), ` ${title} `, 2)
+    note(describeBumpedPackages(packages).join('\n'), title)
 
     const versions = packages.length === 1 ? 'this version' : `these ${packages.length} versions`
     assertInteractivePrompt({ message: `${action} ${versions}?`, whenNotInteractive: BUMP_NOT_INTERACTIVE })
