@@ -233,7 +233,8 @@ export default defineConfig({
     const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
 
     const slug = pageData.relativePath.replace('.md', '')
-    const currentUrl = `${SITE_URL}/${slug === 'index' ? '' : slug}`
+    // commitlint/index.md is served at /commitlint/, index.md at /
+    const currentUrl = `${SITE_URL}/${slug.replace(/(^|\/)index$/, '$1')}`
     const isArticle = pageData.relativePath !== 'index.md'
     const lastUpdatedISO = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString()
 
