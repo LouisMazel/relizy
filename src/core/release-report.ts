@@ -161,7 +161,7 @@ function plural(count: number, word: string, plural = `${word}s`): string {
   return `${count} ${count === 1 ? word : plural}`
 }
 
-export function formatDurationMs(ms: number): string {
+function formatDurationMs(ms: number): string {
   return ms < 1000 ? `${ms}ms` : `${(ms / 1000).toFixed(1)}s`
 }
 

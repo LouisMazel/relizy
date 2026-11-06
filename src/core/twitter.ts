@@ -56,7 +56,7 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials }: {
 /**
  * Length of any URL in a post: X shortens them all to t.co links
  */
-export const TWEET_URL_LENGTH = 23
+const TWEET_URL_LENGTH = 23
 
 const URL_REGEX = /https?:\/\/\S+/g
 const EMOJI_REGEX = /\p{Extended_Pictographic}/u

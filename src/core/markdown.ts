@@ -9,12 +9,6 @@ import { stripNameStatus } from './git-refs'
 import { reportProgress } from './progress'
 import { formatCompareChanges, formatReference } from './repo-config'
 
-const CHANGELOG_RELEASE_HEAD_REGEX
-  // eslint-disable-next-line sonarjs/super-linear-regex, regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
-  = /^#{2,}\s+(?:\S.*)?(v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)).*$/gm
-
-const VERSION_REGEX = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
-
 const GITHUB_NOREPLY_EMAIL_REGEX = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/i
 
 export function buildCompareLink({ config, from, to, isFirstCommit }: {
@@ -235,32 +229,6 @@ export async function generateMarkDown({
   const contributors = minify ? '' : await buildContributors({ commits, config: updatedConfig })
 
   return [title, compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
-}
-
-export function parseChangelogMarkdown(contents: string) {
-  const headings = [...contents.matchAll(CHANGELOG_RELEASE_HEAD_REGEX)]
-  const releases: { version?: string, body: string }[] = []
-
-  for (let i = 0; i < headings.length; i++) {
-    const heading = headings[i]
-    const nextHeading = headings[i + 1]
-    const [, title] = heading as RegExpExecArray
-    const version = title?.match(VERSION_REGEX)
-    const release = {
-      version: version ? version[1] : undefined,
-      body: contents
-        .slice(
-          heading?.index as number + (heading?.[0]?.length || 0),
-          nextHeading?.index as number ?? contents.length,
-        )
-        .trim(),
-    }
-    releases.push(release)
-  }
-
-  return {
-    releases,
-  }
 }
 
 // --- Internal utils ---

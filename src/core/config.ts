@@ -258,7 +258,7 @@ export function mergeConfig<T>(...configs: Array<T | null | undefined>): T {
  * This prevents defu's deep merge from adding default sub-properties
  * the user intentionally omitted (e.g. `docs: { title: '...' }` without `semver`).
  */
-export function mergeTypes<T extends Record<string, unknown>>(
+function mergeTypes<T extends Record<string, unknown>>(
   userTypes: T | undefined,
   defaultTypes: T,
 ): T {

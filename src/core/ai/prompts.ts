@@ -94,7 +94,7 @@ function getReleaseKind(version: string, previousVersion?: string): string | und
   return diff ? `${diff} release` : undefined
 }
 
-export function formatReleaseContext(context?: AIReleaseContext): string {
+function formatReleaseContext(context?: AIReleaseContext): string {
   if (!context?.version && !context?.project) {
     return ''
   }

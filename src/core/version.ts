@@ -474,14 +474,6 @@ export function updateLernaVersion({
   }
 }
 
-export function extractVersionFromPackageTag(tag: string): string | null {
-  const atIndex = tag.lastIndexOf('@')
-  if (atIndex === -1) {
-    return null
-  }
-  return tag.slice(atIndex + 1)
-}
-
 export function isPrerelease(version?: string): boolean {
   if (!version)
     return false
@@ -495,7 +487,7 @@ export function isStableReleaseType(releaseType: ReleaseType): boolean {
   return stableTypes.includes(releaseType)
 }
 
-export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
+function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
   const prereleaseTypes = ['prerelease', 'premajor', 'preminor', 'prepatch']
   return prereleaseTypes.includes(releaseType)
 }
@@ -504,7 +496,7 @@ export function isGraduating(currentVersion: string, releaseType: ReleaseType): 
   return isPrerelease(currentVersion) && isStableReleaseType(releaseType)
 }
 
-export function getPreid(version: string): string | null {
+function getPreid(version: string): string | null {
   if (!version)
     return null
 
@@ -533,7 +525,7 @@ export function isChangedPreid(
   return currentPreid !== targetPreid
 }
 
-export function getBumpedPackageIndependently({
+function getBumpedPackageIndependently({
   pkg,
   dryRun,
 }: {

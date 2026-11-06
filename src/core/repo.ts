@@ -119,7 +119,7 @@ export function readPackageJson(packagePath: string): ReadPackage | undefined {
  * Resolve a set of path globs (relative to `cwd`) to the absolute directories
  * they match. Shared by package discovery and ignore resolution.
  */
-export function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
+function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
   const dirs = new Set<string>()
 
   for (const pattern of globs ?? []) {

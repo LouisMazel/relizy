@@ -11,7 +11,7 @@ export const SLACK_SECTION_MAX_LENGTH = 3000
  * Soft cap of the text carried by a single rich_text block. Slack documents no
  * limit for rich_text, so the section limit is reused as a conservative bound.
  */
-export const SLACK_RICH_TEXT_BLOCK_MAX_LENGTH = 3000
+const SLACK_RICH_TEXT_BLOCK_MAX_LENGTH = 3000
 /**
  * Budget of the JSON of all the blocks of a message containing rich_text blocks.
  * Slack rejects such messages above ~13,200 characters with `msg_blocks_too_long`

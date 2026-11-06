@@ -74,7 +74,7 @@ export interface ReleaseLine {
   group: ReleaseOverviewGroup
 }
 
-export function getProjectName(config: ResolvedRelizyConfig): string {
+function getProjectName(config: ResolvedRelizyConfig): string {
   return config.projectName || readPackageJson(config.cwd)?.name || ''
 }
 

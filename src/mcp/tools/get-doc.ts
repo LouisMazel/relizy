@@ -7,11 +7,11 @@ import { formatDocLine } from './search-docs'
 import { defineTool, ToolInputError } from './types'
 
 /** Pages above this size are returned as an outline and their beginning, unless `full` is set */
-export const MAX_FULL_DOC_CHARS = 24_000
+const MAX_FULL_DOC_CHARS = 24_000
 const PREVIEW_CHARS = 6000
 
 /** Finds a page by id, by id without category (`version-groups`) or by title */
-export function resolveDoc(context: ServerContext, query: string): DocEntry | undefined {
+function resolveDoc(context: ServerContext, query: string): DocEntry | undefined {
   const { knowledge } = context
   const id = query.trim().split('#')[0]!.replace(/^\//, '').replace(/\.md$/, '').toLowerCase()
 
@@ -20,7 +20,7 @@ export function resolveDoc(context: ServerContext, query: string): DocEntry | un
     ?? knowledge.docs.find(doc => doc.title.toLowerCase() === query.trim().toLowerCase())
 }
 
-export function notFoundMessage(context: ServerContext, query: string): string {
+function notFoundMessage(context: ServerContext, query: string): string {
   const suggestions = context.search.search(query, { limit: 8 }).flatMap(hit => hit.kind === 'doc' ? [hit.doc] : []).slice(0, 5)
 
   return [

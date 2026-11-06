@@ -44,7 +44,7 @@ export function getSlackWebhookUrl(options: {
 }
 
 /** Default changelog budget of the `summary` format. */
-export const SLACK_SUMMARY_MAX_LENGTH = 2500
+const SLACK_SUMMARY_MAX_LENGTH = 2500
 
 /**
  * Resolve the changelog budget of a Slack post: `postMaxLength` when set,

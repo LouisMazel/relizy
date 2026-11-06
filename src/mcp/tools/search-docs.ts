@@ -8,7 +8,7 @@ import { firstParagraph, truncateText } from '../markdown'
 import { defineTool } from './types'
 
 /** Below this score, the results are only loosely related to the query */
-export const WEAK_MATCH_SCORE = 60
+const WEAK_MATCH_SCORE = 60
 
 export function formatDocLine(doc: DocEntry, index?: number): string {
   const prefix = index === undefined ? '-' : `${index + 1}.`

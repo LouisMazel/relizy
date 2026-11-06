@@ -12,7 +12,7 @@ import { parseJSON, parseYAML } from 'confbox'
  * - yarn (4.10+): `catalog` and `catalogs` of `.yarnrc.yml`
  * - bun: `catalog` and `catalogs` of the root `package.json`, or of its `workspaces` field
  */
-export const CATALOG_FILES = ['pnpm-workspace.yaml', '.yarnrc.yml', 'package.json'] as const
+const CATALOG_FILES = ['pnpm-workspace.yaml', '.yarnrc.yml', 'package.json'] as const
 
 export type CatalogFile = typeof CATALOG_FILES[number]
 

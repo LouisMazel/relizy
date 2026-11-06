@@ -12,7 +12,7 @@ import { code } from '../markdown'
 import { loadProjectConfig } from '../runtime'
 import { configArgSchema, readPackageSets } from './project'
 
-export const RELEASE_TYPES = ['release', 'major', 'minor', 'patch', 'prerelease', 'premajor', 'preminor', 'prepatch'] as const satisfies readonly ReleaseType[]
+const RELEASE_TYPES = ['release', 'major', 'minor', 'patch', 'prerelease', 'premajor', 'preminor', 'prepatch'] as const satisfies readonly ReleaseType[]
 
 export const releasePlanSchema = {
   config: configArgSchema,
@@ -75,7 +75,7 @@ export async function planRelease(context: ServerContext, args: ReleasePlanArgs)
   return { config, planned, sets, results }
 }
 
-export function formatCommit(commit: GitCommit): string {
+function formatCommit(commit: GitCommit): string {
   const scope = commit.scope ? `(${commit.scope})` : ''
 
   return `${commit.type}${scope}${commit.isBreaking ? '!' : ''}: ${commit.description} (${commit.shortHash})`

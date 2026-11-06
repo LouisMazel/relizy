@@ -16,7 +16,7 @@ import { readPackageJson } from './repo'
  * installed: a package must be published after the internal packages listed
  * there, and their `workspace:` specifiers must resolve to installable versions.
  */
-export const PUBLISH_DEPENDENCY_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'] as const
+const PUBLISH_DEPENDENCY_FIELDS = ['dependencies', 'peerDependencies', 'optionalDependencies'] as const
 
 type DependencyMap = Partial<Record<typeof PUBLISH_DEPENDENCY_FIELDS[number], Record<string, string>>>
 

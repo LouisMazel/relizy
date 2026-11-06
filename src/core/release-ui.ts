@@ -911,7 +911,7 @@ export function createCommandUi({ title, dryRun, logLevel, cwd }: { title: strin
   return ui
 }
 
-export function createReleaseUi({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
+function createReleaseUi({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
   const renderer = resolveRenderer()
   const options = { dryRun, verbose: VERBOSE_LEVELS.has(logLevel ?? ''), cwd }
 

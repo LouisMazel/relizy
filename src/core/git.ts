@@ -92,7 +92,7 @@ const GIT_STATUS_LABELS: Record<string, string> = {
 /**
  * The uncommitted changes of `git status --porcelain`: the path of each file and what changed
  */
-export function parseGitStatus(status: string): { path: string, change: string }[] {
+function parseGitStatus(status: string): { path: string, change: string }[] {
   return status.split('\n').filter(line => line.trim()).map((line) => {
     const code = line.slice(0, 2).trim()[0] ?? 'M'
     const path = line.slice(3).split(' -> ').at(-1)!.replace(/^"|"$/g, '')
@@ -181,34 +181,11 @@ export function detectGitProvider(cwd: string = process.cwd()): GitProvider | nu
   }
 }
 
-export function parseGitRemoteUrl(remoteUrl: string): { owner: string, repo: string } | null {
-  const sshRegex = /git@[\w.-]+:([\w.-]+)\/([\w.-]+?)(?:\.git)?$/
-  const httpsRegex = /https?:\/\/[\w.-]+\/(.+?)\/([^/]+?)(?:\.git)?$/
-
-  const sshMatch = remoteUrl.match(sshRegex)
-  if (sshMatch) {
-    return {
-      owner: sshMatch[1]!,
-      repo: sshMatch[2]!,
-    }
-  }
-
-  const httpsMatch = remoteUrl.match(httpsRegex)
-  if (httpsMatch) {
-    return {
-      owner: httpsMatch[1]!,
-      repo: httpsMatch[2]!,
-    }
-  }
-
-  return null
-}
-
 /**
  * Get files modified in git status that are relevant for release
  * Returns only package.json, CHANGELOG.md, and lerna.json files
  */
-export function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConfig }): string[] {
+function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConfig }): string[] {
   // Get git status --porcelain output WITHOUT trimming to preserve format
   const gitStatusRaw = getGitStatus(config.cwd, false)
 

@@ -13,7 +13,7 @@ import { suggestHeader } from './suggest'
 import { getAllowedScopes, getPackagesOfFiles, getWorkspacePackages } from './workspace'
 
 /** Documentation of the built-in rules */
-export const COMMITLINT_RULES_URL = 'https://relizy.dev/commitlint/rules'
+const COMMITLINT_RULES_URL = 'https://relizy.dev/commitlint/rules'
 
 export interface CommitlintProblem {
   rule: string

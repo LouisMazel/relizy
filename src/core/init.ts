@@ -234,7 +234,7 @@ export function suggestPatterns(detection: ProjectDetection, goal: InitGoal): st
 }
 
 /** Packages matched by the globs */
-export function getPackagesOfPatterns(detection: ProjectDetection, patterns: string[]): InitPackage[] {
+function getPackagesOfPatterns(detection: ProjectDetection, patterns: string[]): InitPackage[] {
   return detection.workspaces.filter(workspace => patterns.includes(workspace.pattern)).flatMap(workspace => workspace.packages)
 }
 

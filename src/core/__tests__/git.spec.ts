@@ -22,7 +22,6 @@ import {
   getFirstCommit,
   getGitStatus,
   getShortCommitSha,
-  parseGitRemoteUrl,
   pushCommitAndTags,
   rollbackModifiedFiles,
 } from '../git'
@@ -342,85 +341,6 @@ describe('Given detectGitProvider function', () => {
         encoding: 'utf8',
         stdio: ['ignore', 'pipe', 'ignore'],
       })
-    })
-  })
-})
-
-describe('Given parseGitRemoteUrl function', () => {
-  describe('When parsing SSH URLs', () => {
-    it('Then extracts owner and repo from GitHub SSH URL', () => {
-      const result = parseGitRemoteUrl('git@github.com:user/repo.git')
-
-      expect(result).toEqual({ owner: 'user', repo: 'repo' })
-    })
-
-    it('Then extracts owner and repo without .git suffix', () => {
-      const result = parseGitRemoteUrl('git@github.com:organization/project')
-
-      expect(result).toEqual({ owner: 'organization', repo: 'project' })
-    })
-
-    it('Then handles GitLab SSH URL', () => {
-      const result = parseGitRemoteUrl('git@gitlab.walkingnerds.dev:renaissance/edr.git')
-
-      expect(result).toEqual({ owner: 'renaissance', repo: 'edr' })
-    })
-
-    it('Then handles custom domain SSH URL', () => {
-      const result = parseGitRemoteUrl('git@gitlab.company.com:team/service.git')
-
-      expect(result).toEqual({ owner: 'team', repo: 'service' })
-    })
-
-    it('Then handles hyphens and dots in names', () => {
-      const result = parseGitRemoteUrl('git@github.com:my-org/my.repo.git')
-
-      expect(result).toEqual({ owner: 'my-org', repo: 'my.repo' })
-    })
-  })
-
-  describe('When parsing HTTPS URLs', () => {
-    it('Then extracts owner and repo from HTTPS URL', () => {
-      const result = parseGitRemoteUrl('https://github.com/user/repo.git')
-
-      expect(result).toEqual({ owner: 'user', repo: 'repo' })
-    })
-
-    it('Then extracts owner and repo without .git', () => {
-      const result = parseGitRemoteUrl('https://github.com/organization/project')
-
-      expect(result).toEqual({ owner: 'organization', repo: 'project' })
-    })
-
-    it('Then handles HTTP URLs', () => {
-      const result = parseGitRemoteUrl('https://gitlab.com/group/project.git')
-
-      expect(result).toEqual({ owner: 'group', repo: 'project' })
-    })
-
-    it('Then handles nested paths', () => {
-      const result = parseGitRemoteUrl('https://gitlab.walkingnerds.dev/twn/packages/eslint-config.git')
-
-      expect(result).toEqual({ owner: 'twn/packages', repo: 'eslint-config' })
-    })
-
-    it('Then handles custom domains', () => {
-      const result = parseGitRemoteUrl('https://bitbucket.company.com/team/repo.git')
-
-      expect(result).toEqual({ owner: 'team', repo: 'repo' })
-    })
-  })
-
-  describe('When URL format is invalid', () => {
-    it.each([
-      ['malformed URL', 'invalid-url'],
-      ['local path', '/local/path/to/repo'],
-      ['empty string', ''],
-      ['URL without owner/repo', 'https://github.com/'],
-    ])('Then returns null for %s', (_label, url) => {
-      const result = parseGitRemoteUrl(url)
-
-      expect(result).toBeNull()
     })
   })
 })

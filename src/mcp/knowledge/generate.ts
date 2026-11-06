@@ -13,10 +13,10 @@ import { docCategories, SCHEMA_VERSION } from './schema'
  * sources, so each build (and each release) ships the docs of its version.
  */
 
-export const HOMEPAGE = 'https://relizy.dev'
+const HOMEPAGE = 'https://relizy.dev'
 
 /** Pages that are not documentation for the users of relizy */
-export const EXCLUDED_PAGES = new Set(['index.md', 'changelog.md', 'guide/contributing.md'])
+const EXCLUDED_PAGES = new Set(['index.md', 'changelog.md', 'guide/contributing.md'])
 
 /** Doc page of the top-level config keys, `config/overview` for the others */
 export const CONFIG_DOC_IDS: Record<string, string> = {
@@ -121,11 +121,11 @@ function listMarkdownFiles(directory: string, base = directory): string[] {
 }
 
 /** Replaces the VitePress includes (`<!--@include: ./../file.md-->`) of a page with the included files */
-export function resolveIncludes(markdown: string, pageFile: string): string {
+function resolveIncludes(markdown: string, pageFile: string): string {
   return markdown.replaceAll(/<!--@include:\s*([^>\s]+)\s*-->/g, (_, path: string) => readFileSync(join(dirname(pageFile), path), 'utf8').trim())
 }
 
-export function readPages(docsDir: string): { entry: DocEntry, content: string }[] {
+function readPages(docsDir: string): { entry: DocEntry, content: string }[] {
   return listMarkdownFiles(docsDir)
     .filter(file => !EXCLUDED_PAGES.has(file))
     .sort()
@@ -390,7 +390,7 @@ export function extractConfigReference(source: string): ConfigOption[] {
   return options.filter((option, index) => options.findIndex(other => other.path === option.path) === index)
 }
 
-export function renderAgentRules(rules: string): { claudeRule: string, agentsMdSection: string } {
+function renderAgentRules(rules: string): { claudeRule: string, agentsMdSection: string } {
   return {
     claudeRule: `# relizy\n\n${rules.trim()}\n`,
     agentsMdSection: `## relizy\n\n${rules.trim()}\n`,
