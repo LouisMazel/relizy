@@ -269,7 +269,7 @@ export default defineConfig({
     }
   },
 
-  transformHead: ({ siteData, pageData, title, description, head }) => {
+  transformHead: ({ siteData, pageData, title, description }) => {
     const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
     const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
 
@@ -333,7 +333,7 @@ export default defineConfig({
       pageHead.push(getBreadcrumbList(currentUrl, pageData.title))
     }
 
-    return [...head, ...pageHead]
+    return pageHead
   },
 
   themeConfig: {
