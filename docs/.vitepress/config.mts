@@ -250,12 +250,7 @@ export default defineConfig({
 
         const url = item.url === 'index' ? '' : item.url
 
-        modifyItems.push({
-          ...item,
-          url,
-          changefreq: 'daily',
-          priority: 1,
-        })
+        modifyItems.push({ ...item, url })
       }
 
       return modifyItems
