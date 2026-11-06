@@ -249,6 +249,16 @@ describe('Given getReleaseUrl function', () => {
     })
   })
 
+  describe('When the tag is the tag of a package', () => {
+    it('Then encodes it as a single segment of the URL', () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.repo = { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' }
+
+      expect(getReleaseUrl(config, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/-/releases/@scope%2Fnav@1.3.0')
+      expect(getReleaseUrl({ ...config, repo: { ...config.repo, provider: 'github' } }, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/releases/tag/@scope%2Fnav@1.3.0')
+    })
+  })
+
   describe('When provider is GitLab', () => {
     it('Then returns GitLab release URL format', () => {
       const config = createMockConfig({ bump: { type: 'patch' } })

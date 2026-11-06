@@ -49,16 +49,19 @@ export function getReleaseUrl(config: ResolvedRelizyConfig, tag: string): string
   }
 
   const provider = repo.provider || 'github'
+  // A package tag (`@scope/name@1.0.0`) is a single segment of the URL: GitLab answers 404 to its raw `/`.
+  // `@` is valid in a path, kept readable
+  const encodedTag = encodeURIComponent(tag).replaceAll('%40', '@')
 
   if (provider === 'github') {
-    return `https://${repo.domain}/${repo.repo}/releases/tag/${tag}`
+    return `https://${repo.domain}/${repo.repo}/releases/tag/${encodedTag}`
   }
   else if (provider === 'gitlab') {
-    return `https://${repo.domain}/${repo.repo}/-/releases/${tag}`
+    return `https://${repo.domain}/${repo.repo}/-/releases/${encodedTag}`
   }
   else if (provider === 'bitbucket') {
     // Bitbucket doesn't have releases, link to the tag instead
-    return `https://${repo.domain}/${repo.repo}/commits/tag/${tag}`
+    return `https://${repo.domain}/${repo.repo}/commits/tag/${encodedTag}`
   }
 
   return undefined
