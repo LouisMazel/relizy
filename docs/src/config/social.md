@@ -39,7 +39,7 @@ Post the releases on Twitter (X). Requires `twitter-api-v2`.
 - **Type:** `boolean`
 - **Default:** `true`
 
-Do not announce the prereleases (`alpha`, `beta`, `rc`...). A post announcing several versions leaves its prereleases out, and nothing is posted when every version is a prerelease.
+Do not announce the prereleases (`alpha`, `beta`, `rc`...). A post announcing several versions leaves its prereleases out, and nothing is posted when every version is a prerelease. A release of prereleases only (`--prerelease`, `--prepatch`, `--preminor`, `--premajor`) does not check the credentials of the platform either.
 
 ### template {#twitter-template}
 

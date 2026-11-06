@@ -7,7 +7,7 @@ import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
 import { getSocialChangelog } from '../social'
-import { isPrerelease, isPrereleaseReleaseType } from '../version'
+import { isPrerelease, isPrereleaseOnlyRelease } from '../version'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -102,12 +102,12 @@ export function isAIRewritingVersion(config: ResolvedRelizyConfig, target: AIPro
 }
 
 /**
- * True when the AI of the target can run in the release: false for a
- * prerelease bump (`--prerelease`, `--preid`...) with `onlyStable`, where
- * every version keeps its raw changelog. The safety checks skip its provider then.
+ * True when the AI of the target can run in the release: false when every
+ * version is a prerelease (see `isPrereleaseOnlyRelease`) with `onlyStable`,
+ * where they keep their raw changelog. The safety checks skip its provider then.
  */
-export function isAIRunInRelease(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {
-  return !isAIOnlyStable(config, target) || !isPrereleaseReleaseType(config.bump.type)
+export function isAIRunInRelease(config: ResolvedRelizyConfig, target: AIPromptTarget, versions?: string[]): boolean {
+  return !isAIOnlyStable(config, target) || !isPrereleaseOnlyRelease(config, versions)
 }
 
 function isAIOnlyStable(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {

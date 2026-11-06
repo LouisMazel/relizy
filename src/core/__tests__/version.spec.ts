@@ -6,7 +6,7 @@ import { confirmBump, displayBump } from '../bump-confirm'
 import { setBumpConfirmation } from '../bump-prompt'
 import { RelizyCancelError } from '../errors'
 import { askConfirm } from '../prompts'
-import { capReleaseTypeForZeroMajor, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { capReleaseTypeForZeroMajor, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getKnownReleaseVersions, getPackageNewVersion, isPrereleaseOnlyRelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 vi.mock('../prompts', async importActual => ({
   ...await importActual<typeof import('../prompts')>(),
@@ -2736,5 +2736,30 @@ describe('Given determineReleaseType with a breaking peer dependency', () => {
 
   it('Then does not bump without commits nor breaking peer dependency', () => {
     expect(getReleaseType({ breakingPeer: false })).toBeUndefined()
+  })
+})
+
+describe('Given isPrereleaseOnlyRelease function', () => {
+  it('Then is true for a prerelease bump, or when every known version is a prerelease', () => {
+    expect(isPrereleaseOnlyRelease(createMockConfig({ bump: { type: 'preminor' } }))).toBe(true)
+    expect(isPrereleaseOnlyRelease(createMockConfig({ bump: { type: 'release' } }), ['2.0.0-beta.0', '1.3.0-rc.1'])).toBe(true)
+  })
+
+  it('Then is false when a stable version can be released', () => {
+    expect(isPrereleaseOnlyRelease(createMockConfig({ bump: { type: 'release' } }))).toBe(false)
+    expect(isPrereleaseOnlyRelease(createMockConfig({ bump: { type: 'patch' } }), ['2.0.0-beta.0', '1.3.0'])).toBe(false)
+    expect(isPrereleaseOnlyRelease(createMockConfig({ bump: { type: 'patch' } }), [])).toBe(false)
+  })
+})
+
+describe('Given getKnownReleaseVersions function', () => {
+  it('Then gives the versions of the bump result', () => {
+    const config = createMockConfig({ bump: { type: 'release' } })
+
+    expect(getKnownReleaseVersions({ config, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', bumpedPackages: [{ ...createMockPackageInfo({ newVersion: '1.3.0' }), oldVersion: '1.2.0' }] } })).toEqual(['2.0.0-beta.0', '1.3.0'])
+  })
+
+  it('Then gives nothing when several versions can be released without a bump result', () => {
+    expect(getKnownReleaseVersions({ config: createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } }) })).toBeUndefined()
   })
 })

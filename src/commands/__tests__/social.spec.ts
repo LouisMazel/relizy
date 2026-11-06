@@ -37,6 +37,8 @@ vi.mock('../../core', async () => ({
   generateChangelog: vi.fn().mockResolvedValue('- Feature'),
   resolveTags: vi.fn(),
   isPrerelease: vi.fn(),
+  getKnownReleaseVersions: (await vi.importActual<typeof import('../../core/version')>('../../core/version')).getKnownReleaseVersions,
+  isPrereleaseOnlyRelease: (await vi.importActual<typeof import('../../core/version')>('../../core/version')).isPrereleaseOnlyRelease,
   getTwitterCredentials: vi.fn(),
   getTweetLength: (await vi.importActual<typeof import('../../core/twitter')>('../../core/twitter')).getTweetLength,
   extractChangelogHighlights: (await vi.importActual<typeof import('../../core/social')>('../../core/social')).extractChangelogHighlights,
@@ -106,6 +108,59 @@ describe('Given socialSafetyCheck function', () => {
       vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
 
       await expect(() => socialSafetyCheck({ config })).rejects.toThrow('Error during social safety check: Slack credentials not found')
+    })
+  })
+
+  describe('When every version is a prerelease', () => {
+    beforeEach(() => {
+      vi.mocked(getTwitterCredentials).mockReturnValue(null)
+      vi.mocked(getSlackToken).mockReturnValue(null)
+      vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+    })
+
+    it('Then does not check the platforms that leave the prereleases out (onlyStable)', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        // Slack and Teams leave out the prereleases by default
+        social: { twitter: { enabled: true, onlyStable: true }, slack: { enabled: true }, teams: { enabled: true } },
+        ai: { onlyStable: false, social: { slack: { enabled: true } } },
+      })
+
+      await expect(socialSafetyCheck({ config })).resolves.toBeUndefined()
+      // The AI of a platform that posts nothing is not checked either
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+
+    it('Then knows them from the versions announced, in a command run alone', async () => {
+      const config = createMockConfig({ bump: { type: 'release' }, social: { slack: { enabled: true } } })
+
+      await expect(socialSafetyCheck({ config, versions: ['2.0.0-beta.0', '1.3.0-beta.1'] })).resolves.toBeUndefined()
+      await expect(socialSafetyCheck({ config, versions: ['2.0.0-beta.0', '1.3.0'] })).rejects.toThrow('Slack credentials not found')
+    })
+
+    it('Then still checks a platform that announces the prereleases', async () => {
+      const config = createMockConfig({ bump: { type: 'prerelease' }, social: { twitter: { enabled: true, onlyStable: false } } })
+
+      await expect(socialSafetyCheck({ config })).rejects.toThrow('Twitter credentials not found')
+    })
+  })
+
+  describe('When every version group is left out of the posts', () => {
+    it('Then checks nothing', async () => {
+      vi.mocked(getSlackToken).mockReturnValue(null)
+      vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
+      const config = createMockConfig({ bump: { type: 'patch' }, social: { slack: { enabled: true } } })
+      config.monorepo = {
+        groups: [
+          { name: 'main', versionMode: 'selective', packages: ['packages/*'], release: { social: false } },
+          { name: 'tooling', versionMode: 'independent', packages: ['tooling/*'], release: { social: false } },
+        ],
+      }
+
+      await expect(socialSafetyCheck({ config })).resolves.toBeUndefined()
+
+      config.monorepo.groups![1]!.release = undefined
+      await expect(socialSafetyCheck({ config })).rejects.toThrow('Slack credentials not found')
     })
   })
 

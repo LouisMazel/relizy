@@ -6,7 +6,7 @@ import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackCh
 import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getKnownReleaseVersions, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, isPrereleaseOnlyRelease, isStepLeftOutByEveryGroup, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAIRunInRelease, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -35,8 +35,29 @@ export function isAnySocialPlatformEnabled(config: ResolvedRelizyConfig): boolea
   return Boolean(config.social?.twitter?.enabled || config.social?.slack?.enabled || config.social?.teams?.enabled)
 }
 
+/**
+ * True when the platform can post in the release: enabled, and not left out
+ * by its `onlyStable` when every version is a prerelease
+ */
+function isPostedInRelease(config: ResolvedRelizyConfig, platform: AISocialPlatform, versions?: string[]): boolean {
+  if (!config.social?.[platform]?.enabled) {
+    return false
+  }
+
+  // As the posts: `onlyStable` is on by default for Slack and Teams
+  const onlyStable = platform === 'twitter' ? !!config.social.twitter.onlyStable : config.social[platform]?.onlyStable ?? true
+
+  return !onlyStable || !isPrereleaseOnlyRelease(config, versions)
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
-export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
+export async function socialSafetyCheck({ config, versions }: {
+  config: ResolvedRelizyConfig
+  /**
+   * The versions announced, when known before the run (`getKnownReleaseVersions`)
+   */
+  versions?: string[]
+}) {
   try {
     const socialMediaDisabled = !config.release.social && !isAnySocialPlatformEnabled(config)
     if (!config.safetyCheck || socialMediaDisabled) {
@@ -44,11 +65,16 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
       return
     }
 
+    if (isStepLeftOutByEveryGroup(config, 'social')) {
+      logger.debug('Every version group is left out of the social posts (release.social: false)')
+      return
+    }
+
     logger.debug('Start checking social config')
 
-    // Check Twitter configuration
+    // A platform that posts nothing (prerelease with `onlyStable`) is not checked
     const twitterConfig = config.social?.twitter
-    if (twitterConfig?.enabled) {
+    if (isPostedInRelease(config, 'twitter', versions)) {
       const credentials = getTwitterCredentials({
         socialCredentials: twitterConfig.credentials,
         tokenCredentials: config.tokens?.twitter,
@@ -71,7 +97,7 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
 
     // Check Slack configuration
     const slackConfig = config.social?.slack
-    if (slackConfig?.enabled) {
+    if (isPostedInRelease(config, 'slack', versions)) {
       const webhookUrl = getSlackWebhookUrl({ socialWebhookUrl: slackConfig.webhookUrl })
       const token = getSlackToken({
         socialCredentials: slackConfig.credentials,
@@ -116,7 +142,7 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
     }
 
     // Check Teams configuration
-    if (config.social?.teams?.enabled) {
+    if (isPostedInRelease(config, 'teams', versions)) {
       const webhookUrl = getTeamsWebhookUrl({ socialWebhookUrl: config.social.teams.webhookUrl })
 
       if (!webhookUrl) {
@@ -132,8 +158,8 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
       }
     }
 
-    // No AI call for a prerelease bump with `onlyStable`: its provider is not checked
-    if ((['twitter', 'slack', 'teams'] as const).some(platform => isAISocialEnabled(config, platform) && isAIRunInRelease(config, platform))) {
+    // No AI call for a platform that posts nothing, nor for prereleases with the `onlyStable` of the AI
+    if ((['twitter', 'slack', 'teams'] as const).some(platform => isPostedInRelease(config, platform, versions) && isAISocialEnabled(config, platform) && isAIRunInRelease(config, platform, versions))) {
       await aiSafetyCheck({ config })
     }
 
@@ -1190,7 +1216,7 @@ async function postRelease({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<SocialResult> {
   // Safety check
-  await socialSafetyCheck({ config })
+  await socialSafetyCheck({ config, versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }) })
 
   if (!config.release.social && !isAnySocialPlatformEnabled(config)) {
     logger.warn('Social media posting is disabled in configuration.')

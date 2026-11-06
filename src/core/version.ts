@@ -1,5 +1,5 @@
 import type { ReleaseType } from 'semver'
-import type { GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types'
+import type { BumpResultTruthy, GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -8,7 +8,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
 import { recordReleaseFile } from './release-files'
-import { hasLernaJson } from './repo'
+import { hasLernaJson, readPackageJson } from './repo'
 
 export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
   const isSameBase = semver.major(version) === semver.major(newVersion)
@@ -487,6 +487,37 @@ export function isStableReleaseType(releaseType: ReleaseType): boolean {
 export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
   const prereleaseTypes = ['prerelease', 'premajor', 'preminor', 'prepatch']
   return prereleaseTypes.includes(releaseType)
+}
+
+/**
+ * The versions a command announces when they are known before it runs: those
+ * of its bump result, else the version of the root `package.json` (one
+ * version, without version groups nor `independent` mode). Undefined when
+ * unknown, as in `relizy release` before its bump.
+ */
+export function getKnownReleaseVersions({ config, bumpResult }: { config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy }): string[] | undefined {
+  if (bumpResult) {
+    const versions = [bumpResult.newVersion, ...(bumpResult.groups ?? []).map(group => group.newVersion), ...bumpResult.bumpedPackages.map(pkg => pkg.newVersion)]
+    const known = versions.filter((version): version is string => Boolean(version))
+    return known.length > 0 ? known : undefined
+  }
+
+  if (config.monorepo?.groups?.length || config.monorepo?.versionMode === 'independent') {
+    return undefined
+  }
+
+  const version = readPackageJson(config.cwd)?.version
+  return version ? [version] : undefined
+}
+
+/**
+ * True when every version of the release is a prerelease: a prerelease bump
+ * (`--prerelease`, `--prepatch`, `--preminor`, `--premajor`), or versions
+ * known before the run that are all prereleases. The steps with `onlyStable`
+ * then do nothing, and their safety checks are skipped.
+ */
+export function isPrereleaseOnlyRelease(config: ResolvedRelizyConfig, versions?: string[]): boolean {
+  return isPrereleaseReleaseType(config.bump.type) || (versions !== undefined && versions.length > 0 && versions.every(version => isPrerelease(version)))
 }
 
 export function isGraduating(currentVersion: string, releaseType: ReleaseType): boolean {

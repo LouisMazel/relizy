@@ -46,6 +46,14 @@ export function hasVersionGroups(config: ResolvedRelizyConfig): boolean {
   return Boolean(config.monorepo?.groups?.length) && !groupConfigs.has(config)
 }
 
+/**
+ * True when every version group leaves its packages out of the step
+ * (`release: { providerRelease: false }`): the step does nothing, its safety check is skipped
+ */
+export function isStepLeftOutByEveryGroup(config: ResolvedRelizyConfig, step: 'providerRelease' | 'social'): boolean {
+  return hasVersionGroups(config) && config.monorepo!.groups!.every(group => group.release?.[step] === false)
+}
+
 function isRootVersionMode(versionMode: VersionMode): boolean {
   return versionMode !== 'independent'
 }

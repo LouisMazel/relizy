@@ -175,6 +175,23 @@ describe('Given providerReleaseSafetyCheck', () => {
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
 
+    it('Then knows them from the versions released, in a command run alone', async () => {
+      const config = createMockConfig({
+        bump: { type: 'release' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+
+      await providerReleaseSafetyCheck({ config, provider: 'github', versions: ['2.0.0-beta.1'] })
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+
+      await providerReleaseSafetyCheck({ config, provider: 'github', versions: ['2.0.0'] })
+      expect(aiSafetyCheck).toHaveBeenCalled()
+    })
+
     it('Then checks it when the onlyStable of the AI is off', async () => {
       await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true, onlyStable: false } }), provider: 'github' })
 
@@ -225,6 +242,26 @@ describe('Given providerReleaseSafetyCheck', () => {
     it('Then does not check it with the ai option disabled', async () => {
       await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github', ai: false })
 
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+
+    it('Then does not check it for a group left out of the provider releases', async () => {
+      const config = createGroupAIConfig()
+      config.monorepo!.groups![1]!.release = { providerRelease: false }
+
+      await providerReleaseSafetyCheck({ config, provider: 'github' })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+
+    it('Then checks nothing, not even the token, when every group is left out', async () => {
+      const config = createGroupAIConfig()
+      config.tokens = { ...config.tokens, github: undefined }
+      for (const group of config.monorepo!.groups!) {
+        group.release = { providerRelease: false }
+      }
+
+      await expect(providerReleaseSafetyCheck({ config, provider: 'github' })).resolves.toBeUndefined()
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })

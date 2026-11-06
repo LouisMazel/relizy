@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, detectGitProvider, executeHook, getReleaseTargets, github, gitlab, hasVersionGroups, loadRelizyConfig } from '../core'
+import { assertVersionGroupsOption, detectGitProvider, executeHook, getKnownReleaseVersions, getReleaseTargets, github, gitlab, hasVersionGroups, isStepLeftOutByEveryGroup, loadRelizyConfig } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled, isAIRunInRelease } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -11,29 +11,44 @@ import { runCommand } from './run-command'
 /**
  * True when a provider release of the run uses AI: the `ai` option of the run
  * (`--ai`/`--no-ai`) wins, then the `ai.providerRelease` options of the config
- * and of the version groups. Never for a prerelease bump with `onlyStable`.
+ * and of the version groups that create their releases. Never when every
+ * version is a prerelease with `onlyStable`.
  */
-function usesAIProviderRelease(config: ResolvedRelizyConfig, ai?: boolean): boolean {
+function usesAIProviderRelease(config: ResolvedRelizyConfig, ai?: boolean, versions?: string[]): boolean {
   if (ai !== undefined) {
-    return ai && isAIRunInRelease(config, 'providerRelease')
+    return ai && isAIRunInRelease(config, 'providerRelease', versions)
   }
 
-  const usesAI = (targetConfig: ResolvedRelizyConfig) => isAIProviderReleaseEnabled(targetConfig) && isAIRunInRelease(targetConfig, 'providerRelease')
+  const usesAI = (targetConfig: ResolvedRelizyConfig) => isAIProviderReleaseEnabled(targetConfig) && isAIRunInRelease(targetConfig, 'providerRelease', versions)
 
-  return usesAI(config)
-    || (hasVersionGroups(config) && config.monorepo!.groups!.some(group => usesAI({ ...config, ai: { ...config.ai, ...group.ai } })))
+  if (!hasVersionGroups(config)) {
+    return usesAI(config)
+  }
+
+  // The groups that create their releases, with their own AI options
+  const groups = config.monorepo!.groups!.filter(group => group.release?.providerRelease !== false)
+  return groups.some(group => usesAI({ ...config, ai: { ...config.ai, ...group.ai } }))
 }
 
-export async function providerReleaseSafetyCheck({ config, provider, ai }: {
+export async function providerReleaseSafetyCheck({ config, provider, ai, versions }: {
   config: ResolvedRelizyConfig
   provider?: GitProvider | null
   /**
    * `ai` option of the run, overriding the AI options of the config
    */
   ai?: boolean
+  /**
+   * The versions released, when known before the run (`getKnownReleaseVersions`)
+   */
+  versions?: string[]
 }) {
   if (!config.safetyCheck || !config.release.providerRelease) {
     logger.debug('Safety check disabled or provider release disabled')
+    return
+  }
+
+  if (isStepLeftOutByEveryGroup(config, 'providerRelease')) {
+    logger.debug('Every version group is left out of the provider releases (release.providerRelease: false)')
     return
   }
 
@@ -64,7 +79,7 @@ export async function providerReleaseSafetyCheck({ config, provider, ai }: {
     throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://relizy.dev/config/overview#tokens`)
   }
 
-  if (usesAIProviderRelease(config, ai)) {
+  if (usesAIProviderRelease(config, ai, versions)) {
     await aiSafetyCheck({ config })
   }
 
@@ -204,7 +219,7 @@ function runProviderRelease(
         run: async (): Promise<ProviderReleaseResult> => {
           detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
           reportProgress('Checking the release')
-          await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai })
+          await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai, versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }) })
 
           await executeHook('before:provider-release', config, dryRun, hookContext)
 
