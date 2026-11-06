@@ -883,7 +883,7 @@ export interface ReleaseReportConfig {
   /**
    * In GitHub Actions, write the outputs of the step (`released`, `status`,
    * `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`,
-   * `install`, `report`, `summary`) and the summary of the run
+   * `install`, `failed_steps`, `report`, `summary`) and the summary of the run
    * @default true
    */
   github?: boolean

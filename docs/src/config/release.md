@@ -68,6 +68,7 @@ Report of the release, to run something only when a release happens (see [CI/CD]
 | `dist_tags`              | The dist-tags of the published versions, comma-separated (`publish.tag`, not the `tag` of the `registries`)                                            |
 | `urls`                   | What the release created (npm pages, provider releases, tweet, pull request), comma-separated                                                          |
 | `install`                | The command installing the published versions (up to 3 packages), not in the dotenv file                                                               |
+| `failed_steps`           | The steps that failed without stopping the release (`social`, `providerRelease`, `prComment`), comma-separated, empty when none failed                 |
 | `group_<name>_version`   | The version of a `unified`/`selective` group of `monorepo.groups` released (`group_ecosystem_version`)                                                 |
 | `package_<name>_version` | The new version of a released package (`@acme/ui-kit` gives `package_acme_ui_kit_version`)                                                             |
 

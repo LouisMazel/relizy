@@ -140,6 +140,7 @@ describe('Given the renderers of the release report', () => {
       dist_tags: '',
       urls: '',
       install: '',
+      failed_steps: 'social',
       group_main_version: '5.2.1',
       package_maz_ui_version: '5.2.1',
       package_maz_ui_eslint_config_version: '5.1.0',
@@ -150,6 +151,7 @@ describe('Given the renderers of the release report', () => {
       dist_tags: 'latest',
       urls: 'https://www.npmjs.com/package/relizy/v/2.0.0,https://github.com/user/relizy/releases/tag/v2.0.0',
       install: 'pnpm add relizy@2.0.0',
+      failed_steps: '',
     }))
     expect(getReleaseReportOutputs(nothing)).toEqual(expect.objectContaining({ released: 'false', status: 'nothing', version: '', tags: '', packages: '' }))
   })
@@ -213,7 +215,7 @@ describe('Given writeReleaseReport function', () => {
     writeReleaseReport({ config: { ...config, cwd, release: { ...config.release, report: { json: 'reports/relizy.json', dotenv: 'relizy.env', markdown: 'reports/summary.md' } } }, report: nothing })
 
     expect(JSON.parse(readFileSync(join(cwd, 'reports/relizy.json'), 'utf8'))).toEqual(nothing)
-    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\n')
+    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\nRELIZY_FAILED_STEPS=\n')
     expect(readFileSync(join(cwd, 'reports/summary.md'), 'utf8')).toBe(formatReleaseReportMarkdown(nothing))
   })
 

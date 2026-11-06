@@ -362,7 +362,8 @@ function toOutputName(name: string): string {
 /**
  * The outputs of the report: `released`, `status`, `version`, `tags`,
  * `packages` (comma-separated `name@version`), `branch`, `commit`,
- * `dist_tags`, `urls` (what the release created) and `install`. When the
+ * `dist_tags`, `urls` (what the release created), `install` and
+ * `failed_steps` (the steps that failed without stopping it). When the
  * release happened, also `group_<name>_version` for each `unified`/`selective`
  * version group and `package_<name>_version` for each released package
  */
@@ -386,6 +387,7 @@ export function getReleaseReportOutputs(report: ReleaseReport): Record<string, s
     dist_tags: report.publish?.tags.join(',') ?? '',
     urls: report.steps.flatMap(step => step.links ?? []).map(link => link.url).join(','),
     install: report.publish?.install ?? '',
+    failed_steps: report.steps.filter(step => step.status === 'failed').map(step => step.name).join(','),
     ...versions,
   }
 }
