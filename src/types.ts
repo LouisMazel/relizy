@@ -777,10 +777,6 @@ export interface PublishConfig {
    */
   otp?: string
   /**
-   * Glob pattern matching for packages to publish
-   */
-  packages?: string[]
-  /**
    * Command to build your packages before publishing (e.g. `pnpm build`)
    */
   buildCmd?: string
@@ -1891,10 +1887,6 @@ export interface RelizyConfig {
    * End tag
    */
   to?: string
-  /**
-   * New version of the release
-   */
-  newVersion?: string
   /**
    * Renames the scopes of the commits in the changelog (`{ ui: 'components' }`).
    * Its keys are also allowed scopes for `relizy commitlint`.

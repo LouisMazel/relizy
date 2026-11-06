@@ -36,20 +36,20 @@ An array of the config replaces the default one instead of being merged with it:
 
 ## Sections
 
-| Key                                                                                                                                                            | Page                                    |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| `monorepo`                                                                                                                                                     | [Monorepo](./monorepo.md)               |
-| `bump`                                                                                                                                                         | [Bump](./bump.md)                       |
-| `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                                         | [Changelog](./changelog.md)             |
-| `publish`                                                                                                                                                      | [Publish](./publish.md)                 |
-| `release`                                                                                                                                                      | [Release](./release.md)                 |
-| `templates`                                                                                                                                                    | [Templates](./commit-templates.md)      |
-| `ai`                                                                                                                                                           | [AI](./ai.md)                           |
-| `social`                                                                                                                                                       | [Social](./social.md)                   |
-| `prComment`                                                                                                                                                    | [PR Comment](./pr-comment.md)           |
-| `hooks`                                                                                                                                                        | [Hooks](./hooks.md)                     |
-| `commitlint`                                                                                                                                                   | [Commitlint](./../commitlint/config.md) |
-| `projectName`, `cwd`, `from`, `to`, `newVersion`, `logLevel`, `safetyCheck`, `signTags`, `scopeMap`, `repo`, `tokens`, `detectRewrittenTags`, `onRewrittenTag` | This page                               |
+| Key                                                                                                                                              | Page                                    |
+| ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
+| `monorepo`                                                                                                                                       | [Monorepo](./monorepo.md)               |
+| `bump`                                                                                                                                           | [Bump](./bump.md)                       |
+| `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                           | [Changelog](./changelog.md)             |
+| `publish`                                                                                                                                        | [Publish](./publish.md)                 |
+| `release`                                                                                                                                        | [Release](./release.md)                 |
+| `templates`                                                                                                                                      | [Templates](./commit-templates.md)      |
+| `ai`                                                                                                                                             | [AI](./ai.md)                           |
+| `social`                                                                                                                                         | [Social](./social.md)                   |
+| `prComment`                                                                                                                                      | [PR Comment](./pr-comment.md)           |
+| `hooks`                                                                                                                                          | [Hooks](./hooks.md)                     |
+| `commitlint`                                                                                                                                     | [Commitlint](./../commitlint/config.md) |
+| `projectName`, `cwd`, `from`, `to`, `logLevel`, `safetyCheck`, `signTags`, `scopeMap`, `repo`, `tokens`, `detectRewrittenTags`, `onRewrittenTag` | This page                               |
 
 ## projectName
 
@@ -72,12 +72,6 @@ Root of the project: where the config, the packages, the git repository and the 
 - **CLI:** `--from <ref>`, `--to <ref>`
 
 Git range of the commits read by the changelog, the provider release and the social posts.
-
-## newVersion
-
-- **Type:** `string`
-
-Declared in the types, not read by the commands: the new versions come from the bump.
 
 ## logLevel
 

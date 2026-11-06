@@ -37,6 +37,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Removed ignorePackageNames](#removed-ignorepackagenames)     | `monorepo.ignorePackageNames`                                        | Use `monorepo.ignored`                                                        |
 | [Registry token](#registry-token)                             | `publish.token`                                                      | Use `tokens.registry`                                                         |
 | [Repository token](#repository-token)                         | `repo.token`                                                         | Use `tokens.github` or `tokens.gitlab`                                        |
+| [Options never read](#options-never-read)                     | `newVersion`, `publish.packages`                                     | Remove them                                                                   |
 | [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                  | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                       | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                   | None                                                                          |
@@ -224,6 +225,10 @@ export default defineConfig({
   tokens: { registry: process.env.MY_NPM_TOKEN },
 })
 ```
+
+### Options Never Read
+
+The root `newVersion` option and `publish.packages` are removed: relizy never read them. Remove them from your config. To leave a package out of the release, use [`monorepo.ignored`](./../config/monorepo.md#ignored).
 
 ### Removed publish.private
 

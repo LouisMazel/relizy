@@ -28,8 +28,6 @@ The options are the flags of [`relizy release`](./../cli/release.md#options), ca
 - **Social and PR comment**: `social`, `slackFormat`, `prComment`, `prNumber`
 - **Run**: `report`, `safetyCheck`, `configName`, `dryRun`, `logLevel`, `groups`
 
-Its `packages` field (of the publish config) is not read.
-
 See [ReleaseOptions](./../typedoc/interfaces/ReleaseOptions.md) and [ReleaseReport](./../typedoc/interfaces/ReleaseReport.md) for the types.
 
 ## Examples

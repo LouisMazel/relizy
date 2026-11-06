@@ -36,7 +36,7 @@ The flags of [`relizy publish`](./../cli/publish.md#options), camelCased, and th
 | `safetyCheckTimeout`         | Overrides [`publish.safetyCheckTimeout`](./../config/publish.md#safetychecktimeout)                 |
 | `force`, `suffix`            | Without `bumpResult`, as for [`bump()`](./bump.md)                                                  |
 
-Its `packages` field is not read. See [PublishOptions](./../typedoc/interfaces/PublishOptions.md).
+See [PublishOptions](./../typedoc/interfaces/PublishOptions.md).
 
 ## Examples
 

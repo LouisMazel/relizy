@@ -74,13 +74,6 @@ Relizy writes the token, with the `@scope:registry` of scoped packages, to the `
 
 Command run once from the root before publishing (`pnpm build`), after the versions are written. Not run in dry-run.
 
-## packages
-
-- **Type:** `string[]`
-- **Default:** none
-
-Declared in the types, not read by `publish`: the published packages are the released ones that are not private. To leave a package out, use [`monorepo.ignored`](./monorepo.md#ignored) or make it private.
-
 ## args
 
 - **Type:** `string[]`

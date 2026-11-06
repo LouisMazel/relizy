@@ -170,6 +170,21 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     })
   }
 
+  const neverRead = [
+    ...((config as { newVersion?: unknown }).newVersion === undefined ? [] : [{ option: 'newVersion', pattern: /\bnewVersion\s*:/ }]),
+    ...((config.publish as { packages?: unknown } | undefined)?.packages === undefined ? [] : [{ option: 'publish.packages', pattern: /\bpackages\s*:/ }]),
+  ]
+
+  for (const { option, pattern } of neverRead) {
+    findings.push({
+      severity: 'change',
+      title: `\`${option}\` is removed`,
+      section: 'Options Never Read',
+      detail: 'relizy never read it: remove it from the config.',
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, pattern))),
+    })
+  }
+
   if ((config.repo as { token?: unknown } | undefined)?.token !== undefined) {
     findings.push({
       severity: 'change',

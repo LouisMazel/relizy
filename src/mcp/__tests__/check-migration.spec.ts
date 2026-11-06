@@ -176,6 +176,18 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**The `relizy/types` entry is removed** (`scripts/release.ts:1`)')
   })
 
+  it('Then points out the options relizy never read: newVersion and publish.packages', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  newVersion: '2.0.0',\n  publish: {\n    packages: ['packages/*'],\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`newVersion` is removed** (`relizy.config.mjs:2`)')
+    expect(text).toContain('**`publish.packages` is removed** (`relizy.config.mjs:4`)')
+  })
+
   it('Then points out the removed repo.token', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
