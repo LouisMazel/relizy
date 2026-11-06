@@ -5,7 +5,7 @@ import type { AIReleaseContext } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, createCommandUi, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getGroupBumpResult, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isFancyUi, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveVersionGroups, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, collectContributorNames, createCommandUi, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isFancyUi, isPrerelease, isRelizyCancelError, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
@@ -482,36 +482,29 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<{ overview: ReleaseOverview, versions: AnnouncedVersion[], commits: GitCommit[], rootTag?: string }> {
   const collected: { name?: string, release: CollectedRelease }[] = []
-  let bumpResult: BumpResultTruthy
 
-  if (hasVersionGroups(config)) {
-    const groups: GroupBumpResult[] = []
+  const groups: GroupBumpResult[] = []
+  const targets = getReleaseTargets({
+    config,
+    bumpResult: options.bumpResult,
+    only: options.groups,
+    nothing: 'nothing to post',
+    leftOut: groupConfig => groupConfig.release.social === false ? 'left out of the social posts (release.social: false)' : undefined,
+  })
 
-    for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-      const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+  for (const { group, config: targetConfig, bumpResult: targetBumpResult } of targets) {
+    const release = await collectRelease({ config: targetConfig, options, bumpResult: targetBumpResult, dryRun })
+    collected.push({ name: group?.name, release })
 
-      if (groupBumpResult === null) {
-        logger.debug(`Version group "${group.name}" did not bump, nothing to post`)
-        continue
-      }
-
-      if (groupConfig.release.social === false) {
-        logger.info(`Version group "${group.name}" is left out of the social posts (release.social: false)`)
-        continue
-      }
-
-      const release = await collectRelease({ config: groupConfig, options, bumpResult: groupBumpResult, dryRun })
-      collected.push({ name: group.name, release })
+    if (group) {
       groups.push({ ...release.released, name: group.name, title: getVersionGroupTitle(group), versionMode: group.versionMode })
     }
+  }
 
-    bumpResult = { bumped: true, bumpedPackages: groups.flatMap(group => group.bumpedPackages), groups }
-  }
-  else {
-    const release = await collectRelease({ config, options, bumpResult: options.bumpResult, dryRun })
-    collected.push({ release })
-    bumpResult = release.released
-  }
+  // Without version groups, the single release collected
+  const bumpResult: BumpResultTruthy = hasVersionGroups(config)
+    ? { bumped: true, bumpedPackages: groups.flatMap(group => group.bumpedPackages), groups }
+    : collected[0]!.release.released
 
   const overview = withoutPrivatePackages(getReleaseOverview({ config, bumpResult }))
   const commitsByHash = new Map<string, GitCommit>()

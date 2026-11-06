@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, createCommandUi, detectGitProvider, executeHook, getGroupBumpResult, getHookContext, github, gitlab, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, resolveVersionGroups } from '../core'
+import { assertVersionGroupsOption, createCommandUi, detectGitProvider, executeHook, getHookContext, getReleaseTargets, github, gitlab, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
@@ -106,9 +106,10 @@ function postProviderReleases({
 }
 
 /**
- * Post the releases of each version group, with the config of the group
+ * Post the releases of the config, or of each version group with the config
+ * of the group
  */
-async function postVersionGroupsReleases({
+async function postReleases({
   provider,
   config,
   options,
@@ -121,26 +122,24 @@ async function postVersionGroupsReleases({
 }): Promise<PostedRelease[]> {
   const postedReleases: PostedRelease[] = []
 
-  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-    const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
+  const targets = getReleaseTargets({
+    config,
+    bumpResult: options.bumpResult,
+    only: options.groups,
+    nothing: 'no release to publish',
+    leftOut: groupConfig => groupConfig.release.providerRelease === false ? 'left out of the provider releases (release.providerRelease: false)' : undefined,
+  })
 
-    if (groupBumpResult === null) {
-      logger.debug(`Version group "${group.name}" did not bump, no release to publish`)
-      continue
+  for (const target of targets) {
+    if (target.group) {
+      // The --ai/--no-ai option wins over the ai options of the group
+      applyAIOverride(target.config, options.ai)
     }
-
-    if (groupConfig.release.providerRelease === false) {
-      logger.info(`Skipping the provider releases of version group "${group.name}" (release.providerRelease: false)`)
-      continue
-    }
-
-    // The --ai/--no-ai option wins over the ai options of the group
-    applyAIOverride(groupConfig, options.ai)
 
     postedReleases.push(...await postProviderReleases({
       provider,
-      config: groupConfig,
-      bumpResult: groupBumpResult,
+      config: target.config,
+      bumpResult: target.bumpResult,
       options,
       dryRun,
     }))
@@ -228,15 +227,7 @@ async function runProviderRelease(
           }
         }
 
-        const postedReleases: PostedRelease[] = hasVersionGroups(config)
-          ? await postVersionGroupsReleases({ provider: detectedProvider, config, options, dryRun })
-          : await postProviderReleases({
-              provider: detectedProvider,
-              config,
-              bumpResult: options.bumpResult,
-              options,
-              dryRun,
-            })
+        const postedReleases = await postReleases({ provider: detectedProvider, config, options, dryRun })
 
         await executeHook('success:provider-release', config, dryRun, hookContext)
 

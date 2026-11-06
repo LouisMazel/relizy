@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getHookContext, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
@@ -309,30 +309,14 @@ async function writeChangelogs({ config, options, dryRun }: {
 
   const written: string[] = []
 
-  if (hasVersionGroups(config)) {
-    for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-      const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
-
-      if (groupBumpResult === null) {
-        logger.debug(`Version group "${group.name}" did not bump, no changelog to generate`)
-        continue
-      }
-
-      logger.debug(`Generating changelogs of version group "${group.name}"`)
-
-      written.push(...await generateChangelogs({
-        config: groupConfig,
-        bumpResult: groupBumpResult,
-        dryRun,
-        force: options.force ?? false,
-        suffix: options.suffix,
-      }))
+  for (const target of getReleaseTargets({ config, bumpResult: options.bumpResult, only: options.groups, nothing: 'no changelog to generate' })) {
+    if (target.group) {
+      logger.debug(`Generating changelogs of version group "${target.group.name}"`)
     }
-  }
-  else {
+
     written.push(...await generateChangelogs({
-      config,
-      bumpResult: options.bumpResult,
+      config: target.config,
+      bumpResult: target.bumpResult,
       dryRun,
       force: options.force ?? false,
       suffix: options.suffix,

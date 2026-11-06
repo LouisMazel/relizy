@@ -10,6 +10,7 @@ import {
   assignPackagesToGroups,
   getGroupBumpResult,
   getMonorepoPackagePatterns,
+  getReleaseTargets,
   getRootGroupBumpResult,
   getVersionGroupName,
   hasRepositoryVersion,
@@ -441,6 +442,43 @@ describe('Given the bump results of the groups', () => {
       expect(getRootGroupBumpResult(groups)).toBeUndefined()
       expect(getRootGroupBumpResult(undefined)).toBeUndefined()
     })
+  })
+})
+
+describe('Given getReleaseTargets function', () => {
+  const header: GroupBumpResult = { bumped: true, bumpedPackages: [bumpedPackage('@scope/nav', '1.1.0')], name: 'header', title: 'header', versionMode: 'independent' }
+
+  it('Then gives the config and its bump result as is without version groups', () => {
+    const config = createMockConfig({ bump: { type: 'release' } })
+    const bumpResult: BumpResultTruthy = { bumped: true, bumpedPackages: [] }
+
+    expect([...getReleaseTargets({ config, bumpResult, nothing: 'nothing to do', leftOut: () => 'left out' })]).toEqual([{ config, bumpResult }])
+  })
+
+  it('Then gives each group that bumped with its config and its bump result, and logs the skipped ones', () => {
+    const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP])
+    const debug = vi.spyOn(logger, 'debug')
+
+    const targets = [...getReleaseTargets({ config, bumpResult: { bumped: true, bumpedPackages: header.bumpedPackages, groups: [header] }, nothing: 'nothing to do' })]
+
+    expect(targets).toEqual([{ group: HEADER_GROUP, config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }), bumpResult: header }])
+    expect(debug).toHaveBeenCalledWith('Version group "main" did not bump, nothing to do')
+  })
+
+  it('Then gives every targeted group without bump result, and leaves out the ones with a reason', () => {
+    const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP, { ...HEADER_GROUP, name: 'other', packages: ['apps/*'] }])
+    const info = vi.spyOn(logger, 'info')
+
+    const targets = [...getReleaseTargets({
+      config,
+      bumpResult: undefined,
+      only: ['header', 'other'],
+      nothing: 'nothing to do',
+      leftOut: groupConfig => getVersionGroupName(groupConfig) === 'other' ? 'left out of the step' : undefined,
+    })]
+
+    expect(targets.map(({ group, bumpResult }) => [group?.name, bumpResult])).toEqual([['header', undefined]])
+    expect(info).toHaveBeenCalledWith('Version group "other" is left out of the step')
   })
 })
 

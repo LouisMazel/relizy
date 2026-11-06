@@ -317,6 +317,63 @@ export function getGroupBumpResult(bumpResult: BumpResultTruthy | undefined, nam
 }
 
 /**
+ * A config a step of the release (changelog, publish, provider release,
+ * social posts) runs with: the config without version groups, else a group
+ */
+export interface ReleaseTarget {
+  /** Undefined without version groups */
+  group?: VersionGroup
+  config: ResolvedRelizyConfig
+  /** The bump result of the config or of the group, undefined when the step computes it */
+  bumpResult: BumpResultTruthy | undefined
+}
+
+/**
+ * The configs a step runs with: the config itself without version groups,
+ * else the targeted groups (`only`) that bumped, in their declaration order,
+ * each with its config and its bump result. The groups that did not bump and
+ * the ones `leftOut` returns a reason for are logged and skipped.
+ */
+export function* getReleaseTargets({
+  config,
+  bumpResult,
+  only,
+  nothing,
+  leftOut,
+}: {
+  config: ResolvedRelizyConfig
+  bumpResult: BumpResultTruthy | undefined
+  only?: string[]
+  /** What the step does not do for a group that did not bump: `no changelog to generate` */
+  nothing: string
+  /** Why a group is left out of the step (`left out of the social posts (release.social: false)`), undefined to run it */
+  leftOut?: (groupConfig: ResolvedRelizyConfig) => string | undefined
+}): Generator<ReleaseTarget> {
+  if (!hasVersionGroups(config)) {
+    yield { config, bumpResult }
+    return
+  }
+
+  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only })) {
+    const groupBumpResult = getGroupBumpResult(bumpResult, group.name)
+
+    if (groupBumpResult === null) {
+      logger.debug(`Version group "${group.name}" did not bump, ${nothing}`)
+      continue
+    }
+
+    const reason = leftOut?.(groupConfig)
+
+    if (reason) {
+      logger.info(`Version group "${group.name}" is ${reason}`)
+      continue
+    }
+
+    yield { group, config: groupConfig, bumpResult: groupBumpResult }
+  }
+}
+
+/**
  * Merge the results of the groups into one bump result (see `BumpResultTruthy.groups`).
  */
 export function mergeGroupBumpResults(results: { group: VersionGroup, result: BumpResult }[]): BumpResult {

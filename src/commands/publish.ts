@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getHookContext, getIndependentTag, getMonorepoPackagePatterns, getReleaseTargets, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -185,23 +185,16 @@ async function getGroupsPackagesToPublish({
 }): Promise<PackagesToPublish> {
   const publishedPackages: PackageBase[] = []
 
-  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only: options.groups })) {
-    const groupBumpResult = getGroupBumpResult(options.bumpResult, group.name)
-
-    if (groupBumpResult === null) {
-      logger.debug(`Version group "${group.name}" did not bump, nothing to publish`)
-      continue
-    }
-
+  for (const { group, config: groupConfig, bumpResult } of getReleaseTargets({ config, bumpResult: options.bumpResult, only: options.groups, nothing: 'nothing to publish' })) {
     const { publishedPackages: groupPackages } = await getPackagesToPublish({
       config: groupConfig,
-      bumpResult: groupBumpResult,
+      bumpResult,
       suffix: options.suffix,
       force: options.force ?? false,
       dryRun,
     })
 
-    logger.info(`Version group "${group.name}": ${groupPackages.length} package(s) to publish`)
+    logger.info(`Version group "${group!.name}": ${groupPackages.length} package(s) to publish`)
 
     publishedPackages.push(...groupPackages)
   }
