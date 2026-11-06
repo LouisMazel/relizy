@@ -60,13 +60,11 @@ npm dist-tag of the published versions. Relizy warns when a prerelease is publis
 
 One-time password of a registry with 2FA. Without it, relizy asks for one when the registry requires it, and reuses it for the next packages of the same registry.
 
-## token
+## Authentication
 
-- **Type:** `string`
-- **Default:** `RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN`, then `tokens.registry` (see [Tokens](./overview.md#tokens))
-- **CLI:** `--publish-token <token>`
+The registry token is [`tokens.registry`](./overview.md#tokens) (`RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default, `--publish-token <token>` from the CLI), or the `token` of each of the [`registries`](#registries). It works for npm, pnpm and bun: Yarn reads its auth from `.yarnrc.yml`, configure it yourself.
 
-Registry token, for npm, pnpm and bun (Yarn reads its auth from `.yarnrc.yml`: configure it yourself). Relizy writes it, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without `token`, your `.npmrc` is left untouched.
+Relizy writes the token, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without token, your `.npmrc` is left untouched.
 
 ## buildCmd
 
@@ -111,7 +109,7 @@ Registries to publish to on top of `registry`. An entry without `packageFilter` 
 | --------------- | --------------------------- | ---------------------------------------------------------------------------------- |
 | `registry`      | `string` (required)         | Registry URL                                                                       |
 | `name`          | `string`                    | Label in the logs                                                                  |
-| `token`         | `string`                    | Token of this registry, wins over `publish.token` (npm, pnpm, bun)                 |
+| `token`         | `string`                    | Token of this registry, wins over `tokens.registry` (npm, pnpm, bun)               |
 | `tag`           | `string`                    | Dist-tag on this registry, wins over `publish.tag`                                 |
 | `access`        | `'public' \| 'restricted'`  | Access on this registry                                                            |
 | `otp`           | `string`                    | OTP of this registry                                                               |

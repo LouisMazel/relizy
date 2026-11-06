@@ -307,6 +307,16 @@ describe('Given publish command', () => {
     vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
   })
 
+  describe('When a registry token is given', () => {
+    it('Then it replaces tokens.registry', async () => {
+      await publish({ token: 'npm_given' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({ tokens: { registry: 'npm_given' } }),
+      }))
+    })
+  })
+
   describe('When publishing with default options', () => {
     it('Then loads config and executes hooks', async () => {
       await publish({})

@@ -146,11 +146,10 @@ The credentials of the commands. Each key falls back to the first environment va
 | `tokens.ai['claude-code'].apiKey`     | `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`                           | AI, `claude-code` provider           |
 | `tokens.ai['claude-code'].oauthToken` | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`               | AI, `claude-code` provider           |
 | `social.slack.webhookUrl`             | `RELIZY_SLACK_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`                           | Slack (webhook, wins over the token) |
-| `publish.token`                       | `RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`                        | `publish`                            |
 
 A more specific setting wins over these keys:
 
-- registry: `publish.registries[].token`, then `publish.token` (`--publish-token`), then `tokens.registry`
+- registry: `publish.registries[].token`, then `tokens.registry` (set by `--publish-token`)
 - provider: `tokens.github` or `tokens.gitlab` (both set by `--token`), then `repo.token`
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)

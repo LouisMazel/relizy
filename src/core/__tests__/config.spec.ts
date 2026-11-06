@@ -919,7 +919,7 @@ describe('Given loadRelizyConfig function', () => {
     it('Then resolves the registry from npm config when publish.registry is not set', async () => {
       vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', publish: { token: 'x' } },
+        config: { cwd: '/project', publish: {} },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })

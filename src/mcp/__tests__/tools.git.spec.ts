@@ -29,7 +29,7 @@ function createStandalone(): TestRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'standalone', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} publish: { token: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
+  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} tokens: { registry: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
   repository.commit('feat: add the export command', { 'export.js': 'export {}' })

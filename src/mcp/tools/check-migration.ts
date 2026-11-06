@@ -170,6 +170,16 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     })
   }
 
+  if ((config.publish as { token?: unknown } | undefined)?.token !== undefined) {
+    findings.push({
+      severity: 'change',
+      title: '`publish.token` is removed',
+      section: 'Registry Token',
+      detail: 'Set the registry token in `tokens.registry` (read from `RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default), or per registry in `publish.registries[].token`: relizy 2 ignores `publish.token`. `--publish-token` and the `token` option of `publish()` set `tokens.registry`.',
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\btoken\s*:/))),
+    })
+  }
+
   return findings
 }
 

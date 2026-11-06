@@ -45,6 +45,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
       tokens: {
         github: options.token,
         gitlab: options.token,
+        registry: options.publishToken,
       },
       bump: {
         type: options.type,
@@ -63,7 +64,6 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         registries: options.registries,
         tag: options.tag,
         buildCmd: options.buildCmd,
-        token: options.publishToken,
         skipExistingVersions: options.skipExistingVersions,
       },
       release: {

@@ -130,7 +130,7 @@ function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): RegistryTarget
   return {
     name: 'default',
     registry: config.publish.registry ?? '',
-    token: config.publish.token || config.tokens.registry,
+    token: config.tokens.registry,
     tag: config.publish.tag,
     access: config.publish.access,
     otp: config.publish.otp,
@@ -670,7 +670,7 @@ async function queryVersionViaHttp({
     return null
   }
 
-  const token = registryTarget.token || config.publish.token || config.tokens.registry
+  const token = registryTarget.token || config.tokens.registry
   const headers: Record<string, string> = { accept: 'application/json' }
   if (token) {
     headers.authorization = `Bearer ${token}`

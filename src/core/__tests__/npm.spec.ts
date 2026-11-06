@@ -317,7 +317,7 @@ describe('Given getAuthCommand function', () => {
   describe('When a publish token is configured', () => {
     it('Then never puts the auth token in the command (it is injected via .npmrc)', () => {
       config.publish.registry = 'https://registry.example.com/npm/'
-      config.publish.token = 'secret-token'
+      config.tokens.registry = 'secret-token'
 
       const result = getAuthCommand({ packageManager: 'npm', config })
 
@@ -584,7 +584,8 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
     it('Then returns a single target built from the legacy fields', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
+        publish: { args: [], registry: 'https://registry.npmjs.org/', tag: 'latest' },
+        tokens: { registry: 'legacy-token' },
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)

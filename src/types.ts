@@ -785,11 +785,6 @@ export interface PublishConfig {
    */
   buildCmd?: string
   /**
-   * NPM token (e.g. `123456`) - supported for npm, pnpm and bun (injected via
-   * `.npmrc`). Yarn is not supported (it uses `.yarnrc.yml`).
-   */
-  token?: string
-  /**
    * Skip safety check
    * @default true
    */
@@ -834,6 +829,11 @@ export interface PublishConfig {
 }
 
 export interface PublishOptions extends PublishConfig {
+  /**
+   * Registry token (npm, pnpm and bun, injected via `.npmrc`), instead of
+   * `tokens.registry`. Yarn is not supported (it uses `.yarnrc.yml`).
+   */
+  token?: string
   /**
    * Run without side effects
    * @default false

@@ -34,7 +34,7 @@ Alone, it publishes the current versions: run it after [`bump`](./bump.md). The 
 | `--access <type>`          | `public` or `restricted`                                                                     | [`publish.access`](./../config/publish.md#access)                             |
 | `--otp <code>`             | One-time password of the registry (2FA)                                                      | [`publish.otp`](./../config/publish.md#otp)                                   |
 | `--build-cmd <cmd>`        | Command run before publishing. Quote it, it is one argument: `--build-cmd "pnpm build"`      | [`publish.buildCmd`](./../config/publish.md#buildcmd)                         |
-| `--publish-token <token>`  | Registry token, for npm, pnpm and bun (written to a temporary `.npmrc`)                      | [`publish.token`](./../config/publish.md#token)                               |
+| `--publish-token <token>`  | Registry token, for npm, pnpm and bun (written to a temporary `.npmrc`)                      | [`tokens.registry`](./../config/overview.md#tokens)                           |
 | `--skip-existing-versions` | Skip the packages whose version is already on the registry instead of failing                | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
 
 Without `--publish-token`, the token comes from the config or the environment, see [Tokens](./../config/overview.md#tokens).

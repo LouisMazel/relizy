@@ -35,6 +35,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                | Check the templates                                                           |
 | [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                        | Add `dependencies` to keep the v1 bumps                                       |
 | [Removed ignorePackageNames](#removed-ignorepackagenames)     | `monorepo.ignorePackageNames`                                        | Use `monorepo.ignored`                                                        |
+| [Registry token](#registry-token)                             | `publish.token`                                                      | Use `tokens.registry`                                                         |
 | [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                  | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                       | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                   | None                                                                          |
@@ -192,6 +193,19 @@ export default defineConfig({
     // ignorePackageNames: ['@scope/legacy'],
     ignored: ['packages/legacy'],
   },
+})
+```
+
+### Registry Token
+
+`publish.token` is removed: it read the same environment variables as [`tokens.registry`](./../config/overview.md#tokens) (`RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`). Set the registry token in `tokens.registry`, or per registry in [`publish.registries[].token`](./../config/publish.md#registries). `--publish-token` and the `token` option of `publish()` now set `tokens.registry`. In `ReleaseOptions`, `token` is only the git token.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  // publish: { token: process.env.MY_NPM_TOKEN },
+  tokens: { registry: process.env.MY_NPM_TOKEN },
 })
 ```
 
