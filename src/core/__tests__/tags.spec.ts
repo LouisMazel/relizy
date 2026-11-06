@@ -5,7 +5,6 @@ import { extractVersionFromRepoTag, NEW_PACKAGE_MARKER, resolveTags } from '../t
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
 const LAST_TAG = 'v1.0.0' // Simulates the most recent tag (could be stable or prerelease)
-const LAST_STABLE_TAG = 'v0.9.0' // Simulates the last stable tag
 
 vi.mock('../git', async (importActual) => {
   const actual = await importActual<typeof import('../git')>()
@@ -28,24 +27,10 @@ vi.mock('@maz-ui/node', async (importActual) => {
         // Simulate a realistic scenario:
         // - v2.0.0-beta.0 (newest, prerelease, major 2 - simulates future beta)
         // - v1.0.0 (LAST_TAG, stable, major 1)
-        // - v0.9.0 (LAST_STABLE_TAG, stable, major 0)
+        // - v0.9.0 (stable, major 0)
         // - v0.8.0 (older stable)
         return Promise.resolve({
           stdout: 'v2.0.0-beta.0\nv1.0.0\nv0.9.0\nv0.8.0',
-        })
-      }
-
-      // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_STABLE_TAG, // v0.9.0
-        })
-      }
-
-      // Mock for getLastTag
-      if (param === `git tag --sort=-creatordate | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_TAG, // v1.0.0
         })
       }
 
@@ -374,7 +359,7 @@ describe('Given resolveTags function', () => {
         })
 
         // When graduating from 1.0.0-next.0 to stable, should use last stable tag with major <= 1
-        // which is v1.0.0 (LAST_TAG), not v0.9.0 (LAST_STABLE_TAG)
+        // which is v1.0.0 (LAST_TAG), not v0.9.0
         expect(result).toEqual({ from: LAST_TAG, to: TEST_BRANCH })
       })
 

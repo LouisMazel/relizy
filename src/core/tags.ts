@@ -4,7 +4,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { execSync } from 'node:child_process'
 import { readFileSync } from 'node:fs'
 import { join, posix, relative, sep } from 'node:path'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { listTags, parseNameStatus } from './git-refs'
@@ -15,35 +15,11 @@ export function getIndependentTag({ version, name }: { version: string, name: st
   return `${name}@${version}`
 }
 
-export async function getLastStableTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
-  const { stdout } = await execPromise(
-    `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`,
-    {
-      logLevel,
-      noStderr: true,
-      noStdout: true,
-      noSuccess: true,
-      cwd,
-    },
-  )
-
-  const lastTag = stdout.trim()
-
-  logger.debug('Last stable tag:', lastTag || 'No stable tags found')
-
-  return lastTag
-}
-
-export async function getLastTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }) {
-  const { stdout } = await execPromise(`git tag --sort=-creatordate | head -n 1`, {
-    logLevel,
-    noStderr: true,
-    noStdout: true,
-    noSuccess: true,
-    cwd,
-  })
-
-  const lastTag = stdout.trim()
+/**
+ * The most recent tag of the repository (`--sort=-creatordate`), an empty string without tag
+ */
+export async function getLastTag({ logLevel, cwd }: { logLevel?: LogLevel, cwd?: string }): Promise<string> {
+  const [lastTag = ''] = await listTags({ logLevel, cwd })
 
   logger.debug('Last tag:', lastTag || 'No tags found')
 
@@ -289,36 +265,6 @@ function warnUnrecognizedTags({ tags, tagBody, cwd }: { tags: string[], tagBody?
   )
 }
 
-export function getLastRepoTag(options?: {
-  onlyStable?: boolean
-  pkg?: ReadPackage
-  /** Template of the repository tags (`templates.tagBody`) */
-  tagBody?: string
-  /** Version before the bump, when higher than `pkg.version` (e.g. the root version for a sub-package) */
-  currentVersion?: string
-  logLevel?: LogLevel
-  cwd?: string
-}): Promise<string | null> {
-  // If currentVersion is provided, use intelligent filtering
-  if (options?.pkg) {
-    return getLastRepoTagWithFiltering({
-      pkg: options.pkg,
-      onlyStable: options.onlyStable ?? false,
-      tagBody: options.tagBody,
-      maxVersion: options.currentVersion ?? options.pkg.version,
-      logLevel: options.logLevel,
-      cwd: options.cwd,
-    })
-  }
-
-  // Otherwise, use legacy behavior for backward compatibility
-  if (options?.onlyStable) {
-    return getLastStableTag({ logLevel: options?.logLevel, cwd: options?.cwd })
-  }
-
-  return getLastTag({ logLevel: options?.logLevel, cwd: options?.cwd })
-}
-
 /**
  * Gets the tag of the previous repository release: the repository tags (see
  * `getRepoTags`) are filtered and picked by `selectPreviousTag`.
@@ -353,58 +299,6 @@ async function getLastRepoTagWithFiltering({
     onlyStable,
     label: 'repo',
   })
-}
-
-export async function getLastPackageTag({
-  pkg,
-  onlyStable,
-  logLevel,
-  cwd,
-}: {
-  pkg: ReadPackage
-  onlyStable?: boolean
-  logLevel?: LogLevel
-  cwd?: string
-}): Promise<string | null> {
-  // If currentVersion is provided, use intelligent filtering
-  if (pkg.version) {
-    return getLastPackageTagWithFiltering({
-      pkg,
-      onlyStable: onlyStable ?? false,
-      logLevel,
-      cwd,
-    })
-  }
-
-  // Otherwise, use legacy behavior for backward compatibility
-  try {
-    const escapedPackageName = pkg.name.replace(/[@/]/g, '\\$&')
-
-    let grepPattern: string
-    if (onlyStable) {
-      grepPattern = `^${escapedPackageName}@[0-9]+\\.[0-9]+\\.[0-9]+$`
-    }
-    else {
-      grepPattern = `^${escapedPackageName}@`
-    }
-
-    const { stdout } = await execPromise(
-      `git tag --sort=-creatordate | grep -E '${grepPattern}' | sed -n '1p'`,
-      {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-        cwd,
-      },
-    )
-
-    const tag = stdout.trim()
-    return tag || null
-  }
-  catch {
-    return null
-  }
 }
 
 /**
@@ -566,7 +460,7 @@ async function resolveFromTagIndependent({
   const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
-  const lastPackageTag = await getLastPackageTag({
+  const lastPackageTag = await getLastPackageTagWithFiltering({
     pkg,
     onlyStable,
     logLevel,
@@ -641,11 +535,12 @@ async function resolveFromTagUnified({
   const filterPrereleases = shouldFilterPrereleaseTags(pkg.version, graduating)
   const onlyStable = graduating || filterPrereleases
 
-  const lastRepoTag = await getLastRepoTag({
+  const lastRepoTag = await getLastRepoTagWithFiltering({
     pkg,
     onlyStable,
     tagBody: config.templates.tagBody,
-    currentVersion: getRepoCurrentVersion({ cwd: config.cwd, pkg }),
+    // Version before the bump, when higher than `pkg.version` (e.g. the root version for a sub-package)
+    maxVersion: getRepoCurrentVersion({ cwd: config.cwd, pkg }),
     logLevel,
     cwd: config.cwd,
   })
