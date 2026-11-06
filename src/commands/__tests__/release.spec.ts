@@ -407,6 +407,19 @@ describe('Given release command', () => {
       expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
     })
 
+    it('Then runs the error hook and posts the failed comment when a check fails, before the bump', async () => {
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin"'))
+
+      await expect(release({})).rejects.toThrow('cannot push')
+
+      expect(bump).not.toHaveBeenCalled()
+      expect(executeHook).not.toHaveBeenCalledWith('before:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, undefined)
+      expect(prComment).toHaveBeenCalledWith(expect.objectContaining({
+        releaseContext: expect.objectContaining({ status: 'failed', error: expect.stringContaining('cannot push') }),
+      }))
+    })
+
     it('Then rethrows a cancelled prompt without the error hook nor the failed PR comment', async () => {
       vi.mocked(bump).mockRejectedValue(new RelizyCancelError('Bump refused'))
 

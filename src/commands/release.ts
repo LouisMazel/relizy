@@ -217,27 +217,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   // The step running when the release fails
   let currentStep = 'Checks'
 
-  try {
-    assertBumpConfirmable({ command: 'release', yes: config.bump.yes, ciName: getCIName() })
-    // The CI clone: full history, branch, identity
-    prepareCiRepository(config.cwd)
-
-    if (config.safetyCheck) {
-      await ui.step({
-        running: 'Checking the release',
-        done: () => 'Ready to release (tokens, registry, branch)',
-        run: () => releaseSafetyCheck({ config, provider: options.provider, ai: options.ai, dryRun }),
-      })
-    }
-    else {
-      ui.skip({ title: 'Safety checks', label: 'Checks', reason: '--no-safety-check' })
-    }
-  }
-  catch (error) {
-    ui.fail(error, currentStep)
-    throw error
-  }
-
   // Known once the bump is done, for the hooks of the next steps
   let hookContext: HookContext | undefined
   let createdTags: string[] = []
@@ -282,6 +261,22 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   })
 
   try {
+    // A failed check also writes the report, comments the pull request and runs error:release
+    assertBumpConfirmable({ command: 'release', yes: config.bump.yes, ciName: getCIName() })
+    // The CI clone: full history, branch, identity
+    prepareCiRepository(config.cwd)
+
+    if (config.safetyCheck) {
+      await ui.step({
+        running: 'Checking the release',
+        done: () => 'Ready to release (tokens, registry, branch)',
+        run: () => releaseSafetyCheck({ config, provider: options.provider, ai: options.ai, dryRun }),
+      })
+    }
+    else {
+      ui.skip({ title: 'Safety checks', label: 'Checks', reason: '--no-safety-check' })
+    }
+
     await executeHook('before:release', config, dryRun)
 
     currentStep = 'Bump'
