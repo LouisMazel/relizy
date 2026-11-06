@@ -9,17 +9,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { isInCI } from '../ci-env'
 import { RelizyCancelError } from '../errors'
-import {
-  detectPackageManager,
-  determinePublishTag,
-  getAuthCommand,
-  getNpmRegistry,
-  isVersionAlreadyPublishedError,
-  isVersionPublished,
-  publishPackage,
-  resolveRegistryTargetsForPackage,
-  withRegistryNpmrc,
-} from '../npm'
+import { determinePublishTag, getAuthCommand, publishPackage } from '../npm'
+import { detectPackageManager, getNpmRegistry, resolveRegistryTargetsForPackage, withRegistryNpmrc } from '../npm-registry'
+import { isVersionAlreadyPublishedError, isVersionPublished } from '../npm-versions'
 import { askText } from '../prompts'
 import { getIndependentTag } from '../tags'
 import { isPrerelease } from '../version'

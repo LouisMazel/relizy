@@ -7,7 +7,8 @@ import { logger } from '@maz-ui/node'
 import { createGitRepository } from '../../../tests/git-repository'
 import { setInteractiveTerminal } from '../../../tests/mocks'
 import { loadRelizyConfig, RelizyCancelError } from '../../core'
-import { isVersionPublished, publishPackage } from '../../core/npm'
+import { publishPackage } from '../../core/npm'
+import { isVersionPublished } from '../../core/npm-versions'
 import { askConfirm } from '../../core/prompts'
 import { bump, planBumps } from '../bump'
 import { release } from '../release'
@@ -23,6 +24,13 @@ vi.mock('../../core/npm', async (importActual) => {
   return {
     ...actual,
     publishPackage: vi.fn(),
+  }
+})
+
+vi.mock('../../core/npm-versions', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/npm-versions')>()
+  return {
+    ...actual,
     isVersionPublished: vi.fn(),
   }
 })

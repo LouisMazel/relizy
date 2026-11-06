@@ -4,7 +4,7 @@ import { join, relative, sep } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { clearGitCache } from './git-cache'
-import { getExecCommand } from './npm'
+import { getExecCommand } from './npm-registry'
 import { reportProgress, reportStepNote } from './progress'
 
 /**

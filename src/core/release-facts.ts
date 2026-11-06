@@ -5,7 +5,8 @@ import type { ReleaseAI, ReleaseContent, ReleaseGit, ReleasePublish, ReleaseStep
 import { execSync } from 'node:child_process'
 import { getCurrentGitBranch, getGitUpstream } from './git'
 import { collectContributorNames } from './markdown'
-import { detectPackageManager, getPublishTag, resolveRegistryTargetsForPackages } from './npm'
+import { getPublishTag } from './npm'
+import { detectPackageManager, resolveRegistryTargetsForPackages } from './npm-registry'
 import { getReleaseUrl } from './social'
 
 /**

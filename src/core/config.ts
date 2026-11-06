@@ -10,7 +10,7 @@ import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
-import { detectPackageManager, getNpmRegistry } from './npm'
+import { detectPackageManager, getNpmRegistry } from './npm-registry'
 import { redactSecrets } from './redact'
 import { getRepoConfig, resolveRepoConfig } from './repo-config'
 

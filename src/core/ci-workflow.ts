@@ -3,7 +3,7 @@ import type { InitAnswers, ProjectDetection } from './init'
 import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { getExecCommand } from './npm'
+import { getExecCommand } from './npm-registry'
 
 /**
  * The release workflow written by `relizy init`: a GitHub Actions workflow

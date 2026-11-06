@@ -8,7 +8,8 @@ import fastGlob from 'fast-glob'
 import { getOutOfRangePeers, parseWorkspaceSpecifier, topologicalSort } from './dependencies'
 import { GLOB_IGNORE } from './glob'
 import { getMonorepoPackagePatterns } from './groups'
-import { isVersionPublished, resolveRegistryTargetsForPackage } from './npm'
+import { resolveRegistryTargetsForPackage } from './npm-registry'
+import { isVersionPublished } from './npm-versions'
 import { readPackageJson } from './repo'
 
 /**

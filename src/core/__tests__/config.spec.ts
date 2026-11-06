@@ -10,7 +10,7 @@ import { loadConfig, setupDotenv } from 'c12'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineConfig, getDefaultConfig, loadRelizyConfig, mergeConfig } from '../config'
 import { getVersionGroupName, markVersionGroupConfig } from '../groups'
-import { getNpmRegistry } from '../npm'
+import { getNpmRegistry } from '../npm-registry'
 import { getRepoConfig, resolveRepoConfig } from '../repo-config'
 
 vi.mock('node:process', () => ({
@@ -20,8 +20,8 @@ vi.mock('node:process', () => ({
     exit: vi.fn(),
   },
 }))
-vi.mock('../npm', async (importActual) => {
-  const actual = await importActual<typeof import('../npm')>()
+vi.mock('../npm-registry', async (importActual) => {
+  const actual = await importActual<typeof import('../npm-registry')>()
   return {
     ...actual,
     getNpmRegistry: vi.fn(() => 'https://registry.npmjs.org/'),

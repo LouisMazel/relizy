@@ -9,7 +9,7 @@ import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from '
 import { getDefaultConfig } from './config'
 import { detectGitProvider } from './git'
 import { GLOB_IGNORE } from './glob'
-import { detectPackageManager } from './npm'
+import { detectPackageManager } from './npm-registry'
 
 /**
  * A package found by `relizy init`, released or not (apps, private packages...).
