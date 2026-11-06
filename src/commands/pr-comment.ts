@@ -451,7 +451,7 @@ async function commentPullRequest({ config, options, dryRun }: {
     const prDisplay = pr ? `#${pr.number} (${pr.url})` : 'Not detected'
     const statusDisplay = options.releaseContext?.status ?? 'success'
     showPreview({ title: 'PR comment', meta: [`PR: ${prDisplay}`, `Mode: ${mode}`, `Status: ${statusDisplay}`], content: body })
-    return { posted: true, ...(pr ? { pr } : {}) }
+    return { posted: Boolean(pr), ...(pr ? { pr } : {}) }
   }
 
   if (!pr) {

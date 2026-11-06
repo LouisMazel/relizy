@@ -255,11 +255,12 @@ describe('Given prComment command', () => {
       vi.mocked(detectPullRequest).mockResolvedValue(null)
       const loggerSpy = vi.spyOn(logger, 'box')
 
-      await prComment({ dryRun: true })
+      const posted = await prComment({ dryRun: true })
 
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Not detected'),
       )
+      expect(posted).toBe(false)
     })
   })
 
