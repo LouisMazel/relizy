@@ -54,7 +54,7 @@ In CI (or without a terminal), each step is a line with its duration, its logs i
 
 ## Run Something Only When a Release Happens
 
-`relizy release` exits with code `0` whether it released or there was nothing to release: run what follows a release (a message to the team, a deployment of the docs) from a **hook**, which only runs when a release happens.
+`relizy release` exits with code `0` whether it released or there was nothing to release. To run what follows a release (a message to the team, a deployment of the docs), either read the [report](#from-the-report) of the release in a next step of the pipeline, visible in the CI, or use a **hook**, which only runs when a release happens.
 
 ```ts
 export default defineConfig({
@@ -88,6 +88,8 @@ export default defineConfig({
   },
 })
 ```
+
+### From the Report
 
 From the CI, read the [report](./../config/release.md#report) of the release: its outputs (`released`, `version`, `tags`, `packages`, `urls`...) and its summary, written for a release, when there is nothing to release, when it fails, and in dry-run (`released` is then `false`). GitHub Actions gets them as outputs of the step and summary of the run ([example](./github-actions.md#outputs-and-summary)), GitLab CI through a dotenv artifact ([example](./gitlab-ci.md#outputs-and-summary)). In a script, read the JSON report (`--report-json relizy.json`) or the return value of [`release()`](./../api/release.md).
 

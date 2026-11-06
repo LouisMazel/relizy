@@ -105,7 +105,37 @@ deploy-docs:
   rules:
     - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\(release\): /'
   script:
-    - '[ "$RELIZY_RELEASED" = "true" ] && ./scripts/deploy-docs.sh "$RELIZY_VERSION" || echo "Nothing released"'
+    - |
+      if [ "$RELIZY_RELEASED" = "true" ]; then
+        ./scripts/deploy-docs.sh "$RELIZY_VERSION"
+      else
+        echo "Nothing released"
+      fi
+```
+
+In the same job, read the file: its values are not quoted (`RELIZY_INSTALL` has spaces), so do not `source` it. In a monorepo, `RELIZY_PACKAGES` lists the released packages (`@acme/ui@2.1.0,@acme/utils@1.4.3`), to run something for some packages only:
+
+```bash
+pnpm exec relizy release --yes --report-dotenv relizy.env
+
+report() {
+  sed -n "s/^RELIZY_$1=//p" relizy.env
+}
+
+if [ "$(report RELEASED)" != "true" ]; then
+  echo "Nothing released"
+  exit 0
+fi
+
+IFS=',' read -ra packages <<< "$(report PACKAGES)"
+for entry in "${packages[@]}"; do
+  name="${entry%@*}"
+  version="${entry##*@}"
+
+  case "$name" in
+    @acme/ui) ./scripts/notify-release.sh "$name" "$version" || echo "Notification failed" ;;
+  esac
+done
 ```
 
 GitLab CI has no summary of the run: write it to a markdown file and expose it as an artifact of the merge request, or read it in the [MR comment](./pr-comment.md).
