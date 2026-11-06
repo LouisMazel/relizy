@@ -229,7 +229,144 @@ function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConf
   return releaseFiles
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+/**
+ * Stage the release files: the files written by this run, or the modified
+ * release files when they were written by another process
+ */
+function stageReleaseFiles({ config, dryRun }: { config: ResolvedRelizyConfig, dryRun?: boolean }): void {
+  const releaseFiles = getReleaseFiles(config.cwd)
+  const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config })
+
+  logger.start('Start commit and tag')
+
+  logger.debug('Adding files to git staging area...')
+  for (const pattern of filePatternsToAdd) {
+    if (pattern === 'lerna.json' && !hasLernaJson(config.cwd)) {
+      logger.verbose(`Skipping lerna.json as it doesn't exist`)
+      continue
+    }
+
+    if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(config.cwd, pattern))) {
+      logger.verbose(`Skipping ${pattern} as it doesn't exist`)
+      continue
+    }
+
+    if (dryRun) {
+      logger.info(`[dry-run] git add ${pattern}`)
+      continue
+    }
+
+    try {
+      logger.debug(`git add ${pattern}`)
+      execFileSync('git', ['add', pattern], { cwd: config.cwd, stdio: 'ignore' })
+    }
+    catch {
+      // Ignore errors if pattern doesn't match any files
+    }
+  }
+}
+
+/**
+ * The title and the body of the release commit, from the commit templates
+ */
+function getReleaseCommitMessage({
+  config,
+  bumpedPackages,
+  newVersion,
+  rootVersion,
+  groups,
+}: {
+  config: ResolvedRelizyConfig
+  bumpedPackages: BumpResultTruthy['bumpedPackages']
+  newVersion?: string
+  rootVersion?: string
+  groups?: GroupBumpResult[]
+}): { message: string, body?: string } {
+  // With version groups, the commit is "independent" when no unified/selective group bumped
+  const isIndependent = groups
+    ? !getRootGroupBumpResult(groups)
+    : config.monorepo?.versionMode === 'independent'
+
+  const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
+  const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
+  const packageCount = bumpedPackages?.length ?? 0
+
+  const versionForMessage = isIndependent
+    ? packageList || 'unknown'
+    : newVersion || 'unknown'
+
+  const placeholders: Record<string, string> = {
+    newVersion: versionForMessage,
+    rootVersion: rootVersion || 'unknown',
+    packageCount: String(packageCount),
+    packageNames: packageNames || 'unknown',
+    packageList: packageList || 'unknown',
+  }
+
+  const applyPlaceholders = (template: string): string => {
+    let out = template
+    for (const [key, value] of Object.entries(placeholders)) {
+      out = out.replaceAll(`{{${key}}}`, value)
+    }
+    return out
+  }
+
+  const { title: titleTemplate, body: bodyTemplate } = getCommitTemplates({ config, groups, isIndependent })
+
+  return {
+    message: applyPlaceholders(titleTemplate),
+    body: bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined,
+  }
+}
+
+/**
+ * Create the annotated tags of the release, returns their names
+ */
+async function createReleaseTags({ config, releaseTags, dryRun }: {
+  config: ResolvedRelizyConfig
+  releaseTags: ReleaseTag[]
+  dryRun?: boolean
+}): Promise<string[]> {
+  logger.debug(`Sign tags: ${config.signTags}`)
+  const createdTags: string[] = []
+
+  logger.debug(`Creating ${releaseTags.length} tag(s)`)
+
+  for (const { name: tagName, version } of releaseTags) {
+    const tagMessage = config.templates?.tagMessage
+      ?.replaceAll('{{newVersion}}', version)
+      || tagName
+
+    const tagArgs = ['tag', ...(config.signTags ? ['-s'] : []), '-a', tagName, '-m', tagMessage]
+
+    if (dryRun) {
+      logger.info(`[dry-run] ${formatGitCommand(tagArgs)}`)
+    }
+    else {
+      logger.debug(`Executing: ${formatGitCommand(tagArgs)}`)
+      try {
+        await runGit(tagArgs, config.cwd)
+        clearGitCache()
+        logger.debug(`Tag created: ${tagName}`)
+      }
+      catch (error) {
+        logger.error(`Failed to create tag ${tagName}:`, error)
+        throw error
+      }
+    }
+
+    createdTags.push(tagName)
+  }
+
+  if (createdTags.length > 1) {
+    logger.success(`Created ${createdTags.length} tags, ${createdTags.join(', ')}`)
+  }
+
+  logger.debug('Created Tags:', createdTags.join(', '))
+
+  return createdTags
+}
+
 export async function createCommitAndTags({
   config,
   noVerify,
@@ -254,37 +391,7 @@ export async function createCommitAndTags({
   try {
     await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
-    // The files written by this run, or the modified release files when they were written by another process
-    const releaseFiles = getReleaseFiles(internalConfig.cwd)
-    const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config: internalConfig })
-
-    logger.start('Start commit and tag')
-
-    logger.debug('Adding files to git staging area...')
-    for (const pattern of filePatternsToAdd) {
-      if (pattern === 'lerna.json' && !hasLernaJson(internalConfig.cwd)) {
-        logger.verbose(`Skipping lerna.json as it doesn't exist`)
-        continue
-      }
-
-      if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(internalConfig.cwd, pattern))) {
-        logger.verbose(`Skipping ${pattern} as it doesn't exist`)
-        continue
-      }
-
-      if (dryRun) {
-        logger.info(`[dry-run] git add ${pattern}`)
-        continue
-      }
-
-      try {
-        logger.debug(`git add ${pattern}`)
-        execFileSync('git', ['add', pattern], { cwd: internalConfig.cwd, stdio: 'ignore' })
-      }
-      catch {
-        // Ignore errors if pattern doesn't match any files
-      }
-    }
+    stageReleaseFiles({ config: internalConfig, dryRun })
 
     const rootPackage = readPackageJson(internalConfig.cwd)
 
@@ -294,39 +401,7 @@ export async function createCommitAndTags({
 
     newVersion = newVersion || rootPackage.version
 
-    // With version groups, the commit is "independent" when no unified/selective group bumped
-    const isIndependent = groups
-      ? !getRootGroupBumpResult(groups)
-      : internalConfig.monorepo?.versionMode === 'independent'
-
-    const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
-    const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
-    const packageCount = bumpedPackages?.length ?? 0
-
-    const versionForMessage = isIndependent
-      ? packageList || 'unknown'
-      : newVersion || 'unknown'
-
-    const placeholders: Record<string, string> = {
-      newVersion: versionForMessage,
-      rootVersion: rootPackage.version || 'unknown',
-      packageCount: String(packageCount),
-      packageNames: packageNames || 'unknown',
-      packageList: packageList || 'unknown',
-    }
-
-    const applyPlaceholders = (template: string): string => {
-      let out = template
-      for (const [key, value] of Object.entries(placeholders)) {
-        out = out.replaceAll(`{{${key}}}`, value)
-      }
-      return out
-    }
-
-    const { title: titleTemplate, body: bodyTemplate } = getCommitTemplates({ config: internalConfig, groups, isIndependent })
-
-    const commitMessage = applyPlaceholders(titleTemplate)
-    const commitBody = bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined
+    const { message: commitMessage, body: commitBody } = getReleaseCommitMessage({ config: internalConfig, bumpedPackages, newVersion, rootVersion: rootPackage.version, groups })
 
     logger.debug(`No verify: ${noVerify}`)
 
@@ -343,44 +418,11 @@ export async function createCommitAndTags({
       resetReleaseFiles()
     }
 
-    logger.debug(`Sign tags: ${internalConfig.signTags}`)
-    const createdTags: string[] = []
-
-    const releaseTags = getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups })
-
-    logger.debug(`Creating ${releaseTags.length} tag(s)`)
-
-    for (const { name: tagName, version } of releaseTags) {
-      const tagMessage = internalConfig.templates?.tagMessage
-        ?.replaceAll('{{newVersion}}', version)
-        || tagName
-
-      const tagArgs = ['tag', ...(internalConfig.signTags ? ['-s'] : []), '-a', tagName, '-m', tagMessage]
-
-      if (dryRun) {
-        logger.info(`[dry-run] ${formatGitCommand(tagArgs)}`)
-      }
-      else {
-        logger.debug(`Executing: ${formatGitCommand(tagArgs)}`)
-        try {
-          await runGit(tagArgs, internalConfig.cwd)
-          clearGitCache()
-          logger.debug(`Tag created: ${tagName}`)
-        }
-        catch (error) {
-          logger.error(`Failed to create tag ${tagName}:`, error)
-          throw error
-        }
-      }
-
-      createdTags.push(tagName)
-    }
-
-    if (createdTags.length > 1) {
-      logger.success(`Created ${createdTags.length} tags, ${createdTags.join(', ')}`)
-    }
-
-    logger.debug('Created Tags:', createdTags.join(', '))
+    const createdTags = await createReleaseTags({
+      config: internalConfig,
+      releaseTags: getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups }),
+      dryRun,
+    })
 
     logger.success('Commit and tag completed!')
 
