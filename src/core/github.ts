@@ -39,6 +39,20 @@ async function publishIndependentRelease({
   const toTag = dryRun ? 'HEAD' : to
   logger.debug(`Processing ${pkg.name}: ${from} → ${toTag}`)
 
+  // The full notes always hold the compare link: the body alone tells whether there is anything to release
+  const bodyOnly = await generateChangelog({
+    pkg: { ...pkg, fromTag: from },
+    config,
+    dryRun,
+    newVersion,
+    include: { title: false, compareLink: false, body: true, contributors: false },
+  })
+
+  if (!bodyOnly.trim()) {
+    logger.warn(`No changelog found for ${pkg.name}`)
+    return undefined
+  }
+
   reportProgress(`Writing the notes of ${to}`)
 
   // Pass `from` via `pkg.fromTag` so `generateChangelog` resolves the right

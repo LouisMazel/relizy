@@ -390,6 +390,15 @@ describe('Given github function', () => {
       expect(result).toHaveLength(1)
     })
 
+    it('Then skips packages with empty changelog body', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValueOnce('')
+
+      const result = await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledTimes(1)
+      expect(result.map(release => release.name)).toEqual(['pkg-b'])
+    })
+
     it('Then builds release body in dry-run mode', async () => {
       await github({ dryRun: true, force: false })
 
