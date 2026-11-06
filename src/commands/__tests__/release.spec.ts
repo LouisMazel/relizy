@@ -333,6 +333,16 @@ describe('Given release command', () => {
     })
   })
 
+  describe('When the provider is given', () => {
+    it('Then the provider release uses it, over repo.provider', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ provider: 'gitlab' })
+
+      expect(providerRelease).toHaveBeenCalledWith(expect.objectContaining({ provider: 'gitlab' }))
+    })
+  })
+
   describe('When the options of the bump, changelog and publish sections are given', () => {
     it('Then forwards them to the config of the release', async () => {
       await release({ capZeroMajor: false, outOfRangePeers: 'error', dependencyTypes: ['peerDependencies'], includeCommitBody: true, args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000, checkWorkspaceDependencies: false })

@@ -458,7 +458,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     addStep('push', Boolean(config.release.push && config.release.commit))
 
     currentStep = 'Provider release'
-    let provider = config.repo?.provider
+    let provider = options.provider || config.repo?.provider
     let postedReleases: PostedRelease[] = []
     let providerError: string | undefined
 
