@@ -70,12 +70,12 @@ vi.mock('../pr-comment', () => {
   // Test double mirroring the real gate + delegation so the assertions below can
   // keep targeting `prComment`. The real `tryPostPrComment` logic is unit-tested
   // in pr-comment.spec.ts.
-  const tryPostPrComment = vi.fn(async ({ config, releaseContext, prNumber, dryRun, logLevel, configName }: any) => {
+  const tryPostPrComment = vi.fn(async ({ config, releaseContext, prNumber, dryRun }: any) => {
     if (!config.release.prComment) {
       return false
     }
     try {
-      return await prComment({ prNumber, dryRun, logLevel, configName, config, releaseContext })
+      return await prComment({ prNumber, dryRun, config, releaseContext })
     }
     catch {
       return false

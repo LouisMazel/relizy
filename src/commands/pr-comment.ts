@@ -480,15 +480,11 @@ export async function tryPostPrComment({
   releaseContext,
   prNumber,
   dryRun,
-  logLevel,
-  configName,
 }: {
   config: ResolvedRelizyConfig
   releaseContext: ReleaseContext
   prNumber?: number
   dryRun: boolean
-  logLevel?: string
-  configName?: string
 }): Promise<boolean> {
   if (!config.release.prComment) {
     logger.info('Skipping PR comment (--no-pr-comment)')
@@ -499,8 +495,6 @@ export async function tryPostPrComment({
     return await prComment({
       prNumber,
       dryRun,
-      logLevel: logLevel as any,
-      configName,
       config,
       releaseContext,
     })

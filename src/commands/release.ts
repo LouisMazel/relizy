@@ -251,8 +251,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     releaseContext,
     prNumber: options.prNumber,
     dryRun,
-    logLevel: config.logLevel,
-    configName: options.configName,
   })
 
   try {
