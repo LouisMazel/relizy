@@ -2,10 +2,11 @@ import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
 import { afterEach, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
+import { confirmBump, displayBump } from '../bump-confirm'
 import { setBumpConfirmation } from '../bump-prompt'
 import { RelizyCancelError } from '../errors'
 import { askConfirm } from '../prompts'
-import { capReleaseTypeForZeroMajor, confirmBump, determineReleaseType, determineSemverChange, displayBump, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
+import { capReleaseTypeForZeroMajor, determineReleaseType, determineSemverChange, extractVersionFromTag, getCanaryVersion, getPackageNewVersion, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from '../version'
 
 vi.mock('../prompts', async importActual => ({
   ...await importActual<typeof import('../prompts')>(),
