@@ -67,7 +67,7 @@ A rule takes a level, or a level and a value:
 | Level and value  | `['error', 200]`                      |
 | commitlint tuple | `[2, 'always', 200]`, `[2, 'always']` |
 
-The commitlint tuples ease a [migration](./migration.md). `'never'` is not supported in a commitlint tuple: the value is used as is, with a warning. `['error', 'never']` is the ESLint form, with `'never'` as value (e.g. for `scope-required`). A rule set without value (`'error'`, `2`) keeps its default value. In a commitlint tuple, the second item is the value of rules such as `scope-required` (`[2, 'always']`): a rule taking a number (`header-max-length`) needs it, `[2, 'always', 200]`, else the config is rejected with an error. See [`CommitlintRuleConfig`](./../typedoc/type-aliases/CommitlintRuleConfig.md).
+The commitlint tuples ease a [migration](./migration.md). `'never'` is not supported in a commitlint tuple: the value is used as is, with a warning. `['error', 'never']` is the ESLint form, with `'never'` as value (e.g. for `scope-required`). A rule set without value (`'error'`, `2`) keeps its default value. In a commitlint tuple, the second item is the value of rules such as `scope-required` (`[2, 'always']`): a rule taking a number (`header-max-length`) needs it, `[2, 'always', 200]`, else linting a message fails with an error. See [`CommitlintRuleConfig`](./../typedoc/type-aliases/CommitlintRuleConfig.md).
 
 ## `customRules`
 

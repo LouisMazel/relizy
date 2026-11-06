@@ -24,7 +24,7 @@ export default defineConfig({
 
 ## Steps
 
-Each option is a `boolean`, and a CLI flag disables it for a run.
+Each option is a `boolean`, and a CLI flag disables it for a run (`--no-verify` turns `noVerify` on).
 
 | Option            | Default | CLI                     | Effect                                                                                                                                                               |
 | ----------------- | ------- | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -47,7 +47,7 @@ Each option is a `boolean`, and a CLI flag disables it for a run.
 - **Default:** `{ github: true }`
 - **CLI:** `--report-json <file>`, `--report-dotenv <file>`, `--report-markdown <file>`
 
-Report of the release, to run something only when a release happens (see [CI/CD](./../guide/ci-cd.md#run-something-only-when-a-release-happens)). Written after a release, when there is nothing to release and when the release fails, in dry-run too. The paths are relative to `cwd`.
+Report of the release, to run something only when a release happens (see [CI/CD](./../guide/ci-cd.md#run-something-only-when-a-release-happens)). Written after a release, when there is nothing to release and when the release fails (not for a refused or cancelled prompt), in dry-run too. The paths are relative to `cwd`.
 
 | Key        | Effect                                                                                                                                          |
 | ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -56,18 +56,18 @@ Report of the release, to run something only when a release happens (see [CI/CD]
 | `dotenv`   | Write the outputs to this file as `RELIZY_<OUTPUT>=value` (`RELIZY_RELEASED=true`), for the `artifacts:reports:dotenv` of GitLab CI             |
 | `markdown` | Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI                                                       |
 
-| Output      | Value                                                                                         |
-| ----------- | --------------------------------------------------------------------------------------------- |
-| `released`  | `true` when the release happened, never in dry-run                                            |
-| `status`    | `released`, `nothing` or `failed`                                                             |
-| `version`   | The repository version (standalone, `unified` or `selective`), empty otherwise                |
-| `tags`      | The created tags, comma-separated                                                             |
-| `packages`  | The released packages, comma-separated `name@version`                                         |
-| `branch`    | The branch of the release                                                                     |
-| `commit`    | The short hash of the release commit                                                          |
-| `dist_tags` | The dist-tags of the published versions, comma-separated                                      |
-| `urls`      | What the release created (npm pages, provider releases, tweet, pull request), comma-separated |
-| `install`   | The command installing the published versions (up to 3 packages)                              |
+| Output      | Value                                                                                                       |
+| ----------- | ----------------------------------------------------------------------------------------------------------- |
+| `released`  | `true` when the release happened, never in dry-run                                                          |
+| `status`    | `released`, `nothing` or `failed`                                                                           |
+| `version`   | The repository version (standalone, `unified` or `selective`), empty otherwise                              |
+| `tags`      | The created tags, comma-separated                                                                           |
+| `packages`  | The released packages, comma-separated `name@version`                                                       |
+| `branch`    | The branch of the release                                                                                   |
+| `commit`    | The short hash of the release commit                                                                        |
+| `dist_tags` | The dist-tags of the published versions, comma-separated (`publish.tag`, not the `tag` of the `registries`) |
+| `urls`      | What the release created (npm pages, provider releases, tweet, pull request), comma-separated               |
+| `install`   | The command installing the published versions (up to 3 packages)                                            |
 
 ```yaml
 # GitHub Actions

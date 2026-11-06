@@ -94,7 +94,7 @@ The dry run computes the versions and shows the changelogs, release notes, posts
 npx relizy release
 ```
 
-Relizy shows the packages to bump and asks for confirmation, then bumps the versions, writes the changelogs, publishes to npm, commits, tags, pushes, creates the GitHub or GitLab release, posts to the social platforms and comments on the pull requests. See [the steps of `relizy release`](./../cli/release.md#steps). Publishing and the provider releases need tokens: see [Tokens](./../config/overview.md#tokens).
+Relizy shows the packages to bump and asks for confirmation, then bumps the versions, writes the changelogs, publishes to npm, commits, tags, pushes, creates the GitHub or GitLab release, posts to the social platforms and comments on the pull request. See [the steps of `relizy release`](./../cli/release.md#steps). Publishing and the provider releases need tokens: see [Tokens](./../config/overview.md#tokens).
 
 The changelog of a release fixing a bug looks like this:
 

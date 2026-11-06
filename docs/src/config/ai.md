@@ -111,7 +111,7 @@ Language of the output, as an ISO 639-1 code (`fr`) or an English name (`French`
 When a call fails (network, quota, credentials):
 
 - `raw`: warn, and keep the text without AI. With several versions in a post, a version missing from the output also keeps its raw changelog.
-- `fail`: throw, and stop the command.
+- `fail`: throw. `relizy provider-release` and `relizy social` fail with code `1`; in `relizy release`, the step is marked as failed and the release goes on, as for any failed provider release or post.
 
 ## extraGuidelines
 

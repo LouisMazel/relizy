@@ -14,7 +14,7 @@ tags: [api, provider-release, github, gitlab, typescript]
 function providerRelease(options?: Partial<ProviderReleaseOptions>): Promise<ProviderReleaseResult>
 ```
 
-`providerRelease()` runs [`relizy provider-release`](./../cli/provider-release.md). It returns the `detectedProvider` and the `postedReleases` (`name`, `tag`, `version`, `prerelease`). When the release fails, it does not throw: the result has an `error` message and no posted release. Only a cancelled prompt throws (see [Errors](./usage.md#errors)).
+`providerRelease()` runs [`relizy provider-release`](./../cli/provider-release.md). It returns the `detectedProvider` and the `postedReleases` (`name`, `tag`, `version`, `prerelease`). When the release fails, it does not throw: the result has an `error` message and no posted release (without provider, `detectedProvider` is `github`). It throws on an error of the config (an invalid or missing config file) and on a cancelled prompt (see [Errors](./usage.md#errors)).
 
 ## Options
 

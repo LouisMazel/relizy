@@ -21,7 +21,7 @@ Options: [`PrCommentOptions`](./../typedoc/interfaces/PrCommentOptions.md), and 
 ## Behavior
 
 - Without `releaseContext`, the comment is the one of [`relizy pr-comment`](./../guide/pr-comment.md#the-comment-of-relizy-pr-comment), read from the `package.json` files. With a `releaseContext`, it follows its `status` (`success`, `no-release`, `failed`); with its `report`, the comment is the [summary of the release](./../guide/pr-comment.md#the-comment-of-a-release), as in `release()`.
-- Resolves `true` when the comment is posted (or previewed with `dryRun`), `false` otherwise: without pull request (the warning tells to set `prNumber`), without token, or when the API of the provider refuses it (with a warning).
+- Resolves `true` when the comment is posted, or with `dryRun` when a pull request is found (always with `prNumber`, even without token), `false` otherwise: without pull request (the warning tells to set `prNumber`), without token, or when the API of the provider refuses it (with a warning).
 - Rejects on an error of the config or of the project (e.g. an unreadable root `package.json`). `release()` catches it: a failed comment never fails a release.
 - `dryRun` still calls the API of the provider to find the pull request, and posts nothing.
 

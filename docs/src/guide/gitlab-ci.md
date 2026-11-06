@@ -143,7 +143,7 @@ canary:
     - npm install -g corepack && corepack enable
     - pnpm install --frozen-lockfile
   script:
-    # The merge request pipelines check out a detached commit: give the merge request
+    # The number also covers the merged results pipelines, whose commit belongs to no merge request
     - pnpm exec relizy release --canary --yes --pr-number $CI_MERGE_REQUEST_IID
 ```
 

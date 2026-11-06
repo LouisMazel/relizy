@@ -71,7 +71,7 @@ Root of the project: where the config, the packages, the git repository and the 
 - **Default:** `from`: the last release tag; `to`: the tag of the new version, else `HEAD`
 - **CLI:** `--from <ref>`, `--to <ref>`
 
-Git range of the commits read by the changelog, the provider release and the social posts.
+Git range of the commits read by the bump, the changelog, the provider release and the social posts.
 
 ## logLevel
 
@@ -87,7 +87,7 @@ Git range of the commits read by the changelog, the provider release and the soc
 - **Default:** `true`
 - **CLI:** `--no-safety-check`
 
-Global switch of the checks run before writing anything: the tokens and the registry authentication (`publish`, also gated by [`publish.safetyCheck`](./publish.md#safetycheck)), the provider token (`provider-release`), the social credentials (`social`), and in `relizy release` the branch being up to date with its remote.
+Global switch of the checks run before writing anything: the AI credentials, the tokens and the registry authentication (`publish`, also gated by [`publish.safetyCheck`](./publish.md#safetycheck)), the provider token (`provider-release`), the social credentials (`social`), and in `relizy release` the branch being up to date with its remote and the push access.
 
 ## signTags
 
@@ -110,11 +110,11 @@ Renames the scopes of the commits in the changelogs (`{ ui: 'components' }`). It
 
 The repository of the links of the changelogs and of the provider releases. Set it for a self-hosted instance, or when neither the `repository` field nor the remote is usable. When set, it replaces the detected one entirely.
 
-| Key        | Effect                                                        |
-| ---------- | ------------------------------------------------------------- |
-| `provider` | `github`, `gitlab` or `bitbucket`, detected from the domain   |
-| `domain`   | Host of the repository (`github.com`, `gitlab.mycompany.com`) |
-| `repo`     | `owner/name`                                                  |
+| Key        | Effect                                                                             |
+| ---------- | ---------------------------------------------------------------------------------- |
+| `provider` | `github`, `gitlab` or `bitbucket`. Detected from the domain when `repo` is not set |
+| `domain`   | Host of the repository (`github.com`, `gitlab.mycompany.com`)                      |
+| `repo`     | `owner/name`                                                                       |
 
 ```ts
 export default defineConfig({
@@ -142,7 +142,7 @@ The credentials of the commands. Each key falls back to the first environment va
 
 A more specific setting wins over these keys:
 
-- registry: `publish.registries[].token`, then `tokens.registry` (set by `--publish-token`)
+- registry: `tokens.registry` (set by `--publish-token`) is the token of the default registry, each entry of `publish.registries` has its own `token`
 - provider: `tokens.github` or `tokens.gitlab` (both set by `--token`). `CI_JOB_TOKEN`, the last fallback of `tokens.gitlab`, creates the GitLab releases but cannot comment the merge requests
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)

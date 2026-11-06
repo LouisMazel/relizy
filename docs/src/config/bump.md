@@ -83,6 +83,8 @@ What to do with a package not bumped while the range of one of its peer dependen
 - `warn`: the package is not bumped, relizy warns before publishing.
 - `error`: the release fails before publishing anything.
 
+The warnings and the error come from the publish step of `relizy release`, and not when [`publish.checkWorkspaceDependencies`](./publish.md#checkworkspacedependencies) is `false`: `relizy bump`, `relizy publish` alone and a release without publication (`--no-publish`) report nothing.
+
 A package whose range still accepts the new version (`workspace:^` on a minor) is left untouched: unlike `dependencyTypes: ['peerDependencies']`, it is only released when needed. A range accepting several majors (`^6.0.0 || ^7.0.0`) still accepts the new version.
 
 ### Prereleases
@@ -98,7 +100,7 @@ The ranges are checked as npm does: a range rejects a prerelease unless it targe
 | a breaking change, package in `0.x`                | a minor: `0.2.18` to `0.3.0` (see [`capZeroMajor`](#capzeromajor)) |
 | a breaking prerelease (`6.19.1` to `7.0.0-beta.0`) | a premajor: `1.2.0` to `2.0.0-beta.0`                              |
 
-A breaking change is a new major, or a new minor in `0.x`, rejected by `^oldVersion`: once released with the new range, the package requires its consumers to upgrade the dependency too. Whatever `outOfRangePeers`, a released package whose published range rejects a breaking change of its peer dependency is bumped as for a breaking commit; with commits of its own, it gets the highest of both bumps.
+A breaking change is a new major, or a new minor in `0.x`, rejected by `^oldVersion`: once released with the new range, the package requires its consumers to upgrade the dependency too. Whatever `outOfRangePeers`, a released package whose published range rejects a breaking change of its peer dependency is bumped as for a breaking commit (a minor in `0.x` with [`capZeroMajor`](#capzeromajor)); with commits of its own, it gets the highest of both bumps. In a `unified` or `selective` group, the root version is bumped likewise when such a peer belongs to another group.
 
 In `unified` and `selective` mode, the packages share the root version: a peer dependency on a package of the same group needs nothing more (its breaking commit already bumps the group), a peer dependency on a package of another version group making a breaking change gives a major to the root version (canary included).
 

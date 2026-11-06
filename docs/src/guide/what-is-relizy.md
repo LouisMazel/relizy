@@ -15,7 +15,7 @@ Relizy is a release tool for JavaScript and TypeScript projects, single packages
 relizy release
 ```
 
-This command bumps the versions, writes the changelogs, publishes to npm, commits, tags and pushes, then creates the GitHub or GitLab release, posts the announcements and comments on the pull requests of the release. Each step can be turned off. See [the steps of `relizy release`](./../cli/release.md#steps).
+This command bumps the versions, writes the changelogs, publishes to npm, commits, tags and pushes, then creates the GitHub or GitLab release, posts the announcements and comments on the pull request of the release. Each step can be turned off. See [the steps of `relizy release`](./../cli/release.md#steps).
 
 A single package needs no configuration. A monorepo needs a `monorepo` section in `relizy.config.ts`, which [`relizy init`](./../cli/init.md) writes for you.
 
@@ -38,7 +38,7 @@ See [Version Modes](./version-modes.md).
 - [npm publishing](./../config/publish.md): in dependency order, with the right dist-tag, 2FA and registry checks.
 - GitHub and GitLab releases: [`relizy provider-release`](./../cli/provider-release.md), run by `relizy release`.
 - [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter) and [Slack](./social-media.md#slack).
-- [PR comment](./pr-comment.md): a summary of the release on the pull requests or merge requests it contains.
+- [PR comment](./pr-comment.md): a summary of the release on the pull request or merge request it comes from.
 - [Release report](./../config/release.md#report): the summary of the release in the CI, and in a file with `--report-json`, `--report-dotenv` or `--report-markdown`.
 - [AI release notes](./ai-changelog.md): the provider releases and the social posts rewritten by an AI model.
 - [`relizy commitlint`](./../commitlint/index.md): lints the commit messages, with a preview of their changelog entry.

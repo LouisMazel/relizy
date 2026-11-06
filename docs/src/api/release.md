@@ -24,7 +24,7 @@ The options are the flags of [`relizy release`](./../cli/release.md#options), ca
 - **Changelog**: `changelog`, `formatCmd`, `rootChangelog`, `includeCommitBody`
 - **Publish**: `publish`, `registry`, `registries`, `tag` (the dist-tag), `access`, `otp`, `buildCmd`, `publishToken`, `skipExistingVersions`, `checkWorkspaceDependencies`, `args`, `packageManager`, `safetyCheckTimeout`
 - **Git**: `commit`, `gitTag` (the git tags), `noVerify`, `push`
-- **Provider release**: `providerRelease`, `provider`, `token` (the token of the git provider), `ai`
+- **Provider release**: `providerRelease`, `provider`, `token` (the token of the git provider), `ai` (also for the social posts)
 - **Social and PR comment**: `social`, `slackFormat`, `prComment`, `prNumber`
 - **Run**: `report`, `safetyCheck`, `configName`, `dryRun`, `logLevel`, `groups`
 

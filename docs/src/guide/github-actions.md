@@ -198,7 +198,7 @@ jobs:
           node-version: lts/*
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      # The checkout of a pull request is its merge commit: give the number of the pull request
+      # Relizy finds the pull request of the branch; the number also covers the pull requests of forks
       - run: pnpm exec relizy release --canary --yes --pr-number ${{ github.event.pull_request.number }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

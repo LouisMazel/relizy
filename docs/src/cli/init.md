@@ -80,7 +80,7 @@ On GitHub, `init` writes `.github/workflows/release.yml`:
 On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/ci/relizy.yml` when the project already has one (your file is not changed, `init` prints the `include:` to add):
 
 - a manual job on the default branch with a `RELEASE_TYPE` variable, or a job at each push, never run on the release commit it pushes;
-- the install of the dependencies, `relizy release --yes`;
+- corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
 
 The generated files are explained in [GitHub Actions](./../guide/github-actions.md) and [GitLab CI](./../guide/gitlab-ci.md). An existing workflow file is only replaced once confirmed.
@@ -99,7 +99,7 @@ The advanced options are skipped, the `commit-msg` hook is installed (an existin
 
 ### --force
 
-Replace an existing config file. Without it, `init` asks for confirmation, or fails with `--yes`:
+Replace an existing config file. Without it, `init` asks for confirmation, or fails when it runs without questions (`--yes`, no terminal, CI):
 
 ```bash
 npx relizy init --yes --force
@@ -132,7 +132,7 @@ npx relizy init --config relizy.standalone
 # Writes relizy.standalone.config.ts
 ```
 
-See [--config](./commands.md#config).
+See [--config](./commands.md#global-options).
 
 ## Next Steps
 

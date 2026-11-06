@@ -56,10 +56,12 @@ The commands take the options of their CLI command, camelCased (`--format-cmd` i
 | Option       | Description                                                                                                                |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `configName` | Config to load, as `--config`: `relizy.standalone` for `relizy.standalone.config.ts`                                       |
-| `config`     | A config already resolved by [`loadRelizyConfig()`](./load-relizy-config.md), used instead of loading it                   |
+| `config`     | A config resolved by [`loadRelizyConfig()`](./load-relizy-config.md), see below. Not an option of `release()`              |
 | `dryRun`     | Write nothing, as `--dry-run`                                                                                              |
 | `logLevel`   | As `--log-level`                                                                                                           |
 | `groups`     | Only these [version groups](./../guide/version-groups.md), as `--group` (an array of names), for the commands of `--group` |
+
+`prComment()` and `commitlint()` use the given `config` as it is. `bump()`, `changelog()`, `publish()`, `providerRelease()` and `social()` still load the config file (`configName`, `relizy` by default) and put the given `config` over it, the options of the call on top: pass the same `configName` as the one of the config, or an option it leaves unset (a hook, `repo`, `bump.preid`) comes from `relizy.config.ts`.
 
 The functions print the logs of the logger, not the output of the CLI, unless `RELIZY_REPORTER` is set (see [Output](./../cli/commands.md#output)).
 
@@ -109,7 +111,7 @@ catch (error) {
 }
 ```
 
-`providerRelease()` and `social()` do not throw when the provider or a platform fails: the error is in their result (`error`, `hasErrors`).
+`providerRelease()` and `social()` do not throw when the provider or a platform fails: the error is in their result (`error`, `hasErrors`). `providerRelease()` still throws on an error of the config.
 
 ## TypeScript
 

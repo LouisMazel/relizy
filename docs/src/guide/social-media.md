@@ -150,13 +150,13 @@ Without template, the message is made of Slack blocks, in this order:
 
 1. a header, <code v-pre>📣 {{releaseTitle}}</code>;
 2. the changelog, converted from markdown to Slack mrkdwn (bold, links as `<url|text>`, bullets as `•`, headings in bold);
-3. **📦 Packages**: each released package with its old and new versions (hidden by [`noPackages`](./../config/social.md#slack-nopackages));
+3. **📦 Packages**: each released package with its old and new versions, except the packages a section of the changelog already lists (hidden by [`noPackages`](./../config/social.md#slack-nopackages));
 4. **❤️ Contributors**: the names of the authors of the commits, without bots nor AI tools (hidden by `noAuthors`, globally or in [`social.slack.noAuthors`](./../config/social.md#slack-noauthors));
 5. the buttons **📦 View Release** and **📋 Full Changelog**, when the release URL and [`social.changelogUrl`](./../config/social.md#changelogurl) are known.
 
 [`changelogFormat`](./../config/social.md#slack-changelogformat) sets how much of the changelog is shown:
 
-- `summary` (default): the commit titles, in one block of at most [`postMaxLength`](./../config/social.md#slack-postmaxlength) characters (2500 by default). Beyond, the last commits are replaced with an "… and N more changes" line.
+- `summary` (default): the commit titles, in one block of at most [`postMaxLength`](./../config/social.md#slack-postmaxlength) characters (2500 by default, 3000 at most, the limit of a Slack block). Beyond, the last commits are replaced with an "… and N more changes" line.
 - `full`: the commit bodies (following [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody)) and the PR and issue links, as Slack rich text: one block per section, the body paragraphs as quotes, its lists as nested lists, its code as code blocks. Slack rejects a message of more than 50 blocks or about 13,200 characters of rich text: Relizy cuts the changelog at the limit (with `…`, even inside a commit body) and announces the commits left out with an "… and N more changes" line. Set `social.changelogUrl` so that **Full Changelog** links to the rest.
 
 ```bash

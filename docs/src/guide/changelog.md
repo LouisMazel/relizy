@@ -47,7 +47,7 @@ Each release adds a section at the top of the `CHANGELOG.md` of the package, und
 ```
 
 - **Title**: the previous and the new tag, `v0.0.0` for a first release. Change it with [`templates.changelogTitle`](./../config/commit-templates.md) (<code v-pre>{{oldVersion}}</code>, <code v-pre>{{newVersion}}</code>, <code v-pre>{{date}}</code>).
-- **Compare link**: to the compare page of GitHub, GitLab or Bitbucket, when the repository is known (detected from the git remote, or set with [`repo`](./../config/overview.md)).
+- **Compare link**: to the compare page of GitHub, GitLab or Bitbucket, when the repository is known (set with [`repo`](./../config/overview.md#repo), else read from the `repository` field of the closest `package.json`, else from the `origin` remote).
 - **Sections**: one per commit type, in the order of [`types`](./../config/changelog.md#types), with the titles of the [default types](./semver-convention.md). A type without `semver` (`chore`, `test`, `ci`...) is listed without bumping, a type set to `false` is left out. The `chore(deps)` and `chore(release)` commits are left out, unless breaking.
 - **Scope**: shown in bold before the description.
 - **References**: the pull requests and issues of the commit message (`#42`), or else the commit hash, linked when the repository is known.

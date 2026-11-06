@@ -65,7 +65,7 @@ One-time password of a registry with 2FA. Without it, relizy asks for one when t
 
 The registry token is [`tokens.registry`](./overview.md#tokens) (`RELIZY_NPM_TOKEN`, `NPM_TOKEN` or `NODE_AUTH_TOKEN` by default, `--publish-token <token>` from the CLI), or the `token` of each of the [`registries`](#registries). It works for npm, pnpm and bun: Yarn reads its auth from `.yarnrc.yml`, configure it yourself.
 
-Relizy writes the token, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without token, your `.npmrc` is left untouched.
+Relizy writes the token, with the `@scope:registry` of scoped packages, to the `.npmrc` of the project only during each `whoami` and `publish`, then restores the file as it was. Without token, only the `@scope:registry` line of a scoped package is written.
 
 ## buildCmd
 
@@ -99,16 +99,16 @@ export default defineConfig({
 
 Registries to publish to on top of `registry`. An entry without `packageFilter` applies to every package (a mirror), an entry with it only to the packages whose name matches. Without `registry`, only these registries are used, and a package that no entry covers is published to the registry of your npm config.
 
-| Field           | Type                        | Effect                                                                             |
-| --------------- | --------------------------- | ---------------------------------------------------------------------------------- |
-| `registry`      | `string` (required)         | Registry URL                                                                       |
-| `name`          | `string`                    | Label in the logs                                                                  |
-| `token`         | `string`                    | Token of this registry, wins over `tokens.registry` (npm, pnpm, bun)               |
-| `tag`           | `string`                    | Dist-tag on this registry, wins over `publish.tag`                                 |
-| `access`        | `'public' \| 'restricted'`  | Access on this registry                                                            |
-| `otp`           | `string`                    | OTP of this registry                                                               |
-| `packageFilter` | `string[]`                  | Glob patterns of package names routed to this registry (all packages when omitted) |
-| `exclusive`     | `boolean` (default `false`) | The matching packages are not published to the default `registry`                  |
+| Field           | Type                        | Effect                                                                                                                                                |
+| --------------- | --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `registry`      | `string` (required)         | Registry URL                                                                                                                                          |
+| `name`          | `string`                    | Label in the logs                                                                                                                                     |
+| `token`         | `string`                    | Token of this registry (npm, pnpm, bun). Without it, the `.npmrc` of the project applies: `tokens.registry` is the token of the default registry only |
+| `tag`           | `string`                    | Dist-tag on this registry, wins over `publish.tag`                                                                                                    |
+| `access`        | `'public' \| 'restricted'`  | Access on this registry (`publish.access` does not apply)                                                                                             |
+| `otp`           | `string`                    | OTP of this registry (`publish.otp` does not apply)                                                                                                   |
+| `packageFilter` | `string[]`                  | Glob patterns of package names routed to this registry (all packages when omitted)                                                                    |
+| `exclusive`     | `boolean` (default `false`) | The matching packages are not published to the default `registry`                                                                                     |
 
 ```ts
 export default defineConfig({
@@ -130,7 +130,7 @@ export default defineConfig({
 - **Type:** `boolean`
 - **Default:** `true`
 
-Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. A registry scoped by `packageFilter` to packages outside of the release is not checked. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`), and by `relizy release` when it does not publish (`release.publish: false`, `--no-publish`).
+Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. `relizy release` checks it before the bump, for every package that can be published, and `relizy publish` for the packages it publishes: a registry scoped by `packageFilter` to other packages is not checked, the registry of your npm config is when a package goes there. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`), and by `relizy release` when it does not publish (`release.publish: false`, `--no-publish`).
 
 ## safetyCheckTimeout
 

@@ -25,16 +25,16 @@ Install Relizy as a devDependency of the project: the agents then start the inst
 
 ## What the Agents Get
 
-| Tool                | What it answers                                                                                                                                                               |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preview_release`   | What the next release bumps: the version of each package and group, and why (its commits, a bumped dependency, a peer range rejecting the new version, another version group) |
-| `preview_changelog` | The changelog entries the release would write                                                                                                                                 |
-| `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                               |
-| `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                           |
-| `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                             |
-| `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                 |
-| `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                              |
-| `check_migration`   | What to change to upgrade from Relizy 1: the dependency, the social templates, the version groups, the hooks and the code calling the API, file by file and line by line      |
+| Tool                | What it answers                                                                                                                                                                                                                                     |
+| ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `preview_release`   | What the next release bumps: the version of each package and group, and why (its commits, a bumped dependency, a peer range rejecting the new version, another version group)                                                                       |
+| `preview_changelog` | The changelog entries the release would write                                                                                                                                                                                                       |
+| `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                                                                                                     |
+| `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                                                                                                 |
+| `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                                                                                                   |
+| `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                                                                                       |
+| `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                                                                                                    |
+| `check_migration`   | What to change to upgrade from Relizy 1: the dependency, the removed and renamed options, the social templates, the version groups, the hooks, the CLI calls of the scripts and the CI, and the code calling the API, file by file and line by line |
 
 It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy`, `migrate-to-v2` and `setup-ci`. To upgrade from Relizy 1, ask your agent for `migrate-to-v2`: it reads the [migration guide](./migration-v2.md), runs `check_migration` and proposes the changes.
 

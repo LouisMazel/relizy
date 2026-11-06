@@ -61,7 +61,7 @@ A hook is a shell command (a `string`, run from `cwd`) or a function, sync or as
 
 - `config`: the resolved config, defaults included
 - `dryRun`: `true` with `--dry-run`, where the hooks still run: check it before any side effect
-- `context`: the release, when it is known: in `relizy release` once the bump is done, and in a command given a bump result. `before:release`, `before:bump` and `error:bump` never get it, nor the standalone `relizy publish`, `provider-release` and `social`.
+- `context`: the release, when it is known: in `relizy release` once the bump is done, and in a command given a bump result. `before:release`, `before:bump` and `error:bump` never get it, nor the standalone `relizy changelog`, `publish`, `provider-release` and `social`.
   - `bumpResult` (`BumpResultTruthy`): the result of the bump
   - `release` (`ReleaseOverview`): the packages and versions of the release by version group; in the `twitter` and `slack` hooks, what the post announces
 
@@ -83,7 +83,7 @@ See the [`HookContext`](./../typedoc/interfaces/HookContext.md) and [`ReleaseOve
 
 - **Type:** `(config, dryRun, { commits: GitCommit[], changelog: string }) => string | void | null | undefined | Promise<...>`
 
-Rewrites a generated changelog: called for the changelog of each package and for the root changelog, as written in the `CHANGELOG.md` files (not for the provider releases nor the social posts). Return a string to replace `changelog`, or nothing to keep it. With version groups, `config` is the config of the group of the changelog. To rewrite the release notes and the posts with AI, see [AI](./ai.md).
+Rewrites a generated changelog: called once for the changelog of each package and for the root changelog (in `independent` mode, the root changelog gathers the rewritten changelogs of the packages, without a call of its own), as written in the `CHANGELOG.md` files (not for the provider releases nor the social posts). Return a string to replace `changelog`, or nothing to keep it. With version groups, `config` is the config of the group of the changelog. To rewrite the release notes and the posts with AI, see [AI](./ai.md).
 
 ```ts
 export default defineConfig({
@@ -97,7 +97,7 @@ export default defineConfig({
 
 ## Order
 
-`relizy bump`, `changelog`, `publish` and `provider-release` run `before:<step>`, then `success:<step>` or `error:<step>`; `relizy changelog` also runs `generate:changelog` for each changelog.
+`relizy bump`, `changelog`, `publish` and `provider-release` run `before:<step>`, then `success:<step>` or `error:<step>`; `relizy changelog` also runs `generate:changelog` for each changelog. `relizy publish` with nothing to publish runs neither `success:publish` nor `error:publish`.
 
 `relizy social` runs:
 
@@ -117,13 +117,13 @@ export default defineConfig({
 7. Provider release: `before:provider-release`, `success:provider-release` or `error:provider-release`
 8. Social posts: the hooks of `relizy social`
 9. PR comment (no hooks)
-10. `success:release`, or `error:release` when a step failed
+10. `success:release`, or `error:release` when the release failed
 
 When nothing is released (no commit triggers a bump), `relizy release` stops after the bump: neither `success:release` nor `error:release` runs. A refused or cancelled prompt runs no `error:*` hook.
 
 ## Errors
 
-A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed social post does not stop the release: its `error:twitter` or `error:slack` hook runs, then `error:social`.
+A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed provider release or social post does not stop `relizy release`: its `error:provider-release` hook runs (or `error:twitter` or `error:slack`, then `error:social`), the step is marked as failed in the summary, and the release ends with `success:release`. A failed PR comment only warns.
 
 ```ts
 export default defineConfig({

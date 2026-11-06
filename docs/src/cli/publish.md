@@ -19,7 +19,7 @@ relizy publish [options]
 `publish` is the third [step of `release`](./release.md#steps). It:
 
 1. finds the packages to publish (public packages only, the private ones are never published);
-2. checks the access to the registry and the `workspace:` dependencies (see [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies));
+2. checks the access to the registry (npm and pnpm, not Yarn nor Bun) and the `workspace:` dependencies (see [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies));
 3. runs the build command, only when `--build-cmd` or [`publish.buildCmd`](./../config/publish.md#buildcmd) is set;
 4. publishes the packages, each after its internal dependencies, with the package manager of the project.
 
@@ -27,15 +27,15 @@ Alone, it publishes the current versions: run it after [`bump`](./bump.md). The 
 
 ## Options
 
-| Flag                       | Description                                                                                  | Config                                                                        |
-| -------------------------- | -------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| `--registry <url>`         | Registry to publish to                                                                       | [`publish.registry`](./../config/publish.md#registry)                         |
-| `--tag <tag>`              | Dist-tag of the publication. Default: `latest` for a stable version, `next` for a prerelease | [`publish.tag`](./../config/publish.md#tag)                                   |
-| `--access <type>`          | `public` or `restricted`                                                                     | [`publish.access`](./../config/publish.md#access)                             |
-| `--otp <code>`             | One-time password of the registry (2FA)                                                      | [`publish.otp`](./../config/publish.md#otp)                                   |
-| `--build-cmd <cmd>`        | Command run before publishing. Quote it, it is one argument: `--build-cmd "pnpm build"`      | [`publish.buildCmd`](./../config/publish.md#buildcmd)                         |
-| `--publish-token <token>`  | Registry token, for npm, pnpm and bun (written to a temporary `.npmrc`)                      | [`tokens.registry`](./../config/overview.md#tokens)                           |
-| `--skip-existing-versions` | Skip the packages whose version is already on the registry instead of failing                | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
+| Flag                       | Description                                                                                                | Config                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--registry <url>`         | Registry to publish to: every package goes there, on top of its non-exclusive `publish.registries` entries | [`publish.registry`](./../config/publish.md#registry)                         |
+| `--tag <tag>`              | Dist-tag of the publication. Default: `latest` for a stable version, `next` for a prerelease               | [`publish.tag`](./../config/publish.md#tag)                                   |
+| `--access <type>`          | `public` or `restricted`                                                                                   | [`publish.access`](./../config/publish.md#access)                             |
+| `--otp <code>`             | One-time password of the registry (2FA)                                                                    | [`publish.otp`](./../config/publish.md#otp)                                   |
+| `--build-cmd <cmd>`        | Command run before publishing. Quote it, it is one argument: `--build-cmd "pnpm build"`                    | [`publish.buildCmd`](./../config/publish.md#buildcmd)                         |
+| `--publish-token <token>`  | Registry token, for npm, pnpm and bun (written to a temporary `.npmrc`)                                    | [`tokens.registry`](./../config/overview.md#tokens)                           |
+| `--skip-existing-versions` | Skip the packages whose version is already on the registry instead of failing                              | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
 
 Without `--publish-token`, the token comes from the config or the environment, see [Tokens](./../config/overview.md#tokens).
 

@@ -16,7 +16,7 @@ tags: [api, social, twitter, slack, typescript]
 function social(options?: Partial<SocialOptions>): Promise<SocialResult>
 ```
 
-Options: [`SocialOptions`](./../typedoc/interfaces/SocialOptions.md). Result: [`SocialResult`](./../typedoc/interfaces/SocialResult.md), with one [`SocialNetworkResult`](./../typedoc/interfaces/SocialNetworkResult.md) per enabled platform.
+Options: [`SocialOptions`](./../typedoc/interfaces/SocialOptions.md): `bumpResult`, `from`, `to`, `dryRun`, `ai` (force the AI on or off), `slackFormat` (`summary` or `full`), `safetyCheck`, `suffix`, `force`, `groups`, and the [shared options](./usage.md#shared-options) `config`, `configName` and `logLevel`. Result: [`SocialResult`](./../typedoc/interfaces/SocialResult.md), with one [`SocialNetworkResult`](./../typedoc/interfaces/SocialNetworkResult.md) per enabled platform.
 
 ## Behavior
 

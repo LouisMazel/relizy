@@ -22,7 +22,7 @@ pnpm remove @commitlint/cli @commitlint/config-conventional @commitlint/types co
 rm commitlint.config.* .commitlintrc*
 ```
 
-The rules take the ESLint format, `'error'` or `['error', value]`, and accept the commitlint tuples `[2, 'always', value]` to copy them as is (see [levels and values](./config.md#levels-and-values)).
+The rules take the ESLint format, `'error'` or `['error', value]`, and accept the commitlint tuples `[2, 'always', value]` (see [levels and values](./config.md#levels-and-values)). Copy a tuple as is only when its value means the same in Relizy (`header-max-length`): the value of `type-enum` adds types to your Relizy `types` instead of restricting them, the value of `scope-enum` is ignored (the scopes come from your packages and [`commitlint.scopes`](./config.md#scopes)), commitlint's `scope-empty: [2, 'never']` (scope required) is `'scope-required': 'error'`, and the `subject-case` tuple of `config-conventional` turns on a rule that Relizy leaves off.
 
 ## Rules of `@commitlint/config-conventional`
 

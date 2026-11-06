@@ -20,7 +20,7 @@ Comments the versions, the tags, the packages and the install commands of the pr
 
 The command has no option of its own. The [global options](./commands.md) apply:
 
-- `--pr-number <number>`: the pull request or merge request to comment, when it is not the open one of the current branch (after a merge, on a detached `HEAD`, from a fork);
+- `--pr-number <number>`: the pull request or merge request to comment, when relizy cannot find it (a pull request from a fork, a GitLab merged results pipeline, see [Finding the Pull Request](./../guide/pr-comment.md#finding-the-pull-request));
 - `--dry-run`: find the pull request (the API of the provider is called) and show the comment, without posting it;
 - `--config`, `--log-level`.
 

@@ -43,7 +43,7 @@ The changed files, used by the [scope rules](./rules.md#scope-matches-files), ar
 | `--install`           | Write the `commit-msg` hook running `relizy commitlint --edit "$1"`: in `.husky/` when husky is set up, otherwise in the hooks directory of git                                                      |
 | `--force`             | With `--install`, replace an existing `commit-msg` hook                                                                                                                                              |
 
-Global options: `--config <name>` selects a config file (`relizy.<name>.config.ts`), `--log-level debug` shows how the range is resolved.
+Global options: `--config <name>` loads `<name>.config.<ext>` (`--config relizy.standalone` for `relizy.standalone.config.ts`), `--log-level debug` shows how the range is resolved.
 
 ## Default range
 

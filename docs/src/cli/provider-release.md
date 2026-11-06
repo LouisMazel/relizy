@@ -18,14 +18,14 @@ relizy provider-release [options]
 
 `provider-release` is a [step of `release`](./release.md#steps), after the push: the tags of the releases must be on the remote. Alone, it creates the release of the current version (one per package in `independent` mode), with the changelog of the commits since the previous release tag as notes. A prerelease version is marked as a prerelease.
 
-The provider is detected from the URL of the `origin` remote: `github` or `gitlab`. On Bitbucket, which has no release API, the step creates nothing (the tags of the release are its only trace). The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`, `--no-safety-check`...).
+The provider is `--provider`, else [`repo.provider`](./../config/overview.md#repo), else detected from the repository (`github` or `gitlab`). The command exits with code `1` when a release fails. On Bitbucket, which has no release API, the step creates nothing (the tags of the release are its only trace). The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`, `--no-safety-check`...).
 
 ## Options
 
 | Flag                    | Description                                                                    | Config                                     |
 | ----------------------- | ------------------------------------------------------------------------------ | ------------------------------------------ |
-| `--from <ref>`          | Start of the commit range (tag or commit), instead of the previous release tag | [`from`](./../config/overview.md#from)     |
-| `--to <ref>`            | End of the commit range                                                        | [`to`](./../config/overview.md#to)         |
+| `--from <ref>`          | Start of the commit range (tag or commit), instead of the previous release tag | [`from`](./../config/overview.md#from-to)  |
+| `--to <ref>`            | End of the commit range                                                        | [`to`](./../config/overview.md#from-to)    |
 | `--provider <provider>` | `github` or `gitlab`, instead of the detected one                              | -                                          |
 | `--token <token>`       | Token of the git provider                                                      | [`tokens`](./../config/overview.md#tokens) |
 | `--ai`, `--no-ai`       | Force or disable the AI rewrite of the release notes                           | [AI](./../config/ai.md)                    |

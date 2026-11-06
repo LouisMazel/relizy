@@ -208,7 +208,7 @@ export default defineConfig({
             <code class="text-primary">relizy commitlint</code> uses your config: every commit shows its effect on the next release, every problem how to fix it.
             <template #visual>
               <div class="rounded-lg bg-terminal p-3 font-mono text-xs leading-relaxed text-terminal-fg">
-                <p><span class="text-terminal-green">✔</span> feat(core) <span class="text-terminal-dim">→ minor bump, 🚀 Features</span></p>
+                <p><span class="text-terminal-green">✔</span> feat(core) <span class="text-terminal-dim">→ minor bump, 🚀 Enhancements</span></p>
                 <p><span class="text-terminal-red">✖</span> fix(cor): Typo.</p>
                 <p class="pl-4 text-terminal-dim">
                   scope-enum <span class="text-terminal-fg">did you mean "core"?</span>
@@ -217,8 +217,8 @@ export default defineConfig({
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazEye" title="Preview before you ship" href="/cli/commands#dry-run" link="Dry run">
-            <code class="text-primary">--dry-run</code> shows the versions, the changelogs, the release notes, the posts and the PR comment, without writing anything nor calling the AI.
+          <HomeFeatureCard :icon="MazEye" title="Preview before you ship" href="/cli/commands#global-options" link="Dry run">
+            <code class="text-primary">--dry-run</code> shows the versions, the changelogs, the release notes, the posts and the PR comment, without committing, publishing nor posting anything. The AI is only called with <code class="text-primary">--ai-preview</code>.
           </HomeFeatureCard>
 
           <HomeFeatureCard :icon="MazCommandLine" title="Made for your CI" href="/guide/ci-cd" link="CI/CD setup">
@@ -260,11 +260,11 @@ export default defineConfig({
             Version your apps, APIs and internal monorepos: changelogs, tags and releases, nothing published.
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazBeaker" title="Canary releases" href="/guide/canary-releases" link="Canary releases">
+          <HomeFeatureCard :icon="MazBeaker" title="Canary releases" href="/guide/prereleases#canary-releases" link="Canary releases">
             Publish a test version of any branch, rolled back once published.
             <template #visual>
               <p class="inline-block rounded-md bg-surface px-2 py-1 font-mono text-xs text-primary">
-                2.4.0-canary.a1b2c3d
+                2.4.0-0.canary-a1b2c3d
               </p>
             </template>
           </HomeFeatureCard>

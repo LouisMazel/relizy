@@ -18,7 +18,7 @@ relizy social [options]
 
 Posts the release once per enabled platform (`social.<platform>.enabled`): the versions of the `package.json` files and their changelog since the previous tags. `relizy release` runs the same step with the versions it just bumped. Setup of the platforms and shape of the posts: [Social Media](./../guide/social-media.md).
 
-The command exits with code `1` when a post fails, after the other posts: the failure is shown in its output. In `relizy release`, a failed post does not stop the release.
+The command exits with code `1` when a post fails, after the other posts, or when it cannot prepare them (missing credentials, a failed check): the failure is shown in its output. In `relizy release`, a failed post does not stop the release.
 
 ## Options
 

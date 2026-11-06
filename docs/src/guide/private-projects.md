@@ -13,7 +13,7 @@ tags: [guide, private, apps, monorepo, versioning, changelog, github, gitlab]
 
 ## What a Release Does
 
-On a private project, `relizy release` bumps the versions from the commits, writes the `CHANGELOG.md` files, commits, tags and pushes, creates a GitHub or GitLab release per tag and comments on the pull requests or merge requests of the release.
+On a private project, `relizy release` bumps the versions from the commits, writes the `CHANGELOG.md` files, commits, tags and pushes, creates a GitHub or GitLab release per tag and comments on the pull request or merge request of the release.
 
 It never publishes a package, never asks for an npm token and never shows install commands in the PR comment.
 
@@ -31,7 +31,7 @@ The GitHub or GitLab releases are created in your own repository, with its visib
 
 ## Set Up With relizy init
 
-[`relizy init`](./../cli/init.md) asks what a release should do: choose **Version only**. It is suggested when the root `package.json` is private, or when no workspace package can be published. Relizy then writes `release.publish: false` and, in a monorepo of private packages, `monorepo.privatePackages: 'release'`. The generated CI workflow does not ask for an npm token.
+[`relizy init`](./../cli/init.md) asks what a release should do: choose **Version only**. It is suggested for a single package marked `private`, or for a monorepo none of whose versioned workspace packages can be published. Relizy then writes `release.publish: false` and, in a monorepo of private packages, `monorepo.privatePackages: 'release'`. The generated CI workflow does not ask for an npm token.
 
 ## A Single App
 

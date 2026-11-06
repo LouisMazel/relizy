@@ -138,7 +138,7 @@ Hide the block listing the released packages with their old and new versions.
 
 - **Type:** `string`
 
-URL of the full changelog: <code v-pre>{{changelogUrl}}</code> of the templates, and the **Full Changelog** button of Slack. Not set, the variable is empty.
+URL of the full changelog: <code v-pre>{{changelogUrl}}</code> of the templates, and the **Full Changelog** button of Slack. Not set, the variable is empty, and a template line holding only <code v-pre>{{changelogUrl}}</code> is removed.
 
 ## Templates
 
@@ -146,7 +146,7 @@ URL of the full changelog: <code v-pre>{{changelogUrl}}</code> of the templates,
 
 ## Template Variables
 
-Every occurrence of a variable is replaced. A URL not known is replaced with an empty string.
+Every occurrence of a variable is replaced. A URL not known is replaced with an empty string, and a line holding only this URL is removed.
 
 | Variable                            | Value                                                                                                                                                                       | Slack only |
 | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
