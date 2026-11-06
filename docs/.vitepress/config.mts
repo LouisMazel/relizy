@@ -8,6 +8,7 @@ import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 
 const SITE_URL = 'https://relizy.dev'
+const CLI_COMMAND_PAGE = /^(?:cli\/(?!commands\.md)[\w-]+|commitlint\/cli)\.md$/
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
 // Kept out of the search engines: the 404 page, which also answers with a 200 at /404, and the
@@ -259,6 +260,13 @@ export default defineConfig({
 
       return modifyItems
     },
+  },
+
+  transformPageData: (pageData) => {
+    // The pages of the commands are titled after the command: "relizy bump command", not "bump"
+    if (CLI_COMMAND_PAGE.test(pageData.relativePath)) {
+      pageData.titleTemplate = 'relizy :title command | Relizy'
+    }
   },
 
   transformHead: ({ siteData, pageData, title, description, head }) => {

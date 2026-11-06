@@ -1,5 +1,5 @@
 ---
-title: changelog
+title: Changelog
 description: Latest changes in Relizy.
 ---
 
