@@ -133,7 +133,7 @@ In a CI, there is no terminal to confirm the bump: add `--yes`, otherwise `reliz
 pnpm exec relizy release --yes
 ```
 
-`relizy init` generates the workflow: `.github/workflows/release.yml` for GitHub Actions, `.gitlab-ci.yml` for GitLab CI. Relizy handles the shallow clone, the git identity of the release commit and the detached HEAD of GitLab by itself. See [CI/CD](./ci-cd.md), [GitHub Actions](./github-actions.md) and [GitLab CI](./gitlab-ci.md).
+`relizy init` generates the workflow: `.github/workflows/release.yml` with the [relizy action](./github-actions.md#the-relizy-action) for GitHub Actions, `.gitlab-ci.yml` with the [relizy component](./gitlab-ci.md#the-relizy-component) for GitLab CI. Relizy handles the shallow clone, the git identity of the release commit and the detached HEAD of GitLab by itself. See [CI/CD](./ci-cd.md), [GitHub Actions](./github-actions.md) and [GitLab CI](./gitlab-ci.md).
 
 ## AI Release Notes
 

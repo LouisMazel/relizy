@@ -24,6 +24,8 @@ import MazBadge from 'maz-ui/components/MazBadge'
 import MazBtn from 'maz-ui/components/MazBtn'
 import MazCardSpotlight from 'maz-ui/components/MazCardSpotlight'
 import MazCodeHighlight from 'maz-ui/components/MazCodeHighlight'
+import MazTabsBar from 'maz-ui/components/MazTabsBar'
+import { ref } from 'vue'
 import RelizyTerminal from '../terminal/RelizyTerminal.vue'
 import TerminalWindow from '../terminal/TerminalWindow.vue'
 import HomeContributors from './HomeContributors.vue'
@@ -77,6 +79,54 @@ export default defineConfig({
     teams: { enabled: true },
   },
 })`
+
+/** The release job of the CI, shown on the page */
+const ciTabs = [{ label: 'GitHub Actions' }, { label: 'GitLab CI' }]
+const ciTab = ref(1)
+
+const ciSnippets = [
+  {
+    file: '.github/workflows/release.yml',
+    code: `jobs:
+  release:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: release
+        uses: relizy/action@v2
+        with:
+          release-type: \${{ inputs.release }}
+      - if: steps.release.outputs.released == 'true'
+        run: ./deploy.sh \${{ steps.release.outputs.version }}`,
+  },
+  {
+    file: '.gitlab-ci.yml',
+    code: `include:
+  - component: gitlab.com/relizy/relizy/release@2
+    inputs:
+      when: on_success
+
+deploy:
+  stage: deploy
+  needs: [release]
+  # The rules of the release job
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\\(release\\): /'
+  script:
+    - if [ "$RELIZY_RELEASED" = "true" ]; then ./deploy.sh "$RELIZY_VERSION"; fi`,
+  },
+]
+
+const ciFeatures = [
+  { title: 'Set up', text: 'Node.js, your package manager and your dependencies, from the lockfile.' },
+  { title: 'Tokens', text: 'One input per token, npm trusted publishing without any.' },
+  { title: 'Outputs', text: 'The version, the tags and the links, ready for the next steps.' },
+]
 </script>
 
 <template>
@@ -169,6 +219,57 @@ export default defineConfig({
             </MazCardSpotlight>
           </li>
         </ol>
+      </div>
+    </section>
+
+    <!-- CI -->
+    <section class="px-6 pb-24 tab-m:pb-32">
+      <div class="mx-auto grid max-w-6xl items-center gap-12 lap-s:grid-cols-2">
+        <div>
+          <p class="eyebrow">
+            GitHub Action & GitLab component
+          </p>
+          <h2 class="section-title text-balance">
+            Ship every release in one step.
+          </h2>
+          <p class="mt-4 text-lg leading-relaxed text-muted">
+            The official <code class="text-primary">relizy/action</code> and the GitLab CI component of the CI/CD catalog run the whole release from your CI. <code class="text-primary">relizy init</code> writes them for you.
+          </p>
+          <dl class="mt-8 grid gap-4">
+            <div v-for="feature in ciFeatures" :key="feature.title" class="flex gap-3">
+              <dt class="w-20 shrink-0 font-semibold text-foreground">
+                {{ feature.title }}
+              </dt>
+              <dd class="text-muted">
+                {{ feature.text }}
+              </dd>
+            </div>
+          </dl>
+          <div class="mt-8 flex flex-wrap gap-3">
+            <MazBtn href="/guide/github-actions#the-relizy-action" color="contrast" outlined :start-icon="MazGithubRaw">
+              GitHub Action
+            </MazBtn>
+            <MazBtn href="/guide/gitlab-ci#the-relizy-component" color="transparent" :end-icon="MazArrowRight">
+              GitLab component
+            </MazBtn>
+          </div>
+        </div>
+
+        <div class="min-w-0">
+          <MazTabsBar v-model="ciTab" :items="ciTabs" class="mb-4" />
+          <!-- Stacked in one cell: the section keeps the height of the longest snippet when switching -->
+          <div class="grid">
+            <TerminalWindow
+              v-for="(snippet, index) in ciSnippets"
+              :key="snippet.file"
+              :title="snippet.file"
+              :class="{ invisible: ciTab !== index + 1 }"
+              class="col-start-1 row-start-1"
+            >
+              <MazCodeHighlight :code="snippet.code" language="yaml" theme="tokyo-night" :rounded="false" class="text-[0.8125rem] [&_pre]:bg-transparent! [&_pre]:p-5!" />
+            </TerminalWindow>
+          </div>
+        </div>
       </div>
     </section>
 

@@ -17,52 +17,84 @@ const options: WorkflowOptions = {
 }
 
 describe('Given the release workflow of GitHub Actions', () => {
-  it('When released at each push, Then runs on the default branch, without release type', () => {
+  it('When released on demand, Then runs the relizy action with the chosen release type', () => {
+    const { content } = getWorkflowFile(options, '/nonexistent')
+
+    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+    expect(content).toContain('      - id: release\n        uses: relizy/action@v2\n        with:\n          release-type: ${{ inputs.release }}\n')
+  })
+
+  it('When released at each push, Then runs on the default branch, without input', () => {
     const { content } = getWorkflowFile({ ...options, trigger: 'push', branch: 'develop' }, '/nonexistent')
 
     expect(content).toContain('on:\n  push:\n    branches: [develop]\n')
     expect(content).not.toContain('workflow_dispatch')
-    expect(content).toContain('        run: pnpm exec relizy release --yes\n')
+    expect(content).toContain('        uses: relizy/action@v2\n      # The outputs')
   })
 
-  it('When the config needs no secret nor PR comment, Then only gives the token of the run, with the permission to push', () => {
+  it('When the config needs no secret nor PR comment, Then only asks the permission to push, the action takes the token of the run', () => {
     const { content } = getWorkflowFile(options, '/nonexistent')
 
     expect(content).toContain('      contents: write\n    steps:')
     expect(content).not.toContain('pull-requests')
-    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-    expect(content).toContain('        env:\n          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}\n      # The outputs')
+    expect(content).not.toContain('GITHUB_TOKEN')
     expect(getWorkflowSecrets(options)).toEqual([])
   })
 
-  it('When the project pins its Node version, Then sets it up from its file', () => {
-    expect(getWorkflowFile({ ...options, nodeVersionFile: '.nvmrc' }, '/nonexistent').content).toContain('          node-version-file: .nvmrc\n')
-    expect(getWorkflowFile(options, '/nonexistent').content).toContain('          node-version: lts/*\n')
+  it('Then leaves the setup of Node.js, the package manager and the dependencies to the action', () => {
+    const { content } = getWorkflowFile({ ...options, packageManager: 'bun', nodeVersionFile: '.nvmrc', publish: true, ai: true }, '/nonexistent')
+
+    expect(content).not.toContain('setup-node')
+    expect(content).not.toContain('setup-bun')
+    expect(content).not.toContain('npm install')
   })
 
-  it('When using bun, Then sets it up, without the cache of setup-node', () => {
-    const { content } = getWorkflowFile({ ...options, packageManager: 'bun' }, '/nonexistent')
+  it('When the release needs secrets, Then gives each one to its input, named after its variable', () => {
+    const { content } = getWorkflowFile({ ...options, publish: true, twitter: true, slack: true, teams: true, ai: true }, '/nonexistent')
 
-    expect(content).toContain('      - uses: oven-sh/setup-bun@v2\n')
-    expect(content).not.toContain('cache:')
-    expect(content).toContain('      - run: bun install --frozen-lockfile\n')
+    /* eslint-disable no-template-curly-in-string -- expressions of GitHub Actions */
+    expect(content).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+    expect(content).toContain('          twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}\n')
+    expect(content).toContain('          slack-token: ${{ secrets.SLACK_TOKEN }}\n')
+    expect(content).toContain('          teams-webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}\n')
+    expect(content).toContain('          claude-code-oauth-token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\n')
+    /* eslint-enable no-template-curly-in-string */
+  })
+})
+
+describe('Given the release job of a project on gitlab.com', () => {
+  const gitlab: WorkflowOptions = { ...options, provider: 'gitlab', gitlabCom: true }
+
+  it('When released on demand, Then includes the component with the release type of the pipeline form', () => {
+    const { content } = getWorkflowFile(gitlab, '/nonexistent')
+
+    expect(content).toContain('variables:\n  RELEASE_TYPE:\n    value: auto\n')
+    expect(content).toMatch(/include:\n {2}# .+\n {2}- component: gitlab\.com\/relizy\/relizy\/release@2\n$/)
+    expect(content).not.toContain('release:\n  stage')
   })
 
-  it('When the AI rewrites the notes, Then installs the claude CLI and passes its token', () => {
-    const { content } = getWorkflowFile({ ...options, ai: true }, '/nonexistent')
+  it('When released at each push, Then runs the component at each push, with the Node version of the project', () => {
+    const { content } = getWorkflowFile({ ...gitlab, trigger: 'push', nodeVersion: '22' }, '/nonexistent')
 
-    expect(content).toContain('      - run: npm install -g @anthropic-ai/claude-code\n')
-    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-    expect(content).toContain('          RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}\n')
+    expect(content).not.toContain('RELEASE_TYPE')
+    expect(content).toContain('  - component: gitlab.com/relizy/relizy/release@2\n    inputs:\n      when: on_success\n      image: node:22\n')
+  })
+
+  it('When the release commit has a custom message, Then skips it with an escaped regular expression', () => {
+    expect(getWorkflowFile({ ...gitlab, releaseCommitPrefix: 'release(\'s): v' }, '/nonexistent').content).toContain('      skip-commit: \'^release\\(\'\'s\\): v\'\n')
+    expect(getWorkflowFile({ ...gitlab, releaseCommitPrefix: '' }, '/nonexistent').content).toContain('      skip-commit: \'^$\'\n')
+  })
+
+  it('Then lists the CI/CD variables to create, read by the component under the same names', () => {
+    expect(getWorkflowFile({ ...gitlab, publish: true }, '/nonexistent').content).toContain('Settings > CI/CD > Variables): GITLAB_TOKEN, NPM_TOKEN\n')
   })
 })
 
 describe('Given a workflow that publishes to npm', () => {
-  it('Then gives the OIDC permission of trusted publishing and a recent npm on GitHub Actions', () => {
+  it('Then gives the OIDC permission of trusted publishing on GitHub Actions, the action updates npm', () => {
     const { content } = getWorkflowFile({ ...options, publish: true }, '/nonexistent')
 
     expect(content).toContain('      contents: write\n      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com\n      id-token: write\n')
-    expect(content).toContain('      - run: pnpm install --frozen-lockfile\n      # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing\n      - run: npm install -g npm@latest\n')
   })
 
   it('Then gives the NPM_ID_TOKEN id token and a recent npm on GitLab CI', () => {
@@ -78,7 +110,7 @@ describe('Given a workflow that publishes to npm', () => {
   })
 })
 
-describe('Given the release job of GitLab CI', () => {
+describe('Given the release job of a self-managed GitLab', () => {
   it('Then skips the release commit, escaping a custom commit message for the regular expression and the YAML quotes', () => {
     const { content, path } = getWorkflowFile({ ...options, provider: 'gitlab', releaseCommitPrefix: 'release(\'s): v' }, '/nonexistent')
 
@@ -94,7 +126,7 @@ describe('Given the release job of GitLab CI', () => {
     expect(getWorkflowSecrets({ ...options, provider: 'gitlab', teams: true })).toEqual(['GITLAB_TOKEN', 'TEAMS_WEBHOOK_URL_B64'])
     expect(getWorkflowSecrets({ ...options, teams: true })).toEqual(['TEAMS_WEBHOOK_URL'])
     // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-    expect(getWorkflowFile({ ...options, teams: true }, '/nonexistent').content).toContain('RELIZY_TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}')
+    expect(getWorkflowFile({ ...options, teams: true }, '/nonexistent').content).toContain('teams-webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}')
   })
 })
 

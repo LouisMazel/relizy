@@ -79,7 +79,7 @@ The JSON report has the same content, with the packages by version group: see [`
 ```yaml
 # GitHub Actions
 - id: release
-  run: pnpm relizy release --yes
+  uses: relizy/action@v2
 - if: steps.release.outputs.released == 'true'
   run: echo "Released ${{ steps.release.outputs.tags }}"
 ```

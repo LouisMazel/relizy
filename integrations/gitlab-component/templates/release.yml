@@ -1,0 +1,127 @@
+# Synced to gitlab.com/relizy/relizy at each release of relizy: edit it in github.com/LouisMazel/relizy
+spec:
+  description: 'Ship every release in one job: versions, changelogs, npm publishing and GitLab releases, from your commits'
+  inputs:
+    stage:
+      default: deploy
+      description: Stage of the release job
+    image:
+      default: node:lts
+      description: Image of the release job, a Node.js image
+    when:
+      default: manual
+      options: [manual, on_success]
+      description: manual runs the job on demand, on_success at each push on the default branch
+    release-type:
+      default: auto
+      options: [auto, patch, minor, major, prerelease, prepatch, preminor, premajor]
+      description: Release type (auto follows the commits), a RELEASE_TYPE variable of the pipeline takes precedence
+    args:
+      default: ''
+      description: More arguments for relizy release, e.g. "--tag beta --preid beta"
+    skip-commit:
+      default: '^chore\(release\): '
+      description: Regular expression of the release commit message, which does not run the job again
+    setup:
+      type: boolean
+      default: true
+      description: Install the package manager and the dependencies (false when the image or the before_script already did)
+    package-manager:
+      default: ''
+      description: npm, pnpm, yarn or bun, detected from the lockfile by default
+    relizy-version:
+      default: ''
+      description: Version of relizy to run, the one of the project by default, else the one of this component
+    working-directory:
+      default: .
+      description: Directory of the project to release
+---
+release:
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.image ]]
+  variables:
+    # The changelogs need the history since the last release
+    GIT_DEPTH: 0
+    RELIZY_INPUT_RELEASE_TYPE: '$[[ inputs.release-type ]]'
+    RELIZY_INPUT_ARGS: '$[[ inputs.args ]]'
+    RELIZY_INPUT_SETUP: '$[[ inputs.setup ]]'
+    RELIZY_INPUT_PACKAGE_MANAGER: '$[[ inputs.package-manager ]]'
+    RELIZY_INPUT_VERSION: '$[[ inputs.relizy-version ]]'
+    RELIZY_INPUT_WORKING_DIRECTORY: '$[[ inputs.working-directory ]]'
+    # Replaced by the version of relizy when synced to gitlab.com/relizy/relizy
+    RELIZY_COMPONENT_VERSION: __RELIZY_VERSION__
+  # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com
+  id_tokens:
+    NPM_ID_TOKEN:
+      aud: npm:registry.npmjs.org
+  rules:
+    # On the default branch, not on the release commit it pushes
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /$[[ inputs.skip-commit ]]/'
+      when: $[[ inputs.when ]]
+  script:
+    - cd "$RELIZY_INPUT_WORKING_DIRECTORY"
+    - |
+      lockfile=""
+      for file in pnpm-lock.yaml bun.lock bun.lockb yarn.lock package-lock.json npm-shrinkwrap.json; do
+        if [ -f "$file" ]; then lockfile="$file"; break; fi
+      done
+      pm="$RELIZY_INPUT_PACKAGE_MANAGER"
+      if [ -z "$pm" ]; then
+        case "$lockfile" in
+          pnpm-lock.yaml) pm=pnpm ;;
+          bun.lock|bun.lockb) pm=bun ;;
+          yarn.lock) pm=yarn ;;
+          *) pm=npm ;;
+        esac
+      fi
+    - |
+      if [ "$RELIZY_INPUT_SETUP" = "true" ]; then
+        # Node 25+ no longer ships corepack: it pins the version of the packageManager field
+        case "$pm" in
+          pnpm|yarn) npm install -g corepack && corepack enable ;;
+          bun) npm install -g bun ;;
+        esac
+        case "$pm" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          bun) bun install --frozen-lockfile ;;
+          yarn) if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
+          *) if [ -n "$lockfile" ]; then npm ci; else npm install; fi ;;
+        esac
+      fi
+    - |
+      # npm trusted publishing (OIDC) needs npm 11.5.1 or later
+      if [ -n "$NPM_ID_TOKEN" ] && ! node -e "const [a, b, c] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)" "$(npm --version)"; then
+        npm install -g npm@latest
+      fi
+      # The claude-code provider of the AI rewrites runs the claude CLI
+      if [ -n "${RELIZY_CLAUDE_CODE_OAUTH_TOKEN:-$CLAUDE_CODE_OAUTH_TOKEN}" ] && ! command -v claude > /dev/null; then
+        npm install -g @anthropic-ai/claude-code
+      fi
+    - |
+      release_type="${RELEASE_TYPE:-$RELIZY_INPUT_RELEASE_TYPE}"
+      case "$release_type" in
+        auto) flag="" ;;
+        patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$release_type" ;;
+        *) echo "Unknown release type \"$release_type\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
+      esac
+      # The relizy of the project, else the version of this component
+      if [ -n "$RELIZY_INPUT_VERSION" ]; then
+        relizy="npx --yes relizy@$RELIZY_INPUT_VERSION"
+      elif node -e "const pkg = require('./package.json'); process.exit({ ...pkg.dependencies, ...pkg.devDependencies }.relizy ? 0 : 1)" 2> /dev/null; then
+        case "$pm" in
+          pnpm) relizy="pnpm exec relizy" ;;
+          yarn) relizy="yarn relizy" ;;
+          bun) relizy="bunx relizy" ;;
+          *) relizy="npx relizy" ;;
+        esac
+      else
+        case "$RELIZY_COMPONENT_VERSION" in
+          [0-9]*) relizy="npx --yes relizy@$RELIZY_COMPONENT_VERSION" ;;
+          *) relizy="npx --yes relizy@latest" ;;
+        esac
+      fi
+      $relizy release --yes $flag $RELIZY_INPUT_ARGS --report-dotenv "$CI_PROJECT_DIR/relizy.env"
+  artifacts:
+    # The outputs of the release (RELIZY_RELEASED, RELIZY_VERSION, RELIZY_TAGS...), for the next jobs
+    reports:
+      dotenv: relizy.env

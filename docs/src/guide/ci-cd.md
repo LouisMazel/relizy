@@ -17,7 +17,7 @@ A CI job releases with a single command: `relizy release --yes`. Relizy prepares
 npx relizy init
 ```
 
-On GitHub and GitLab, [`relizy init`](./../cli/init.md#release-workflow) writes the release workflow next to the config: run on demand (choosing the release type) or at each push on the default branch, with the permissions and only the secrets your config needs. The generated files are explained in [GitHub Actions](./github-actions.md) and [GitLab CI](./gitlab-ci.md).
+On GitHub and GitLab, [`relizy init`](./../cli/init.md#release-workflow) writes the release workflow next to the config: run on demand (choosing the release type) or at each push on the default branch, with the permissions and only the secrets your config needs. The job runs the [relizy action](./github-actions.md#the-relizy-action) `relizy/action@v2` on GitHub, and the [relizy component](./gitlab-ci.md#the-relizy-component) of the CI/CD catalog on gitlab.com: they set up the project and run the release. The generated files are explained in [GitHub Actions](./github-actions.md) and [GitLab CI](./gitlab-ci.md).
 
 On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the install of the dependencies, the [tokens](#tokens), credentials allowed to push, and `npx relizy release --yes`. Relizy reads the branch of a detached HEAD from the variables of CircleCI, Bitbucket Pipelines, Buildkite, Drone, Travis CI, Azure Pipelines and Jenkins too.
 

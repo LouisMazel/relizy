@@ -74,11 +74,12 @@ On GitHub, `init` writes `.github/workflows/release.yml`:
 
 - run on demand from the Actions tab with a release type (`auto` follows the commits, or `patch`, `minor`, `major`), or at each push on the default branch;
 - one release at a time (`concurrency: release`), and the permissions it needs: `contents: write` for the release commit, the tags and the GitHub release, `pull-requests: write` and `issues: write` for the [PR comment](./../guide/pr-comment.md);
-- your package manager and Node version (`.nvmrc` or `.node-version`), the install from the lockfile, the `claude` CLI for the AI rewrites;
-- `relizy release --yes`, with only the secrets your config needs, then a step reading the [outputs](./../config/release.md#report) of the release.
+- the [relizy action](./../guide/github-actions.md#the-relizy-action) `relizy/action@v2`, which sets up your package manager and Node version (`.nvmrc` or `.node-version`), installs from the lockfile and runs `relizy release --yes`, with only the secrets your config needs;
+- a step reading the [outputs](./../config/release.md#report) of the release.
 
 On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/ci/relizy.yml` when the project already has one (your file is not changed, `init` prints the `include:` to add):
 
+- on gitlab.com, the [relizy component](./../guide/gitlab-ci.md#the-relizy-component) `gitlab.com/relizy/relizy/release@2` of the CI/CD catalog; on a self-managed instance, the same job written out;
 - a manual job on the default branch with a `RELEASE_TYPE` variable, or a job at each push, never run on the release commit it pushes;
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.

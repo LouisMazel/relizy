@@ -36,7 +36,9 @@ pnpm exec relizy release --yes --pr-number 42
 
 ```yaml
 # GitHub Actions, in a workflow triggered by pull_request
-- run: pnpm exec relizy release --yes --pr-number ${{ github.event.pull_request.number }}
+- uses: relizy/action@v2
+  with:
+    args: --pr-number ${{ github.event.pull_request.number }}
 ```
 
 Without pull request, the comment is skipped with the warning `No PR/MR detected. Use --pr-number to specify one manually.` In dry-run, the preview shows `PR: Not detected`.

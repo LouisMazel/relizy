@@ -1,0 +1,254 @@
+# Synced to github.com/relizy/action at each release of relizy: edit it in github.com/LouisMazel/relizy
+name: Relizy Release
+description: 'Ship every release in one step: versions, changelogs, npm publishing and GitHub releases, from your commits'
+author: LouisMazel
+
+branding:
+  icon: package
+  color: purple
+
+inputs:
+  release-type:
+    description: 'Release type: auto (follows the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
+    required: false
+    default: auto
+  args:
+    description: 'More arguments for relizy release, e.g. "--tag beta --preid beta" or "--config standalone"'
+    required: false
+    default: ''
+  github-token:
+    description: Token of the GitHub releases, the push and the PR comment
+    required: false
+    default: ${{ github.token }}
+  npm-token:
+    description: npm token, not needed with npm trusted publishing (permission id-token write)
+    required: false
+    default: ''
+  slack-token:
+    description: Slack bot token of the Slack posts
+    required: false
+    default: ''
+  teams-webhook-url:
+    description: Webhook URL of the Microsoft Teams cards
+    required: false
+    default: ''
+  twitter-api-key:
+    description: Twitter API key of the Twitter posts
+    required: false
+    default: ''
+  twitter-api-key-secret:
+    description: Twitter API key secret of the Twitter posts
+    required: false
+    default: ''
+  twitter-access-token:
+    description: Twitter access token of the Twitter posts
+    required: false
+    default: ''
+  twitter-access-token-secret:
+    description: Twitter access token secret of the Twitter posts
+    required: false
+    default: ''
+  claude-code-oauth-token:
+    description: OAuth token of the claude-code provider of the AI rewrites (installs the claude CLI)
+    required: false
+    default: ''
+  anthropic-api-key:
+    description: API key of the anthropic provider of the AI rewrites
+    required: false
+    default: ''
+  setup:
+    description: Set up Node.js and the package manager and install the dependencies (false when the job already did)
+    required: false
+    default: 'true'
+  package-manager:
+    description: 'npm, pnpm, yarn or bun, detected from the lockfile by default'
+    required: false
+    default: ''
+  node-version:
+    description: Node.js version, from .nvmrc or .node-version by default, else lts/*
+    required: false
+    default: ''
+  relizy-version:
+    description: Version of relizy to run, the one of the project by default, else the one of this action
+    required: false
+    default: ''
+  working-directory:
+    description: Directory of the project to release
+    required: false
+    default: .
+
+outputs:
+  released:
+    description: true when the release happened
+    value: ${{ steps.release.outputs.released }}
+  status:
+    description: released, nothing or failed
+    value: ${{ steps.release.outputs.status }}
+  version:
+    description: The new version (root or unified version)
+    value: ${{ steps.release.outputs.version }}
+  tags:
+    description: The git tags created, comma-separated
+    value: ${{ steps.release.outputs.tags }}
+  packages:
+    description: The released packages, comma-separated name@version
+    value: ${{ steps.release.outputs.packages }}
+  branch:
+    description: The branch of the release
+    value: ${{ steps.release.outputs.branch }}
+  commit:
+    description: The release commit
+    value: ${{ steps.release.outputs.commit }}
+  dist_tags:
+    description: The npm dist-tags, comma-separated
+    value: ${{ steps.release.outputs.dist_tags }}
+  urls:
+    description: The links of what the release created, comma-separated
+    value: ${{ steps.release.outputs.urls }}
+  install:
+    description: The install command of the released packages
+    value: ${{ steps.release.outputs.install }}
+  failed_steps:
+    description: The steps that failed without stopping the release, comma-separated
+    value: ${{ steps.release.outputs.failed_steps }}
+  report:
+    description: The whole report as JSON (the versions of each group and package), for fromJSON()
+    value: ${{ steps.release.outputs.report }}
+  summary:
+    description: The summary of the release, in markdown
+    value: ${{ steps.release.outputs.summary }}
+
+runs:
+  using: composite
+  steps:
+    - id: detect
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ inputs.package-manager }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        lockfile=""
+        for file in pnpm-lock.yaml bun.lock bun.lockb yarn.lock package-lock.json npm-shrinkwrap.json; do
+          if [ -f "$file" ]; then lockfile="$file"; break; fi
+        done
+        pm="$PACKAGE_MANAGER"
+        if [ -z "$pm" ]; then
+          case "$lockfile" in
+            pnpm-lock.yaml) pm=pnpm ;;
+            bun.lock|bun.lockb) pm=bun ;;
+            yarn.lock) pm=yarn ;;
+            *) pm=npm ;;
+          esac
+        fi
+        node_version_file=""
+        for file in .nvmrc .node-version; do
+          if [ -f "$file" ]; then node_version_file="$WORKING_DIRECTORY/$file"; break; fi
+        done
+        # pnpm/action-setup reads the version of the packageManager field, else needs one
+        pnpm_version=""
+        if [ "$pm" = pnpm ] && ! grep -Eq '"packageManager"[[:space:]]*:[[:space:]]*"pnpm@' package.json 2>/dev/null; then
+          pnpm_version=latest
+        fi
+        cache=""
+        if [ -n "$lockfile" ] && { [ "$pm" = pnpm ] || [ "$pm" = npm ]; }; then cache="$pm"; fi
+        {
+          echo "package-manager=$pm"
+          echo "lockfile=${lockfile:+$WORKING_DIRECTORY/$lockfile}"
+          echo "node-version-file=$node_version_file"
+          echo "pnpm-version=$pnpm_version"
+          echo "cache=$cache"
+        } >> "$GITHUB_OUTPUT"
+
+    - if: inputs.setup == 'true' && steps.detect.outputs.package-manager == 'pnpm'
+      uses: pnpm/action-setup@v6
+      with:
+        version: ${{ steps.detect.outputs.pnpm-version }}
+        package_json_file: ${{ inputs.working-directory }}/package.json
+
+    - if: inputs.setup == 'true' && steps.detect.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@v2
+
+    - if: inputs.setup == 'true'
+      uses: actions/setup-node@v7
+      with:
+        node-version: ${{ inputs.node-version || (steps.detect.outputs.node-version-file == '' && 'lts/*' || '') }}
+        node-version-file: ${{ inputs.node-version == '' && steps.detect.outputs.node-version-file || '' }}
+        cache: ${{ steps.detect.outputs.cache }}
+        cache-dependency-path: ${{ steps.detect.outputs.cache != '' && steps.detect.outputs.lockfile || '' }}
+
+    - if: inputs.setup == 'true'
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
+        LOCKFILE: ${{ steps.detect.outputs.lockfile }}
+      run: |
+        case "$PACKAGE_MANAGER" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          bun) bun install --frozen-lockfile ;;
+          yarn)
+            # Node 25+ no longer ships corepack: it pins the version of the packageManager field
+            npm install -g corepack && corepack enable
+            if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi
+            ;;
+          *) if [ -n "$LOCKFILE" ]; then npm ci; else npm install; fi ;;
+        esac
+
+    - shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
+      run: |
+        # npm trusted publishing (OIDC) needs npm 11.5.1 or later, when the job can request an id token
+        if [ -n "$ACTIONS_ID_TOKEN_REQUEST_URL" ] && ! node -e "const [a, b, c] = process.argv[1].split('.').map(Number); process.exit(a > 11 || (a === 11 && (b > 5 || (b === 5 && c >= 1))) ? 0 : 1)" "$(npm --version)"; then
+          npm install -g npm@latest
+        fi
+        # The claude-code provider of the AI rewrites runs the claude CLI
+        if [ -n "$CLAUDE_CODE_OAUTH_TOKEN" ] && ! command -v claude > /dev/null; then
+          npm install -g @anthropic-ai/claude-code
+        fi
+
+    - id: release
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        RELEASE_TYPE: ${{ inputs.release-type }}
+        RELEASE_ARGS: ${{ inputs.args }}
+        PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
+        RELIZY_VERSION: ${{ inputs.relizy-version }}
+        # Replaced by the version of relizy when synced to github.com/relizy/action
+        RELIZY_ACTION_VERSION: __RELIZY_VERSION__
+        GITHUB_TOKEN: ${{ inputs.github-token }}
+        RELIZY_NPM_TOKEN: ${{ inputs.npm-token }}
+        RELIZY_SLACK_TOKEN: ${{ inputs.slack-token }}
+        RELIZY_TEAMS_WEBHOOK_URL: ${{ inputs.teams-webhook-url }}
+        RELIZY_TWITTER_API_KEY: ${{ inputs.twitter-api-key }}
+        RELIZY_TWITTER_API_KEY_SECRET: ${{ inputs.twitter-api-key-secret }}
+        RELIZY_TWITTER_ACCESS_TOKEN: ${{ inputs.twitter-access-token }}
+        RELIZY_TWITTER_ACCESS_TOKEN_SECRET: ${{ inputs.twitter-access-token-secret }}
+        RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
+        RELIZY_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: |
+        case "$RELEASE_TYPE" in
+          auto) flag="" ;;
+          patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$RELEASE_TYPE" ;;
+          *) echo "::error::Unknown release-type \"$RELEASE_TYPE\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
+        esac
+        # The relizy of the project, else the version of this action
+        if [ -n "$RELIZY_VERSION" ]; then
+          relizy="npx --yes relizy@$RELIZY_VERSION"
+        elif node -e "const pkg = require('./package.json'); process.exit({ ...pkg.dependencies, ...pkg.devDependencies }.relizy ? 0 : 1)" 2> /dev/null; then
+          case "$PACKAGE_MANAGER" in
+            pnpm) relizy="pnpm exec relizy" ;;
+            yarn) relizy="yarn relizy" ;;
+            bun) relizy="bunx relizy" ;;
+            *) relizy="npx relizy" ;;
+          esac
+        elif [[ "$RELIZY_ACTION_VERSION" =~ ^[0-9] ]]; then
+          relizy="npx --yes relizy@$RELIZY_ACTION_VERSION"
+        else
+          relizy="npx --yes relizy@latest"
+        fi
+        # shellcheck disable=SC2086
+        $relizy release --yes $flag $RELEASE_ARGS

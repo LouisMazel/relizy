@@ -41,7 +41,7 @@ Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) an
 - **Publishing** to npm or any registry (several registries, 2FA, `workspace:` checks, publish order), with npm, pnpm, yarn and bun.
 - **Prereleases and canary releases** (`--prerelease --preid beta`, `--canary` from any commit).
 - **Private apps**: a project marked `"private": true` is versioned, tagged and released, never published.
-- **CI ready**: `relizy init` generates the GitHub Actions or GitLab CI workflow, and relizy handles shallow clones, detached HEADs, the git identity and the push access by itself.
+- **CI ready**: the official GitHub Action (`relizy/action@v2`) and GitLab CI component (`gitlab.com/relizy/relizy/release@2`) release in one step, `relizy init` writes them, and relizy handles shallow clones, detached HEADs, the git identity and the push access by itself.
 - **Release summary** in the terminal, the GitHub Actions run, the PR comment and JSON or dotenv reports.
 - **Commit linting** with your config (`relizy commitlint`), a commitlint replacement.
 - **MCP server** for AI coding agents (`relizy mcp`): release preview, commit linting, config reference and docs of the installed version.
@@ -55,7 +55,7 @@ pnpm add -D relizy
 pnpm exec relizy init
 ```
 
-`relizy init` detects your packages, package manager and git provider, asks a few questions and writes `relizy.config.ts`. It also offers the release workflow of your CI (GitHub Actions, GitLab CI), the commit-msg hook and the setup of your AI agents.
+`relizy init` detects your packages, package manager and git provider, asks a few questions and writes `relizy.config.ts`. It also offers the release workflow of your CI (GitHub Actions or GitLab CI, with the relizy action or component), the commit-msg hook and the setup of your AI agents.
 
 Then preview the next release and run it:
 

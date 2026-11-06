@@ -291,9 +291,9 @@ describe('Given init command', () => {
       const workflow = read('.github/workflows/release.yml')
       expect(workflow).toContain('  workflow_dispatch:\n')
       // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-      expect(workflow).toContain('        run: pnpm exec relizy release --yes ${{ inputs.release != \'auto\' && format(\'--{0}\', inputs.release) || \'\' }}\n')
+      expect(workflow).toContain('        uses: relizy/action@v2\n        with:\n          release-type: ${{ inputs.release }}\n')
       // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-      expect(workflow).toContain('          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n')
+      expect(workflow).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
       expect(workflow).toContain('      pull-requests: write\n')
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
       expect(notes()).toContainEqual([expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps'])
@@ -335,10 +335,9 @@ describe('Given init command', () => {
       expect(result.workflow).toEqual({ file: '.gitlab/ci/relizy.yml', include: 'include:\n  - local: .gitlab/ci/relizy.yml' })
       expect(read('.gitlab-ci.yml')).toBe('test:\n  script: [pnpm test]\n')
       const job = read('.gitlab/ci/relizy.yml')
-      expect(job).toContain('  image: node:24\n')
-      expect(job).toContain('    - if: \'$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\\(release\\): /\'\n')
-      expect(job).not.toContain('when: manual')
-      expect(job).toContain('    - pnpm exec relizy release --yes --report-dotenv relizy.env\n')
+      // On gitlab.com: the component of the CI/CD catalog, at each push, with the Node version of the project
+      expect(job).toContain('  - component: gitlab.com/relizy/relizy/release@2\n    inputs:\n      when: on_success\n      image: node:24\n')
+      expect(job).not.toContain('RELEASE_TYPE')
       expect(notes()).toContainEqual([expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps'])
     })
   })

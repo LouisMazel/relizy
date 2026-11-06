@@ -16,7 +16,8 @@ defineProps<{
       <span class="size-3 rounded-full bg-terminal-red/90" />
       <span class="size-3 rounded-full bg-terminal-yellow/90" />
       <span class="size-3 rounded-full bg-terminal-green/90" />
-      <span class="absolute inset-x-0 text-center font-mono text-xs text-terminal-dim">{{ title }}</span>
+      <!-- Clear of the three dots, cut when too long -->
+      <span class="absolute inset-x-20 truncate text-center font-mono text-xs text-terminal-dim">{{ title }}</span>
     </div>
     <slot />
   </div>

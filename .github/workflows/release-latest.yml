@@ -16,6 +16,9 @@ jobs:
   release-latest:
     name: Release Latest
     runs-on: ubuntu-latest
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      version: ${{ steps.release.outputs.version }}
     permissions:
       contents: write
       issues: write
@@ -44,6 +47,7 @@ jobs:
         run: npm install -g @anthropic-ai/claude-code
 
       - name: Version Packages (Latest)
+        id: release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
@@ -56,3 +60,13 @@ jobs:
           RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
         run: |
           pnpm relizy release --tag latest --yes
+
+  sync-integrations:
+    name: Sync integrations
+    needs: release-latest
+    # The GitHub Action and the GitLab component follow the stable releases
+    if: needs.release-latest.outputs.released == 'true' && !contains(needs.release-latest.outputs.version, '-')
+    uses: ./.github/workflows/sync-integrations.yml
+    with:
+      version: ${{ needs.release-latest.outputs.version }}
+    secrets: inherit

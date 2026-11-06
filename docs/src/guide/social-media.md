@@ -367,16 +367,21 @@ See [Hooks](./../config/hooks.md).
 
 Pass the credentials as secrets of the job running the release, under the environment variables of [Tokens](./../config/overview.md#tokens). Complete workflows: [GitHub Actions](./github-actions.md), [GitLab CI](./gitlab-ci.md).
 
+The [relizy action](./github-actions.md#the-relizy-action) has an input per token, and passes the other variables of the step:
+
 ```yaml
-- run: pnpm exec relizy release --yes
+- uses: relizy/action@v2
+  with:
+    twitter-api-key: ${{ secrets.TWITTER_API_KEY }}
+    twitter-api-key-secret: ${{ secrets.TWITTER_API_KEY_SECRET }}
+    twitter-access-token: ${{ secrets.TWITTER_ACCESS_TOKEN }}
+    twitter-access-token-secret: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
+    teams-webhook-url: ${{ secrets.TEAMS_WEBHOOK_URL }}
   env:
-    TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-    TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
-    TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-    TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
-    TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 ```
+
+On GitLab CI, the CI/CD variables reach the [relizy component](./gitlab-ci.md#the-relizy-component) under their names: nothing to pass.
 
 On GitLab, create the CI/CD variables with these names (masked), and `TEAMS_WEBHOOK_URL_B64` for Teams.
 

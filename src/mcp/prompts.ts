@@ -73,6 +73,6 @@ export function registerPrompts(server: McpServer): void {
 
 1. Call \`get_project()\` for the config and the steps of the release.
 2. Read \`get_doc({ id: "${provider === 'github' ? 'guide/github-actions' : 'guide/gitlab-ci'}" })\` and \`get_doc({ id: "guide/ci-cd" })\`.
-3. Write the workflow: full git history and tags, the tokens (npm, ${provider === 'github' ? 'GITHUB_TOKEN' : 'GitLab token'}) from the CI secrets, \`relizy release --yes\`. Never write a token in a file.
+3. Write the workflow with ${provider === 'github' ? 'the official action \`relizy/action@v2\`' : 'the component \`gitlab.com/relizy/relizy/release@2\` of the CI/CD catalog (a self-managed GitLab writes the job out)'}, as \`relizy init\` does: full git history and tags, the tokens (npm, ${provider === 'github' ? 'GITHUB_TOKEN' : 'GitLab token'}) from the CI secrets. Never write a token in a file.
 4. List the secrets the user must create, and validate the workflow with \`relizy release --dry-run\`.`))
 }

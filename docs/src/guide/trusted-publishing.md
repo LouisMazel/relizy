@@ -46,15 +46,20 @@ jobs:
       # npm trusted publishing (OIDC)
       id-token: write
     steps:
-      # ... checkout, setup, install
-      # Trusted publishing needs npm 11.5.1 or later
-      - run: npm install -g npm@latest
-      - run: pnpm exec relizy release --yes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      # Updates npm to 11.5.1 or later, as the job can request an id token
+      - uses: relizy/action@v2
 ```
 
 ```yaml [GitLab CI]
+# The relizy component requests the NPM_ID_TOKEN id token and updates npm
+include:
+  - component: gitlab.com/relizy/relizy/release@2
+```
+
+```yaml [GitLab CI (job written out)]
 release:
   # npm trusted publishing (OIDC)
   id_tokens:
