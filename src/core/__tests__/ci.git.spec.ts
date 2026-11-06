@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
-import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY, resetCiState } from '../ci'
+import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY, resetCiState } from '../ci'
 
 // The setup file mocks this module and execPromise: these tests run the real git commands on temporary repositories
 vi.unmock('../ci')
@@ -255,5 +255,12 @@ describe('Given a run of a pull request', () => {
   it('Then warns that the release job checks the push, with what it needs', () => {
     expect(getPullRequestPushWarning({ GITHUB_ACTIONS: 'true' })).toContain('"permissions: contents: write"')
     expect(getPullRequestPushWarning({ GITLAB_CI: 'true' })).toContain('GITLAB_TOKEN')
+  })
+
+  it('Then explains that an outdated run of a pull request needs no fix', () => {
+    expect(getPullRequestOutdatedWarning({ upstream: 'origin/feat', missingCommits: 2, env: { GITHUB_ACTIONS: 'true' } }))
+      .toBe('This run is outdated: 2 new commit(s) were pushed to the pull request ("origin/feat") after it started.\n'
+        + 'Nothing to fix: the run of the latest commit previews the release with them, and the release checks the branch again.')
+    expect(getPullRequestOutdatedWarning({ upstream: 'origin/feat', missingCommits: 1, env: { GITLAB_CI: 'true' } })).toContain('pushed to the merge request')
   })
 })

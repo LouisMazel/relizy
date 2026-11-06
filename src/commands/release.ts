@@ -21,9 +21,9 @@ import {
 } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
-import { ensurePushAccess, getPullRequestPushWarning, isPullRequestRun, prepareCiRepository } from '../core/ci'
+import { ensurePushAccess, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
-import { getHeadCommit } from '../core/git'
+import { BranchBehindRemoteError, getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
@@ -134,6 +134,29 @@ async function checkPushAccess({ config, dryRun }: { config: ResolvedRelizyConfi
   }
 }
 
+const outdatedRunWarned = new WeakSet<ResolvedRelizyConfig>()
+
+/**
+ * Check that the branch is up to date with its remote. A dry run of a pull
+ * request only warns, once: the commits pushed after it started get their own
+ * run, and the release checks the branch again
+ */
+async function checkBranchUpToDate({ config, dryRun }: { config: ResolvedRelizyConfig, dryRun: boolean }) {
+  try {
+    await assertBranchUpToDateWithRemote({ cwd: config.cwd })
+  }
+  catch (error) {
+    if (!(error instanceof BranchBehindRemoteError) || !dryRun || !isPullRequestRun()) {
+      throw error
+    }
+
+    if (!outdatedRunWarned.has(config)) {
+      outdatedRunWarned.add(config)
+      logger.warn(getPullRequestOutdatedWarning(error))
+    }
+  }
+}
+
 async function releaseSafetyCheck({
   config,
   provider,
@@ -159,7 +182,7 @@ async function releaseSafetyCheck({
       ...(config.release.publish ? [publishSafetyCheck({ config })] : []),
       // The release only posts with release.social (disabled by --no-social and --canary)
       ...(config.release.social ? [socialSafetyCheck({ config })] : []),
-      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd }), checkPushAccess({ config, dryRun })] : []),
+      ...(shouldPushReleaseCommit(config) ? [checkBranchUpToDate({ config, dryRun }), checkPushAccess({ config, dryRun })] : []),
     ])
 
     logger.success('Safety checks passed')
@@ -382,7 +405,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
           if (shouldPushReleaseCommit(config)) {
-            await guardBeforePublish({ config, dryRun, guard: () => assertBranchUpToDateWithRemote({ cwd: config.cwd }) })
+            await guardBeforePublish({ config, dryRun, guard: () => checkBranchUpToDate({ config, dryRun }) })
           }
 
           try {
@@ -418,7 +441,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     }
     else {
       if (shouldPushReleaseCommit(config)) {
-        await guardBeforePublish({ config, dryRun, guard: () => assertBranchUpToDateWithRemote({ cwd: config.cwd }) })
+        await guardBeforePublish({ config, dryRun, guard: () => checkBranchUpToDate({ config, dryRun }) })
       }
       ui.skip({ title: 'Publish packages to registry', label: 'Publish', reason: '--no-publish' })
 

@@ -6,6 +6,7 @@ import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
+  BranchBehindRemoteError,
   getGitUpstream,
   getReleaseTagNames,
   pushCommitAndTags,
@@ -159,9 +160,11 @@ describe('Given assertBranchUpToDateWithRemote function', () => {
     it('Then rejects with the number of missing commits', async () => {
       mockGit({ ...upstreamResponses, 'git rev-list --count': '2\n' })
 
-      await expect(assertBranchUpToDateWithRemote({ cwd: '/project' }))
-        .rejects
-        .toThrow('The current branch is behind "origin/develop" by 2 commit(s)')
+      const error = await assertBranchUpToDateWithRemote({ cwd: '/project' }).catch((error: unknown) => error)
+
+      expect(error).toBeInstanceOf(BranchBehindRemoteError)
+      expect(error).toMatchObject({ upstream: 'origin/develop', missingCommits: 2 })
+      expect((error as Error).message).toContain('The current branch is behind "origin/develop" by 2 commit(s)')
     })
   })
 

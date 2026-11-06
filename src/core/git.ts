@@ -453,6 +453,22 @@ async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> 
 }
 
 /**
+ * The current branch misses commits of its upstream branch, pushed after the
+ * run started
+ */
+export class BranchBehindRemoteError extends Error {
+  override name = 'BranchBehindRemoteError'
+
+  constructor(readonly upstream: string, readonly missingCommits: number) {
+    super(
+      `The current branch is behind "${upstream}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
+      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
+      + `Re-run the release from the latest commit of "${upstream}".`,
+    )
+  }
+}
+
+/**
  * Ensure the current branch contains every commit of its remote counterpart.
  *
  * A release commit created on a branch that is behind its remote can never be
@@ -486,11 +502,7 @@ export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): 
   const missingCommits = Number.parseInt(stdout.trim(), 10) || 0
 
   if (missingCommits > 0) {
-    throw new Error(
-      `The current branch is behind "${upstream.name}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
-      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
-      + `Re-run the release from the latest commit of "${upstream.name}".`,
-    )
+    throw new BranchBehindRemoteError(upstream.name, missingCommits)
   }
 
   logger.debug(`Branch is up to date with "${upstream.name}"`)

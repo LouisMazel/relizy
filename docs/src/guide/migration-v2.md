@@ -277,7 +277,7 @@ relizy release --yes
 
 ### Push Access
 
-In CI, Relizy prepares the clone of the job before a release: it fetches the history of a shallow clone, checks out the branch of a detached HEAD, and commits as the person who started the release when the job has no git identity (see [CI/CD](./ci-cd.md)). Before publishing, `relizy release` then checks that the release commit and the tags can be pushed (`git push --dry-run`), `--dry-run` too, and fails with the fix otherwise: give the job the right to push (`permissions: contents: write` on GitHub Actions, a `GITLAB_TOKEN` on GitLab CI). The dry run of a pull request only warns, as its token is read-only. See [The Push Is Refused](./ci-cd.md#the-push-is-refused).
+In CI, Relizy prepares the clone of the job before a release: it fetches the history of a shallow clone, checks out the branch of a detached HEAD, and commits as the person who started the release when the job has no git identity (see [CI/CD](./ci-cd.md)). Before publishing, `relizy release` then checks that the release commit and the tags can be pushed (`git push --dry-run`), `--dry-run` too, and fails with the fix otherwise: give the job the right to push (`permissions: contents: write` on GitHub Actions, a `GITLAB_TOKEN` on GitLab CI). The dry run of a pull request only warns, as its token is read-only. It also only warns when new commits were pushed to the pull request after it started, as their own run previews the release. See [The Push Is Refused](./ci-cd.md#the-push-is-refused).
 
 ### Exit Code of provider-release and social
 

@@ -47,7 +47,7 @@ A failed provider release, social post or PR comment does not stop the release: 
 
 The packages are published **before** the release commit and its tags are pushed, so a failed publication never leaves a tag behind. In return:
 
-- **Branch up to date**: when the commit is pushed, relizy fetches the upstream branch during the checks and again right before publishing. If commits landed on it meanwhile, the release stops before publishing and restores the release files: run it again from the latest commit. Skipped on a detached HEAD or a branch without upstream.
+- **Branch up to date**: when the commit is pushed, relizy fetches the upstream branch during the checks and again right before publishing. If commits landed on it meanwhile, the release stops before publishing and restores the release files: run it again from the latest commit. `--dry-run` stops too, except on a pull request or a merge request, where it only warns: the commits pushed after it started get their own run. Skipped on a detached HEAD or a branch without upstream.
 - **Existing tags**: right after the bump, the release fails if a tag it would create already exists, and tells how to recover.
 - **Rejected push**: if the push is still rejected because the remote branch moved, relizy merges the remote branch into the release commit (the tags stay on the published commit) and pushes again. On a conflict, it aborts the merge, pushes the tags and prints the recovery command.
 - **Failed publication**: the files written by the release are restored.

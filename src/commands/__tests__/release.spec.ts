@@ -14,6 +14,7 @@ import {
   rollbackModifiedFiles,
 } from '../../core'
 import { ensurePushAccess, prepareCiRepository } from '../../core/ci'
+import { BranchBehindRemoteError } from '../../core/git'
 import { recordAIRewrite } from '../../core/progress'
 
 import { bump } from '../bump'
@@ -682,6 +683,48 @@ describe('Given release command', () => {
         expect(publish).not.toHaveBeenCalled()
         expect(pushCommitAndTags).not.toHaveBeenCalled()
         expect(rollbackModifiedFiles).toHaveBeenCalled()
+      })
+    })
+
+    describe('When the branch of a pull request received new commits after its dry run started', () => {
+      beforeEach(() => {
+        vi.mocked(assertBranchUpToDateWithRemote).mockRejectedValue(new BranchBehindRemoteError('origin/feat', 2))
+      })
+
+      afterEach(() => {
+        vi.unstubAllEnvs()
+      })
+
+      it('Then only warns once, as the run of the latest commit previews them', async () => {
+        const { logger } = await import('@maz-ui/node')
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+
+        await release({ dryRun: true })
+
+        const warnings = vi.mocked(logger.warn).mock.calls.filter(([message]) => String(message).startsWith('This run is outdated'))
+        expect(warnings).toHaveLength(1)
+        expect(publish).toHaveBeenCalled()
+      })
+
+      it('Then fails the dry run outside a pull request', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', undefined)
+        vi.stubEnv('CI_PIPELINE_SOURCE', undefined)
+
+        await expect(release({ dryRun: true })).rejects.toThrow('The current branch is behind "origin/feat" by 2 commit(s)')
+      })
+
+      it('Then fails a release of a pull request', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+
+        await expect(release({})).rejects.toThrow('The current branch is behind "origin/feat"')
+        expect(publish).not.toHaveBeenCalled()
+      })
+
+      it('Then fails the dry run of a pull request on another error', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+        vi.mocked(assertBranchUpToDateWithRemote).mockRejectedValue(new Error('git rev-list failed'))
+
+        await expect(release({ dryRun: true })).rejects.toThrow('git rev-list failed')
       })
     })
 

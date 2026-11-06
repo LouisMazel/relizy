@@ -293,6 +293,17 @@ export function getPullRequestPushWarning(env: Env = process.env): string {
     + 'The release job checks it (it needs "permissions: contents: write").'
 }
 
+/**
+ * The warning of a dry run of a pull request whose branch received new
+ * commits after the run started: their own run previews the release
+ */
+export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = process.env }: { upstream: string, missingCommits: number, env?: Env }): string {
+  const request = env.GITLAB_CI === 'true' ? 'merge request' : 'pull request'
+
+  return `This run is outdated: ${missingCommits} new commit(s) were pushed to the ${request} ("${upstream}") after it started.\n`
+    + 'Nothing to fix: the run of the latest commit previews the release with them, and the release checks the branch again.'
+}
+
 const pushAccess = new Map<string, Promise<void>>()
 
 /**
