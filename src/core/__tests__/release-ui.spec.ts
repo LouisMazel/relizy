@@ -294,6 +294,15 @@ describe('Given the CI output', () => {
 
     expect(output.join('')).toContain('\u001B[')
   })
+
+  it('Then shows the dry-run badge in fixed colors, the base yellow being dark in the light theme of GitHub', async () => {
+    const { ui } = await load({ GITHUB_ACTIONS: 'true' }, { cli: true })
+
+    ui.createCommandUi({ title: 'relizy bump', dryRun: true, cwd }).complete({ message: 'Bumped' })
+
+    expect(output.join('')).toContain('\u001B[48;5;220m\u001B[38;5;16m\u001B[1m DRY RUN ')
+    expect(output.join('')).not.toContain('\u001B[43m')
+  })
 })
 
 describe('Given a command run by another one', () => {

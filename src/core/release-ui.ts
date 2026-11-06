@@ -70,7 +70,19 @@ function formatSummaryEntry({ value, status }: ReleaseSummaryEntry): { icon: str
   }
 }
 const bold = (text: string) => paint('bold', text)
-const DRY_RUN_BADGE = paint(['bgYellow', 'black', 'bold'], ' DRY RUN ')
+/**
+ * The badge of a dry run. In CI, the 16 base colors follow the theme of the
+ * logs (the yellow background of GitHub turns dark brown in its light theme):
+ * the colors of the 256 palette are shown as they are, gold background and
+ * black text in both themes
+ */
+function dryRunBadge(): string {
+  if (!isCi()) {
+    return paint(['bgYellow', 'black', 'bold'], ' DRY RUN ')
+  }
+
+  return process.env.NO_COLOR ? ' DRY RUN ' : '\u001B[48;5;220m\u001B[38;5;16m\u001B[1m DRY RUN \u001B[22m\u001B[39m\u001B[49m'
+}
 const DRY_RUN_TAG = paint('yellow', 'dry run')
 const AI_SYMBOL = '✨'
 
@@ -546,13 +558,13 @@ class PrettyUi extends StepUi {
       const urls = formatLinks(links).map(url => `${' '.repeat(width + url.length + 14 <= columns ? width + 4 : 2)}${paint('cyan', url)}`)
       return [`${icon} ${dim(label.padEnd(width))}  ${text}`, ...urls]
     })
-    const title = report.dryRun ? `Summary  ${DRY_RUN_BADGE}` : 'Summary'
+    const title = report.dryRun ? `Summary  ${dryRunBadge()}` : 'Summary'
 
     spacedBox(lines.join('\n'), ` ${bold(title)} `)
   }
 
   protected onStart(title: string): void {
-    intro(this.options.dryRun ? `${bold(title)}  ${DRY_RUN_BADGE} ${dim('nothing will be written')}` : bold(title))
+    intro(this.options.dryRun ? `${bold(title)}  ${dryRunBadge()} ${dim('nothing will be written')}` : bold(title))
   }
 
   protected onLog(): void {
@@ -663,7 +675,7 @@ class PrettyUi extends StepUi {
     }
     else {
       outro(this.options.dryRun
-        ? `${DRY_RUN_BADGE} ${message}, nothing was written  ${duration}`
+        ? `${dryRunBadge()} ${message}, nothing was written  ${duration}`
         : `${paint('green', '✔')} ${message}  ${duration}`)
     }
 
@@ -679,7 +691,7 @@ class PrettyUi extends StepUi {
     else {
       this.printSummary(report)
       outro(report.dryRun
-        ? `${DRY_RUN_BADGE} Simulated release of ${bold(getReleaseName(report))}, nothing was written  ${duration}`
+        ? `${dryRunBadge()} Simulated release of ${bold(getReleaseName(report))}, nothing was written  ${duration}`
         : `${paint('green', '✔')} Released ${bold(getReleaseName(report))}  ${duration}`)
     }
 
@@ -745,7 +757,7 @@ class CiUi extends StepUi {
 
   /** The mark of the end: the dry run badge, else a check */
   private endSymbol(): string {
-    return this.options.dryRun ? DRY_RUN_BADGE : paint('green', '✔')
+    return this.options.dryRun ? dryRunBadge() : paint('green', '✔')
   }
 
   private write(line: string): void {
@@ -754,7 +766,7 @@ class CiUi extends StepUi {
 
   protected onStart(title: string): void {
     const provider = dim(`· ${this.provider === 'other' ? 'ci' : this.provider}`)
-    const dryRun = this.options.dryRun ? `  ${DRY_RUN_BADGE} ${dim('nothing will be written')}` : ''
+    const dryRun = this.options.dryRun ? `  ${dryRunBadge()} ${dim('nothing will be written')}` : ''
     this.write(`${bold(title)} ${provider}${dryRun}`)
   }
 
@@ -1023,7 +1035,7 @@ export function confirmBumpInReleaseUi({ packages }: { packages: (PackageBase & 
 
     const versions = packages.length === 1 ? 'this version' : `these ${packages.length} versions`
     assertInteractivePrompt({ message: `${action} ${versions}?`, whenNotInteractive: BUMP_NOT_INTERACTIVE })
-    const dryRunNote = ui.isDryRun ? `  ${DRY_RUN_BADGE} ${dim('nothing will be written')}` : ''
+    const dryRunNote = ui.isDryRun ? `  ${dryRunBadge()} ${dim('nothing will be written')}` : ''
     const answer = await promptConfirm({ message: `${action} ${versions}?${dryRunNote}`, active: action, inactive: 'Cancel' })
 
     // Refused or cancelled: nothing is written
