@@ -182,6 +182,8 @@ describe('Given writeReleaseReport function', () => {
   })
 
   it('Then writes nothing to GitHub Actions outside of it or with github disabled', () => {
+    // Set when the tests run in GitHub Actions
+    delete process.env.GITHUB_ACTIONS
     process.env.GITHUB_OUTPUT = join(cwd, 'output')
 
     writeReleaseReport({ config: { ...createMockConfig({ bump: { type: 'release' } }), cwd }, report: released })

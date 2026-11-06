@@ -3,12 +3,20 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { stripVTControlCharacters } from 'node:util'
 import { cancel, confirm, log, multiselect, note, select, text } from '@clack/prompts'
 import { logger } from '@maz-ui/node'
 import { getDefaultConfig } from '../../core'
 import { init } from '../init'
 
 const CANCEL = Symbol('cancel')
+
+/**
+ * The notes shown by init, without their colors (on in CI)
+ */
+function notes() {
+  return vi.mocked(note).mock.calls.map(([text, title]) => [stripVTControlCharacters(String(text)), title])
+}
 
 vi.mock('@clack/prompts', () => ({
   cancel: vi.fn(),
@@ -294,7 +302,7 @@ describe('Given init command', () => {
       expect(workflow).toContain('          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n')
       expect(workflow).toContain('      pull-requests: write\n')
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
-      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps')
+      expect(notes()).toContainEqual([expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps'])
     })
 
     it('Then keeps an existing workflow without asking', async () => {
@@ -338,7 +346,7 @@ describe('Given init command', () => {
       expect(job).toContain('    - if: \'$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\\(release\\): /\'\n')
       expect(job).not.toContain('when: manual')
       expect(job).toContain('    - pnpm exec relizy release --yes --report-dotenv relizy.env\n')
-      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps')
+      expect(notes()).toContainEqual([expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps'])
     })
   })
 
