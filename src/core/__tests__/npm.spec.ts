@@ -769,11 +769,30 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         },
       })
 
+      vi.mocked(execSync).mockReturnValue('https://my-proxy.example/\n' as any)
+
       // pkg name is 'test-package', not matched by '@scope/*'.
       const result = resolveRegistryTargetsForPackage(pkg, config)
 
       expect(result.map(t => t.name)).toEqual(['default'])
-      expect(result[0]?.registry).toBe('')
+      expect(result[0]?.registry).toBe('https://my-proxy.example/')
+    })
+
+    it('Then reads the .npmrc registry once per config', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          args: [],
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+        },
+      })
+
+      vi.mocked(execSync).mockReturnValue('https://my-proxy.example/\n' as any)
+
+      resolveRegistryTargetsForPackage(pkg, config)
+      resolveRegistryTargetsForPackage({ ...pkg, name: 'other-package' }, config)
+
+      expect(vi.mocked(execSync).mock.calls.filter(([command]) => command === 'npm config get registry')).toHaveLength(1)
     })
   })
 

@@ -36,7 +36,7 @@ Package manager of the publish command (`yarn npm publish` with Yarn Berry).
 - **Default:** the registry of your npm config (`npm config get registry`, which reads `.npmrc`), else `https://registry.npmjs.org/`
 - **CLI:** `--registry <url>`
 
-Registry to publish to. Set it only to force a registry whatever the `.npmrc`.
+Registry to publish to. Set it only to force a registry whatever the `.npmrc`. With [`registries`](#registries) and without `registry`, the packages are only published to the declared registries: the registry of your npm config is used only for a package that no entry covers.
 
 ## tag
 
@@ -96,7 +96,7 @@ export default defineConfig({
 - **Type:** `RegistryTarget[]`
 - **Default:** none
 
-Registries to publish to on top of `registry`. An entry without `packageFilter` applies to every package (a mirror), an entry with it only to the packages whose name matches.
+Registries to publish to on top of `registry`. An entry without `packageFilter` applies to every package (a mirror), an entry with it only to the packages whose name matches. Without `registry`, only these registries are used, and a package that no entry covers is published to the registry of your npm config.
 
 | Field           | Type                        | Effect                                                                             |
 | --------------- | --------------------------- | ---------------------------------------------------------------------------------- |

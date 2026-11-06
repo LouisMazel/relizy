@@ -121,6 +121,24 @@ function isYarnBerry(cwd: string) {
   return existsSync(path.join(cwd, '.yarnrc.yml'))
 }
 
+const npmrcRegistryByConfig = new WeakMap<ResolvedRelizyConfig, string>()
+
+/**
+ * The registry of the npm config / `.npmrc`, read once per config: the
+ * registry of a package that no `registries` entry covers when
+ * `publish.registry` is not set.
+ */
+function getNpmrcRegistry(config: ResolvedRelizyConfig): string {
+  let registry = npmrcRegistryByConfig.get(config)
+
+  if (registry === undefined) {
+    registry = getNpmRegistry(config.cwd)
+    npmrcRegistryByConfig.set(config, registry)
+  }
+
+  return registry
+}
+
 /**
  * Build the implicit registry target from the legacy single-registry config
  * fields (`publish.registry`/`token`/`tag`/`access`/`otp`). Publishing to this
@@ -129,7 +147,8 @@ function isYarnBerry(cwd: string) {
 function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): RegistryTarget {
   return {
     name: 'default',
-    registry: config.publish.registry ?? '',
+    // Left unset by resolveConfig when `registries` are declared
+    registry: config.publish.registry || (config.publish.registries?.length ? getNpmrcRegistry(config) : ''),
     token: config.tokens.registry,
     tag: config.publish.tag,
     access: config.publish.access,
@@ -176,20 +195,16 @@ function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
  * once it is, so a registry scoped to packages outside this release doesn't
  * needlessly block it.
  *
- * When no default `registry` is configured but explicit `registries` are, the
- * legacy target degrades to an empty URL that would target the ambient
- * `.npmrc` registry with no managed auth. It is a phantom in that case and is
- * excluded, so a config that lists every registry explicitly does not
- * authenticate against a bogus empty registry.
+ * When `publish.registry` is not set but `registries` are, only the declared
+ * registries are checked: the `.npmrc` registry is only the fallback of a
+ * package that no entry covers, checked once the packages are known.
  */
 export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig): RegistryTarget[] {
-  const legacyTarget = buildLegacyRegistryTarget(config)
   const explicitTargets = config.publish.registries ?? []
-
-  const skipEmptyDefault = !config.publish.registry && explicitTargets.length > 0
+  const skipDefault = !config.publish.registry && explicitTargets.length > 0
 
   return dedupRegistryTargets([
-    ...(skipEmptyDefault ? [] : [legacyTarget]),
+    ...(skipDefault ? [] : [buildLegacyRegistryTarget(config)]),
     ...explicitTargets,
   ])
 }
@@ -203,18 +218,14 @@ export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig
  * The legacy/default registry is skipped for this package when either:
  * - an applicable entry is marked `exclusive` - the package is published only
  *   to the matching registries instead of mirroring on top of the default one;
- * - no default `registry` is configured yet the package already has at least
- *   one applicable explicit registry. Without a default, the legacy target
- *   degrades to an empty URL that would publish to the ambient `.npmrc`
- *   registry with no managed auth, so it is a phantom once real targets exist.
- *   When nothing else covers the package, the empty legacy target is kept as
- *   the historical `.npmrc` fallback.
+ * - `publish.registry` is not set and the package has at least one applicable
+ *   entry: only the declared registries are used. When no entry covers the
+ *   package, it is published to the `.npmrc` registry.
  */
 export function resolveRegistryTargetsForPackage(
   pkg: PackageBase,
   config: ResolvedRelizyConfig,
 ): RegistryTarget[] {
-  const legacyTarget = buildLegacyRegistryTarget(config)
   const explicitTargets = config.publish.registries ?? []
 
   const applicableTargets = explicitTargets.filter(
@@ -222,10 +233,10 @@ export function resolveRegistryTargetsForPackage(
   )
 
   const skipForExclusive = applicableTargets.some(target => target.exclusive)
-  const skipEmptyDefault = !config.publish.registry && applicableTargets.length > 0
+  const skipUndeclaredDefault = !config.publish.registry && applicableTargets.length > 0
 
   return dedupRegistryTargets([
-    ...(skipForExclusive || skipEmptyDefault ? [] : [legacyTarget]),
+    ...(skipForExclusive || skipUndeclaredDefault ? [] : [buildLegacyRegistryTarget(config)]),
     ...applicableTargets,
   ])
 }

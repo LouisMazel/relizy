@@ -766,7 +766,9 @@ export interface PublishConfig {
    */
   packageManager?: PackageManager
   /**
-   * NPM registry URL (e.g. `https://registry.npmjs.org/`)
+   * NPM registry URL (e.g. `https://registry.npmjs.org/`). Without it, the
+   * registry of the npm config (`.npmrc`), unless `registries` is set: the
+   * packages then go only to the declared registries
    */
   registry?: string
   /**
@@ -801,8 +803,8 @@ export interface PublishConfig {
    * Additional registries to publish to, on top of `registry` (if set).
    * Entries without `packageFilter` apply to every package (mirroring);
    * entries with `packageFilter` only apply to packages matching one of the
-   * glob patterns. Fully additive: leaving this unset preserves the
-   * single-registry behavior.
+   * glob patterns. Without `registry`, only these registries are used: a
+   * package that no entry covers goes to the registry of the npm config.
    */
   registries?: RegistryTarget[]
   /**

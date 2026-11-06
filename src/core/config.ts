@@ -247,8 +247,10 @@ async function resolveConfig(
   }
 
   // When the user did not set a registry, resolve the effective one from their
-  // npm config / .npmrc so a custom registry (e.g. a proxy) is respected.
-  if (config.publish && !config.publish.registry) {
+  // npm config / .npmrc so a custom registry (e.g. a proxy) is respected. With
+  // `registries`, only the declared registries are used: the .npmrc one is the
+  // fallback of a package none of them covers (see resolveRegistryTargetsForPackage).
+  if (config.publish && !config.publish.registry && !config.publish.registries?.length) {
     config.publish.registry = getNpmRegistry(cwd)
   }
 

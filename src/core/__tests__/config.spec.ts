@@ -929,6 +929,19 @@ describe('Given loadRelizyConfig function', () => {
       expect(config.publish.registry).toBe('https://my-proxy.example/')
     })
 
+    it('Then leaves publish.registry unset when only registries are declared', async () => {
+      vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', publish: { registries: [{ name: 'github', registry: 'https://npm.pkg.github.com/' }] } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
+
+      const config = await loadRelizyConfig()
+
+      expect(config.publish.registry).toBeUndefined()
+    })
+
     it('Then keeps an explicitly configured registry over the npm config one', async () => {
       vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
       vi.mocked(loadConfig).mockResolvedValue({
