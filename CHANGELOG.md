@@ -1,5 +1,21 @@
 # Changelog
 
+## v2.0.0-beta.4 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.3...v2.0.0-beta.4)
+
+### 🩹 Fixes
+
+- Skip the safety checks of the steps that do nothing in the release ([eca5cb0](https://github.com/LouisMazel/relizy/commit/eca5cb0))
+
+  A release no longer fails on what it will not use: the credentials of a social platform that leaves the prereleases out (`onlyStable`) in a release of prereleases only, the AI of a platform that posts nothing, and the token or the AI of the provider releases and the social posts when every version group leaves them out (`release: { providerRelease: false }`, `release: { social: false }`).
+
+  `relizy social` and `relizy provider-release` run alone also skip these checks when the versions they announce are all prereleases.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0-beta.3 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.2...v2.0.0-beta.3)
