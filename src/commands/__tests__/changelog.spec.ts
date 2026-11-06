@@ -131,8 +131,9 @@ describe('Given changelog command', () => {
 
       await changelog({})
 
-      // 2 packages + root changelog (with bumped packages (2))
-      expect(generateChangelog).toHaveBeenCalledTimes(4)
+      // Once per package: the root changelog gathers them, without running generate:changelog again
+      expect(generateChangelog).toHaveBeenCalledTimes(2)
+      expect(writeChangelogToFile).toHaveBeenCalledTimes(3)
     })
   })
 })

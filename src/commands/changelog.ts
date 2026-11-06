@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase } from '../types'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isBumpedPackage, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
+import { aggregateIndependentChangelogs, assertVersionGroupsOption, createCommandUi, executeFormatCmd, executeHook, generateChangelog, getGroupBumpResult, getHookContext, getPackagesOrBumpedPackages, getRootPackage, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, readPackageJson, resolveTags, resolveVersionGroups, writeChangelogToFile } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
@@ -11,10 +11,13 @@ async function generateIndependentRootChangelog({
   packages,
   config,
   dryRun,
+  getPackageChangelog,
 }: {
   packages: PackageBase[]
   config: ResolvedRelizyConfig
   dryRun: boolean
+  /** The changelog of a package, generated once for its file and the root one */
+  getPackageChangelog: (pkg: PackageBase) => Promise<string>
 }): Promise<boolean> {
   if (!config.changelog?.rootChangelog) {
     logger.debug('Skipping root changelog generation')
@@ -26,14 +29,7 @@ async function generateIndependentRootChangelog({
   const packageChangelogs: string[] = []
 
   for (const pkg of packages) {
-    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
-
-    packageChangelogs.push(await generateChangelog({
-      pkg,
-      config,
-      dryRun,
-      newVersion,
-    }))
+    packageChangelogs.push(await getPackageChangelog(pkg))
   }
 
   const aggregatedChangelog = aggregateIndependentChangelogs(packageChangelogs)
@@ -166,6 +162,17 @@ async function generateChangelogs({
     dryRun,
   })
 
+  // Generated once per package: the generate:changelog hook (an AI rewrite) runs once
+  const changelogs = new Map<string, Promise<string>>()
+  const getPackageChangelog = (pkg: PackageBase): Promise<string> => {
+    if (!changelogs.has(pkg.name)) {
+      const newVersion = bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
+      changelogs.set(pkg.name, generateChangelog({ pkg, config, dryRun, newVersion }))
+    }
+
+    return changelogs.get(pkg.name)!
+  }
+
   let rootWritten = false
 
   if (config.changelog?.rootChangelog && config.monorepo?.versionMode) {
@@ -174,6 +181,7 @@ async function generateChangelogs({
           packages,
           config,
           dryRun,
+          getPackageChangelog,
         })
       : await generateSimpleRootChangelog({
           config,
@@ -194,16 +202,9 @@ async function generateChangelogs({
   let generatedCount = rootWritten ? 1 : 0
 
   for await (const pkg of packages) {
-    const newVersion = bumpResult?.bumpedPackages?.find(p => p.name === pkg.name)?.newVersion || pkg.newVersion || pkg.version
-
     logger.debug(`Processing ${pkg.name}`)
 
-    const changelog = await generateChangelog({
-      pkg,
-      config,
-      dryRun,
-      newVersion,
-    })
+    const changelog = await getPackageChangelog(pkg)
 
     writeChangelogToFile({
       cwd: config.cwd,
