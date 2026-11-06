@@ -627,6 +627,26 @@ describe('Given postPrComment function', () => {
     vi.clearAllMocks()
   })
 
+  describe('When the GitLab token is the job token of the CI job', () => {
+    it('Then it does not comment, and tells which token to set', async () => {
+      vi.stubEnv('CI_JOB_TOKEN', 'job-token')
+      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'job-token' } })
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      try {
+        const posted = await postPrComment({ config, pr: { number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' }, body: commentBody })
+
+        expect(posted).toBe(false)
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('The CI_JOB_TOKEN of GitLab cannot comment merge requests'))
+    })
+  })
+
   describe('When mode is append', () => {
     it('Then creates a new comment via POST', async () => {
       vi.mocked(fetch).mockResolvedValue({

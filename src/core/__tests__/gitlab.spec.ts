@@ -87,6 +87,28 @@ describe('Given createGitlabRelease function', () => {
     } as Response)
   })
 
+  describe('When the token is the job token of the CI job', () => {
+    it('Then it authenticates with the JOB-TOKEN header', async () => {
+      vi.stubEnv('CI_JOB_TOKEN', 'job-token')
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: { gitlab: 'job-token' },
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+      })
+
+      try {
+        await createGitlabRelease({ config, release: { tag_name: 'v1.0.0', name: 'v1.0.0', description: 'Release notes' } })
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(fetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        headers: { 'Content-Type': 'application/json', 'JOB-TOKEN': 'job-token' },
+      }))
+    })
+  })
+
   describe('When creating release with valid config', () => {
     it('Then posts to GitLab API', async () => {
       const config = createMockConfig({

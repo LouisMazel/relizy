@@ -7,6 +7,7 @@ import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { getFirstCommit } from './git'
+import { getGitlabAuthHeader } from './gitlab-auth'
 import { reportProgress, showPreview } from './progress'
 import { getPrivatePackagesMode, getRootPackage, readPackageJson } from './repo'
 import { getIndependentTag, resolveTags } from './tags'
@@ -99,7 +100,7 @@ export async function createGitlabRelease({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'PRIVATE-TOKEN': token || '',
+        ...getGitlabAuthHeader(token || ''),
       },
       body: JSON.stringify(payload),
     })

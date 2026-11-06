@@ -143,7 +143,7 @@ The credentials of the commands. Each key falls back to the first environment va
 A more specific setting wins over these keys:
 
 - registry: `publish.registries[].token`, then `tokens.registry` (set by `--publish-token`)
-- provider: `tokens.github` or `tokens.gitlab` (both set by `--token`)
+- provider: `tokens.github` or `tokens.gitlab` (both set by `--token`). `CI_JOB_TOKEN`, the last fallback of `tokens.gitlab`, creates the GitLab releases but cannot comment the merge requests
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)
 

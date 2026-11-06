@@ -2,6 +2,7 @@ import type { GitProvider } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, getCurrentGitBranch } from './git'
+import { GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from './gitlab-auth'
 
 export interface PullRequestInfo {
   /**
@@ -201,6 +202,11 @@ export async function detectPullRequest({
   const token = getProviderToken(config, provider)
   if (!token) {
     logger.warn(`No ${provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR detection`)
+    return null
+  }
+
+  if (provider === 'gitlab' && isGitlabJobToken(token)) {
+    logger.warn(GITLAB_JOB_TOKEN_MR_COMMENT_WARNING)
     return null
   }
 
@@ -507,6 +513,11 @@ export async function postPrComment({
   const token = getProviderToken(config, pr.provider)
   if (!token) {
     logger.warn(`No ${pr.provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR commenting`)
+    return false
+  }
+
+  if (pr.provider === 'gitlab' && isGitlabJobToken(token)) {
+    logger.warn(GITLAB_JOB_TOKEN_MR_COMMENT_WARNING)
     return false
   }
 

@@ -68,7 +68,7 @@ Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job 
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.
 
-`GITLAB_TOKEN` is a project access token (Settings > Access tokens) with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default). The job token (`CI_JOB_TOKEN`) is not enough for the GitLab release and the merge request comments.
+`GITLAB_TOKEN` is a project access token (Settings > Access tokens) with the `api` and `write_repository` scopes, and a role allowed to push to the default branch (Maintainer by default). The job token (`CI_JOB_TOKEN`) creates the GitLab releases, but cannot comment the merge requests: the MR comment needs `GITLAB_TOKEN`.
 
 A protected variable is only given to the pipelines of protected branches and tags: leave `NPM_TOKEN` and `GITLAB_TOKEN` unprotected for the [canary releases](#canary-release-on-merge-requests) of merge requests.
 
