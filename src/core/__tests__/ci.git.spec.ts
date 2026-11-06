@@ -217,6 +217,18 @@ describe('Given the push of the release', () => {
     await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).resolves.toBeUndefined()
   })
 
+  it('When the branch is behind its remote, Then lets the check of the branch report it, not the credentials', async () => {
+    const origin = createOrigin()
+    const cwd = clone(origin)
+    // The remote branch gets a commit the clone does not have: git refuses the push as non-fast-forward
+    writeFileSync(join(origin, 'remote-only'), 'remote')
+    git(origin, 'add', 'remote-only')
+    git(origin, '-c', 'user.name=Remote', '-c', 'user.email=remote@acme.com', 'commit', '--quiet', '-m', 'feat: remote only')
+    git(origin, 'checkout', '--quiet', '--detach')
+
+    await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).resolves.toBeUndefined()
+  })
+
   it('When the push is refused, Then checks it once per run, and again in the next run once the remote accepts it', async () => {
     const origin = createOrigin()
     const cwd = clone(origin)
@@ -243,7 +255,7 @@ describe('Given the push of the release', () => {
     const env: NodeJS.ProcessEnv = { ...process.env }
     const config = createMockConfig({ cwd, tokens: { gitlab: 'project-token' } })
 
-    await expect(ensurePushAccess({ config, env })).rejects.toThrow('relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.\nFix: add a GITLAB_TOKEN CI/CD variable')
+    await expect(ensurePushAccess({ config, env })).rejects.toThrow(/^relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push\.\nGit refused it with:\n {2}fatal: unable to access .+\nFix: add a GITLAB_TOKEN CI\/CD variable/)
 
     expect(env.GIT_CONFIG_COUNT).toBe('1')
     expect(env.GIT_CONFIG_KEY_0).toBe('url.http://oauth2:project-token@127.0.0.1:9/acme/lib.git.pushInsteadOf')
@@ -264,12 +276,13 @@ describe('Given the push of the release', () => {
     const cwd = clone(createOrigin())
     git(cwd, 'remote', 'set-url', 'origin', 'http://dev:secret@127.0.0.1:9/acme/lib.git')
 
-    const error = await ensurePushAccess({ config: createMockConfig({ cwd }) }).catch((error: Error) => error)
+    const error = await ensurePushAccess({ config: createMockConfig({ cwd }) }).then(() => new Error('pushed'), (error: Error) => error)
 
-    expect(error).toEqual(new Error(
-      'relizy cannot push the release commit and tags to "origin" (http://127.0.0.1:9/acme/lib.git): git push --dry-run was refused.\n'
-      + 'Fix: check that your git credentials can push to this repository (SSH key, or a token allowed to write), or release without pushing with --no-push.',
-    ))
+    expect(error.message).toMatch(/^relizy cannot push the release commit and tags to "origin" \(http:\/\/127\.0\.0\.1:9\/acme\/lib\.git\): git push --dry-run was refused\.\n/)
+    // Why git refused it, without the credentials of the remote
+    expect(error.message).toContain('Git refused it with:\n  fatal: unable to access \'http://127.0.0.1:9/acme/lib.git/\'')
+    expect(error.message).not.toContain('secret')
+    expect(error.message).toMatch(/\nFix: check that your git credentials can push to this repository \(SSH key, or a token allowed to write\), or release without pushing with --no-push\.$/)
   })
 
   it('When on GitHub Actions, Then fails with the permissions to give to the workflow', async () => {
@@ -278,7 +291,7 @@ describe('Given the push of the release', () => {
     inCI({ GITHUB_ACTIONS: 'true' })
 
     await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).rejects.toThrow(
-      'from GitHub Actions: the token of the job cannot push.\nFix: give the release job write access in your workflow:\n\n  permissions:\n    contents: write\n\n',
+      /from GitHub Actions: the token of the job cannot push\.\nGit refused it with:\n.+\nFix: give the release job write access in your workflow:\n\n {2}permissions:\n {4}contents: write\n\n/,
     )
   })
 })

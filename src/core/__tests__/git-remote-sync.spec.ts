@@ -198,7 +198,18 @@ describe('Given assertBranchUpToDateWithRemote function', () => {
 
       expect(error).toBeInstanceOf(BranchBehindRemoteError)
       expect(error).toMatchObject({ upstream: 'origin/develop', missingCommits: 2 })
-      expect((error as Error).message).toContain('The current branch is behind "origin/develop" by 2 commit(s)')
+      expect((error as Error).message).toContain('The current branch is behind "origin/develop" by 2 commits')
+    })
+
+    it('Then gives the fix for where it runs: pull the commits locally, run the job again in CI', () => {
+      expect(new BranchBehindRemoteError('origin/develop', 1, false).message).toBe(
+        'The current branch is behind "origin/develop" by 1 commit that this checkout does not have: the release commit would not be pushed.\n'
+        + 'Fix: get them with "git pull --rebase", then run the release again.',
+      )
+      expect(new BranchBehindRemoteError('origin/develop', 2, true).message).toBe(
+        'The current branch is behind "origin/develop" by 2 commits, pushed after this job checked out the branch: the release commit would not be pushed.\n'
+        + 'Fix: run the job again on the latest commit of "origin/develop".',
+      )
     })
   })
 

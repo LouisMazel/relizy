@@ -223,21 +223,68 @@ function pushThrough({ url, remoteUrl, env }: { url: string, remoteUrl: string, 
   })
 }
 
-function canPush({ remote, branch, cwd, env }: { remote: string, branch: string, cwd: string, env: Env }): boolean {
-  return tryGitSync(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], { cwd, env }) !== undefined
+/**
+ * True when git refused a push because the remote branch has commits the
+ * local one does not: the credentials could push, the history is behind
+ */
+export function isPushRejectedAsBehind(error: unknown): boolean {
+  if (!error || typeof error !== 'object') {
+    return false
+  }
+
+  const { message, stderr } = error as { message?: unknown, stderr?: unknown }
+  const output = `${typeof message === 'string' ? message : ''}\n${typeof stderr === 'string' ? stderr : ''}`
+
+  return output.includes('(non-fast-forward)') || output.includes('(fetch first)')
+}
+
+/** Without the credentials an http URL may hold */
+function withoutCredentials(text: string): string {
+  return text.replaceAll(/\/\/[^/@\s]+@/g, '//')
 }
 
 /**
- * The error of a release that cannot be pushed, with its fix for where it runs
+ * Why git refused the push: its `fatal:`, `error:`, `remote:` and rejected
+ * lines (permission denied, protected branch, unreachable host...), without credentials
  */
-function getPushError({ remote, remoteUrl, env }: { remote: string, remoteUrl?: string, env: Env }): string {
+function getPushRefusal(error: unknown): string | undefined {
+  const { stderr } = (error ?? {}) as { stderr?: unknown }
+  const lines = (typeof stderr === 'string' ? stderr : '').split('\n').map(line => line.trim())
+  const reasons = lines.filter(line => /^(?:fatal|error|remote):/.test(line) || line.includes('[rejected]') || line.includes('[remote rejected]'))
+
+  return reasons.length > 0 ? withoutCredentials(reasons.slice(0, 3).join('\n')) : undefined
+}
+
+/**
+ * Undefined when the credentials can push to the remote, else why git refused
+ * it (empty when git says nothing). A branch behind its remote can push too:
+ * the check of the branch reports it, with its fix
+ */
+function getPushProblem({ remote, branch, cwd, env }: { remote: string, branch: string, cwd: string, env: Env }): string | undefined {
+  try {
+    runGitSync(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], { cwd, env })
+    return undefined
+  }
+  catch (error) {
+    return isPushRejectedAsBehind(error) ? undefined : getPushRefusal(error) ?? ''
+  }
+}
+
+/**
+ * The error of a release that cannot be pushed: why git refused it, and the
+ * fix for where it runs
+ */
+function getPushError({ remote, remoteUrl, env, refusal }: { remote: string, remoteUrl?: string, env: Env, refusal?: string }): string {
+  const refusalLines = refusal ? refusal.split('\n').map(line => `  ${line}`).join('\n') : ''
+  const gitSaid = refusal ? `Git refused it with:\n${refusalLines}\n` : ''
+
   if (env.GITLAB_CI === 'true') {
-    return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n`
+    return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n${gitSaid}`
       + 'Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), '
       + 'or allow the job token to push in Settings > CI/CD > Job token permissions.'
   }
   if (env.GITHUB_ACTIONS === 'true') {
-    return `relizy cannot push the release commit and tags to "${remote}" from GitHub Actions: the token of the job cannot push.\n`
+    return `relizy cannot push the release commit and tags to "${remote}" from GitHub Actions: the token of the job cannot push.\n${gitSaid}`
       + 'Fix: give the release job write access in your workflow:\n\n'
       + '  permissions:\n'
       + '    contents: write\n\n'
@@ -246,13 +293,12 @@ function getPushError({ remote, remoteUrl, env }: { remote: string, remoteUrl?: 
 
   const ci = getCIName()
   if (ci) {
-    return `relizy cannot push the release commit and tags to "${remote}" from ${ci === 'Unknown CI' ? 'the CI' : ci}: the credentials of the job cannot push.\n`
+    return `relizy cannot push the release commit and tags to "${remote}" from ${ci === 'Unknown CI' ? 'the CI' : ci}: the credentials of the job cannot push.\n${gitSaid}`
       + 'Fix: give the release job credentials allowed to push to this repository (a deploy key or a token with write access).'
   }
 
-  // Without the credentials an http URL may hold
-  const url = remoteUrl ? ` (${remoteUrl.replace(/\/\/[^/@]+@/, '//')})` : ''
-  return `relizy cannot push the release commit and tags to "${remote}"${url}: git push --dry-run was refused.\n`
+  const url = remoteUrl ? ` (${withoutCredentials(remoteUrl)})` : ''
+  return `relizy cannot push the release commit and tags to "${remote}"${url}: git push --dry-run was refused.\n${gitSaid}`
     + 'Fix: check that your git credentials can push to this repository (SSH key, or a token allowed to write), '
     + 'or release without pushing with --no-push.'
 }
@@ -310,7 +356,8 @@ export function ensurePushAccess({ config, env = process.env }: { config: Resolv
     }
 
     const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
-    if (canPush({ remote, branch, cwd, env })) {
+    let refusal = getPushProblem({ remote, branch, cwd, env })
+    if (refusal === undefined) {
       logger.debug(`The release can be pushed to "${remote}"`)
       return
     }
@@ -324,12 +371,13 @@ export function ensurePushAccess({ config, env = process.env }: { config: Resolv
       url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
       pushThrough({ url: url.toString(), remoteUrl, env })
 
-      if (canPush({ remote, branch, cwd, env })) {
+      refusal = getPushProblem({ remote, branch, cwd, env })
+      if (refusal === undefined) {
         logger.info('The release is pushed with the GitLab token (the job token cannot push)')
         return
       }
     }
 
-    throw new Error(getPushError({ remote, remoteUrl, env }))
+    throw new Error(getPushError({ remote, remoteUrl, env, refusal }))
   }) })
 }

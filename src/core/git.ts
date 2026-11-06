@@ -3,11 +3,11 @@ import type { ResolvedRelizyConfig } from './config'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { ensurePushAccess } from './ci'
+import { ensurePushAccess, isPushRejectedAsBehind } from './ci'
 import { isInCI } from './ci-env'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
-import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag } from './format'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag, plural } from './format'
 import { cachedGitRead, clearGitCache } from './git-cache'
 import { formatGitCommand, runGit, runGitSync, tryGit, tryGitSync } from './git-exec'
 import { isAncestor, tagExists } from './git-refs'
@@ -456,12 +456,13 @@ async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> 
 export class BranchBehindRemoteError extends Error {
   override name = 'BranchBehindRemoteError'
 
-  constructor(readonly upstream: string, readonly missingCommits: number) {
-    super(
-      `The current branch is behind "${upstream}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
-      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
-      + `Re-run the release from the latest commit of "${upstream}".`,
-    )
+  constructor(readonly upstream: string, readonly missingCommits: number, inCI = isInCI()) {
+    const commits = plural(missingCommits, 'commit')
+    super(inCI
+      ? `The current branch is behind "${upstream}" by ${commits}, pushed after this job checked out the branch: the release commit would not be pushed.\n`
+      + `Fix: run the job again on the latest commit of "${upstream}".`
+      : `The current branch is behind "${upstream}" by ${commits} that this checkout does not have: the release commit would not be pushed.\n`
+        + 'Fix: get them with "git pull --rebase", then run the release again.')
   }
 }
 
@@ -502,17 +503,6 @@ export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): 
   }
 
   logger.debug(`Branch is up to date with "${upstream.name}"`)
-}
-
-function isPushRejectedAsBehind(error: unknown): boolean {
-  if (!error || typeof error !== 'object') {
-    return false
-  }
-
-  const { message, stderr } = error as { message?: unknown, stderr?: unknown }
-  const output = `${typeof message === 'string' ? message : ''}\n${typeof stderr === 'string' ? stderr : ''}`
-
-  return output.includes('(non-fast-forward)') || output.includes('(fetch first)')
 }
 
 /**

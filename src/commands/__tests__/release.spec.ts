@@ -717,7 +717,7 @@ describe('Given release command', () => {
         vi.stubEnv('GITHUB_EVENT_NAME', undefined)
         vi.stubEnv('CI_PIPELINE_SOURCE', undefined)
 
-        await expect(release({ dryRun: true })).rejects.toThrow('The current branch is behind "origin/feat" by 2 commit(s)')
+        await expect(release({ dryRun: true })).rejects.toThrow('The current branch is behind "origin/feat" by 2 commits')
       })
 
       it('Then fails a release of a pull request', async () => {
