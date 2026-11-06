@@ -10,6 +10,13 @@ import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'j
 const SITE_URL = 'https://relizy.dev'
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
+// The 404 page also answers with a 200 at /404: keep it out of the search engines
+function getIndexingTag(isNotFound: boolean | undefined, url: string): HeadConfig {
+  return isNotFound
+    ? ['meta', { name: 'robots', content: 'noindex' }]
+    : ['link', { rel: 'canonical', href: url }]
+}
+
 // https://vitepress.dev/reference/site-config
 // One definition per section, shared by the nav and the sidebar
 const guideSidebar = [
@@ -233,7 +240,6 @@ export default defineConfig({
     const pageHead: HeadConfig[] = [
       ['meta', { property: 'og:site_name', content: 'Relizy' }],
       ['meta', { property: 'og:title', content: currentTitle }],
-      ['link', { rel: 'canonical', href: currentUrl }],
       ['meta', { property: 'og:url', content: currentUrl }],
       ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
       ['meta', { name: 'description', content: currentDescription }],
@@ -245,6 +251,8 @@ export default defineConfig({
       ['meta', { name: 'twitter:image', content: `${SITE_URL}/social.jpg` }],
       ['meta', { name: 'twitter:image:alt', content: currentDescription }],
     ]
+
+    pageHead.push(getIndexingTag(pageData.isNotFound, currentUrl))
 
     if (isArticle) {
       pageHead.push(
