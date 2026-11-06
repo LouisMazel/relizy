@@ -228,12 +228,21 @@ export function fillTemplate(template: string, variables: Record<string, string 
   )
 }
 
+/** A line of a template holding only a URL placeholder */
+const URL_LINE_REGEX = /^\s*\{\{(releaseUrl|changelogUrl)\}\}\s*$/
+
 /**
  * Fill a social template (`templates.twitterMessage`, `templates.slackMessage`):
- * the URLs not set are removed.
+ * the URLs not set are removed, with their line when they are alone on it.
  */
 export function fillSocialTemplate(template: string, variables: SocialTemplateVariables, extraVariables: Record<string, string | undefined> = {}): string {
-  return fillTemplate(template, { releaseUrl: undefined, changelogUrl: undefined, ...variables, ...extraVariables })
+  const values: Record<string, string | undefined> = { releaseUrl: undefined, changelogUrl: undefined, ...variables, ...extraVariables }
+  const lines = template.split('\n').filter((line) => {
+    const name = URL_LINE_REGEX.exec(line)?.[1]
+    return !name || Boolean(values[name])
+  })
+
+  return fillTemplate(lines.join('\n'), values)
 }
 
 /**

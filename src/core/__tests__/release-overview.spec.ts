@@ -139,6 +139,13 @@ describe('Given the template helpers', () => {
 
     expect(fillSocialTemplate('{{releaseTitle}} {{releaseUrl}}{{changelogUrl}}{{changelog}}', variables, { changelog: '!' })).toBe('p 1.0.0 is out! !')
   })
+
+  it('Then removes the line of a URL not set, so the post keeps a single blank line', () => {
+    const variables = { projectName: 'p', releaseTitle: 'p 1.0.0 is out!', newVersion: '1.0.0', packageList: 'p@1.0.0', packageCount: '1', changelogUrl: 'https://example.com/changelog' }
+
+    expect(fillSocialTemplate('📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}', variables, { changelog: '- Add a' }))
+      .toBe('📣 p 1.0.0 is out!\n\n- Add a\n\nhttps://example.com/changelog')
+  })
 })
 
 describe('Given the version lines to post', () => {
