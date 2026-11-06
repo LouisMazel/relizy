@@ -78,7 +78,6 @@ function hasPublishablePackage(config: ResolvedRelizyConfig): boolean {
   return filterOutPrivatePackages(readPackages({
     cwd: config.cwd,
     patterns: getMonorepoPackagePatterns(config),
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
     ignored: config.monorepo?.ignored,
   })).length > 0
 }

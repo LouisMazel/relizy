@@ -4,6 +4,7 @@ import type { ServerContext } from '../context'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import fastGlob from 'fast-glob'
+import { RemovedConfigOptionError } from '../../core/config'
 import { GLOB_IGNORE } from '../../core/glob'
 import { hasVersionGroups } from '../../core/groups'
 import * as publicApi from '../../index'
@@ -425,8 +426,44 @@ function renderFinding(finding: MigrationFinding): string[] {
   return [`- **${finding.title}**${locations}: ${finding.detail} See \`get_doc({ id: "${GUIDE_ID}", sections: ["${finding.section}"] })\`.`]
 }
 
+/**
+ * `monorepo.ignorePackageNames` stops the config from loading: the other
+ * checks need the config, so the agent fixes it first
+ */
+function renderRemovedIgnorePackageNames(context: ServerContext, configName: string | undefined): string {
+  const locations = readConfigFiles(context.cwd, configName).flatMap(({ file, text }) => locate(file, findLines(text, /\bignorePackageNames\b/)))
+
+  return [
+    `# Migration from relizy 1 to relizy 2 (relizy ${context.version})`,
+    '',
+    '## To change first (1)',
+    '',
+    ...renderFinding({
+      severity: 'change',
+      title: '`monorepo.ignorePackageNames` is removed',
+      section: 'Removed ignorePackageNames',
+      detail: 'relizy 2 refuses to load the config with it, rather than releasing the packages it left out. List the directories of these packages in `monorepo.ignored` (path globs, as `monorepo.packages`).',
+      locations,
+    }),
+    '',
+    'The config cannot load until this is fixed: fix it (after asking the user), then call `check_migration()` again for the other changes.',
+  ].join('\n')
+}
+
 export async function checkMigration(context: ServerContext, { config: configName }: { config?: string }): Promise<string> {
-  const config = await loadProjectConfig({ config: configName, cwd: context.cwd })
+  let config: Awaited<ReturnType<typeof loadProjectConfig>>
+
+  try {
+    config = await loadProjectConfig({ config: configName, cwd: context.cwd })
+  }
+  catch (error) {
+    if (error instanceof RemovedConfigOptionError && error.option === 'monorepo.ignorePackageNames') {
+      return renderRemovedIgnorePackageNames(context, configName)
+    }
+
+    throw error
+  }
+
   const configFiles = readConfigFiles(config.cwd, configName)
   const severalVersions = hasVersionGroups(config) || getVersionMode(config) === 'independent'
   const findings = [

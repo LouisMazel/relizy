@@ -585,9 +585,21 @@ describe('Given the knowledge tools', () => {
       expect(getConfigOption(context, { path: 'release.push' })).toContain('- **Default:** `true`')
       expect(getConfigOption(context, { path: 'config.bump.dependencyTypes' })).toContain('- **Default:** `[\'dependencies\']`')
       expect(getConfigOption(context, { path: 'publish.packageManager' })).toContain('- **Default:** `"pnpm"`')
-      expect(getConfigOption(context, { path: 'monorepo.ignorePackageNames' })).toContain('- **Deprecated:**')
       expect(getConfigOption(context, { path: 'commitlint' })).toContain('- **See:** https://relizy.dev/commitlint/')
       expect(getConfigOption(context, { path: 'monorepo.groups.name' })).toContain('# `monorepo.groups[].name`')
+    })
+
+    it('Then a deprecated option tells it', () => {
+      const { knowledge } = context
+      const deprecated = { ...knowledge.configByPath.get('monorepo.ignored')!, path: 'monorepo.legacy', deprecated: 'Use `ignored`' }
+      knowledge.configByPath.set(deprecated.path, deprecated)
+
+      try {
+        expect(getConfigOption(context, { path: 'monorepo.legacy' })).toContain('- **Deprecated:** Use `ignored`')
+      }
+      finally {
+        knowledge.configByPath.delete(deprecated.path)
+      }
     })
 
     it('Then without path it lists the top-level options', () => {

@@ -165,6 +165,19 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**`publish.private` is removed** (`relizy.config.mjs:3`)')
   })
 
+  it('Then points out monorepo.ignorePackageNames first, as the config cannot load with it', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'monorepo', version: '1.0.0', private: true, devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  monorepo: {\n    versionMode: 'selective',\n    packages: ['packages/*'],\n    ignorePackageNames: ['@scope/legacy'],\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('## To change first (1)')
+    expect(text).toContain('**`monorepo.ignorePackageNames` is removed** (`relizy.config.mjs:5`)')
+    expect(text).toContain('then call `check_migration()` again for the other changes')
+  })
+
   it('Then points out monorepo.includePrivates, renamed privatePackages', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),

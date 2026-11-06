@@ -528,6 +528,17 @@ describe('Given loadRelizyConfig function', () => {
     vi.mocked(formatJson).mockImplementation(obj => JSON.stringify(obj))
   })
 
+  describe('When the config sets the removed monorepo.ignorePackageNames', () => {
+    it('Then fails with the option to use instead, rather than releasing the packages it left out', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', monorepo: { versionMode: 'selective', packages: ['packages/*'], ignorePackageNames: ['@scope/legacy'] } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+
+      await expect(loadRelizyConfig()).rejects.toThrow('monorepo.ignorePackageNames is removed: list the directories of these packages in monorepo.ignored')
+    })
+  })
+
   describe('When loading config without options', () => {
     it('Then uses default config name relizy', async () => {
       vi.mocked(loadConfig).mockResolvedValue({

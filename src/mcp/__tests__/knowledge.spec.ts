@@ -87,7 +87,6 @@ describe('Given the docs bundle generated from the sources', () => {
     it('Then the nested options are documented with their JSDoc', () => {
       expect(knowledge.configByPath.get('bump.outOfRangePeers')).toEqual(expect.objectContaining({ type: '\'bump\' | \'warn\' | \'error\'', default: '\'bump\'', docId: 'config/bump' }))
       expect(knowledge.configByPath.get('monorepo.groups[].versionMode')).toEqual(expect.objectContaining({ type: 'VersionMode', docId: 'config/monorepo' }))
-      expect(knowledge.configByPath.get('monorepo.ignorePackageNames')?.deprecated).toContain('Use `ignored`')
       expect(knowledge.configByPath.has('monorepo.groups[].bump.capZeroMajor')).toBe(true)
       expect(knowledge.configByPath.has('monorepo.groups[].bump.type')).toBe(false)
       expect(knowledge.configByPath.get('scopeMap')?.docId).toBe('config/overview')

@@ -127,7 +127,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - Uses [fast-glob](https://github.com/mrmlnc/fast-glob) to discover packages via glob patterns
 - Package info is read from `package.json` files
 - Private packages are automatically filtered out
-- Packages can be excluded via `ignorePackageNames` config
+- Packages can be excluded via `monorepo.ignored` (path globs, as `packages`)
 
 ### Changelog and Tags
 

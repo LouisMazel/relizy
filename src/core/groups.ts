@@ -241,7 +241,6 @@ function deriveGroupConfig({
       // The packages of the other groups are released by their own group: they
       // must stay out of this group, including its root version and changelog.
       ignored: [...new Set([...(config.monorepo?.ignored ?? []), ...(group.ignored ?? []), ...otherGroupsPaths.map(path => fastGlob.escapePath(path))])],
-      ignorePackageNames: config.monorepo?.ignorePackageNames,
       privatePackages: config.monorepo?.privatePackages,
       movedPackages: config.monorepo?.movedPackages,
     },

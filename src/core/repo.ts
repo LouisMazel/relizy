@@ -139,12 +139,7 @@ function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
 }
 
 /**
- * Relative POSIX paths of every package ignored by config, resolved from BOTH
- * `monorepo.ignored` (path globs) and `monorepo.ignorePackageNames` (names).
- *
- * The name-based source is resolved against the configured `packages` globs so
- * the two options behave identically downstream (path filtering + root commit
- * exclusion).
+ * Relative POSIX paths of every package ignored by config (`monorepo.ignored`)
  */
 export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string[] {
   const cwd = config.cwd
@@ -152,16 +147,6 @@ export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string
 
   for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.ignored)) {
     paths.add(relative(cwd, absolutePath).split(sep).join('/'))
-  }
-
-  const ignorePackageNames = config.monorepo?.ignorePackageNames ?? []
-  if (ignorePackageNames.length > 0) {
-    for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.packages)) {
-      const packageBase = readPackageJson(absolutePath)
-      if (packageBase && ignorePackageNames.includes(packageBase.name)) {
-        paths.add(relative(cwd, absolutePath).split(sep).join('/'))
-      }
-    }
   }
 
   return [...paths].filter(Boolean)
@@ -318,13 +303,11 @@ export function getPrivatePackagesMode(config: { monorepo?: MonorepoConfig }): P
 export function readPackages({
   cwd,
   patterns,
-  ignorePackageNames,
   ignored,
   privatePackages,
 }: {
   cwd: string
   patterns?: string[]
-  ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
   ignored?: NonNullable<ResolvedRelizyConfig['monorepo']>['ignored']
   privatePackages?: PrivatePackages
 }) {
@@ -356,7 +339,7 @@ export function readPackages({
 
         const packageBase = readPackageJson(matchPath)
 
-        if (!packageBase || (packageBase.private && patterns?.length && privatePackages !== 'release') || ignorePackageNames?.includes(packageBase.name))
+        if (!packageBase || (packageBase.private && patterns?.length && privatePackages !== 'release'))
           continue
 
         foundPaths.add(matchPath)
@@ -641,7 +624,6 @@ export async function getPackages({
   const readedPackages = readPackages({
     cwd: config.cwd,
     patterns,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
     ignored: config.monorepo?.ignored,
     privatePackages: config.monorepo?.privatePackages,
   })
@@ -682,10 +664,6 @@ export async function getPackages({
 
       if (packageBase.private && getPrivatePackagesMode(config) !== 'release') {
         logger.debug(`${packageBase.name} is private and will be ignored`)
-        continue
-      }
-      if (config.monorepo?.ignorePackageNames?.includes(packageBase.name)) {
-        logger.debug(`${packageBase.name} ignored by config (monorepo.ignorePackageNames)`)
         continue
       }
       if (!packageBase.version) {

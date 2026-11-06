@@ -137,7 +137,7 @@ export default defineConfig({
 })
 ```
 
-`monorepo.ignorePackageNames` (exact package names, no glob) is deprecated: use `ignored`. The private packages follow [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages).
+The private packages follow [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages).
 
 ## Checking the Dependents
 

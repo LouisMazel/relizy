@@ -203,6 +203,26 @@ function resolveTemplateDefaults(config: ResolvedConfig): void {
   }
 }
 
+/**
+ * A config option removed in relizy 2 that cannot be ignored silently
+ */
+export class RemovedConfigOptionError extends Error {
+  constructor(readonly option: string, message: string) {
+    super(message)
+    this.name = 'RemovedConfigOptionError'
+  }
+}
+
+/**
+ * Options removed in relizy 2 that cannot be ignored silently: the packages
+ * they left out would be released
+ */
+function assertNoRemovedOptions(config: ResolvedConfig): void {
+  if ((config.monorepo as { ignorePackageNames?: unknown } | undefined)?.ignorePackageNames !== undefined) {
+    throw new RemovedConfigOptionError('monorepo.ignorePackageNames', 'monorepo.ignorePackageNames is removed: list the directories of these packages in monorepo.ignored (path globs, as monorepo.packages). See https://relizy.dev/guide/migration-v2#removed-ignorepackagenames')
+  }
+}
+
 function setupLogger(logLevel?: LogLevel) {
   if (logLevel) {
     logger.setLevel(logLevel)
@@ -355,6 +375,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
+  assertNoRemovedOptions(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

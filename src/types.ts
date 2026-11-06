@@ -301,13 +301,6 @@ export interface MonorepoConfig {
    */
   groups?: VersionGroup[]
   /**
-   * Package names to ignore.
-   * @deprecated Use `ignored` (path globs) instead, for consistency with
-   * `packages`. Both options are still honored and merged together.
-   * @default []
-   */
-  ignorePackageNames?: string[]
-  /**
    * Glob patterns (relative to `cwd`, POSIX separators) of package directories
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
@@ -316,9 +309,6 @@ export interface MonorepoConfig {
    * ignored packages are also excluded from the root version bump and the root
    * changelog (a breaking change in an ignored package no longer bumps the
    * whole repository).
-   *
-   * Prefer this over `ignorePackageNames` for path-based configuration
-   * consistent with `packages`. Both options are honored and merged together.
    * @default []
    */
   ignored?: string[]

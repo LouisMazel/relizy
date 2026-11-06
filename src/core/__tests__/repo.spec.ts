@@ -59,6 +59,10 @@ vi.mock('fast-glob', () => ({
         return [`${cwd}/packages/pkg-a`]
       }
 
+      if (pattern === 'packages/pkg-b') {
+        return [`${cwd}/packages/pkg-b`]
+      }
+
       if (pattern === '.') {
         return [cwd]
       }
@@ -419,7 +423,7 @@ describe('Given getPackages function', () => {
       expect(packages.every(pkg => !pkg.private)).toBe(true)
     })
 
-    it('Then excludes packages in ignorePackageNames', async () => {
+    it('Then excludes the packages of monorepo.ignored', async () => {
       setupMockCommits('default', [
         createMockCommit('feat', 'some feature'),
       ])
@@ -430,7 +434,7 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          ignorePackageNames: ['pkg-a'],
+          ignored: ['packages/pkg-a'],
         },
       })
 
@@ -480,7 +484,7 @@ describe('Given getPackages function', () => {
       expect(packages.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
     })
 
-    it('Then still excludes packages listed in ignorePackageNames', async () => {
+    it('Then still excludes the private packages of monorepo.ignored', async () => {
       vol.fromJSON({
         [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
         [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({
@@ -501,7 +505,7 @@ describe('Given getPackages function', () => {
           versionMode: 'independent',
           packages: ['packages/*'],
           privatePackages: 'release',
-          ignorePackageNames: ['pkg-b'],
+          ignored: ['packages/pkg-b'],
         },
       })
 
@@ -536,7 +540,6 @@ describe('Given getPackages function', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: undefined,
         })
 
         expect(result.map(p => p.name)).toEqual(['pkg-a'])
@@ -548,7 +551,6 @@ describe('Given getPackages function', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: undefined,
           privatePackages: 'release',
         })
 
@@ -556,12 +558,12 @@ describe('Given getPackages function', () => {
       })
     })
 
-    describe('When privatePackages is release but a private package is in ignorePackageNames', () => {
-      it('Then still excludes it via ignorePackageNames', () => {
+    describe('When privatePackages is release but a private package is in monorepo.ignored', () => {
+      it('Then still excludes it', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: ['pkg-b'],
+          ignored: ['packages/pkg-b'],
           privatePackages: 'release',
         })
 
@@ -573,7 +575,7 @@ describe('Given getPackages function', () => {
       it('Then reads the root, its only package', () => {
         vol.fromJSON({ [`${mockCwd}/package.json`]: JSON.stringify({ name: 'app', version: '1.0.0', private: true }) }, mockCwd)
 
-        const result = readPackages({ cwd: mockCwd, patterns: undefined, ignorePackageNames: undefined })
+        const result = readPackages({ cwd: mockCwd, patterns: undefined })
 
         expect(result.map(p => p.name)).toEqual(['app'])
       })
@@ -823,17 +825,6 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
     })
   })
 
-  describe('When resolving ignored packages from ignorePackageNames', () => {
-    it('Then resolves the name to its relative path via the packages globs', () => {
-      const config = createMockConfig({
-        cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignorePackageNames: ['pkg-a'] },
-      })
-
-      expect(resolveIgnoredPackagePaths(config)).toEqual(['packages/pkg-a'])
-    })
-  })
-
   describe('When the root package aggregates commits with an ignored package', () => {
     it('Then excludes commits that only touch an ignored package', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
@@ -889,7 +880,6 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
       const result = readPackages({
         cwd: mockCwd,
         patterns: ['packages/*'],
-        ignorePackageNames: undefined,
         ignored: ['packages/pkg-a'],
       })
 

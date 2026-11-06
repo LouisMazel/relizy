@@ -420,7 +420,6 @@ async function commentPullRequest({ config, options, dryRun }: {
     const readPkgs = readPackages({
       cwd: config.cwd,
       patterns: getMonorepoPackagePatterns(config),
-      ignorePackageNames: config.monorepo?.ignorePackageNames,
       ignored: config.monorepo?.ignored,
       privatePackages: config.monorepo?.privatePackages,
     })

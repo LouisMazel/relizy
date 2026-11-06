@@ -34,6 +34,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [New version variable](#new-version-variable)                 | Custom social templates with `monorepo.groups` or `independent` mode | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
 | [Every occurrence is replaced](#every-occurrence-is-replaced) | Social templates repeating a variable                                | Check the templates                                                           |
 | [Arrays replace the defaults](#arrays-replace-the-defaults)   | `bump.dependencyTypes` without `dependencies`                        | Add `dependencies` to keep the v1 bumps                                       |
+| [Removed ignorePackageNames](#removed-ignorepackagenames)     | `monorepo.ignorePackageNames`                                        | Use `monorepo.ignored`                                                        |
 | [AI attribution in commits](#ai-attribution-in-commits)       | `relizy commitlint`                                                  | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                   | Templates using <code v-pre>{{version}}</code>                       | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)   | `onlyStable` with several versions                                   | None                                                                          |
@@ -176,6 +177,22 @@ export default defineConfig({
 
 ```bash
 relizy release --private-packages release
+```
+
+### Removed ignorePackageNames
+
+`monorepo.ignorePackageNames`, deprecated in v1, is removed: list the directories of these packages in [`monorepo.ignored`](./../config/monorepo.md#ignored), path globs matched as `monorepo.packages`. relizy 2 refuses to load a config that still sets it, rather than releasing the packages it left out.
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  monorepo: {
+    packages: ['packages/*'],
+    // ignorePackageNames: ['@scope/legacy'],
+    ignored: ['packages/legacy'],
+  },
+})
 ```
 
 ### Removed publish.private

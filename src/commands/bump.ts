@@ -814,7 +814,6 @@ function readGroupsDependencies({
     const packages = readPackages({
       cwd: groupConfig.cwd,
       patterns: groupConfig.monorepo?.packages,
-      ignorePackageNames: groupConfig.monorepo?.ignorePackageNames,
       ignored: groupConfig.monorepo?.ignored,
       privatePackages: groupConfig.monorepo?.privatePackages,
     })

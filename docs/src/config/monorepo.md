@@ -1,7 +1,7 @@
 ---
 title: Monorepo Configuration
 description: Reference of the monorepo options - version mode, packages, version groups, ignored and private packages, moved packages.
-keywords: monorepo config, versionMode, packages, version groups, monorepo.groups, VersionGroup, ignored packages, privatePackages, movedPackages, ignorePackageNames
+keywords: monorepo config, versionMode, packages, version groups, monorepo.groups, VersionGroup, ignored packages, privatePackages, movedPackages
 category: Configuration
 tags: [config, monorepo, versioning, workspace, groups]
 ---
@@ -66,7 +66,7 @@ export default defineConfig({
 })
 ```
 
-The options without a group field (`ignorePackageNames`, `privatePackages`, `movedPackages`) apply to every group.
+The options without a group field (`privatePackages`, `movedPackages`) apply to every group.
 
 ## ignored
 
@@ -76,14 +76,6 @@ The options without a group field (`ignorePackageNames`, `privatePackages`, `mov
 Glob patterns of package directories to leave out, matched as [`packages`](#packages). An ignored package is not bumped, has no changelog, is not published, gets no provider release and is not listed in the PR comment.
 
 In `unified` and `selective` mode, a commit whose changed files are all inside ignored packages does not count for the root version nor the root changelog: keep the changes of an ignored package in their own commits, so a breaking change there does not bump the whole repository.
-
-## ignorePackageNames
-
-- **Type:** `string[]`
-- **Default:** `[]`
-- **Deprecated:** use [`ignored`](#ignored), with paths instead of names
-
-Package names (`name` of their `package.json`) to leave out. Merged with `ignored`.
 
 ## privatePackages
 
@@ -96,7 +88,7 @@ What relizy does with the private packages of the workspace (`"private": true` i
 - `ignore`: they are left out of the release.
 - `release`: they are released as the other packages (bump, changelog, tag, GitHub/GitLab release, PR comment), but never published to a registry.
 
-A project without workspace packages (a private app with a single `package.json`) is released, private or not. `ignored` and `ignorePackageNames` still apply: an ignored private package stays out. See [Private Projects & Apps](./../guide/private-projects.md).
+A project without workspace packages (a private app with a single `package.json`) is released, private or not. `ignored` still applies: an ignored private package stays out. See [Private Projects & Apps](./../guide/private-projects.md).
 
 ## movedPackages
 
