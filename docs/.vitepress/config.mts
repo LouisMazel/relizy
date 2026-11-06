@@ -1,4 +1,4 @@
-import type { HeadConfig, UserConfig } from 'vitepress'
+import type { HeadConfig, PageData, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
@@ -10,9 +10,10 @@ import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'j
 const SITE_URL = 'https://relizy.dev'
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
-// The 404 page also answers with a 200 at /404: keep it out of the search engines
-function getIndexingTag(isNotFound: boolean | undefined, url: string): HeadConfig {
-  return isNotFound
+// Kept out of the search engines: the 404 page, which also answers with a 200 at /404, and the
+// typedoc reference, generated without descriptions and covered by the pages of the API section
+function getIndexingTag(pageData: PageData, url: string): HeadConfig {
+  return pageData.isNotFound || pageData.relativePath.startsWith('typedoc/')
     ? ['meta', { name: 'robots', content: 'noindex' }]
     : ['link', { rel: 'canonical', href: url }]
 }
@@ -285,7 +286,7 @@ export default defineConfig({
       ['meta', { name: 'twitter:image:alt', content: currentDescription }],
     ]
 
-    pageHead.push(getIndexingTag(pageData.isNotFound, currentUrl))
+    pageHead.push(getIndexingTag(pageData, currentUrl))
 
     if (isArticle) {
       pageHead.push(
