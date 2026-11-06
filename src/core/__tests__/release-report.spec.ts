@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { createMockConfig } from '../../../tests/mocks'
-import { describeReleaseAI, describeReleaseContent, formatReleaseReportMarkdown, formatReleaseReportText, getReleaseReportOutputs, getReleaseSummary, writeReleaseReport } from '../release-report'
+import { describeReleaseAI, describeReleaseContent, describeTags, formatReleaseReportMarkdown, formatReleaseReportText, getReleaseName, getReleaseReportOutputs, getReleaseSummary, writeReleaseReport } from '../release-report'
 
 const groupsRelease: ReleaseReport['release'] = {
   projectName: 'maz-ui',
@@ -59,8 +59,8 @@ describe('Given the renderers of the release report', () => {
     expect(formatReleaseReportText(released)).toBe([
       'Release completed',
       '',
-      'Version: maz-ui: 5.2.1',
-      'Version: Tooling: @maz-ui/eslint-config@5.1.0',
+      'Version (maz-ui): 5.2.1',
+      'Version (Tooling): @maz-ui/eslint-config@5.1.0',
       'Tag(s): v5.2.1, @maz-ui/eslint-config@5.1.0',
       'Publish: 2 package(s)',
       'Social media: slack: down',
@@ -76,11 +76,41 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).toContain('## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0')
     expect(markdown).toContain('### maz-ui `5.2.1` (selective)\n\n| Package | Version |\n| --- | --- |\n| `maz-ui` | `5.2.0` → `5.2.1` |')
     expect(markdown).toContain('### Tooling (independent)')
-    expect(markdown).toContain('| **Tags** | `v5.2.1, @maz-ui/eslint-config@5.1.0` |')
+    // The tables of the groups give the versions and the tags: the summary does not repeat them
+    expect(markdown).not.toContain('**Version')
+    expect(markdown).not.toContain('**Tags**')
     // A failed step does not stop the release
     expect(markdown).toContain('| ⚠️ **Social media** | slack: down |')
     expect(markdown).toContain('| ⏭️ **PR comment** | skipped |')
     expect(markdown).toContain('| Step | Result |\n| --- | --- |')
+  })
+
+  it('Then counts the versions in the title beyond two, the tables listing them', () => {
+    const navigation = { name: '@maz-ui/nav', oldVersion: '1.0.0', newVersion: '1.1.0', tag: '@maz-ui/nav@1.1.0', private: false }
+    const icons = { name: '@maz-ui/icons', oldVersion: '2.0.0', newVersion: '2.0.1', tag: '@maz-ui/icons@2.0.1', private: false }
+    const tooling = groupsRelease!.groups[1]!
+    const many = { ...released, release: { ...groupsRelease!, groups: [groupsRelease!.groups[0]!, { ...tooling, packages: [...tooling.packages, navigation, icons] }] } } satisfies ReleaseReport
+    const markdown = formatReleaseReportMarkdown(many)
+
+    expect(getReleaseName(released)).toBe('maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0')
+    expect(getReleaseName(many)).toBe('4 versions of maz-ui')
+    expect(markdown).toContain('## 🚀 Released 4 versions of maz-ui\n')
+    expect(markdown).toContain('| `@maz-ui/nav` | `1.0.0` → `1.1.0` |')
+    // In the terminal, a version line per group, titled with it: the packages of a group are counted beyond 2
+    expect(getReleaseSummary(many).slice(0, 2)).toEqual([
+      { label: 'Version (maz-ui)', value: '5.2.1', code: true },
+      { label: 'Version (Tooling)', value: '3 packages' },
+    ])
+    expect(describeTags(['v5.2.1', '@maz-ui/nav@1.1.0'])).toBe('v5.2.1, @maz-ui/nav@1.1.0')
+    expect(describeTags(['v5.2.1', '@maz-ui/nav@1.1.0', '@maz-ui/icons@2.0.1'])).toBe('3 tags')
+  })
+
+  it('Then lists the links of a step up to two, the value counting them beyond', () => {
+    const links = ['v1', 'v2', 'v3'].map(tag => ({ label: tag, url: `https://github.com/acme/lib/releases/tag/${tag}` }))
+    const report = (count: number) => ({ ...released, steps: [{ name: 'providerRelease', status: 'done', detail: `${count} releases on github`, links: links.slice(0, count) }] }) satisfies ReleaseReport
+
+    expect(formatReleaseReportMarkdown(report(2))).toContain('| ✅ **Provider release** | 2 releases on github<br>[v1](https://github.com/acme/lib/releases/tag/v1) · [v2](https://github.com/acme/lib/releases/tag/v2) |')
+    expect(formatReleaseReportMarkdown(report(3))).toContain('| ✅ **Provider release** | 3 releases on github |')
   })
 
   it('Then gives why a step did nothing: the social posts of a prerelease', () => {
