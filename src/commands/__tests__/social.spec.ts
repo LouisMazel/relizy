@@ -9,6 +9,7 @@ import { social, socialSafetyCheck } from '../social'
 
 vi.mock('../../core/ai', async importActual => ({
   isAIRewritingVersion: (await importActual<typeof import('../../core/ai')>()).isAIRewritingVersion,
+  isAIRunInRelease: (await importActual<typeof import('../../core/ai')>()).isAIRunInRelease,
   aiSafetyCheck: vi.fn(),
   generateAISocialChangelog: vi.fn(),
   generateAISocialReleases: vi.fn(),
@@ -979,6 +980,20 @@ describe('Given social command', () => {
       await socialSafetyCheck({ config })
 
       expect(aiSafetyCheck).toHaveBeenCalledWith({ config })
+    })
+
+    it('Then does not check the AI provider for a prerelease bump with onlyStable', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: { twitter: { enabled: true, onlyStable: true } },
+        tokens: { twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' } },
+        ai: { social: { twitter: { enabled: true } } },
+      })
+      vi.mocked(getTwitterCredentials).mockReturnValue({ apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' })
+
+      await socialSafetyCheck({ config })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })
 

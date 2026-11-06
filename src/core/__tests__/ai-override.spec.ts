@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
-import { applyAIOverride, isAIRewritingVersion } from '../ai'
+import { applyAIOverride, isAIRewritingVersion, isAIRunInRelease } from '../ai'
 
 describe('Given applyAIOverride function', () => {
   describe('When ai is undefined', () => {
@@ -150,5 +150,18 @@ describe('Given isAIRewritingVersion function', () => {
     applyAIOverride(config, true)
 
     expect(config.ai?.providerRelease).toEqual({ enabled: true, onlyStable: false })
+  })
+})
+
+describe('Given isAIRunInRelease function', () => {
+  it('Then never runs the AI of a prerelease bump with onlyStable', () => {
+    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'prerelease' } }), 'providerRelease')).toBe(false)
+    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'premajor' } }), 'slack')).toBe(false)
+  })
+
+  it('Then may run it for any other bump, or without onlyStable', () => {
+    // A stable bump, or an automatic one, can release a stable version
+    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'release' } }), 'providerRelease')).toBe(true)
+    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'prerelease' }, ai: { social: { twitter: { onlyStable: false } } } }), 'twitter')).toBe(true)
   })
 })

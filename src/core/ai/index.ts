@@ -7,7 +7,7 @@ import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
 import { getSocialChangelog } from '../social'
-import { isPrerelease } from '../version'
+import { isPrerelease, isPrereleaseReleaseType } from '../version'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -98,10 +98,22 @@ export function applyAIOverride(config: ResolvedRelizyConfig, ai?: boolean): voi
  * (of the target, else `ai.onlyStable`), a prerelease keeps its raw changelog
  */
 export function isAIRewritingVersion(config: ResolvedRelizyConfig, target: AIPromptTarget, version: string | undefined): boolean {
-  const targetConfig = target === 'providerRelease' ? config.ai?.providerRelease : config.ai?.social?.[target]
-  const onlyStable = targetConfig?.onlyStable ?? config.ai?.onlyStable ?? true
+  return !isAIOnlyStable(config, target) || !isPrerelease(version)
+}
 
-  return !onlyStable || !isPrerelease(version)
+/**
+ * True when the AI of the target can run in the release: false for a
+ * prerelease bump (`--prerelease`, `--preid`...) with `onlyStable`, where
+ * every version keeps its raw changelog. The safety checks skip its provider then.
+ */
+export function isAIRunInRelease(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {
+  return !isAIOnlyStable(config, target) || !isPrereleaseReleaseType(config.bump.type)
+}
+
+function isAIOnlyStable(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {
+  const targetConfig = target === 'providerRelease' ? config.ai?.providerRelease : config.ai?.social?.[target]
+
+  return targetConfig?.onlyStable ?? config.ai?.onlyStable ?? true
 }
 
 export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolean {

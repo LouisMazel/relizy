@@ -118,7 +118,7 @@ When a call fails (network, quota, credentials):
 - **Type:** `boolean`
 - **Default:** `true`
 
-Rewrite only the stable versions: a prerelease (`2.0.0-beta.0`, a canary) keeps its raw changelog, without an AI call. In a post announcing several versions, only its stable versions are rewritten. The `onlyStable` of a target overrides it, e.g. to rewrite the notes of the prereleases but not their posts:
+Rewrite only the stable versions: a prerelease (`2.0.0-beta.0`, a canary) keeps its raw changelog, without an AI call. In a post announcing several versions, only its stable versions are rewritten. A prerelease bump (`--prerelease`, `--prepatch`, `--preminor`, `--premajor`) does not check the AI provider either (credentials, `claude` CLI): its AI never runs. The `onlyStable` of a target overrides it, e.g. to rewrite the notes of the prereleases but not their posts:
 
 ```ts
 export default defineConfig({

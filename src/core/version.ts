@@ -484,7 +484,7 @@ export function isStableReleaseType(releaseType: ReleaseType): boolean {
   return stableTypes.includes(releaseType)
 }
 
-function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
+export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
   const prereleaseTypes = ['prerelease', 'premajor', 'preminor', 'prepatch']
   return prereleaseTypes.includes(releaseType)
 }

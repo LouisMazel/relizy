@@ -29,10 +29,11 @@ vi.mock('../../core/utils', () => {
     getHookContext: vi.fn(),
   }
 })
-vi.mock('../../core/ai', () => ({
+vi.mock('../../core/ai', async importActual => ({
   aiSafetyCheck: vi.fn(),
   applyAIOverride: vi.fn(),
   isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+  isAIRunInRelease: (await importActual<typeof import('../../core/ai')>()).isAIRunInRelease,
 }))
 
 describe('Given providerRelease command', () => {
@@ -152,6 +153,32 @@ describe('Given providerReleaseSafetyCheck', () => {
       await providerReleaseSafetyCheck({ config, provider: 'github' })
 
       expect(aiSafetyCheck).toHaveBeenCalledWith({ config })
+    })
+  })
+
+  describe('When a prerelease is bumped with onlyStable', () => {
+    function createPrereleaseConfig(ai: Parameters<typeof createMockConfig>[0]['ai']) {
+      return createMockConfig({
+        bump: { type: 'prerelease' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai,
+      })
+    }
+
+    it('Then does not check the AI provider, that never runs', async () => {
+      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true } }), provider: 'github' })
+      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true } }), provider: 'github', ai: true })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+
+    it('Then checks it when the onlyStable of the AI is off', async () => {
+      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true, onlyStable: false } }), provider: 'github' })
+
+      expect(aiSafetyCheck).toHaveBeenCalled()
     })
   })
 

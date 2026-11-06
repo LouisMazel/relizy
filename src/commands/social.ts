@@ -7,7 +7,7 @@ import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
-import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAISocialEnabled } from '../core/ai'
+import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAIRunInRelease, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { runCommand } from './run-command'
@@ -132,7 +132,8 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
       }
     }
 
-    if (isAISocialEnabled(config, 'twitter') || isAISocialEnabled(config, 'slack') || isAISocialEnabled(config, 'teams')) {
+    // No AI call for a prerelease bump with `onlyStable`: its provider is not checked
+    if ((['twitter', 'slack', 'teams'] as const).some(platform => isAISocialEnabled(config, platform) && isAIRunInRelease(config, platform))) {
       await aiSafetyCheck({ config })
     }
 

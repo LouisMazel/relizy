@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, GitProvider, PostedRelease, ProviderReleaseOptions, ProviderReleaseResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { assertVersionGroupsOption, detectGitProvider, executeHook, getReleaseTargets, github, gitlab, hasVersionGroups, loadRelizyConfig } from '../core'
-import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled } from '../core/ai'
+import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled, isAIRunInRelease } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
@@ -11,15 +11,17 @@ import { runCommand } from './run-command'
 /**
  * True when a provider release of the run uses AI: the `ai` option of the run
  * (`--ai`/`--no-ai`) wins, then the `ai.providerRelease` options of the config
- * and of the version groups.
+ * and of the version groups. Never for a prerelease bump with `onlyStable`.
  */
 function usesAIProviderRelease(config: ResolvedRelizyConfig, ai?: boolean): boolean {
   if (ai !== undefined) {
-    return ai
+    return ai && isAIRunInRelease(config, 'providerRelease')
   }
 
-  return isAIProviderReleaseEnabled(config)
-    || (hasVersionGroups(config) && config.monorepo!.groups!.some(group => group.ai?.providerRelease?.enabled))
+  const usesAI = (targetConfig: ResolvedRelizyConfig) => isAIProviderReleaseEnabled(targetConfig) && isAIRunInRelease(targetConfig, 'providerRelease')
+
+  return usesAI(config)
+    || (hasVersionGroups(config) && config.monorepo!.groups!.some(group => usesAI({ ...config, ai: { ...config.ai, ...group.ai } })))
 }
 
 export async function providerReleaseSafetyCheck({ config, provider, ai }: {
