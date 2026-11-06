@@ -6,6 +6,11 @@ for (const variable of ['ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUES
   delete process.env[variable]
 }
 
+// The outputs and the summary of the CI job running the tests: each release of the tests would write its report there
+for (const variable of ['GITHUB_OUTPUT', 'GITHUB_STEP_SUMMARY']) {
+  delete process.env[variable]
+}
+
 // Mock the repository resolution globally: no test reads the remote of the relizy repository
 vi.mock('./src/core/repo-config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./src/core/repo-config')>()
