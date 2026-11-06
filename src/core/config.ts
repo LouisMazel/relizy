@@ -10,6 +10,7 @@ import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
+import { getEnvNpmToken } from './npm-oidc'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
 import { redactSecrets } from './redact'
 import { getRepoConfig, resolveRepoConfig } from './repo-config'
@@ -76,7 +77,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
-      registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
+      registry: getEnvNpmToken(),
       gitlab:
         process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN

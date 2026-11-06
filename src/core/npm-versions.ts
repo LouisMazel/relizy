@@ -144,6 +144,31 @@ function buildPackumentUrl(registry: string, packageName: string): string {
 }
 
 /**
+ * Whether a package is on the registry, from its packument without
+ * authentication: `null` when the registry does not answer clearly (network
+ * error, 401, 5xx). A private package is not visible without token: a 404.
+ */
+export async function isPackageOnRegistry({ name, registry, timeoutMs = 15000 }: { name: string, registry: string, timeoutMs?: number }): Promise<boolean | null> {
+  try {
+    const response = await fetch(buildPackumentUrl(registry, name), {
+      // The abbreviated packument: only the versions, enough to know it exists
+      headers: { accept: 'application/vnd.npm.install-v1+json' },
+      signal: AbortSignal.timeout(timeoutMs),
+    })
+
+    if (response.status === 404) {
+      return false
+    }
+
+    return response.ok ? true : null
+  }
+  catch (error) {
+    logger.debug(`Packument request for ${name} failed: ${error instanceof Error ? error.message : String(error)}`)
+    return null
+  }
+}
+
+/**
  * Query `pkg@version` existence with a direct HTTP request to the registry's
  * packument endpoint - the same metadata endpoint `install` relies on. This is
  * the package-manager-agnostic fallback that also works for yarn and bun (which

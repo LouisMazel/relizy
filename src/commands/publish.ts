@@ -1,7 +1,7 @@
-import type { ResolvedRelizyConfig } from '../core'
+import type { ResolvedRelizyConfig, TrustedPublishingProvider } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getIndependentTag, getMonorepoPackagePatterns, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertTrustedPublishingNpm, assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getIndependentTag, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, getTrustedPublishing, hasVersionGroups, isInCI, isNpmjsRegistry, isPackageOnRegistry, loadRelizyConfig, normalizeRegistryKey, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
@@ -67,10 +67,60 @@ async function checkRegistryAuth({
         { cause: error },
       )
     }
-    throw new Error(`Failed to authenticate to package registry${registryLabel}`, { cause: error })
+    throw new Error(`Failed to authenticate to package registry${registryLabel}${getMissingTokenHint(config, registryTarget)}`, { cause: error })
   }
   finally {
     clearTimeout(patienceTimer)
+  }
+}
+
+/**
+ * Without token in a CI job, the way to publish to npm: a token, or trusted
+ * publishing (the job then lacks its OIDC permission)
+ */
+function getMissingTokenHint(config: ResolvedRelizyConfig, registryTarget: RegistryTarget): string {
+  if (registryTarget.token || !isInCI() || !isNpmjsRegistry(registryTarget.registry || getNpmRegistry(config.cwd))) {
+    return ''
+  }
+
+  return ': no npm token found. Set NPM_TOKEN, or publish with trusted publishing (OIDC), without token: https://relizy.dev/guide/trusted-publishing'
+}
+
+/**
+ * Trusted publishing needs no token, so no `whoami`: the npm of the job must
+ * do the OIDC exchange, and a package must already be on npm (OIDC cannot
+ * create it)
+ */
+async function checkTrustedPublishing({
+  config,
+  registry,
+  registryLabel,
+  provider,
+  packages,
+}: {
+  config: ResolvedRelizyConfig
+  registry: string
+  registryLabel: string
+  provider: TrustedPublishingProvider
+  packages: Pick<PackageBase, 'name'>[]
+}) {
+  logger.info(`Trusted publishing (OIDC) from ${provider}${registryLabel}: no npm token needed`)
+  assertTrustedPublishingNpm({ packageManager: config.publish.packageManager, cwd: config.cwd, provider })
+
+  const registryKey = normalizeRegistryKey(registry)
+  const names = packages
+    .filter(pkg => resolveRegistryTargetsForPackage(pkg, config).some(target => normalizeRegistryKey(target.registry || registry) === registryKey))
+    .map(pkg => pkg.name)
+  const timeoutMs = config.publish.safetyCheckTimeout ?? 15000
+  const onRegistry = await Promise.all(names.map(name => isPackageOnRegistry({ name, registry, timeoutMs })))
+  const newPackages = names.filter((_, index) => onRegistry[index] === false)
+
+  if (newPackages.length > 0) {
+    logger.warn(
+      `Not on npm yet: ${newPackages.join(', ')}. Trusted publishing cannot create a package: `
+      + 'publish its first version with an npm token (NPM_TOKEN), then add its trusted publisher on npmjs.com. '
+      + 'See https://relizy.dev/guide/trusted-publishing',
+    )
   }
 }
 
@@ -119,6 +169,14 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     const registryLabel = showRegistryLabel
       ? ` [${registryTarget.name ?? registryTarget.registry ?? 'default'}]`
       : ''
+
+    const registry = registryTarget.registry || getNpmRegistry(config.cwd)
+    const provider = getTrustedPublishing({ registry, token: registryTarget.token })
+
+    if (provider) {
+      await checkTrustedPublishing({ config, registry, registryLabel, provider, packages: packagesToCheck })
+      continue
+    }
 
     await checkRegistryAuth({ config, registryTarget, registryLabel })
   }

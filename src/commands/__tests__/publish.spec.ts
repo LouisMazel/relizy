@@ -2,7 +2,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, loadRelizyConfig, publishPackage, readPackageJson, readPackages, topologicalSort } from '../../core'
+import { assertTrustedPublishingNpm, checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, loadRelizyConfig, publishPackage, readPackageJson, readPackages, topologicalSort } from '../../core'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -39,6 +39,13 @@ vi.mock('../../core/workspace', async (importActual) => {
   return {
     ...actual,
     checkWorkspaceDependencies: vi.fn(),
+  }
+})
+vi.mock('../../core/npm-oidc', async (importActual) => {
+  const actual = await importActual<typeof import('../../core/npm-oidc')>()
+  return {
+    ...actual,
+    assertTrustedPublishingNpm: vi.fn(),
   }
 })
 vi.mock('../../core/repo', async (importActual) => {
@@ -125,6 +132,56 @@ describe('Given publishSafetyCheck function', () => {
       finally {
         vi.useRealTimers()
       }
+    })
+  })
+
+  describe('When the job publishes to npm with trusted publishing (OIDC)', () => {
+    const npmConfig = () => createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', registry: 'https://registry.npmjs.org/' }, tokens: { registry: undefined }, safetyCheck: true, release: { publish: true } })
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+    beforeEach(() => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.actions.githubusercontent.com')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      fetchSpy.mockResolvedValue(new Response('{}', { status: 200 }))
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then checks the npm of the job instead of authenticating with a token', async () => {
+      await publishSafetyCheck({ config: npmConfig() })
+
+      expect(assertTrustedPublishingNpm).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'npm', provider: 'GitHub Actions' }))
+      expect(execPromise).not.toHaveBeenCalledWith(expect.stringContaining('whoami'), expect.anything())
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Trusted publishing (OIDC) from GitHub Actions'))
+    })
+
+    it('Then warns about a package that is not on npm yet', async () => {
+      fetchSpy.mockResolvedValue(new Response('{}', { status: 404 }))
+
+      await publishSafetyCheck({ config: npmConfig() })
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
+    })
+
+    it('Then authenticates as usual with a token, the fallback of npm', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', registry: 'https://registry.npmjs.org/' }, tokens: { registry: 'npm_token' }, safetyCheck: true, release: { publish: true } })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(assertTrustedPublishingNpm).not.toHaveBeenCalled()
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('whoami'), expect.anything())
+    })
+
+    it('Then tells how to publish without token when the job has no OIDC permission', async () => {
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', '')
+      vi.mocked(execPromise).mockRejectedValue(new Error('ENEEDAUTH'))
+
+      await expect(publishSafetyCheck({ config: npmConfig() })).rejects.toThrow(/no npm token found\. Set NPM_TOKEN, or publish with trusted publishing/)
     })
   })
 
