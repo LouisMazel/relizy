@@ -90,7 +90,7 @@ Title of a section of the changelogs (`## v1.0.0...v1.1.0`).
 | <code v-pre>{{newVersion}}</code> | The tag of the new release      | `v1.1.0`     |
 | <code v-pre>{{date}}</code>       | The date, `YYYY-MM-DD`          | `2026-03-14` |
 
-Only the first occurrence of each placeholder is replaced.
+Every occurrence of each placeholder is replaced.
 
 ## emptyChangelogContent
 

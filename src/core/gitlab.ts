@@ -6,6 +6,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
+import { formatRepoTag } from './format'
 import { getFirstCommit } from './git'
 import { getGitlabAuthHeader } from './gitlab-auth'
 import { reportProgress, showPreview } from './progress'
@@ -254,7 +255,7 @@ async function gitlabUnified({
 
   const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
 
-  const to = config.templates.tagBody.replace('{{newVersion}}', newVersion)
+  const to = formatRepoTag(config.templates.tagBody, newVersion)
 
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit

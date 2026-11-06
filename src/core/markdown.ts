@@ -217,9 +217,9 @@ export async function generateMarkDown({
   }
 
   const changelogTitle = (updatedConfig.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}')
-    .replace('{{oldVersion}}', updatedConfig.from)
-    .replace('{{newVersion}}', updatedConfig.to)
-    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+    .replaceAll('{{oldVersion}}', updatedConfig.from)
+    .replaceAll('{{newVersion}}', updatedConfig.to)
+    .replaceAll('{{date}}', new Date().toISOString().split('T')[0] as string)
   const title = `## ${changelogTitle}`
 
   const compareLink = minify ? '' : buildCompareLink({ config: updatedConfig, from, to, isFirstCommit })

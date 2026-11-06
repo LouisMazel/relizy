@@ -5,6 +5,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
+import { formatRepoTag } from './format'
 import { getFirstCommit } from './git'
 import { createGithubRelease } from './github-api'
 import { reportProgress, showPreview } from './progress'
@@ -165,7 +166,7 @@ async function githubUnified({
 
   const newVersion = bumpResult?.newVersion || rootPackage.version
 
-  const to = config.to || config.templates.tagBody.replace('{{newVersion}}', newVersion)
+  const to = config.to || formatRepoTag(config.templates.tagBody, newVersion)
 
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit

@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
+import { formatRepoTag } from './format'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
 import { recordReleaseFile } from './release-files'
@@ -87,7 +88,7 @@ function resolveChangelogTags({
   const displayFromTag = isFirstCommit || isNewPackage
     ? (isIndependent
         ? getIndependentTag({ version: '0.0.0', name: pkg.name })
-        : config.templates.tagBody.replace('{{newVersion}}', '0.0.0'))
+        : formatRepoTag(config.templates.tagBody, '0.0.0'))
     : gitFromRef
 
   // The marker is not a git ref: point the compare link at a real commit.
@@ -103,7 +104,7 @@ function resolveChangelogTags({
   const displayToTag = config.to
     || (isIndependent
       ? getIndependentTag({ version: newVersion, name: pkg.name })
-      : config.templates.tagBody.replace('{{newVersion}}', newVersion))
+      : formatRepoTag(config.templates.tagBody, newVersion))
 
   if (!displayToTag) {
     throw new Error(`No tag found for ${pkg.name}`)
@@ -123,9 +124,9 @@ function renderTitle({
 }): string {
   const template = config.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}'
   const changelogTitle = template
-    .replace('{{oldVersion}}', fromTag)
-    .replace('{{newVersion}}', toTag)
-    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+    .replaceAll('{{oldVersion}}', fromTag)
+    .replaceAll('{{newVersion}}', toTag)
+    .replaceAll('{{date}}', new Date().toISOString().split('T')[0] as string)
   return `## ${changelogTitle}`
 }
 

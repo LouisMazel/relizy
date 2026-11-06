@@ -1,5 +1,6 @@
 import type { BumpResultTruthy, SocialTemplateVariables, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import { formatRepoTag } from './format'
 import { readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
 import { extractVersionFromTag } from './version'
@@ -116,7 +117,7 @@ function toOverviewGroup({
   }
 
   const version = result.newVersion || readPackageJson(config.cwd)?.version || ''
-  const tag = config.templates.tagBody.replaceAll('{{newVersion}}', version)
+  const tag = formatRepoTag(config.templates.tagBody, version)
 
   return {
     name,

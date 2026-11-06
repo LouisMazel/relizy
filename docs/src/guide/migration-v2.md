@@ -123,7 +123,7 @@ export default defineConfig({
 
 ### Every Occurrence Is Replaced
 
-Every occurrence of a variable of a social template is replaced, instead of the first one only. A template repeating a variable now shows it each time.
+Every occurrence of a variable of a social template, of `templates.changelogTitle` and of `templates.tagBody` is replaced, instead of the first one only. A template repeating a variable now shows it each time, and a `tagBody` repeating <code v-pre>{{newVersion}}</code> gives the same tag name when the tag is created and when the changelog and the provider release refer to it.
 
 ### Version Placeholder
 

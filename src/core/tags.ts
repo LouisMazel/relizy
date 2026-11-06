@@ -6,6 +6,7 @@ import { readFileSync } from 'node:fs'
 import { join, posix, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
 import * as semver from 'semver'
+import { formatRepoTag } from './format'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { listTags, parseNameStatus } from './git-refs'
 import { getPackageJsonHistory } from './moved-packages'
@@ -639,7 +640,7 @@ function resolveToTag({
     to = getIndependentTag({ version: newVersion, name: packageName })
   }
   else {
-    to = newVersion ? config.templates.tagBody.replace('{{newVersion}}', newVersion) : getCurrentGitRef(config.cwd)
+    to = newVersion ? formatRepoTag(config.templates.tagBody, newVersion) : getCurrentGitRef(config.cwd)
   }
 
   logger.debug(`[${versionMode}](${step}) Using to tag: ${to}`)

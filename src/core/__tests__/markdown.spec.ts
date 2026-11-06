@@ -66,6 +66,21 @@ describe('Given generateMarkDown function', () => {
       expect(result).not.toContain('v1.0.0...v1.1.0')
     })
 
+    it('Then replaces every occurrence of a variable of changelogTitle', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.templates = { ...config.templates, changelogTitle: '{{newVersion}} (from {{oldVersion}}, see {{newVersion}})' }
+
+      const result = await generateMarkDown({
+        commits: [createMockCommit('feat', 'add new feature')],
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      expect(result).toContain('## v1.1.0 (from v1.0.0, see v1.1.0)')
+    })
+
     it('Then supports date variable in changelogTitle template', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.templates = { ...config.templates, changelogTitle: '{{newVersion}} ({{date}})' }

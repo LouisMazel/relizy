@@ -23,3 +23,11 @@ export function formatDuration(ms: number): string {
 export function formatUtcDate(date: Date): string {
   return `${date.toISOString().slice(0, 16).replace('T', ' ')} UTC`
 }
+
+/**
+ * The repository tag of a version, from `templates.tagBody` (`v{{newVersion}}`):
+ * every occurrence of the placeholder is replaced, as when the tag is created
+ */
+export function formatRepoTag(tagBody: string, version: string): string {
+  return tagBody.replaceAll('{{newVersion}}', version)
+}

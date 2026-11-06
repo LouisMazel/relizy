@@ -9,6 +9,7 @@ import { execPromise, logger } from '@maz-ui/node'
 import { ensurePushAccess } from './ci'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
+import { formatRepoTag } from './format'
 import { cachedGitRead, clearGitCache } from './git-cache'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
@@ -635,7 +636,7 @@ function getCommitTemplates({
 }
 
 function getRepoTag({ config, version }: { config: ResolvedRelizyConfig, version?: string }): ReleaseTag[] {
-  const tagName = version ? config.templates.tagBody?.replaceAll('{{newVersion}}', version) : undefined
+  const tagName = version ? formatRepoTag(config.templates.tagBody, version) : undefined
 
   return tagName && version ? [{ name: tagName, version }] : []
 }
