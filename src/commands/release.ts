@@ -52,10 +52,14 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         preid: options.preid,
         clean: options.clean,
         yes: options.yes,
+        dependencyTypes: options.dependencyTypes,
+        capZeroMajor: options.capZeroMajor,
+        outOfRangePeers: options.outOfRangePeers,
       },
       changelog: {
         formatCmd: options.formatCmd,
         rootChangelog: options.rootChangelog,
+        includeCommitBody: options.includeCommitBody,
       },
       publish: {
         access: options.access,
@@ -65,6 +69,10 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         tag: options.tag,
         buildCmd: options.buildCmd,
         skipExistingVersions: options.skipExistingVersions,
+        checkWorkspaceDependencies: options.checkWorkspaceDependencies,
+        args: options.args,
+        packageManager: options.packageManager,
+        safetyCheckTimeout: options.safetyCheckTimeout,
       },
       release: {
         commit: options.commit,

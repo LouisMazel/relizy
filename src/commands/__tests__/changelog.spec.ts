@@ -76,6 +76,18 @@ describe('Given changelog command', () => {
     })
   })
 
+  describe('When includeCommitBody is given', () => {
+    it('Then forwards it to the config', async () => {
+      await changelog({ includeCommitBody: true })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          changelog: expect.objectContaining({ includeCommitBody: true }),
+        }),
+      }))
+    })
+  })
+
   describe('When using dry-run mode', () => {
     it('Then passes dryRun to hooks and functions', async () => {
       await changelog({ dryRun: true })

@@ -793,6 +793,18 @@ describe('Given bump command', () => {
     })
   })
 
+  describe('When the bump options of the config are given', () => {
+    it('Then forwards capZeroMajor and outOfRangePeers to the config', async () => {
+      await bump({ capZeroMajor: false, outOfRangePeers: 'warn' }).catch(() => undefined)
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          bump: expect.objectContaining({ capZeroMajor: false, outOfRangePeers: 'warn' }),
+        }),
+      }))
+    })
+  })
+
   describe('When force flag is enabled', () => {
     it('Then bumps all packages regardless of commits', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValueOnce({

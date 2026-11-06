@@ -1020,6 +1020,8 @@ async function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> 
         clean: options.clean,
         preid: options.preid,
         dependencyTypes: options.dependencyTypes,
+        capZeroMajor: options.capZeroMajor,
+        outOfRangePeers: options.outOfRangePeers,
       },
       monorepo: options.privatePackages !== undefined
         ? { privatePackages: options.privatePackages }

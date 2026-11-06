@@ -31,8 +31,10 @@ The flags of [`relizy bump`](./../cli/bump.md#options), camelCased, and the [sha
 | `clean`           | `false` bumps with uncommitted changes                                                                                                                                    |
 | `dependencyTypes` | Overrides [`bump.dependencyTypes`](./../config/bump.md#dependencytypes)                                                                                                   |
 | `privatePackages` | Overrides [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)                                                                                           |
+| `capZeroMajor`    | Overrides [`bump.capZeroMajor`](./../config/bump.md#capzeromajor)                                                                                                         |
+| `outOfRangePeers` | Overrides [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers)                                                                                                   |
 
-`BumpOptions` also has `capZeroMajor` and `outOfRangePeers`, which `bump()` ignores: set them in the [bump config](./../config/bump.md). See [BumpOptions](./../typedoc/interfaces/BumpOptions.md) for the types.
+See [BumpOptions](./../typedoc/interfaces/BumpOptions.md) for the types.
 
 ## Result
 

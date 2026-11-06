@@ -317,6 +317,18 @@ describe('Given publish command', () => {
     })
   })
 
+  describe('When the publish options of the config are given', () => {
+    it('Then forwards args, packageManager and safetyCheckTimeout to the config', async () => {
+      await publish({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000 })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          publish: expect.objectContaining({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000 }),
+        }),
+      }))
+    })
+  })
+
   describe('When publishing with default options', () => {
     it('Then loads config and executes hooks', async () => {
       await publish({})

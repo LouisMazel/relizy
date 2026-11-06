@@ -31,9 +31,12 @@ The flags of [`relizy publish`](./../cli/publish.md#options), camelCased, and th
 | `skipExistingVersions`       | Skips the versions already on the registry instead of failing                                       |
 | `checkWorkspaceDependencies` | Overrides [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies) |
 | `safetyCheck`                | `false` skips the registry access check                                                             |
+| `args`                       | Overrides [`publish.args`](./../config/publish.md#args)                                             |
+| `packageManager`             | Overrides [`publish.packageManager`](./../config/publish.md#packagemanager)                         |
+| `safetyCheckTimeout`         | Overrides [`publish.safetyCheckTimeout`](./../config/publish.md#safetychecktimeout)                 |
 | `force`, `suffix`            | Without `bumpResult`, as for [`bump()`](./bump.md)                                                  |
 
-`PublishOptions` also has `args`, `packageManager` and `safetyCheckTimeout`, which `publish()` does not override: set them in the [config](./../config/publish.md). Its `packages` field is not read. See [PublishOptions](./../typedoc/interfaces/PublishOptions.md).
+Its `packages` field is not read. See [PublishOptions](./../typedoc/interfaces/PublishOptions.md).
 
 ## Examples
 

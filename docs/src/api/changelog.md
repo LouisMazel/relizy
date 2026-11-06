@@ -20,17 +20,18 @@ function changelog(options?: Partial<ChangelogOptions>): Promise<void>
 
 The flags of [`relizy changelog`](./../cli/changelog.md#options), camelCased, and the [shared options](./usage.md#shared-options):
 
-| Option            | Description                                                                                                          |
-| ----------------- | -------------------------------------------------------------------------------------------------------------------- |
-| `bumpResult`      | `BumpResultTruthy`, the result of [`bump()`](./bump.md): the changelogs of the bumped packages, at their new version |
-| `from`, `to`      | The commit range, instead of the last release tag and `HEAD`                                                         |
-| `formatCmd`       | Overrides [`changelog.formatCmd`](./../config/changelog.md#formatcmd)                                                |
-| `rootChangelog`   | Overrides [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)                                        |
-| `force`           | Without `bumpResult`, includes the packages without commits                                                          |
-| `suffix`          | Without `bumpResult`, the prerelease suffix of the versions, as for [`bump()`](./bump.md)                            |
-| `privatePackages` | Overrides [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)                                      |
+| Option              | Description                                                                                                          |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| `bumpResult`        | `BumpResultTruthy`, the result of [`bump()`](./bump.md): the changelogs of the bumped packages, at their new version |
+| `from`, `to`        | The commit range, instead of the last release tag and `HEAD`                                                         |
+| `formatCmd`         | Overrides [`changelog.formatCmd`](./../config/changelog.md#formatcmd)                                                |
+| `rootChangelog`     | Overrides [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)                                        |
+| `force`             | Without `bumpResult`, includes the packages without commits                                                          |
+| `suffix`            | Without `bumpResult`, the prerelease suffix of the versions, as for [`bump()`](./bump.md)                            |
+| `privatePackages`   | Overrides [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)                                      |
+| `includeCommitBody` | Overrides [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody)                                |
 
-`ChangelogOptions` also has `includeCommitBody`, which `changelog()` ignores: set [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody) in the config. See [ChangelogOptions](./../typedoc/interfaces/ChangelogOptions.md).
+See [ChangelogOptions](./../typedoc/interfaces/ChangelogOptions.md) for the types.
 
 ## Examples
 

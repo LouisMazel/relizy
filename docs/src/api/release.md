@@ -20,15 +20,15 @@ function release(options?: Partial<ReleaseOptions>): Promise<ReleaseReport>
 
 The options are the flags of [`relizy release`](./../cli/release.md#options), camelCased, and override the [config](./../config/release.md):
 
-- **Bump**: `type` (`BumpReleaseType`: `'release'`, the default, computes it from the commits), `preid`, `suffix`, `force`, `yes`, `clean`, `canary`, `privatePackages`, `from`, `to`
-- **Changelog**: `changelog`, `formatCmd`, `rootChangelog`
-- **Publish**: `publish`, `registry`, `registries`, `tag` (the dist-tag), `access`, `otp`, `buildCmd`, `publishToken`, `skipExistingVersions`
+- **Bump**: `type` (`BumpReleaseType`: `'release'`, the default, computes it from the commits), `preid`, `suffix`, `force`, `yes`, `clean`, `canary`, `privatePackages`, `dependencyTypes`, `capZeroMajor`, `outOfRangePeers`, `from`, `to`
+- **Changelog**: `changelog`, `formatCmd`, `rootChangelog`, `includeCommitBody`
+- **Publish**: `publish`, `registry`, `registries`, `tag` (the dist-tag), `access`, `otp`, `buildCmd`, `publishToken`, `skipExistingVersions`, `checkWorkspaceDependencies`, `args`, `packageManager`, `safetyCheckTimeout`
 - **Git**: `commit`, `gitTag` (the git tags), `noVerify`, `push`
 - **Provider release**: `providerRelease`, `provider`, `token` (the token of the git provider), `ai`
 - **Social and PR comment**: `social`, `slackFormat`, `prComment`, `prNumber`
 - **Run**: `report`, `safetyCheck`, `configName`, `dryRun`, `logLevel`, `groups`
 
-`ReleaseOptions` also has fields that `release()` ignores: `dependencyTypes`, `capZeroMajor`, `outOfRangePeers`, `includeCommitBody`, `args`, `packageManager`, `packages`, `safetyCheckTimeout`, `checkWorkspaceDependencies`. Set them in the [config](./../config/overview.md).
+Its `packages` field (of the publish config) is not read.
 
 See [ReleaseOptions](./../typedoc/interfaces/ReleaseOptions.md) and [ReleaseReport](./../typedoc/interfaces/ReleaseReport.md) for the types.
 

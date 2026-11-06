@@ -333,6 +333,20 @@ describe('Given release command', () => {
     })
   })
 
+  describe('When the options of the bump, changelog and publish sections are given', () => {
+    it('Then forwards them to the config of the release', async () => {
+      await release({ capZeroMajor: false, outOfRangePeers: 'error', dependencyTypes: ['peerDependencies'], includeCommitBody: true, args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000, checkWorkspaceDependencies: false })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          bump: expect.objectContaining({ capZeroMajor: false, outOfRangePeers: 'error', dependencyTypes: ['peerDependencies'] }),
+          changelog: expect.objectContaining({ includeCommitBody: true }),
+          publish: expect.objectContaining({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000, checkWorkspaceDependencies: false }),
+        }),
+      }))
+    })
+  })
+
   describe('When a Slack changelog format is given', () => {
     it('Then forwards it to the social step', async () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })

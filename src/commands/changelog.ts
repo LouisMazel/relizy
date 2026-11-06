@@ -243,6 +243,7 @@ async function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<vo
       changelog: {
         rootChangelog: options.rootChangelog,
         formatCmd: options.formatCmd,
+        includeCommitBody: options.includeCommitBody,
       } satisfies ChangelogConfig,
     },
   })
