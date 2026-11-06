@@ -434,6 +434,17 @@ describe('Given formatSlackMessage function', () => {
       expect(message).toContain('https://example.com/changelog')
     })
 
+    it('Then converts the summary of the changelog to mrkdwn, as without template', () => {
+      const blocks = formatSlackMessage({
+        template: '{{changelog}}',
+        changelog: '### 🚀 Features\n\n- **core:** Add the [parser](https://example.com/parser)',
+        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0' }),
+      })
+
+      expect(blocks[0].text.text).toContain('*core:* Add the <https://example.com/parser|parser>')
+      expect(blocks[0].text.text).not.toContain('**')
+    })
+
     it('Then removes releaseUrl placeholder when not provided', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{releaseUrl}}',

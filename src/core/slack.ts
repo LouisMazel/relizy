@@ -5,7 +5,6 @@ import { logger } from '@maz-ui/node'
 import { showPreview } from './progress'
 import { fillSocialTemplate } from './release-overview'
 import { markdownToSlackMrkdwn, markdownToSlackRichText, richTextToPlainText, SLACK_HEADER_MAX_LENGTH, SLACK_MAX_BLOCKS, SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH, sliceSlackText } from './slack-markdown'
-import { extractChangelogSummary } from './social'
 
 /**
  * Get Slack token from config
@@ -304,7 +303,9 @@ export function formatSlackMessage({ variables, changelog, template, contributor
       })
     }
     else {
-      changelogText = extractChangelogSummary(changelog, { maxLength })
+      // As without template: the changelog in mrkdwn, within what the template leaves of its section
+      const overhead = renderSlackTemplate({ ...templateContext, changelog: '\u0000' }).length - 1
+      changelogText = formatChangelogForSlack(changelog, Math.max(0, Math.min(maxLength ?? SLACK_SUMMARY_MAX_LENGTH, SLACK_SECTION_MAX_LENGTH - overhead)))
     }
 
     // Return simple text blocks if using template
