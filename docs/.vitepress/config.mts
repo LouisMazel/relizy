@@ -212,6 +212,9 @@ export default defineConfig({
       'operatingSystem': 'Cross-platform',
       'url': SITE_URL,
       'downloadUrl': 'https://www.npmjs.com/package/relizy',
+      'softwareVersion': packageJson.version,
+      'license': 'https://opensource.org/licenses/MIT',
+      'sameAs': ['https://github.com/LouisMazel/relizy', 'https://www.npmjs.com/package/relizy'],
       'offers': {
         '@type': 'Offer',
         'price': '0',
