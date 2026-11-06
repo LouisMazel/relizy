@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.0.0-beta.3 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.2...v2.0.0-beta.3)
+
+### 🩹 Fixes
+
+- Skip the AI checks of a prerelease bump with onlyStable ([b29d361](https://github.com/LouisMazel/relizy/commit/b29d361))
+
+  A release with `--prerelease`, `--prepatch`, `--preminor` or `--premajor` no longer checks the AI provider (credentials, `claude` CLI) of the targets with `onlyStable`, whose AI never runs: a beta job no longer needs to install the `claude` CLI.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0-beta.2 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.1...v2.0.0-beta.2)
