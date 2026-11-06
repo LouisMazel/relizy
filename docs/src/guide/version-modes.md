@@ -93,6 +93,8 @@ The previous release of a package is its last `<name>@<version>` tag. A package 
 
 Use it when the packages evolve at different paces, with their own major versions.
 
+The root version, with its `v*` tags and its changelog, belongs to the `unified` and `selective` modes. To keep one next to independent packages, release them as [version groups](./version-groups.md): a `selective` group owns the root version, an `independent` group releases the other packages.
+
 ## Switching Modes
 
 Change `monorepo.versionMode`; nothing is rewritten until the next release:
