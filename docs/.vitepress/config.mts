@@ -330,7 +330,7 @@ export default defineConfig({
 
   themeConfig: {
     siteTitle: 'Relizy',
-    logo: { src: 'https://raw.githubusercontent.com/LouisMazel/relizy/refs/heads/main/resources/logo.svg', alt: 'Relizy logo' },
+    logo: { src: '/logo.svg', alt: 'Relizy logo' },
 
     search: {
       provider: 'local' as const,
