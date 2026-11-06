@@ -120,7 +120,6 @@ describe('generateAISocialChangelog', () => {
       .replaceAll('{{language}}', 'en')
       .replaceAll('{{maxLength}}', '280')
     expect(fakeProvider.lastRequest?.systemPrompt).toBe(expected)
-    expect(fakeProvider.lastRequest?.maxLength).toBe(280)
   })
 
   it('assembles base + slack prompt, with the rules of the summary format by default', async () => {
@@ -237,7 +236,6 @@ describe('generateAISocialReleases', () => {
 
     expect(fakeProvider.lastRequest?.systemPrompt).toBe(`Custom prompt\n\n${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}`)
     expect(fakeProvider.lastRequest?.prompt).toBe('<release id="1" title="Maz UI 7.0.0" highlights="3">\n- feat a\n</release>\n\n<release id="2" title="@scope/nav 1.3.0" highlights="1">\n- fix b\n</release>')
-    expect(fakeProvider.lastRequest?.maxLength).toBe(200)
   })
 
   it('returns the rewritten changelog of each release found in the output', async () => {

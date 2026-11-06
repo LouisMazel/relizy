@@ -131,17 +131,6 @@ describe('claudeCodeProvider', () => {
       expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
     })
 
-    it('ignores maxLength (not forwarded to claudeRun options)', async () => {
-      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
-      mockClaudeRun.mockResolvedValue({ output: 'short' })
-
-      const config = createMockConfig({})
-      await claudeCodeProvider.generate(config, { ...request, maxLength: 100 })
-
-      const [options] = mockClaudeRun.mock.calls[0]
-      expect(options).not.toHaveProperty('maxLength')
-    })
-
     it('passes model when configured', async () => {
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
       mockClaudeRun.mockResolvedValue({ output: 'result' })

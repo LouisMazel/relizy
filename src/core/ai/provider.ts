@@ -5,7 +5,6 @@ import type { AIReleaseContext } from './prompts'
 export interface AIGenerateRequest {
   systemPrompt: string
   prompt: string
-  maxLength?: number
   /**
    * Sent before the changelog, so the model knows the release
    */

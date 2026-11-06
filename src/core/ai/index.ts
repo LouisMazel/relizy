@@ -206,7 +206,7 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
 
   try {
-    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, maxLength, context } })
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
     logger.verbose(`AI output body (${platform}):`, output)
     return output
   }
@@ -281,7 +281,7 @@ export async function generateAISocialReleases({ config, releases, platform, max
   }
 
   try {
-    const output = await rewrite({ subject, config, request: { systemPrompt, prompt, maxLength } })
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt } })
     const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
     const missing = input.filter(release => !rewritten.get(release.id))
 
