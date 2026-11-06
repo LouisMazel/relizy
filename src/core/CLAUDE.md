@@ -74,4 +74,3 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - `pretty` (clack: spinner, boxes) in a terminal, `ci` (lines, collapsible groups of GitHub Actions and GitLab CI, annotations, ANSI colors unless `NO_COLOR`) in CI. The logs are captured and written to `node_modules/.cache/relizy/release.log`, shown only with `--log-level verbose`.
 - `src/core/progress.ts`, without dependency: `reportProgress()` (what a long step does, `{ ai: true }` for the AI), `reportStepNote()`, `showPreview()` (what a dry run generated, hidden by `--no-preview`), `recordLink()`/`recordAIRewrite()` (the facts of the release summary). The AI is not called in dry-run unless `--ai-preview`.
 - The summary of a release (`getReleaseSummary()` and `formatReleaseReportMarkdown()` in `release-report.ts`, its data in `release-facts.ts`) is the end of the terminal output, the summary of the GitHub Actions run, the PR comment of the release and `release.report.markdown`.
-
