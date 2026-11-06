@@ -23,7 +23,7 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: Setup Node.js, pnpm # and Nx cache
+      - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup
         with:
           registry-url: 'https://registry.npmjs.org'
@@ -34,18 +34,11 @@ jobs:
       - name: Test units
         run: pnpm test:unit
 
-      - name: Install Claude Code CLI
-        run: npm install -g @anthropic-ai/claude-code
-
       - name: Version Packages (Canary)
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           GH_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
           RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
-          RELIZY_TWITTER_API_KEY: ${{ secrets.TWITTER_API_KEY }}
-          RELIZY_TWITTER_API_KEY_SECRET: ${{ secrets.TWITTER_API_KEY_SECRET }}
-          RELIZY_TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
-          RELIZY_TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
         run: |
           pnpm relizy release --canary --yes

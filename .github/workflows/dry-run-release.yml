@@ -11,7 +11,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: Setup Node.js, pnpm # and Nx cache
+      - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup
 
       - name: Build
