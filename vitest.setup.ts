@@ -1,6 +1,11 @@
 import type { logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 
+// The OIDC token of the CI job running the tests (npm trusted publishing): the tests that need it stub it
+for (const variable of ['ACTIONS_ID_TOKEN_REQUEST_URL', 'ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'NPM_ID_TOKEN']) {
+  delete process.env[variable]
+}
+
 // Mock the repository resolution globally: no test reads the remote of the relizy repository
 vi.mock('./src/core/repo-config', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./src/core/repo-config')>()
