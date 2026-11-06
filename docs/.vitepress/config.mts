@@ -294,7 +294,6 @@ export default defineConfig({
     if (isArticle) {
       pageHead.push(
         ['meta', { property: 'article:modified_time', content: lastUpdatedISO }],
-        ['meta', { property: 'article:published_time', content: lastUpdatedISO }],
         ['meta', { property: 'article:author', content: 'Louis Mazel' }],
       )
     }
