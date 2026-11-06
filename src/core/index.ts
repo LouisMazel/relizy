@@ -1,4 +1,5 @@
 export * from './bump-confirm'
+export * from './bump-plan'
 export * from './catalogs'
 export * from './changelog'
 export * from './changelog-format'

@@ -1,4 +1,4 @@
-import { getDependencyReleaseType } from '../repo'
+import { getDependencyReleaseType } from '../bump-plan'
 
 describe('Given getDependencyReleaseType function', () => {
   it('Then bumps a patch for a stable release', () => {
