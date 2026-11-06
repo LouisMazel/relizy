@@ -379,6 +379,13 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
       locations: collect(/\bCommitlintCodeBlocksLinter\b/),
     },
     {
+      severity: 'change',
+      title: 'The `relizy/types` entry is removed',
+      section: 'Types Entry',
+      detail: 'Import the types from `relizy`.',
+      locations: collect(/['"]relizy\/types['"]/),
+    },
+    {
       severity: 'review',
       title: '`GroupBumpResult` objects',
       section: 'Version Group Results',

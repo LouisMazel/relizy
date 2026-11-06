@@ -36,8 +36,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs"
     },
-    "./cli": "./bin/relizy.mjs",
-    "./types": "./dist/index.d.ts"
+    "./cli": "./bin/relizy.mjs"
   },
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",

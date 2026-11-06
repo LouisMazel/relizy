@@ -43,6 +43,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Exit code of bump](#exit-code-of-bump)                       | `relizy bump` in scripts or CI                                       | None, or stop treating the exit code 1 as nothing to bump                     |
 | [Cancelled prompts](#cancelled-prompts)                       | Programmatic API                                                     | Catch `RelizyCancelError`                                                     |
 | [Public API](#public-api)                                     | Programmatic API                                                     | Replace the functions no longer exported                                      |
+| [Types entry](#types-entry)                                   | `relizy/types` imports                                               | Import from `relizy`                                                          |
 | [Release report](#release-report)                             | `release()` return value, `buildReleaseSummary()`                    | Use the report                                                                |
 | [Version group results](#version-group-results)               | `GroupBumpResult` objects                                            | Add `title`                                                                   |
 
@@ -320,6 +321,15 @@ const types = Object.keys(mergeTypes(relizyConfig.types, getDefaultConfig().type
 // v2
 const config = await loadRelizyConfig()
 const types = Object.keys(config.types)
+```
+
+### Types Entry
+
+The `relizy/types` entry is removed: import the types from `relizy`.
+
+```ts
+// import type { RelizyConfig } from 'relizy/types'
+import type { RelizyConfig } from 'relizy'
 ```
 
 ### Release Report

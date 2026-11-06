@@ -165,6 +165,17 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**`publish.private` is removed** (`relizy.config.mjs:3`)')
   })
 
+  it('Then points out the imports of the removed relizy/types entry', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'scripts/release.ts': `import type { RelizyConfig } from 'relizy/types'\n\nexport const config: RelizyConfig = {}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**The `relizy/types` entry is removed** (`scripts/release.ts:1`)')
+  })
+
   it('Then points out the removed repo.token', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
