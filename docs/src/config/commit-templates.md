@@ -68,7 +68,7 @@ export default defineConfig({
 - **Type:** `string`
 - **Default:** <code v-pre>'v{{newVersion}}'</code>
 
-Name of the repository tag, in a standalone project and in the `unified` and `selective` modes (the packages of an `independent` mode are tagged `<name>@<version>`). Relizy also reads it to find the previous release: the tags following it, and the tags `v1.2.3` and `1.2.3`, so the previous tags stay recognized when the template changes from the default. Keep <code v-pre>{{newVersion}}</code> in it. Relizy warns about the tags that look like a release but follow neither.
+Name of the repository tag, in a standalone project and in the `unified` and `selective` modes (the packages of an `independent` mode are tagged `<name>@<version>`). Relizy also reads it to find the previous release: the tags following it, and the tags `v1.2.3` and `1.2.3`, so the previous tags stay recognized when the template changes from the default. Relizy warns about the tags that look like a release but follow neither. Keep <code v-pre>{{newVersion}}</code> in it, once: relizy refuses a template that repeats it, as it could not read the version back from the tags.
 
 ## tagMessage
 

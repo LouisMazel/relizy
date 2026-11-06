@@ -5,7 +5,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import fastGlob from 'fast-glob'
 import { resolveFormatCommand } from '../../core/changelog-format'
-import { RemovedConfigOptionError } from '../../core/config'
+import { ConfigOptionError } from '../../core/config'
 import { GLOB_IGNORE } from '../../core/glob'
 import { hasVersionGroups } from '../../core/groups'
 import * as publicApi from '../../index'
@@ -531,24 +531,40 @@ function renderFinding(finding: MigrationFinding): string[] {
 }
 
 /**
- * `monorepo.ignorePackageNames` stops the config from loading: the other
- * checks need the config, so the agent fixes it first
+ * The options that stop the config from loading, with the line that sets them
  */
-function renderRemovedIgnorePackageNames(context: ServerContext, configName: string | undefined): string {
-  const locations = readConfigFiles(context.cwd, configName).flatMap(({ file, text }) => locate(file, findLines(text, /\bignorePackageNames\b/)))
+const BLOCKING_OPTIONS: Record<string, { finding: Omit<MigrationFinding, 'severity' | 'locations'>, line: RegExp }> = {
+  'monorepo.ignorePackageNames': {
+    finding: {
+      title: '`monorepo.ignorePackageNames` is removed',
+      section: 'Removed ignorePackageNames',
+      detail: 'relizy 2 refuses to load the config with it, rather than releasing the packages it left out. List the directories of these packages in `monorepo.ignored` (path globs, as `monorepo.packages`).',
+    },
+    line: /\bignorePackageNames\b/,
+  },
+  'templates.tagBody': {
+    finding: {
+      title: '`templates.tagBody` repeats `{{newVersion}}`',
+      section: 'Every Occurrence Is Replaced',
+      detail: 'relizy 2 refuses to load the config with it, as it could not read the version back from the tags. Keep `{{newVersion}}` once in it.',
+    },
+    line: /\btagBody\b/,
+  },
+}
+
+/**
+ * An option that stops the config from loading: the other checks need the
+ * config, so the agent fixes it first
+ */
+function renderBlockingOption(context: ServerContext, configName: string | undefined, option: { finding: Omit<MigrationFinding, 'severity' | 'locations'>, line: RegExp }): string {
+  const locations = readConfigFiles(context.cwd, configName).flatMap(({ file, text }) => locate(file, findLines(text, option.line)))
 
   return [
     `# Migration from relizy 1 to relizy 2 (relizy ${context.version})`,
     '',
     '## To change first (1)',
     '',
-    ...renderFinding({
-      severity: 'change',
-      title: '`monorepo.ignorePackageNames` is removed',
-      section: 'Removed ignorePackageNames',
-      detail: 'relizy 2 refuses to load the config with it, rather than releasing the packages it left out. List the directories of these packages in `monorepo.ignored` (path globs, as `monorepo.packages`).',
-      locations,
-    }),
+    ...renderFinding({ severity: 'change', ...option.finding, locations }),
     '',
     'The config cannot load until this is fixed: fix it (after asking the user), then call `check_migration()` again for the other changes.',
   ].join('\n')
@@ -561,8 +577,10 @@ export async function checkMigration(context: ServerContext, { config: configNam
     config = await loadProjectConfig({ config: configName, cwd: context.cwd })
   }
   catch (error) {
-    if (error instanceof RemovedConfigOptionError && error.option === 'monorepo.ignorePackageNames') {
-      return renderRemovedIgnorePackageNames(context, configName)
+    const option = error instanceof ConfigOptionError ? BLOCKING_OPTIONS[error.option] : undefined
+
+    if (option) {
+      return renderBlockingOption(context, configName, option)
     }
 
     throw error

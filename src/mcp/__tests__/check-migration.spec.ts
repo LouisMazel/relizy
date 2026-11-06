@@ -242,6 +242,18 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('then call `check_migration()` again for the other changes')
   })
 
+  it('Then points out templates.tagBody first when it repeats {{newVersion}}, as the config cannot load with it', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  templates: {\n    tagBody: 'v{{newVersion}}-{{newVersion}}',\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('## To change first (1)')
+    expect(text).toContain('**`templates.tagBody` repeats `{{newVersion}}`** (`relizy.config.mjs:3`)')
+  })
+
   it('Then points out monorepo.includePrivates, renamed privatePackages', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),

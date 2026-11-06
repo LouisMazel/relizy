@@ -204,12 +204,13 @@ function resolveTemplateDefaults(config: ResolvedConfig): void {
 }
 
 /**
- * A config option removed in relizy 2 that cannot be ignored silently
+ * A config option that stops the config from loading: removed in relizy 2 and
+ * that cannot be ignored silently, or with a value relizy cannot work with
  */
-export class RemovedConfigOptionError extends Error {
+export class ConfigOptionError extends Error {
   constructor(readonly option: string, message: string) {
     super(message)
-    this.name = 'RemovedConfigOptionError'
+    this.name = 'ConfigOptionError'
   }
 }
 
@@ -219,7 +220,20 @@ export class RemovedConfigOptionError extends Error {
  */
 function assertNoRemovedOptions(config: ResolvedConfig): void {
   if ((config.monorepo as { ignorePackageNames?: unknown } | undefined)?.ignorePackageNames !== undefined) {
-    throw new RemovedConfigOptionError('monorepo.ignorePackageNames', 'monorepo.ignorePackageNames is removed: list the directories of these packages in monorepo.ignored (path globs, as monorepo.packages). See https://relizy.dev/guide/migration-v2#removed-ignorepackagenames')
+    throw new ConfigOptionError('monorepo.ignorePackageNames', 'monorepo.ignorePackageNames is removed: list the directories of these packages in monorepo.ignored (path globs, as monorepo.packages). See https://relizy.dev/guide/migration-v2#removed-ignorepackagenames')
+  }
+}
+
+/**
+ * The version of a repository tag is read back between the text before and the
+ * text after `{{newVersion}}` in `templates.tagBody`: a template that repeats it
+ * would create tags relizy cannot find again
+ */
+function assertValidTagBody(config: ResolvedConfig): void {
+  const tagBody = config.templates?.tagBody
+
+  if (typeof tagBody === 'string' && tagBody.split('{{newVersion}}').length > 2) {
+    throw new ConfigOptionError('templates.tagBody', `templates.tagBody must contain {{newVersion}} only once, to read the version back from the tags: "${tagBody}"`)
   }
 }
 
@@ -378,6 +392,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
   assertNoRemovedOptions(results.config)
+  assertValidTagBody(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

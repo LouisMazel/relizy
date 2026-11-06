@@ -539,6 +539,17 @@ describe('Given loadRelizyConfig function', () => {
     })
   })
 
+  describe('When templates.tagBody repeats {{newVersion}}', () => {
+    it('Then fails, as the version could not be read back from the tags', async () => {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: { cwd: '/project', templates: { tagBody: 'v{{newVersion}}-{{newVersion}}' } },
+        _configFile: 'relizy.config.ts',
+      } as any)
+
+      await expect(loadRelizyConfig()).rejects.toThrow('templates.tagBody must contain {{newVersion}} only once')
+    })
+  })
+
   describe('When loading config without options', () => {
     it('Then uses default config name relizy', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
