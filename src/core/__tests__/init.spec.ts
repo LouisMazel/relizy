@@ -241,6 +241,17 @@ describe('Given the init helpers', () => {
       })
       expect(isPublicNpmRegistry('https://registry.npmjs.org')).toBe(true)
     })
+
+    it('Then shows the changelog in the Teams cards when the AI rewrites it', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const detection = { ...detectProject({ cwd }), provider: 'github' as const }
+
+      expect(buildInitConfig(detection, answers(detection, { teams: true }))).toEqual({ social: { teams: { enabled: true } } })
+      expect(buildInitConfig(detection, answers(detection, { teams: true, ai: ['teams'] }))).toEqual({
+        social: { teams: { enabled: true, changelog: 'summary' } },
+        ai: { social: { teams: { enabled: true } } },
+      })
+    })
   })
 
   describe('When suggesting the version mode', () => {

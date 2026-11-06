@@ -47,6 +47,7 @@ export default defineConfig({
 | `social`           | Every social post               | `relizy social`, `relizy release`           |
 | `twitter`          | The tweet                       | `relizy social`, `relizy release`           |
 | `slack`            | The Slack message               | `relizy social`, `relizy release`           |
+| `teams`            | The Teams cards                 | `relizy social`, `relizy release`           |
 | `release`          | The whole release               | `relizy release`                            |
 
 The PR comment has no hooks. A step disabled by the config or a flag (`--no-publish`) runs none of its hooks.
@@ -63,7 +64,7 @@ A hook is a shell command (a `string`, run from `cwd`) or a function, sync or as
 - `dryRun`: `true` with `--dry-run`, where the hooks still run: check it before any side effect
 - `context`: the release, when it is known: in `relizy release` once the bump is done, and in a command given a bump result. `before:release`, `before:bump` and `error:bump` never get it, nor the standalone `relizy changelog`, `publish`, `provider-release` and `social`.
   - `bumpResult` (`BumpResultTruthy`): the result of the bump
-  - `release` (`ReleaseOverview`): the packages and versions of the release by version group; in the `twitter` and `slack` hooks, what the post announces
+  - `release` (`ReleaseOverview`): the packages and versions of the release by version group; in the `twitter`, `slack` and `teams` hooks, what the post announces
 
 ```ts
 export default defineConfig({
@@ -104,7 +105,8 @@ export default defineConfig({
 1. `before:social`
 2. `before:twitter`, then `success:twitter` or `error:twitter`, when Twitter is enabled and the version is posted (see `onlyStable`)
 3. `before:slack`, then `success:slack` or `error:slack`, likewise for Slack
-4. `success:social`, or `error:social` when a post failed or the step itself failed (reading the release, a failing hook)
+4. `before:teams`, then `success:teams` or `error:teams`, likewise for Teams, when a version is announced (see `announcements` and `exclude`)
+5. `success:social`, or `error:social` when a post failed or the step itself failed (reading the release, a failing hook)
 
 `relizy release` runs, for its enabled steps:
 
@@ -123,7 +125,7 @@ When nothing is released (no commit triggers a bump), `relizy release` stops aft
 
 ## Errors
 
-A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed provider release or social post does not stop `relizy release`: its `error:provider-release` hook runs (or `error:twitter` or `error:slack`, then `error:social`), the step is marked as failed in the summary, and the release ends with `success:release`. A failed PR comment only warns.
+A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed provider release or social post does not stop `relizy release`: its `error:provider-release` hook runs (or `error:twitter`, `error:slack` or `error:teams`, then `error:social`), the step is marked as failed in the summary, and the release ends with `success:release`. A failed PR comment only warns.
 
 ```ts
 export default defineConfig({

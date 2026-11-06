@@ -72,7 +72,7 @@ export type InitGoal = 'publish' | 'version'
 
 export type DependencyType = NonNullable<BumpConfig['dependencyTypes']>[number]
 
-export type InitAITarget = 'providerRelease' | 'twitter' | 'slack'
+export type InitAITarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 
 /**
  * Answers of `relizy init`, detected values when a question is not asked.
@@ -95,6 +95,7 @@ export interface InitAnswers {
   twitter: boolean
   slack: boolean
   slackChannel?: string
+  teams: boolean
   changelogUrl?: string
   prCommentMode: PrCommentMode
   ai: InitAITarget[]
@@ -298,6 +299,7 @@ export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns 
     buildCmd: detection.root.scripts.build ? getRunCommand(detection.packageManager, 'build') : undefined,
     twitter: false,
     slack: false,
+    teams: false,
     prCommentMode: defaults.prComment.mode,
     ai: [],
     aiLanguage: defaults.ai.language,
@@ -377,10 +379,12 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     config.release = release
   }
 
-  if (answers.twitter || answers.slack) {
+  if (answers.twitter || answers.slack || answers.teams) {
     config.social = {
       ...(answers.twitter && { twitter: { enabled: true } }),
       ...(answers.slack && { slack: { enabled: true, ...(answers.slackChannel && { channel: answers.slackChannel }) } }),
+      // The AI rewrites the changelog of the cards: they show it
+      ...(answers.teams && { teams: { enabled: true, ...(answers.ai.includes('teams') && { changelog: 'summary' as const }) } }),
       ...(answers.changelogUrl && { changelogUrl: answers.changelogUrl }),
     }
   }
@@ -393,6 +397,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     const social = {
       ...(answers.ai.includes('twitter') && { twitter: { enabled: true } }),
       ...(answers.ai.includes('slack') && { slack: { enabled: true } }),
+      ...(answers.ai.includes('teams') && { teams: { enabled: true } }),
     }
     config.ai = {
       ...(answers.aiLanguage && answers.aiLanguage !== defaults.ai.language && { language: answers.aiLanguage }),

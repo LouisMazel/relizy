@@ -1,9 +1,9 @@
 ---
 title: Social Media
-description: Announce each release on Twitter (X) and Slack with Relizy, in one post per platform, with or without AI.
-keywords: social media, release announcements, twitter, x, tweet, slack, slack webhook, slack bot, release notifications, relizy social
+description: Announce each release on Twitter (X), Slack and Microsoft Teams with Relizy, with or without AI.
+keywords: social media, release announcements, twitter, x, tweet, slack, slack webhook, slack bot, microsoft teams, teams workflow, teams webhook, adaptive card, power automate, release notifications, relizy social
 category: Guide
-tags: [guide, social, twitter, x, slack, webhook, announcements, notifications]
+tags: [guide, social, twitter, x, slack, teams, webhook, announcements, notifications]
 ---
 
 # {{ $frontmatter.title }}
@@ -15,10 +15,10 @@ tags: [guide, social, twitter, x, slack, webhook, announcements, notifications]
 `relizy release` posts the release once the provider release is created (see [the steps of a release](./../cli/release.md#steps)). `relizy social` posts it on its own (see [`relizy social`](./../cli/social.md)).
 
 - A platform posts only when `social.<platform>.enabled` is `true`. [`release.social`](./../config/release.md#steps) (`true` by default) runs the step in `relizy release`; `--no-social` and `--canary` skip it.
-- A release is announced in **one** post per platform, even when it ships several versions (see [Releases of Several Versions](#releases-of-several-versions)).
-- With `onlyStable` (the default of both platforms), the prereleases are not announced.
+- A release is announced in **one** post per platform, even when it ships several versions (see [Releases of Several Versions](#releases-of-several-versions)). Teams posts one card per version by default (see [Microsoft Teams](#microsoft-teams)).
+- With `onlyStable` (the default of Slack and Teams), the prereleases are not announced.
 - Before the bump, the safety check of `relizy release` checks the credentials, the dependencies and the AI provider of the enabled platforms: a missing one fails the release before anything is written. `--no-safety-check` skips it.
-- A failed post does not stop the release: it is reported in the summary, and the next steps run.
+- A failed post does not stop the release: the error is in the logs and in the summary, the `social` step is in the [`failed_steps` output](./../config/release.md#report), and the next steps run.
 
 The options are listed in [Social Configuration](./../config/social.md), the variables of the templates in [Template Variables](./../config/social.md#template-variables).
 
@@ -176,6 +176,109 @@ export default defineConfig({
 })
 ```
 
+## Microsoft Teams
+
+Relizy posts [Adaptive Cards](https://adaptivecards.io) to a **Teams workflow** (Power Automate). The Office 365 connectors (`https://*.webhook.office.com/...`) are retired: Relizy refuses their URLs.
+
+### 1. Create the Workflow
+
+1. In Teams, open the channel, click **⋯** → **Workflows**, and pick the template **Send webhook alerts to a channel** (or, in [Power Automate](https://make.powerautomate.com), create an instant cloud flow with the trigger **When a Teams webhook request is received**, then the action **Post card in a chat or channel**, with the **Adaptive card** of the attachments).
+2. Pick the team and the channel, then **Add workflow**.
+3. Copy the URL of the workflow (`https://<id>.logic.azure.com/workflows/...` or `https://<id>.powerplatform.com/...`). It holds a secret, the `sig` parameter: store it as a secret, never in the config.
+
+Check these settings of the trigger and of the flow:
+
+- **Who can trigger the flow: Anyone**. The other choices need a Microsoft Entra token, which Relizy does not send: the workflow answers `401` or `403`.
+- **Owners**: the flow runs under the account that created it. When this account leaves the organization or loses its license, the flow stops: add co-owners in Power Automate.
+- **Private channel**: the Flow bot cannot post there. Post as **User** in the action of the flow.
+
+### 2. Enable and Set the URL
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  social: {
+    teams: {
+      enabled: true,
+    },
+  },
+})
+```
+
+Set the URL in `TEAMS_WEBHOOK_URL` (or `RELIZY_TEAMS_WEBHOOK_URL`, read first), or in [`social.teams.webhookUrl`](./../config/social.md#teams-webhookurl). A masked variable of GitLab refuses the characters of the URL (`?`, `&`, `%`): set its base64 in `TEAMS_WEBHOOK_URL_B64` (or `RELIZY_TEAMS_WEBHOOK_URL_B64`) instead.
+
+```bash
+printf '%s' 'https://<id>.logic.azure.com/workflows/...' | base64
+```
+
+### The Card
+
+A card announces a version:
+
+1. a **New release** badge (**Prerelease** for a prerelease, set by [`badge`](./../config/social.md#teams-badge));
+2. the [`title`](./../config/social.md#teams-title), <code v-pre>{{name}} {{newVersion}}</code> by default, and the [`message`](./../config/social.md#teams-message), in markdown;
+3. the version and the date ([`locale`](./../config/social.md#teams-locale) sets its format);
+4. with [`changelog: 'summary'`](./../config/social.md#teams-changelog), the titles of the commits;
+5. the buttons **📖 Release notes** (the GitHub/GitLab release of the version) and **📝 Changelog** (the `CHANGELOG.md` of the version at its tag, else [`social.changelogUrl`](./../config/social.md#changelogurl)), then the [`links`](./../config/social.md#teams-links).
+
+[`cards`](./../config/social.md#teams-cards) sets how a release is posted:
+
+- `version` (default): one card per version, the root version of a `unified`/`selective` group and each package of an `independent` group.
+- `release`: one card for the release, with a section per version under the title of its group.
+
+### Announcements
+
+Without [`announcements`](./../config/social.md#teams-announcements), every version is announced with the texts of `social.teams`. With it, only the versions matching an entry are, each with its own texts:
+
+- `{ group: 'name' }`: the versions of a [version group](./version-groups.md): its root version, or each of its packages when it is `independent`.
+- `{ package: '@scope/nav' }`: the packages whose name matches (a glob, `@scope/*`). Its fields override the ones of its group entry, field by field.
+
+The texts and the links take the variables of the version: <code v-pre>{{name}}</code>, <code v-pre>{{shortName}}</code> (the name without its scope), <code v-pre>{{newVersion}}</code>, <code v-pre>{{tag}}</code>, <code v-pre>{{groupTitle}}</code>, <code v-pre>{{projectName}}</code>, <code v-pre>{{releaseUrl}}</code>, <code v-pre>{{changelogUrl}}</code> (see [Teams Variables](./../config/social.md#teams-variables)).
+
+```ts
+export default defineConfig({
+  monorepo: {
+    groups: [
+      { name: 'ecosystem', title: 'Design System', versionMode: 'unified', packages: ['packages/*'] },
+      { name: 'shared', title: 'Shared components', versionMode: 'independent', packages: ['shared/*'] },
+      { name: 'internal', versionMode: 'independent', packages: ['internal/*'] },
+    ],
+  },
+  social: {
+    teams: {
+      enabled: true,
+      locale: 'fr-FR',
+      announcements: [
+        {
+          group: 'ecosystem',
+          title: '🎨 Design System {{newVersion}}',
+          message: 'A new version of the **Design System** is available.',
+          changelogUrl: 'https://design.acme.dev/changelog',
+          links: [{ title: '📚 Docs', url: 'https://design.acme.dev' }],
+        },
+        {
+          group: 'shared',
+          message: 'A new version of **{{name}}** is available.',
+          links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.acme.dev' }],
+        },
+        { package: '@acme/login', title: '🔐 Login {{newVersion}}' },
+      ],
+      exclude: { packages: ['@acme/*-mock'] },
+    },
+  },
+})
+```
+
+The `internal` group has no entry: it is not announced. [`exclude`](./../config/social.md#teams-exclude) leaves out groups and packages even when an entry matches them, and a group with `release: { social: false }` is left out of every platform.
+
+### Limits of Teams
+
+- A card is at most **28 KB**: Relizy refuses a bigger one before posting it. With `cards: 'release'` and `changelog: 'summary'` on a large release, use `cards: 'version'`.
+- A workflow accepts about **4 requests per second**: the cards are posted one after the other, and a `429` is tried again.
+- A card renders basic markdown only (bold, italic, links, lists): the headings of the changelog become bold lines, the HTML and the code blocks are removed.
+- The workflow answers `202` as soon as it receives the card: when the card does not show up, open the run history of the flow in Power Automate.
+
 ## Releases of Several Versions
 
 A release ships several versions with [version groups](./version-groups.md), or several packages of an `independent` release. It is announced **once** per platform: <code v-pre>{{releaseTitle}}</code> is `New releases of <projectName>` and <code v-pre>{{newVersion}}</code> is empty, then the changelog has a section per group, the `unified`/`selective` group first. Each section is titled with the title of its group (`<title> <version>` for a `unified`/`selective` group), and lists the packages of an `independent` group with their versions.
@@ -200,7 +303,7 @@ With `onlyStable`, the prereleases are left out of the post, and nothing is post
 
 ## AI-Written Posts
 
-With [`ai.social`](./../config/ai.md#social), the AI rewrites the changelog of each enabled platform: plain sentences for Twitter, standard markdown for Slack (converted to mrkdwn by Relizy). The titles, the versions and the links stay as Relizy computes them. A release of several versions is rewritten in **one** call per platform. Setup, preview in dry run and tuning: [AI-Enhanced Changelogs](./ai-changelog.md).
+With [`ai.social`](./../config/ai.md#social), the AI rewrites the changelog of each enabled platform: plain sentences for Twitter, standard markdown for Slack (converted to mrkdwn by Relizy), short bullets for the Teams cards (with `changelog: 'summary'`). The titles, the versions and the links stay as Relizy computes them. A release of several versions is rewritten in **one** call per platform. Setup, preview in dry run and tuning: [AI-Enhanced Changelogs](./ai-changelog.md).
 
 ```ts
 export default defineConfig({
@@ -208,6 +311,7 @@ export default defineConfig({
     social: {
       twitter: { enabled: true },
       slack: { enabled: true },
+      teams: { enabled: true },
     },
   },
 })
@@ -215,7 +319,7 @@ export default defineConfig({
 
 ## Hooks
 
-The hooks `before:social`, `success:social`, `error:social` run around the posts, and `before:twitter`, `success:twitter`, `error:twitter`, `before:slack`, `success:slack`, `error:slack` around each platform, once per release. A function hook gets the release as third parameter when it is known (in `relizy release`): its `release` lists the packages and versions by group, in the platform hooks what the post announces (without the prereleases left out by `onlyStable`).
+The hooks `before:social`, `success:social`, `error:social` run around the posts, and `before:twitter`, `success:twitter`, `error:twitter`, `before:slack`, `success:slack`, `error:slack`, `before:teams`, `success:teams`, `error:teams` around each platform, once per release. A function hook gets the release as third parameter when it is known (in `relizy release`): its `release` lists the packages and versions by group, in the platform hooks what the post announces (without the prereleases left out by `onlyStable`).
 
 ```ts
 export default defineConfig({
@@ -242,7 +346,10 @@ Pass the credentials as secrets of the job running the release, under the enviro
     TWITTER_ACCESS_TOKEN: ${{ secrets.TWITTER_ACCESS_TOKEN }}
     TWITTER_ACCESS_TOKEN_SECRET: ${{ secrets.TWITTER_ACCESS_TOKEN_SECRET }}
     SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+    TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}
 ```
+
+On GitLab, create the CI/CD variables with these names (masked), and `TEAMS_WEBHOOK_URL_B64` for Teams.
 
 ## Troubleshooting
 
@@ -259,8 +366,13 @@ Pass the credentials as secrets of the job running the release, under the enviro
 | `Missing required OAuth scope` (token)        | Add `chat:write` to the bot token scopes, reinstall the app, use the new token             |
 | `Slack webhook failed: 404`                   | The webhook URL is invalid or deactivated: create a new one                                |
 | `Slack webhook failed` with `invalid_payload` | The message exceeds the limits of Slack: lower `postMaxLength`, or shorten the template    |
+| `Teams webhook URL not found`                 | Set `TEAMS_WEBHOOK_URL` (or `TEAMS_WEBHOOK_URL_B64`), or `social.teams.webhookUrl`         |
+| `URL of an Office 365 connector`              | The connectors are retired: create a Teams workflow and use its URL                        |
+| `Teams workflow failed: 401` or `403`         | Set **Who can trigger the flow** to **Anyone**, and keep the `sig` parameter of the URL    |
+| `Teams workflow failed: 404`                  | The flow was deleted, turned off, or its owner left: create it again, add co-owners        |
+| `Teams workflow failed: 400`, or `over 28 KB` | The card is too big: use `cards: 'version'`, or `changelog: 'none'`                        |
 
-To check a post without publishing it, run `relizy social --dry-run`: it shows the tweet with its length and the Slack message.
+To check a post without publishing it, run `relizy social --dry-run`: it shows the tweet with its length, the Slack message and the Teams cards (`--log-level verbose` prints their JSON).
 
 ## See Also
 

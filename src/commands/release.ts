@@ -34,7 +34,7 @@ import { tryPostPrComment } from './pr-comment'
 import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from './provider-release'
 import { publish, publishSafetyCheck } from './publish'
 
-import { describeSocialResult, social, socialSafetyCheck } from './social'
+import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
 function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
@@ -533,7 +533,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Social media'
     let socialResults: SocialResult | undefined
 
-    if (config.release.social && (config.social?.twitter?.enabled || config.social?.slack?.enabled)) {
+    if (config.release.social && isAnySocialPlatformEnabled(config)) {
       socialResults = await ui.step({
         title: 'Post release to social media',
         running: 'Posting the release',

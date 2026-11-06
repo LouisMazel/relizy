@@ -511,6 +511,64 @@ function checkCliCalls(cwd: string): MigrationFinding[] {
   return findings
 }
 
+/** The scripts and the CI files that can post to Teams */
+const NOTIFICATION_FILES = ['**/*.{ts,mts,cts,js,mjs,cjs,sh}', '.gitlab-ci.yml', '.gitlab/**/*.{yml,yaml}', '.github/workflows/*.{yml,yaml}']
+/** The URLs of the retired Office 365 connectors */
+const TEAMS_CONNECTOR = /webhook\.office\.com|outlook\.office(?:365)?\.com\/webhook/i
+/** A Teams workflow, or an Adaptive Card, posted by hand */
+const TEAMS_WORKFLOW = /\.logic\.azure\.com|\.powerplatform\.com|application\/vnd\.microsoft\.card\.adaptive/i
+/** The URL of Teams read by a script (a CI file only passes it to relizy) */
+const TEAMS_WEBHOOK_VARIABLE = /\bTEAMS_WEBHOOK/
+
+/**
+ * The scripts posting the releases to Teams, which `social.teams` replaces,
+ * and the retired Office 365 connectors
+ */
+function checkTeamsNotifications(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
+  const files = [
+    ...configFiles,
+    ...fastGlob.sync(NOTIFICATION_FILES, { cwd: config.cwd, ignore: SOURCE_IGNORE, dot: true, onlyFiles: true })
+      .filter(file => !configFiles.some(configFile => configFile.file === file))
+      .slice(0, MAX_SOURCE_FILES)
+      .filter(file => statSync(join(config.cwd, file)).size <= MAX_SOURCE_SIZE)
+      .map(file => ({ file, text: readFileSync(join(config.cwd, file), 'utf8') })),
+  ]
+  const connectors = files.flatMap(({ file, text }) => locate(file, findLines(text, TEAMS_CONNECTOR)))
+  const scripts = files.flatMap(({ file, text }) => {
+    const isScript = !/\.ya?ml$/.test(file) && !configFiles.some(configFile => configFile.file === file)
+    const lines = findLines(text, TEAMS_WORKFLOW)
+    const variables = isScript ? findLines(text, TEAMS_WEBHOOK_VARIABLE).filter(line => !/RELIZY_TEAMS_WEBHOOK/.test(text.split('\n')[line - 1]!)) : []
+
+    return locate(file, [...new Set([...lines, ...variables])].sort((a, b) => a - b))
+  })
+  const enabled = Boolean(config.social?.teams?.enabled)
+  const findings: MigrationFinding[] = []
+
+  if (connectors.length > 0) {
+    findings.push({
+      severity: 'change',
+      title: 'An Office 365 connector posts to Teams',
+      section: 'Microsoft Teams',
+      detail: 'Microsoft retired the Office 365 connectors: their posts fail. Create a Teams workflow ("When a Teams webhook request is received", trigger allowed to "Anyone"), set its URL in `TEAMS_WEBHOOK_URL` (its base64 in `TEAMS_WEBHOOK_URL_B64` on GitLab), and enable `social.teams`.',
+      locations: connectors,
+    })
+  }
+
+  if (scripts.length > 0) {
+    findings.push({
+      severity: 'review',
+      title: enabled ? 'A script posts to Teams while `social.teams` is enabled' : 'A script posts the releases to Teams',
+      section: 'Microsoft Teams',
+      detail: enabled
+        ? 'Each release would be announced twice: remove the script, and its job or hook.'
+        : '`social.teams` posts a card per version (or one per release), with the texts and buttons of each group or package (`announcements`, `links`, `exclude`), the changelog and the AI. Map what the script posts to `social.teams` (see `get_config_option({ path: "social.teams" })`), then remove the script and its job or hook, after asking the user.',
+      locations: scripts,
+    })
+  }
+
+  return findings
+}
+
 /**
  * The range of relizy required by the project, if any
  */
@@ -626,6 +684,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkReleaseSummary(config),
     ...checkSourceFiles(config.cwd),
     ...checkCliCalls(config.cwd),
+    ...checkTeamsNotifications(config, configFiles),
   ]
   const changes = findings.filter(finding => finding.severity === 'change')
   const reviews = findings.filter(finding => finding.severity === 'review')
@@ -634,7 +693,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
   return [
     `# Migration from relizy 1 to relizy 2 (relizy ${context.version})`,
     '',
-    `Checked: ${scanned}, \`package.json\`, and the source files importing \`relizy\` (${code(relative(context.cwd, config.cwd) || '.')}).`,
+    `Checked: ${scanned}, \`package.json\`, the CI files, the source files importing \`relizy\` and the scripts posting to Teams (${code(relative(context.cwd, config.cwd) || '.')}).`,
     `The guide: \`get_doc({ id: "${GUIDE_ID}" })\`.`,
     '',
     `## To change (${changes.length})`,
@@ -652,7 +711,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
 export const checkMigrationTool = defineTool({
   name: 'check_migration',
   title: 'Check the migration from relizy 1',
-  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), `bump.dependencyTypes`, the version groups (one release, group titles, hooks), and the code calling the relizy API (cancelled prompts, functions no longer exported), with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
+  description: 'List what to change in this project to upgrade from relizy 1 to relizy 2: the relizy dependency, the social templates (`{{releaseTitle}}`, `{{newVersion}}` with several versions), `bump.dependencyTypes`, the version groups (one release, group titles, hooks), the code calling the relizy API (cancelled prompts, functions no longer exported), and the scripts posting to Teams that `social.teams` replaces, with the file and line of each place, the fix, and the section of the migration guide. Read-only.',
   inputSchema: {
     config: configArgSchema,
   },

@@ -37,7 +37,7 @@ See [Version Modes](./version-modes.md).
 - [Dependency management](./dependency-management.md): the dependents of a bumped package are bumped too, including through pnpm, Yarn and Bun catalogs.
 - [npm publishing](./../config/publish.md): in dependency order, with the right dist-tag, 2FA and registry checks.
 - GitHub and GitLab releases: [`relizy provider-release`](./../cli/provider-release.md), run by `relizy release`.
-- [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter) and [Slack](./social-media.md#slack).
+- [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter), [Slack](./social-media.md#slack) and [Microsoft Teams](./social-media.md#microsoft-teams).
 - [PR comment](./pr-comment.md): a summary of the release on the pull request or merge request it comes from.
 - [Release report](./../config/release.md#report): the summary of the release in the CI, and in a file with `--report-json`, `--report-dotenv` or `--report-markdown`.
 - [AI release notes](./ai-changelog.md): the provider releases and the social posts rewritten by an AI model.

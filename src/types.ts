@@ -1168,6 +1168,162 @@ export interface SlackSocialConfig {
   noPackages?: boolean
 }
 
+/**
+ * A button of a Teams card. The `title` and the `url` accept the variables of
+ * the announcement (see `TeamsTemplateVariables`), e.g.
+ * `{ title: '🎨 Storybook', url: 'https://{{shortName}}.example.com' }`.
+ * A button whose URL is empty is left out.
+ */
+export interface SocialLink {
+  title: string
+  url: string
+}
+
+/**
+ * The content of an announcement of a version: each field overrides the one
+ * of `social.teams`. The texts accept the variables of the announcement (see
+ * `TeamsTemplateVariables`).
+ */
+export interface TeamsAnnouncementContent {
+  /**
+   * Title of the card (or of the section with `cards: 'release'`)
+   */
+  title?: string
+  /**
+   * Text under the title, in markdown (bold, italic, links, lists)
+   */
+  message?: string
+  /**
+   * URL of the changelog button; `false` removes the button
+   */
+  changelogUrl?: string | false
+  /**
+   * Buttons added after the release notes and the changelog
+   */
+  links?: SocialLink[]
+}
+
+/**
+ * An announcement of `social.teams.announcements`: the content of the
+ * versions of a version group, or of the packages matching a glob.
+ * - `{ group }`: the root version of a `unified`/`selective` group, each
+ *   package of an `independent` group.
+ * - `{ package }`: the packages of an `independent` group (or without
+ *   version groups) whose name matches the glob (`@scope/*`); the version of
+ *   a project without monorepo is announced under its name. Its fields
+ *   override the ones of its group entry.
+ */
+export type TeamsAnnouncement = TeamsAnnouncementContent & ({ group: string, package?: never } | { package: string, group?: never })
+
+/**
+ * Versions never announced by a platform
+ */
+export interface SocialExclude {
+  /**
+   * Names of the version groups (`monorepo.groups`)
+   */
+  groups?: string[]
+  /**
+   * Package names or globs (`@scope/internal-*`), matched against the
+   * packages of the `independent` groups and the name of the project
+   */
+  packages?: string[]
+}
+
+/**
+ * - `version`: one card per version released (the root version, each package
+ *   of an `independent` group).
+ * - `release`: one card for the release, with a section per version.
+ */
+export type TeamsCardsMode = 'version' | 'release'
+
+/**
+ * - `none`: no changelog in the card, the buttons link to it.
+ * - `summary`: the titles of the commits (rewritten with `ai.social.teams`).
+ */
+export type TeamsChangelogMode = 'none' | 'summary'
+
+export interface TeamsSocialConfig extends TeamsAnnouncementContent {
+  /**
+   * Enable the Teams cards
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip the prerelease versions (alpha, beta, rc, etc.)
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * URL of the Teams workflow ("When a Teams webhook request is received"
+   * trigger). It holds a secret (`sig`): prefer the environment.
+   * Env fallback: RELIZY_TEAMS_WEBHOOK_URL, TEAMS_WEBHOOK_URL, or the URL in
+   * base64 in RELIZY_TEAMS_WEBHOOK_URL_B64, TEAMS_WEBHOOK_URL_B64 (a masked
+   * GitLab variable refuses the characters of the URL).
+   */
+  webhookUrl?: string
+  /**
+   * One card per version, or one card for the release
+   * @default 'version'
+   */
+  cards?: TeamsCardsMode
+  /**
+   * The changelog in the card
+   * @default 'none'
+   */
+  changelog?: TeamsChangelogMode
+  /**
+   * Text of the badge above the title; `false` removes it
+   * @default 'New release' ('Prerelease' for a prerelease)
+   */
+  badge?: string | false
+  /**
+   * Locale of the date of the card (BCP 47, e.g. `fr-FR`)
+   * @default 'en-US'
+   */
+  locale?: string
+  /**
+   * The versions to announce and their content. Without it, every version is
+   * announced with the content of `social.teams`; with it, only the versions
+   * matching an entry.
+   */
+  announcements?: TeamsAnnouncement[]
+  /**
+   * Versions never announced, even when an announcement matches them
+   */
+  exclude?: SocialExclude
+}
+
+/**
+ * Variables of the texts and links of a Teams announcement
+ */
+export interface TeamsTemplateVariables {
+  /**
+   * The package name, the project name (the title of the group with version
+   * groups) for a `unified`/`selective` version
+   */
+  name: string
+  /**
+   * `name` without its scope (`@scope/ui` gives `ui`)
+   */
+  shortName: string
+  newVersion: string
+  tag: string
+  projectName: string
+  /**
+   * Title of the version group, empty without version groups
+   */
+  groupTitle: string
+  /**
+   * GitHub/GitLab release of the version
+   */
+  releaseUrl: string
+  /**
+   * Changelog of the version
+   */
+  changelogUrl: string
+}
+
 export type AIProviderName = 'claude-code' | 'ai-sdk'
 
 export interface ClaudeCodeProviderOptions {
@@ -1202,7 +1358,7 @@ export interface AiSdkProviderOptions {
   reasoning?: CallSettings['reasoning']
 }
 
-export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
+export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 export type AISystemPromptOverrides = Partial<Record<AIPromptTarget, string>>
 
 export interface AIExtraGuidelines extends Partial<Record<AIPromptTarget, string>> {
@@ -1229,6 +1385,10 @@ export interface AISocialConfig {
    * Slack-specific AI activation
    */
   slack?: AITargetConfig
+  /**
+   * Teams-specific AI activation (with `social.teams.changelog: 'summary'`)
+   */
+  teams?: AITargetConfig
 }
 
 export interface AIConfig {
@@ -1288,6 +1448,10 @@ export interface SocialConfig {
    * Slack configuration
    */
   slack?: SlackSocialConfig
+  /**
+   * Microsoft Teams configuration
+   */
+  teams?: TeamsSocialConfig
   /**
    * URL to full changelog (e.g., https://example.com/changelog)
    * This URL will be included in social media posts to allow users to view the complete changelog
@@ -1550,7 +1714,7 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack' | 'teams'
 
 /**
  * API tokens configuration

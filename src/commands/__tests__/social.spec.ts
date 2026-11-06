@@ -3,7 +3,7 @@ import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig } from '../../../tests/mocks'
-import { collectContributorNames, executeHook, generateChangelog, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, resolveTags } from '../../core'
+import { collectContributorNames, executeHook, generateChangelog, getPackageCommits, getPackagesOrBumpedPackages, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getTwitterCredentials, isPrerelease, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, resolveTags } from '../../core'
 import { aiSafetyCheck, generateAISocialChangelog, generateAISocialReleases } from '../../core/ai'
 import { social, socialSafetyCheck } from '../social'
 
@@ -12,7 +12,7 @@ vi.mock('../../core/ai', () => ({
   generateAISocialChangelog: vi.fn(),
   generateAISocialReleases: vi.fn(),
   applyAIOverride: vi.fn(),
-  isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack') => !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled),
+  isAISocialEnabled: vi.fn().mockImplementation((config: any, platform: 'twitter' | 'slack' | 'teams') => !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled),
 }))
 
 // The release overview reads the name of the project from the root package.json
@@ -44,6 +44,8 @@ vi.mock('../../core', async () => ({
   collectContributorNames: vi.fn().mockReturnValue([]),
   collectPackageBumps: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
+  ...await vi.importActual<typeof import('../../core/teams')>('../../core/teams'),
+  postReleaseToTeams: vi.fn(),
   resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full' ? undefined : 2500)),
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),
@@ -196,6 +198,22 @@ describe('Given socialSafetyCheck function', () => {
       await socialSafetyCheck({ config })
 
       expect(getTwitterCredentials).toHaveBeenCalled()
+    })
+  })
+
+  describe('When Teams is enabled', () => {
+    const teamsConfig = (webhookUrl?: string) => createMockConfig({ bump: { type: 'patch' }, social: { twitter: { enabled: false }, slack: { enabled: false }, teams: { enabled: true, webhookUrl } } })
+
+    it('Then throws without the URL of its workflow', async () => {
+      await expect(socialSafetyCheck({ config: teamsConfig() })).rejects.toThrow('Teams webhook URL not found')
+    })
+
+    it('Then throws with the URL of a retired Office 365 connector', async () => {
+      await expect(socialSafetyCheck({ config: teamsConfig('https://contoso.webhook.office.com/webhookb2/abc') })).rejects.toThrow(/Office 365 connector/)
+    })
+
+    it('Then passes with the URL of a workflow', async () => {
+      await expect(socialSafetyCheck({ config: teamsConfig('https://example.logic.azure.com/workflows/1?sig=secret') })).resolves.toBeUndefined()
     })
   })
 
@@ -1121,6 +1139,121 @@ describe('Given social command with version groups', () => {
 
     expect(result.hasErrors).toBe(true)
     expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
+  })
+
+  describe('When Teams is enabled', () => {
+    const releaseNotes = { title: '📖 Release notes', url: 'https://example.com/release' }
+    const rootChangelog = { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/v7.0.0/CHANGELOG.md' }
+    const navChangelog = { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/%40scope/nav%401.3.0/shared/nav/CHANGELOG.md' }
+    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...nav, path: '/repo/shared/nav' }], groups: [mainGroup, headerGroup] }
+
+    beforeEach(() => {
+      config.cwd = '/repo'
+      config.repo = { provider: 'github', domain: 'github.com', repo: 'owner/repo' }
+      config.social = {
+        twitter: { enabled: false },
+        slack: { enabled: false },
+        teams: { enabled: true, webhookUrl: 'https://example.logic.azure.com/workflows/1?sig=secret', onlyStable: true, cards: 'version', changelog: 'none' },
+      } as unknown as typeof config.social
+      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [{ ...nav, path: '/repo/shared/nav' }] : []) as any)
+      vi.mocked(postReleaseToTeams).mockResolvedValue({ posted: 1 })
+    })
+
+    it('Then posts a card per version, with its release notes and its changelog', async () => {
+      const result = await social({ bumpResult })
+
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        webhookUrl: 'https://example.logic.azure.com/workflows/1?sig=secret',
+        cards: [
+          { sections: [{ title: 'Maz UI 7.0.0', message: 'A new version of **Maz UI** is available.', version: '7.0.0', changelog: '', links: [releaseNotes, rootChangelog], groupTitle: 'Maz UI', prerelease: false }] },
+          { sections: [{ title: '@scope/nav 1.3.0', message: 'A new version of **@scope/nav** is available.', version: '1.3.0', changelog: '', links: [releaseNotes, navChangelog], groupTitle: 'Header', prerelease: false }] },
+        ],
+      }))
+      for (const hook of ['before:teams', 'success:teams']) {
+        expect(vi.mocked(executeHook).mock.calls.filter(([name]) => name === hook)).toHaveLength(1)
+      }
+      expect(result).toEqual({ results: [{ platform: 'teams', success: true }], hasErrors: false })
+    })
+
+    it('Then announces only the versions of the announcements, a package entry over its group entry', async () => {
+      config.social.teams = {
+        ...config.social.teams,
+        title: '{{name}} v{{newVersion}}',
+        announcements: [
+          { group: 'header', message: 'Shared component of {{groupTitle}}', links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.example.com/' }] },
+          { package: '@scope/nav', title: '🧭 Navigation {{newVersion}}', changelogUrl: false },
+        ],
+      }
+
+      await social({ bumpResult })
+
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        cards: [{ sections: [expect.objectContaining({
+          title: '🧭 Navigation 1.3.0',
+          message: 'Shared component of Header',
+          links: [releaseNotes, { title: '🎨 Storybook', url: 'https://nav.example.com/' }],
+        })] }],
+      }))
+    })
+
+    it('Then never announces the excluded versions, and posts nothing when none is left', async () => {
+      config.social.teams = { ...config.social.teams, exclude: { groups: ['main'], packages: ['@scope/*'] } }
+
+      const result = await social({ bumpResult })
+
+      expect(postReleaseToTeams).not.toHaveBeenCalled()
+      expect(result).toEqual({ results: [{ platform: 'teams', success: true }], hasErrors: false })
+    })
+
+    it('Then posts one card for the release with cards: release, with the summary of each changelog', async () => {
+      config.social.teams = { ...config.social.teams, cards: 'release', changelog: 'summary' }
+
+      await social({ bumpResult })
+
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        cards: [{
+          title: 'New releases of test-package',
+          sections: [
+            expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
+            expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
+          ],
+        }],
+      }))
+    })
+
+    it('Then rewrites the changelogs with the AI in a single call', async () => {
+      config.social.teams = { ...config.social.teams, changelog: 'summary' }
+      config.ai = { ...config.ai, social: { teams: { enabled: true } } }
+      vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([['1', '- A brand new menu'], ['2', '- Menus everywhere']]))
+
+      await social({ bumpResult })
+
+      expect(generateAISocialReleases).toHaveBeenCalledWith(expect.objectContaining({ platform: 'teams' }))
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        cards: [
+          { sections: [expect.objectContaining({ changelog: '- A brand new menu' })] },
+          { sections: [expect.objectContaining({ changelog: '- Menus everywhere' })] },
+        ],
+      }))
+    })
+
+    it('Then reports a refused card without failing the command', async () => {
+      vi.mocked(postReleaseToTeams).mockRejectedValue(new Error('Teams workflow failed: 404 Not Found'))
+
+      const result = await social({ bumpResult })
+
+      expect(result).toEqual({ results: [{ platform: 'teams', success: false, error: 'Error posting to Teams: Teams workflow failed: 404 Not Found' }], hasErrors: true })
+      expect(executeHook).toHaveBeenCalledWith('error:teams', expect.any(Object), false, anyHookContext)
+      expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
+    })
+
+    it('Then leaves out the prereleases with onlyStable', async () => {
+      await social({ bumpResult: { ...bumpResult, groups: [{ ...mainGroup, newVersion: '7.0.0-beta.0' }, headerGroup] } })
+
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        cards: [{ sections: [expect.objectContaining({ title: '@scope/nav 1.3.0' })] }],
+      }))
+    })
   })
 })
 

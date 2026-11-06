@@ -31,7 +31,7 @@
 
 ![Relizy Illustration](./resources/relizy-illustration.jpeg)
 
-Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) and releases in one command: it computes the versions, writes the changelogs, commits and tags, publishes to npm, creates the GitHub or GitLab releases, comments the pull request and announces the release on Twitter and Slack.
+Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) and releases in one command: it computes the versions, writes the changelogs, commits and tags, publishes to npm, creates the GitHub or GitLab releases, comments the pull request and announces the release on Twitter, Slack and Microsoft Teams.
 
 ## Features
 

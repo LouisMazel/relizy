@@ -283,10 +283,12 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
     options: [
       { value: 'twitter', label: 'Twitter / X', hint: 'needs Twitter API keys in your CI' },
       { value: 'slack', label: 'Slack', hint: 'needs a Slack bot token in your CI' },
+      { value: 'teams', label: 'Microsoft Teams', hint: 'needs the URL of a Teams workflow in your CI' },
     ],
   }))
   result.twitter = socials.includes('twitter')
   result.slack = socials.includes('slack')
+  result.teams = socials.includes('teams')
   if (result.slack) {
     result.slackChannel = await askText({ message: 'Slack channel (name or ID):', placeholder: '#releases', initialValue: '#releases' })
   }
@@ -312,6 +314,7 @@ async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise
     ...(supportsProviderRelease(detection.provider) ? [{ value: 'providerRelease' as const, label: `${getProviderName(detection)} release notes` }] : []),
     ...(answers.twitter ? [{ value: 'twitter' as const, label: 'Twitter / X posts' }] : []),
     ...(answers.slack ? [{ value: 'slack' as const, label: 'Slack posts' }] : []),
+    ...(answers.teams ? [{ value: 'teams' as const, label: 'Teams cards (adds the changelog to the cards)' }] : []),
   ]
   if (targets.length === 0) {
     return {}
@@ -481,6 +484,7 @@ function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): s
     ...(detection.provider === 'gitlab' ? ['GITLAB_TOKEN'] : []),
     ...(answers.twitter ? ['TWITTER_API_KEY', 'TWITTER_API_KEY_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET'] : []),
     ...(answers.slack ? ['SLACK_TOKEN'] : []),
+    ...(answers.teams ? [detection.provider === 'gitlab' ? 'TEAMS_WEBHOOK_URL_B64' : 'TEAMS_WEBHOOK_URL'] : []),
     ...(answers.ai.length > 0 ? ['ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN'] : []),
   ]
 }

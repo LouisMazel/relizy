@@ -480,6 +480,7 @@ describe('Given getDefaultConfig function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: false },
         slack: { enabled: false },
+        teams: { enabled: false },
       })
     })
   })

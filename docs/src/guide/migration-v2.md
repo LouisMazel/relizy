@@ -45,6 +45,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [AI attribution in commits](#ai-attribution-in-commits)                               | `relizy commitlint`                                                                   | Turn off the attribution of the AI tools, or the rule                         |
 | [Version placeholder](#version-placeholder)                                           | Templates using <code v-pre>{{version}}</code>                                        | Use <code v-pre>{{newVersion}}</code>                                         |
 | [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                                    | None                                                                          |
+| [Microsoft Teams](#microsoft-teams)                                                   | A script or a hook posting to Teams, an Office 365 connector                          | Use `social.teams`                                                            |
 | [Confirmation in CI](#confirmation-in-ci)                                             | `relizy release` and `relizy bump` in CI, `release()` and `bump()` without a terminal | Add `--yes` (`yes: true`)                                                     |
 | [Push access](#push-access)                                                           | `relizy release` that pushes, in CI                                                   | Give the job the right to push                                                |
 | [Exit code of bump](#exit-code-of-bump)                                               | `relizy bump --yes` in scripts or CI                                                  | None, or stop treating the exit code 1 as nothing to bump                     |
@@ -139,6 +140,16 @@ Every occurrence of a variable of a social template, of `templates.changelogTitl
 ### Prereleases with onlyStable
 
 With `onlyStable` (the default of Slack), a post announcing several versions leaves its prereleases out, instead of posting every version as soon as one is stable. Nothing is posted when every version is a prerelease, as before.
+
+### Microsoft Teams
+
+Relizy 2 posts the releases to Microsoft Teams ([`social.teams`](./../config/social.md#teams)): a card per version, or one per release, with the texts and the buttons of each group or package. A script or a hook posting to Teams can be replaced by it:
+
+1. Map what the script posts to `social.teams`: its texts to [`title`](./../config/social.md#teams-title) and [`message`](./../config/social.md#teams-message), its buttons to [`links`](./../config/social.md#teams-links), its texts per group or package to [`announcements`](./../config/social.md#teams-announcements), the versions it skips to [`exclude`](./../config/social.md#teams-exclude).
+2. Keep the URL of the workflow in the same variable: `TEAMS_WEBHOOK_URL`, or its base64 in `TEAMS_WEBHOOK_URL_B64` (both also read with the `RELIZY_` prefix).
+3. Check the cards with `relizy social --dry-run`, then remove the script and its job or hook: else the release is announced twice.
+
+Microsoft retired the Office 365 connectors (`https://*.webhook.office.com/...`): a script posting to one fails. Create a Teams workflow instead, see [Microsoft Teams](./social-media.md#microsoft-teams).
 
 ## Config
 

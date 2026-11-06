@@ -36,6 +36,7 @@ describe('Given applyAIOverride function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: true },
         slack: { enabled: true },
+        teams: { enabled: true },
       })
     })
 
@@ -54,6 +55,7 @@ describe('Given applyAIOverride function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: true },
         slack: { enabled: true },
+        teams: { enabled: true },
       })
     })
 
@@ -68,6 +70,7 @@ describe('Given applyAIOverride function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: true },
         slack: { enabled: true },
+        teams: { enabled: true },
       })
     })
 
@@ -102,6 +105,7 @@ describe('Given applyAIOverride function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: false },
         slack: { enabled: false },
+        teams: { enabled: false },
       })
     })
 
@@ -116,6 +120,7 @@ describe('Given applyAIOverride function', () => {
       expect(config.ai?.social).toEqual({
         twitter: { enabled: false },
         slack: { enabled: false },
+        teams: { enabled: false },
       })
     })
   })

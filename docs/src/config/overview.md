@@ -126,19 +126,20 @@ export default defineConfig({
 
 The credentials of the commands. Each key falls back to the first environment variable set, in this order (a `.env` file at the root is loaded):
 
-| Key                                   | Environment variables                                                     | Used by                              |
-| ------------------------------------- | ------------------------------------------------------------------------- | ------------------------------------ |
-| `tokens.registry`                     | `RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`                        | `publish` (npm, pnpm, bun)           |
-| `tokens.github`                       | `RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`                         | GitHub releases, PR comment          |
-| `tokens.gitlab`                       | `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`, `CI_JOB_TOKEN` | GitLab releases, MR comment, push    |
-| `tokens.twitter.apiKey`               | `RELIZY_TWITTER_API_KEY`, `TWITTER_API_KEY`                               | Twitter (X)                          |
-| `tokens.twitter.apiKeySecret`         | `RELIZY_TWITTER_API_KEY_SECRET`, `TWITTER_API_KEY_SECRET`                 | Twitter (X)                          |
-| `tokens.twitter.accessToken`          | `RELIZY_TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN`                     | Twitter (X)                          |
-| `tokens.twitter.accessTokenSecret`    | `RELIZY_TWITTER_ACCESS_TOKEN_SECRET`, `TWITTER_ACCESS_TOKEN_SECRET`       | Twitter (X)                          |
-| `tokens.slack`                        | `RELIZY_SLACK_TOKEN`, `SLACK_TOKEN`                                       | Slack (bot token)                    |
-| `tokens.ai['claude-code'].apiKey`     | `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`                           | AI, `claude-code` provider           |
-| `tokens.ai['claude-code'].oauthToken` | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`               | AI, `claude-code` provider           |
-| `social.slack.webhookUrl`             | `RELIZY_SLACK_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`                           | Slack (webhook, wins over the token) |
+| Key                                   | Environment variables                                                               | Used by                              |
+| ------------------------------------- | ----------------------------------------------------------------------------------- | ------------------------------------ |
+| `tokens.registry`                     | `RELIZY_NPM_TOKEN`, `NPM_TOKEN`, `NODE_AUTH_TOKEN`                                  | `publish` (npm, pnpm, bun)           |
+| `tokens.github`                       | `RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN`, `GH_TOKEN`                                   | GitHub releases, PR comment          |
+| `tokens.gitlab`                       | `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`, `CI_JOB_TOKEN`           | GitLab releases, MR comment, push    |
+| `tokens.twitter.apiKey`               | `RELIZY_TWITTER_API_KEY`, `TWITTER_API_KEY`                                         | Twitter (X)                          |
+| `tokens.twitter.apiKeySecret`         | `RELIZY_TWITTER_API_KEY_SECRET`, `TWITTER_API_KEY_SECRET`                           | Twitter (X)                          |
+| `tokens.twitter.accessToken`          | `RELIZY_TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN`                               | Twitter (X)                          |
+| `tokens.twitter.accessTokenSecret`    | `RELIZY_TWITTER_ACCESS_TOKEN_SECRET`, `TWITTER_ACCESS_TOKEN_SECRET`                 | Twitter (X)                          |
+| `tokens.slack`                        | `RELIZY_SLACK_TOKEN`, `SLACK_TOKEN`                                                 | Slack (bot token)                    |
+| `tokens.ai['claude-code'].apiKey`     | `RELIZY_ANTHROPIC_API_KEY`, `ANTHROPIC_API_KEY`                                     | AI, `claude-code` provider           |
+| `tokens.ai['claude-code'].oauthToken` | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`, `CLAUDE_CODE_OAUTH_TOKEN`                         | AI, `claude-code` provider           |
+| `social.slack.webhookUrl`             | `RELIZY_SLACK_WEBHOOK_URL`, `SLACK_WEBHOOK_URL`                                     | Slack (webhook, wins over the token) |
+| `social.teams.webhookUrl`             | `RELIZY_TEAMS_WEBHOOK_URL`, `TEAMS_WEBHOOK_URL`, then their `_B64` variant (base64) | Teams                                |
 
 A more specific setting wins over these keys:
 

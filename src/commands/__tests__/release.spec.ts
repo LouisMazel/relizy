@@ -63,6 +63,7 @@ vi.mock('../provider-release', async importActual => ({
 }))
 vi.mock('../social', async importActual => ({
   describeSocialResult: (await importActual<typeof import('../social')>()).describeSocialResult,
+  isAnySocialPlatformEnabled: (await importActual<typeof import('../social')>()).isAnySocialPlatformEnabled,
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))

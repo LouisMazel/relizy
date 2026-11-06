@@ -48,6 +48,11 @@ Keep PR and issue references as the markdown links given in the input (e.g. "([#
 If the input has a "#### ⚠️ Breaking Changes" section, put it first, as given.
 Tone: factual and clear, for the people who use the project.`
 
+export const TEAMS_PROMPT = `Format the output as simple markdown: 3 to 8 "- " bullets in total, one line each, the most user-visible changes first, with **bold**, _italic_ and links only.
+Never use headings, tables, code blocks nor HTML: a Teams card does not render them.
+If the input has breaking changes, put them first, starting with "⚠️".
+Tone: factual and clear, for the people who use the project.`
+
 /**
  * Appended to SLACK_PROMPT, after `social.slack.changelogFormat`
  */

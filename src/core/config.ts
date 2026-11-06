@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig, TeamsCardsMode, TeamsChangelogMode } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
@@ -152,6 +152,13 @@ export function getDefaultConfig(cwd = process.cwd()) {
         noAuthors: false,
         noPackages: false,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
+      teams: {
+        enabled: false,
+        onlyStable: true,
+        cards: 'version' as TeamsCardsMode,
+        changelog: 'none' as TeamsChangelogMode,
+        locale: 'en-US',
+      } satisfies SocialConfig['teams'],
     },
     prComment: {
       mode: 'update',
@@ -169,6 +176,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       social: {
         twitter: { enabled: false },
         slack: { enabled: false },
+        teams: { enabled: false },
       },
     } as AIConfig & Required<Pick<AIConfig, 'language'>>,
     logLevel: 'default' as LogLevel,

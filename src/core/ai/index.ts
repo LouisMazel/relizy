@@ -6,7 +6,7 @@ import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
 export type { AIReleaseContext } from './prompts'
@@ -15,9 +15,12 @@ const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
   providerRelease: PROVIDER_RELEASE_PROMPT,
   twitter: TWITTER_PROMPT,
   slack: SLACK_PROMPT,
+  teams: TEAMS_PROMPT,
 }
 
-const PLATFORM_NAMES = { twitter: 'Twitter', slack: 'Slack' } as const
+const PLATFORM_NAMES = { twitter: 'Twitter', slack: 'Slack', teams: 'Teams' } as const
+
+export type AISocialPlatform = keyof typeof PLATFORM_NAMES
 
 function substitutePlaceholders(prompt: string, vars: Record<string, string | undefined>): string {
   let result = prompt
@@ -83,6 +86,7 @@ export function applyAIOverride(config: ResolvedRelizyConfig, ai?: boolean): voi
   aiConfig.social = {
     twitter: { enabled: ai },
     slack: { enabled: ai },
+    teams: { enabled: ai },
   }
 }
 
@@ -90,7 +94,12 @@ export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolea
   return !!config.ai?.providerRelease?.enabled
 }
 
-export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: 'twitter' | 'slack'): boolean {
+export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: AISocialPlatform): boolean {
+  // A Teams card only has a changelog with `changelog: 'summary'`
+  if (platform === 'teams' && config.social?.teams?.changelog !== 'summary') {
+    return false
+  }
+
   return !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled
 }
 
@@ -178,7 +187,7 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   rawBody: string
   /** Value returned when the AI fails and fallback is 'raw'. Defaults to rawBody. */
   fallbackBody?: string
-  platform: 'twitter' | 'slack'
+  platform: AISocialPlatform
   maxLength?: number
   context?: AIReleaseContext
 }): Promise<string> {
@@ -247,7 +256,7 @@ export async function generateAISocialReleases({ config, releases, platform, max
   config: ResolvedRelizyConfig
   dryRun?: boolean
   releases: AISocialRelease[]
-  platform: 'twitter' | 'slack'
+  platform: AISocialPlatform
   maxLength?: number
 }): Promise<Map<string, string>> {
   const input = releases.filter(release => release.body.trim())

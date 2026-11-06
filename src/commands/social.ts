@@ -1,11 +1,12 @@
 import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
-import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig } from '../core'
+import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig, TeamsCard, TeamsVersion } from '../core'
 import type { AIReleaseContext } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackReleaseSection, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
+import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTeamsCardSection, getTeamsVariables, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -27,10 +28,17 @@ function computeTwitterChangelogBudget({
   return Math.max(0, postMaxLength - getTweetLength(overhead))
 }
 
+/**
+ * Whether a social platform posts the releases
+ */
+export function isAnySocialPlatformEnabled(config: ResolvedRelizyConfig): boolean {
+  return Boolean(config.social?.twitter?.enabled || config.social?.slack?.enabled || config.social?.teams?.enabled)
+}
+
 // eslint-disable-next-line complexity, sonarjs/cognitive-complexity
 export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConfig }) {
   try {
-    const socialMediaDisabled = !config.release.social && !config.social.twitter.enabled && !config.social.slack.enabled
+    const socialMediaDisabled = !config.release.social && !isAnySocialPlatformEnabled(config)
     if (!config.safetyCheck || socialMediaDisabled) {
       logger.debug('Safety check disabled or social disabled')
       return
@@ -107,7 +115,24 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
       }
     }
 
-    if (isAISocialEnabled(config, 'twitter') || isAISocialEnabled(config, 'slack')) {
+    // Check Teams configuration
+    if (config.social?.teams?.enabled) {
+      const webhookUrl = getTeamsWebhookUrl({ socialWebhookUrl: config.social.teams.webhookUrl })
+
+      if (!webhookUrl) {
+        logger.fail('Teams is enabled but the URL of its workflow is not configured.')
+        logger.log('Set RELIZY_TEAMS_WEBHOOK_URL (or RELIZY_TEAMS_WEBHOOK_URL_B64, the URL in base64) in the CI, or social.teams.webhookUrl.')
+        throw new Error('Teams webhook URL not found')
+      }
+
+      const problem = checkTeamsWebhookUrl(webhookUrl)
+      if (problem) {
+        logger.fail(problem)
+        throw new Error(problem)
+      }
+    }
+
+    if (isAISocialEnabled(config, 'twitter') || isAISocialEnabled(config, 'slack') || isAISocialEnabled(config, 'teams')) {
       await aiSafetyCheck({ config })
     }
 
@@ -345,6 +370,11 @@ interface AnnouncedVersion {
   line: ReleaseLine
   minified: string
   rich: string
+  /**
+   * Directory of its `CHANGELOG.md`, relative to the root of the repository
+   * (`''` for the root), undefined when relizy writes none
+   */
+  changelogDir?: string
 }
 
 function addCommits(commitsByHash: Map<string, GitCommit>, commits: GitCommit[]) {
@@ -472,6 +502,25 @@ function collectRelease({ config, options, bumpResult, dryRun }: {
 }
 
 /**
+ * Directory of the `CHANGELOG.md` of a version, relative to the root of the
+ * repository: the package directory in `independent` mode, the root otherwise
+ * (unless `changelog.rootChangelog` is off in a monorepo)
+ */
+function getChangelogDir({ config, line, released }: { config: ResolvedRelizyConfig, line: ReleaseLine, released: BumpResultTruthy }): string | undefined {
+  if (config.release.changelog === false) {
+    return undefined
+  }
+
+  if (line.group.versionMode === 'independent') {
+    const pkg = released.bumpedPackages.find(({ name }) => name === line.name)
+
+    return pkg?.path ? relative(config.cwd, pkg.path).split('\\').join('/') : undefined
+  }
+
+  return config.monorepo && config.changelog?.rootChangelog === false ? undefined : ''
+}
+
+/**
  * What the post announces, with the config without version groups, or with
  * the version groups that bumped and are not left out of the posts
  * (`release.social: false`).
@@ -481,7 +530,7 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
   options: Partial<SocialOptions>
   dryRun: boolean
 }): Promise<{ overview: ReleaseOverview, versions: AnnouncedVersion[], commits: GitCommit[], rootTag?: string }> {
-  const collected: { name?: string, release: CollectedRelease }[] = []
+  const collected: { name?: string, release: CollectedRelease, config: ResolvedRelizyConfig }[] = []
 
   const groups: GroupBumpResult[] = []
   const targets = getReleaseTargets({
@@ -494,7 +543,7 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
 
   for (const { group, config: targetConfig, bumpResult: targetBumpResult } of targets) {
     const release = await collectRelease({ config: targetConfig, options, bumpResult: targetBumpResult, dryRun })
-    collected.push({ name: group?.name, release })
+    collected.push({ name: group?.name, release, config: targetConfig })
 
     if (group) {
       groups.push({ ...release.released, name: group.name, title: getVersionGroupTitle(group), versionMode: group.versionMode })
@@ -514,10 +563,15 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
   }
 
   const versions = getReleaseLines(overview).map((line) => {
-    const release = collected.find(({ name }) => name === line.group.name)?.release
-    const changelog = release?.changelogs.get(line.group.versionMode === 'independent' ? line.name : ROOT_VERSION)
+    const target = collected.find(({ name }) => name === line.group.name)
+    const changelog = target?.release.changelogs.get(line.group.versionMode === 'independent' ? line.name : ROOT_VERSION)
 
-    return { line, minified: changelog?.minified.trim() ?? '', rich: changelog?.rich.trim() ?? '' }
+    return {
+      line,
+      minified: changelog?.minified.trim() ?? '',
+      rich: changelog?.rich.trim() ?? '',
+      changelogDir: target && getChangelogDir({ config: target.config, line, released: target.release.released }),
+    }
   })
 
   return {
@@ -732,6 +786,153 @@ async function getSlackChangelog({ config, versions, overview, hasGroups, dryRun
   return getSlackSections({ overview, versions, changelogs, hasGroups })
 }
 
+/** Budget of the changelog of a version in a Teams card */
+const TEAMS_CHANGELOG_MAX_LENGTH = 1500
+
+/**
+ * The changelog of each version of the Teams cards with `changelog: 'summary'`:
+ * the titles of its commits, or rewritten by the AI in a single call
+ */
+async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
+  config: ResolvedRelizyConfig
+  versions: AnnouncedVersion[]
+  hasGroups: boolean
+  dryRun: boolean
+}): Promise<Map<AnnouncedVersion, string>> {
+  if (config.social.teams.changelog !== 'summary') {
+    return new Map()
+  }
+
+  const raw = new Map(versions.map(version => [version, version.minified]))
+
+  if (!isAISocialEnabled(config, 'teams') || !versions.some(version => version.minified.trim())) {
+    return raw
+  }
+
+  if (versions.length === 1) {
+    const [version] = versions
+
+    return new Map([[version!, await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: version!.minified, platform: 'teams', maxLength: TEAMS_CHANGELOG_MAX_LENGTH, context: toAIContext(version!), dryRun })]])
+  }
+
+  const rewritten = await generateAISocialReleases({
+    config,
+    platform: 'teams',
+    maxLength: TEAMS_CHANGELOG_MAX_LENGTH,
+    dryRun,
+    releases: versions.map((version, index) => ({ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich })),
+  })
+
+  return new Map(versions.map((version, index) => [version, rewritten.get(String(index + 1)) ?? version.minified]))
+}
+
+/**
+ * The name of a version on Teams: the package name, the project name (the
+ * title of its group with version groups) for the root version
+ */
+function getTeamsVersionName(line: ReleaseLine, hasGroups: boolean): string {
+  return line.group.versionMode !== 'independent' && hasGroups ? line.group.title : line.name
+}
+
+/**
+ * The Teams cards of a release: one per version announced, or one for the
+ * release with `cards: 'release'`
+ */
+async function getTeamsCards({ config, versions, overview, rootTag, hasGroups, dryRun }: {
+  config: ResolvedRelizyConfig
+  versions: AnnouncedVersion[]
+  overview: ReleaseOverview
+  rootTag?: string
+  hasGroups: boolean
+  dryRun: boolean
+}): Promise<TeamsCard[]> {
+  const teamsConfig = config.social.teams
+  const byLine = new Map(versions.map(version => [version.line, version]))
+  const candidates: TeamsVersion[] = versions.map(version => ({
+    line: version.line,
+    name: getTeamsVersionName(version.line, hasGroups),
+    changelogDir: version.changelogDir,
+    changelog: '',
+  }))
+  const announced = resolveTeamsAnnouncements(teamsConfig, candidates)
+  const changelogs = await getTeamsChangelogs({ config, versions: announced.map(({ version }) => byLine.get(version.line)!), hasGroups, dryRun })
+
+  const sections = announced.map(({ version, content }) => {
+    // The root version is linked to the tag resolved for the post (`--to`)
+    const tag = version.line.group.versionMode !== 'independent' && rootTag ? rootTag : version.line.tag
+    const withChangelog = { version: { ...version, changelog: changelogs.get(byLine.get(version.line)!) ?? '' }, content }
+    const variables = getTeamsVariables({ config, version: withChangelog.version, content, projectName: overview.projectName, releaseUrl: getReleaseUrl(config, tag) })
+
+    return getTeamsCardSection({ announced: withChangelog, variables })
+  })
+
+  if (sections.length === 0) {
+    return []
+  }
+
+  return teamsConfig.cards === 'release'
+    ? [{ sections, title: getReleaseTitle(overview) }]
+    : sections.map(section => ({ sections: [section] }))
+}
+
+async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups, prerelease, dryRun, hookContext }: {
+  config: ResolvedRelizyConfig
+  versions: AnnouncedVersion[]
+  overview: ReleaseOverview
+  rootTag?: string
+  hasGroups: boolean
+  /**
+   * True when every version of the release is a prerelease
+   */
+  prerelease: boolean
+  dryRun: boolean
+  hookContext?: HookContext
+}): Promise<SocialNetworkResponse<{ posted: number }>> {
+  const teamsConfig = config.social?.teams
+  if (!teamsConfig?.enabled) {
+    logger.debug('Teams posting is disabled in configuration')
+    return { success: true, response: undefined }
+  }
+
+  const webhookUrl = getTeamsWebhookUrl({ socialWebhookUrl: teamsConfig.webhookUrl })
+  if (!webhookUrl) {
+    logger.warn('The URL of the Teams workflow is not configured. Set RELIZY_TEAMS_WEBHOOK_URL (or RELIZY_TEAMS_WEBHOOK_URL_B64) or social.teams.webhookUrl.')
+    return { success: false, error: 'Teams webhook URL not found' }
+  }
+
+  if (prerelease) {
+    logger.info('Skipping the Teams cards of the prereleases (social.teams.onlyStable is enabled)')
+    return { success: true, response: undefined }
+  }
+
+  try {
+    const cards = await getTeamsCards({ config, versions, overview, rootTag, hasGroups, dryRun })
+
+    if (cards.length === 0) {
+      logger.info('No version to announce on Teams (social.teams.announcements, social.teams.exclude)')
+      return { success: true, response: undefined }
+    }
+
+    reportProgress('Posting on Teams')
+    await executeHook('before:teams', config, dryRun, hookContext)
+
+    try {
+      const response = await postReleaseToTeams({ cards, webhookUrl, badge: teamsConfig.badge, locale: teamsConfig.locale, dryRun })
+      await executeHook('success:teams', config, dryRun, hookContext)
+
+      return { success: true, response }
+    }
+    catch (error) {
+      await executeHook('error:teams', config, dryRun, hookContext)
+      throw error
+    }
+  }
+  catch (error) {
+    logger.error('Error posting to Teams:', error)
+    return { success: false, error: `Error posting to Teams: ${getErrorMessage(error)}` }
+  }
+}
+
 function toSlackPackages(overview: ReleaseOverview): PackageBumpEntry[] {
   return overview.groups.flatMap(group => group.packages).map(pkg => ({
     name: pkg.name,
@@ -837,9 +1038,9 @@ async function postRelease({ config, options, dryRun }: {
   // Safety check
   await socialSafetyCheck({ config })
 
-  if (!config.release.social && !config.social?.twitter?.enabled && !config.social?.slack?.enabled) {
+  if (!config.release.social && !isAnySocialPlatformEnabled(config)) {
     logger.warn('Social media posting is disabled in configuration.')
-    logger.info('Enable it with release.social: true or social.twitter.enabled: true or social.slack.enabled: true')
+    logger.info('Enable it with release.social: true and social.twitter.enabled, social.slack.enabled or social.teams.enabled')
     return { results: [], hasErrors: false }
   }
 
@@ -859,6 +1060,7 @@ async function postRelease({ config, options, dryRun }: {
 
   const twitterPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: !!config.social.twitter.onlyStable })
   const slackPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.slack.onlyStable ?? true })
+  const teamsPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.teams?.onlyStable ?? true })
 
   const twitterResponse = await handleTwitterPost({
     config,
@@ -884,10 +1086,22 @@ async function postRelease({ config, options, dryRun }: {
     hookContext: getPostHookContext(slackPost.overview),
   })
 
+  const teamsResponse = await handleTeamsPost({
+    config,
+    versions: teamsPost.versions,
+    overview: teamsPost.overview,
+    rootTag,
+    hasGroups,
+    prerelease: teamsPost.prerelease,
+    dryRun,
+    hookContext: getPostHookContext(teamsPost.overview),
+  })
+
   // The results of the enabled platforms
   const results: SocialNetworkResult[] = ([
     ['twitter', config.social?.twitter?.enabled, twitterResponse],
     ['slack', config.social?.slack?.enabled, slackResponse],
+    ['teams', config.social?.teams?.enabled, teamsResponse],
   ] as const)
     .filter(([, enabled]) => enabled)
     .map(([platform, , response]) => toNetworkResult(platform, response))

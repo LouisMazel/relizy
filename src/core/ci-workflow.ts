@@ -34,6 +34,7 @@ export interface WorkflowOptions {
   prComment: boolean
   twitter: boolean
   slack: boolean
+  teams: boolean
   ai: boolean
   /** Header of the release commit, to skip it on GitLab: `chore(release): ` */
   releaseCommitPrefix: string
@@ -97,6 +98,7 @@ export function getWorkflowOptions({ detection, answers, trigger, commitMessage 
     prComment: detection.provider === 'github' || detection.provider === 'gitlab',
     twitter: answers.twitter,
     slack: answers.slack,
+    teams: answers.teams,
     ai: answers.ai.length > 0,
     releaseCommitPrefix: getReleaseCommitPrefix(commitMessage),
   }
@@ -130,6 +132,8 @@ function getSecrets(options: WorkflowOptions): [variable: string, secret: string
       ? (['API_KEY', 'API_KEY_SECRET', 'ACCESS_TOKEN', 'ACCESS_TOKEN_SECRET'].map(name => [`RELIZY_TWITTER_${name}`, `TWITTER_${name}`]) as [string, string][])
       : []),
     ...(options.slack ? [['RELIZY_SLACK_TOKEN', 'SLACK_TOKEN'] as [string, string]] : []),
+    // A masked GitLab variable refuses the characters of the URL: its base64
+    ...(options.teams ? [(options.provider === 'gitlab' ? ['RELIZY_TEAMS_WEBHOOK_URL_B64', 'TEAMS_WEBHOOK_URL_B64'] : ['RELIZY_TEAMS_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL']) as [string, string]] : []),
     ...(options.ai ? [['RELIZY_CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'] as [string, string]] : []),
   ]
 }

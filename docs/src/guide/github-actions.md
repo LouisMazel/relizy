@@ -80,6 +80,7 @@ Create the secrets in Settings > Secrets and variables > Actions. GitHub gives `
 | `NPM_TOKEN`                                                                                        | `RELIZY_NPM_TOKEN`                                         | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
 | `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | `RELIZY_TWITTER_API_KEY`... (same names, `RELIZY_` prefix) | [Twitter posts](./social-media.md)                                       |
 | `SLACK_TOKEN`                                                                                      | `RELIZY_SLACK_TOKEN`                                       | [Slack posts](./social-media.md)                                         |
+| `TEAMS_WEBHOOK_URL`                                                                                | `RELIZY_TEAMS_WEBHOOK_URL`                                 | [Teams cards](./social-media.md#microsoft-teams)                         |
 | `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN`                           | [AI rewrites](./ai-changelog.md)                                         |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `registry-url` nor `NODE_AUTH_TOKEN` needed.

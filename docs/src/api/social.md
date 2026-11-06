@@ -1,9 +1,9 @@
 ---
 title: social()
-description: Post the release on Twitter (X) and Slack from code, and read the result of each platform.
+description: Post the release on Twitter (X), Slack and Microsoft Teams from code, and read the result of each platform.
 keywords: relizy social api, social, twitter api, slack api, SocialOptions, SocialResult, release announcements api
 category: API Reference
-tags: [api, social, twitter, slack, typescript]
+tags: [api, social, twitter, slack, teams, typescript]
 ---
 
 # {{ $frontmatter.title }}

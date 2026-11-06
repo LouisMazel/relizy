@@ -71,6 +71,7 @@ Add them in Settings > CI/CD > Variables, masked. GitLab passes them to the job 
 | `NPM_TOKEN`                                                                                        | Publishing to npm, without [trusted publishing](./trusted-publishing.md) |
 | `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN`, `TWITTER_ACCESS_TOKEN_SECRET` | [Twitter posts](./social-media.md)                                       |
 | `SLACK_TOKEN`                                                                                      | [Slack posts](./social-media.md)                                         |
+| `TEAMS_WEBHOOK_URL_B64` (the URL in base64: a masked variable refuses its characters)              | [Teams cards](./social-media.md#microsoft-teams)                         |
 | `CLAUDE_CODE_OAUTH_TOKEN`                                                                          | [AI rewrites](./ai-changelog.md)                                         |
 
 All the variables and their aliases: [Tokens](./../config/overview.md#tokens). Relizy writes the npm token to a temporary `.npmrc` itself: no `.npmrc` to write in the job.

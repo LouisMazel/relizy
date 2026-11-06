@@ -11,6 +11,7 @@ const options: WorkflowOptions = {
   prComment: false,
   twitter: false,
   slack: false,
+  teams: false,
   ai: false,
   releaseCommitPrefix: 'chore(release): ',
 }
@@ -87,6 +88,13 @@ describe('Given the release job of GitLab CI', () => {
 
   it('Then lists the CI/CD variables to create, with the token able to push', () => {
     expect(getWorkflowSecrets({ ...options, provider: 'gitlab', publish: true, slack: true })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
+  })
+
+  it('Then asks the URL of the Teams workflow in base64, as a masked variable refuses its characters', () => {
+    expect(getWorkflowSecrets({ ...options, provider: 'gitlab', teams: true })).toEqual(['GITLAB_TOKEN', 'TEAMS_WEBHOOK_URL_B64'])
+    expect(getWorkflowSecrets({ ...options, teams: true })).toEqual(['TEAMS_WEBHOOK_URL'])
+    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+    expect(getWorkflowFile({ ...options, teams: true }, '/nonexistent').content).toContain('RELIZY_TEAMS_WEBHOOK_URL: ${{ secrets.TEAMS_WEBHOOK_URL }}')
   })
 })
 

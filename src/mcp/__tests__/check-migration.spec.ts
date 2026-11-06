@@ -112,6 +112,48 @@ describe('Given check_migration on a relizy 1 project', () => {
   })
 })
 
+describe('Given check_migration on a project posting its releases to Teams', () => {
+  const NOTIFY_SCRIPT = `const url = Buffer.from(process.env.TEAMS_WEBHOOK_URL_B64!, 'base64').toString()
+await fetch(url, {
+  method: 'POST',
+  body: JSON.stringify({ type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive', content: card }] }),
+})
+`
+  const files = {
+    'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+    '.gitlab-ci.yml': 'release:\n  variables:\n    TEAMS_WEBHOOK_URL_B64: $TEAMS_WEBHOOK_URL_B64\n  script:\n    - node .gitlab/scripts/notify-teams.ts\n',
+    '.gitlab/scripts/notify-teams.ts': NOTIFY_SCRIPT,
+  }
+
+  it('Then proposes social.teams instead of the script, with its lines', async () => {
+    const cwd = writeProject({ ...files, 'relizy.config.mjs': `export default {}\n` })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**A script posts the releases to Teams** (`.gitlab/scripts/notify-teams.ts:1`, `.gitlab/scripts/notify-teams.ts:4`)')
+    expect(text).toContain('sections: ["Microsoft Teams"]')
+    expect(text).not.toContain('.gitlab-ci.yml:')
+  })
+
+  it('Then asks to remove the script once social.teams is enabled', async () => {
+    const cwd = writeProject({ ...files, 'relizy.config.mjs': `export default { social: { teams: { enabled: true } } }\n` })
+
+    expect(await checkMigration(createTestContext(cwd), {})).toContain('**A script posts to Teams while `social.teams` is enabled**')
+  })
+
+  it('Then asks to replace a retired Office 365 connector', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+      'relizy.config.mjs': `export default {\n  hooks: { 'success:release': 'curl -X POST https://acme.webhook.office.com/webhookb2/abc' },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('## To change (1)')
+    expect(text).toContain('**An Office 365 connector posts to Teams** (`relizy.config.mjs:2`)')
+  })
+})
+
 describe('Given check_migration on a project already on relizy 2', () => {
   it('Then finds nothing to change', async () => {
     const cwd = writeProject({

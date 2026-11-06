@@ -1,9 +1,9 @@
 ---
 title: social
-description: Post the current release on Twitter (X) and Slack from the command line.
-keywords: relizy social, social cli, twitter post, slack post, release announcement, slack-format, ai social posts
+description: Post the current release on Twitter (X), Slack and Microsoft Teams from the command line.
+keywords: relizy social, social cli, twitter post, slack post, teams card, release announcement, slack-format, ai social posts
 category: CLI Reference
-tags: [cli, social, twitter, slack]
+tags: [cli, social, twitter, slack, teams]
 ---
 
 # {{ $frontmatter.title }}
@@ -64,7 +64,7 @@ relizy social --dry-run --ai-preview
 
 ## Credentials
 
-Twitter reads `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN` and `TWITTER_ACCESS_TOKEN_SECRET`; Slack reads `SLACK_WEBHOOK_URL`, or `SLACK_TOKEN` with `social.slack.channel`. Each one also has a `RELIZY_` variant: see [Tokens](./../config/overview.md#tokens).
+Twitter reads `TWITTER_API_KEY`, `TWITTER_API_KEY_SECRET`, `TWITTER_ACCESS_TOKEN` and `TWITTER_ACCESS_TOKEN_SECRET`; Slack reads `SLACK_WEBHOOK_URL`, or `SLACK_TOKEN` with `social.slack.channel`; Teams reads `TEAMS_WEBHOOK_URL`, or its base64 in `TEAMS_WEBHOOK_URL_B64`. Each one also has a `RELIZY_` variant: see [Tokens](./../config/overview.md#tokens).
 
 ## See Also
 

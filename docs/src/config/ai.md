@@ -115,9 +115,9 @@ When a call fails (network, quota, credentials):
 
 ## extraGuidelines
 
-- **Type:** `string | { global?: string, providerRelease?: string, twitter?: string, slack?: string }`
+- **Type:** `string | { global?: string, providerRelease?: string, twitter?: string, slack?: string, teams?: string }`
 
-Directives appended to the built-in prompts. A string applies to every target. With an object, `global` applies to every target, then `providerRelease`, `twitter` or `slack` to its target:
+Directives appended to the built-in prompts. A string applies to every target. With an object, `global` applies to every target, then `providerRelease`, `twitter`, `slack` or `teams` to its target:
 
 ```ts
 export default defineConfig({
@@ -133,7 +133,7 @@ export default defineConfig({
 
 ## systemPromptOverrides
 
-- **Type:** `{ providerRelease?: string, twitter?: string, slack?: string }`
+- **Type:** `{ providerRelease?: string, twitter?: string, slack?: string, teams?: string }`
 
 Replaces the whole built-in prompt of a target: the base prompt, the prompt of the platform and the `extraGuidelines` are not sent for it. Prefer `extraGuidelines` to add rules.
 
@@ -192,6 +192,13 @@ Rewrite the changelog of the tweet as plain text, within its length budget. Only
 - **Default:** `{ enabled: false }`
 
 Rewrite the changelog of the Slack message. The model writes standard markdown (never Slack mrkdwn), that Relizy converts with the [`changelogFormat`](./social.md#slack-changelogformat) of the message: 3 to 8 bullets in `summary` format, every change in `full` format. Only when `social.slack.enabled` is also `true`.
+
+### teams {#social-teams}
+
+- **Type:** `{ enabled?: boolean }`
+- **Default:** `{ enabled: false }`
+
+Rewrite the changelog of the Teams cards as 3 to 8 short bullets (bold, italic and links only, as a card renders them). Only when `social.teams.enabled` is also `true` and [`social.teams.changelog`](./social.md#teams-changelog) is `'summary'`.
 
 One call per enabled platform and per release, even when the post announces several versions.
 
