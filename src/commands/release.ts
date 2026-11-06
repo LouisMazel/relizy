@@ -21,7 +21,7 @@ import {
 } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
-import { ensurePushAccess, prepareCiRepository } from '../core/ci'
+import { ensurePushAccess, getPullRequestPushWarning, isPullRequestRun, prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
 import { getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
@@ -117,14 +117,33 @@ async function guardBeforePublish({ config, dryRun, guard }: { config: ResolvedR
   }
 }
 
+/**
+ * Check that the release can be pushed. A dry run of a pull request only
+ * warns: its token is read-only, while the release runs where it can push
+ */
+async function checkPushAccess({ config, dryRun }: { config: ResolvedRelizyConfig, dryRun: boolean }) {
+  try {
+    await ensurePushAccess({ config })
+  }
+  catch (error) {
+    if (!dryRun || !isPullRequestRun()) {
+      throw error
+    }
+
+    logger.warn(getPullRequestPushWarning())
+  }
+}
+
 async function releaseSafetyCheck({
   config,
   provider,
   ai,
+  dryRun,
 }: {
   config: ResolvedRelizyConfig
   provider?: GitProvider
   ai?: boolean
+  dryRun: boolean
 }) {
   if (!config.safetyCheck) {
     return
@@ -140,7 +159,7 @@ async function releaseSafetyCheck({
       ...(config.release.publish ? [publishSafetyCheck({ config })] : []),
       // The release only posts with release.social (disabled by --no-social and --canary)
       ...(config.release.social ? [socialSafetyCheck({ config })] : []),
-      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd }), ensurePushAccess({ config })] : []),
+      ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd }), checkPushAccess({ config, dryRun })] : []),
     ])
 
     logger.success('Safety checks passed')
@@ -207,7 +226,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       await ui.step({
         running: 'Checking the release',
         done: () => 'Ready to release (tokens, registry, branch)',
-        run: () => releaseSafetyCheck({ config, provider: options.provider, ai: options.ai }),
+        run: () => releaseSafetyCheck({ config, provider: options.provider, ai: options.ai, dryRun }),
       })
     }
     else {

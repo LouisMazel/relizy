@@ -240,14 +240,57 @@ function canPush({ remote, branch, cwd, env }: { remote: string, branch: string,
   return tryGit(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], cwd, env) !== undefined
 }
 
-function getPushFix(env: Env): string {
+/**
+ * The error of a release that cannot be pushed, with its fix for where it runs
+ */
+function getPushError({ remote, remoteUrl, env }: { remote: string, remoteUrl?: string, env: Env }): string {
   if (env.GITLAB_CI === 'true') {
-    return 'Set a GITLAB_TOKEN variable (a project access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.'
+    return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n`
+      + 'Fix: add a GITLAB_TOKEN CI/CD variable (a project access token with the "write_repository" and "api" scopes), '
+      + 'or allow the job token to push in Settings > CI/CD > Job token permissions.'
   }
   if (env.GITHUB_ACTIONS === 'true') {
-    return 'Give the workflow "permissions: contents: write", or check out the repository with a token allowed to push (the "token" input of actions/checkout).'
+    return `relizy cannot push the release commit and tags to "${remote}" from GitHub Actions: the token of the job cannot push.\n`
+      + 'Fix: give the release job write access in your workflow:\n\n'
+      + '  permissions:\n'
+      + '    contents: write\n\n'
+      + 'or check out the repository with a token allowed to push (actions/checkout, input "token").'
   }
-  return 'Give the CI job credentials allowed to push to the repository.'
+
+  const ci = getCIName()
+  if (ci) {
+    return `relizy cannot push the release commit and tags to "${remote}" from ${ci === 'Unknown CI' ? 'the CI' : ci}: the credentials of the job cannot push.\n`
+      + 'Fix: give the release job credentials allowed to push to this repository (a deploy key or a token with write access).'
+  }
+
+  // Without the credentials an http URL may hold
+  const url = remoteUrl ? ` (${remoteUrl.replace(/\/\/[^/@]+@/, '//')})` : ''
+  return `relizy cannot push the release commit and tags to "${remote}"${url}: git push --dry-run was refused.\n`
+    + 'Fix: check that your git credentials can push to this repository (SSH key, or a token allowed to write), '
+    + 'or release without pushing with --no-push.'
+}
+
+/**
+ * A run of a pull request (GitHub) or a merge request (GitLab): its token is
+ * read-only, the release never runs there
+ */
+export function isPullRequestRun(env: Env = process.env): boolean {
+  return env.GITHUB_EVENT_NAME === 'pull_request'
+    || env.GITHUB_EVENT_NAME === 'pull_request_target'
+    || env.CI_PIPELINE_SOURCE === 'merge_request_event'
+}
+
+/**
+ * The warning of a dry run of a pull request, whose token cannot push
+ */
+export function getPullRequestPushWarning(env: Env = process.env): string {
+  if (env.GITLAB_CI === 'true') {
+    return 'The push is not checked on a merge request: its job token cannot push, the release never runs here.\n'
+      + 'The release job checks it (it needs a GITLAB_TOKEN CI/CD variable allowed to push).'
+  }
+
+  return 'The push is not checked on a pull request: its token is read-only, the release never runs here.\n'
+    + 'The release job checks it (it needs "permissions: contents: write").'
 }
 
 const pushAccess = new Map<string, Promise<void>>()
@@ -295,9 +338,7 @@ export function ensurePushAccess({ config, env = process.env }: { config: Resolv
       }
     }
 
-    const ci = getCIName()
-    const where = ci && ci !== 'Unknown CI' ? ` from ${ci}` : ''
-    throw new Error(`The release commit and the tags cannot be pushed to "${remote}"${where}.\n${getPushFix(env)}`)
+    throw new Error(getPushError({ remote, remoteUrl, env }))
   })
 
   pushAccess.set(cwd, check)

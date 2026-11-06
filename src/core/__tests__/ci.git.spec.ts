@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
-import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, RELIZY_BOT_IDENTITY, resetCiState } from '../ci'
+import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY, resetCiState } from '../ci'
 
 // The setup file mocks this module and execPromise: these tests run the real git commands on temporary repositories
 vi.unmock('../ci')
@@ -203,7 +203,7 @@ describe('Given the push of the release', () => {
     const env: NodeJS.ProcessEnv = { ...process.env }
     const config = createMockConfig({ cwd, tokens: { gitlab: 'project-token' } })
 
-    await expect(ensurePushAccess({ config, env })).rejects.toThrow('The release commit and the tags cannot be pushed to "origin" from GitLab CI.\nSet a GITLAB_TOKEN variable')
+    await expect(ensurePushAccess({ config, env })).rejects.toThrow('relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.\nFix: add a GITLAB_TOKEN CI/CD variable')
 
     expect(env.GIT_CONFIG_COUNT).toBe('1')
     expect(env.GIT_CONFIG_KEY_0).toBe('url.http://oauth2:project-token@127.0.0.1:9/acme/lib.git.pushInsteadOf')
@@ -216,7 +216,44 @@ describe('Given the push of the release', () => {
     inCI({ GITLAB_CI: 'true', CI_JOB_TOKEN: 'job-token', CI_SERVER_URL: 'http://127.0.0.1:9', CI_PROJECT_PATH: 'acme/lib' })
     const env: NodeJS.ProcessEnv = { ...process.env }
 
-    await expect(ensurePushAccess({ config: createMockConfig({ cwd, tokens: { gitlab: 'job-token' } }), env })).rejects.toThrow('cannot be pushed')
+    await expect(ensurePushAccess({ config: createMockConfig({ cwd, tokens: { gitlab: 'job-token' } }), env })).rejects.toThrow('cannot push')
     expect(env.GIT_CONFIG_COUNT).toBeUndefined()
+  })
+
+  it('When outside a CI, Then fails with the remote, without its credentials, and the fix', async () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'remote', 'set-url', 'origin', 'http://dev:secret@127.0.0.1:9/acme/lib.git')
+
+    const error = await ensurePushAccess({ config: createMockConfig({ cwd }) }).catch((error: Error) => error)
+
+    expect(error).toEqual(new Error(
+      'relizy cannot push the release commit and tags to "origin" (http://127.0.0.1:9/acme/lib.git): git push --dry-run was refused.\n'
+      + 'Fix: check that your git credentials can push to this repository (SSH key, or a token allowed to write), or release without pushing with --no-push.',
+    ))
+  })
+
+  it('When on GitHub Actions, Then fails with the permissions to give to the workflow', async () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+    inCI({ GITHUB_ACTIONS: 'true' })
+
+    await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).rejects.toThrow(
+      'from GitHub Actions: the token of the job cannot push.\nFix: give the release job write access in your workflow:\n\n  permissions:\n    contents: write\n\n',
+    )
+  })
+})
+
+describe('Given a run of a pull request', () => {
+  it('Then is detected on GitHub Actions and GitLab CI', () => {
+    expect(isPullRequestRun({ GITHUB_EVENT_NAME: 'pull_request' })).toBe(true)
+    expect(isPullRequestRun({ GITHUB_EVENT_NAME: 'pull_request_target' })).toBe(true)
+    expect(isPullRequestRun({ CI_PIPELINE_SOURCE: 'merge_request_event' })).toBe(true)
+    expect(isPullRequestRun({ GITHUB_EVENT_NAME: 'push' })).toBe(false)
+    expect(isPullRequestRun({ CI_PIPELINE_SOURCE: 'push' })).toBe(false)
+  })
+
+  it('Then warns that the release job checks the push, with what it needs', () => {
+    expect(getPullRequestPushWarning({ GITHUB_ACTIONS: 'true' })).toContain('"permissions: contents: write"')
+    expect(getPullRequestPushWarning({ GITLAB_CI: 'true' })).toContain('GITLAB_TOKEN')
   })
 })

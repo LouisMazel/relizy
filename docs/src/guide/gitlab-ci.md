@@ -77,8 +77,8 @@ A protected variable is only given to the pipelines of protected branches and ta
 GitLab checks out the commit with the job token, which cannot push by default. Before publishing, Relizy checks the push, and pushes through `GITLAB_TOKEN` when the job token cannot. Without a token able to push, the release stops before publishing:
 
 ```text
-The release commit and the tags cannot be pushed to "origin" from GitLab CI.
-Set a GITLAB_TOKEN variable (a project access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
+relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.
+Fix: add a GITLAB_TOKEN CI/CD variable (a project access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
 ```
 
 Instead of pushing with `GITLAB_TOKEN`, you can allow the job token to push (Settings > CI/CD > Job token permissions, Allow Git push requests to the repository): its push starts no pipeline. A push with `GITLAB_TOKEN` starts the pipelines of the release commit and of the tags, which the rules of the `release` job skip.

@@ -590,12 +590,48 @@ describe('Given release command', () => {
     })
 
     it('Then fails before publishing when the release cannot be pushed', async () => {
-      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('The release commit and the tags cannot be pushed to "origin" from GitLab CI.'))
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.'))
 
-      await expect(release({})).rejects.toThrow('cannot be pushed')
+      await expect(release({})).rejects.toThrow('cannot push')
 
       expect(bump).not.toHaveBeenCalled()
       expect(publish).not.toHaveBeenCalled()
+    })
+
+    it('Then fails in dry-run too when the release cannot be pushed', async () => {
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin": git push --dry-run was refused.'))
+
+      await expect(release({ dryRun: true })).rejects.toThrow('cannot push')
+
+      expect(bump).not.toHaveBeenCalled()
+    })
+
+    it('Then only warns in the dry run of a pull request, whose token is read-only', async () => {
+      const { logger } = await import('@maz-ui/node')
+      vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitHub Actions.'))
+
+      try {
+        await release({ dryRun: true })
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('The push is not checked on a pull request'))
+      expect(bump).toHaveBeenCalled()
+    })
+
+    it('Then fails a release of a pull request that cannot be pushed', async () => {
+      vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitHub Actions.'))
+
+      try {
+        await expect(release({})).rejects.toThrow('cannot push')
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
     })
 
     it('Then checks that the release tag is still available', async () => {

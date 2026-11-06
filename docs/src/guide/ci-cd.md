@@ -32,7 +32,7 @@ On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the insta
 - **Detached HEAD**: GitLab CI and others check out the commit. Relizy checks out the branch of the job, tracking the remote one, so the release commit can be pushed.
 - **Git identity**: without `user.name` and `user.email` in the git config of the job, nor `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, the release commit and the tags are made by the person who started the release, with the noreply email their provider links to their profile (`12446546+octocat@users.noreply.github.com`, `42-jdoe@users.noreply.gitlab.com`). A bot, an access token, or a CI that does not tell, gets `relizy[bot] <noreply@relizy.dev>`. Set the git config or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables to choose another identity.
 - **npm token**: Relizy writes it to a temporary `.npmrc` of the project (restored right after) for npm, pnpm and bun, and checks it (`whoami`, npm and pnpm) before the bump. Nothing to write by hand.
-- **Push access**: before publishing anything, Relizy checks that the release commit and the tags can be pushed (`git push --dry-run`), as a push failing after the publish would leave versions on the registry without their commit nor their tags. On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. The rules of protected branches are only checked by the real push: see [Protected Branches](#protected-branches).
+- **Push access**: before publishing anything, Relizy checks that the release commit and the tags can be pushed (`git push --dry-run`), as a push failing after the publish would leave versions on the registry without their commit nor their tags. A dry run checks it too, except on a pull request, see [The Push Is Refused](#the-push-is-refused). On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. The rules of protected branches are only checked by the real push: see [Protected Branches](#protected-branches).
 - **Concurrent pushes**: commits pushed to the branch during the release are handled, see [Branch Safety](./../cli/release.md#branch-safety).
 
 ## Tokens
@@ -96,12 +96,19 @@ For the announcements, prefer [social posts](./social-media.md) and the [PR comm
 
 ### The Push Is Refused
 
-The release stops before publishing:
+The release stops before publishing, `--dry-run` too:
 
 ```text
-The release commit and the tags cannot be pushed to "origin" from GitHub Actions.
-Give the workflow "permissions: contents: write", or check out the repository with a token allowed to push (the "token" input of actions/checkout).
+relizy cannot push the release commit and tags to "origin" from GitHub Actions: the token of the job cannot push.
+Fix: give the release job write access in your workflow:
+
+  permissions:
+    contents: write
+
+or check out the repository with a token allowed to push (actions/checkout, input "token").
 ```
+
+The dry run of a pull request (`pull_request` on GitHub, a merge request pipeline on GitLab) only warns: its token is read-only, and the release never runs there. The release job checks the push.
 
 On GitLab, the fix is a `GITLAB_TOKEN` variable (a project access token with the `write_repository` and `api` scopes), or allowing the job token to push: see [Push Access](./gitlab-ci.md#push-access).
 
