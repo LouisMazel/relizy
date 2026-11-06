@@ -165,9 +165,8 @@ async function handleTwitterPost({
       return { success: true, response: undefined }
     }
 
-    await executeHook('before:twitter', config, dryRun, hookContext)
-
     try {
+      await executeHook('before:twitter', config, dryRun, hookContext)
       logger.debug(`Release URL: ${variables.releaseUrl || 'none'}`)
       logger.debug(`Changelog URL: ${variables.changelogUrl || 'none'}`)
       reportProgress('Posting on Twitter')

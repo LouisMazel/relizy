@@ -485,9 +485,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Pushing',
         done: () => 'Pushed the commit and the tags',
         run: async () => {
-          await executeHook('before:push', config, dryRun, hookContext)
-
           try {
+            await executeHook('before:push', config, dryRun, hookContext)
             await pushCommitAndTags({ config, dryRun, logLevel: config.logLevel, cwd: config.cwd, tags: createdTags })
             await executeHook('success:push', config, dryRun, hookContext)
           }

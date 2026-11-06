@@ -423,6 +423,30 @@ describe('Given social command', () => {
       ])
       expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
     })
+
+    it('Then runs the error:twitter hook when the before:twitter hook fails', async () => {
+      const config = createMockConfig({
+        release: { social: true },
+        tokens: {
+          gitlab: undefined,
+          github: undefined,
+          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          slack: undefined,
+        },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: false, onlyStable: true },
+        },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(executeHook).mockImplementation(hook => hook === 'before:twitter' ? Promise.reject(new Error('hook failed')) : Promise.resolve(undefined))
+
+      const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(postReleaseToTwitter).not.toHaveBeenCalled()
+      expect(result.results).toEqual([expect.objectContaining({ platform: 'twitter', success: false, error: expect.stringContaining('hook failed') })])
+      expect(executeHook).toHaveBeenCalledWith('error:twitter', expect.any(Object), false, anyHookContext)
+    })
   })
 
   describe('When in independent mode', () => {

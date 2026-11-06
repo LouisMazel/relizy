@@ -670,6 +670,15 @@ describe('Given release command', () => {
       expect(pushCommitAndTags).toHaveBeenCalledWith(expect.objectContaining({ tags: ['v1.0.1'] }))
     })
 
+    it('Then runs the error:push hook when the before:push hook fails', async () => {
+      vi.mocked(executeHook).mockImplementation(hook => hook === 'before:push' ? Promise.reject(new Error('hook failed')) : Promise.resolve(undefined))
+
+      await expect(release({})).rejects.toThrow('hook failed')
+
+      expect(pushCommitAndTags).not.toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('error:push', expect.any(Object), false, anyHookContext)
+    })
+
     describe('When the branch is behind its remote right before publishing', () => {
       beforeEach(() => {
         vi.mocked(assertBranchUpToDateWithRemote)
