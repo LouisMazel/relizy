@@ -80,8 +80,8 @@ export function getCiGitIdentity(env: Env = process.env): GitIdentity {
 
 /**
  * The branch a CI job runs on, when its HEAD is detached: the head branch of a
- * GitHub pull request (named by its author, quoted in the shell commands),
- * none for the merge request and tag pipelines
+ * GitHub pull request or of a GitLab merge request (named by its author,
+ * quoted in the shell commands), none for the tag pipelines
  */
 export function getCiBranch(env: Env = process.env): string | undefined {
   if (env.GITHUB_ACTIONS === 'true') {
@@ -93,7 +93,8 @@ export function getCiBranch(env: Env = process.env): string | undefined {
     return env.GITHUB_REF_TYPE === 'branch' ? env.GITHUB_REF_NAME : undefined
   }
   if (env.GITLAB_CI === 'true') {
-    return env.CI_COMMIT_BRANCH
+    // A merge request pipeline has no CI_COMMIT_BRANCH; a merged results one checks out its merge commit
+    return env.CI_COMMIT_BRANCH || env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME || undefined
   }
   if (env.TRAVIS === 'true') {
     return env.TRAVIS_PULL_REQUEST === 'false' ? env.TRAVIS_BRANCH : undefined

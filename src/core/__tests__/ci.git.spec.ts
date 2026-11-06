@@ -100,13 +100,14 @@ describe('Given the person who started the release in a CI', () => {
 })
 
 describe('Given the branch of a CI job', () => {
-  it('Then is read from the variables of the CI, none for the pull requests and the tags', () => {
+  it('Then is read from the variables of the CI, the head branch for the pull and merge requests, none for the tags', () => {
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'main' })).toBe('main')
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: 'v1.0.0' })).toBeUndefined()
     // A pull request: its branch, not `<number>/merge`
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: '123/merge', GITHUB_HEAD_REF: 'feat/parser' })).toBe('feat/parser')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'develop' })).toBe('develop')
-    expect(getCiBranch({ GITLAB_CI: 'true', CI_MERGE_REQUEST_IID: '12' })).toBeUndefined()
+    expect(getCiBranch({ GITLAB_CI: 'true', CI_MERGE_REQUEST_IID: '12', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'feat/parser' })).toBe('feat/parser')
+    expect(getCiBranch({ GITLAB_CI: 'true', CI_COMMIT_TAG: 'v1.0.0' })).toBeUndefined()
     expect(getCiBranch({ TF_BUILD: 'True', BUILD_SOURCEBRANCH: 'refs/heads/release' })).toBe('release')
     expect(getCiBranch({ JENKINS_URL: 'https://ci', GIT_BRANCH: 'origin/main' })).toBe('main')
   })
@@ -146,10 +147,32 @@ describe('Given a detached HEAD in a CI job', () => {
     expect(git(cwd, 'rev-parse', '--abbrev-ref', '@{upstream}')).toBe('origin/main')
   })
 
-  it('When the CI does not tell the branch (merge request pipeline), Then leaves it detached', () => {
+  it('When a merge request pipeline, Then checks out the source branch of the merge request, tracking the remote one', () => {
     const cwd = clone(createOrigin())
     git(cwd, 'checkout', '--quiet', '--detach')
-    inCI({ GITLAB_CI: 'true', CI_MERGE_REQUEST_IID: '12' })
+    inCI({ GITLAB_CI: 'true', CI_PIPELINE_SOURCE: 'merge_request_event', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'main' })
+
+    attachCiBranch(cwd)
+
+    expect(git(cwd, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('main')
+    expect(git(cwd, 'rev-parse', '--abbrev-ref', '@{upstream}')).toBe('origin/main')
+  })
+
+  it('When the source branch of the merge request is not on the remote (a fork), Then checks it out without upstream', () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'checkout', '--quiet', '--detach')
+    inCI({ GITLAB_CI: 'true', CI_PIPELINE_SOURCE: 'merge_request_event', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'fork/feat' })
+
+    attachCiBranch(cwd)
+
+    expect(git(cwd, 'rev-parse', '--abbrev-ref', 'HEAD')).toBe('fork/feat')
+    expect(() => git(cwd, 'rev-parse', '--abbrev-ref', '@{upstream}')).toThrow()
+  })
+
+  it('When the CI does not tell the branch (tag pipeline), Then leaves it detached', () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'checkout', '--quiet', '--detach')
+    inCI({ GITLAB_CI: 'true', CI_COMMIT_TAG: 'v1.0.0' })
 
     attachCiBranch(cwd)
 
