@@ -868,23 +868,26 @@ describe('Given loadRelizyConfig function', () => {
   })
 
   describe('When using baseConfig', () => {
-    it('Then merges baseConfig with overrides', async () => {
-      const baseConfig = { bump: { type: 'minor' as const } }
-      vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project' },
-        _configFile: 'relizy.config.ts',
-      } as any)
-      vi.mocked(resolveRepoConfig).mockResolvedValue({
-        provider: 'github',
-        domain: 'github.com',
-        repo: 'user/repo',
-      })
+    it('Then merges the overrides over it, without loading the config file nor the .env file again', async () => {
+      const baseConfig = { ...getDefaultConfig(), bump: { ...getDefaultConfig().bump, type: 'minor' as const } } as any
 
-      await loadRelizyConfig({ baseConfig: baseConfig as any, overrides: { bump: { yes: true } } })
+      const config = await loadRelizyConfig({ baseConfig, overrides: { bump: { yes: true }, logLevel: 'debug' } })
 
-      expect(loadConfig).toHaveBeenCalledWith(expect.objectContaining({
-        overrides: { bump: { type: 'minor', yes: true } },
-      }))
+      expect(loadConfig).not.toHaveBeenCalled()
+      expect(setupDotenv).not.toHaveBeenCalled()
+      expect(config.bump).toEqual(expect.objectContaining({ type: 'minor', yes: true }))
+      expect(getVersionGroupName(config)).toBeUndefined()
+      expect(logger.setLevel).toHaveBeenCalledWith('debug')
+    })
+
+    it('Then leaves the base config untouched, a command can change its own', async () => {
+      const baseConfig = getDefaultConfig() as any
+
+      const config = await loadRelizyConfig({ baseConfig, overrides: { from: 'v1.0.0' } })
+      config.social.slack = { ...config.social.slack, changelogFormat: 'minified' } as any
+
+      expect(baseConfig.from).toBeUndefined()
+      expect(baseConfig.social.slack?.changelogFormat).not.toBe('minified')
     })
   })
 
@@ -1283,16 +1286,13 @@ describe('Given loadRelizyConfig with version groups', () => {
   })
 
   describe('When the base config has version groups', () => {
-    it('Then keeps its groups instead of concatenating them with the ones of the config file', async () => {
-      vi.mocked(loadConfig).mockImplementation(options => Promise.resolve({
-        config: options.merger!(options.overrides, { cwd: '/project', monorepo: { groups } }),
-        _configFile: 'relizy.config.ts',
-      }) as any)
+    it('Then keeps its groups, and the config is not one of a group', async () => {
       const baseConfig = { ...getDefaultConfig(), monorepo: { groups } } as any
 
       const config = await loadRelizyConfig({ baseConfig })
 
       expect(config.monorepo!.groups).toBe(groups)
+      expect(getVersionGroupName(config)).toBeUndefined()
     })
   })
 

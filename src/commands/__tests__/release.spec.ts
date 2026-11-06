@@ -451,7 +451,7 @@ describe('Given release command', () => {
       )
     })
 
-    it('Then forwards privatePackages to config overrides, bump, and changelog', async () => {
+    it('Then gives privatePackages to the config the sub-commands get', async () => {
       const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
       vi.mocked(bump).mockResolvedValue(bumpResult)
 
@@ -464,12 +464,9 @@ describe('Given release command', () => {
           }),
         }),
       )
-      expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ privatePackages: 'release' }),
-      )
-      expect(changelog).toHaveBeenCalledWith(
-        expect.objectContaining({ privatePackages: 'release' }),
-      )
+      const config = await vi.mocked(loadRelizyConfig).mock.results[0]!.value
+      expect(bump).toHaveBeenCalledWith(expect.objectContaining({ config }))
+      expect(changelog).toHaveBeenCalledWith(expect.objectContaining({ config }))
     })
 
     it('Then passes bumpResult to subsequent steps', async () => {

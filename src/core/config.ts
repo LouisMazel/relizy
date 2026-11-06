@@ -315,7 +315,7 @@ function mergeTypes<T extends Record<string, unknown>>(
 export type RelizyConfigOverrides = { [Key in keyof RelizyConfig]?: DeepPartial<RelizyConfig[Key]> }
 
 export interface LoadRelizyConfigOptions {
-  /** Config already resolved, merged under the overrides instead of the defaults */
+  /** Config already resolved (by `loadRelizyConfig()`), merged under the overrides without loading the config file again */
   baseConfig?: ResolvedRelizyConfig
   /** Options applied over the config file */
   overrides?: RelizyConfigOverrides
@@ -326,29 +326,47 @@ export interface LoadRelizyConfigOptions {
   configFile?: string
 }
 
-/**
- * A config derived for a version group (see `resolveVersionGroups`) is already
- * resolved: the overrides are applied to it without loading the config file
- * again, which would bring `monorepo.groups` back into it.
- */
-function applyOverridesToGroupConfig(options?: LoadRelizyConfigOptions): ResolvedRelizyConfig | undefined {
-  const groupName = options?.baseConfig && getVersionGroupName(options.baseConfig)
-
-  if (!options?.baseConfig || !groupName) {
-    return undefined
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false
   }
 
-  const groupConfig = mergeConfig(options.overrides, options.baseConfig) as ResolvedRelizyConfig
-  setupLogger(options.overrides?.logLevel || groupConfig.logLevel)
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
+}
 
-  return markVersionGroupConfig(groupConfig, groupName)
+/**
+ * A copy of the plain objects of a config (the arrays, the functions and the
+ * other values are kept as is), so that a command changing its config does
+ * not change the config it was given
+ */
+function copyPlainObjects<T>(value: T): T {
+  if (!isPlainObject(value)) {
+    return value
+  }
+
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyPlainObjects(entry)])) as T
+}
+
+/**
+ * A base config is already resolved: the overrides are applied to it without
+ * loading the config file and the `.env` file again (a command run by
+ * `release` gets its config). A config derived for a version group (see
+ * `resolveVersionGroups`) stays one, a reload would bring `monorepo.groups`
+ * back into it.
+ */
+function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
+  const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+  setupLogger(overrides?.logLevel || config.logLevel)
+
+  const groupName = getVersionGroupName(baseConfig)
+
+  return groupName ? markVersionGroupConfig(config, groupName) : config
 }
 
 export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
-  const groupConfig = applyOverridesToGroupConfig(options)
-
-  if (groupConfig) {
-    return groupConfig
+  if (options?.baseConfig) {
+    return applyOverridesToBaseConfig(options.baseConfig, options.overrides)
   }
 
   const cwd = options?.overrides?.cwd ?? process.cwd()
@@ -362,15 +380,13 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   // Extract types from defaults to handle them separately
   const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig
 
-  const overridesConfig = mergeConfig(options?.overrides, options?.baseConfig)
-
   const results = await loadConfig<ResolvedConfig>({
     dotenv: true,
     cwd,
     name: configFile,
     packageJson: true,
     defaults: defaultsWithoutTypes as ResolvedConfig,
-    overrides: overridesConfig as ResolvedConfig,
+    overrides: mergeConfig(options?.overrides) as ResolvedConfig,
     merger: mergeConfig,
   })
 

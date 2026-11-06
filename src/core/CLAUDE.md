@@ -6,7 +6,7 @@ Details of `src/core/`, loaded on demand. Overview and conventions: root `CLAUDE
 
 `monorepo.groups` (replaces `versionMode` and `packages`) releases several sets of packages, each with its own version mode, in a single run. Implemented in `src/core/groups.ts`:
 
-- `resolveVersionGroups()` assigns each package to one group (an exact path wins over a glob) and derives a full config per group, where the packages of the other groups are `ignored`. The single-mode code runs unchanged on these derived configs; `loadRelizyConfig()` returns a derived config as is (no reload, which would bring `groups` back)
+- `resolveVersionGroups()` assigns each package to one group (an exact path wins over a glob) and derives a full config per group, where the packages of the other groups are `ignored`. The single-mode code runs unchanged on these derived configs; `loadRelizyConfig()` applies the overrides to a resolved `baseConfig` without reloading it (a reload would bring `groups` back)
 - At most one `unified`/`selective` group: it owns the root version and the repository tags
 - `bump` plans every group (no write), propagates the bumps between groups (`externalBumps` of `getPackages()`) until no group changes, confirms, then writes
 - Steps run once (bump confirmation, publish order, commit, push, canary rollback, social posts, PR comment) or per group (changelog, tags, provider release), from `BumpResultTruthy.groups`; a step run per group iterates `getReleaseTargets()`, which also gives the config without groups

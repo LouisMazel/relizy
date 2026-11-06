@@ -24,8 +24,8 @@ export interface ResolvedVersionGroup {
 
 /**
  * Configs derived for a group by `resolveVersionGroups`, with the name of their group.
- * `loadRelizyConfig` returns them as they are instead of loading the config file
- * again, which would bring `monorepo.groups` back.
+ * `loadRelizyConfig` applies the overrides to them without loading the config
+ * file again, which would bring `monorepo.groups` back, and keeps them marked.
  */
 const groupConfigs = new WeakMap<object, string>()
 

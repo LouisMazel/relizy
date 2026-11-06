@@ -310,15 +310,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       // Already listed before the confirmation
       details: result => getBumpResultDetails(result, config.bump.yes),
       run: () => bump({
-        type: config.bump.type,
-        preid: config.bump.preid,
         dryRun,
         config,
         force,
         configName: options.configName,
         suffix: options.suffix,
         canary: isCanary,
-        privatePackages: options.privatePackages,
         groups: options.groups,
       }),
     })
@@ -368,18 +365,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Writing the changelogs',
         done: () => `${plural(count, 'changelog')} written`,
         run: () => changelog({
-          from: config.from,
-          to: config.to,
           dryRun,
-          formatCmd: config.changelog.formatCmd,
-          rootChangelog: config.changelog.rootChangelog,
           bumpResult,
           config,
-          logLevel: config.logLevel,
           configName: options.configName,
           force,
           suffix: options.suffix,
-          privatePackages: options.privatePackages,
           groups: options.groups,
         }),
       })
@@ -410,10 +401,6 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
           try {
             const response = await publish({
-              registry: config.publish.registry,
-              tag: config.publish.tag,
-              access: config.publish.access,
-              otp: config.publish.otp,
               bumpResult,
               dryRun,
               config,
@@ -516,13 +503,9 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         done: describeProviderReleaseResult,
         failed: result => Boolean(result.error),
         run: () => providerRelease({
-          from: config.from,
-          to: config.to,
-          token: options.token,
           provider,
           dryRun,
           config,
-          logLevel: config.logLevel,
           bumpResult,
           configName: options.configName,
           force,
@@ -557,13 +540,10 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         done: describeSocialResult,
         failed: result => result.hasErrors,
         run: () => social({
-          from: config.from,
-          to: config.to,
           config,
           configName: options.configName,
           bumpResult,
           dryRun,
-          logLevel: config.logLevel,
           safetyCheck: false, // Already checked in releaseSafetyCheck
           slackFormat: options.slackFormat,
           groups: options.groups,
