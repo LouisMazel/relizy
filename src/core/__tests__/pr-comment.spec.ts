@@ -342,6 +342,43 @@ describe('Given detectPullRequest function', () => {
     vi.clearAllMocks()
   })
 
+  describe('When the branch has no open pull request, after a merge', () => {
+    const githubConfig = () => createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' } })
+
+    it('Then finds the GitHub pull request of the commit', async () => {
+      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 12, html_url: 'https://github.com/user/repo/pull/12' }]) } as Response)
+
+      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
+      expect(result).toEqual({ number: 12, url: 'https://github.com/user/repo/pull/12', provider: 'github' })
+    })
+
+    it('Then finds the GitLab merge request of the commit, from a detached HEAD too', async () => {
+      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ iid: 7, web_url: 'https://gitlab.com/user/repo/-/merge_requests/7' }]) } as Response)
+      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'glpat-token' } })
+
+      const result = await detectPullRequest({ config, sha: 'abc123' })
+
+      expect(fetch).toHaveBeenCalledWith('https://gitlab.com/api/v4/projects/user%2Frepo/repository/commits/abc123/merge_requests', expect.anything())
+      expect(result).toEqual({ number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' })
+    })
+
+    it('Then keeps the open pull request of the branch first', async () => {
+      vi.mocked(execSync).mockReturnValue('feat/parser\n')
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 3, html_url: 'https://github.com/user/repo/pull/3' }]) } as Response)
+
+      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(result?.number).toBe(3)
+    })
+  })
+
   describe('When CLI override --pr-number is provided', () => {
     it('Then returns GitHub PR info with override number', async () => {
       const config = createMockConfig({

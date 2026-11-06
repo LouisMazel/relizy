@@ -206,7 +206,7 @@ jobs:
 
 ### Release When a Pull Request Is Merged
 
-The PR comment goes to the open pull request of the branch: on the default branch, after the merge, give its number. Same job as the generated workflow, with:
+After the merge, the PR comment goes to the pull request of the merge commit, found by its commit. `--pr-number` makes it explicit. Same job as the generated workflow, with:
 
 ```yaml
 on:

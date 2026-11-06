@@ -490,6 +490,16 @@ describe('Given release command', () => {
       )
     })
 
+    it('Then gives the commit the release started from, to find the pull request after a merge', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '2.0.0', bumpedPackages: [], bumped: true })
+
+      await release({})
+
+      expect(prComment).toHaveBeenCalledWith(expect.objectContaining({
+        releaseContext: expect.objectContaining({ sha: expect.stringMatching(/^[0-9a-f]{40}$/) }),
+      }))
+    })
+
     it('Then posts no-release comment when no packages bumped', async () => {
       vi.mocked(bump).mockResolvedValue({ bumped: false })
 

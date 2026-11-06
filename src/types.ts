@@ -277,6 +277,12 @@ export interface ReleaseContext {
    * summary, as the summary of the terminal and of the GitHub Actions run
    */
   report?: ReleaseReport
+  /**
+   * The commit the release started from, before its release commit: when the
+   * branch has no open pull request (a release run after a merge), the pull
+   * request of this commit is commented
+   */
+  sha?: string
 }
 
 export interface MonorepoConfig {

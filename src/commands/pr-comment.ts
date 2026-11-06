@@ -5,6 +5,7 @@ import { logger } from '@maz-ui/node'
 import { collectPackageBumps, createCommandUi, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { formatUtcDate } from '../core/format'
+import { getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
 import { recordLink, showPreview } from '../core/progress'
 
@@ -438,6 +439,7 @@ async function commentPullRequest({ config, options, dryRun }: {
   const pr = await detectPullRequest({
     config,
     prNumber: options.prNumber,
+    sha: options.releaseContext?.sha ?? getHeadCommit(config.cwd),
   })
 
   if (pr) {

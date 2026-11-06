@@ -20,11 +20,12 @@ By default, Relizy edits its previous comment on the pull request instead of add
 
 ## Finding the Pull Request
 
-Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, or the `origin` remote). It finds nothing:
+Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, or the `origin` remote). Without one, it looks for the pull request of the commit the release started from (before its release commit), merged or not: a job running on the push to `main` after a merge comments the pull request it merged.
 
-- once the pull request is merged or closed, e.g. in a job running on the push to `main`;
-- on a detached `HEAD` (a CI checking out a commit);
-- for a pull request opened from a fork;
+It finds nothing:
+
+- for a commit pushed without pull request;
+- for a pull request opened from a fork, whose commits are not in the repository;
 - on Bitbucket, not supported.
 
 Give the number with `--pr-number` in these cases:

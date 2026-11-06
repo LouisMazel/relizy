@@ -139,6 +139,68 @@ function buildPrOverrideInfo(provider: GitProvider, prNumber: number, repo: stri
   return null
 }
 
+/**
+ * The pull request of a commit, merged or not: the release of a merge on the
+ * default branch comments the pull request it merged
+ */
+async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+  const url = `${getGitHubApiBase(domain)}/repos/${repo}/commits/${sha}/pulls`
+
+  logger.debug(`Querying GitHub API for the pull requests of the commit: ${url}`)
+
+  const response = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  })
+
+  if (!response.ok) {
+    logger.warn(`GitHub API error (${response.status}): ${await response.text()}`)
+    return null
+  }
+
+  const [pr] = await response.json() as Array<{ number: number, html_url: string }>
+
+  return pr ? { number: pr.number, url: pr.html_url, provider: 'github' } : null
+}
+
+/**
+ * The merge request of a commit, merged or not
+ */
+async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+  const url = `https://${domain || 'gitlab.com'}/api/v4/projects/${encodeURIComponent(repo)}/repository/commits/${sha}/merge_requests`
+
+  logger.debug(`Querying GitLab API for the merge requests of the commit: ${url}`)
+
+  const response = await fetch(url, {
+    headers: {
+      'PRIVATE-TOKEN': token,
+    },
+  })
+
+  if (!response.ok) {
+    logger.warn(`GitLab API error (${response.status}): ${await response.text()}`)
+    return null
+  }
+
+  const [mr] = await response.json() as Array<{ iid: number, web_url: string }>
+
+  return mr ? { number: mr.iid, url: mr.web_url, provider: 'gitlab' } : null
+}
+
+function findPrOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<PullRequestInfo | null> {
+  if (provider === 'github') {
+    return findGitHubPrOfCommit({ token, repo, sha, domain })
+  }
+
+  if (provider === 'gitlab') {
+    return findGitLabMrOfCommit({ token, repo, sha, domain })
+  }
+
+  return Promise.resolve(null)
+}
+
 function findPrForProvider(provider: GitProvider, token: string, repo: string, branch: string, domain?: string): Promise<PullRequestInfo | null> {
   if (provider === 'github') {
     return findGitHubPR({ token, repo, branch, domain })
@@ -167,9 +229,14 @@ function getProviderToken(config: ResolvedRelizyConfig, provider: GitProvider): 
 export async function detectPullRequest({
   config,
   prNumber,
+  sha,
 }: {
   config: ResolvedRelizyConfig
   prNumber?: number
+  /**
+   * The commit whose pull request is commented when the branch has no open one
+   */
+  sha?: string
 }): Promise<PullRequestInfo | null> {
   const provider = config.repo?.provider as GitProvider | undefined ?? detectGitProvider(config.cwd) ?? undefined
   const repo = config.repo?.repo
@@ -191,13 +258,12 @@ export async function detectPullRequest({
   }
 
   const branch = getCurrentGitBranch(config.cwd)
+  const onBranch = Boolean(branch) && branch !== 'HEAD'
 
-  if (!branch || branch === 'HEAD') {
+  if (!onBranch && !sha) {
     logger.debug('Cannot detect PR: not on a named branch (detached HEAD)')
     return null
   }
-
-  logger.debug(`Detecting PR for branch: ${branch}`)
 
   const token = getProviderToken(config, provider)
   if (!token) {
@@ -210,7 +276,18 @@ export async function detectPullRequest({
     return null
   }
 
-  return await findPrForProvider(provider, token, repo, branch, domain)
+  if (onBranch) {
+    logger.debug(`Detecting PR for branch: ${branch}`)
+    const pr = await findPrForProvider(provider, token, repo, branch, domain)
+
+    if (pr || !sha) {
+      return pr
+    }
+  }
+
+  logger.debug(`No open PR for the branch, looking for the PR of the commit ${sha}`)
+
+  return await findPrOfCommit(provider, token, repo, sha!, domain)
 }
 
 export const PR_COMMENT_MARKER = '<!-- relizy-pr-comment -->'

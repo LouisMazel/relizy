@@ -788,6 +788,18 @@ export function getCurrentGitRef(cwd: string): string {
   return branch || 'HEAD'
 }
 
+/**
+ * The full hash of HEAD, undefined outside a git repository or before the first commit
+ */
+export function getHeadCommit(cwd: string): string | undefined {
+  try {
+    return execSync('git rev-parse HEAD', { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
 export function getShortCommitSha(cwd: string, length = 7): string {
   return execSync(`git rev-parse --short=${length} HEAD`, { cwd, encoding: 'utf8' }).trim()
 }

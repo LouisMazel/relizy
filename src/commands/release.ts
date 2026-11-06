@@ -23,6 +23,7 @@ import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess, prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
+import { getHeadCommit } from '../core/git'
 import { withGitCache } from '../core/git-cache'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
@@ -252,9 +253,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     ...Object.fromEntries(Object.entries(facts).filter(([, value]) => value !== undefined)),
     ...(error === undefined ? {} : { error: error instanceof Error ? error.message : String(error) }),
   })
+  // Before the release commit: after a merge, its pull request is the one commented
+  const startCommit = getHeadCommit(config.cwd)
   const postPrComment = (releaseContext: ReleaseContext) => tryPostPrComment({
     config,
-    releaseContext,
+    releaseContext: { ...releaseContext, sha: startCommit },
     prNumber: options.prNumber,
     dryRun,
   })
