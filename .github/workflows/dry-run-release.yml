@@ -21,6 +21,7 @@ jobs:
         env:
           RELIZY_GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
           RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           RELIZY_TWITTER_API_KEY: test
           RELIZY_TWITTER_API_KEY_SECRET: test
           RELIZY_TWITTER_ACCESS_TOKEN: test
