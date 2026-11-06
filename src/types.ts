@@ -625,7 +625,7 @@ export interface ProviderReleaseOptions {
    */
   dryRun?: boolean
   /**
-   * Skip safety check
+   * Check the token and the provider before creating the releases (`false` skips it, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -682,7 +682,7 @@ export interface SocialOptions {
    */
   dryRun?: boolean
   /**
-   * Skip safety check
+   * Check the credentials of the enabled platforms before posting (`false` skips it, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -739,10 +739,9 @@ export interface RegistryTarget {
    */
   otp?: string
   /**
-   * Glob pattern matching package names this registry applies to. Distinct
-   * from `PublishConfig.packages` (which packages get published at all) -
-   * this only routes already-publishable packages to this registry.
-   * Omitted or empty = applies to every publishable package (mirroring).
+   * Glob patterns of the package names this registry applies to: it routes
+   * the published packages to this registry. Omitted or empty, it applies to
+   * every published package (mirroring).
    */
   packageFilter?: string[]
   /**
@@ -787,7 +786,7 @@ export interface PublishConfig {
    */
   buildCmd?: string
   /**
-   * Skip safety check
+   * Authenticate to each registry the packages need (`whoami`) before publishing
    * @default true
    */
   safetyCheck?: boolean
@@ -997,7 +996,7 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   provider?: GitProvider
   /**
-   * Skip safety check
+   * Run the safety checks before writing anything: tokens, registry access, branch up to date (`false` skips them, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -1114,7 +1113,7 @@ export interface SlackSocialConfig {
   /**
    * Slack channel ID or name (e.g., "#releases" or "C1234567890").
    * Required when using token-based authentication.
-   * Ignored (with warning) when webhookUrl is set — the channel is baked into the webhook URL.
+   * Ignored (with warning) when webhookUrl is set - the channel is baked into the webhook URL.
    */
   channel?: string
   /**
@@ -1475,11 +1474,11 @@ export interface TemplatesConfig {
    * Default in `independent` mode (when not customized): `'chore(release): bump {{packageCount}} packages'`.
    *
    * Available variables:
-   * - `{{newVersion}}` — in `independent` mode, comma-separated list of bumped `name@version` (legacy behavior); otherwise the new version.
-   * - `{{packageCount}}` — number of bumped packages.
-   * - `{{packageNames}}` — comma-separated list of bumped package names.
-   * - `{{packageList}}` — comma-separated list of bumped `name@version`.
-   * - `{{rootVersion}}` — version from the root `package.json`.
+   * - `{{newVersion}}` - in `independent` mode, comma-separated list of bumped `name@version`; otherwise the new version.
+   * - `{{packageCount}}` - number of bumped packages.
+   * - `{{packageNames}}` - comma-separated list of bumped package names.
+   * - `{{packageList}}` - comma-separated list of bumped `name@version`.
+   * - `{{rootVersion}}` - version from the root `package.json`.
    */
   commitMessage?: string
   /**
@@ -1552,24 +1551,24 @@ export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-relea
  */
 export interface TokensConfig {
   /**
-   * registry token for publishing
-   * Environment variables: NPM_TOKEN, RELIZY_NPM_TOKEN, NODE_AUTH_TOKEN
+   * Registry token for publishing
+   * Environment variables, in this order: RELIZY_NPM_TOKEN, NPM_TOKEN, NODE_AUTH_TOKEN
    */
   registry?: string
   /**
    * GitHub token for creating releases
-   * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+   * Environment variables, in this order: RELIZY_GITHUB_TOKEN, GITHUB_TOKEN, GH_TOKEN
    */
   github?: string
   /**
    * GitLab token for creating releases
-   * Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+   * Environment variables, in this order: RELIZY_GITLAB_TOKEN, GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN
    */
   gitlab?: string
   /**
    * Twitter API credentials for posting tweets
-   * Environment variables: TWITTER_API_KEY, TWITTER_API_KEY_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
-   * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+   * Environment variables: RELIZY_TWITTER_API_KEY, then TWITTER_API_KEY, and the same for
+   * API_KEY_SECRET, ACCESS_TOKEN and ACCESS_TOKEN_SECRET
    */
   twitter?: {
     apiKey?: string
@@ -1579,7 +1578,7 @@ export interface TokensConfig {
   }
   /**
    * Slack bot token for posting messages
-   * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+   * Environment variables, in this order: RELIZY_SLACK_TOKEN, SLACK_TOKEN
    */
   slack?: string
   /**

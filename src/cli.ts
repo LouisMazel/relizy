@@ -199,7 +199,7 @@ program
   .option('--access <type>', 'Package access level (public or restricted)')
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
-  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .action(async (options) => {
     try {
@@ -459,7 +459,7 @@ program
   .option('--no-social', 'Skip social media posting')
   .option('--no-pr-comment', 'Skip PR comment posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
-  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--canary', 'Publish a canary release from the current commit')
   .addOption(privatePackagesOption())

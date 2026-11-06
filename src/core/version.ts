@@ -31,7 +31,7 @@ type SemverChangeType = 'major' | 'minor' | 'patch' | undefined
  * semver §4), breaking changes must not graduate to `1.0.0` automatically.
  * This helper downgrades an auto-detected `major` change to `minor` in that
  * case. Explicit CLI release types (major, premajor, ...) are NOT passed
- * through this function — only commit-based detection is capped.
+ * through this function - only commit-based detection is capped.
  */
 export function capReleaseTypeForZeroMajor(
   currentVersion: string,

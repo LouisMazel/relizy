@@ -297,8 +297,8 @@ export async function postReleaseToTwitter({
 
     if (httpCode === 402) {
       logger.warn(
-        'Twitter/X returned 402 (Payment Required — likely `CreditsDepleted`).\n'
-        + 'Since February 2026, the X API runs on a pay-per-use model — there is no free tier anymore.\n'
+        'Twitter/X returned 402 (Payment Required - likely `CreditsDepleted`).\n'
+        + 'Since February 2026, the X API runs on a pay-per-use model - there is no free tier anymore.\n'
         + 'Each POST /2/tweets costs $0.010, debited from credits you top up in advance.\n'
         + 'Top up your balance at https://developer.x.com → Billing, then retry.\n'
         + 'Reference: https://docs.x.com/x-api/getting-started/pricing',

@@ -171,7 +171,7 @@ async function gitlabIndependentMode({
 
     logger.debug(`Processing ${pkg.name}: ${from} → ${to}`)
 
-    // Probe the body section first so we can skip empty releases — the
+    // Probe the body section first so we can skip empty releases - the
     // assembled `releaseBody` below always contains at least the compare
     // link, so it can't be used as the "is there anything to release"
     // signal anymore.

@@ -72,7 +72,7 @@ export function buildChangelogBody({ commits, config, minify }: {
 /**
  * Collect unique contributor names from a set of commits.
  * Respects `config.noAuthors`, filters `[bot]` authors, and applies `config.excludeAuthors`.
- * Returns plain formatted names (no emails, no GitHub handles) — useful for lightweight
+ * Returns plain formatted names (no emails, no GitHub handles) - useful for lightweight
  * rendering contexts like Slack messages.
  */
 export function collectContributorNames({ commits, config }: {

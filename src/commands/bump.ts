@@ -511,7 +511,7 @@ async function planCanaryMode({
 }): Promise<BumpPlan> {
   logger.debug('Starting bump in canary mode')
 
-  // Branch early for independent mode — each package gets its own canary version
+  // Branch early for independent mode - each package gets its own canary version
   if (config.monorepo?.versionMode === 'independent') {
     const sha = getShortCommitSha(config.cwd)
     const packages = await getPackages({ config, suffix: undefined, force: false, dryRun, externalBumps })

@@ -203,7 +203,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
     })
 
     it('Then a commit touching a different package is correctly excluded', async () => {
-      // This commit only modifies pkg-b — it must NOT appear for pkg-a.
+      // This commit only modifies pkg-b - it must NOT appear for pkg-a.
       const otherPkgBody = '\nM\tpackages/pkg-b/src/index.ts\n'
 
       vi.mocked(commitsModule.parseCommits).mockReturnValue([

@@ -71,7 +71,7 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
       })
 
       if (webhookUrl) {
-        // Webhook mode — priority. @slack/web-api is not required.
+        // Webhook mode - priority. @slack/web-api is not required.
         if (slackConfig.channel) {
           logger.warn('social.slack.channel is ignored when webhookUrl is set (channel is baked into the webhook URL).')
         }
@@ -80,7 +80,7 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
         }
       }
       else if (token) {
-        // Token mode — check @slack/web-api and require channel
+        // Token mode - check @slack/web-api and require channel
         try {
           await import('@slack/web-api')
         }
@@ -100,8 +100,8 @@ export async function socialSafetyCheck({ config }: { config: ResolvedRelizyConf
         // Neither webhook nor token
         logger.fail('Slack is enabled but no credentials are configured.')
         logger.log('Provide ONE of the following:')
-        logger.log('  (a) social.slack.webhookUrl (or SLACK_WEBHOOK_URL / RELIZY_SLACK_WEBHOOK_URL env var) — simpler setup, channel baked in')
-        logger.log('  (b) social.slack.credentials.token (or SLACK_TOKEN / RELIZY_SLACK_TOKEN env var) + social.slack.channel — requires bot invite')
+        logger.log('  (a) social.slack.webhookUrl (or SLACK_WEBHOOK_URL / RELIZY_SLACK_WEBHOOK_URL env var) - simpler setup, channel baked in')
+        logger.log('  (b) social.slack.credentials.token (or SLACK_TOKEN / RELIZY_SLACK_TOKEN env var) + social.slack.channel - requires bot invite')
 
         throw new Error('Slack credentials not found')
       }

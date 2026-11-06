@@ -212,7 +212,7 @@ export function aggregateIndependentChangelogs(changelogs: string[], date = new 
  * - Fetches commits internally using `changelog: true`, so types that only
  *   declare a `title` (e.g. `docs: { title: '📖 Documentation' }`) are
  *   included even though they don't trigger a version bump. Callers must
- *   provide `pkg.path` — `pkg.commits` is no longer consumed.
+ *   provide `pkg.path` - `pkg.commits` is no longer consumed.
  * - `include` toggles which sections appear in the output. `compareLink`
  *   and `contributors` are also skipped when `minify` is true.
  * - `transformBody` is invoked between body rendering and final assembly,
