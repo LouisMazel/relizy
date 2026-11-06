@@ -1,5 +1,6 @@
-import type { BumpResultTruthy, GitCommit, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import type { RootPackage } from './repo'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
@@ -28,7 +29,7 @@ async function publishIndependentRelease({
   const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
 
   const from = config.from || pkg.fromTag
-  const to = config.to || getIndependentTag({ version: newVersion, name: pkg.name })
+  const to = getIndependentTag({ version: newVersion, name: pkg.name })
 
   if (!from) {
     logger.warn(`No from tag found for ${pkg.name}, skipping release`)
@@ -143,13 +144,7 @@ async function githubUnified({
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  rootPackage: {
-    name: string
-    version: string
-    path: string
-    fromTag?: string
-    commits: GitCommit[]
-  }
+  rootPackage: RootPackage
   bumpResult: BumpResultTruthy | undefined
 }) {
   const repoConfig = config.repo
@@ -164,9 +159,9 @@ async function githubUnified({
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
-  const newVersion = bumpResult?.newVersion || rootPackage.version
+  const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
 
-  const to = config.to || formatRepoTag(config.templates.tagBody, newVersion)
+  const to = formatRepoTag(config.templates.tagBody, newVersion)
 
   const firstCommit = getFirstCommit(config.cwd)
   const from = config.from || rootPackage.fromTag || firstCommit

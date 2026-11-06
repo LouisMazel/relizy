@@ -180,6 +180,28 @@ describe('Given github function', () => {
       expect(getRootPackage).not.toHaveBeenCalled()
     })
 
+    it('Then names the release after the version, not after the end of the range', async () => {
+      const config = createMockConfig({
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        to: 'abc1234',
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      await github({ to: 'abc1234', force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'v1.0.0', name: 'v1.0.0' }))
+    })
+
+    it('Then uses the new version of the root package', async () => {
+      vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', newVersion: '1.1.0', path: '/root', commits: [], fromTag: 'v1.0.0', private: false })
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'v1.1.0' }))
+    })
+
     it('Then marks as prerelease when version is prerelease', async () => {
       vi.mocked(isPrerelease).mockReturnValue(true)
 
@@ -261,6 +283,19 @@ describe('Given github function', () => {
       expect(result).toHaveLength(2)
       expect(result[0]).toMatchObject({ name: 'pkg-a', tag: 'pkg-a@1.0.0' })
       expect(result[1]).toMatchObject({ name: 'pkg-b', tag: 'pkg-b@2.0.0' })
+    })
+
+    it('Then names the releases after the versions, not after the end of the range', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        to: 'abc1234',
+      }))
+
+      const result = await github({ to: 'abc1234', force: false })
+
+      expect(result.map(release => release.tag)).toEqual(['pkg-a@1.0.0', 'pkg-b@2.0.0'])
     })
 
     it('Then uses newVersion from bumped packages', async () => {
