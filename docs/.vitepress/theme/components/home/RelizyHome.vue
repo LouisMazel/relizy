@@ -42,7 +42,7 @@ const pipeline = [
   { icon: MazCodeBracket, title: 'Commit & tag', text: 'The release commit and its tags', href: '/config/commit-templates' },
   { icon: MazCloudArrowUp, title: 'Push', text: 'Guarded against a stale branch', href: '/config/release' },
   { icon: MazRocketLaunch, title: 'Releases', text: 'GitHub or GitLab, notes rewritten by AI', href: '/cli/provider-release' },
-  { icon: MazMegaphone, title: 'Announce', text: 'One post on X, one on Slack', href: '/guide/social-media' },
+  { icon: MazMegaphone, title: 'Announce', text: 'One post on X, on Slack, on Teams', href: '/guide/social-media' },
   { icon: MazChatBubbleLeftRight, title: 'PR comment', text: 'The summary of the release', href: '/guide/pr-comment' },
 ]
 
@@ -55,6 +55,7 @@ const ecosystem = [
   { name: 'GitLab' },
   { name: 'X', icon: MazLogoTwitter },
   { name: 'Slack' },
+  { name: 'Microsoft Teams' },
   { name: 'Claude Code', icon: MazSparkles },
   { name: 'AI SDK', icon: MazSparkles },
 ]
@@ -73,6 +74,7 @@ export default defineConfig({
   social: {
     twitter: { enabled: true },
     slack: { enabled: true },
+    teams: { enabled: true },
   },
 })`
 </script>
