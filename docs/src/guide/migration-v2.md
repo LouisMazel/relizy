@@ -10,7 +10,7 @@ tags: [guide, migration, upgrade]
 
 Relizy 2 releases [version groups](./version-groups.md) as **one** release, presented by group: one bump confirmation, one post per social platform, one PR comment with a table per group. It also fixes the social posts of the `independent` mode and cleans up the programmatic API.
 
-Most projects only update their social templates, if they customized them. Without version groups, without custom social templates and without the programmatic API, nothing changes.
+Every project should read the [CLI](#cli) changes (confirmation in CI, push access, exit codes) and the new commitlint rule ([AI attribution in commits](#ai-attribution-in-commits)). The other changes only concern the projects using version groups, custom social templates, renamed or removed options, or the programmatic API.
 
 ::: tip Let your AI agent do it
 With the [MCP server](./ai-agents.md) of Relizy 2, ask your agent for the `migrate-to-v2` prompt, or let it call the `check_migration` tool: it lists what to change in your config and your code, file by file and line by line, with the fix of each place.
@@ -24,30 +24,36 @@ pnpm add -D relizy@^2
 
 Then review the changes below, and check the next release with `relizy release --dry-run`.
 
-| Change                                                                                | Who is affected                                                      | Action                                                                        |
-| ------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| [Single bump confirmation](#single-bump-confirmation)                                 | `monorepo.groups`                                                    | None                                                                          |
-| [One social post per platform](#one-social-post-per-platform)                         | `monorepo.groups`, `independent` mode                                | Review the posts                                                              |
-| [PR comment](#pr-comment)                                                             | `monorepo.groups`                                                    | None                                                                          |
-| [Hooks run once](#hooks-run-once)                                                     | `monorepo.groups` with `social`, `twitter` or `slack` hooks          | Review the hooks                                                              |
-| [Release title](#release-title)                                                       | Custom `twitterMessage`                                              | Use <code v-pre>{{releaseTitle}}</code>                                       |
-| [New version variable](#new-version-variable)                                         | Custom social templates with `monorepo.groups` or `independent` mode | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
-| [Every occurrence is replaced](#every-occurrence-is-replaced)                         | Templates repeating a variable                                       | Check the templates                                                           |
-| [Arrays replace the defaults](#arrays-replace-the-defaults)                           | `bump.dependencyTypes` without `dependencies`                        | Add `dependencies` to keep the v1 bumps                                       |
-| [Removed ignorePackageNames](#removed-ignorepackagenames)                             | `monorepo.ignorePackageNames`                                        | Use `monorepo.ignored`                                                        |
-| [Registry token](#registry-token)                                                     | `publish.token`                                                      | Use `tokens.registry`                                                         |
-| [Repository token](#repository-token)                                                 | `repo.token`                                                         | Use `tokens.github` or `tokens.gitlab`                                        |
-| [Options never read](#options-never-read)                                             | `newVersion`, `publish.packages`                                     | Remove them                                                                   |
-| [AI attribution in commits](#ai-attribution-in-commits)                               | `relizy commitlint`                                                  | Turn off the attribution of the AI tools, or the rule                         |
-| [Version placeholder](#version-placeholder)                                           | Templates using <code v-pre>{{version}}</code>                       | Use <code v-pre>{{newVersion}}</code>                                         |
-| [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                   | None                                                                          |
-| [Exit code of bump](#exit-code-of-bump)                                               | `relizy bump` in scripts or CI                                       | None, or stop treating the exit code 1 as nothing to bump                     |
-| [Exit code of provider-release and social](#exit-code-of-provider-release-and-social) | `relizy provider-release`, `relizy social` in CI                     | None, or let the step fail                                                    |
-| [Cancelled prompts](#cancelled-prompts)                                               | Programmatic API                                                     | Catch `RelizyCancelError`                                                     |
-| [Public API](#public-api)                                                             | Programmatic API                                                     | Replace the functions no longer exported                                      |
-| [Types entry](#types-entry)                                                           | `relizy/types` imports                                               | Import from `relizy`                                                          |
-| [Release report](#release-report)                                                     | `release()` return value, `buildReleaseSummary()`                    | Use the report                                                                |
-| [Version group results](#version-group-results)                                       | `GroupBumpResult` objects                                            | Add `title`                                                                   |
+| Change                                                                                | Who is affected                                                                       | Action                                                                        |
+| ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| [Single bump confirmation](#single-bump-confirmation)                                 | `monorepo.groups`                                                                     | None                                                                          |
+| [One social post per platform](#one-social-post-per-platform)                         | `monorepo.groups`, `independent` mode                                                 | Review the posts                                                              |
+| [PR comment](#pr-comment)                                                             | `monorepo.groups`                                                                     | None                                                                          |
+| [Hooks run once](#hooks-run-once)                                                     | `monorepo.groups` with `social`, `twitter` or `slack` hooks                           | Review the hooks                                                              |
+| [Release title](#release-title)                                                       | Custom `twitterMessage` or `social.twitter.template`                                  | Use <code v-pre>{{releaseTitle}}</code>                                       |
+| [New version variable](#new-version-variable)                                         | Custom social templates with `monorepo.groups` or `independent` mode                  | Use <code v-pre>{{releaseTitle}}</code> or <code v-pre>{{packageList}}</code> |
+| [Every occurrence is replaced](#every-occurrence-is-replaced)                         | Templates repeating a variable                                                        | Check the templates                                                           |
+| [Arrays replace the defaults](#arrays-replace-the-defaults)                           | Global `bump.dependencyTypes` without `dependencies`                                  | Add `dependencies` to keep the v1 bumps                                       |
+| [Changelog linter of commitlint](#changelog-linter-of-commitlint)                     | `commitlint.codeBlocksLinter`                                                         | Rename it `changelogLinter`                                                   |
+| [Private packages](#private-packages)                                                 | `monorepo.includePrivates`, `--include-private`, `includePrivates` of the API         | Use `privatePackages`, `--private-packages <mode>`                            |
+| [Private app released](#private-app-released)                                         | A single `package.json` marked `private`                                              | Check `relizy release --dry-run`                                              |
+| [Removed ignorePackageNames](#removed-ignorepackagenames)                             | `monorepo.ignorePackageNames`                                                         | Use `monorepo.ignored`                                                        |
+| [Registry token](#registry-token)                                                     | `publish.token`                                                                       | Use `tokens.registry`                                                         |
+| [Repository token](#repository-token)                                                 | `repo.token`                                                                          | Use `tokens.github` or `tokens.gitlab`                                        |
+| [Options never read](#options-never-read)                                             | `newVersion`, `publish.packages`                                                      | Remove them                                                                   |
+| [Removed publish.private](#removed-private-publish-option)                            | `publish.private`                                                                     | Remove it                                                                     |
+| [AI attribution in commits](#ai-attribution-in-commits)                               | `relizy commitlint`                                                                   | Turn off the attribution of the AI tools, or the rule                         |
+| [Version placeholder](#version-placeholder)                                           | Templates using <code v-pre>{{version}}</code>                                        | Use <code v-pre>{{newVersion}}</code>                                         |
+| [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                                    | None                                                                          |
+| [Confirmation in CI](#confirmation-in-ci)                                             | `relizy release` and `relizy bump` in CI, `release()` and `bump()` without a terminal | Add `--yes` (`yes: true`)                                                     |
+| [Push access](#push-access)                                                           | `relizy release` that pushes, in CI                                                   | Give the job the right to push                                                |
+| [Exit code of bump](#exit-code-of-bump)                                               | `relizy bump --yes` in scripts or CI                                                  | None, or stop treating the exit code 1 as nothing to bump                     |
+| [Exit code of provider-release and social](#exit-code-of-provider-release-and-social) | `relizy provider-release`, `relizy social` in CI                                      | None, or let the step fail                                                    |
+| [Cancelled prompts](#cancelled-prompts)                                               | Programmatic API                                                                      | Catch `RelizyCancelError`                                                     |
+| [Public API](#public-api)                                                             | Programmatic API                                                                      | Replace the functions and types no longer exported                            |
+| [Types entry](#types-entry)                                                           | `relizy/types` imports                                                                | Import from `relizy`                                                          |
+| [Release report](#release-report)                                                     | `release()` return value, `buildReleaseSummary()`                                     | Use the report                                                                |
+| [Version group results](#version-group-results)                                       | `GroupBumpResult` objects                                                             | Add `title`                                                                   |
 
 ## Version Groups
 
@@ -103,7 +109,7 @@ The new <code v-pre>{{releaseTitle}}</code> variable is `<name> <version> is out
 '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
 ```
 
-Same text for a single version. In v1, an `independent` release posted "my-lib 3 packages is out!", or the project name with the version of its only package. Use <code v-pre>{{releaseTitle}}</code> in your own templates too.
+Same text for the root version. In v1, an `independent` release posted "my-lib 3 packages is out!", or the project name with the version of its only package. Use <code v-pre>{{releaseTitle}}</code> in your own templates too.
 
 The rich Slack message (without `slackMessage` template) uses <code v-pre>📣 {{releaseTitle}}</code> as header.
 
@@ -138,9 +144,9 @@ With `onlyStable` (the default of Slack), a post announcing several versions lea
 
 ### Arrays Replace the Defaults
 
-An array of the config replaces the default one, and the array of the config file when it comes from the CLI or the programmatic API, instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file.
+An array of the config replaces the default one, and the array of the config file when it comes from the CLI, the programmatic API or another layer of the config (the `relizy` key of `package.json`, a config it `extends`), instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file.
 
-If you set `bump.dependencyTypes` (globally or on a version group) without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
+If you set the global `bump.dependencyTypes` without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
 
 ```ts
 export default defineConfig({
@@ -183,6 +189,10 @@ export default defineConfig({
 ```bash
 relizy release --private-packages release
 ```
+
+### Private App Released
+
+A project with a single `package.json` marked `"private": true` (an app, an API) released nothing in v1: its package was skipped as a private package. It is now bumped, tagged, and gets its changelog and its provider release, but is never published, and no registry token is asked. Check what it does with `relizy release --dry-run`.
 
 ### Removed ignorePackageNames
 
@@ -231,7 +241,7 @@ export default defineConfig({
 
 The root `newVersion` option and `publish.packages` are removed: relizy never read them. Remove them from your config. To leave a package out of the release, use [`monorepo.ignored`](./../config/monorepo.md#ignored).
 
-### Removed publish.private
+### Removed Private Publish Option
 
 `publish.private` is removed: relizy never read it, the private packages are never published. Remove it from your config, and set [`monorepo.privatePackages: 'release'`](./../config/monorepo.md#privatepackages) to release them.
 
@@ -255,7 +265,19 @@ The changelogs no longer show the git trailers of the commit bodies (`Co-authore
 
 ### Exit Code of bump
 
-`relizy bump` exits with code `0` when there is nothing to bump, as `relizy release` does, instead of `1`: a CI job running it no longer fails when no commit triggers a bump. To run something only when a release happens, see [Run Something Only When a Release Happens](./ci-cd.md#run-something-only-when-a-release-happens).
+`relizy bump --yes` exits with code `0` when there is nothing to bump, as `relizy release` does, instead of `1`: a CI job running it no longer fails when no commit triggers a bump. Without `--yes`, it fails in CI, see [Confirmation in CI](#confirmation-in-ci). To run something only when a release happens, see [Run Something Only When a Release Happens](./ci-cd.md#run-something-only-when-a-release-happens).
+
+### Confirmation in CI
+
+Without an interactive terminal (CI), the confirmation of the new versions was taken as refused in v1: `relizy release` and `relizy bump` exited with code `0` without releasing anything. They now fail right away with code `1`, `--dry-run` too, and tell to add `--yes`. The programmatic `release()` and `bump()` throw likewise without `yes: true`. The workflow generated by `relizy init` passes it.
+
+```bash
+relizy release --yes
+```
+
+### Push Access
+
+In CI, Relizy prepares the clone of the job before a release: it fetches the history of a shallow clone, checks out the branch of a detached HEAD, and commits as the person who started the release when the job has no git identity (see [CI/CD](./ci-cd.md)). Before publishing, `relizy release` then checks that the release commit and the tags can be pushed (`git push --dry-run`), `--dry-run` too, and fails with the fix otherwise: give the job the right to push (`permissions: contents: write` on GitHub Actions, a `GITLAB_TOKEN` on GitLab CI). The dry run of a pull request only warns, as its token is read-only. See [The Push Is Refused](./ci-cd.md#the-push-is-refused).
 
 ### Exit Code of provider-release and social
 
@@ -263,15 +285,21 @@ The changelogs no longer show the git trailers of the commit bodies (`Co-authore
 
 ### New Output
 
-The commands show one line per step and end with what they did, the details only with `--log-level verbose` (see [Output](./../cli/commands.md#output)). In CI, the logs of each step are in a collapsible group. The banner is only shown by `relizy init`. A script reading the output of relizy 1 can set `RELIZY_REPORTER=classic`, or read the [report](./../config/release.md#report) of the release instead.
+The commands show one line per step and end with what they did, the details only with `--log-level verbose` (see [Output](./../cli/commands.md#output)). In CI, the logs of each step are in a collapsible group. The banner is only shown by `relizy init`. A script reading the output can set `RELIZY_REPORTER=classic`, which keeps the logs of the logger, close to the output of relizy 1, or better, read the [report](./../config/release.md#report) of the release.
 
 ### Interactive Prompts
 
-The prompts use [@clack/prompts](https://github.com/bombshell-dev/clack) instead of `@inquirer/prompts`: a cancelled prompt (Ctrl+C, Escape) still throws a `RelizyCancelError`.
+The prompts use [@clack/prompts](https://github.com/bombshell-dev/clack) instead of `@inquirer/prompts`: Escape cancels a prompt as Ctrl+C does, and a cancelled prompt throws a `RelizyCancelError` (see [Cancelled Prompts](#cancelled-prompts)).
 
 ### Release Summary
 
-`relizy release` ends with a summary of the release: what it contains, what each step did, with the links of what it created (npm pages, provider releases, tweet, pull request), the AI rewrites and the install command. The PR comment of a release, the summary of the GitHub Actions run and the new [`release.report.markdown`](./../config/release.md#report) file are this summary, and the report gets the outputs `branch`, `commit`, `dist_tags`, `urls`, `install` and, on GitHub Actions, `summary`. Check the PR comment if a tool reads it.
+`relizy release` ends with a summary of the release: what it contains, what each step did, with the links of what it created (npm pages, provider releases, tweet, pull request), the AI rewrites and the install command. The PR comment of a release and the summary of the GitHub Actions run are this summary: check the PR comment if a tool reads it.
+
+The new [report](./../config/release.md#report) of the release gives it to the CI: on GitHub Actions, by default and in dry-run too, the outputs of the step (`released`, `status`, `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`, `install`, `report`, `summary`) and the summary of the run; with `release.report`, a markdown, JSON or dotenv file (GitLab CI).
+
+### relizy init Writes the CI Workflow
+
+On GitHub or GitLab, `relizy init` writes the release workflow of the CI (`.github/workflows/release.yml`, or a `release` job aside the `.gitlab-ci.yml`), with the permissions and the tokens the config needs. `--no-workflow` skips it. See [relizy init](./../cli/init.md).
 
 ### No AI Call in Dry Run
 
@@ -312,17 +340,19 @@ catch (error) {
 
 The other functions were internal steps of the commands, and are no longer exported:
 
-| Removed                                                                                                                                                  | Instead                                                                                                                                              |
-| -------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `createCommitAndTags()`, `pushCommitAndTags()`                                                                                                           | `release()`, with its `commit`, `gitTag` and `push` options                                                                                          |
-| `planBumps()`, `confirmBump()`, `displayBump()`, `getPackages()`                                                                                         | `bump()`, with `dryRun` to preview it                                                                                                                |
-| `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()`, `getReleaseOverview()`, `getSocialTemplateVariables()` | `social()`, and the [templates](./../config/social.md) of the posts. A hook gets the packages and versions of the release in its `release` parameter |
-| `buildReleaseSummary()`, `formatReleaseReportText()`, `formatReleaseReportMarkdown()`                                                                    | The report returned by `release()`, see [Release report](#release-report)                                                                            |
-| `generateChangelog()`, `generateMarkDown()`                                                                                                              | `changelog()`                                                                                                                                        |
-| `getDefaultConfig()`, `mergeTypes()`                                                                                                                     | `loadRelizyConfig()`, which returns the config with its defaults (`config.types`...)                                                                 |
-| `isPrerelease()`                                                                                                                                         | `prerelease()` of [semver](https://github.com/npm/node-semver)                                                                                       |
-| `init()`                                                                                                                                                 | `relizy init`                                                                                                                                        |
-| The helpers of git, npm, the tags, the versions, the dependencies, Slack and X                                                                           | The commands, or the CLI                                                                                                                             |
+| Removed                                                                                          | Instead                                                                                                                                              |
+| ------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `createCommitAndTags()`, `pushCommitAndTags()`                                                   | `release()`, with its `commit`, `gitTag` and `push` options                                                                                          |
+| `planBumps()`, `confirmBump()`, `getPackages()`                                                  | `bump()`, with `dryRun` to preview it                                                                                                                |
+| `formatTweetMessage()`, `postReleaseToTwitter()`, `formatSlackMessage()`, `postReleaseToSlack()` | `social()`, and the [templates](./../config/social.md) of the posts. A hook gets the packages and versions of the release in its `release` parameter |
+| `buildReleaseSummary()`                                                                          | The report returned by `release()`, see [Release report](#release-report)                                                                            |
+| `generateChangelog()`, `generateMarkDown()`                                                      | `changelog()`                                                                                                                                        |
+| `getDefaultConfig()`, `mergeTypes()`                                                             | `loadRelizyConfig()`, which returns the config with its defaults (`config.types`...)                                                                 |
+| `isPrerelease()`                                                                                 | `prerelease()` of [semver](https://github.com/npm/node-semver)                                                                                       |
+| `init()`                                                                                         | `relizy init`                                                                                                                                        |
+| The helpers of git, npm, the tags, the versions, the dependencies, Slack and X                   | The commands, or the CLI                                                                                                                             |
+
+The types of these internal steps are no longer exported either (`BumpPlan`, `PlannedBumps`, `ResolvedVersionGroup`, `VersionChange`, `OutOfRangePeer`, `ResolvedTags`, `ReleaseTag`, `InitOptions`...). The types of the config, of the options and of the results stay, from `relizy`.
 
 ```ts
 // v1
@@ -368,7 +398,7 @@ No action needed:
 
 - The length of a tweet is counted as X counts it: every URL counts 23 characters, an emoji or a CJK character counts 2.
 - `social()` applies its `safetyCheck` option: `relizy release` no longer checks the social config twice.
-- [`publish.args`](../config/publish.md#args) is passed to the publish command: it was ignored.
+- [`publish.args`](./../config/publish.md#args) is passed to the publish command: it was ignored.
 - `bump.clean: false` applies to `relizy release` too, not only to `relizy bump`.
 - The `logLevel` of the config applies when `--log-level` is not passed.
 - `relizy publish --no-safety-check` skips the safety check of the publication.
@@ -376,13 +406,11 @@ No action needed:
 - The options given to `bump()`, `changelog()`, `publish()` and `release()` apply: `capZeroMajor`, `outOfRangePeers`, `dependencyTypes`, `includeCommitBody`, `args`, `packageManager`, `safetyCheckTimeout` and `checkWorkspaceDependencies` were ignored.
 - `relizy release --provider` creates the provider releases on that provider: it only applied to the safety check. `relizy provider-release` reads `repo.provider`.
 - The provider of a self-hosted repository (GitHub Enterprise, self-hosted GitLab) is read from its host when it names the provider, e.g. `gitlab.example.com`.
-- The GitLab releases are created with the job token of the CI job (`CI_JOB_TOKEN`) when `tokens.gitlab` is not set: it was sent as a personal access token and refused. A job token cannot comment a merge request: the PR comment asks for a `GITLAB_TOKEN`.
-- On a `pull_request` event of GitHub Actions, the CI job is put on the branch of the pull request (`GITHUB_HEAD_REF`), not on `<number>/merge`.
+- The GitLab releases are created with the job token of the CI job (`CI_JOB_TOKEN`) when no other GitLab token is set (`tokens.gitlab`, `RELIZY_GITLAB_TOKEN`, `GITLAB_TOKEN`, `GITLAB_API_TOKEN`): it was sent as a personal access token and refused. A job token cannot comment a merge request: the PR comment asks for a `GITLAB_TOKEN`.
 - The PR comment of a release run after the merge (on the push to `main`) comments the pull request it merged: without an open pull request of the branch, the pull request of the commit the release started from is commented. `prComment({ dryRun: true })` returns `false` when no pull request is found.
 - `relizy publish` checks the access to the registry even when `release.publish` is `false`; `relizy release` only checks it when it publishes.
-- With [`publish.registries`](../config/publish.md#registries) and without `publish.registry`, the packages are only published to the declared registries: they were also published to the registry of the npm config. A package that no entry covers still goes to the registry of the npm config.
+- With [`publish.registries`](./../config/publish.md#registries) and without `publish.registry`, the packages are only published to the declared registries: they were also published to the registry of the npm config. A package that no entry covers still goes to the registry of the npm config.
 - The canary versions apply `bump.capZeroMajor`: a breaking change of `0.5.2` gives `0.6.0-0.canary-<sha>`, as a release does. `relizy release --canary --no-publish` restores the versions of the `package.json` files.
 - A commitlint rule with a tuple without its number (`'header-max-length': [2, 'always']`) is an error of the config: the rule never reported anything.
-- The GitLab CI job generated by `relizy init` installs corepack, which Node 25+ no longer ships.
 - The social posts: the changelog of a Slack template is in Slack's format (mrkdwn), the summary without AI keeps the lines of the changelog instead of cutting it by sentences, a template line holding only a URL that is not set is removed, and a Slack post of several versions lists each package once.
 - A repository without `origin` remote no longer shows the error of git.
