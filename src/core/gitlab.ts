@@ -216,13 +216,14 @@ async function gitlabIndependentMode({
         release,
         dryRun,
       })
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: isPrerelease(newVersion),
-      })
     }
+
+    postedReleases.push({
+      name: pkg.name,
+      tag: release.tag_name,
+      version: newVersion,
+      prerelease: isPrerelease(newVersion),
+    })
   }
 
   if (postedReleases.length === 0) {

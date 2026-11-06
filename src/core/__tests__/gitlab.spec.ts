@@ -630,6 +630,13 @@ describe('Given gitlab function', () => {
       expect(fetch).toHaveBeenCalledTimes(2)
     })
 
+    it('Then returns the releases of a dry run, without creating them', async () => {
+      const result = await gitlab({ dryRun: true, force: false })
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.map(release => release.tag)).toEqual(['pkg-a@1.0.0', 'pkg-b@2.0.0'])
+    })
+
     it('Then uses independent tags for each package', async () => {
       await gitlab({ force: false })
 
