@@ -1,5 +1,4 @@
 import type { GitRepository } from '../../../tests/git-repository'
-import { spawnSync } from 'node:child_process'
 import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -399,39 +398,4 @@ describe('Given commitlint command', () => {
       }
     })
   })
-})
-
-describe('Given the commitlint CLI', () => {
-  function run(...args: string[]) {
-    // Plain output, whatever the CI running these tests
-    const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !CI_VARIABLES.includes(name)))
-    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), 'commitlint', ...args], {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-      env: { ...env, NO_COLOR: '1' },
-    })
-  }
-
-  it('Then exits with 0 on a valid message, without the banner', () => {
-    const result = run('--message', 'feat: add the commitlint command')
-
-    expect(result.status).toBe(0)
-    expect(result.stdout.trim()).toBe('✔ feat → minor bump, 🚀 Features')
-  }, 30_000)
-
-  it('Then prints an expected error without stack trace', () => {
-    const result = run('--from', 'origin/unknown-ref')
-    const output = `${result.stdout}${result.stderr}`
-
-    expect(result.status).toBe(1)
-    expect(output).toContain('Cannot find "origin/unknown-ref"')
-    expect(output).not.toContain('at assertRefAvailable')
-  }, 30_000)
-
-  it('Then exits with 1 on an invalid message', () => {
-    const result = run('--message', 'Added stuff')
-
-    expect(result.status).toBe(1)
-    expect(result.stdout).toContain('✖ Added stuff')
-  }, 30_000)
 })

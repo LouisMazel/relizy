@@ -98,6 +98,19 @@ const SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessa
   { name: 'a template', input: { changelog: hugeChangelog(), template: '*{{projectName}} {{newVersion}}*\n{{changelog}}\n{{packages}}\n{{contributors}}\n{{releaseUrl}}', packages: manyPackages, contributors: manyContributors, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/r' }) } },
 ]
 
+const formatted = new Map<object, Partial<Record<'summary' | 'full', ReturnType<typeof formatSlackMessage>>>>()
+
+/**
+ * The message of a scenario, formatted once per format: several tests check it,
+ * and formatting a huge changelog is slow
+ */
+function formatOnce(input: Parameters<typeof formatSlackMessage>[0], changelogFormat: 'summary' | 'full'): ReturnType<typeof formatSlackMessage> {
+  const byFormat = formatted.get(input) ?? {}
+  formatted.set(input, byFormat)
+  byFormat[changelogFormat] ??= formatSlackMessage({ ...input, changelogFormat })
+  return byFormat[changelogFormat]
+}
+
 describe('Given the Block Kit validator', () => {
   it('Then reports the payloads Slack rejects', () => {
     const errors = validateSlackBlocks([
@@ -148,7 +161,7 @@ const SECTION_SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSl
 describe('Given formatSlackMessage against the Slack limits', () => {
   describe.each(['summary', 'full'] as const)('When the changelog of several versions is in %s format', (changelogFormat) => {
     it.each(SECTION_SCENARIOS)('Then produces a valid message for $name', ({ input }) => {
-      const blocks = formatSlackMessage({ ...input, changelogFormat })
+      const blocks = formatOnce(input, changelogFormat)
 
       expect(validateSlackBlocks(blocks)).toEqual([])
     })
@@ -169,13 +182,13 @@ describe('Given formatSlackMessage against the Slack limits', () => {
 
   describe.each(['summary', 'full'] as const)('When the changelog format is %s', (changelogFormat) => {
     it.each(SCENARIOS)('Then produces a valid message for $name', ({ input }) => {
-      const blocks = formatSlackMessage({ ...input, changelogFormat })
+      const blocks = formatOnce(input, changelogFormat)
 
       expect(validateSlackBlocks(blocks)).toEqual([])
     })
 
     it.each(SCENARIOS.filter(({ input }) => input.changelog.split('\n').some(line => !line.startsWith('#') && /\w/.test(line)) && (input.postMaxLength ?? Infinity) >= 100))('Then shows the beginning of the changelog for $name', ({ input }) => {
-      const blocks = formatSlackMessage({ ...input, changelogFormat })
+      const blocks = formatOnce(input, changelogFormat)
 
       const changelogText = blocks
         .map((block: any) => block.type === 'rich_text' ? richTextToPlainText(block) : block.type === 'section' ? block.text.text : '')

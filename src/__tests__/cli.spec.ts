@@ -5,7 +5,7 @@ import process from 'node:process'
 import { createGitRepository } from '../../tests/git-repository'
 
 /** The variables that would give relizy a token, or the output of a CI */
-const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITLAB_CI|FORCE_COLOR|NO_COLOR)$|TOKEN|TWITTER|SLACK/
+const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITLAB_CI|GITHUB_BASE_REF|GITHUB_EVENT_PATH|FORCE_COLOR|NO_COLOR)$|^CI_MERGE_REQUEST_|TOKEN|TWITTER|SLACK/
 
 describe('Given the relizy CLI', () => {
   let repository: GitRepository
@@ -53,6 +53,32 @@ describe('Given the relizy CLI', () => {
 
       expect(`${result.stdout}${result.stderr}`).toContain('twitter failed')
       expect(result.status).toBe(1)
+    }, 30_000)
+  })
+
+  describe('When linting a commit message', () => {
+    it('Then exits with 0 on a valid message, without the banner', () => {
+      const result = run('commitlint', '--message', 'feat: add the commitlint command')
+
+      expect(result.status).toBe(0)
+      expect(result.stdout.trim()).toBe('✔ feat → minor bump, 🚀 Enhancements')
+    }, 30_000)
+
+    it('Then exits with 1 on an invalid message', () => {
+      const result = run('commitlint', '--message', 'Added stuff')
+
+      expect(result.status).toBe(1)
+      expect(result.stdout).toContain('✖ Added stuff')
+    }, 30_000)
+
+    it('Then prints an expected error without stack trace', () => {
+      // The config of the repository is silent
+      const result = run('--log-level', 'default', 'commitlint', '--from', 'origin/unknown-ref')
+      const output = `${result.stdout}${result.stderr}`
+
+      expect(result.status).toBe(1)
+      expect(output).toContain('Cannot find "origin/unknown-ref"')
+      expect(output).not.toContain('at assertRefAvailable')
     }, 30_000)
   })
 })
