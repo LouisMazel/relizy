@@ -46,6 +46,13 @@ describe('Given the commitlint workspace helpers', () => {
       expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core', 'playground', 'web-app'])
     })
 
+    it('Then reads the packages of the version groups', () => {
+      const config = createMockConfig({ cwd, monorepo: { groups: [{ name: 'libs', versionMode: 'selective', packages: ['packages/*'] }] } })
+      delete config.monorepo!.packages
+
+      expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core'])
+    })
+
     it('Then accepts the packages without version and skips the directories without package name', () => {
       const config = createMockConfig({ cwd, monorepo: { packages: ['apps/*'] } })
 
