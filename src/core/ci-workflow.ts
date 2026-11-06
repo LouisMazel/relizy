@@ -47,6 +47,9 @@ export interface WorkflowFile {
   include?: string
 }
 
+/** Above the npm update of the publishing jobs */
+const TRUSTED_PUBLISHING_COMMENT = 'npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing'
+
 /** The release types of the manual trigger, `auto` follows the commits */
 const RELEASE_TYPES = ['auto', 'patch', 'minor', 'major']
 
@@ -150,6 +153,7 @@ function getGithubSetupSteps(options: WorkflowOptions): string[] {
     ...(options.packageManager === 'bun' ? ['      - uses: oven-sh/setup-bun@v2'] : []),
     `      - uses: actions/setup-node@v7\n        with:\n          ${node}${cache}`,
     `      - run: ${getInstallDependenciesCommand(options)}`,
+    ...(options.publish ? [`      # ${TRUSTED_PUBLISHING_COMMENT}`, '      - run: npm install -g npm@latest'] : []),
     ...(options.ai ? ['      # The claude-code provider of the AI rewrites runs the claude CLI\n      - run: npm install -g @anthropic-ai/claude-code'] : []),
   ]
 }
@@ -197,6 +201,7 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     '      # The release commit, the tags and the GitHub release',
     '      contents: write',
     ...(options.prComment ? ['      # The comment of the pull request of the release', '      pull-requests: write', '      issues: write'] : []),
+    ...(options.publish ? ['      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com', '      id-token: write'] : []),
     '    steps:',
     '      - uses: actions/checkout@v7',
     '        with:',
@@ -220,6 +225,7 @@ function getGitlabSetup(options: WorkflowOptions): string[] {
     ...(options.packageManager === 'pnpm' || options.packageManager === 'yarn' ? ['    - npm install -g corepack && corepack enable'] : []),
     ...(options.packageManager === 'bun' ? ['    - npm install -g bun'] : []),
     `    - ${getInstallDependenciesCommand(options)}`,
+    ...(options.publish ? [`    # ${TRUSTED_PUBLISHING_COMMENT}`, '    - npm install -g npm@latest'] : []),
     ...(options.ai ? ['    # The claude-code provider of the AI rewrites runs the claude CLI', '    - npm install -g @anthropic-ai/claude-code'] : []),
   ]
 }
@@ -256,6 +262,14 @@ function renderGitlabJob(options: WorkflowOptions): string {
     '  variables:',
     '    # The changelogs need the history since the last release',
     '    GIT_DEPTH: 0',
+    ...(options.publish
+      ? [
+          '  # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com',
+          '  id_tokens:',
+          '    NPM_ID_TOKEN:',
+          '      aud: npm:registry.npmjs.org',
+        ]
+      : []),
     '  rules:',
     '    # On the default branch, not on the release commit it pushes',
     `    - if: '${rule}'`,

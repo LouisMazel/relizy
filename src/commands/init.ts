@@ -493,6 +493,7 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
     `Preview the release   ${c.cyan('npx relizy release --dry-run')}`,
     ...(workflow?.file.include ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`] : []),
     ...(tokens.length > 0 ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`] : []),
+    ...(answers.goal === 'publish' ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`] : []),
     `All the options       ${c.cyan('https://relizy.dev/config/overview')}`,
   ]
   note(steps.join('\n'), 'Next steps')

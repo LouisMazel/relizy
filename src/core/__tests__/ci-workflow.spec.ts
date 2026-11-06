@@ -56,6 +56,27 @@ describe('Given the release workflow of GitHub Actions', () => {
   })
 })
 
+describe('Given a workflow that publishes to npm', () => {
+  it('Then gives the OIDC permission of trusted publishing and a recent npm on GitHub Actions', () => {
+    const { content } = getWorkflowFile({ ...options, publish: true }, '/nonexistent')
+
+    expect(content).toContain('      contents: write\n      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com\n      id-token: write\n')
+    expect(content).toContain('      - run: pnpm install --frozen-lockfile\n      # npm trusted publishing (OIDC) needs npm 11.5.1 or later: https://relizy.dev/guide/trusted-publishing\n      - run: npm install -g npm@latest\n')
+  })
+
+  it('Then gives the NPM_ID_TOKEN id token and a recent npm on GitLab CI', () => {
+    const { content } = getWorkflowFile({ ...options, provider: 'gitlab', publish: true }, '/nonexistent')
+
+    expect(content).toContain('  id_tokens:\n    NPM_ID_TOKEN:\n      aud: npm:registry.npmjs.org\n')
+    expect(content).toContain('    - npm install -g npm@latest\n')
+  })
+
+  it('Then gives neither without publishing', () => {
+    expect(getWorkflowFile(options, '/nonexistent').content).not.toContain('id-token')
+    expect(getWorkflowFile({ ...options, provider: 'gitlab' }, '/nonexistent').content).not.toContain('id_tokens')
+  })
+})
+
 describe('Given the release job of GitLab CI', () => {
   it('Then skips the release commit, escaping a custom commit message for the regular expression and the YAML quotes', () => {
     const { content, path } = getWorkflowFile({ ...options, provider: 'gitlab', releaseCommitPrefix: 'release(\'s): v' }, '/nonexistent')
