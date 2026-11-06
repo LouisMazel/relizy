@@ -530,7 +530,7 @@ describe('Given the knowledge tools', () => {
   describe('When the docs are searched', () => {
     it('Then the pages and the config options are ranked, words of other tools included', () => {
       expect(searchDocs(context, { query: 'version groups' })).toContain('`guide/version-groups`')
-      expect(searchDocs(context, { query: 'snapshot release' })).toContain('guide/canary-releases')
+      expect(searchDocs(context, { query: 'snapshot release' })).toContain('guide/prereleases')
       expect(searchDocs(context, { query: 'out of range peers' })).toContain('get_config_option({ path: "bump.outOfRangePeers" })')
       expect(searchDocs(context, { query: 'github', category: 'guide', limit: 2 })).toContain('(category: guide)')
     })
