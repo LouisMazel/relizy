@@ -2,11 +2,11 @@ import type { ChatPostMessageResponse } from '@slack/web-api'
 import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig, TeamsCard, TeamsVersion } from '../core'
 import type { AIReleaseContext } from '../core/ai'
-import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackOptions, SlackReleaseSection, SocialLink, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
+import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackChangelogFormat, SlackOptions, SlackReleaseSection, SocialLink, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
 import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
+import { assertVersionGroupsOption, checkTeamsWebhookUrl, collectContributorNames, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, filterOutPrivatePackages, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isBumpedPackage, isExcludedLine, isPrerelease, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAISocialEnabled } from '../core/ai'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -344,7 +344,7 @@ async function handleSlackPost({
         contributors,
         packages,
         postMaxLength: slackConfig.postMaxLength,
-        changelogFormat: slackConfig.changelogFormat ?? 'summary',
+        changelogFormat: getSlackChangelogFormat(config),
         announcement,
         dryRun,
       })
@@ -388,6 +388,13 @@ interface CollectedRelease {
 }
 
 const ROOT_VERSION = ''
+
+/**
+ * How the Slack message renders its changelog: rich text with `changelog: 'full'`
+ */
+function getSlackChangelogFormat(config: ResolvedRelizyConfig): SlackChangelogFormat {
+  return getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full' ? 'full' : 'summary'
+}
 
 /**
  * A version announced by a post, with its changelog
@@ -801,8 +808,9 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
   hasGroups: boolean
   dryRun: boolean
 }): Promise<string | SlackReleaseSection[]> {
-  const changelogFormat = config.social?.slack?.changelogFormat ?? 'summary'
-  const getBody = (version: AnnouncedVersion) => changelogFormat === 'full' ? version.rich : version.minified
+  const changelog = getSocialChangelog(config.social?.slack?.changelog, 'summary')
+  const changelogFormat = getSlackChangelogFormat(config)
+  const getBody = (version: AnnouncedVersion) => changelog === 'none' ? '' : changelog === 'full' ? version.rich : version.minified
   const useAI = isAISocialEnabled(config, 'slack') && versions.some(version => version.minified.trim())
   const maxLength = resolveSlackPostMaxLength({ changelogFormat, postMaxLength: config.social.slack.postMaxLength })
 
@@ -835,8 +843,9 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
 const TEAMS_CHANGELOG_MAX_LENGTH = 1500
 
 /**
- * The changelog of each version of the Teams cards with `changelog: 'summary'`:
- * the titles of its commits, or rewritten by the AI in a single call
+ * The changelog of each version of the Teams cards: the full changelog with
+ * `changelog: 'full'`, the titles of its commits with `'summary'`, or
+ * rewritten by the AI in a single call
  */
 async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
   config: ResolvedRelizyConfig
@@ -844,7 +853,13 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
   hasGroups: boolean
   dryRun: boolean
 }): Promise<Map<AnnouncedVersion, string>> {
-  if (config.social.teams.changelog !== 'summary') {
+  const changelog = getSocialChangelog(config.social.teams.changelog, 'none')
+
+  if (changelog === 'full') {
+    return new Map(versions.map(version => [version, version.rich]))
+  }
+
+  if (changelog !== 'summary') {
     return new Map()
   }
 
@@ -1074,7 +1089,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
       applyAIOverride(config, options.ai)
 
       if (options.slackFormat) {
-        config.social.slack = { ...config.social.slack, changelogFormat: options.slackFormat }
+        config.social.slack = { ...config.social.slack, changelog: options.slackFormat }
       }
 
       return config

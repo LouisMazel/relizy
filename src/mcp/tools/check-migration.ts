@@ -176,6 +176,18 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     })
   }
 
+  const slackFormat = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bchangelogFormat\b/)))
+
+  if (slackFormat.length > 0 || (config.social?.slack as { changelogFormat?: unknown } | undefined)?.changelogFormat !== undefined) {
+    findings.push({
+      severity: 'change',
+      title: '`social.slack.changelogFormat` is renamed `social.slack.changelog`',
+      section: 'Changelog of the Posts',
+      detail: 'Rename the option, with the same values (`summary`, `full`): relizy 2 ignores `changelogFormat`. `changelog` also takes `none` (or `false`) for a message without changelog, as `social.teams.changelog`.',
+      locations: slackFormat,
+    })
+  }
+
   const privates = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bincludePrivates\b/)))
 
   if (privates.length > 0) {

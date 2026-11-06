@@ -48,7 +48,7 @@ relizy social --ai
 
 ### --slack-format
 
-`summary` or `full`: overrides [`social.slack.changelogFormat`](./../config/social.md#slack-changelogformat) for this run.
+`full`, `summary` or `none`: overrides [`social.slack.changelog`](./../config/social.md#slack-changelog) for this run.
 
 ```bash
 relizy social --slack-format full

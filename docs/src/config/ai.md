@@ -191,7 +191,7 @@ Rewrite the changelog of the tweet as plain text, within its length budget. Only
 - **Type:** `{ enabled?: boolean }`
 - **Default:** `{ enabled: false }`
 
-Rewrite the changelog of the Slack message. The model writes standard markdown (never Slack mrkdwn), that Relizy converts with the [`changelogFormat`](./social.md#slack-changelogformat) of the message: 3 to 8 bullets in `summary` format, every change in `full` format. Only when `social.slack.enabled` is also `true`.
+Rewrite the changelog of the Slack message. The model writes standard markdown (never Slack mrkdwn), that Relizy converts with the [`changelog`](./social.md#slack-changelog) of the message: 3 to 8 bullets in `summary` format, every change in `full` format. Only when `social.slack.enabled` is also `true`.
 
 ### teams {#social-teams}
 

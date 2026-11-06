@@ -1,7 +1,7 @@
 ---
 title: Social Configuration
 description: Options of the release posts on Twitter (X), Slack and Microsoft Teams - enabling, prereleases, templates and their variables, credentials, Slack format and length, Teams cards and announcements.
-keywords: social config, twitter config, slack config, teams config, social template variables, releaseTitle, slack webhook, slack changelogFormat, postMaxLength, onlyStable, changelogUrl, teams webhook, teams announcements, adaptive card
+keywords: social config, twitter config, slack config, teams config, social template variables, releaseTitle, slack webhook, slack changelog, teams changelog, postMaxLength, onlyStable, changelogUrl, teams webhook, teams announcements, adaptive card
 category: Configuration
 tags: [config, social, twitter, slack, teams, templates]
 ---
@@ -19,7 +19,7 @@ export default defineConfig({
   social: {
     changelogUrl: 'https://my-lib.dev/changelog',
     twitter: { enabled: true },
-    slack: { enabled: true, changelogFormat: 'full' },
+    slack: { enabled: true, changelog: 'full' },
     teams: { enabled: true, cards: 'release' },
   },
 })
@@ -104,14 +104,17 @@ Channel of the bot token mode, by name (`#releases`) or by ID (`C1234567890`). R
 
 `token`: the Bot User OAuth Token (`xoxb-...`), with the `chat:write` scope. Requires `@slack/web-api` and `channel`.
 
-### changelogFormat {#slack-changelogformat}
+### changelog {#slack-changelog}
 
-- **Type:** `'summary' | 'full'`
+- **Type:** `'full' | 'summary' | 'none' | false`
 - **Default:** `'summary'`
 - **CLI:** `--slack-format <format>` of `relizy social` and `relizy release`
 
-- `summary`: the commit titles, in a single mrkdwn block.
 - `full`: the commit bodies (following [`changelog.includeCommitBody`](./changelog.md#includecommitbody)) and the PR and issue links, as Slack rich text, cut to the limits of Slack.
+- `summary`: the commit titles, in a single mrkdwn block.
+- `none` (or `false`): no changelog, the buttons of the message link to it.
+
+Named `changelogFormat` before relizy 2, see the [migration guide](./../guide/migration-v2.md#changelog-of-the-posts).
 
 ### postMaxLength {#slack-postmaxlength}
 
@@ -194,11 +197,14 @@ URL of the workflow, with the trigger **When a Teams webhook request is received
 
 ### changelog {#teams-changelog}
 
-- **Type:** `'none' | 'summary'`
+- **Type:** `'full' | 'summary' | 'none' | false`
 - **Default:** `'none'`
 
-- `none`: no changelog in the card, its buttons link to it.
+- `full`: the changelog of the version, the commit bodies included.
 - `summary`: the titles of the commits of the version, rewritten with [`ai.social.teams`](./ai.md#social).
+- `none` (or `false`): no changelog in the card, its buttons link to it.
+
+A card is at most 28 KB: the changelogs of a card share what its other texts leave, each one cut between two changes with an `… and N more changes` line.
 
 ### title {#teams-title}
 

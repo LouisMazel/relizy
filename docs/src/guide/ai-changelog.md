@@ -14,11 +14,11 @@ tags: [guide, ai, changelog, release-notes, claude, ai-sdk, social]
 
 Relizy generates the changelog from the commits, then a model rewrites it for each target you turn on:
 
-| Target                               | Output                                                                                                    |
-| ------------------------------------ | --------------------------------------------------------------------------------------------------------- |
-| GitHub / GitLab release notes        | Markdown for the users: each change explained, the headings and references kept                           |
-| [Twitter](./social-media.md#twitter) | Plain text, the most visible changes, within the length budget of the tweet                               |
-| [Slack](./social-media.md#slack)     | Standard markdown, converted to Slack mrkdwn by Relizy, short or complete following its `changelogFormat` |
+| Target                               | Output                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| GitHub / GitLab release notes        | Markdown for the users: each change explained, the headings and references kept                     |
+| [Twitter](./social-media.md#twitter) | Plain text, the most visible changes, within the length budget of the tweet                         |
+| [Slack](./social-media.md#slack)     | Standard markdown, converted to Slack mrkdwn by Relizy, short or complete following its `changelog` |
 
 Only the changes are sent: the compare link, the contributors, the titles, the versions and the URLs are added by Relizy around the rewrite. The built-in prompts make the model:
 

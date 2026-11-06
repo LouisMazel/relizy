@@ -696,9 +696,9 @@ export interface SocialOptions {
    */
   ai?: boolean
   /**
-   * Override `social.slack.changelogFormat` for this run
+   * Override `social.slack.changelog` for this run
    */
-  slackFormat?: SlackChangelogFormat
+  slackFormat?: SocialChangelog
   /**
    * Prerelease suffix, forwarded to package discovery in independent mode
    * when no bump result is available (standalone `social` runs).
@@ -1029,9 +1029,9 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   ai?: boolean
   /**
-   * Override `social.slack.changelogFormat` for this run
+   * Override `social.slack.changelog` for this run
    */
-  slackFormat?: SlackChangelogFormat
+  slackFormat?: SocialChangelog
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -1102,9 +1102,16 @@ export interface SlackCredentials {
 }
 
 /**
- * Slack changelog rendering:
- * - `summary`: short changelog (commit titles only) in a single mrkdwn section.
- * - `full`: complete changelog (commit bodies and PR/issue links) rendered as rich text blocks.
+ * The changelog of a post:
+ * - `full`: the commit bodies and the PR/issue links included.
+ * - `summary`: the commit titles only.
+ * - `none` (or `false`): no changelog, the links of the post lead to it.
+ */
+export type SocialChangelog = 'full' | 'summary' | 'none' | false
+
+/**
+ * How the Slack message renders its changelog: `summary` in mrkdwn sections,
+ * `full` as rich text blocks
  */
 export type SlackChangelogFormat = 'summary' | 'full'
 
@@ -1142,14 +1149,15 @@ export interface SlackSocialConfig {
    */
   credentials?: SlackCredentials
   /**
-   * Changelog rendering of the Slack message.
-   * - `summary`: commit titles only, in a single section capped at `postMaxLength`.
+   * The changelog of the Slack message.
    * - `full`: commit bodies and PR/issue links included, rendered as rich text blocks
    *   (one per changelog section). Commit bodies follow `changelog.includeCommitBody`.
+   * - `summary`: commit titles only, in a single section capped at `postMaxLength`.
+   * - `none` (or `false`): no changelog.
    * Can be overridden with the `--slack-format` CLI flag.
    * @default 'summary'
    */
-  changelogFormat?: SlackChangelogFormat
+  changelog?: SocialChangelog
   /**
    * Maximum length (in characters) of the changelog rendered inside the Slack message.
    * When exceeded, `summary` drops the last commits, `full` cuts the changelog where the limit
@@ -1283,12 +1291,6 @@ export interface SocialAnnouncementVariables {
  */
 export type TeamsCardsMode = 'version' | 'release'
 
-/**
- * - `none`: no changelog in the card, the buttons link to it.
- * - `summary`: the titles of the commits (rewritten with `ai.social.teams`).
- */
-export type TeamsChangelogMode = 'none' | 'summary'
-
 export interface TeamsSocialConfig extends SocialAnnouncementContent {
   /**
    * Enable the Teams cards
@@ -1314,10 +1316,13 @@ export interface TeamsSocialConfig extends SocialAnnouncementContent {
    */
   cards?: TeamsCardsMode
   /**
-   * The changelog in the card
+   * The changelog in the card: `full` (the commit bodies included), `summary`
+   * (the commit titles, rewritten with `ai.social.teams`), or `none` (or
+   * `false`), the buttons linking to it. Cut between two changes to fit in the
+   * 28 KB of a card.
    * @default 'none'
    */
-  changelog?: TeamsChangelogMode
+  changelog?: SocialChangelog
   /**
    * Text of the badge above the title; `false` removes it
    * @default 'New release' ('Prerelease' for a prerelease)

@@ -89,7 +89,7 @@ function privatePackagesOption() {
 }
 
 function slackFormatOption() {
-  return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
+  return new Option('--slack-format <format>', 'Changelog of the Slack message, overrides social.slack.changelog').choices(['full', 'summary', 'none'])
 }
 
 /**

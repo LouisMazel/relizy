@@ -154,6 +154,20 @@ await fetch(url, {
   })
 })
 
+describe('Given check_migration on a project with the Slack changelogFormat', () => {
+  it('Then asks to rename it changelog', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+      'relizy.config.mjs': `export default {\n  social: { slack: { enabled: true, changelogFormat: 'full' } },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`social.slack.changelogFormat` is renamed `social.slack.changelog`** (`relizy.config.mjs:2`)')
+    expect(text).toContain('sections: ["Changelog of the Posts"]')
+  })
+})
+
 describe('Given check_migration on a project posting its releases to Slack', () => {
   const files = {
     'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),

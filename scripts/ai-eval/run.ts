@@ -88,7 +88,7 @@ async function rewrite(target: EvalTarget, input: string, context?: AIReleaseCon
   }
 
   const changelogFormat = target === 'slack-full' ? 'full' : 'summary'
-  config.social.slack = { ...config.social.slack, changelogFormat }
+  config.social.slack = { ...config.social.slack, changelog: changelogFormat }
   const maxLength = resolveSlackPostMaxLength({ changelogFormat })
 
   return { output: await generateAISocialChangelog({ config, rawBody: input, platform: 'slack', maxLength, context }), maxLength }

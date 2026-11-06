@@ -54,7 +54,7 @@ If the input has breaking changes, put them first, starting with "⚠️".
 Tone: factual and clear, for the people who use the project.`
 
 /**
- * Appended to SLACK_PROMPT, after `social.slack.changelogFormat`
+ * Appended to SLACK_PROMPT, after `social.slack.changelog`
  */
 export const SLACK_FORMAT_PROMPTS: Record<SlackChangelogFormat, string> = {
   summary: `Keep it scannable: 3 to 8 bullets in total, one line each, the most user-visible changes first.`,

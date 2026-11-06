@@ -6,6 +6,7 @@ import { logger } from '@maz-ui/node'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { formatDuration, plural } from '../format'
 import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
+import { getSocialChangelog } from '../social'
 import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
 
@@ -64,7 +65,7 @@ function assemblePrompt(
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
   if (target === 'slack') {
-    parts.push(SLACK_FORMAT_PROMPTS[config.social?.slack?.changelogFormat ?? 'summary'])
+    parts.push(SLACK_FORMAT_PROMPTS[getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full' ? 'full' : 'summary'])
   }
   if (maxLength !== undefined) {
     parts.push(MAX_LENGTH_PROMPT)
@@ -95,8 +96,11 @@ export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolea
 }
 
 export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: AISocialPlatform): boolean {
-  // A Teams card only has a changelog with `changelog: 'summary'`
-  if (platform === 'teams' && config.social?.teams?.changelog !== 'summary') {
+  // The AI writes the changelog of a Teams card with `changelog: 'summary'`, of a Slack message unless `changelog: 'none'`
+  if (platform === 'teams' && getSocialChangelog(config.social?.teams?.changelog, 'none') !== 'summary') {
+    return false
+  }
+  if (platform === 'slack' && getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'none') {
     return false
   }
 

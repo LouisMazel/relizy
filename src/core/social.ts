@@ -1,4 +1,12 @@
+import type { SocialChangelog } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+
+/**
+ * The changelog of a post, `false` being `none`
+ */
+export function getSocialChangelog(changelog: SocialChangelog | undefined, defaultChangelog: Exclude<SocialChangelog, false>): Exclude<SocialChangelog, false> {
+  return changelog === false ? 'none' : changelog ?? defaultChangelog
+}
 
 /**
  * Extract a summary from changelog content

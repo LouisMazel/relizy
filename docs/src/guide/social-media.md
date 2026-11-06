@@ -154,7 +154,7 @@ Without template, the message is made of Slack blocks, in this order:
 4. **❤️ Contributors**: the names of the authors of the commits, without bots nor AI tools (hidden by `noAuthors`, globally or in [`social.slack.noAuthors`](./../config/social.md#slack-noauthors));
 5. the buttons **📦 View Release** and **📋 Full Changelog**, when the release URL and [`social.changelogUrl`](./../config/social.md#changelogurl) are known.
 
-[`changelogFormat`](./../config/social.md#slack-changelogformat) sets how much of the changelog is shown:
+[`changelog`](./../config/social.md#slack-changelog) sets how much of the changelog is shown (`none` or `false` shows none):
 
 - `summary` (default): the commit titles, in one block of at most [`postMaxLength`](./../config/social.md#slack-postmaxlength) characters (2500 by default, 3000 at most, the limit of a Slack block). Beyond, the last commits are replaced with an "… and N more changes" line.
 - `full`: the commit bodies (following [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody)) and the PR and issue links, as Slack rich text: one block per section, the body paragraphs as quotes, its lists as nested lists, its code as code blocks. Slack rejects a message of more than 50 blocks or about 13,200 characters of rich text: Relizy cuts the changelog at the limit (with `…`, even inside a commit body) and announces the commits left out with an "… and N more changes" line. Set `social.changelogUrl` so that **Full Changelog** links to the rest.
@@ -248,7 +248,7 @@ A card announces a version:
 1. a **New release** badge (**Prerelease** for a prerelease, set by [`badge`](./../config/social.md#teams-badge));
 2. the [`title`](./../config/social.md#teams-title), <code v-pre>{{name}} {{newVersion}}</code> by default, and the [`message`](./../config/social.md#teams-message), in markdown;
 3. the version and the date ([`locale`](./../config/social.md#teams-locale) sets its format);
-4. with [`changelog: 'summary'`](./../config/social.md#teams-changelog), the titles of the commits;
+4. with [`changelog: 'summary'`](./../config/social.md#teams-changelog), the titles of the commits, with `'full'` the whole changelog, cut between two changes to fit in the card;
 5. the buttons **📖 Release notes** (the GitHub/GitLab release of the version) and **📝 Changelog** (the `CHANGELOG.md` of the version at its tag, else [`social.changelogUrl`](./../config/social.md#changelogurl)), then the [`links`](./../config/social.md#teams-links).
 
 [`cards`](./../config/social.md#teams-cards) sets how a release is posted:
@@ -303,7 +303,7 @@ The `internal` group has no entry: it is not announced. [`exclude`](./../config/
 
 ### Limits of Teams
 
-- A card is at most **28 KB**: Relizy refuses a bigger one before posting it. With `cards: 'release'` and `changelog: 'summary'` on a large release, use `cards: 'version'`.
+- A card is at most **28 KB**: its changelogs share what its other texts leave, each one cut between two changes with an `… and N more changes` line. Relizy refuses a card still bigger (its texts alone) before posting it.
 - A workflow accepts about **4 requests per second**: the cards are posted one after the other, and a `429` is tried again.
 - A card renders basic markdown only (bold, italic, links, lists): the headings of the changelog become bold lines, the HTML and the code blocks are removed.
 - The workflow answers `202` as soon as it receives the card: when the card does not show up, open the run history of the flow in Power Automate.

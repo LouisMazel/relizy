@@ -129,7 +129,7 @@ describe('generateAISocialChangelog', () => {
   })
 
   it('keeps every change of the slack message in the full format', async () => {
-    const config = createMockConfig({ social: { slack: { changelogFormat: 'full' } } })
+    const config = createMockConfig({ social: { slack: { changelog: 'full' } } })
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
 
     const systemPrompt = fakeProvider.lastRequest?.systemPrompt ?? ''

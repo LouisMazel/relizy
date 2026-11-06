@@ -47,6 +47,7 @@ Then review the changes below, and check the next release with `relizy release -
 | [Prereleases with onlyStable](#prereleases-with-onlystable)                           | `onlyStable` with several versions                                                    | None                                                                          |
 | [Microsoft Teams](#microsoft-teams)                                                   | A script or a hook posting to Teams, an Office 365 connector                          | Use `social.teams`                                                            |
 | [Slack and Twitter announcements](#slack-and-twitter-announcements)                   | A script or a hook posting some versions to Slack                                     | Use `social.slack.announcements` and `exclude`                                |
+| [Changelog of the posts](#changelog-of-the-posts)                                     | `social.slack.changelogFormat`                                                        | Rename it `social.slack.changelog`                                            |
 | [Confirmation in CI](#confirmation-in-ci)                                             | `relizy release` and `relizy bump` in CI, `release()` and `bump()` without a terminal | Add `--yes` (`yes: true`)                                                     |
 | [Push access](#push-access)                                                           | `relizy release` that pushes, in CI                                                   | Give the job the right to push                                                |
 | [Exit code of bump](#exit-code-of-bump)                                               | `relizy bump --yes` in scripts or CI                                                  | None, or stop treating the exit code 1 as nothing to bump                     |
@@ -160,6 +161,18 @@ Relizy 1 announced every version on Slack and Twitter: a project announcing some
 2. Check the message with `relizy social --dry-run`, then remove the script and its job or hook: else the release is announced twice.
 
 Without these options, the posts are unchanged.
+
+### Changelog of the Posts
+
+`social.slack.changelogFormat` is renamed `social.slack.changelog`, as the option of Teams, with the same values (`summary`, `full`): relizy 2 ignores `changelogFormat`. Both take `full`, `summary` and `none` (or `false`, no changelog in the post).
+
+```ts
+export default defineConfig({
+  social: {
+    slack: { enabled: true, changelog: 'full' },
+  },
+})
+```
 
 ## Config
 

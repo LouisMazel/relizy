@@ -491,7 +491,7 @@ function mapWebhookError(status: number, body: string): string | null {
     return 'The webhook URL is invalid or has been deactivated. Regenerate it in your Slack app settings.'
   }
   if (body.includes('invalid_payload')) {
-    return 'The message payload was rejected by Slack (likely exceeds its block limits). Lower social.slack.postMaxLength or switch social.slack.changelogFormat to "summary".'
+    return 'The message payload was rejected by Slack (likely exceeds its block limits). Lower social.slack.postMaxLength or switch social.slack.changelog to "summary".'
   }
   if (body.includes('channel_not_found')) {
     return 'The channel bound to this webhook was archived or removed. Create a new webhook.'

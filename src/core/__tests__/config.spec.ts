@@ -244,10 +244,10 @@ describe('Given getDefaultConfig function', () => {
       expect(config.social.slack.onlyStable).toBe(true)
     })
 
-    it('Then sets Slack changelogFormat to summary by default', () => {
+    it('Then sets the Slack changelog to summary by default', () => {
       const config = getDefaultConfig()
 
-      expect(config.social.slack.changelogFormat).toBe('summary')
+      expect(config.social.slack.changelog).toBe('summary')
     })
 
     it('Then leaves Slack postMaxLength unset so it is resolved per changelog format', () => {
@@ -885,10 +885,10 @@ describe('Given loadRelizyConfig function', () => {
       const baseConfig = getDefaultConfig() as any
 
       const config = await loadRelizyConfig({ baseConfig, overrides: { from: 'v1.0.0' } })
-      config.social.slack = { ...config.social.slack, changelogFormat: 'minified' } as any
+      config.social.slack = { ...config.social.slack, changelog: 'minified' } as any
 
       expect(baseConfig.from).toBeUndefined()
-      expect(baseConfig.social.slack?.changelogFormat).not.toBe('minified')
+      expect(baseConfig.social.slack?.changelog).not.toBe('minified')
     })
   })
 

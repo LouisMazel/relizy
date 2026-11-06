@@ -3,7 +3,7 @@ import type { TeamsCardSection, TeamsVersion } from '../teams'
 import { Buffer } from 'node:buffer'
 import { createMockConfig } from '../../../tests/mocks'
 import { getAnnouncementVariables } from '../announcements'
-import { buildTeamsMessage, checkTeamsWebhookUrl, getTeamsWebhookUrl, postReleaseToTeams, resolveTeamsAnnouncements, toTeamsMarkdown } from '../teams'
+import { buildTeamsMessage, checkTeamsWebhookUrl, fitTeamsChangelog, getTeamsWebhookUrl, postReleaseToTeams, resolveTeamsAnnouncements, TEAMS_MAX_PAYLOAD_BYTES, toTeamsMarkdown } from '../teams'
 
 vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn().mockResolvedValue(undefined) }))
 
@@ -110,6 +110,19 @@ describe('Given the Teams cards', () => {
     })
   })
 
+  describe('When a changelog is over its budget', () => {
+    const changelog = '**🚀 Features**\n\n- Add a menu\n\n  Its body\n- Add a footer\n\n**🩹 Fixes**\n\n- Fix the header'
+
+    it('Then keeps it when it fits', () => {
+      expect(fitTeamsChangelog(changelog, 1000)).toBe(changelog)
+    })
+
+    it('Then cuts it between two changes, without a heading left alone', () => {
+      expect(fitTeamsChangelog(changelog, 100)).toBe('**🚀 Features**\n\n- Add a menu\n\n  Its body\n- Add a footer\n\n_… and 1 more change_')
+      expect(fitTeamsChangelog(changelog, 80)).toBe('**🚀 Features**\n\n- Add a menu\n\n  Its body\n\n_… and 2 more changes_')
+    })
+  })
+
   describe('When a card is built', () => {
     const date = new Date('2026-11-06T12:00:00Z')
 
@@ -185,8 +198,22 @@ describe('Given the Teams cards', () => {
       await expect(postReleaseToTeams({ cards: [{ sections: [section] }], webhookUrl: WEBHOOK_URL })).rejects.toThrow(/404 Not Found - flow not found[\s\S]*add co-owners/)
     })
 
-    it('Then throws before posting a card over 28 KB', async () => {
-      await expect(postReleaseToTeams({ cards: [{ sections: [{ ...section, changelog: 'x'.repeat(30_000) }] }], webhookUrl: WEBHOOK_URL })).rejects.toThrow(/over the 28 KB/)
+    it('Then cuts the changelogs between two changes to fit in 28 KB', async () => {
+      fetchMock.mockResolvedValue(new Response('', { status: 202 }))
+      const changeBody = 'A long body. '.repeat(10)
+      const changes = Array.from({ length: 300 }, (_, index) => `- Change ${index}\n\n  ${changeBody}`)
+      const changelog = ['**🚀 Features**', '', ...changes].join('\n')
+
+      await postReleaseToTeams({ cards: [{ sections: [{ ...section, changelog }, { ...section, changelog }] }], webhookUrl: WEBHOOK_URL })
+
+      const body = fetchMock.mock.calls[0]![1].body as string
+      expect(Buffer.byteLength(body)).toBeLessThanOrEqual(TEAMS_MAX_PAYLOAD_BYTES)
+      expect(body).toContain('- Change 0')
+      expect(body).toMatch(/_… and \d+ more changes_/)
+    })
+
+    it('Then throws before posting a card over 28 KB without its changelogs', async () => {
+      await expect(postReleaseToTeams({ cards: [{ sections: [{ ...section, message: 'x'.repeat(30_000) }] }], webhookUrl: WEBHOOK_URL })).rejects.toThrow(/over the 28 KB/)
 
       expect(fetchMock).not.toHaveBeenCalled()
     })

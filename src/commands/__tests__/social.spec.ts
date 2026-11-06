@@ -45,6 +45,7 @@ vi.mock('../../core', async () => ({
   collectPackageBumps: vi.fn().mockReturnValue([]),
   postReleaseToSlack: vi.fn(),
   ...await vi.importActual<typeof import('../../core/announcements')>('../../core/announcements'),
+  getSocialChangelog: (await vi.importActual<typeof import('../../core/social')>('../../core/social')).getSocialChangelog,
   ...await vi.importActual<typeof import('../../core/teams')>('../../core/teams'),
   postReleaseToTeams: vi.fn(),
   resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full' ? undefined : 2500)),
@@ -644,11 +645,11 @@ describe('Given social command', () => {
   })
 
   describe('When choosing the Slack changelog format', () => {
-    const slackConfig = (changelogFormat?: 'summary' | 'full') => createMockConfig({
+    const slackConfig = (changelogFormat?: 'summary' | 'full' | 'none' | false) => createMockConfig({
       bump: { type: 'patch' },
       social: {
         twitter: { enabled: false, onlyStable: true },
-        slack: { enabled: true, onlyStable: true, channel: '#releases', changelogFormat },
+        slack: { enabled: true, onlyStable: true, channel: '#releases', changelog: changelogFormat },
       },
       tokens: { slack: 'slack-token' },
     })
@@ -679,6 +680,14 @@ describe('Given social command', () => {
         changelog: '- Feature A ([#1](https://x/1))\n\n  Body',
         changelogFormat: 'full',
       }))
+    })
+
+    it.each(['none', false] as const)('Then posts no changelog with %s', async (changelog) => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig(changelog))
+
+      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+
+      expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({ changelog: '', changelogFormat: 'summary' }))
     })
 
     it('Then lets the slackFormat option override the config', async () => {
@@ -762,7 +771,7 @@ describe('Given social command', () => {
         bump: { type: 'patch' },
         social: {
           twitter: { enabled: false, onlyStable: true },
-          slack: { enabled: true, onlyStable: true, channel: '#releases', changelogFormat: 'full' },
+          slack: { enabled: true, onlyStable: true, channel: '#releases', changelog: 'full' },
         },
         tokens: { slack: 'slack-token' },
         ai: { social: { slack: { enabled: true } } },
@@ -1219,6 +1228,20 @@ describe('Given social command with version groups', () => {
             expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
           ],
         }],
+      }))
+    })
+
+    it('Then puts the full changelog of each version in its card with changelog: full', async () => {
+      config.social.teams = { ...config.social.teams, changelog: 'full' }
+      vi.mocked(generateChangelog).mockImplementation(({ minify }) => Promise.resolve(minify ? '- Add a menu' : '### 🚀 Features\n\n- Add a menu\n\n  With its body'))
+
+      await social({ bumpResult })
+
+      expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
+        cards: [
+          { sections: [expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' })] },
+          { sections: [expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' })] },
+        ],
       }))
     })
 

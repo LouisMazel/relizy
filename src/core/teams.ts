@@ -5,7 +5,9 @@ import process from 'node:process'
 import { setTimeout as wait } from 'node:timers/promises'
 import { logger } from '@maz-ui/node'
 import { fillAnnouncementText, getAnnouncementLinks, resolveAnnouncement } from './announcements'
+import { plural } from './format'
 import { showPreview } from './progress'
+import { shareBudget } from './slack'
 import { isPrerelease } from './version'
 
 /**
@@ -151,6 +153,56 @@ export function toTeamsMarkdown(markdown: string): string {
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+/** Size of a text in a card: its UTF-8 bytes, escaped as in the JSON of the card */
+function getJsonSize(text: string): number {
+  return Buffer.byteLength(JSON.stringify(text)) - 2
+}
+
+function getOmittedLine(count: number): string {
+  return `_… and ${plural(count, 'more change')}_`
+}
+
+/**
+ * A changelog of a card within `maxSize` bytes, cut between two changes: the
+ * changes left out are announced by an `… and N more changes` line
+ */
+export function fitTeamsChangelog(changelog: string, maxSize: number): string {
+  if (getJsonSize(changelog) <= maxSize) {
+    return changelog
+  }
+
+  // A change is a bullet with its body, a heading starts a group of changes
+  const entries = changelog.split('\n').reduce<string[][]>((list, line) => {
+    if (list.length === 0 || /^(?:- |\*\*)/.test(line)) {
+      list.push([])
+    }
+    list.at(-1)!.push(line)
+    return list
+  }, []).map(lines => lines.join('\n'))
+  const isChange = (entry: string) => entry.startsWith('- ')
+  const total = entries.filter(isChange).length
+  const kept: string[] = []
+
+  for (const entry of entries) {
+    const omitted = total - kept.filter(isChange).length - (isChange(entry) ? 1 : 0)
+    const candidate = [...kept, entry].join('\n').trim()
+
+    if (getJsonSize([candidate, getOmittedLine(omitted)].join('\n\n')) > maxSize) {
+      break
+    }
+    kept.push(entry)
+  }
+
+  // A heading without its changes is left out
+  while (kept.length > 0 && !isChange(kept.at(-1)!)) {
+    kept.pop()
+  }
+
+  const omitted = total - kept.filter(isChange).length
+
+  return [kept.join('\n').trim(), omitted > 0 ? getOmittedLine(omitted) : ''].filter(Boolean).join('\n\n')
 }
 
 type CardElement = Record<string, unknown>
@@ -329,6 +381,25 @@ export interface TeamsCard {
  * Post the cards to the Teams workflow, one after the other. In dry-run,
  * shows them instead. Throws at the first card refused.
  */
+/**
+ * A card within the 28 KB of a workflow: the changelogs of its sections share
+ * what the rest of the card leaves, each one cut between two changes
+ */
+export function fitTeamsCard(card: TeamsCard, options: { badge?: TeamsSocialConfig['badge'], locale?: string, date?: Date }): TeamsCard {
+  const getSize = (sections: TeamsCardSection[]) => Buffer.byteLength(JSON.stringify(buildTeamsMessage({ ...card, ...options, sections })))
+
+  if (getSize(card.sections) <= TEAMS_MAX_PAYLOAD_BYTES) {
+    return card
+  }
+
+  // The block of a changelog, beyond its text
+  const blockSize = 200
+  const budget = TEAMS_MAX_PAYLOAD_BYTES - getSize(card.sections.map(section => ({ ...section, changelog: '' }))) - blockSize * card.sections.length
+  const shares = shareBudget(budget, card.sections.map(section => getJsonSize(section.changelog)))
+
+  return { ...card, sections: card.sections.map((section, index) => ({ ...section, changelog: fitTeamsChangelog(section.changelog, shares[index]!) })) }
+}
+
 export async function postReleaseToTeams({ cards, webhookUrl, badge, locale, date, dryRun = false }: {
   cards: TeamsCard[]
   webhookUrl: string
@@ -337,7 +408,9 @@ export async function postReleaseToTeams({ cards, webhookUrl, badge, locale, dat
   date?: Date
   dryRun?: boolean
 }): Promise<{ posted: number }> {
-  const messages = cards.map(card => ({ card, body: JSON.stringify(buildTeamsMessage({ ...card, badge, locale, date })) }))
+  const messages = cards
+    .map(card => fitTeamsCard(card, { badge, locale, date }))
+    .map(card => ({ card, body: JSON.stringify(buildTeamsMessage({ ...card, badge, locale, date })) }))
 
   for (const [index, { card, body }] of messages.entries()) {
     const size = Buffer.byteLength(body)
