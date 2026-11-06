@@ -1,596 +1,329 @@
 ---
-title: Social Media Configuration
-description: Configure automatic release announcements on Twitter, Slack, and other social media platforms.
-keywords: social media config, twitter config, slack config, release announcements, automated posting, social integration
+title: Social Configuration
+description: Options of the release posts on Twitter (X), Slack and Microsoft Teams - enabling, prereleases, templates and their variables, credentials, Slack format and length, Teams cards and announcements.
+keywords: social config, twitter config, slack config, teams config, social template variables, releaseTitle, slack webhook, slack changelog, teams changelog, postMaxLength, onlyStable, changelogUrl, teams webhook, teams announcements, adaptive card
 category: Configuration
-tags: [config, social, twitter, slack, automation, announcements]
+tags: [config, social, twitter, slack, teams, templates]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Overview
-
-The `social` configuration allows you to automatically post release announcements to social media platforms when publishing new versions. Relizy currently supports Twitter (X) and Slack, with more platforms planned for the future.
-
-## Prerequisites
-
-Social media integrations require platform-specific peer dependencies:
-
-```bash
-# For Twitter integration
-pnpm add -D twitter-api-v2
-
-# For Slack integration
-pnpm add -D @slack/web-api
-```
-
-## Configuration Structure
+Setup of the platforms, shape of the posts and troubleshooting: [Social Media](./../guide/social-media.md). In `relizy release`, the posts also need [`release.social`](./release.md#steps) (`true` by default). The credentials can come from the environment or from [`tokens`](./overview.md#tokens).
 
 ```ts
-interface SocialConfig {
-  twitter?: {
-    enabled?: boolean
-    onlyStable?: boolean
-    template?: string
-    credentials?: {
-      apiKey?: string
-      apiKeySecret?: string
-      accessToken?: string
-      accessTokenSecret?: string
-    }
-  }
-  slack?: {
-    enabled?: boolean
-    onlyStable?: boolean
-    channel?: string
-    webhookUrl?: string
-    template?: string
-    credentials?: {
-      token?: string
-    }
-    changelogFormat?: 'summary' | 'full'
-    postMaxLength?: number
-    noAuthors?: boolean
-    noPackages?: boolean
-  }
-  changelogUrl?: string
-}
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  social: {
+    changelogUrl: 'https://my-lib.dev/changelog',
+    twitter: { enabled: true },
+    slack: { enabled: true, changelog: 'full' },
+    teams: { enabled: true, cards: 'release' },
+  },
+})
 ```
 
 ## twitter
 
-Configure Twitter (X) integration for posting release announcements.
-
-### twitter.enabled
+### enabled {#twitter-enabled}
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Enable or disable Twitter posting:
+Post the releases on Twitter (X). Requires `twitter-api-v2`.
 
-```ts
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-    },
-  },
-})
-```
-
-### twitter.onlyStable
+### onlyStable {#twitter-onlystable}
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Skip Twitter posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted:
+Do not announce the prereleases (`alpha`, `beta`, `rc`...). A post announcing several versions leaves its prereleases out, and nothing is posted when every version is a prerelease.
 
-```ts
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      onlyStable: true, // Don't post beta/alpha releases
-    },
-  },
-})
-```
-
-### twitter.template
+### template {#twitter-template}
 
 - **Type:** `string`
-- **Default:** Auto-generated from version and changelog
+- **Default:** [`templates.twitterMessage`](#templates): <code v-pre>'📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'</code>
 
-Customize the tweet message template. Available variables:
+Text of the tweet, with the [template variables](#template-variables). <code v-pre>{{changelog}}</code> gets the space the rest of the template leaves within `postMaxLength`.
 
-- <code v-pre>{{projectName}}</code> - Project name
-- <code v-pre>{{version}}</code> - Release version
-- <code v-pre>{{changelog}}</code> - Changelog summary (truncated to fit Twitter's limit)
-- <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
-- <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
-
-```ts
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      template: '🚀 {{projectName}} v{{version}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}',
-    },
-  },
-})
-```
-
-### twitter.postMaxLength
+### postMaxLength {#twitter-postmaxlength}
 
 - **Type:** `number`
 - **Default:** `280`
 
-Maximum length of the tweet. The message will be truncated if it exceeds this limit:
+Maximum length of the tweet, counted as X counts it: a URL counts 23 characters, an emoji or a CJK character counts 2.
 
-```ts
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      postMaxLength: 280,
-    },
-  },
-})
-```
+### credentials {#twitter-credentials}
 
-### twitter.credentials
+- **Type:** `{ apiKey?: string, apiKeySecret?: string, accessToken?: string, accessTokenSecret?: string }`
+- **Default:** [`tokens.twitter`](./overview.md#tokens), read from the environment
 
-- **Type:** `TwitterCredentials`
-- **Default:** Read from environment variables
+The `apiKey`, `apiKeySecret`, `accessToken` and `accessTokenSecret` of the X app. Each field set here overrides the one of `tokens.twitter`.
 
-Twitter API credentials. If not provided, falls back to environment variables:
+### exclude {#twitter-exclude}
 
-```ts
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      credentials: {
-        apiKey: process.env.TWITTER_API_KEY,
-        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
-        accessToken: process.env.TWITTER_ACCESS_TOKEN,
-        accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-      },
-    },
-  },
-})
-```
+- **Type:** `{ groups?: string[], packages?: string[] }`
 
-**Environment Variables:**
-
-- `TWITTER_API_KEY` or `RELIZY_TWITTER_API_KEY`
-- `TWITTER_API_KEY_SECRET` or `RELIZY_TWITTER_API_KEY_SECRET`
-- `TWITTER_ACCESS_TOKEN` or `RELIZY_TWITTER_ACCESS_TOKEN`
-- `TWITTER_ACCESS_TOKEN_SECRET` or `RELIZY_TWITTER_ACCESS_TOKEN_SECRET`
+Versions left out of the tweet: the [version groups](./monorepo.md#groups) by name, the packages by name or glob (`@scope/*`). Nothing is posted when every version is left out.
 
 ## slack
 
-Configure Slack integration for posting release notifications to channels.
-
-### slack.enabled
+### enabled {#slack-enabled}
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Enable or disable Slack posting:
+Post the releases on Slack, through a webhook or a bot token.
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-    },
-  },
-})
-```
-
-### slack.onlyStable
+### onlyStable {#slack-onlystable}
 
 - **Type:** `boolean`
 - **Default:** `true`
 
-Skip Slack posting for prerelease versions (alpha, beta, rc, etc.). Only stable versions will be posted:
+Same as [`twitter.onlyStable`](#twitter-onlystable).
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      onlyStable: true, // Don't post beta/alpha releases
-    },
-  },
-})
-```
-
-### slack.channel
+### webhookUrl {#slack-webhookurl}
 
 - **Type:** `string`
-- **Required:** Yes, in token mode. Ignored (with warning) in webhook mode — the channel is baked into the webhook URL.
+- **Default:** `RELIZY_SLACK_WEBHOOK_URL`, else `SLACK_WEBHOOK_URL`
 
-Slack channel ID or name where release notifications will be posted:
+[Incoming Webhook](https://api.slack.com/messaging/webhooks) of the channel. When a webhook URL is set, it is used even if a token is set (the token and `channel` are ignored, with a warning), and `@slack/web-api` is not needed.
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      channel: '#releases', // Channel name
-      // OR
-      channel: 'C1234567890', // Channel ID
-    },
-  },
-})
-```
-
-### slack.webhookUrl
+### channel {#slack-channel}
 
 - **Type:** `string`
-- **Default:** `undefined`
 
-Slack [Incoming Webhook URL](https://api.slack.com/messaging/webhooks). When set, takes **priority over token-based authentication** — the token and channel are ignored (with warnings) and `@slack/web-api` is not required.
+Channel of the bot token mode, by name (`#releases`) or by ID (`C1234567890`). Required in this mode, ignored with a webhook.
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-    },
-  },
-})
-```
+### credentials {#slack-credentials}
 
-**Environment Variables:**
+- **Type:** `{ token?: string }`
+- **Default:** [`tokens.slack`](./overview.md#tokens), read from the environment
 
-- `RELIZY_SLACK_WEBHOOK_URL` (takes priority)
-- `SLACK_WEBHOOK_URL`
+`token`: the Bot User OAuth Token (`xoxb-...`), with the `chat:write` scope. Requires `@slack/web-api` and `channel`.
 
-See the [Slack Integration Guide](../guide/slack-integration.md) for setup steps.
+### changelog {#slack-changelog}
 
-### slack.template
-
-- **Type:** `string`
-- **Default:** Auto-generated from version and changelog
-
-Customize the Slack message template. Available variables:
-
-- <code v-pre>{{projectName}}</code> - Project name
-- <code v-pre>{{newVersion}}</code> - Release version
-- <code v-pre>{{changelog}}</code> - Changelog summary, or the complete changelog in mrkdwn with `changelogFormat: 'full'` (commit bodies as quotes, fitted to Slack's 3000 characters section limit)
-- <code v-pre>{{releaseUrl}}</code> - URL to GitHub/GitLab release
-- <code v-pre>{{changelogUrl}}</code> - URL to full changelog (if configured)
-- <code v-pre>{{contributors}}</code> - Bullet list of contributor names (empty when `noAuthors` is active or none detected)
-
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      template: '🚀 *{{projectName}} v{{newVersion}}* is now available!\n\n{{changelog}}\n\n{{contributors}}\n\n<{{releaseUrl}}|View Release>',
-    },
-  },
-})
-```
-
-### slack.credentials
-
-- **Type:** `SlackCredentials`
-- **Default:** Read from environment variables
-
-Slack Bot Token or User OAuth Token. Ignored in webhook mode. If not provided, falls back to environment variables:
-
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      channel: '#releases',
-      credentials: {
-        token: process.env.SLACK_TOKEN,
-      },
-    },
-  },
-})
-```
-
-**Environment Variables:**
-
-- `SLACK_TOKEN` or `RELIZY_SLACK_TOKEN`
-
-**Required Scopes:**
-
-- `chat:write` - Post messages to channels
-- `chat:write.public` - Post to public channels (if using public channels)
-
-### slack.changelogFormat
-
-- **Type:** `'summary' | 'full'`
+- **Type:** `'full' | 'summary' | 'none' | false`
 - **Default:** `'summary'`
-- **CLI:** `--slack-format <summary|full>` on `relizy social` and `relizy release`
+- **CLI:** `--slack-format <format>` of `relizy social` and `relizy release`
 
-How much of the changelog the Slack message shows:
+- `full`: the commit bodies (following [`changelog.includeCommitBody`](./changelog.md#includecommitbody)) and the PR and issue links, as Slack rich text, cut to the limits of Slack.
+- `summary`: the commit titles, in a single mrkdwn block.
+- `none` (or `false`): no changelog, the buttons of the message link to it.
 
-- `summary`: commit titles only, in a single block capped at `postMaxLength` (2500 characters by default).
-- `full`: the complete changelog. Commit bodies and PR/issue links are included and rendered as native Slack rich text: one block per section, commits as bullets, body paragraphs as quotes, body lists as nested lists and code as code blocks.
+Named `changelogFormat` before relizy 2, see the [migration guide](./../guide/migration-v2.md#changelog-of-the-posts).
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      changelogFormat: 'full',
-    },
-  },
-})
-```
-
-Commit bodies follow [`changelog.includeCommitBody`](./changelog.md): when it is `false`, the full format only adds the PR/issue links. With AI enabled for Slack, the AI rewrite is used and rendered with the chosen format.
-
-Slack rejects messages with rich text above about 13,200 characters. In `full` format, relizy keeps the whole message under that limit and the 50 blocks limit: when the changelog does not fit, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line, and the **Full Changelog** button (see [`changelogUrl`](#changelogurl)) links to the rest.
-
-### slack.postMaxLength
+### postMaxLength {#slack-postmaxlength}
 
 - **Type:** `number`
 - **Default:** `2500` in `summary` format, no limit in `full` format
 
-Maximum number of characters for the changelog rendered in the Slack message (as shown by the `--dry-run` preview). When it is exceeded:
+Maximum length of the changelog in the message. Beyond, `summary` drops the last commits, `full` cuts the changelog where the limit is reached (even inside a commit body); the commits left out are announced with an "… and N more changes" line. In `summary` format, a block never exceeds the 3000 characters of Slack.
 
-- in `summary` format, the last commits are replaced with an "_… and N more changes_" line;
-- in `full` format, the changelog is shown up to the limit, cut with "…" even inside a commit body, and the commits left out entirely are announced with an "_… and N more changes_" line.
+### template {#slack-template}
 
-```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      postMaxLength: 1500,
-    },
-  },
-})
-```
+- **Type:** `string`
+- **Default:** [`templates.slackMessage`](#templates) (none: the message is made of rich blocks)
 
-In `summary` format the value is capped at 3000 characters, Slack's limit for a section block. In `full` format, Slack's own limits always apply on top of it (see `slack.changelogFormat` above).
+Text of the message, in Slack mrkdwn (`*bold*`, `<url|text>`), with the [template variables](#template-variables). The message is then a single block of at most 3000 characters. Without template, the header of the rich blocks is <code v-pre>📣 {{releaseTitle}}</code>.
 
-### slack.noAuthors
+### noAuthors {#slack-noauthors}
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Hide the "❤️ Contributors" block in Slack messages. The global `noAuthors` setting takes priority — if it is `true`, contributors are always hidden regardless of this setting.
+Hide the contributors on Slack. The global `noAuthors` hides them everywhere, whatever this option.
 
-```ts
-export default defineConfig({
-  noAuthors: false, // global: show contributors everywhere (default)
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      noAuthors: true, // hide contributors on Slack only
-    },
-  },
-})
-```
-
-### slack.noPackages
+### noPackages {#slack-nopackages}
 
 - **Type:** `boolean`
 - **Default:** `false`
 
-Hide the "📦 Packages" block (bulleted list of bumped packages with their before → after versions). In standalone (single-package) mode the block is skipped automatically.
+Hide the block listing the released packages with their old and new versions.
+
+### announcements {#slack-announcements}
+
+- **Type:** `({ group: string } | { package: string } & { title?, message?, changelogUrl?, links? })[]`
+
+The versions to announce and their texts, as [`teams.announcements`](#teams-announcements). Without it, every version is announced and the message is unchanged. With it, only the versions matching an entry, each with:
+
+- `title`: replaces the name of the version (its version stays shown): the title of its section, the name of its package line, or the header `📣 <title> <version> is out!` for a single version.
+- `message`: markdown, under the title.
+- the links **📖 Release notes**, **📝 Changelog** (`changelogUrl`, `false` removes it) and `links`, under the message. For a single version, they replace the buttons **📦 View Release** and **📋 Full Changelog**.
+
+The texts and the links take the [announcement variables](#announcement-variables). With a [`template`](#slack-template), only the title applies to a single version, through <code v-pre>{{releaseTitle}}</code>. See [Announcements on Slack](./../guide/social-media.md#announcements-on-slack).
+
+### exclude {#slack-exclude}
+
+- **Type:** `{ groups?: string[], packages?: string[] }`
+
+Versions never announced on Slack, even when an entry of `announcements` matches them: the groups by name, the packages by name or glob. Nothing is posted when every version is left out.
+
+## teams
+
+The cards posted to a Teams workflow. Setup of the workflow: [Microsoft Teams](./../guide/social-media.md#microsoft-teams).
+
+### enabled {#teams-enabled}
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Post the releases on Teams.
+
+### onlyStable {#teams-onlystable}
+
+- **Type:** `boolean`
+- **Default:** `true`
+
+Same as [`twitter.onlyStable`](#twitter-onlystable).
+
+### webhookUrl {#teams-webhookurl}
+
+- **Type:** `string`
+- **Default:** `RELIZY_TEAMS_WEBHOOK_URL`, else `TEAMS_WEBHOOK_URL`, else the base64 of `RELIZY_TEAMS_WEBHOOK_URL_B64`, else of `TEAMS_WEBHOOK_URL_B64`
+
+URL of the workflow, with the trigger **When a Teams webhook request is received**. It holds a secret (its `sig` parameter): prefer the environment. The URLs of the retired Office 365 connectors are refused.
+
+### cards {#teams-cards}
+
+- **Type:** `'version' | 'release'`
+- **Default:** `'version'`
+
+- `version`: one card per version, the root version of a `unified`/`selective` group and each package of an `independent` group.
+- `release`: one card for the release, with a section per version under the title of its group.
+
+### changelog {#teams-changelog}
+
+- **Type:** `'full' | 'summary' | 'none' | false`
+- **Default:** `'none'`
+
+- `full`: the changelog of the version, the commit bodies included.
+- `summary`: the titles of the commits of the version, rewritten with [`ai.social.teams`](./ai.md#social).
+- `none` (or `false`): no changelog in the card, its buttons link to it.
+
+A card is at most 28 KB: the changelogs of a card share what its other texts leave, each one cut between two changes with an `… and N more changes` line.
+
+### title {#teams-title}
+
+- **Type:** `string`
+- **Default:** <code v-pre>{{name}} {{newVersion}}</code>
+
+Title of the card (of its section with `cards: 'release'`), with the [announcement variables](#announcement-variables).
+
+### message {#teams-message}
+
+- **Type:** `string`
+- **Default:** <code v-pre>A new version of **{{name}}** is available.</code>
+
+Text under the title, in markdown (bold, italic, links, lists), with the [announcement variables](#announcement-variables).
+
+### changelogUrl {#teams-changelogurl}
+
+- **Type:** `string | false`
+- **Default:** [`social.changelogUrl`](#changelogurl), else the `CHANGELOG.md` of the version at its tag
+
+URL of the **📝 Changelog** button, with the [announcement variables](#announcement-variables). `false` removes the button.
+
+### links {#teams-links}
+
+- **Type:** `{ title: string, url: string }[]`
+
+Buttons added after **📖 Release notes** and **📝 Changelog**, with the [announcement variables](#announcement-variables) in their title and URL. A button whose URL is empty is left out.
 
 ```ts
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      webhookUrl: process.env.SLACK_WEBHOOK_URL,
-      noPackages: true, // hide the 📦 Packages block
-    },
-  },
-})
+links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.acme.dev' }]
 ```
 
-The data shown in this block comes from the same internal helper (`collectPackageBumps`) that powers the PR comment package table, so the two views always stay in sync — only the rendering differs (GFM table vs Slack mrkdwn bullet list).
+### badge {#teams-badge}
+
+- **Type:** `string | false`
+- **Default:** `'New release'` (`'Prerelease'` for a prerelease)
+
+Text of the badge above the title; `false` removes it.
+
+### locale {#teams-locale}
+
+- **Type:** `string`
+- **Default:** `'en-US'`
+
+Locale of the date of the card (`fr-FR` gives `6 novembre 2026`).
+
+### announcements {#teams-announcements}
+
+- **Type:** `({ group: string } | { package: string } & { title?, message?, changelogUrl?, links? })[]`
+
+The versions to announce and their texts. Without it, every version is announced with the options above. With it, only the versions matching an entry:
+
+- `{ group }`: the versions of a [version group](./monorepo.md#groups), its root version or each of its packages when it is `independent`.
+- `{ package }`: the packages whose name matches the glob (`@scope/*`), and the version of a project without monorepo under its name. Its fields override the ones of its group entry, field by field.
+
+The fields of an entry override the ones of `social.teams`. See [Announcements](./../guide/social-media.md#announcements).
+
+### exclude {#teams-exclude}
+
+- **Type:** `{ groups?: string[], packages?: string[] }`
+
+Versions never announced, even when an entry of `announcements` matches them: the groups by name, the packages by name or glob.
+
+## Announcement Variables
+
+The texts and the links of the announcements (Teams, and [`slack.announcements`](#slack-announcements)) replace these variables, for each version:
+
+| Variable                            | Value                                                                                              |
+| ----------------------------------- | -------------------------------------------------------------------------------------------------- |
+| <code v-pre>{{name}}</code>         | The package name; the project name (the title of the group with version groups) for a root version |
+| <code v-pre>{{shortName}}</code>    | `name` without its scope: `ui` for `@acme/ui`                                                      |
+| <code v-pre>{{newVersion}}</code>   | The version                                                                                        |
+| <code v-pre>{{tag}}</code>          | Its tag                                                                                            |
+| <code v-pre>{{groupTitle}}</code>   | The title of its version group, empty without version groups                                       |
+| <code v-pre>{{projectName}}</code>  | `projectName` of the config, else the name of the root `package.json`                              |
+| <code v-pre>{{releaseUrl}}</code>   | Its GitHub/GitLab release                                                                          |
+| <code v-pre>{{changelogUrl}}</code> | The URL of its **📝 Changelog** link                                                               |
 
 ## changelogUrl
 
 - **Type:** `string`
-- **Optional**
 
-URL to your full changelog (e.g., hosted documentation). This URL will be included in social media posts:
+URL of the full changelog: <code v-pre>{{changelogUrl}}</code> of the templates, the **Full Changelog** button of Slack and the **📝 Changelog** button of Teams. Not set, the variable is empty, and a template line holding only <code v-pre>{{changelogUrl}}</code> is removed.
+
+## Templates
+
+`social.twitter.template` falls back to `templates.twitterMessage`, and `social.slack.template` to `templates.slackMessage`: set the `templates` ones to share them between several configs. See [Commit Templates](./commit-templates.md).
+
+## Template Variables
+
+Every occurrence of a variable is replaced. A URL not known is replaced with an empty string, and a line holding only this URL is removed.
+
+| Variable                            | Value                                                                                                                                                                       | Slack only |
+| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------- |
+| <code v-pre>{{releaseTitle}}</code> | `<name> <version> is out!` when a single version is released (the root version, or a single package of an `independent` release), `New releases of <projectName>` otherwise |            |
+| <code v-pre>{{projectName}}</code>  | `projectName` of the config, else the name of the root `package.json`                                                                                                       |            |
+| <code v-pre>{{newVersion}}</code>   | The version released, **empty** when several versions are released                                                                                                          |            |
+| <code v-pre>{{packageList}}</code>  | `name@version` of the released packages, comma-separated                                                                                                                    |            |
+| <code v-pre>{{packageCount}}</code> | Number of released packages                                                                                                                                                 |            |
+| <code v-pre>{{changelog}}</code>    | The changelog, fitted to the post; the sections of the versions when several are released                                                                                   |            |
+| <code v-pre>{{releaseUrl}}</code>   | The GitHub/GitLab release of the only version, else of the `unified`/`selective` group                                                                                      |            |
+| <code v-pre>{{changelogUrl}}</code> | [`social.changelogUrl`](#changelogurl)                                                                                                                                      |            |
+| <code v-pre>{{contributors}}</code> | Names of the contributors, one bullet each (empty with `noAuthors`)                                                                                                         | Yes        |
+| <code v-pre>{{packages}}</code>     | Released packages with their old and new versions, one bullet each (empty with `noPackages`)                                                                                | Yes        |
+
+Use <code v-pre>{{releaseTitle}}</code> rather than <code v-pre>{{projectName}} {{newVersion}}</code>: it stays right when a release ships several versions.
+
+## Version Groups
+
+A [version group](./monorepo.md#groups) with `release: { social: false }` is left out of the posts. The `social` options are global: one post per platform announces every group (Teams posts a card per version, or one with `cards: 'release'`). The `announcements` of [Teams](#teams-announcements) and [Slack](#slack-announcements) choose the versions and set the texts of each group, `exclude` leaves versions out of Teams, Slack and [Twitter](#twitter-exclude).
 
 ```ts
 export default defineConfig({
-  social: {
-    changelogUrl: 'https://example.com/changelog',
-    twitter: {
-      enabled: true,
-    },
-    slack: {
-      enabled: true,
-      channel: '#releases',
-    },
+  monorepo: {
+    groups: [
+      { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+      { name: 'internal', versionMode: 'independent', packages: ['internal/*'], release: { social: false } },
+    ],
   },
+  social: { slack: { enabled: true } },
 })
 ```
-
-## Complete Examples
-
-### Twitter Only
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      onlyStable: true,
-      template: '🎉 {{projectName}} v{{version}} released!\n\n{{changelog}}\n\n📖 {{releaseUrl}}',
-    },
-    changelogUrl: 'https://myproject.com/changelog',
-  },
-})
-```
-
-### Slack Only
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  social: {
-    slack: {
-      enabled: true,
-      onlyStable: false, // Post all releases including prereleases
-      channel: '#releases',
-      template: '🚀 *{{projectName}} v{{version}}*\n\n{{changelog}}\n\n<{{releaseUrl}}|View on GitHub>',
-    },
-    changelogUrl: 'https://myproject.com/changelog',
-  },
-})
-```
-
-### Both Twitter and Slack
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: true,
-      onlyStable: true,
-    },
-    slack: {
-      enabled: true,
-      onlyStable: false,
-      channel: '#releases',
-    },
-    changelogUrl: 'https://myproject.com/changelog',
-  },
-})
-```
-
-### Using Environment Variables
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  social: {
-    twitter: {
-      enabled: process.env.ENABLE_TWITTER === 'true',
-      credentials: {
-        apiKey: process.env.TWITTER_API_KEY,
-        apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
-        accessToken: process.env.TWITTER_ACCESS_TOKEN,
-        accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-      },
-    },
-    slack: {
-      enabled: process.env.ENABLE_SLACK === 'true',
-      channel: process.env.SLACK_CHANNEL || '#releases',
-      credentials: {
-        token: process.env.SLACK_TOKEN,
-      },
-    },
-  },
-})
-```
-
-### With Alternative Token Configuration
-
-Relizy also supports the `tokens` configuration for credentials:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  tokens: {
-    twitter: {
-      apiKey: process.env.TWITTER_API_KEY,
-      apiKeySecret: process.env.TWITTER_API_KEY_SECRET,
-      accessToken: process.env.TWITTER_ACCESS_TOKEN,
-      accessTokenSecret: process.env.TWITTER_ACCESS_TOKEN_SECRET,
-    },
-    slack: process.env.SLACK_TOKEN,
-  },
-  social: {
-    twitter: {
-      enabled: true,
-    },
-    slack: {
-      enabled: true,
-      channel: '#releases',
-    },
-  },
-})
-```
-
-## Integration with Release Workflow
-
-Social media posting is automatically triggered when you enable it in the `release` configuration:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    social: true, // Enable social posting in release workflow
-  },
-  social: {
-    twitter: {
-      enabled: true,
-    },
-    slack: {
-      enabled: true,
-      channel: '#releases',
-    },
-  },
-})
-```
-
-Then run:
-
-```bash
-relizy release --patch
-```
-
-This will:
-
-1. Bump version
-2. Generate changelog
-3. Create git commit and tag
-4. Push to remote
-5. Create GitHub/GitLab release
-6. Publish to npm
-7. **Post to Twitter and Slack** ✨
-
-## Standalone Usage
-
-You can also post to social media independently using the `social` command:
-
-```bash
-relizy social --from v1.0.0 --to v1.1.0
-```
-
-See the [CLI reference](../cli/social.md) for more details.
-
-## See Also
-
-- [Twitter Integration Guide](../guide/twitter-integration.md)
-- [Slack Integration Guide](../guide/slack-integration.md)
-- [Social Media Overview](../guide/social-media.md)
-- [Release Configuration](./release.md)
-- [Hooks Configuration](./hooks.md)

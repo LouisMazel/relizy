@@ -1,446 +1,142 @@
 ---
 title: CI/CD Integration
-description: Automate your releases with continuous integration and deployment pipelines.
-keywords: ci cd integration, continuous integration, continuous deployment, automated releases, pipeline automation
+description: Release from your CI with one command - what relizy init generates, what Relizy handles in a CI job, the tokens, running a step only when a release happens, and troubleshooting.
+metaDescription: 'Release from your CI with one command: what relizy init generates, the tokens, running a step only on a release, and troubleshooting.'
+keywords: ci cd, continuous integration, release from ci, relizy init workflow, shallow clone, git identity, push access, release outputs, troubleshooting ci release
 category: Guide
-tags: [guide, ci-cd, automation, deployment, integration]
+tags: [guide, ci-cd, automation, github-actions, gitlab-ci]
 ---
 
 # {{ $frontmatter.title }}
 
-{{ $frontmatter.description }}
+A CI job releases with a single command: `relizy release --yes`. Relizy prepares the clone, checks the tokens and the push access before writing anything, and writes a report the next steps can read.
 
-## Overview
-
-Relizy is designed to work seamlessly in CI/CD environments. This guide covers best practices for automating releases in your pipelines.
-
-## General Setup
-
-### Environment Variables
-
-Set these in your CI/CD environment:
+## Start with relizy init
 
 ```bash
-# Required for npm publishing
-NODE_AUTH_TOKEN=your_npm_token
-
-# Required for GitHub releases
-RELIZY_GITHUB_TOKEN=your_github_token
-
-# Required for GitLab releases
-RELIZY_GITLAB_TOKEN=your_gitlab_token
+npx relizy init
 ```
 
-### Git Configuration
+On GitHub and GitLab, [`relizy init`](./../cli/init.md#release-workflow) writes the release workflow next to the config: run on demand (choosing the release type) or at each push on the default branch, with the permissions and only the secrets your config needs. The job runs the [relizy action](./github-actions.md#the-relizy-action) `relizy/action@v2` on GitHub, and the [relizy component](./gitlab-ci.md#the-relizy-component) of the CI/CD catalog on gitlab.com: they set up the project and run the release. The generated files are explained in [GitHub Actions](./github-actions.md) and [GitLab CI](./gitlab-ci.md).
 
-Configure git in your CI environment:
+On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the install of the dependencies, the [tokens](#tokens), credentials allowed to push, and `npx relizy release --yes`. Relizy reads the branch of a detached HEAD from the variables of CircleCI, Bitbucket Pipelines, Buildkite, Drone, Travis CI, Azure Pipelines and Jenkins too.
 
-```bash
-git config --global user.name "github-actions[bot]"
-git config --global user.email "github-actions[bot]@users.noreply.github.com"
+## What Relizy Handles in CI
+
+- **Confirmation**: without `--yes`, `relizy release` and `relizy bump` fail right away, with exit code 1, as nobody can confirm the new versions. `--dry-run` needs it too.
+
+  ```text
+  relizy release asks to confirm the new versions, but the terminal is not interactive (GitHub Actions): run "relizy release --yes" to confirm them in advance
+  ```
+
+- **Shallow clone**: the full history and the tags are fetched (`git fetch --unshallow --tags`), as the versions and the changelogs need every commit since the last release. `fetch-depth: 0` (GitHub) or `GIT_DEPTH: 0` (GitLab) only saves this fetch.
+- **Detached HEAD**: GitLab CI and others check out the commit. Relizy checks out the branch of the job (the source branch of a merge request), tracking the remote one, so the release commit can be pushed and the branch checked against the remote.
+- **Git identity**: without `user.name` and `user.email` in the git config of the job, nor `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, the release commit and the tags are made by the person who started the release, with the noreply email their provider links to their profile (`12446546+octocat@users.noreply.github.com`, `42-jdoe@users.noreply.gitlab.com`). A bot, an access token, or a CI that does not tell, gets `relizy[bot] <noreply@relizy.dev>`. Set the git config or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables to choose another identity.
+- **npm token**: Relizy writes it to a temporary `.npmrc` of the project (restored right after) for npm, pnpm and bun, and checks it (`whoami`, npm and pnpm) before the bump. Nothing to write by hand.
+- **Push access**: before publishing anything, Relizy checks that the release commit and the tags can be pushed (`git push --dry-run`), as a push failing after the publish would leave versions on the registry without their commit nor their tags. A dry run checks it too, except on a pull request, see [The Push Is Refused](#the-push-is-refused). On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. The rules of protected branches are only checked by the real push: see [Protected Branches](#protected-branches).
+- **Concurrent pushes**: commits pushed to the branch during the release are handled, see [Branch Safety](./../cli/release.md#branch-safety). The dry run of a pull request whose branch received new commits after it started only warns: the run of the latest commit previews the release with them.
+
+## Tokens
+
+| Needed for                        | Variable read by Relizy                                                        |
+| --------------------------------- | ------------------------------------------------------------------------------ |
+| npm publish                       | `RELIZY_NPM_TOKEN`, or none with [trusted publishing](./trusted-publishing.md) |
+| GitHub release, PR comment        | `GITHUB_TOKEN`                                                                 |
+| GitLab release, MR comment, push  | `GITLAB_TOKEN`                                                                 |
+| [Social posts](./social-media.md) | `RELIZY_TWITTER_*`, `RELIZY_SLACK_TOKEN`                                       |
+| [AI rewrites](./ai-changelog.md)  | `RELIZY_CLAUDE_CODE_OAUTH_TOKEN` or `RELIZY_ANTHROPIC_API_KEY`                 |
+
+Every variable has aliases (`NPM_TOKEN`, `NODE_AUTH_TOKEN`, `GH_TOKEN`...): see [Tokens](./../config/overview.md#tokens). The secrets to create on each CI are listed in [GitHub Actions](./github-actions.md#secrets-and-permissions) and [GitLab CI](./gitlab-ci.md#ci-cd-variables).
+
+## Output in CI
+
+In CI (or without a terminal), each step is a line with its duration, its logs in a collapsible group (GitHub Actions and GitLab CI). On GitHub Actions, the warnings and the error are annotations of the run. `--log-level verbose` shows every log; they are also written to `node_modules/.cache/relizy/release.log`. `RELIZY_REPORTER` forces the output: `ci`, `pretty` (the terminal one) or `classic` (the plain logs of the logger). See [Output](./../cli/commands.md#output).
+
+## Run Something Only When a Release Happens
+
+`relizy release` exits with code `0` whether it released or there was nothing to release. To run what follows a release (a message to the team, a deployment of the docs), either read the [report](#from-the-report) of the release, from a Node.js script or a next step of the pipeline, visible in the CI, or use a **hook**, which only runs when a release happens.
+
+```ts
+export default defineConfig({
+  hooks: {
+    // A command, run after a successful release only
+    'success:release': 'node ./scripts/notify-teams.mjs',
+  },
+})
 ```
 
-## Common Patterns
+The hooks also run with `--dry-run`: a command hook would then notify for nothing. A function hook gets `dryRun`, and the release as third parameter (see [Hooks](./../config/hooks.md#parameters)), to tell what was released:
 
-### Manual Trigger
+```ts
+export default defineConfig({
+  hooks: {
+    'success:release': async (config, dryRun, context) => {
+      if (dryRun || !context) {
+        return
+      }
 
-Release only when manually triggered:
+      const versions = context.release.groups.flatMap(group => group.version
+        ? [`${group.title} ${group.version}`]
+        : group.packages.map(pkg => `${pkg.name} ${pkg.newVersion}`))
 
-```yaml
-# GitHub Actions
-name: Release
-on:
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: Release type
-        required: true
-        type: choice
-        options:
-          - patch
-          - minor
-          - major
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-      - run: npm install
-      - run: relizy release --${{ inputs.release_type }} --yes
+      await fetch(process.env.TEAMS_WEBHOOK_URL!, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: `Released: ${versions.join(', ')}` }),
+      })
+    },
+  },
+})
 ```
 
-### On Tag Push
+### From the Report
 
-Release when a tag is pushed:
+The [report](./../config/release.md#report) of the release tells what was released: written for a release, when there is nothing to release, when it fails, and in dry-run (`released` is then `false`). Read it in the next steps or jobs: the outputs of the step on GitHub Actions ([example](./github-actions.md#outputs-and-summary)), the dotenv artifact on GitLab CI ([example](./gitlab-ci.md#outputs-and-summary)). In a monorepo, `package_<name>_version` and `group_<name>_version` are only set for what was released, to run something for one package only.
 
-```yaml
-# GitHub Actions
-name: Release
-on:
-  push:
-    tags:
-      - 'v*'
+From a Node.js script, [`release()`](./../api/release.md) returns the same report, and `--report-json relizy.json` writes it to a file.
 
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-      - run: npm install
-      - run: relizy publish
-      - run: relizy provider-release
-```
-
-### On Main Branch Push
-
-Automatically release on every push to main:
-
-```yaml
-# GitHub Actions
-name: Release
-on:
-  push:
-    branches:
-      - main
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # Fetch all history
-      - uses: actions/setup-node@v6
-      - run: npm install
-      - run: relizy release --yes
-```
-
-### On PR Merge with Label
-
-Release only when PRs with specific labels are merged:
-
-```yaml
-# GitHub Actions
-name: Release
-on:
-  pull_request:
-    types: [closed]
-
-jobs:
-  release:
-    if: github.event.pull_request.merged == true && contains(github.event.pull_request.labels.*.name, 'release')
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-      - run: npm install
-      - run: relizy release --yes
-```
-
-## Important Flags for CI
-
-### --yes
-
-Skip all interactive prompts:
-
-```bash
-relizy release --minor --yes
-```
-
-### --no-clean
-
-Skip git status checks (useful in CI where working directory may have artifacts):
-
-```bash
-relizy release --minor --no-clean
-```
-
-### --dry-run
-
-Test the release process without making changes:
-
-```bash
-relizy release --minor --dry-run
-```
-
-### --log-level
-
-Control logging verbosity:
-
-```bash
-relizy release --minor --log-level debug
-```
-
-## Complete Examples
-
-### GitHub Actions - Full Release
-
-```yaml
-name: Release
-
-on:
-  workflow_dispatch:
-    inputs:
-      release_type:
-        description: 'Release type (patch, minor, major)'
-        required: true
-        default: patch
-
-jobs:
-  release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write # For pushing tags and creating releases
-      packages: write # For publishing packages
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 0 # Fetch all history for changelog
-          token: ${{ secrets.RELIZY_GITHUB_TOKEN }}
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Configure Git
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      - name: Release
-        run: relizy release --${{ inputs.release_type }} --yes
-        env:
-          RELIZY_GITHUB_TOKEN: ${{ secrets.RELIZY_GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-### GitLab CI - Full Release
-
-```yaml
-release:
-  image: node:24
-  stage: deploy
-  only:
-    - main
-  when: manual
-  script:
-    - npm ci
-    - git config user.name "GitLab CI"
-    - git config user.email "ci@gitlab.com"
-    - relizy release --yes
-  variables:
-    RELIZY_GITLAB_TOKEN: $CI_JOB_TOKEN
-    NODE_AUTH_TOKEN: $NPM_TOKEN
-```
-
-### CircleCI - Automated Release
-
-```yaml
-version: 2.1
-
-jobs:
-  release:
-    docker:
-      - image: cimg/node:24.0
-    steps:
-      - checkout
-      - restore_cache:
-          keys:
-            - dependencies-{{ checksum "package-lock.json" }}
-      - run:
-          name: Install dependencies
-          command: npm ci
-      - run:
-          name: Configure Git
-          command: |
-            git config user.name "CircleCI"
-            git config user.email "ci@circleci.com"
-      - run:
-          name: Release
-          command: relizy release --yes
-      - save_cache:
-          paths:
-            - node_modules
-          key: dependencies-{{ checksum "package-lock.json" }}
-
-workflows:
-  release:
-    jobs:
-      - release:
-          filters:
-            branches:
-              only: main
-```
-
-## Canary Releases in CI
-
-Canary releases are ideal for CI pipelines. Publish a temporary test version on every pull request so reviewers can install and test the changes before merging.
-
-### Canary on Pull Request
-
-```yaml
-# GitHub Actions
-name: Canary
-on:
-  pull_request:
-    branches:
-      - main
-
-jobs:
-  canary:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-      pull-requests: write
-
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run build
-      - name: Canary Release
-        run: relizy release --canary --yes
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-This publishes a canary version (e.g., `1.3.0-0.canary-a3f4b2c`) to npm with the `canary` dist-tag and posts a comment on the PR with the version details.
-
-::: tip
-Use `--no-clean` in CI to skip the git dirty check, since CI environments may have build artifacts.
-:::
-
-Learn more in the [Canary Releases](/guide/canary-releases) guide.
-
-## Monorepo CI/CD
-
-### Selective Publishing
-
-Only publish packages that changed:
-
-```yaml
-- name: Release
-  run: relizy release --yes
-```
-
-## Security Best Practices
-
-### 1. Use Tokens, Not Passwords
-
-Always use tokens for authentication:
-
-```bash
-# Good ✅
-NODE_AUTH_TOKEN=npm_xxx...
-
-# Bad ❌
-NPM_PASSWORD=my_password
-```
-
-### 2. Limit Token Scopes
-
-Use tokens with minimal required permissions:
-
-- **NPM**: Read and publish access only
-- **GitHub**: Contents and packages write only
-- **GitLab**: API access only
-
-### 3. Rotate Tokens Regularly
-
-Set reminders to rotate CI tokens every 90 days.
-
-### 4. Use Branch Protection
-
-Protect your main branch:
-
-- Require pull request reviews
-- Require status checks to pass
-- Restrict who can push to main
-
-### 5. Audit Releases
-
-Log all releases for audit trails:
-
-```yaml
-- name: Release
-  run: relizy release --yes | tee release.log
-
-- name: Upload logs
-  uses: actions/upload-artifact@v4
-  with:
-    name: release-logs
-    path: release.log
-```
+For the announcements, prefer [social posts](./social-media.md) and the [PR comment](./pr-comment.md) to a message written by hand.
 
 ## Troubleshooting
 
-### Git Push Fails
+### The Push Is Refused
 
-Ensure you have proper permissions:
+The release stops before publishing, `--dry-run` too:
 
-```yaml
-- uses: actions/checkout@v6
-  with:
-    token: ${{ secrets.RELIZY_GITHUB_TOKEN }}
-    # or use a PAT with wider permissions
-    # token: ${{ secrets.PAT_TOKEN }}
+```text
+relizy cannot push the release commit and tags to "origin" from GitHub Actions: the token of the job cannot push.
+Fix: give the release job write access in your workflow:
+
+  permissions:
+    contents: write
+
+or check out the repository with a token allowed to push (actions/checkout, input "token").
 ```
 
-If the push is rejected as `non-fast-forward`, commits were pushed to the branch while the release was running. Relizy merges them into the release commit and pushes again; see [Branch Safety](/cli/release#branch-safety) for the details and the recovery command printed when the merge conflicts.
+The dry run of a pull request (`pull_request` on GitHub, a merge request pipeline on GitLab) only warns: its token is read-only, and the release never runs there. The release job checks the push.
 
-### NPM Publish Fails
+On GitLab, the fix is a `GITLAB_TOKEN` variable (an access token with the `write_repository` and `api` scopes), or allowing the job token to push: see [Push Access](./gitlab-ci.md#push-access).
 
-Verify your NPM token:
+### Protected Branches
 
-```bash
-# Test authentication
-npm whoami
+A branch requiring pull requests or status checks rejects the push of the release commit, after the publish. Push with a token allowed to bypass the rule: see [Protected Branches and Rulesets](./github-actions.md#protected-branches-and-rulesets) on GitHub, [Protected Branches and Tags](./gitlab-ci.md#protected-branches-and-tags) on GitLab. Then re-run the release from the latest commit: Relizy stops on the tags already created and prints how to recover (see [Branch Safety](./../cli/release.md#branch-safety)).
+
+### npm Publish Fails
+
+- **Authentication**: the token check before the bump fails. Check the secret is passed to the step, as `RELIZY_NPM_TOKEN` or `NPM_TOKEN`, and that the token can publish the packages. Or publish without token: [trusted publishing](./trusted-publishing.md).
+- **E404 with trusted publishing**: the package is not on npm yet (publish its first version with a token), or its trusted publisher does not match the repository, the workflow file or the environment of the job.
+- **OTP required**: a CI cannot type a one-time password. Use a token allowed to publish without 2FA.
+- **Version already published**: a previous run published it but did not push. Follow the recovery printed by Relizy, or add `--skip-existing-versions`.
+
+### Nothing to Release
+
+`Nothing to release`: no commit since the last release tag triggers a bump (by default, `chore`, `test`, `ci`, `style` and `examples` do not, see [Semver Convention](./semver-convention.md)), or the commits do not touch the released packages. Preview with `relizy release --dry-run --yes`, force a type with `--patch`, `--minor` or `--major`, or release without commits with `--force`.
+
+### Uncommitted Changes
+
+```text
+Uncommitted changes: dist/index.js (new)
+Commit or stash them first, or keep them with --no-clean.
 ```
 
-Set the token correctly:
-
-```yaml
-env:
-  NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-```
-
-### No Commits Found
-
-Ensure you fetch all git history:
-
-```yaml
-- uses: actions/checkout@v6
-  with:
-    fetch-depth: 0 # ← Important!
-```
-
-### Dirty Working Directory
-
-Use `--no-clean` in CI:
-
-```bash
-relizy release --yes --no-clean
-```
-
-## Next Steps
-
-- [GitHub Actions](github-actions.md) - Detailed GitHub Actions setup
-- [GitLab CI](gitlab-ci.md) - Detailed GitLab CI setup
-- [CLI Reference](../cli/release.md) - Learn about all CLI options
+A step of the job wrote files that git tracks or does not ignore: add them to `.gitignore`, or keep them with `--no-clean`. They are not committed, except the changes of the files the release writes (`package.json`, `CHANGELOG.md`), which go in the release commit.

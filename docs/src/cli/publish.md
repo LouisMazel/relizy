@@ -1,7 +1,7 @@
 ---
 title: publish
-description: Publish packages to npm registry.
-keywords: relizy publish, npm publish, package publishing, npm registry, monorepo publish
+description: Publish the packages to the npm registry, or other registries, without bump, commit nor tag.
+keywords: relizy publish, npm publish, registry, dist-tag, npm token, otp, monorepo publish, build command
 category: CLI Reference
 tags: [cli, publish, npm, registry, monorepo]
 ---
@@ -16,138 +16,48 @@ tags: [cli, publish, npm, registry, monorepo]
 relizy publish [options]
 ```
 
-## What It Does
+`publish` is the third [step of `release`](./release.md#steps). It:
 
-The `publish` command:
+1. finds the packages to publish (public packages only, the private ones are never published);
+2. checks the access to the registry (npm and pnpm, not Yarn nor Bun) and the `workspace:` dependencies (see [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies));
+3. runs the build command, only when `--build-cmd` or [`publish.buildCmd`](./../config/publish.md#buildcmd) is set;
+4. publishes the packages, each after its internal dependencies, with the package manager of the project.
 
-1. ✅ Builds packages (if build script exists)
-2. ✅ Publishes to npm registry
-3. ✅ Handles authentication
-4. ❌ Does NOT bump versions
-5. ❌ Does NOT create tags
+Alone, it publishes the current versions: run it after [`bump`](./bump.md). The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`...).
 
 ## Options
 
-### --tag
+| Flag                       | Description                                                                                                | Config                                                                        |
+| -------------------------- | ---------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--registry <url>`         | Registry to publish to: every package goes there, on top of its non-exclusive `publish.registries` entries | [`publish.registry`](./../config/publish.md#registry)                         |
+| `--tag <tag>`              | Dist-tag of the publication. Default: `latest` for a stable version, `next` for a prerelease               | [`publish.tag`](./../config/publish.md#tag)                                   |
+| `--access <type>`          | `public` or `restricted`                                                                                   | [`publish.access`](./../config/publish.md#access)                             |
+| `--otp <code>`             | One-time password of the registry (2FA)                                                                    | [`publish.otp`](./../config/publish.md#otp)                                   |
+| `--build-cmd <cmd>`        | Command run before publishing. Quote it, it is one argument: `--build-cmd "pnpm build"`                    | [`publish.buildCmd`](./../config/publish.md#buildcmd)                         |
+| `--publish-token <token>`  | Registry token, for npm, pnpm and bun (written to a temporary `.npmrc`)                                    | [`tokens.registry`](./../config/overview.md#tokens)                           |
+| `--skip-existing-versions` | Skip the packages whose version is already on the registry instead of failing                              | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
 
-Publish with npm dist-tag:
-
-```bash
-relizy publish --tag beta
-```
-
-### --access
-
-Set package access:
-
-```bash
-# Public package
-relizy publish --access public
-
-# Private package
-relizy publish --access restricted
-```
-
-### --otp
-
-Provide one-time password for 2FA:
-
-```bash
-relizy publish --otp 123456
-```
-
-### --build-cmd
-
-Provide build command:
-
-```bash
-relizy publish --build-cmd pnpm build
-```
-
-### --registry
-
-Provide custom registry URL:
-
-```bash
-relizy publish --registry https://my-registry.com
-```
-
-### --skip-existing-versions
-
-Skip packages whose version already exists on the registry instead of failing:
-
-```bash
-relizy publish --skip-existing-versions
-```
-
-Makes a re-run idempotent: already-published versions are skipped with a warning, and only missing packages are published. Without this flag, an already-published version fails the command with a clear error message. See [`publish.skipExistingVersions`](/config/publish#skipexistingversions) for details.
-
-### --dry-run
-
-Test publish without actually publishing:
-
-```bash
-relizy publish --dry-run
-```
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed.
-
-```bash
-relizy publish --group header
-relizy publish --group main,header
-```
+Without `--publish-token`, the token comes from the config or the environment, see [Tokens](./../config/overview.md#tokens).
 
 ## Examples
 
-### Basic Publish
-
 ```bash
-relizy publish
+# Preview the publication
+relizy publish --dry-run
 
-# Publishes current version to npm
-```
-
-### Beta Release
-
-```bash
+# A beta, installed with my-package@beta
 relizy publish --tag beta
 
-# Publish as beta version
-# npm install my-package@beta
-```
+# Build first
+relizy publish --build-cmd "pnpm build"
 
-### Monorepo
-
-```bash
-relizy publish
-
-# Publishes all packages in monorepo
-```
-
-## Authentication
-
-### NPM Token
-
-```bash
-export NODE_AUTH_TOKEN=your_npm_token_here
-relizy publish
-```
-
-### .env
-
-```ini
-NODE_AUTH_TOKEN=your_npm_token_here
-```
-
-### .npmrc
-
-```ini
-//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}
+# A re-run publishes only what is missing
+relizy publish --skip-existing-versions
 ```
 
 ## See Also
 
-- [release](/cli/release) - Full release workflow
-- [Installation](/guide/installation) - Setup NPM authentication
+- [release](./release.md)
+- [Publish config](./../config/publish.md)
+- [CI/CD](./../guide/ci-cd.md)
+- [`publish()`](./../api/publish.md)

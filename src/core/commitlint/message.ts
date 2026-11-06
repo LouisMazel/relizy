@@ -1,4 +1,5 @@
 import type { ResolvedRelizyConfig } from '../config'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES } from '../format'
 
 /**
  * A commit message split into its parts, before any conventional parsing.
@@ -67,19 +68,23 @@ function escapeRegExp(text: string): string {
 }
 
 /**
- * Header of the release commits created by relizy, from `templates.commitMessage`
- * (its variables match anything).
+ * Headers of the release commits created by relizy, from `templates.commitMessage`
+ * (its variables match anything). With version groups and without template,
+ * the title depends on the groups that bumped: both default titles.
  */
-function getReleaseCommitPattern(config: ResolvedRelizyConfig): RegExp | undefined {
+function getReleaseCommitPatterns(config: ResolvedRelizyConfig): RegExp[] {
   const template = config.templates?.commitMessage
-  if (!template) {
-    return undefined
-  }
-  const pattern = template
-    .split(/\{\{\w+\}\}/)
-    .map(escapeRegExp)
-    .join('.+')
-  return new RegExp(`^${pattern}$`)
+  const templates = template
+    ? [template]
+    : config.monorepo?.groups ? Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES) : []
+
+  return templates.map((title) => {
+    const pattern = title
+      .split(/\{\{\w+\}\}/)
+      .map(escapeRegExp)
+      .join('.+')
+    return new RegExp(`^${pattern}$`)
+  })
 }
 
 const DEFAULT_IGNORES = [
@@ -95,11 +100,8 @@ export function isIgnoredCommitMessage(message: string, config: ResolvedRelizyCo
   const { header } = splitCommitMessage(message)
   const commitlint = config.commitlint ?? {}
 
-  if (commitlint.defaultIgnores !== false) {
-    const releasePattern = getReleaseCommitPattern(config)
-    if (DEFAULT_IGNORES.some(pattern => pattern.test(header)) || releasePattern?.test(header)) {
-      return true
-    }
+  if (commitlint.defaultIgnores !== false && [...DEFAULT_IGNORES, ...getReleaseCommitPatterns(config)].some(pattern => pattern.test(header))) {
+    return true
   }
 
   return (commitlint.ignores ?? []).some(ignore =>

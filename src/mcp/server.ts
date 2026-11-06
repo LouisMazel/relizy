@@ -5,10 +5,12 @@ import type { ToolDefinition } from './tools/types'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
+import { withGitCache } from '../core/git-cache'
 import { createContext } from './context'
 import { buildInstructions } from './instructions'
 import { registerPrompts } from './prompts'
 import { captureLogs, redirectConsoleToStderr } from './runtime'
+import { checkMigrationTool } from './tools/check-migration'
 import { getConfigOptionTool } from './tools/get-config-option'
 import { getDocTool } from './tools/get-doc'
 import { getProjectTool } from './tools/get-project'
@@ -27,11 +29,13 @@ export const TOOLS: ToolDefinition[] = [
   getConfigOptionTool,
   searchDocsTool,
   getDocTool,
+  checkMigrationTool,
 ]
 
 export async function runTool(context: ServerContext, tool: ToolDefinition, args: unknown): Promise<CallToolResult> {
   try {
-    return { content: [{ type: 'text', text: await tool.run(context, args) }] }
+    // One git cache per call: the tools read the same refs and ranges for each package
+    return { content: [{ type: 'text', text: await withGitCache(() => tool.run(context, args)) }] }
   }
   catch (error) {
     const message = error instanceof ToolInputError

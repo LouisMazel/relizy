@@ -1,11 +1,12 @@
+import type { GitRepository } from '../../../tests/git-repository'
 import type { ResolvedRelizyConfig } from '../config'
 import type { Step } from '../tags'
 import { Buffer } from 'node:buffer'
 import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
+import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { createGitRepository } from '../../../tests/git-repository'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getFirstCommit } from '../git'
 import { NEW_PACKAGE_MARKER, resolveTags } from '../tags'
@@ -21,6 +22,7 @@ vi.mock('@maz-ui/node', importActual => importActual())
  * - `relizy-independent.config.ts`: independent, only `shared-components/navigation`, tags `@scope/navigation@x.y.z`
  */
 describe('Given resolveTags function on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let clock: number
 
@@ -53,7 +55,7 @@ describe('Given resolveTags function on a real git repository', () => {
 
   /** Version of the root package.json, read for the sub-packages in unified and selective modes */
   function writeRootVersion(version: string) {
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'root', version }))
+    repository.write('package.json', JSON.stringify({ name: 'root', version }))
   }
 
   function createConfig(versionMode: 'unified' | 'selective' | 'independent', tagBody?: string): ResolvedRelizyConfig {
@@ -90,19 +92,15 @@ describe('Given resolveTags function on a real git repository', () => {
   }
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'relizy-tags-'))
+    repository = createGitRepository('relizy-tags-')
+    cwd = repository.cwd
     mkdirSync(join(cwd, 'packages'))
     clock = 0
-    git('init', '-q')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'commit.gpgSign', 'false')
-    git('config', 'tag.gpgSign', 'false')
     commit('chore: init')
   })
 
   afterEach(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
     vi.restoreAllMocks()
   })
 
@@ -313,8 +311,7 @@ describe('Given resolveTags function on a real git repository', () => {
     const navigation = { name: '@scope/navigation', path: '' }
 
     function writePackage(directory: string, content: Record<string, unknown>) {
-      mkdirSync(join(cwd, directory), { recursive: true })
-      writeFileSync(join(cwd, directory, 'package.json'), JSON.stringify({ name: navigation.name, ...content }))
+      repository.write(join(directory, 'package.json'), JSON.stringify({ name: navigation.name, ...content }))
       git('add', '--all')
     }
 

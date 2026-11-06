@@ -1,9 +1,10 @@
 import type { GroupBumpResult } from '../../types'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
+import { anyHookContext, createMockConfig } from '../../../tests/mocks'
 import { executeHook, github, gitlab, loadRelizyConfig } from '../../core'
-import { aiSafetyCheck } from '../../core/ai'
-import { providerRelease, providerReleaseSafetyCheck } from '../provider-release'
+import { aiSafetyCheck, applyAIOverride } from '../../core/ai'
+import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from '../provider-release'
 
 vi.mock('../../core/config', async () => {
   const actual = await vi.importActual('../../core/config')
@@ -25,6 +26,7 @@ vi.mock('../../core/github', () => {
 vi.mock('../../core/utils', () => {
   return {
     executeHook: vi.fn(),
+    getHookContext: vi.fn(),
   }
 })
 vi.mock('../../core/ai', () => ({
@@ -48,7 +50,7 @@ describe('Given providerRelease command', () => {
       await providerRelease({})
 
       expect(loadRelizyConfig).toHaveBeenCalled()
-      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), false, anyHookContext)
     })
 
     it('Then calls github function', async () => {
@@ -60,7 +62,7 @@ describe('Given providerRelease command', () => {
     it('Then executes success hook', async () => {
       await providerRelease({})
 
-      expect(executeHook).toHaveBeenCalledWith('success:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:provider-release', expect.any(Object), false, anyHookContext)
     })
   })
 
@@ -76,13 +78,25 @@ describe('Given providerRelease command', () => {
 
       expect(gitlab).toHaveBeenCalled()
     })
+
+    it('Then uses the provider of the repo config without --provider', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false })
+      config.repo = { provider: 'gitlab', domain: 'gitlab.example.com', repo: 'team/app' }
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      const result = await providerRelease({})
+
+      expect(gitlab).toHaveBeenCalled()
+      expect(github).not.toHaveBeenCalled()
+      expect(result.detectedProvider).toBe('gitlab')
+    })
   })
 
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to hooks and provider function', async () => {
       await providerRelease({ dryRun: true })
 
-      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('before:provider-release', expect.any(Object), true, anyHookContext)
       expect(github).toHaveBeenCalledWith(
         expect.objectContaining({ dryRun: true }),
       )
@@ -100,19 +114,21 @@ describe('Given providerRelease command', () => {
         postedReleases: [],
         error: 'Release failed',
       })
-      expect(executeHook).toHaveBeenCalledWith('error:provider-release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:provider-release', expect.any(Object), false, anyHookContext)
     })
   })
 
-  describe('When provider is not supported', () => {
-    it('Then returns error', async () => {
+  describe('When the provider is Bitbucket, without releases API', () => {
+    it('Then creates no release, without error', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
-      config.repo = { provider: 'bitbucket' as any, domain: 'bitbucket.org', repo: 'user/repo' }
+      config.repo = { provider: 'bitbucket', domain: 'bitbucket.org', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       const result = await providerRelease({})
 
-      expect(result.error).toBeDefined()
+      expect(result).toEqual({ detectedProvider: 'bitbucket', postedReleases: [] })
+      expect(github).not.toHaveBeenCalled()
+      expect(gitlab).not.toHaveBeenCalled()
     })
   })
 })
@@ -154,11 +170,42 @@ describe('Given providerReleaseSafetyCheck', () => {
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
   })
+
+  describe('When a version group enables AI provider releases', () => {
+    function createGroupAIConfig() {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: true,
+        release: { providerRelease: true, publish: false },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+      })
+      config.monorepo = {
+        groups: [
+          { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+          { name: 'header', versionMode: 'independent', packages: ['shared/*'], ai: { providerRelease: { enabled: true } } },
+        ],
+      }
+      return config
+    }
+
+    it('Then checks the AI provider', async () => {
+      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github' })
+
+      expect(aiSafetyCheck).toHaveBeenCalled()
+    })
+
+    it('Then does not check it with the ai option disabled', async () => {
+      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github', ai: false })
+
+      expect(aiSafetyCheck).not.toHaveBeenCalled()
+    })
+  })
 })
 
 describe('Given providerRelease command with version groups', () => {
-  const mainGroup: GroupBumpResult = { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
-  const headerGroup: GroupBumpResult = { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+  const mainGroup: GroupBumpResult = { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
+  const headerGroup: GroupBumpResult = { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -220,6 +267,41 @@ describe('Given providerRelease command with version groups', () => {
     }))
   })
 
+  it('Then skips the groups with release.providerRelease disabled', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    config.monorepo = {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'], release: { providerRelease: false } },
+      ],
+    }
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({
+      provider: 'github',
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+    })
+
+    expect(github).toHaveBeenCalledTimes(1)
+    expect(github).toHaveBeenCalledWith(expect.objectContaining({ bumpResult: mainGroup }))
+  })
+
+  it('Then applies the ai option over the ai options of each group', async () => {
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({
+      provider: 'github',
+      ai: false,
+      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+    })
+
+    const groupConfigs = vi.mocked(github).mock.calls.map(([options]) => options.config)
+    for (const groupConfig of groupConfigs) {
+      expect(applyAIOverride).toHaveBeenCalledWith(groupConfig, false)
+    }
+  })
+
   it('Then returns an error when targeting groups on a config without groups', async () => {
     vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, safetyCheck: false }))
 
@@ -227,5 +309,62 @@ describe('Given providerRelease command with version groups', () => {
 
     expect(result.error).toContain('the config has no monorepo.groups')
     expect(github).not.toHaveBeenCalled()
+  })
+})
+
+describe('Given the output of providerRelease in CI', () => {
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false }))
+    vi.mocked(github).mockResolvedValue([{ name: 'v1.0.0', tag: 'v1.0.0', version: '1.0.0', prerelease: false }])
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells the releases it created, with their links', async () => {
+    await providerRelease({})
+
+    expect(output.lines()).toEqual([
+      'relizy provider-release · ci',
+      '▸ Creating the releases',
+      '  › Checking the release',
+      expect.stringMatching(/^✔ 1 GitHub release created {2}\d+ms$/),
+      '  https://github.com/user/repo/releases/tag/v1.0.0',
+      expect.stringMatching(/^✔ Created 1 GitHub release {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is no release to create', async () => {
+    vi.mocked(github).mockResolvedValue([])
+
+    await providerRelease({ dryRun: true })
+
+    expect(output.lines().at(-1)).toMatch(/^○ No release to create {2}\d+ms$/)
+  })
+
+  it('Then shows the error once, and returns it', async () => {
+    vi.mocked(github).mockRejectedValue(new Error('Bad credentials'))
+
+    const result = await providerRelease({})
+
+    expect(result.error).toBe('Bad credentials')
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Creating the releases failed {2}\d+ms$/),
+      '✖ Provider release failed',
+      '  Bad credentials',
+    ]))
+  })
+})
+
+describe('Given the result of a provider release', () => {
+  it('Then tells it in words', () => {
+    expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [], error: 'down' })).toBe('GitLab release failed: down')
+    expect(describeProviderReleaseResult({ detectedProvider: 'bitbucket', postedReleases: [] })).toBe('No release on Bitbucket, only the tags')
+    expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [{ name: 'a', tag: 'a@1.0.0', version: '1.0.0', prerelease: false }, { name: 'b', tag: 'b@1.0.0', version: '1.0.0', prerelease: false }] })).toBe('2 GitLab releases created')
   })
 })

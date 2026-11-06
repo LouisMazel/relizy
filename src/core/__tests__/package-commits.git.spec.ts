@@ -1,8 +1,8 @@
+import type { GitRepository } from '../../../tests/git-repository'
 import type { ResolvedRelizyConfig } from '../config'
-import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { mkdirSync, renameSync } from 'node:fs'
+import { join } from 'node:path'
+import { createGitRepository } from '../../../tests/git-repository'
 import { createMockConfig } from '../../../tests/mocks'
 import { buildChangelogBody } from '../markdown'
 import { getPackageCommits } from '../repo'
@@ -18,22 +18,13 @@ vi.mock('@maz-ui/node', importActual => importActual())
  * monorepo (a component library and its MCP server).
  */
 describe('Given getPackageCommits on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let base: string
 
-  function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-  }
-
-  function write(path: string, content = `${path}\n`) {
-    mkdirSync(dirname(join(cwd, path)), { recursive: true })
-    writeFileSync(join(cwd, path), content)
-  }
-
-  function commit(message: string) {
-    git('add', '--all')
-    git('commit', '--no-verify', '-m', message)
-  }
+  const git = (...args: string[]) => repository.git(...args)
+  const write = (path: string, content = `${path}\n`) => repository.write(path, content)
+  const commit = (message: string) => repository.commit(message)
 
   function createConfig(): ResolvedRelizyConfig {
     const config = createMockConfig({
@@ -59,13 +50,10 @@ describe('Given getPackageCommits on a real git repository', () => {
   }
 
   beforeEach(() => {
-    cwd = mkdtempSync(join(tmpdir(), 'relizy-package-commits-'))
-    git('init', '--quiet', '--initial-branch=main')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'commit.gpgsign', 'false')
+    repository = createGitRepository('relizy-package-commits-')
+    cwd = repository.cwd
 
-    writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'root', version: '1.0.0' }))
+    write('package.json', JSON.stringify({ name: 'root', version: '1.0.0' }))
     write('packages/components/package.json', JSON.stringify({ name: 'components', version: '1.0.0' }))
     write('packages/components-mcp/package.json', JSON.stringify({ name: 'components-mcp', version: '1.0.0' }))
     commit('chore: init the monorepo')
@@ -73,7 +61,7 @@ describe('Given getPackageCommits on a real git repository', () => {
   })
 
   afterEach(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
   })
 
   describe('When commits change one package, the other, or both', () => {

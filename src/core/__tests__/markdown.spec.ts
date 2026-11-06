@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { parseGitCommit } from '../commits'
 import { getFirstCommit } from '../git'
-import { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames, generateMarkDown, parseChangelogMarkdown } from '../markdown'
+import { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames, generateMarkDown } from '../markdown'
 import { formatCompareChanges, formatReference } from '../repo-config'
 
 vi.mock('@maz-ui/utils/helpers/upperFirst', () => ({
@@ -64,6 +64,21 @@ describe('Given generateMarkDown function', () => {
 
       expect(result).toContain('## v1.1.0')
       expect(result).not.toContain('v1.0.0...v1.1.0')
+    })
+
+    it('Then replaces every occurrence of a variable of changelogTitle', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.templates = { ...config.templates, changelogTitle: '{{newVersion}} (from {{oldVersion}}, see {{newVersion}})' }
+
+      const result = await generateMarkDown({
+        commits: [createMockCommit('feat', 'add new feature')],
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+
+      expect(result).toContain('## v1.1.0 (from v1.0.0, see v1.1.0)')
     })
 
     it('Then supports date variable in changelogTitle template', async () => {
@@ -529,6 +544,46 @@ describe('Given generateMarkDown function', () => {
       expect(result).not.toContain('file.ts')
     })
 
+    async function renderBody(body: string) {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
+
+      return await generateMarkDown({
+        commits: [{ ...createMockCommit('feat', 'feature'), body, type: 'feat' }],
+        config,
+        from: 'v1.0.0',
+        to: 'v1.1.0',
+        isFirstCommit: false,
+      })
+    }
+
+    it('Then drops the git trailers and the lines crediting an AI tool', async () => {
+      const result = await renderBody('The parser reads the footers.\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nClaude-Session: https://claude.ai/code/session_01\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>\nSigned-off-by: Mazel <me@example.com>\nCloses #12\n\nM\tsrc/parser.ts\n')
+
+      expect(result).toContain('- Feature\n\n  The parser reads the footers.\n')
+      expect(result).not.toMatch(/Generated with|Claude-Session|Co-authored-by|Signed-off-by|Closes/)
+    })
+
+    it('Then keeps the BREAKING CHANGE footer, which tells how to migrate', async () => {
+      const result = await renderBody('The options moved.\n\nBREAKING CHANGE: rename `token` to `accessToken`\n  in the options of the client\nCo-authored-by: Claude <noreply@anthropic.com>')
+
+      expect(result).toContain('  The options moved.\n\n  BREAKING CHANGE: rename `token` to `accessToken`\n    in the options of the client\n')
+      expect(result).not.toContain('Co-authored-by')
+    })
+
+    it('Then keeps a last paragraph that only looks like a trailer', async () => {
+      const result = await renderBody('The parser reads the footers.\n\nNote: the old footers are still read.')
+
+      expect(result).toContain('  Note: the old footers are still read.\n')
+    })
+
+    it('Then drops the separator GitHub writes before the trailers of a squash merge', async () => {
+      const result = await renderBody('* feat: read the footers (#112)\n\n---------\n\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>')
+
+      expect(result).toContain('  * feat: read the footers (#112)\n')
+      expect(result).not.toContain('-----')
+    })
+
     it('Then handles empty body', async () => {
       const config = createMockConfig({ bump: { type: 'patch' } })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
@@ -927,211 +982,6 @@ describe('Given generateMarkDown function', () => {
   })
 })
 
-describe('Given parseChangelogMarkdown function', () => {
-  describe('When parsing changelog with version headers', () => {
-    it('Then extracts single release', () => {
-      const markdown = `# Changelog
-
-## v1.0.0
-
-- Feature one
-- Feature two`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(1)
-      expect(result.releases[0]?.version).toBe('1.0.0')
-      expect(result.releases[0]?.body).toContain('Feature one')
-      expect(result.releases[0]?.body).toContain('Feature two')
-    })
-
-    it('Then extracts multiple releases', () => {
-      const markdown = `# Changelog
-
-## v2.0.0
-
-- Breaking change
-
-## v1.0.0
-
-- Initial release`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(2)
-      expect(result.releases[0]?.version).toBe('2.0.0')
-      expect(result.releases[1]?.version).toBe('1.0.0')
-    })
-
-    it('Then handles versions without v prefix', () => {
-      const markdown = `## 1.5.0
-
-- Feature`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.version).toBe('1.5.0')
-    })
-
-    it('Then handles prerelease versions', () => {
-      const markdown = `## v1.0.0-beta.1
-
-- Beta feature`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.version).toBe('1.0.0-beta.1')
-    })
-
-    it('Then handles versions with additional text', () => {
-      const markdown = `## Version v1.2.3 (2024-01-01)
-
-- Feature`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.version).toBe('1.2.3')
-    })
-  })
-
-  describe('When parsing release bodies', () => {
-    it('Then extracts body content correctly', () => {
-      const markdown = `## v1.0.0
-
-### Features
-- Feature A
-- Feature B
-
-### Fixes
-- Bug fix`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.body).toContain('### Features')
-      expect(result.releases[0]?.body).toContain('Feature A')
-      expect(result.releases[0]?.body).toContain('Bug fix')
-    })
-
-    it('Then separates multiple release bodies', () => {
-      const markdown = `## v2.0.0
-
-Content for v2
-
-## v1.0.0
-
-Content for v1`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.body).toContain('Content for v2')
-      expect(result.releases[0]?.body).not.toContain('Content for v1')
-      expect(result.releases[1]?.body).toContain('Content for v1')
-    })
-
-    it('Then trims whitespace from bodies', () => {
-      const markdown = `## v1.0.0
-
-
-  Feature with spacing
-
-
-## v0.9.0`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases[0]?.body).toBe('Feature with spacing')
-    })
-  })
-
-  describe('When parsing headers with different levels', () => {
-    it('Then matches h2 headers', () => {
-      const markdown = `## v1.0.0
-
-Content`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(1)
-    })
-
-    it('Then matches h3 headers', () => {
-      const markdown = `### v1.0.0
-
-Content`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(1)
-    })
-
-    it('Then matches h4 headers', () => {
-      const markdown = `#### v1.0.0
-
-Content`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(1)
-    })
-
-    it('Then ignores h1 headers', () => {
-      const markdown = `# v1.0.0
-
-Content`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(0)
-    })
-  })
-
-  describe('When parsing headers without versions', () => {
-    it('Then includes release with undefined version', () => {
-      const markdown = `## Unreleased
-
-- Feature`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(0)
-      expect(result.releases[0]?.version).toBeUndefined()
-    })
-
-    it('Then handles mixed releases with and without versions', () => {
-      const markdown = `## Unreleased
-
-- Work in progress
-
-## v1.0.0
-
-- Released feature`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(1)
-      expect(result.releases[0]?.version).toBe('1.0.0')
-    })
-  })
-
-  describe('When parsing empty changelog', () => {
-    it('Then returns empty releases array', () => {
-      const markdown = `# Changelog
-
-No releases yet`
-
-      const result = parseChangelogMarkdown(markdown)
-
-      expect(result.releases).toHaveLength(0)
-    })
-
-    it('Then handles completely empty string', () => {
-      const result = parseChangelogMarkdown('')
-
-      expect(result.releases).toHaveLength(0)
-    })
-  })
-})
-
 describe('Given buildCompareLink function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -1510,6 +1360,22 @@ describe('Given buildContributors function', () => {
 
     expect(result).toContain('- Mazel')
     expect(result).toContain('- Raphaël ([@lestote](https://github.com/lestote))')
+  })
+
+  it('Then does not credit the AI tools, but credits the people named like them', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' } })
+    config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
+    const commit = parseGitCommit({
+      message: 'feat: support publishing to multiple registries (#113)',
+      body: 'Co-authored-by: Claude <noreply@anthropic.com>\nCo-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>\nCo-authored-by: Claude Dupont <claude@example.com>',
+      shortHash: 'f5bbc52',
+      author: { name: 'Copilot', email: '198982749+Copilot@users.noreply.github.com' },
+    }, config as any)
+
+    const result = await buildContributors({ commits: [commit as GitCommit], config })
+
+    expect(result).toContain('- Claude Dupont')
+    expect(result).not.toMatch(/- Claude\n|Cursor|Copilot/)
   })
 
   it('Then resolves the GitHub username from a noreply email without a lookup', async () => {

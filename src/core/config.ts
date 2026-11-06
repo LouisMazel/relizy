@@ -1,21 +1,26 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialConfig } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
-import { defu } from 'defu'
+import { createDefu } from 'defu'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
-import { detectPackageManager, getNpmRegistry } from './npm'
+import { getEnvNpmToken } from './npm-oidc'
+import { detectPackageManager, getNpmRegistry } from './npm-registry'
 import { redactSecrets } from './redact'
 import { getRepoConfig, resolveRepoConfig } from './repo-config'
 
-export function getDefaultConfig() {
+/**
+ * @param cwd - Root of the project, where the package manager is detected
+ */
+export function getDefaultConfig(cwd = process.cwd()) {
   return {
-    cwd: process.cwd(),
+    cwd,
     types: {
       feat: { title: '🚀 Enhancements', semver: 'minor' },
       perf: { title: '🔥 Performance', semver: 'patch' },
@@ -37,7 +42,7 @@ export function getDefaultConfig() {
       tagMessage: 'Bump version to {{newVersion}}',
       tagBody: 'v{{newVersion}}',
       emptyChangelogContent: 'No relevant changes for this release',
-      twitterMessage: '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
+      twitterMessage: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
       slackMessage: undefined, // Use rich blocks format by default (no template)
       changelogTitle: '{{oldVersion}}...{{newVersion}}',
     },
@@ -56,12 +61,10 @@ export function getDefaultConfig() {
       includeCommitBody: true,
     } as Required<ChangelogConfig>,
     monorepo: {
-      includePrivates: false,
+      privatePackages: 'ignore',
     } as MonorepoConfig,
     publish: {
-      private: false,
-      args: [],
-      token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
+      args: [] as string[],
       // registry is intentionally left undefined: it is resolved later from the
       // user's npm config / .npmrc (see resolveConfig) so a custom registry
       // (e.g. a corporate proxy) is honored instead of forcing the public one.
@@ -71,10 +74,10 @@ export function getDefaultConfig() {
       // config type stays assignable to true when overridden by config/CLI.
       skipExistingVersions: false as boolean,
       checkWorkspaceDependencies: true as boolean,
-      packageManager: detectPackageManager(process.cwd()),
+      packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
-      registry: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
+      registry: getEnvNpmToken(),
       gitlab:
         process.env.RELIZY_GITLAB_TOKEN
         || process.env.GITLAB_TOKEN
@@ -124,7 +127,8 @@ export function getDefaultConfig() {
       gitTag: true,
       social: true,
       prComment: true,
-    } as Required<ReleaseConfig>,
+      report: { github: true },
+    } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
     commitlint: {
       packages: [],
       scopes: [],
@@ -133,7 +137,7 @@ export function getDefaultConfig() {
       ignores: [],
       defaultIgnores: true,
       title: false,
-      codeBlocksLinter: 'auto',
+      changelogLinter: 'auto',
     } as Required<Omit<CommitlintConfig, 'helpUrl'>> & Pick<CommitlintConfig, 'helpUrl'>,
     social: {
       twitter: {
@@ -144,10 +148,17 @@ export function getDefaultConfig() {
       slack: {
         enabled: false,
         onlyStable: true,
-        changelogFormat: 'summary',
+        changelog: 'summary' as SocialChangelog,
         noAuthors: false,
         noPackages: false,
       } satisfies Omit<SocialConfig['slack'], 'channel'>,
+      teams: {
+        enabled: false,
+        onlyStable: true,
+        cards: 'version' as TeamsCardsMode,
+        changelog: 'none' as SocialChangelog,
+        locale: 'en-US',
+      } satisfies SocialConfig['teams'],
     },
     prComment: {
       mode: 'update',
@@ -165,6 +176,7 @@ export function getDefaultConfig() {
       social: {
         twitter: { enabled: false },
         slack: { enabled: false },
+        teams: { enabled: false },
       },
     } as AIConfig & Required<Pick<AIConfig, 'language'>>,
     logLevel: 'default' as LogLevel,
@@ -191,12 +203,46 @@ function resolveTemplateDefaults(config: ResolvedConfig): void {
 
   if (templates.commitMessage === undefined) {
     templates.commitMessage = isIndependent
-      ? 'chore(release): bump {{packageCount}} packages'
-      : 'chore(release): bump version to {{newVersion}}'
+      ? DEFAULT_RELEASE_COMMIT_MESSAGES.packages
+      : DEFAULT_RELEASE_COMMIT_MESSAGES.version
 
     if (isIndependent && templates.commitBody === undefined) {
       templates.commitBody = '{{packageList}}'
     }
+  }
+}
+
+/**
+ * A config option that stops the config from loading: removed in relizy 2 and
+ * that cannot be ignored silently, or with a value relizy cannot work with
+ */
+export class ConfigOptionError extends Error {
+  constructor(readonly option: string, message: string) {
+    super(message)
+    this.name = 'ConfigOptionError'
+  }
+}
+
+/**
+ * Options removed in relizy 2 that cannot be ignored silently: the packages
+ * they left out would be released
+ */
+function assertNoRemovedOptions(config: ResolvedConfig): void {
+  if ((config.monorepo as { ignorePackageNames?: unknown } | undefined)?.ignorePackageNames !== undefined) {
+    throw new ConfigOptionError('monorepo.ignorePackageNames', 'monorepo.ignorePackageNames is removed: list the directories of these packages in monorepo.ignored (path globs, as monorepo.packages). See https://relizy.dev/guide/migration-v2#removed-ignorepackagenames')
+  }
+}
+
+/**
+ * The version of a repository tag is read back between the text before and the
+ * text after `{{newVersion}}` in `templates.tagBody`: a template that repeats it
+ * would create tags relizy cannot find again
+ */
+function assertValidTagBody(config: ResolvedConfig): void {
+  const tagBody = config.templates?.tagBody
+
+  if (typeof tagBody === 'string' && tagBody.split('{{newVersion}}').length > 2) {
+    throw new ConfigOptionError('templates.tagBody', `templates.tagBody must contain {{newVersion}} only once, to read the version back from the tags: "${tagBody}"`)
   }
 }
 
@@ -225,8 +271,10 @@ async function resolveConfig(
   }
 
   // When the user did not set a registry, resolve the effective one from their
-  // npm config / .npmrc so a custom registry (e.g. a proxy) is respected.
-  if (config.publish && !config.publish.registry) {
+  // npm config / .npmrc so a custom registry (e.g. a proxy) is respected. With
+  // `registries`, only the declared registries are used: the .npmrc one is the
+  // fallback of a package none of them covers (see resolveRegistryTargetsForPackage).
+  if (config.publish && !config.publish.registry && !config.publish.registries?.length) {
     config.publish.registry = getNpmRegistry(cwd)
   }
 
@@ -234,11 +282,28 @@ async function resolveConfig(
 }
 
 /**
+ * Merge configs, the first one winning, as `defu` does, except that an array
+ * replaces the array of the next configs instead of being concatenated with
+ * it: `bump.dependencyTypes: ['peerDependencies']` is not completed with the
+ * default `dependencies`, and a resolved config merged again is not duplicated.
+ */
+const replaceArrays = createDefu((object, key, value) => {
+  if (Array.isArray(value)) {
+    (object as Record<PropertyKey, unknown>)[key] = value
+    return true
+  }
+})
+
+export function mergeConfig<T>(...configs: Array<T | null | undefined>): T {
+  return replaceArrays({}, ...configs.filter(config => config != null) as Record<PropertyKey, unknown>[]) as T
+}
+
+/**
  * Merge user types with defaults: each user-defined entry replaces the default entirely.
  * This prevents defu's deep merge from adding default sub-properties
  * the user intentionally omitted (e.g. `docs: { title: '...' }` without `semver`).
  */
-export function mergeTypes<T extends Record<string, unknown>>(
+function mergeTypes<T extends Record<string, unknown>>(
   userTypes: T | undefined,
   defaultTypes: T,
 ): T {
@@ -253,47 +318,64 @@ export function mergeTypes<T extends Record<string, unknown>>(
 }
 
 /**
- * A config derived for a version group (see `resolveVersionGroups`) is already
- * resolved: the overrides are applied to it without loading the config file
- * again, which would bring `monorepo.groups` back into it.
+ * Options of the config file, each one optional (a mapped type, not
+ * `DeepPartial<RelizyConfig>`, so that the API docs keep its name)
  */
-function applyOverridesToGroupConfig(options?: {
-  baseConfig?: ResolvedRelizyConfig
-  overrides?: DeepPartial<RelizyConfig>
-}): ResolvedRelizyConfig | undefined {
-  const groupName = options?.baseConfig && getVersionGroupName(options.baseConfig)
+export type RelizyConfigOverrides = { [Key in keyof RelizyConfig]?: DeepPartial<RelizyConfig[Key]> }
 
-  if (!options?.baseConfig || !groupName) {
-    return undefined
+export interface LoadRelizyConfigOptions {
+  /** Config already resolved (by `loadRelizyConfig()`), merged under the overrides without loading the config file again */
+  baseConfig?: ResolvedRelizyConfig
+  /** Options applied over the config file */
+  overrides?: RelizyConfigOverrides
+  /**
+   * Name of the config, as `--config`: `relizy.standalone` loads `relizy.standalone.config.ts`
+   * @default 'relizy'
+   */
+  configFile?: string
+}
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false
   }
 
-  const groupConfig = defu(options.overrides, options.baseConfig) as ResolvedRelizyConfig
-  setupLogger(options.overrides?.logLevel || groupConfig.logLevel)
-
-  return markVersionGroupConfig(groupConfig, groupName)
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
 }
 
 /**
- * Validate `monorepo.groups`. A base config is already resolved: its groups
- * replace the ones of the config file instead of being concatenated with them.
+ * A copy of the plain objects of a config (the arrays, the functions and the
+ * other values are kept as is), so that a command changing its config does
+ * not change the config it was given
  */
-function resolveConfigVersionGroups(config: ResolvedConfig, baseConfig?: ResolvedRelizyConfig): void {
-  if (baseConfig?.monorepo?.groups && config.monorepo) {
-    config.monorepo.groups = baseConfig.monorepo.groups
+function copyPlainObjects<T>(value: T): T {
+  if (!isPlainObject(value)) {
+    return value
   }
 
-  validateVersionGroups(config as ResolvedRelizyConfig)
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyPlainObjects(entry)])) as T
 }
 
-export async function loadRelizyConfig(options?: {
-  baseConfig?: ResolvedRelizyConfig
-  overrides?: DeepPartial<RelizyConfig>
-  configFile?: string
-}) {
-  const groupConfig = applyOverridesToGroupConfig(options)
+/**
+ * A base config is already resolved: the overrides are applied to it without
+ * loading the config file and the `.env` file again (a command run by
+ * `release` gets its config). A config derived for a version group (see
+ * `resolveVersionGroups`) stays one, a reload would bring `monorepo.groups`
+ * back into it.
+ */
+function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
+  const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+  setupLogger(overrides?.logLevel || config.logLevel)
 
-  if (groupConfig) {
-    return groupConfig
+  const groupName = getVersionGroupName(baseConfig)
+
+  return groupName ? markVersionGroupConfig(config, groupName) : config
+}
+
+export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
+  if (options?.baseConfig) {
+    return applyOverridesToBaseConfig(options.baseConfig, options.overrides)
   }
 
   const cwd = options?.overrides?.cwd ?? process.cwd()
@@ -302,12 +384,10 @@ export async function loadRelizyConfig(options?: {
 
   const configFile = options?.configFile ?? 'relizy'
 
-  const defaultConfig = getDefaultConfig()
+  const defaultConfig = getDefaultConfig(cwd)
 
   // Extract types from defaults to handle them separately
   const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig
-
-  const overridesConfig = defu(options?.overrides, options?.baseConfig)
 
   const results = await loadConfig<ResolvedConfig>({
     dotenv: true,
@@ -315,7 +395,8 @@ export async function loadRelizyConfig(options?: {
     name: configFile,
     packageJson: true,
     defaults: defaultsWithoutTypes as ResolvedConfig,
-    overrides: overridesConfig as ResolvedConfig,
+    overrides: mergeConfig(options?.overrides) as ResolvedConfig,
+    merger: mergeConfig,
   })
 
   // Merge types: user entries replace defaults entirely (no deep merge)
@@ -335,7 +416,9 @@ export async function loadRelizyConfig(options?: {
 
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
-  resolveConfigVersionGroups(results.config, options?.baseConfig)
+  assertNoRemovedOptions(results.config)
+  assertValidTagBody(results.config)
+  validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))
 

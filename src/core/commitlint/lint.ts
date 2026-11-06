@@ -13,7 +13,7 @@ import { suggestHeader } from './suggest'
 import { getAllowedScopes, getPackagesOfFiles, getWorkspacePackages } from './workspace'
 
 /** Documentation of the built-in rules */
-export const COMMITLINT_RULES_URL = 'https://relizy.dev/commitlint/rules'
+const COMMITLINT_RULES_URL = 'https://relizy.dev/commitlint/rules'
 
 export interface CommitlintProblem {
   rule: string
@@ -143,6 +143,10 @@ function resolveRules(config: ResolvedRelizyConfig, context: Omit<RuleContext, '
       continue
     }
     const value = ruleConfig?.value ?? definition.value
+    // `[2, 'always']` without its number would silence the rule (NaN)
+    if (typeof definition.value === 'number' && !Number.isFinite(Number(value))) {
+      throw new TypeError(`commitlint: the rule "${name}" needs a number, e.g. ['error', ${definition.value}] or [2, 'always', ${definition.value}], got ${JSON.stringify(value)}`)
+    }
     rules.push({
       name,
       severity,

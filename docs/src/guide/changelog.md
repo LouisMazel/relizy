@@ -1,7 +1,8 @@
 ---
 title: Changelog Generation
-description: Relizy automatically generates beautiful, SEO-friendly changelogs from your git commits.
-keywords: changelog generation, automatic changelog, conventional commits, git changelog, changelog format
+description: How Relizy writes the CHANGELOG.md files from the Conventional Commits - format, sections, breaking changes, commit bodies, contributors, files written per version mode and range of commits.
+metaDescription: 'How Relizy writes the CHANGELOG.md files from Conventional Commits: format, sections, breaking changes, commit bodies and contributors.'
+keywords: changelog generation, automatic changelog, conventional commits, CHANGELOG.md, breaking changes, contributors, commit body, changelog range, root changelog
 category: Guide
 tags: [guide, changelog, documentation, commits]
 ---
@@ -10,456 +11,103 @@ tags: [guide, changelog, documentation, commits]
 
 {{ $frontmatter.description }}
 
-## Overview
+## When It Is Written
 
-Changelogs are generated based on [Conventional Commits](https://www.conventionalcommits.org/), with a format inspired by [changelogen](https://github.com/unjs/changelogen).
+`relizy release` writes the changelogs after the bump (see [its steps](./../cli/release.md#steps)), and `relizy changelog` writes them alone, without bump nor commit (see [`relizy changelog`](./../cli/changelog.md)). `--no-changelog` skips the step of a release.
 
-## Automatic Generation
+Each release adds a section at the top of the `CHANGELOG.md` of the package, under its `# ` title (created when the file does not exist).
 
-Changelogs are created automatically when you run a release:
-
-```bash
-relizy release --minor
-```
-
-This generates or updates `CHANGELOG.md` in your package directory.
-
-## Changelog Format
-
-A typical generated changelog looks like this:
+## Format
 
 ```md
-# Changelog
+## v1.1.0...v1.2.0
 
-## v0.0.0...v0.1.0
+[compare changes](https://github.com/acme/my-lib/compare/v1.1.0...v1.2.0)
 
-### 🚀 Features
+### 🚀 Enhancements
 
-- Relizy - release manager ([5c41ba1](https://github.com/LouisMazel/relizy/commit/5c41ba1))
+- **auth:** Add OAuth2 login ([a1b2c3d](https://github.com/acme/my-lib/commit/a1b2c3d))
+- ⚠️ Drop the `legacy` option ([e4f5a6b](https://github.com/acme/my-lib/commit/e4f5a6b))
 
-### 📖 Documentation
+  BREAKING CHANGE: use `modern` instead.
 
-- Add documentation website of Relizy ([ec156b0](https://github.com/LouisMazel/relizy/commit/ec156b0))
+### 🩹 Fixes
+
+- Resolve the memory leak of the event handlers ([#42](https://github.com/acme/my-lib/pull/42))
+
+#### ⚠️ Breaking Changes
+
+- ⚠️ Drop the `legacy` option ([e4f5a6b](https://github.com/acme/my-lib/commit/e4f5a6b))
+
+  BREAKING CHANGE: use `modern` instead.
 
 ### ❤️ Contributors
 
-- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+- Jane Doe ([@jane](https://github.com/jane))
 ```
 
-The **Contributors** section lists the authors of the commits and their co-authors, read from the `Co-authored-by:` trailers. Contributors of a squash-merged pull request are therefore credited even when the merge commit is authored by the maintainer.
+- **Title**: the previous and the new tag, `v0.0.0` for a first release. Change it with [`templates.changelogTitle`](./../config/commit-templates.md) (<code v-pre>{{oldVersion}}</code>, <code v-pre>{{newVersion}}</code>, <code v-pre>{{date}}</code>).
+- **Compare link**: to the compare page of GitHub, GitLab or Bitbucket, when the repository is known (set with [`repo`](./../config/overview.md#repo), else read from the `repository` field of the closest `package.json`, else from the `origin` remote).
+- **Sections**: one per commit type, in the order of [`types`](./../config/changelog.md#types), with the titles of the [default types](./semver-convention.md). A type without `semver` (`chore`, `test`, `ci`...) is listed without bumping, a type set to `false` is left out. The `chore(deps)` and `chore(release)` commits are left out, unless breaking.
+- **Scope**: shown in bold before the description.
+- **References**: the pull requests and issues of the commit message (`#42`), or else the commit hash, linked when the repository is known.
+- **Breaking changes**: a commit with `!` or a `BREAKING CHANGE:` footer is prefixed with `⚠️`, and listed again, with its body, under `#### ⚠️ Breaking Changes`.
+- **Contributors**: see [Contributors](#contributors).
 
-## Commit Types
+A release without relevant commit gets the text of [`templates.emptyChangelogContent`](./../config/commit-templates.md) (`No relevant changes for this release`).
 
-Relizy organizes commits by type:
+## Commit Bodies
 
-| Type       | Emoji | Section       | Version Bump          |
-| ---------- | ----- | ------------- | --------------------- |
-| `feat`     | 🚀    | Features      | Minor (0.1.0 → 0.2.0) |
-| `fix`      | 🐛    | Bug Fixes     | Patch (0.1.0 → 0.1.1) |
-| `perf`     | ⚡    | Performance   | Patch                 |
-| `docs`     | 📚    | Documentation | None                  |
-| `style`    | 💅    | Styles        | None                  |
-| `refactor` | ♻️    | Refactors     | None                  |
-| `test`     | ✅    | Tests         | None                  |
-| `build`    | 📦    | Build         | None                  |
-| `ci`       | 🤖    | CI/CD         | None                  |
-| `chore`    | 🏠    | Chores        | None                  |
+With [`changelog.includeCommitBody`](./../config/changelog.md#includecommitbody) (`true` by default), the body of each commit is shown under its line, indented. The git trailers are removed (`Co-authored-by:`, `Signed-off-by:`, `Closes #12`, the `---` line GitHub adds before them in a squash merge) and so are the lines crediting an AI tool; a `BREAKING CHANGE:` footer is kept, as it tells how to migrate.
 
-### Breaking Changes
+Write the body for the users of the package: it ends up in the changelog and in the provider release.
 
-Any commit with `!` or `BREAKING CHANGE:` triggers a major version bump:
+## Contributors
 
-```bash
-git commit -m "feat!: redesign API"
-# or
-git commit -m "feat: redesign API
+The section lists the authors of the commits and their co-authors (`Co-authored-by:` trailers), so the contributors of a squash-merged pull request are credited. With a GitHub repository, each name is linked to its GitHub profile when it is found.
 
-BREAKING CHANGE: The API has been completely redesigned"
-```
+- the bots (a name containing `[bot]`) and the AI tools are never listed;
+- [`excludeAuthors`](./../config/changelog.md) removes more names from the list (a part of the name or of the email): it does not remove their commits from the changelog;
+- [`noAuthors: true`](./../config/changelog.md) removes the section, [`hideAuthorEmail: true`](./../config/changelog.md) the emails.
 
-## Conventional Commits
+## Files Written
 
-To generate meaningful changelogs, follow the Conventional Commits specification:
+| Mode                    | Package changelogs                        | Root `CHANGELOG.md`                                                                   |
+| ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- |
+| Standalone              | -                                         | The changelog of the package                                                          |
+| `unified` / `selective` | One per released package, its own commits | Every commit of the release, except the ones only in ignored packages                 |
+| `independent`           | One per released package, its own commits | The sections of the released packages, under `**Multiple Packages Updated** - <date>` |
 
-### Basic Format
+[`changelog.rootChangelog: false`](./../config/changelog.md#rootchangelog) (or `--no-root-changelog`) skips the root `CHANGELOG.md` of a monorepo. With [version groups](./version-groups.md), each group writes its changelogs, and `changelog.rootChangelog: false` on a group keeps it out of the root one.
 
-```
-<type>[optional scope]: <description>
+The formatter of the project (Biome, Prettier, oxfmt, dprint or ESLint, from the root `package.json`) formats the changelogs written. Choose the command with [`changelog.formatCmd`](./../config/changelog.md#formatcmd) (or `--format-cmd`), <code v-pre>{{files}}</code> replaced by their paths, e.g. <code v-pre>eslint --fix {{files}}</code>, or turn it off with `false`.
 
-[optional body]
+## Range of Commits
 
-[optional footer(s)]
-```
+A changelog goes from the tag of the previous release to `HEAD`. The previous release is resolved from the versions, not from the creation date of the tags:
 
-### Examples
-
-```bash
-# Feature
-git commit -m "feat: add user authentication"
-
-# Bug fix
-git commit -m "fix: resolve memory leak in event handlers"
-
-# With scope
-git commit -m "feat(auth): implement OAuth2 login"
-
-# With body
-git commit -m "fix: resolve navigation issue
-
-The navigation was broken on mobile devices.
-This fix ensures it works correctly on all screen sizes."
-
-# Breaking change
-git commit -m "feat!: redesign API
-
-BREAKING CHANGE: The API endpoints have changed.
-See migration guide for details."
-```
-
-## Customizing Commit Types
-
-You can customize which commit types appear in changelogs and how they're labeled:
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  types: {
-    feat: { title: '🎉 New Features', semver: 'minor' },
-    fix: { title: '🔧 Bug Fixes', semver: 'patch' },
-    perf: { title: '⚡ Performance', semver: 'patch' },
-    docs: { title: '📖 Documentation', semver: 'patch' },
-    style: { title: '💄 Styling', semver: 'patch' },
-    refactor: { title: '🔨 Refactors', semver: 'patch' },
-    test: { title: '🧪 Tests', semver: 'patch' },
-    build: { title: '📦 Build', semver: 'patch' },
-    ci: { title: '🤖 CI/CD', semver: 'patch' },
-    chore: { title: '🧹 Chores', semver: 'patch' },
-  },
-})
-```
-
-## Changelog Locations
-
-### Single Package
-
-For single packages, the changelog is created at the root:
-
-```text
-my-package/
-├── package.json
-├── CHANGELOG.md  ← Generated here
-└── src/
-```
-
-### Monorepo - Unified Mode
-
-In unified mode, a single changelog is created at the root:
-
-```text
-my-monorepo/
-├── package.json
-├── CHANGELOG.md (all changes)
-└── packages/
-    ├── core/
-    │   ├── package.json
-    │   └── CHANGELOG.md ← Package-specific
-    ├── utils/
-    │   ├── package.json
-    │   └── CHANGELOG.md ← Package-specific
-    └── ui/
-        ├── package.json
-        └── CHANGELOG.md ← Package-specific
-```
-
-### Monorepo - Selective/Independent Mode
-
-In selective or independent modes, each package gets its own changelog:
-
-```text
-my-monorepo/
-├── package.json
-├── CHANGELOG.md (all changes)
-└── packages/
-    ├── core/
-    │   ├── package.json
-    │   └── CHANGELOG.md  ← Package-specific
-    ├── utils/
-    │   ├── package.json
-    │   └── CHANGELOG.md  ← Package-specific
-    └── ui/
-        ├── package.json
-        └── CHANGELOG.md  ← Package-specific
-```
-
-## Generate Changelog Only
-
-You can generate a changelog without bumping versions:
-
-```bash
-relizy changelog
-```
-
-This is useful for:
-
-- Previewing what will be in the next release
-- Generating changelogs for documentation
-- Updating changelogs after manual version changes
-
-## Version Range
-
-By default, Relizy generates the changelog from the tag of the previous release to HEAD.
-
-The previous release is resolved from the versions, not from the creation date of the tags:
-
-- In `unified` and `selective` modes (and for a single package), the release tags are the ones following [`templates.tagBody`](/config/overview) (`v{{newVersion}}` by default), plus the `v1.2.3` and `1.2.3` formats. The tags of the packages released independently in the same repository (`name@1.2.3`) are never used, so a selective and an independent config can release the same monorepo.
+- In standalone, `unified` and `selective` mode, the release tags follow [`templates.tagBody`](./../config/commit-templates.md#tagbody) (<code v-pre>v{{newVersion}}</code> by default), plus the `v1.2.3` and `1.2.3` formats. The `name@1.2.3` tags of packages released independently in the same repository are never used.
 - In `independent` mode, the release tags of a package are its `name@1.2.3` tags.
-- The previous release is the highest version strictly below the version being released (or up to the current version before the bump), and not above its major. A tag created later on another branch, such as the hotfix of an older version or a prerelease of the next one, is never picked instead.
+- The previous release is the highest version strictly below the version released, and not above its major: a hotfix of an older version or a prerelease of the next one, tagged later on another branch, is never picked instead.
 - A stable release starts at the previous stable release: a graduation from `2.0.0-beta.3` to `2.0.0` starts at `v1.x`, not at the last beta.
 
 ::: tip Changing the tag template
-After changing `templates.tagBody`, the previous `v1.2.3` tags are still recognized. If the previous tags followed another custom template, Relizy warns about it: pass the tag of the previous release with `--from` for the first release with the new template.
+After changing `templates.tagBody`, the `v1.2.3` tags are still recognized. If the previous tags followed another custom template, Relizy warns about it: pass the tag of the previous release with `--from` for the first release with the new template.
 :::
 
-You can customize the range:
+Set the range by hand with `--from` and `--to` (a tag, a commit or a branch):
 
 ```bash
-# From specific version to HEAD
-relizy changelog --from v1.0.0
-
-# Between two versions
 relizy changelog --from v1.0.0 --to v1.2.0
 ```
 
-## Excluding Commits
+A tag orphaned by a rebase gives a wrong range: see [Rewritten Tags & Rebases](./rewritten-tags.md). A package moved to another directory keeps its commits: see [Moving & Renaming Packages](./moved-packages.md).
 
-### By Type
+## Writing Good Entries
 
-Exclude specific commit types from changelogs:
+- One change per commit, with a description written for the users: `fix(auth): refresh the token before it expires`, not `fix: stuff`.
+- The scope groups the entries of a package or a feature.
+- A breaking change explains the migration in its `BREAKING CHANGE:` footer.
+- `relizy commitlint` checks the messages and shows the changelog entry of a commit, see [Commitlint](./../commitlint/index.md).
 
-```ts
-// relizy.config.ts
-export default defineConfig({
-  types: {
-    chore: false, // Don't include chores in changelog
-    ci: false, // Don't include CI commits
-  },
-})
-```
-
-### By Pattern
-
-Exclude commits matching patterns:
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  excludeAuthors: [
-    'dependabot[bot]',
-    'renovate[bot]',
-  ],
-})
-```
-
-## GitHub/GitLab Integration
-
-Relizy automatically creates clickable links to commits and comparisons:
-
-```md
-### 🚀 Features
-
-- Add authentication ([a1b2c3d](https://github.com/user/repo/commit/a1b2c3d))
-```
-
-The git remote is auto-detected from your repository.
-
-## Changelog Title
-
-By default, the changelog section title shows `v1.1.0...v1.2.0`. You can customize it with the `templates.changelogTitle` option:
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  templates: {
-    // Show only the new version
-    changelogTitle: '{{newVersion}}',
-    // Or include the date
-    // changelogTitle: '{{newVersion}} ({{date}})',
-  },
-})
-```
-
-Available variables: <code v-pre>{{oldVersion}}</code>, <code v-pre>{{newVersion}}</code>, <code v-pre>{{date}}</code>.
-
-See [Changelog Configuration](../config/changelog.md#changelog-title-template) for more details.
-
-## Changelog Output
-
-### Markdown Files
-
-Changelogs are written to `CHANGELOG.md`:
-
-```md
-# Changelog
-
-## v1.1.0...v1.2.0
-
-[compare](https://github.com/user/repo/compare/v1.1.0...v1.2.0)
-
-...
-```
-
-### JSON Output
-
-You can also output changelogs as JSON:
-
-```bash
-relizy changelog
-```
-
-```json
-{
-  "releases": [
-    {
-      "version": "1.2.0",
-      "date": "2024-03-15",
-      "commits": [
-        {
-          "type": "feat",
-          "scope": "auth",
-          "message": "add user authentication",
-          "sha": "a1b2c3d"
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Best Practices
-
-### 1. Write Good Commit Messages
-
-```bash
-# Good ✅
-git commit -m "feat(auth): implement OAuth2 login"
-git commit -m "fix: resolve memory leak in event handlers"
-
-# Bad ❌
-git commit -m "stuff"
-git commit -m "fixes"
-git commit -m "updated things"
-```
-
-### 2. Use Scopes for Organization
-
-Scopes help group related changes:
-
-```bash
-git commit -m "feat(ui): add dark mode"
-git commit -m "feat(api): add REST endpoints"
-git commit -m "fix(database): resolve connection pooling issue"
-```
-
-### 3. Add Descriptive Bodies
-
-For complex changes, add details:
-
-```bash
-git commit -m "feat: implement caching layer
-
-Added Redis caching for API responses to improve performance.
-Cache TTL is configurable via environment variables."
-```
-
-### 4. Mark Breaking Changes Clearly
-
-Always document breaking changes:
-
-```bash
-git commit -m "feat!: redesign authentication API
-
-BREAKING CHANGE: The authentication endpoints have changed.
-Old endpoint: POST /login
-New endpoint: POST /api/v2/auth/login
-
-Migration guide: docs/migration.md"
-```
-
-### 5. Keep Changelogs Clean
-
-Exclude noise from changelogs:
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  types: {
-    ci: false, // Skip CI commits
-    chore: false, // Skip chores
-  },
-  excludeAuthors: [
-    'dependabot[bot]',
-  ],
-})
-```
-
-## Examples
-
-### Basic Usage
-
-```bash
-# Generate changelog as part of release
-relizy release --minor
-
-# Generate changelog without version bump
-relizy changelog
-```
-
-### Custom Range
-
-```bash
-# Changelog from v1.0.0 to v2.0.0
-relizy changelog --from v1.0.0 --to v2.0.0
-
-# Changelog for last 10 commits
-relizy changelog --from HEAD~10
-```
-
-### Monorepo
-
-```bash
-# Generate changelogs for all packages
-relizy changelog
-```
-
-## Configuration
-
-Full changelog configuration options:
-
-```ts
-// relizy.config.ts
-export default defineConfig({
-  // Commit types
-  types: {
-    feat: { title: '🚀 Features', semver: 'minor' },
-    fix: { title: '🐛 Bug Fixes', semver: 'patch' },
-  },
-
-  // Excluded authors
-  excludeAuthors: ['dependabot[bot]'],
-
-  // GitHub/GitLab URLs
-  github: 'user/repo',
-  // or
-  gitlab: 'user/repo',
-
-  // Version range
-  from: 'v1.0.0',
-  to: 'HEAD',
-})
-```
-
-## Next Steps
-
-- [Getting Started](./getting-started.md) - Learn basic usage
-- [CLI Reference](../cli/changelog.md) - Changelog command details
-- [Configuration](../config/changelog.md) - Advanced changelog options
+To rewrite the release notes of the provider releases and of the social posts with AI, see [AI Changelog](./ai-changelog.md).

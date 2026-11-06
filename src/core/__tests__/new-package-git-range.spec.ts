@@ -1,12 +1,13 @@
-import { execSync } from 'node:child_process'
 import { vol } from 'memfs'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import { formatGitCommand, runGitSync } from '../git-exec'
 import { getGitDiff } from '../git-refs'
 import { getNewPackageCompareBase, getPackageCommits } from '../repo'
 
-vi.mock('node:child_process', () => ({
-  execSync: vi.fn(),
+vi.mock('../git-exec', async importActual => ({
+  ...(await importActual<typeof import('../git-exec')>()),
+  runGitSync: vi.fn(),
 }))
 
 vi.mock('node:fs', async () => {
@@ -20,18 +21,18 @@ vi.mock('../git-refs', async importActual => ({
 }))
 
 function mockGit({ firstCommit, parent }: { firstCommit: string, parent?: string | Error }) {
-  vi.mocked(execSync).mockImplementation(((command: string) => {
-    if (command.startsWith('git log')) {
-      return `${firstCommit}\n`
+  vi.mocked(runGitSync).mockImplementation((args) => {
+    if (args[0] === 'log') {
+      return firstCommit
     }
-    if (command.startsWith('git rev-parse')) {
+    if (args[0] === 'rev-parse') {
       if (parent instanceof Error) {
         throw parent
       }
-      return `${parent ?? ''}\n`
+      return parent ?? ''
     }
-    throw new Error(`Unexpected command: ${command}`)
-  }) as typeof execSync)
+    throw new Error(`Unexpected command: ${formatGitCommand(args)}`)
+  })
 }
 
 describe('Given getNewPackageCompareBase function', () => {
@@ -44,8 +45,8 @@ describe('Given getNewPackageCompareBase function', () => {
       mockGit({ firstCommit: 'first123', parent: 'parent456' })
 
       expect(getNewPackageCompareBase('/repo/packages/web', '/repo')).toBe('parent456')
-      expect(execSync).toHaveBeenCalledWith(
-        'git rev-parse --verify --quiet "first123^"',
+      expect(runGitSync).toHaveBeenCalledWith(
+        ['rev-parse', '--verify', '--quiet', 'first123^'],
         expect.objectContaining({ cwd: '/repo' }),
       )
     })

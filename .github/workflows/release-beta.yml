@@ -23,15 +23,10 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.RELEASE_TOKEN }}
 
-      - name: Setup Node.js, pnpm # and Nx cache
+      - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup
         with:
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Setup Git User
-        run: |
-          git config --global user.name "LouisMazel"
-          git config --global user.email "12446546+LouisMazel@users.noreply.github.com"
 
       - name: Typecheck & Build
         run: pnpm typecheck && pnpm build

@@ -75,7 +75,7 @@ describe('Given the relizy MCP server', () => {
     it('Then they keep the TOOLS order with read-only annotations', async () => {
       const { tools } = await client.listTools()
 
-      expect(tools.map(tool => tool.name)).toEqual(['preview_release', 'preview_changelog', 'lint_commit', 'get_project', 'get_config_option', 'search_docs', 'get_doc'])
+      expect(tools.map(tool => tool.name)).toEqual(['preview_release', 'preview_changelog', 'lint_commit', 'get_project', 'get_config_option', 'search_docs', 'get_doc', 'check_migration'])
       expect(tools.map(tool => tool.name)).toEqual(TOOLS.map(tool => tool.name))
 
       for (const tool of tools) {
@@ -91,7 +91,7 @@ describe('Given the relizy MCP server', () => {
     it('Then each prompt drives the tools of the server', async () => {
       const { prompts } = await client.listPrompts()
 
-      expect(prompts.map(prompt => prompt.name)).toEqual(['write-commit', 'prepare-release', 'setup-relizy', 'setup-ci'])
+      expect(prompts.map(prompt => prompt.name)).toEqual(['write-commit', 'prepare-release', 'setup-relizy', 'migrate-to-v2', 'setup-ci'])
 
       const commit = await client.getPrompt({ name: 'write-commit', arguments: { intent: 'fix the tags' } })
       const release = await client.getPrompt({ name: 'prepare-release', arguments: { type: 'minor' } })
@@ -99,6 +99,7 @@ describe('Given the relizy MCP server', () => {
       const setup = await client.getPrompt({ name: 'setup-relizy' })
       const github = await client.getPrompt({ name: 'setup-ci', arguments: { provider: 'github' } })
       const gitlab = await client.getPrompt({ name: 'setup-ci', arguments: { provider: 'gitlab' } })
+      const migration = await client.getPrompt({ name: 'migrate-to-v2' })
 
       expect(promptText(commit)).toContain('(fix the tags)')
       expect(promptText(commit)).toContain('lint_commit({ message })')
@@ -107,6 +108,8 @@ describe('Given the relizy MCP server', () => {
       expect(promptText(setup)).toContain('relizy mcp init')
       expect(promptText(github)).toContain('guide/github-actions')
       expect(promptText(gitlab)).toContain('guide/gitlab-ci')
+      expect(promptText(migration)).toContain('get_doc({ id: "guide/migration-v2" })')
+      expect(promptText(migration)).toContain('check_migration()')
     })
   })
 

@@ -3,7 +3,7 @@
   "type": "module",
   "version": "1.14.4-beta.0",
   "packageManager": "pnpm@12.4.1",
-  "description": "Changelogen adapter for monorepo management with unified and independent versioning",
+  "description": "Release automation - Ship every release in one command",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
   "homepage": "https://relizy.dev",
@@ -36,8 +36,7 @@
       "types": "./dist/index.d.ts",
       "import": "./dist/index.mjs"
     },
-    "./cli": "./bin/relizy.mjs",
-    "./types": "./dist/index.d.ts"
+    "./cli": "./bin/relizy.mjs"
   },
   "main": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
@@ -59,6 +58,7 @@
     "prepare": "npx husky",
     "build": "pnpm generate:agent-docs && unbuild",
     "generate:agent-docs": "tsx scripts/generate-agent-docs.ts",
+    "ai:eval": "tsx scripts/ai-eval/run.ts",
     "dev": "pnpm generate:agent-docs && unbuild --stub",
     "relizy": "tsx src/cli.ts",
     "rly": "tsx src/cli.ts",
@@ -97,9 +97,8 @@
   },
   "dependencies": {
     "@clack/prompts": "^1.8.1",
-    "@inquirer/prompts": "^8.7.5",
-    "@maz-ui/node": "5.2.0",
-    "@maz-ui/utils": "5.2.0",
+    "@maz-ui/node": "^5.2.0",
+    "@maz-ui/utils": "^5.2.0",
     "c12": "^3.3.4",
     "commander": "^15.0.0",
     "confbox": "^0.3.2",
@@ -115,7 +114,7 @@
     "semver": "^7.8.6"
   },
   "devDependencies": {
-    "@maz-ui/eslint-config": "5.0.0",
+    "@maz-ui/eslint-config": "^5.0.0",
     "@modelcontextprotocol/sdk": "^1.32.2",
     "@slack/web-api": "8.3.0",
     "@types/mdast": "^4.0.4",
@@ -124,7 +123,7 @@
     "@types/semver": "^7.8.0",
     "@vitest/coverage-v8": "^5.1.0",
     "@yoloship/claude-sdk": "0.2.0-beta.9",
-    "ai": "^7.0.162",
+    "ai": "^7.0.163",
     "cross-env": "10.1.0",
     "eslint": "^10.14.0",
     "husky": "9.1.7",

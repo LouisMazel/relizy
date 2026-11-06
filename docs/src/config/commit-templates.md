@@ -1,173 +1,114 @@
 ---
-title: Commit Templates
-description: Customize the release commit title and body with placeholders, and take advantage of smart defaults in independent monorepo mode.
-keywords: relizy commit message, commit body, independent mode commit, release commit template, monorepo commit, commitlint
+title: Templates
+description: Reference of the templates - release commit title and body, tag name and message, changelog section title, empty changelog text, and the social posts.
+keywords: relizy templates, commitMessage, commitBody, tagMessage, tagBody, tag name, changelogTitle, emptyChangelogContent, twitterMessage, slackMessage, release commit, placeholders
 category: Configuration
-tags: [config, commit, templates, monorepo, independent]
+tags: [config, templates, commit, tags, changelog]
 ---
 
 # {{ $frontmatter.title }}
 
-{{ $frontmatter.description }}
+{{ $frontmatter.description }} A template is a string with <code v-pre>{{variable}}</code> placeholders.
 
-When Relizy bumps versions, it creates a single release commit containing the
-version changes and the updated changelogs. The **title** of that commit is
-controlled by `templates.commitMessage`, and you can optionally populate the
-**body** with `templates.commitBody`.
+```ts
+import { defineConfig } from 'relizy'
 
-## Why a separate body?
-
-In `independent` monorepos, the legacy single-line title
-(<code v-pre>chore(release): bump version to {{newVersion}}</code> where <code v-pre>{{newVersion}}</code>
-expands to the full list of `name@version` pairs) can quickly exceed commitlint
-`header-max-length` limits once a release touches many packages:
-
-```text
-chore(release): bump version to @scope/a@1.0.0, @scope/b@1.0.0, @scope/c@1.0.0, …
+export default defineConfig({
+  templates: {
+    commitMessage: 'chore(release): v{{newVersion}}',
+    changelogTitle: '{{newVersion}} ({{date}})',
+  },
+})
 ```
 
-Relizy now keeps titles short by default in `independent` mode and pushes the
-full list into the commit body.
+## commitMessage
 
-## Smart defaults
-
-Defaults are resolved based on `monorepo.versionMode`:
-
-| Version mode                                                | Default `commitMessage`                                                                      | Default `commitBody`                                                       |
-| ----------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
-| `unified` / `selective`                                     | <code v-pre>chore(release): bump version to {{newVersion}}</code>                            | _(none)_                                                                   |
-| `independent`                                               | <code v-pre>chore(release): bump {{packageCount}} packages</code>                            | <code v-pre>{{packageList}}</code>                                         |
-| [version groups](../guide/version-groups.md#release-commit) | the `unified`/`selective` title when that group is released, the `independent` one otherwise | <code v-pre>{{packageList}}</code> when an `independent` group is released |
-
-If you set either `commitMessage` or `commitBody` yourself, your value is
-preserved — Relizy only fills in `undefined` fields.
-
-## `templates.commitMessage`
-
-- **Config key:** `templates.commitMessage`
 - **Type:** `string`
+- **Default:** depends on the version mode, see the table
 
-The commit title. Must stay within your commitlint `header-max-length` when
-using linting (typically 72 or 100 characters).
+Title of the release commit.
 
-## `templates.commitBody`
+| Version mode                                                  | Default `commitMessage`                                                                      | Default `commitBody`                                                       |
+| ------------------------------------------------------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| standalone, `unified`, `selective`                            | <code v-pre>chore(release): bump version to {{newVersion}}</code>                            | none                                                                       |
+| `independent`                                                 | <code v-pre>chore(release): bump {{packageCount}} packages</code>                            | <code v-pre>{{packageList}}</code>                                         |
+| [version groups](./../guide/version-groups.md#release-commit) | the `unified`/`selective` title when that group is released, the `independent` one otherwise | <code v-pre>{{packageList}}</code> when an `independent` group is released |
 
-- **Config key:** `templates.commitBody`
-- **Type:** `string | undefined`
+A template set in the config is kept as is. The `independent` default body only applies when neither `commitMessage` nor `commitBody` is set.
 
-Optional commit body. When defined, it is passed to `git commit` as a second
-`-m` argument, producing a proper commit body (blank line separator handled by
-git).
+| Placeholder                         | Value                                                                           |
+| ----------------------------------- | ------------------------------------------------------------------------------- |
+| <code v-pre>{{newVersion}}</code>   | The new version; in `independent` mode, the comma-separated `name@version` list |
+| <code v-pre>{{rootVersion}}</code>  | The version of the root `package.json`                                          |
+| <code v-pre>{{packageCount}}</code> | The number of bumped packages                                                   |
+| <code v-pre>{{packageNames}}</code> | The comma-separated names of the bumped packages                                |
+| <code v-pre>{{packageList}}</code>  | The comma-separated `name@version` of the bumped packages                       |
 
-## Available placeholders
+[`relizy commitlint`](./../commitlint/rules.md#header-max-length) ignores the release commits, whatever their length.
 
-Both `commitMessage` and `commitBody` support the same placeholders:
+## commitBody
 
-| Placeholder                         | Description                                                                                                           | Example                                     |
-| ----------------------------------- | --------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
-| <code v-pre>{{newVersion}}</code>   | In `independent` mode, comma-separated `name@version` list. In other modes, the new root version.                     | `1.2.0` or `@scope/a@1.2.0, @scope/b@1.0.1` |
-| <code v-pre>{{rootVersion}}</code>  | Version from the root `package.json`. Useful in `independent` mode where <code v-pre>{{newVersion}}</code> is a list. | `1.2.0`                                     |
-| <code v-pre>{{packageCount}}</code> | Number of packages bumped in this release.                                                                            | `7`                                         |
-| <code v-pre>{{packageNames}}</code> | Comma-separated list of bumped package **names**.                                                                     | `@scope/a, @scope/b`                        |
-| <code v-pre>{{packageList}}</code>  | Comma-separated list of bumped `name@version`.                                                                        | `@scope/a@1.2.0, @scope/b@1.0.1`            |
+- **Type:** `string`
+- **Default:** see [`commitMessage`](#commitmessage)
 
-In non-monorepo and `unified`/`selective` setups, <code v-pre>{{packageCount}}</code>,
-<code v-pre>{{packageNames}}</code>, and <code v-pre>{{packageList}}</code> still work and reflect the bumped
-packages resolved for that release.
-
-## Examples
-
-### Short title with a detailed body (independent mode default)
+Body of the release commit (a second `git commit -m`), with the placeholders of `commitMessage`. An empty string gives no body.
 
 ```ts
-import { defineConfig } from 'relizy'
-
 export default defineConfig({
   monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-  // Equivalent to the built-in default for independent mode:
   templates: {
-    commitMessage: 'chore(release): bump {{packageCount}} packages',
+    commitMessage: 'chore(release): {{packageCount}} packages ({{rootVersion}})',
     commitBody: '{{packageList}}',
   },
 })
 ```
 
-Produces:
+## tagBody
 
-```text
-chore(release): bump 3 packages
+- **Type:** `string`
+- **Default:** <code v-pre>'v{{newVersion}}'</code>
 
-@scope/a@1.2.0, @scope/b@1.0.1, @scope/c@1.0.1
-```
+Name of the repository tag, in a standalone project and in the `unified` and `selective` modes (the packages of an `independent` mode are tagged `<name>@<version>`). Relizy also reads it to find the previous release: the tags following it, and the tags `v1.2.3` and `1.2.3`, so the previous tags stay recognized when the template changes from the default. Relizy warns about the tags that look like a release but follow neither. Keep <code v-pre>{{newVersion}}</code> in it, once: relizy refuses a template that repeats it, as it could not read the version back from the tags.
 
-### Include the root version in the title
+## tagMessage
 
-```ts
-import { defineConfig } from 'relizy'
+- **Type:** `string`
+- **Default:** <code v-pre>'Bump version to {{newVersion}}'</code>
 
-export default defineConfig({
-  monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-  templates: {
-    commitMessage: 'chore(release): release {{rootVersion}} ({{packageCount}} packages)',
-    commitBody: '{{packageList}}',
-  },
-})
-```
+Message of the annotated tags. <code v-pre>{{newVersion}}</code> is the version of the tag.
 
-### Opt out of the body
+## changelogTitle
 
-Set `commitBody` to an empty string to force an empty body, or simply override
-`commitMessage` and leave `commitBody` unset if you want to rely entirely on
-the title.
+- **Type:** `string`
+- **Default:** <code v-pre>'{{oldVersion}}...{{newVersion}}'</code>
 
-```ts
-import { defineConfig } from 'relizy'
+Title of a section of the changelogs (`## v1.0.0...v1.1.0`).
 
-export default defineConfig({
-  monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-  templates: {
-    commitMessage: 'release: {{packageCount}} packages',
-    // commitBody stays undefined → no body
-  },
-})
-```
+| Placeholder                       | Value                           | Example      |
+| --------------------------------- | ------------------------------- | ------------ |
+| <code v-pre>{{oldVersion}}</code> | The tag of the previous release | `v1.0.0`     |
+| <code v-pre>{{newVersion}}</code> | The tag of the new release      | `v1.1.0`     |
+| <code v-pre>{{date}}</code>       | The date, `YYYY-MM-DD`          | `2026-03-14` |
 
-::: warning
-If you customize `commitMessage` but leave `commitBody` undefined, Relizy will
-**not** auto-apply the independent-mode body default. Smart defaults only
-trigger when both fields are unset.
-:::
+Every occurrence of each placeholder is replaced.
 
-### Unified / selective mode
+## emptyChangelogContent
 
-Defaults are unchanged — no body, single-line title:
+- **Type:** `string`
+- **Default:** `'No relevant changes for this release'`
 
-```text
-chore(release): bump version to 1.2.0
-```
+Text of a changelog section without commits, e.g. a package bumped for one of its dependencies. Only written in the `CHANGELOG.md` files: the provider releases and the social posts stay empty.
 
-You can still opt into the placeholders if you want a richer message:
+## twitterMessage
 
-```ts
-export default defineConfig({
-  monorepo: { versionMode: 'selective', packages: ['packages/*'] },
-  templates: {
-    commitMessage: 'chore(release): v{{newVersion}} ({{packageCount}} packages)',
-    commitBody: '{{packageList}}',
-  },
-})
-```
+- **Type:** `string`
+- **Default:** <code v-pre>'📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'</code>
 
-## Tips for commitlint users
+Template of the tweet, overridden by `social.twitter.template`. Its variables are on [Social](./social.md).
 
-[`relizy commitlint`](/commitlint/) ignores the release commits matching `commitMessage`, whatever their length.
+## slackMessage
 
-If your project uses commitlint with `header-max-length`, the independent-mode
-default is designed to stay well under 72 characters. If you customize
-`commitMessage`, double-check with:
+- **Type:** `string`
+- **Default:** none (the rich blocks format)
 
-```bash
-echo "chore(release): bump 12 packages" | wc -c
-```
-
-And push long listings to `commitBody` where length is unrestricted.
+Template of the Slack message, overridden by `social.slack.template`. Its variables are on [Social](./social.md).

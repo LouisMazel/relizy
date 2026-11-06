@@ -1,33 +1,20 @@
-import type { LogLevel } from '@maz-ui/node'
-import { execFileSync } from 'node:child_process'
 import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, isAbsolute, join, relative } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { clearGitCache } from '../git-cache'
+import { runGitSync, tryGitSync } from '../git-exec'
 import { getLastTag } from '../tags'
-
-function git(args: string[], cwd: string): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
-}
-
-function gitOrUndefined(args: string[], cwd: string): string | undefined {
-  try {
-    return git(args, cwd)
-  }
-  catch {
-    return undefined
-  }
-}
 
 /** Absolute path of a file of the git directory (`COMMIT_EDITMSG`, `hooks`...) */
 function getGitPath(path: string, cwd: string): string {
-  const gitPath = git(['rev-parse', '--git-path', path], cwd)
+  const gitPath = runGitSync(['rev-parse', '--git-path', path], { cwd })
   return isAbsolute(gitPath) ? gitPath : join(cwd, gitPath)
 }
 
 /** Character git uses for the comment lines of the edited messages */
 export function getCommentChar(cwd: string): string {
-  const commentChar = gitOrUndefined(['config', 'core.commentChar'], cwd)
+  const commentChar = tryGitSync(['config', 'core.commentChar'], { cwd })
   return commentChar && commentChar !== 'auto' ? commentChar : '#'
 }
 
@@ -46,7 +33,7 @@ export function readCommitMessageFile(file: string | undefined, cwd: string): st
 
 /** Files staged for the commit being created, relative to the repository root */
 export function getStagedFiles(cwd: string): string[] {
-  const output = gitOrUndefined(['diff', '--cached', '--name-only'], cwd)
+  const output = tryGitSync(['diff', '--cached', '--name-only'], { cwd })
   return output ? output.split('\n').filter(Boolean) : []
 }
 
@@ -66,13 +53,13 @@ const FILES_SEPARATOR = '\x1D'
  * full message and changed files. Every commit up to `to` without `from`.
  */
 export function getCommitsInRange({ from, to = 'HEAD', cwd }: { from?: string, to?: string, cwd: string }): RangeCommit[] {
-  const output = git([
+  const output = runGitSync([
     'log',
     '--reverse',
     `--format=${COMMIT_SEPARATOR}%H${FIELD_SEPARATOR}%B${FILES_SEPARATOR}`,
     '--name-only',
     from ? `${from}..${to}` : to,
-  ], cwd)
+  ], { cwd })
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
     const [hash = '', rest = ''] = record.split(FIELD_SEPARATOR)
@@ -97,7 +84,7 @@ function getFetchHistoryHint(): string {
 }
 
 function isShallowRepository(cwd: string): boolean {
-  return gitOrUndefined(['rev-parse', '--is-shallow-repository'], cwd) === 'true'
+  return tryGitSync(['rev-parse', '--is-shallow-repository'], { cwd }) === 'true'
 }
 
 /**
@@ -113,7 +100,8 @@ function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?:
   const args = ['fetch', '--quiet', ...(tags ? ['--tags'] : ['--no-tags']), ...(shallow ? ['--unshallow'] : []), 'origin', ...refspecs]
   logger.debug(`commitlint: git ${args.join(' ')}`)
   try {
-    git(args, cwd)
+    runGitSync(args, { cwd })
+    clearGitCache()
     return true
   }
   catch (error) {
@@ -123,7 +111,7 @@ function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?:
 }
 
 function isRefAvailable(ref: string, cwd: string): boolean {
-  return Boolean(gitOrUndefined(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], cwd))
+  return Boolean(tryGitSync(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd }))
 }
 
 /**
@@ -182,10 +170,10 @@ export interface DefaultRangeStart {
  * the target branch of the pull/merge request in GitHub Actions and GitLab CI,
  * otherwise the last tag, otherwise the whole history.
  */
-export async function resolveDefaultRangeStart({ cwd, logLevel }: { cwd: string, logLevel?: LogLevel }): Promise<DefaultRangeStart> {
+export async function resolveDefaultRangeStart({ cwd }: { cwd: string }): Promise<DefaultRangeStart> {
   const githubBase = process.env.GITHUB_BASE_REF
   if (githubBase) {
-    const getMergeBase = () => gitOrUndefined(['merge-base', `origin/${githubBase}`, 'HEAD'], cwd)
+    const getMergeBase = () => tryGitSync(['merge-base', `origin/${githubBase}`, 'HEAD'], { cwd })
     // The default checkout of a pull request has neither the base branch nor the history
     const mergeBase = getMergeBase()
       ?? (fetchHistory(cwd, { refspecs: [`+refs/heads/${githubBase}:refs/remotes/origin/${githubBase}`] }) ? getMergeBase() : undefined)
@@ -200,7 +188,7 @@ export async function resolveDefaultRangeStart({ cwd, logLevel }: { cwd: string,
     return { from: gitlabBase, reason: 'base of the merge request' }
   }
 
-  const lastTag = await getLastTag({ cwd, logLevel })
+  const lastTag = await getLastTag({ cwd })
   if (lastTag) {
     return { from: lastTag, reason: `last tag ${lastTag}` }
   }
@@ -221,9 +209,9 @@ const HOOK_COMMAND = 'npx --no -- relizy commitlint --edit "$1"'
  * only replaced with `force`.
  */
 export function installCommitMsgHook({ cwd, force = false }: { cwd: string, force?: boolean }): InstalledHook {
-  const root = git(['rev-parse', '--show-toplevel'], cwd)
+  const root = runGitSync(['rev-parse', '--show-toplevel'], { cwd })
   const husky = join(root, '.husky')
-  const hooksPath = gitOrUndefined(['config', 'core.hooksPath'], cwd)
+  const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
   const hooksDirectory = hooksPath ? (isAbsolute(hooksPath) ? hooksPath : join(root, hooksPath)) : getGitPath('hooks', cwd)
   const path = join(existsSync(husky) ? husky : hooksDirectory, 'commit-msg')
   const content = path.startsWith(husky) ? `${HOOK_COMMAND}\n` : `#!/bin/sh\n${HOOK_COMMAND}\n`

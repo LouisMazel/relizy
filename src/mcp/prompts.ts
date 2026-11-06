@@ -52,6 +52,17 @@ export function registerPrompts(server: McpServer): void {
 4. Run \`relizy mcp init\` to give the rules and this MCP server to the AI agents of the project.
 5. Check the setup with \`preview_release()\` and \`relizy release --dry-run\`.`))
 
+  server.registerPrompt('migrate-to-v2', {
+    title: 'Migrate to relizy 2',
+    description: 'Upgrade this project from relizy 1 to relizy 2: config, social templates, version groups, hooks and the code calling the relizy API',
+  }, () => userMessage(`Migrate this project from relizy 1 to relizy 2.
+
+1. Read the migration guide: \`get_doc({ id: "guide/migration-v2" })\`.
+2. Call \`check_migration()\` (with \`{ config }\` for each relizy config of the project, see \`get_project()\`): it lists what to change and what to review, with the file and line of each place.
+3. Propose the changes to the user, file by file: the relizy dependency, the social templates (\`{{releaseTitle}}\` instead of \`{{projectName}} {{newVersion}} is out!\`), a \`title\` for each version group, the hooks, and the code calling the relizy API (\`RelizyCancelError\`, the functions no longer exported). Check every option with \`get_config_option\`.
+4. Once the user agrees, apply them, then call \`check_migration()\` again until nothing is left to change.
+5. Check the next release with \`preview_release()\` and \`relizy release --dry-run\` (it shows the social posts and the PR comment), and run nothing else without the approval of the user.`))
+
   server.registerPrompt('setup-ci', {
     title: 'Release from the CI',
     description: 'Add a CI workflow that releases with relizy (GitHub Actions or GitLab CI)',
@@ -62,6 +73,6 @@ export function registerPrompts(server: McpServer): void {
 
 1. Call \`get_project()\` for the config and the steps of the release.
 2. Read \`get_doc({ id: "${provider === 'github' ? 'guide/github-actions' : 'guide/gitlab-ci'}" })\` and \`get_doc({ id: "guide/ci-cd" })\`.
-3. Write the workflow: full git history and tags, the tokens (npm, ${provider === 'github' ? 'GITHUB_TOKEN' : 'GitLab token'}) from the CI secrets, \`relizy release --yes\`. Never write a token in a file.
+3. Write the workflow with ${provider === 'github' ? 'the official action \`relizy/action@v2\`' : 'the component \`gitlab.com/relizy/relizy/release@2\` of the CI/CD catalog (a self-managed GitLab writes the job out)'}, as \`relizy init\` does: full git history and tags, the tokens (npm, ${provider === 'github' ? 'GITHUB_TOKEN' : 'GitLab token'}) from the CI secrets. Never write a token in a file.
 4. List the secrets the user must create, and validate the workflow with \`relizy release --dry-run\`.`))
 }

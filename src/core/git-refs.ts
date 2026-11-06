@@ -1,23 +1,13 @@
-import type { LogLevel } from '@maz-ui/node'
 import type { RawGitCommit } from '../types'
-import { execSync } from 'node:child_process'
-import { execPromise } from '@maz-ui/node'
+import { cachedGitRead, clearGitCache } from './git-cache'
+import { runGit, runGitSync } from './git-exec'
 
 /**
  * Low-level git ref/tag helpers. This module is intentionally a leaf (it only
- * depends on `@maz-ui/node`) so it can be imported from anywhere -- including
- * `rewritten-tags.ts` -- without creating an import cycle through `repo.ts`.
+ * depends on the leaves `git-cache.ts` and `git-exec.ts`) so it can be imported
+ * from anywhere -- including `rewritten-tags.ts` -- without creating an import
+ * cycle through `repo.ts`.
  */
-
-/**
- * Wrap a value in single quotes for safe shell interpolation.
- * Single quotes preserve everything literally; embedded single quotes are
- * escaped via the `'\''` idiom. Used for refs, tags and commit subjects that
- * may contain `(`, `)`, `:`, spaces, etc.
- */
-function shellSingleQuote(value: string): string {
-  return `'${value.replaceAll('\'', '\'\\\'\'')}'`
-}
 
 /**
  * Returns true when `ancestor` is an ancestor of `descendant` (i.e. reachable
@@ -25,17 +15,20 @@ function shellSingleQuote(value: string): string {
  * non-zero otherwise. Any error (e.g. unknown ref) is treated as "not an
  * ancestor".
  */
-export async function isAncestor(ancestor: string, descendant: string, cwd?: string): Promise<boolean> {
-  try {
-    await execPromise(
-      `git merge-base --is-ancestor ${shellSingleQuote(ancestor)} ${shellSingleQuote(descendant)}`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return true
-  }
-  catch {
-    return false
-  }
+export function isAncestor(ancestor: string, descendant: string, cwd?: string): Promise<boolean> {
+  return cachedGitRead({
+    key: ['is-ancestor', ancestor, descendant],
+    cwd,
+    read: async () => {
+      try {
+        await runGit(['merge-base', '--is-ancestor', ancestor, descendant], { cwd })
+        return true
+      }
+      catch {
+        return false
+      }
+    },
+  })
 }
 
 /**
@@ -43,11 +36,7 @@ export async function isAncestor(ancestor: string, descendant: string, cwd?: str
  */
 export async function getCommitSubject(ref: string, cwd?: string): Promise<string | null> {
   try {
-    const { stdout } = await execPromise(
-      `git log -1 --format=%s ${shellSingleQuote(ref)}`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return stdout.trim() || null
+    return await runGit(['log', '-1', '--format=%s', ref], { cwd }) || null
   }
   catch {
     return null
@@ -61,11 +50,8 @@ export async function getCommitSubject(ref: string, cwd?: string): Promise<strin
  */
 export async function findReachableCommitBySubject(subject: string, to: string, cwd?: string): Promise<string | null> {
   try {
-    const { stdout } = await execPromise(
-      `git log ${shellSingleQuote(to)} --grep=${shellSingleQuote(subject)} --fixed-strings --format=%H -n 1`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return stdout.trim().split('\n')[0]?.trim() || null
+    const stdout = await runGit(['log', to, `--grep=${subject}`, '--fixed-strings', '--format=%H', '-n', '1'], { cwd })
+    return stdout.split('\n')[0]?.trim() || null
   }
   catch {
     return null
@@ -75,23 +61,21 @@ export async function findReachableCommitBySubject(subject: string, to: string, 
 /**
  * Returns true when a tag with the given name exists locally.
  */
-export async function tagExists(tag: string, cwd?: string): Promise<boolean> {
-  try {
-    const tagRef = `refs/tags/${tag}`
-    await execPromise(
-      `git rev-parse --verify --quiet ${shellSingleQuote(tagRef)}`,
-      { cwd, noStderr: true, noStdout: true, noSuccess: true, noError: true },
-    )
-    return true
-  }
-  catch {
-    return false
-  }
+export function tagExists(tag: string, cwd?: string): Promise<boolean> {
+  return cachedGitRead({
+    key: ['tag-exists', tag],
+    cwd,
+    read: async () => {
+      try {
+        await runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`], { cwd })
+        return true
+      }
+      catch {
+        return false
+      }
+    },
+  })
 }
-
-// Large enough for every tag of a repository with a long release history: the
-// default 1 MB of `exec` is reached around 40k tags.
-const LIST_TAGS_MAX_BUFFER = 64 * 1024 * 1024
 
 /**
  * Returns the local tags, most recent first (`--sort=-creatordate`). With
@@ -101,24 +85,25 @@ const LIST_TAGS_MAX_BUFFER = 64 * 1024 * 1024
 export async function listTags({
   pattern,
   cwd,
-  logLevel,
 }: {
   pattern?: string
   cwd?: string
-  logLevel?: LogLevel
 } = {}): Promise<string[]> {
-  const list = pattern ? ` --list ${shellSingleQuote(pattern)}` : ''
+  const tags = await cachedGitRead({
+    key: ['list-tags', pattern ?? ''],
+    cwd,
+    read: async () => {
+      try {
+        const stdout = await runGit(['tag', ...(pattern ? ['--list', pattern] : []), '--sort=-creatordate'], { cwd })
+        return stdout.split('\n').filter(tag => tag.length > 0)
+      }
+      catch {
+        return []
+      }
+    },
+  })
 
-  try {
-    const { stdout } = await execPromise(
-      `git tag${list} --sort=-creatordate`,
-      { cwd, logLevel, noStderr: true, noStdout: true, noSuccess: true, maxBuffer: LIST_TAGS_MAX_BUFFER },
-    )
-    return stdout.trim().split('\n').filter(tag => tag.length > 0)
-  }
-  catch {
-    return []
-  }
+  return [...tags]
 }
 
 /**
@@ -131,30 +116,22 @@ export async function retagAnnotatedLocal({
   message,
   signed,
   cwd,
-  logLevel,
 }: {
   tag: string
   commit: string
   message: string
   signed?: boolean
   cwd?: string
-  logLevel?: LogLevel
 }): Promise<void> {
-  const sign = signed ? '-s ' : ''
-  await execPromise(
-    `git tag -f ${sign}-a ${shellSingleQuote(tag)} ${shellSingleQuote(commit)} -m ${shellSingleQuote(message)}`,
-    { cwd, logLevel, noStderr: true, noStdout: true },
-  )
+  await runGit(['tag', '-f', ...(signed ? ['-s'] : []), '-a', tag, commit, '-m', message], { cwd })
+  clearGitCache()
 }
 
 /**
  * Force-push a single tag to origin. Used only after explicit confirmation.
  */
-export async function pushTagForce(tag: string, cwd?: string, logLevel?: LogLevel): Promise<void> {
-  await execPromise(
-    `git push origin ${shellSingleQuote(tag)} --force`,
-    { cwd, logLevel, noStderr: true, noStdout: true },
-  )
+export async function pushTagForce(tag: string, cwd?: string): Promise<void> {
+  await runGit(['push', 'origin', tag, '--force'], { cwd })
 }
 
 /**
@@ -217,12 +194,6 @@ const COMMIT_SEPARATOR = '\x1E'
 const FIELD_SEPARATOR = '\x1F'
 
 /**
- * The output of `git log` over a long range (the whole history of a new package
- * in a large repository) overflows the 1 MB default of `execSync` (ENOBUFS).
- */
-const GIT_LOG_MAX_BUFFER = 1024 ** 3
-
-/**
  * Drop-in replacement for changelogen's `getGitDiff`, which splits the
  * `git log` output on `----\n` and the subject line on `|`. A commit body
  * containing a `----` line (GitHub adds `---------` before the
@@ -231,10 +202,15 @@ const GIT_LOG_MAX_BUFFER = 1024 ** 3
  */
 export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string): RawGitCommit[] {
   const range = from ? `${from}...${to}` : to
-  const output = execSync(
-    `git --no-pager log "${range}" --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status`,
-    { cwd, encoding: 'utf8', maxBuffer: GIT_LOG_MAX_BUFFER },
-  ).trim()
+  // The same range is read for each package and each step: parsed once, a copy returned to each caller
+  const commits = cachedGitRead({ key: ['log', range], cwd, read: () => readGitLog(range, cwd) })
+
+  return commits.map(commit => ({ ...commit, author: { ...commit.author } }))
+}
+
+function readGitLog(range: string, cwd?: string): RawGitCommit[] {
+  // The default buffer of `runGitSync` (1 GB) holds the whole history of a new package in a large repository
+  const output = runGitSync(['--no-pager', 'log', range, '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b', '--name-status'], { cwd })
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
     const [firstLine = '', ...body] = record.split('\n')

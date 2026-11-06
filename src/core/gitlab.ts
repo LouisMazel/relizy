@@ -1,16 +1,11 @@
-import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
+import type { PostedRelease, ProviderReleaseOptions } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import type { RootPackage } from './repo'
-import { execPromise, logger } from '@maz-ui/node'
+import type { ReleaseProvider } from './provider-releases'
+import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
-import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
-import { generateChangelog } from './changelog'
-import { loadRelizyConfig } from './config'
-import { getFirstCommit } from './git'
-import { getRootPackage, readPackageJson } from './repo'
-import { getIndependentTag, resolveTags } from './tags'
-import { filterPrivatePackagesUnlessIncluded, getPackagesOrBumpedPackages, isBumpedPackage } from './utils'
-import { isPrerelease } from './version'
+import { getCurrentGitBranch } from './git'
+import { getGitlabAuthHeader } from './gitlab-auth'
+import { postProviderReleases } from './provider-releases'
 
 export interface GitlabRelease {
   tag_name: string
@@ -47,7 +42,7 @@ export async function createGitlabRelease({
   release: GitlabRelease
   dryRun?: boolean
 }): Promise<GitlabReleaseResponse> {
-  const token = config.tokens.gitlab || config.repo?.token
+  const token = config.tokens.gitlab
 
   if (!token && !dryRun) {
     throw new Error(
@@ -98,7 +93,7 @@ export async function createGitlabRelease({
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'PRIVATE-TOKEN': token || '',
+        ...getGitlabAuthHeader(token || ''),
       },
       body: JSON.stringify(payload),
     })
@@ -120,261 +115,19 @@ export async function createGitlabRelease({
   }
 }
 
-async function gitlabIndependentMode({
-  config,
-  dryRun,
-  bumpResult,
-  suffix,
-  force,
-}: {
-  config: ResolvedRelizyConfig
-  dryRun: boolean
-  bumpResult: BumpResultTruthy | undefined
-  suffix: string | undefined
-  force: boolean
-}): Promise<PostedRelease[]> {
-  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
-
-  const packages = filterPrivatePackagesUnlessIncluded(await getPackagesOrBumpedPackages({
+export const gitlabReleaseProvider: ReleaseProvider = {
+  name: 'GitLab',
+  tokenKey: 'gitlab',
+  flagsPrereleases: false,
+  // The token and the repository are checked when creating the release: not needed in a dry run
+  check: () => {},
+  create: ({ config, release, dryRun }) => createGitlabRelease({
     config,
-    bumpResult,
-    suffix,
-    force,
+    release: { tag_name: release.tag, name: release.tag, description: release.notes, ref: getCurrentGitBranch(config.cwd) },
     dryRun,
-  }), config.monorepo?.includePrivates)
-
-  logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
-
-  logger.debug('Getting current branch...')
-  const { stdout: currentBranch } = await execPromise('git rev-parse --abbrev-ref HEAD', {
-    noSuccess: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: config.cwd,
-  })
-
-  const postedReleases: PostedRelease[] = []
-
-  for (const pkg of packages) {
-    const newVersion = (isBumpedPackage(pkg) && pkg.newVersion) || pkg.version
-
-    const from = config.from || pkg.fromTag
-    const to = getIndependentTag({ version: newVersion, name: pkg.name })
-
-    if (!from) {
-      logger.warn(`No from tag found for ${pkg.name}, skipping release`)
-      continue
-    }
-
-    logger.debug(`Processing ${pkg.name}: ${from} → ${to}`)
-
-    // Probe the body section first so we can skip empty releases — the
-    // assembled `releaseBody` below always contains at least the compare
-    // link, so it can't be used as the "is there anything to release"
-    // signal anymore.
-    const bodyOnly = await generateChangelog({
-      pkg: { ...pkg, fromTag: from },
-      config,
-      dryRun,
-      newVersion,
-      include: { title: false, compareLink: false, body: true, contributors: false },
-    })
-
-    if (!bodyOnly.trim()) {
-      logger.warn(`No changelog found for ${pkg.name}`)
-      continue
-    }
-
-    const releaseBody = await generateChangelog({
-      pkg: { ...pkg, fromTag: from },
-      config,
-      dryRun,
-      newVersion,
-      include: { title: false, compareLink: true, body: true, contributors: true },
-      transformBody: isAIProviderReleaseEnabled(config)
-        ? body => generateAIProviderReleaseBody({ config, rawBody: body })
-        : undefined,
-    })
-
-    const release = {
-      tag_name: to,
-      name: to,
-      description: releaseBody,
-      ref: currentBranch.trim(),
-    }
-
-    logger.debug(`Creating release for ${to} (ref: ${release.ref})`)
-
-    if (dryRun) {
-      logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
-      logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
-    }
-    else {
-      logger.debug(`Publishing release ${to} to GitLab...`)
-      await createGitlabRelease({
-        config,
-        release,
-        dryRun,
-      })
-      postedReleases.push({
-        name: pkg.name,
-        tag: release.tag_name,
-        version: newVersion,
-        prerelease: isPrerelease(newVersion),
-      })
-    }
-  }
-
-  if (postedReleases.length === 0) {
-    logger.warn('No releases created')
-  }
-  else {
-    logger.success(`Releases ${postedReleases.map(r => r.tag).join(', ')} published to GitLab!`)
-  }
-
-  return postedReleases
+  }),
 }
 
-async function gitlabUnified({
-  config,
-  dryRun,
-  rootPackage,
-  bumpResult,
-}: {
-  config: ResolvedRelizyConfig
-  dryRun: boolean
-  rootPackage: RootPackage
-  bumpResult: BumpResultTruthy | undefined
-}) {
-  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
-
-  const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
-
-  const to = config.templates.tagBody.replace('{{newVersion}}', newVersion)
-
-  const firstCommit = getFirstCommit(config.cwd)
-  const from = config.from || rootPackage.fromTag || firstCommit
-
-  const releaseBody = await generateChangelog({
-    pkg: { ...rootPackage, fromTag: from },
-    config,
-    dryRun,
-    newVersion,
-    include: { title: false, compareLink: true, body: true, contributors: true },
-    transformBody: isAIProviderReleaseEnabled(config)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body })
-      : undefined,
-  })
-
-  logger.debug('Getting current branch...')
-  const { stdout: currentBranch } = await execPromise('git rev-parse --abbrev-ref HEAD', {
-    noSuccess: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: config.cwd,
-  })
-
-  const release = {
-    tag_name: to,
-    name: to,
-    description: releaseBody,
-    ref: currentBranch.trim(),
-  }
-
-  logger.info(`Creating release for ${to} (ref: ${release.ref})`)
-  logger.debug('Release details:', formatJson({
-    tag_name: release.tag_name,
-    name: release.name,
-    ref: release.ref,
-  }))
-
-  if (dryRun) {
-    logger.info(`[dry-run] Publish GitLab release for ${release.tag_name}`)
-    logger.box('[dry-run] Release Preview', `Tag: ${release.tag_name}\n\n${releaseBody}`)
-  }
-  else {
-    logger.debug('Publishing release to GitLab...')
-    await createGitlabRelease({
-      config,
-      release,
-      dryRun,
-    })
-  }
-
-  logger.success(`Release ${to} published to GitLab!`)
-
-  return [{
-    name: to,
-    tag: to,
-    version: to,
-    prerelease: isPrerelease(newVersion),
-  }] satisfies PostedRelease[]
-}
-
-export async function gitlab(options: Partial<ProviderReleaseOptions> = {}): Promise<PostedRelease[]> {
-  try {
-    const dryRun = options.dryRun ?? false
-    logger.debug(`Dry run: ${dryRun}`)
-
-    const config = await loadRelizyConfig({
-      configFile: options.configName,
-      baseConfig: options.config,
-      overrides: {
-        from: options.from,
-        to: options.to,
-        logLevel: options.logLevel,
-        tokens: {
-          gitlab: options.token,
-        },
-      },
-    })
-
-    if (config.monorepo?.versionMode === 'independent') {
-      return await gitlabIndependentMode({
-        config,
-        dryRun,
-        bumpResult: options.bumpResult,
-        suffix: options.suffix,
-        force: options.force ?? false,
-      })
-    }
-
-    const rootPackageBase = readPackageJson(config.cwd)
-
-    if (!rootPackageBase) {
-      throw new Error('Failed to read root package.json')
-    }
-
-    const newVersion = options.bumpResult?.newVersion || rootPackageBase.version
-
-    const { from, to } = await resolveTags<'provider-release'>({
-      config,
-      step: 'provider-release',
-      newVersion,
-      pkg: rootPackageBase,
-    })
-
-    const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
-      config,
-      force: options.force ?? false,
-      suffix: options.suffix,
-      changelog: true,
-      from,
-      to,
-      dryRun,
-    })
-
-    logger.debug(`Root package: ${getIndependentTag({ name: rootPackage.name, version: newVersion })}`)
-
-    return await gitlabUnified({
-      config,
-      dryRun,
-      rootPackage,
-      bumpResult: options.bumpResult,
-    })
-  }
-  catch (error) {
-    logger.error('Error publishing GitLab release:', error)
-    throw error
-  }
+export function gitlab(options: Partial<ProviderReleaseOptions> = {}): Promise<PostedRelease[]> {
+  return postProviderReleases(gitlabReleaseProvider, options)
 }

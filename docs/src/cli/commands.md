@@ -1,319 +1,120 @@
 ---
 title: CLI commands
-description: Complete reference for all Relizy CLI commands.
-keywords: relizy cli, cli commands, command line, terminal commands, relizy reference
+description: The commands of the relizy CLI, their global options, their output and their exit codes.
+keywords: relizy cli, cli commands, global options, log level, dry run, exit codes, relizy reporter, command line
 category: CLI Reference
-tags: [cli, commands, reference, documentation]
+tags: [cli, commands, options, reference]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Overview
+## Commands
 
-Relizy provides ten main commands:
+| Command                                     | Description                                                                                   |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------- |
+| [`init`](./init.md)                         | Create the config of the project: detect the packages, ask the rest, set up commitlint        |
+| [`release`](./release.md)                   | Run the whole release: bump, changelog, publish, commit, tag, push, provider release and more |
+| [`bump`](./bump.md)                         | Compute and write the new versions                                                            |
+| [`changelog`](./changelog.md)               | Write the `CHANGELOG.md` files                                                                |
+| [`publish`](./publish.md)                   | Publish the packages to the registry                                                          |
+| [`provider-release`](./provider-release.md) | Create the GitHub or GitLab releases                                                          |
+| [`social`](./social.md)                     | Post the release on X (Twitter) and Slack                                                     |
+| [`pr-comment`](./pr-comment.md)             | Post the release on its pull request or merge request                                         |
+| [`commitlint`](./../commitlint/cli.md)      | Lint commit messages with the relizy config                                                   |
+| [`mcp`](./mcp.md)                           | Start the MCP server for the AI coding agents, and set them up (`relizy mcp init`)            |
 
-| Command                                     | Description                                                                              |
-| ------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| [`init`](/cli/init)                         | Create the Relizy config of the project, detect the packages and set up commitlint       |
-| [`release`](/cli/release)                   | Complete release workflow (bump + changelog + commit + tag + publish + provider release) |
-| [`bump`](/cli/bump)                         | Update version in package.json                                                           |
-| [`changelog`](/cli/changelog)               | Generate or update CHANGELOG.md                                                          |
-| [`publish`](/cli/publish)                   | Publish packages to npm                                                                  |
-| [`provider-release`](/cli/provider-release) | Create GitHub or GitLab releases                                                         |
-| [`social`](/cli/social)                     | Post release announcements to social media                                               |
-| [`pr-comment`](/cli/pr-comment)             | Post release information as a PR/MR comment                                              |
-| [`commitlint`](/commitlint/cli)             | Lint commit messages with the Relizy config                                              |
-| [`mcp`](/cli/mcp)                           | MCP server for AI coding agents, and their setup (`relizy mcp init`)                     |
+`relizy --help` lists them, `relizy <command> --help` lists the options of a command, `relizy --version` prints the version.
 
 ## Global Options
 
-These options work with all commands:
+These options go before or after the command name.
 
-### --config
+| Flag                   | Description                                                                                                                                                                                                                                                                                    | Config                                                       |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| `--config <name>`      | Load `<name>.config.<ext>` instead of `relizy.config.<ext>` (e.g. `relizy.standalone`). Fails when the file does not exist                                                                                                                                                                     | [Multiple configs](./../config/overview.md#multiple-configs) |
+| `--log-level <level>`  | `silent`, `error`, `warning`, `normal`, `default`, `debug`, `trace` or `verbose`, instead of the `logLevel` of the config (`default` by default). `verbose`, `debug` and `trace` show the details of each step                                                                                 | [`logLevel`](./../config/overview.md#loglevel)               |
+| `--dry-run`            | Preview the run: no file written but the [report](./../config/release.md#report), no commit, tag, push, publication nor post. Shows what would be generated (changelogs, release notes, posts, PR comment). The AI is not called, its rewrites are simulated                                   | -                                                            |
+| `--no-preview`         | With `--dry-run`, do not show what would be generated (still shown with `--log-level verbose`)                                                                                                                                                                                                 | -                                                            |
+| `--ai-preview`         | With `--dry-run`, call the AI to preview its rewrites of the release notes and the posts. Each call costs, as in a real release                                                                                                                                                                | [AI](./../config/ai.md)                                      |
+| `--group <names>`      | Only process these [version groups](./../guide/version-groups.md), comma-separated names. Used by `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`                                                                                                                   | [`monorepo.groups`](./../config/monorepo.md#groups)          |
+| `--pr-number <number>` | Number of the pull request or merge request to comment, instead of the detected one. Used by `release` and `pr-comment`                                                                                                                                                                        | [PR comment](./../config/pr-comment.md)                      |
+| `--no-safety-check`    | Skip the checks run before writing anything (tokens, registry access, branch up to date, push access). The branch is still checked right before publishing, the release tags before the commit, and the push access by the push. Used by `release`, `publish`, `provider-release` and `social` | [`safetyCheck`](./../config/overview.md#safetycheck)         |
 
-Specify which config file to use:
-
-```bash
-relizy release --config relizy.standalone
-# Uses relizy.standalone.config.ts
-```
-
-### --log-level
-
-Control logging verbosity:
-
-```bash
-relizy release --log-level debug
-# Levels: silent, error, warn, info, debug
-```
-
-### --dry-run
-
-Preview changes without making them:
-
-```bash
-relizy release --patch --dry-run
-```
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Works with `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`:
+With `--group`, only the targeted groups are bumped, published and tagged, in a single release commit. Without it, every group is processed:
 
 ```bash
 relizy release --group header
 relizy bump --group main,header --dry-run
 ```
 
-### --yes
+`--yes` is not a global option: only [`release`](./release.md), [`bump`](./bump.md) and [`init`](./init.md) have it.
 
-Skip all interactive prompts:
+## Output
 
-```bash
-relizy release --patch --yes
-```
+Each command shows one line per step, with its duration, and ends with what it did (`relizy release` with a summary of the release). The details of the steps are only shown with `--log-level verbose`, and always written to `node_modules/.cache/relizy/release.log` (not with `RELIZY_REPORTER=classic`, which prints them).
 
-## Quick Examples
+- **In a terminal**: an interactive output, with a spinner telling what the running step does (the AI rewrites included).
+- **In CI**, or when the output is not a terminal: lines only, the logs of each step in a collapsible group of GitHub Actions or GitLab CI, the warnings and errors as annotations on GitHub. Colored, unless `NO_COLOR` is set.
 
-### Full Release
-
-```bash
-# Interactive - asks for confirmation
-relizy release --minor
-
-# Automatic - no prompts
-relizy release --minor --yes
-```
-
-### Canary Release
+`RELIZY_REPORTER` forces the output: `pretty` (terminal), `ci` or `classic` (the plain logs of the logger). The [programmatic API](./../api/usage.md) uses `classic` unless `RELIZY_REPORTER` is set.
 
 ```bash
-# Publish a temporary test version
-relizy release --canary
-
-# Canary with custom preid
-relizy release --canary --preid snapshot
-
-# Canary in CI (skip prompts)
-relizy release --canary --yes
-```
-
-### Version Bump Only
-
-```bash
-# Bump patch version
-relizy bump --patch
-
-# Bump minor version
-relizy bump --minor
-
-# Bump major version
-relizy bump --major
-```
-
-### Changelog Only
-
-```bash
-# Generate changelog
-relizy changelog
-
-# From specific version
-relizy changelog --from v1.0.0
-```
-
-### Publish Only
-
-```bash
-# Publish all packages
-relizy publish
-
-# Publish specific packages
-relizy publish
-```
-
-### Provider Release Only
-
-```bash
-# Create GitHub or GitLab release
-relizy provider-release
-```
-
-### PR Comment Only
-
-```bash
-# Post release info as a PR comment
-relizy pr-comment
-
-# With specific PR number
-relizy pr-comment --pr-number 42
-```
-
-## Monorepo-Specific Options
-
-### Version Modes
-
-Set in config file:
-
-```ts
-// relizy.config.ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective', // 'unified' | 'selective' | 'independent'
-  },
-})
-```
-
-## Common Workflows
-
-### Standard Release
-
-```bash
-# 1. Make changes and commit
-git add .
-git commit -m "feat: new feature"
-
-# 2. Release
-relizy release --minor
-
-# Done! Version bumped, changelog updated, committed, and tagged
-```
-
-### Release with Publishing
-
-```bash
-# Complete release + npm publish + GitHub release
-relizy release --minor
-```
-
-### Canary Release from PR
-
-```bash
-# Publish a canary version and comment on the PR
-relizy release --canary --yes --pr-number 42
-```
-
-### Preview Before Release
-
-```bash
-# See what would happen
-relizy release --minor --dry-run
-
-# If satisfied, run for real
-relizy release --minor
-```
-
-### Monorepo Selective Release
-
-```bash
-# Only release changed packages
-relizy release --selective --minor
-```
-
-### Manual Control
-
-```bash
-# Step 1: Bump version
-relizy bump --minor
-
-# Step 2: Generate changelog
-relizy changelog
-
-# Step 3: Commit and tag manually
-git add .
-git commit -m "chore(release): v1.2.0"
-git tag v1.2.0
-
-# Step 4: Publish
-relizy publish
-
-# Step 5: Create provider release
-relizy provider-release
-
-# Step 6: Post PR comment
-relizy pr-comment
-```
-
-## Command Chaining
-
-While Relizy doesn't support chaining directly, you can use shell operators:
-
-```bash
-# Run multiple commands
-relizy bump --patch && \
-relizy changelog && \
-relizy publish
-
-# With error handling
-relizy bump --patch || exit 1
-relizy changelog || exit 1
-relizy publish || exit 1
+RELIZY_REPORTER=ci relizy release --dry-run --yes
 ```
 
 ## Exit Codes
 
-Relizy uses standard exit codes:
+| Code | When                                                                                                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Success, or nothing to release (`release` and `bump` without a commit triggering a bump)                                                                                |
+| `0`  | A prompt refused or cancelled (bump confirmation, uncommitted changes, rewritten tag): nothing was written, the `error:*` hooks do not run                              |
+| `1`  | An error, an unknown option or an invalid value, commit messages with errors (`commitlint`), a failed provider release (`provider-release`) or a failed post (`social`) |
 
-- `0` - Success
-- `1` - Error occurred
-- `2` - Invalid arguments
-
-Use in scripts:
-
-```bash
-if relizy release --patch; then
-  echo "Release successful"
-else
-  echo "Release failed"
-  exit 1
-fi
-```
-
-## Debug Mode
-
-Get detailed output for troubleshooting:
+`release` and `bump` ask to confirm the new versions. Without an interactive terminal (CI), they fail right away with code `1` unless `--yes` is given:
 
 ```bash
-relizy release --minor --log-level debug
+relizy release --yes
 ```
 
-This shows:
+To run something only when a release happens, read its [report](./../config/release.md#report) rather than the exit code, see [CI/CD](./../guide/ci-cd.md#run-something-only-when-a-release-happens).
 
-- Git commands being executed
-- File changes
-- Version calculations
-- Dependency resolution
-- Publishing steps
-
-## Help
-
-Get help for any command:
+## Examples
 
 ```bash
-# General help
-relizy --help
+# Preview the next release, then run it
+relizy release --dry-run
+relizy release
 
-# Command-specific help
-relizy release --help
-relizy bump --help
-relizy changelog --help
-relizy publish --help
-relizy provider-release --help
-relizy social --help
-relizy pr-comment --help
+# Force the bump type, without the confirmation (CI)
+relizy release --minor --yes
+
+# Canary version of a pull request, commented on it
+relizy release --canary --yes --pr-number 42
+
+# Another config file: relizy.standalone.config.ts
+relizy release --config relizy.standalone
+
+# Every detail of the run
+relizy release --dry-run --log-level verbose
 ```
 
-## Next Steps
+`relizy release` runs the steps in order (see [Steps](./release.md#steps)). To run them one by one:
 
-Dive deeper into each command:
+```bash
+relizy bump --yes
+relizy changelog
+relizy publish
+# Commit, tag and push yourself, then
+relizy provider-release
+relizy social
+relizy pr-comment
+```
 
-- [release](release.md) - Full release workflow
-- [bump](bump.md) - Version bumping
-- [changelog](changelog.md) - Changelog generation
-- [publish](publish.md) - NPM publishing
-- [provider-release](provider-release.md) - GitHub/GitLab releases
-- [social](social.md) - Social media posting
-- [pr-comment](pr-comment.md) - PR/MR comments
-- [commitlint](../commitlint/cli.md) - Commit message linting
+## See Also
+
+- [release](./release.md), [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md)
+- [social](./social.md), [pr-comment](./pr-comment.md), [init](./init.md), [mcp](./mcp.md), [commitlint](./../commitlint/cli.md)
+- [CI/CD](./../guide/ci-cd.md)
+- [Programmatic API](./../api/usage.md)

@@ -1,43 +1,40 @@
-import type { LogLevel } from '@maz-ui/node'
-
 import type { BumpResultTruthy, GitProvider, GroupBumpResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { confirm } from '@inquirer/prompts'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
+import { ensurePushAccess } from './ci'
+import { isInCI } from './ci-env'
 import { loadRelizyConfig } from './config'
+import { RelizyCancelError } from './errors'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag } from './format'
+import { cachedGitRead, clearGitCache } from './git-cache'
+import { formatGitCommand, runGit, runGitSync, tryGit, tryGitSync } from './git-exec'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
+import { askConfirm } from './prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
 import { getIndependentTag } from './tags'
-import { executeHook, isInCI } from './utils'
+import { executeHook, getHookContext } from './utils'
 
 export function getGitStatus(cwd?: string, trim = true) {
-  const status = execSync('git status --porcelain', {
-    cwd,
-    encoding: 'utf8',
-  })
-
-  if (trim)
-    return status.trim()
-
-  return status
+  return runGitSync(['status', '--porcelain'], { cwd, trim })
 }
 
-export function checkGitStatusIfDirty() {
+export function checkGitStatusIfDirty(cwd: string) {
   logger.debug('Checking git status')
 
-  const dirty = getGitStatus()
+  // Untrimmed: the first column of the first line is significant
+  const changes = parseGitStatus(getGitStatus(cwd, false))
 
-  if (dirty) {
-    logger.debug('git status:', `\n${dirty.trim().split('\n').map(line => line.trim()).join('\n')}`)
+  if (changes.length > 0) {
+    const names = changes.map(({ path, change }) => `${path} (${change})`)
+    // Every file in the log, the first ones in the error
+    logger.debug(`Uncommitted changes: ${names.join(', ')}`)
+    const files = names.slice(0, 3).join(', ') + (names.length > 3 ? `, and ${names.length - 3} more` : '')
 
-    const error = `Git status is dirty!\n\nPlease commit or stash your changes before bumping or use --no-clean flag. \n\nUnstaged files:\n\n ${dirty.trim()}`
-
-    throw new Error(error)
+    throw new Error(`Uncommitted changes: ${files}\nCommit or stash them first, or keep them with --no-clean.`)
   }
 }
 
@@ -49,50 +46,84 @@ export function checkGitStatusIfDirty() {
  * changes it contains, and `changelog.formatCmd` runs on the working directory.
  * Nothing to confirm in dry-run, which writes nothing.
  */
-export async function confirmDirtyGitStatus({ dryRun }: { dryRun: boolean }): Promise<void> {
-  const dirty = getGitStatus()
+const GIT_STATUS_LABELS: Record<string, string> = {
+  '?': 'new',
+  'A': 'added',
+  'M': 'modified',
+  'D': 'deleted',
+  'R': 'renamed',
+  'C': 'copied',
+  'U': 'conflict',
+}
 
-  if (!dirty) {
+/**
+ * The uncommitted changes of `git status --porcelain`: the path of each file and what changed
+ */
+function parseGitStatus(status: string): { path: string, change: string }[] {
+  return status.split('\n').filter(line => line.trim()).map((line) => {
+    const code = line.slice(0, 2).trim()[0] ?? 'M'
+    const path = line.slice(3).split(' -> ').at(-1)!.replace(/^"|"$/g, '')
+
+    return { path, change: GIT_STATUS_LABELS[code] ?? 'changed' }
+  })
+}
+
+/** The files a release writes and commits */
+const RELEASE_FILE_NAMES = new Set(['package.json', 'CHANGELOG.md', 'lerna.json'])
+
+/**
+ * With `--no-clean`, the uncommitted changes stay as they are. Only the ones of
+ * the files a release writes are worth a warning: they go in the release
+ * commit. They are confirmed in an interactive terminal (not in dry-run).
+ */
+export async function confirmDirtyGitStatus({ dryRun, cwd }: { dryRun: boolean, cwd: string }): Promise<void> {
+  // Untrimmed: the first column of the first line is significant
+  const changes = parseGitStatus(getGitStatus(cwd, false))
+
+  if (changes.length === 0) {
     return
   }
 
-  logger.warn(`The working directory has uncommitted changes (--no-clean):\n\n${dirty}\n\nThe files Relizy writes (package.json, CHANGELOG.md, lerna.json) are committed with the changes they contain, and changelog.formatCmd runs on the working directory. The other files are left untouched.`)
+  const describe = (files: typeof changes) => files.map(({ path, change }) => `${path} (${change})`).join(', ')
+  const releaseFiles = changes.filter(({ path }) => RELEASE_FILE_NAMES.has(path.split('/').at(-1)!))
+
+  logger.debug(`Uncommitted changes kept (--no-clean): ${describe(changes)}`)
+
+  if (releaseFiles.length === 0) {
+    return
+  }
+
+  logger.warn(`Uncommitted changes in files the release commits: ${describe(releaseFiles)}`)
 
   if (dryRun || isInCI() || !process.stdin.isTTY) {
     return
   }
 
-  const confirmed = await confirm({
-    message: 'Do you want to continue with these uncommitted changes?',
-    default: false,
-  }).catch(() => false)
+  const cancelMessage = 'Release cancelled: commit or stash the changes of these files first'
+  const confirmed = await askConfirm({ message: 'Commit these changes with the release?', initialValue: false, cancelMessage })
 
   if (!confirmed) {
-    logger.log('')
-    logger.fail('Release cancelled: commit or stash your changes first')
-    process.exit(0)
+    throw new RelizyCancelError(cancelMessage)
   }
 }
 
 export async function fetchGitTags(cwd?: string): Promise<void> {
   logger.debug('Fetching git tags from remote')
   try {
-    await execPromise('git fetch --tags', { cwd, noStderr: true, noStdout: true, noSuccess: true })
+    await runGit(['fetch', '--tags'], { cwd })
     logger.debug('Git tags fetched successfully')
   }
   catch (error) {
     logger.fail('Failed to fetch some git tags from remote (tags might already exist locally)', error)
     logger.info('Continuing with local tags')
   }
+
+  clearGitCache()
 }
 
 export function detectGitProvider(cwd: string = process.cwd()): GitProvider | null {
   try {
-    const remoteUrl = execSync('git remote get-url origin', {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
+    const remoteUrl = runGitSync(['remote', 'get-url', 'origin'], { cwd })
 
     if (remoteUrl.includes('github.com')) {
       return 'github'
@@ -113,34 +144,11 @@ export function detectGitProvider(cwd: string = process.cwd()): GitProvider | nu
   }
 }
 
-export function parseGitRemoteUrl(remoteUrl: string): { owner: string, repo: string } | null {
-  const sshRegex = /git@[\w.-]+:([\w.-]+)\/([\w.-]+?)(?:\.git)?$/
-  const httpsRegex = /https?:\/\/[\w.-]+\/(.+?)\/([^/]+?)(?:\.git)?$/
-
-  const sshMatch = remoteUrl.match(sshRegex)
-  if (sshMatch) {
-    return {
-      owner: sshMatch[1]!,
-      repo: sshMatch[2]!,
-    }
-  }
-
-  const httpsMatch = remoteUrl.match(httpsRegex)
-  if (httpsMatch) {
-    return {
-      owner: httpsMatch[1]!,
-      repo: httpsMatch[2]!,
-    }
-  }
-
-  return null
-}
-
 /**
  * Get files modified in git status that are relevant for release
  * Returns only package.json, CHANGELOG.md, and lerna.json files
  */
-export function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConfig }): string[] {
+function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConfig }): string[] {
   // Get git status --porcelain output WITHOUT trimming to preserve format
   const gitStatusRaw = getGitStatus(config.cwd, false)
 
@@ -181,7 +189,144 @@ export function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRel
   return releaseFiles
 }
 
-// eslint-disable-next-line complexity, sonarjs/cognitive-complexity
+/**
+ * Stage the release files: the files written by this run, or the modified
+ * release files when they were written by another process
+ */
+function stageReleaseFiles({ config, dryRun }: { config: ResolvedRelizyConfig, dryRun?: boolean }): void {
+  const releaseFiles = getReleaseFiles(config.cwd)
+  const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config })
+
+  logger.start('Start commit and tag')
+
+  logger.debug('Adding files to git staging area...')
+  for (const pattern of filePatternsToAdd) {
+    if (pattern === 'lerna.json' && !hasLernaJson(config.cwd)) {
+      logger.verbose(`Skipping lerna.json as it doesn't exist`)
+      continue
+    }
+
+    if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(config.cwd, pattern))) {
+      logger.verbose(`Skipping ${pattern} as it doesn't exist`)
+      continue
+    }
+
+    if (dryRun) {
+      logger.info(`[dry-run] git add ${pattern}`)
+      continue
+    }
+
+    try {
+      logger.debug(`git add ${pattern}`)
+      runGitSync(['add', pattern], { cwd: config.cwd })
+    }
+    catch {
+      // Ignore errors if pattern doesn't match any files
+    }
+  }
+}
+
+/**
+ * The title and the body of the release commit, from the commit templates
+ */
+function getReleaseCommitMessage({
+  config,
+  bumpedPackages,
+  newVersion,
+  rootVersion,
+  groups,
+}: {
+  config: ResolvedRelizyConfig
+  bumpedPackages: BumpResultTruthy['bumpedPackages']
+  newVersion?: string
+  rootVersion?: string
+  groups?: GroupBumpResult[]
+}): { message: string, body?: string } {
+  // With version groups, the commit is "independent" when no unified/selective group bumped
+  const isIndependent = groups
+    ? !getRootGroupBumpResult(groups)
+    : config.monorepo?.versionMode === 'independent'
+
+  const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
+  const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
+  const packageCount = bumpedPackages?.length ?? 0
+
+  const versionForMessage = isIndependent
+    ? packageList || 'unknown'
+    : newVersion || 'unknown'
+
+  const placeholders: Record<string, string> = {
+    newVersion: versionForMessage,
+    rootVersion: rootVersion || 'unknown',
+    packageCount: String(packageCount),
+    packageNames: packageNames || 'unknown',
+    packageList: packageList || 'unknown',
+  }
+
+  const applyPlaceholders = (template: string): string => {
+    let out = template
+    for (const [key, value] of Object.entries(placeholders)) {
+      out = out.replaceAll(`{{${key}}}`, value)
+    }
+    return out
+  }
+
+  const { title: titleTemplate, body: bodyTemplate } = getCommitTemplates({ config, groups, isIndependent })
+
+  return {
+    message: applyPlaceholders(titleTemplate),
+    body: bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined,
+  }
+}
+
+/**
+ * Create the annotated tags of the release, returns their names
+ */
+async function createReleaseTags({ config, releaseTags, dryRun }: {
+  config: ResolvedRelizyConfig
+  releaseTags: ReleaseTag[]
+  dryRun?: boolean
+}): Promise<string[]> {
+  logger.debug(`Sign tags: ${config.signTags}`)
+  const createdTags: string[] = []
+
+  logger.debug(`Creating ${releaseTags.length} tag(s)`)
+
+  for (const { name: tagName, version } of releaseTags) {
+    const tagMessage = config.templates?.tagMessage
+      ?.replaceAll('{{newVersion}}', version)
+      || tagName
+
+    const tagArgs = ['tag', ...(config.signTags ? ['-s'] : []), '-a', tagName, '-m', tagMessage]
+
+    if (dryRun) {
+      logger.info(`[dry-run] ${formatGitCommand(tagArgs)}`)
+    }
+    else {
+      logger.debug(`Executing: ${formatGitCommand(tagArgs)}`)
+      try {
+        await runGit(tagArgs, { cwd: config.cwd })
+        clearGitCache()
+        logger.debug(`Tag created: ${tagName}`)
+      }
+      catch (error) {
+        logger.error(`Failed to create tag ${tagName}:`, error)
+        throw error
+      }
+    }
+
+    createdTags.push(tagName)
+  }
+
+  if (createdTags.length > 1) {
+    logger.success(`Created ${createdTags.length} tags, ${createdTags.join(', ')}`)
+  }
+
+  logger.debug('Created Tags:', createdTags.join(', '))
+
+  return createdTags
+}
+
 export async function createCommitAndTags({
   config,
   noVerify,
@@ -189,7 +334,6 @@ export async function createCommitAndTags({
   newVersion,
   groups,
   dryRun,
-  logLevel,
 }: {
   config: ResolvedRelizyConfig
   noVerify: boolean
@@ -200,44 +344,14 @@ export async function createCommitAndTags({
    */
   groups?: GroupBumpResult[]
   dryRun?: boolean
-  logLevel: LogLevel
 }): Promise<string[]> {
   const internalConfig = config || await loadRelizyConfig()
+  const hookContext = getHookContext(internalConfig, { bumped: true, bumpedPackages, newVersion, groups })
 
   try {
-    await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
-    // The files written by this run, or the modified release files when they were written by another process
-    const releaseFiles = getReleaseFiles(internalConfig.cwd)
-    const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config: internalConfig })
-
-    logger.start('Start commit and tag')
-
-    logger.debug('Adding files to git staging area...')
-    for (const pattern of filePatternsToAdd) {
-      if (pattern === 'lerna.json' && !hasLernaJson(internalConfig.cwd)) {
-        logger.verbose(`Skipping lerna.json as it doesn't exist`)
-        continue
-      }
-
-      if ((pattern === 'lerna.json' || pattern === 'CHANGELOG.md') && !existsSync(join(internalConfig.cwd, pattern))) {
-        logger.verbose(`Skipping ${pattern} as it doesn't exist`)
-        continue
-      }
-
-      if (dryRun) {
-        logger.info(`[dry-run] git add ${pattern}`)
-        continue
-      }
-
-      try {
-        logger.debug(`git add ${pattern}`)
-        execSync(`git add ${pattern}`)
-      }
-      catch {
-        // Ignore errors if pattern doesn't match any files
-      }
-    }
+    stageReleaseFiles({ config: internalConfig, dryRun })
 
     const rootPackage = readPackageJson(internalConfig.cwd)
 
@@ -247,114 +361,39 @@ export async function createCommitAndTags({
 
     newVersion = newVersion || rootPackage.version
 
-    // With version groups, the commit is "independent" when no unified/selective group bumped
-    const isIndependent = groups
-      ? !getRootGroupBumpResult(groups)
-      : internalConfig.monorepo?.versionMode === 'independent'
+    const { message: commitMessage, body: commitBody } = getReleaseCommitMessage({ config: internalConfig, bumpedPackages, newVersion, rootVersion: rootPackage.version, groups })
 
-    const packageList = bumpedPackages?.map(pkg => getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })).join(', ') || ''
-    const packageNames = bumpedPackages?.map(pkg => pkg.name).join(', ') || ''
-    const packageCount = bumpedPackages?.length ?? 0
-
-    const versionForMessage = isIndependent
-      ? packageList || 'unknown'
-      : newVersion || 'unknown'
-
-    const placeholders: Record<string, string> = {
-      newVersion: versionForMessage,
-      rootVersion: rootPackage.version || 'unknown',
-      packageCount: String(packageCount),
-      packageNames: packageNames || 'unknown',
-      packageList: packageList || 'unknown',
-    }
-
-    const applyPlaceholders = (template: string): string => {
-      let out = template
-      for (const [key, value] of Object.entries(placeholders)) {
-        out = out.replaceAll(`{{${key}}}`, value)
-      }
-      return out
-    }
-
-    const { title: titleTemplate, body: bodyTemplate } = getCommitTemplates({ config: internalConfig, groups, isIndependent })
-
-    const commitMessage = applyPlaceholders(titleTemplate)
-    const commitBody = bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined
-
-    const noVerifyFlag = (noVerify) ? '--no-verify ' : ''
     logger.debug(`No verify: ${noVerify}`)
 
-    const bodyFlag = commitBody ? ` -m "${commitBody.replaceAll('"', '\\"')}"` : ''
-    const fullCommitCmd = `git commit ${noVerifyFlag}-m "${commitMessage.replaceAll('"', '\\"')}"${bodyFlag}`
+    const commitArgs = ['commit', ...(noVerify ? ['--no-verify'] : []), '-m', commitMessage, ...(commitBody ? ['-m', commitBody] : [])]
 
     if (dryRun) {
-      logger.info(`[dry-run] ${fullCommitCmd}`)
+      logger.info(`[dry-run] ${formatGitCommand(commitArgs)}`)
     }
     else {
-      logger.debug(`Executing: ${fullCommitCmd}`)
-      await execPromise(fullCommitCmd, {
-        logLevel,
-        noStderr: true,
-        noStdout: true,
-        cwd: internalConfig.cwd,
-      })
+      logger.debug(`Executing: ${formatGitCommand(commitArgs)}`)
+      await runGit(commitArgs, { cwd: internalConfig.cwd })
+      clearGitCache()
       logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
       resetReleaseFiles()
     }
 
-    const signTags = internalConfig.signTags ? '-s' : ''
-    logger.debug(`Sign tags: ${internalConfig.signTags}`)
-    const createdTags: string[] = []
-
-    const releaseTags = getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups })
-
-    logger.debug(`Creating ${releaseTags.length} tag(s)`)
-
-    for (const { name: tagName, version } of releaseTags) {
-      const tagMessage = internalConfig.templates?.tagMessage
-        ?.replaceAll('{{newVersion}}', version)
-        || tagName
-
-      if (dryRun) {
-        logger.info(`[dry-run] git tag ${signTags} -a ${tagName} -m "${tagMessage}"`)
-      }
-      else {
-        const cmd = `git tag ${signTags} -a ${tagName} -m "${tagMessage}"`
-        logger.debug(`Executing: ${cmd}`)
-        try {
-          await execPromise(cmd, {
-            logLevel,
-            noStderr: true,
-            noStdout: true,
-            cwd: internalConfig.cwd,
-          })
-          logger.debug(`Tag created: ${tagName}`)
-        }
-        catch (error) {
-          logger.error(`Failed to create tag ${tagName}:`, error)
-          throw error
-        }
-      }
-
-      createdTags.push(tagName)
-    }
-
-    if (createdTags.length > 1) {
-      logger.success(`Created ${createdTags.length} tags, ${createdTags.join(', ')}`)
-    }
-
-    logger.debug('Created Tags:', createdTags.join(', '))
+    const createdTags = await createReleaseTags({
+      config: internalConfig,
+      releaseTags: getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups }),
+      dryRun,
+    })
 
     logger.success('Commit and tag completed!')
 
-    await executeHook('success:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('success:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
     return createdTags
   }
   catch (error) {
     logger.error('Error committing and tagging:', error)
 
-    await executeHook('error:commit-and-tag', internalConfig, dryRun ?? false)
+    await executeHook('error:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
 
     throw error
   }
@@ -371,8 +410,6 @@ export interface GitUpstream {
   name: string
 }
 
-const quietExec = { noStderr: true, noStdout: true, noSuccess: true, noError: true } as const
-
 /**
  * Resolve the upstream of the current branch. Returns null on a detached HEAD
  * or when the branch has no upstream configured.
@@ -385,21 +422,21 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
       return null
     }
 
-    const [{ stdout: remote }, { stdout: mergeRef }, { stdout: trackingRef }] = await Promise.all([
-      execPromise(`git config --get branch.${branch}.remote`, { cwd, ...quietExec }),
-      execPromise(`git config --get branch.${branch}.merge`, { cwd, ...quietExec }),
-      execPromise('git rev-parse --symbolic-full-name @{upstream}', { cwd, ...quietExec }),
+    const [remote, mergeRef, trackingRef] = await Promise.all([
+      runGit(['config', '--get', `branch.${branch}.remote`], { cwd }),
+      runGit(['config', '--get', `branch.${branch}.merge`], { cwd }),
+      runGit(['rev-parse', '--symbolic-full-name', '@{upstream}'], { cwd }),
     ])
 
-    if (!remote.trim() || !mergeRef.trim() || !trackingRef.trim()) {
+    if (!remote || !mergeRef || !trackingRef) {
       return null
     }
 
     return {
-      remote: remote.trim(),
-      mergeRef: mergeRef.trim(),
-      trackingRef: trackingRef.trim(),
-      name: trackingRef.trim().replace(/^refs\/remotes\//, ''),
+      remote,
+      mergeRef,
+      trackingRef,
+      name: trackingRef.replace(/^refs\/remotes\//, ''),
     }
   }
   catch {
@@ -408,7 +445,24 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
 }
 
 async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> {
-  await execPromise(`git fetch ${upstream.remote} +${upstream.mergeRef}:${upstream.trackingRef}`, { cwd, ...quietExec })
+  await runGit(['fetch', upstream.remote, `+${upstream.mergeRef}:${upstream.trackingRef}`], { cwd })
+  clearGitCache()
+}
+
+/**
+ * The current branch misses commits of its upstream branch, pushed after the
+ * run started
+ */
+export class BranchBehindRemoteError extends Error {
+  override name = 'BranchBehindRemoteError'
+
+  constructor(readonly upstream: string, readonly missingCommits: number) {
+    super(
+      `The current branch is behind "${upstream}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
+      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
+      + `Re-run the release from the latest commit of "${upstream}".`,
+    )
+  }
 }
 
 /**
@@ -440,15 +494,11 @@ export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): 
     return
   }
 
-  const { stdout } = await execPromise(`git rev-list --count HEAD..${upstream.trackingRef}`, { cwd, ...quietExec })
-  const missingCommits = Number.parseInt(stdout.trim(), 10) || 0
+  const count = await runGit(['rev-list', '--count', `HEAD..${upstream.trackingRef}`], { cwd })
+  const missingCommits = Number.parseInt(count, 10) || 0
 
   if (missingCommits > 0) {
-    throw new Error(
-      `The current branch is behind "${upstream.name}" by ${missingCommits} commit(s): new commits were pushed while the release was running.\n`
-      + 'Releasing now would publish packages whose release commit cannot be pushed.\n'
-      + `Re-run the release from the latest commit of "${upstream.name}".`,
-    )
+    throw new BranchBehindRemoteError(upstream.name, missingCommits)
   }
 
   logger.debug(`Branch is up to date with "${upstream.name}"`)
@@ -474,17 +524,15 @@ function isPushRejectedAsBehind(error: unknown): boolean {
  */
 async function recoverRejectedPush({
   config,
-  command,
+  pushArgs,
   tags,
   pushError,
-  logLevel,
   cwd,
 }: {
   config: ResolvedRelizyConfig
-  command: string
+  pushArgs: string[]
   tags: string[]
   pushError: unknown
-  logLevel?: LogLevel
   cwd: string
 }): Promise<void> {
   const upstream = await getGitUpstream(cwd)
@@ -497,15 +545,14 @@ async function recoverRejectedPush({
 
   try {
     await fetchUpstream(upstream, cwd)
-    const noVerifyFlag = config.release.noVerify ? ' --no-verify' : ''
-    await execPromise(`git merge --no-edit${noVerifyFlag} ${upstream.name}`, { cwd, ...quietExec })
+    await runGit(['merge', '--no-edit', ...(config.release.noVerify ? ['--no-verify'] : []), upstream.name], { cwd })
+    clearGitCache()
   }
   catch (mergeError) {
-    await execPromise('git merge --abort', { cwd, ...quietExec }).catch(() => {})
+    await tryGit(['merge', '--abort'], { cwd })
 
     if (tags.length > 0) {
-      const tagRefs = tags.map(tag => `refs/tags/${tag}`).join(' ')
-      await execPromise(`git push ${upstream.remote} ${tagRefs}`, { cwd, ...quietExec }).catch(() => {})
+      await tryGit(['push', upstream.remote, ...tags.map(tag => `refs/tags/${tag}`)], { cwd })
     }
 
     const recoverRef = tags[0] ?? 'HEAD'
@@ -518,7 +565,7 @@ async function recoverRejectedPush({
     )
   }
 
-  await execPromise(command, { noStderr: true, noStdout: true, logLevel, cwd })
+  await runGit(pushArgs, { cwd })
 
   logger.success(`Merged "${upstream.name}" into the release commit and pushed`)
 }
@@ -526,19 +573,18 @@ async function recoverRejectedPush({
 export async function pushCommitAndTags({
   config,
   dryRun,
-  logLevel,
   cwd,
   tags = [],
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  logLevel?: LogLevel
   cwd: string
   tags?: string[]
 }) {
   logger.start('Start push changes and tags')
 
-  const command = config.release.gitTag ? 'git push --follow-tags' : 'git push'
+  const pushArgs = config.release.gitTag ? ['push', '--follow-tags'] : ['push']
+  const command = formatGitCommand(pushArgs)
 
   if (dryRun) {
     logger.info(`[dry-run] ${command}`)
@@ -546,8 +592,11 @@ export async function pushCommitAndTags({
   else {
     logger.debug(`Executing: ${command}`)
 
+    // Checked before publishing by the safety checks, unless disabled: the GitLab token may be needed to push
+    await ensurePushAccess({ config })
+
     try {
-      await execPromise(command, { noStderr: true, noStdout: true, noError: true, logLevel, cwd })
+      await runGit(pushArgs, { cwd })
     }
     catch (error) {
       if (!isPushRejectedAsBehind(error)) {
@@ -555,7 +604,7 @@ export async function pushCommitAndTags({
         throw error
       }
 
-      await recoverRejectedPush({ config, command, tags, pushError: error, logLevel, cwd })
+      await recoverRejectedPush({ config, pushArgs, tags, pushError: error, cwd })
     }
   }
 
@@ -582,7 +631,7 @@ function getCommitTemplates({
 
   if (!groups || commitMessage !== undefined) {
     return {
-      title: commitMessage ?? 'chore(release): bump version to {{newVersion}}',
+      title: commitMessage ?? DEFAULT_RELEASE_COMMIT_MESSAGES.version,
       body: commitBody,
     }
   }
@@ -590,13 +639,13 @@ function getCommitTemplates({
   const hasIndependentGroup = groups.some(group => group.versionMode === 'independent')
 
   return {
-    title: isIndependent ? 'chore(release): bump {{packageCount}} packages' : 'chore(release): bump version to {{newVersion}}',
+    title: isIndependent ? DEFAULT_RELEASE_COMMIT_MESSAGES.packages : DEFAULT_RELEASE_COMMIT_MESSAGES.version,
     body: commitBody ?? (hasIndependentGroup ? '{{packageList}}' : undefined),
   }
 }
 
 function getRepoTag({ config, version }: { config: ResolvedRelizyConfig, version?: string }): ReleaseTag[] {
-  const tagName = version ? config.templates.tagBody?.replaceAll('{{newVersion}}', version) : undefined
+  const tagName = version ? formatRepoTag(config.templates.tagBody, version) : undefined
 
   return tagName && version ? [{ name: tagName, version }] : []
 }
@@ -712,23 +761,23 @@ export async function rollbackModifiedFiles({
 }
 
 export function getFirstCommit(cwd: string): string {
-  const result = execSync(
-    'git rev-list --max-parents=0 HEAD',
-    {
-      cwd,
-      encoding: 'utf8',
+  return cachedGitRead({
+    key: ['first-commit'],
+    cwd,
+    read: () => {
+      return runGitSync(['rev-list', '--max-parents=0', 'HEAD'], { cwd })
     },
-  )
-  return result.trim()
+  })
 }
 
 export function getCurrentGitBranch(cwd: string): string {
-  const result = execSync('git rev-parse --abbrev-ref HEAD', {
+  return cachedGitRead({
+    key: ['current-branch'],
     cwd,
-    encoding: 'utf8',
+    read: () => {
+      return runGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
+    },
   })
-
-  return result.trim()
 }
 
 export function getCurrentGitRef(cwd: string): string {
@@ -736,6 +785,13 @@ export function getCurrentGitRef(cwd: string): string {
   return branch || 'HEAD'
 }
 
+/**
+ * The full hash of HEAD, undefined outside a git repository or before the first commit
+ */
+export function getHeadCommit(cwd: string): string | undefined {
+  return tryGitSync(['rev-parse', 'HEAD'], { cwd }) || undefined
+}
+
 export function getShortCommitSha(cwd: string, length = 7): string {
-  return execSync(`git rev-parse --short=${length} HEAD`, { cwd, encoding: 'utf8' }).trim()
+  return runGitSync(['rev-parse', `--short=${length}`, 'HEAD'], { cwd })
 }

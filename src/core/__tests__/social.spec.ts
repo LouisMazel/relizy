@@ -1,5 +1,5 @@
 import { createMockConfig } from '../../../tests/mocks'
-import { extractChangelogSummary, getReleaseUrl } from '../social'
+import { extractChangelogHighlights, extractChangelogSummary, getReleaseUrl } from '../social'
 
 describe('Given extractChangelogSummary function', () => {
   describe('When changelog contains headers', () => {
@@ -26,55 +26,30 @@ Content here`
       const result = extractChangelogSummary(changelog, { maxLength: 200 })
 
       expect(result).not.toContain('#')
-      expect(result).toBe('Content here.')
+      expect(result).toBe('Content here')
     })
   })
 
-  describe('When changelog has sentences', () => {
-    it('Then extracts sentences within maxLength', () => {
-      const changelog = 'First sentence. Second sentence. Third sentence. Fourth sentence.'
+  describe('When the changelog has several lines', () => {
+    it('Then keeps the first lines that fit, each one whole', () => {
+      const changelog = '- Add the parser.\n- Fix the cache of the tags\n- Update the docs of the CLI'
 
-      const result = extractChangelogSummary(changelog, { maxLength: 50 })
-
-      expect(result.length).toBeLessThanOrEqual(52)
-      expect(result).toContain('First sentence')
+      expect(extractChangelogSummary(changelog, { maxLength: 50 })).toBe('- Add the parser.\n- Fix the cache of the tags')
     })
 
-    it('Then includes multiple sentences if they fit', () => {
-      const changelog = 'Short. Also short. And this.'
+    it('Then keeps every line when they fit, without adding a period', () => {
+      const changelog = '- Great news!\n- Amazing features?\n- More updates'
 
-      const result = extractChangelogSummary(changelog, { maxLength: 100 })
-
-      expect(result).toBe('Short. Also short. And this.')
+      expect(extractChangelogSummary(changelog, { maxLength: 100 })).toBe('- Great news!\n- Amazing features?\n- More updates')
     })
 
-    it('Then stops at maxLength boundary', () => {
-      const changelog = 'This is a short sentence. This is a much longer sentence that exceeds the maximum length allowed.'
-
-      const result = extractChangelogSummary(changelog, { maxLength: 30 })
-
-      expect(result).toBe('This is a short sentence.')
-    })
-
-    it('Then handles exclamation marks as sentence endings', () => {
-      const changelog = 'Great news! Amazing features! More updates!'
-
-      const result = extractChangelogSummary(changelog, { maxLength: 50 })
-
-      expect(result).toBe('Great news. Amazing features. More updates.')
-    })
-
-    it('Then handles question marks as sentence endings', () => {
-      const changelog = 'New features? Bug fixes?'
-
-      const result = extractChangelogSummary(changelog, { maxLength: 50 })
-
-      expect(result).toBe('New features. Bug fixes.')
+    it('Then never merges a line ending with a period with the next one', () => {
+      expect(extractChangelogSummary('- Add a.\n- Fix b.', { maxLength: 100 })).toBe('- Add a.\n- Fix b.')
     })
   })
 
   describe('When changelog is longer than maxLength', () => {
-    it('Then truncates at maxLength as fallback', () => {
+    it('Then truncates a first line longer than maxLength', () => {
       const changelog = 'This is a very long continuous text without any sentence endings or punctuation marks that goes on and on'
 
       const result = extractChangelogSummary(changelog, { maxLength: 47 })
@@ -83,7 +58,7 @@ Content here`
       expect(result).toBe('This is a very long continuous text without any')
     })
 
-    it('Then returns substring when no sentence breaks', () => {
+    it('Then truncates a single word longer than maxLength', () => {
       const changelog = 'NoSpacesOrPunctuationHereJustOneLongStringOfText'
 
       const result = extractChangelogSummary(changelog, { maxLength: 20 })
@@ -102,13 +77,10 @@ Content here`
       expect(result.length).toBeLessThanOrEqual(201)
     })
 
-    it('Then extracts sentences within default 150 length', () => {
-      const changelog = 'First sentence here. Second sentence goes here. Third sentence follows. Fourth continues. Fifth ends.'
+    it('Then keeps every line', () => {
+      const changelog = '- First line\n- Second line\n- Third line'
 
-      const result = extractChangelogSummary(changelog)
-
-      expect(result.length).toBeLessThanOrEqual(150)
-      expect(result).toContain('First sentence')
+      expect(extractChangelogSummary(changelog)).toBe(changelog)
     })
   })
 
@@ -204,7 +176,7 @@ Content here`
 
       const result = extractChangelogSummary(changelog, { maxLength: 100 })
 
-      expect(result).toBe('See https://example.com for details.')
+      expect(result).toBe('See https://example.com for details')
     })
   })
 
@@ -274,6 +246,16 @@ describe('Given getReleaseUrl function', () => {
       const result = getReleaseUrl(config, '1.0.0')
 
       expect(result).toBe('https://github.com/user/repo/releases/tag/1.0.0')
+    })
+  })
+
+  describe('When the tag is the tag of a package', () => {
+    it('Then encodes it as a single segment of the URL', () => {
+      const config = createMockConfig({ bump: { type: 'patch' } })
+      config.repo = { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' }
+
+      expect(getReleaseUrl(config, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/-/releases/@scope%2Fnav@1.3.0')
+      expect(getReleaseUrl({ ...config, repo: { ...config.repo, provider: 'github' } }, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/releases/tag/@scope%2Fnav@1.3.0')
     })
   })
 
@@ -422,5 +404,26 @@ describe('Given getReleaseUrl function', () => {
 
       expect(result).toBe(expected)
     })
+  })
+})
+
+describe('Given extractChangelogHighlights function', () => {
+  it('Then returns the changes without markdown, the breaking ones first, once', () => {
+    const changelog = [
+      '### 🚀 Features',
+      '',
+      '- **menu:** Add a menu',
+      '- Faster  builds',
+      '',
+      '### 🩹 Fixes',
+      '',
+      '- **api:** ⚠️  Remove the legacy API',
+      '',
+      '#### ⚠️ Breaking Changes',
+      '',
+      '- **api:** ⚠️  Remove the legacy API',
+    ].join('\n')
+
+    expect(extractChangelogHighlights(changelog)).toEqual(['api: ⚠️ Remove the legacy API', 'menu: Add a menu', 'Faster builds'])
   })
 })

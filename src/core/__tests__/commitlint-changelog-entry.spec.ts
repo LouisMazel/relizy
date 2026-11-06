@@ -4,23 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getChangelogLinter, getChangelogTitle, renderChangelogEntry } from '../commitlint/changelog-entry'
 
 function createCommit(overrides: Partial<GitCommit> = {}): GitCommit {
-  return {
-    message: 'feat(core): add the parser',
-    body: 'Parses the messages.',
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    authors: [],
-    description: 'add the parser',
-    type: 'feat',
-    scope: 'core',
-    references: [],
-    isBreaking: false,
-    ...overrides,
-  }
+  return createMockCommit('feat', 'feat(core): add the parser', { body: 'Parses the messages.', description: 'add the parser', scope: 'core', ...overrides })
 }
 
 const INVALID_TS = '```ts\nai: {\n  global: \'a\',\n  slack: \'b\',\n}\n```'
@@ -128,7 +116,7 @@ describe('Given getChangelogLinter function', () => {
     }, 30_000)
   })
 
-  describe('When the linter is forced with commitlint.codeBlocksLinter', () => {
+  describe('When the linter is forced with commitlint.changelogLinter', () => {
     it('Then uses oxc even when the project ESLint lints the changelogs', async () => {
       expect((await getChangelogLinter(process.cwd(), 'oxc')).name).toBe('oxc')
     })
@@ -142,7 +130,7 @@ describe('Given getChangelogLinter function', () => {
       ['does not lint the changelogs', () => createProject({ 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' }, { withEslint: true }), 'the ESLint config of the project does not lint CHANGELOG.md'],
       ['cannot be loaded', () => createProject({ 'eslint.config.mjs': 'throw new Error(\'broken config\')' }, { withEslint: true }), 'ESLint could not be loaded'],
     ])('Then fails with eslint when the project ESLint %s', async (_, project, reason) => {
-      await expect(getChangelogLinter(project(), 'eslint')).rejects.toThrow(`commitlint: codeBlocksLinter is "eslint" but ${reason}`)
+      await expect(getChangelogLinter(project(), 'eslint')).rejects.toThrow(`commitlint: changelogLinter is "eslint" but ${reason}`)
     }, 30_000)
   })
 

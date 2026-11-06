@@ -102,6 +102,15 @@ describe('Given isIgnoredCommitMessage function', () => {
     expect(isIgnoredCommitMessage('release: everything', custom)).toBe(false)
   })
 
+  it('Then matches the release commits of version groups, whose title depends on the groups that bumped', () => {
+    const config = createMockConfig({ monorepo: { groups: [{ name: 'main', versionMode: 'selective', packages: ['packages/*'] }] } })
+    config.templates.commitMessage = undefined
+
+    expect(isIgnoredCommitMessage('chore(release): bump version to 2.0.0', config)).toBe(true)
+    expect(isIgnoredCommitMessage('chore(release): bump 3 packages', config)).toBe(true)
+    expect(isIgnoredCommitMessage('chore(release): something else', config)).toBe(false)
+  })
+
   it('Then escapes the regular expression characters of the template', () => {
     const custom = createMockConfig({ templates: { commitMessage: 'chore(release): v{{newVersion}} [skip ci]' } })
 

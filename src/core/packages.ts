@@ -11,9 +11,9 @@ import { extractVersionFromTag } from './version'
 export interface PackageBumpEntry {
   /** Package name (e.g. `@acme/ui`) */
   name: string
-  /** Version before the release — only set when a real transition happened */
+  /** Version before the release - only set when a real transition happened */
   oldVersion?: string
-  /** Version after the release — only set when a real transition happened */
+  /** Version after the release - only set when a real transition happened */
   newVersion?: string
   /** Fallback version when there is no old→new transition (standalone mode, graduations) */
   version: string

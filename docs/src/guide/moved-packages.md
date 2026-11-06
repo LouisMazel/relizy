@@ -1,7 +1,8 @@
 ---
 title: Moving & Renaming Packages
-description: How Relizy keeps the commits made before a package directory was moved or renamed, and how to declare the moves it cannot detect.
-keywords: relizy move package, rename package directory, git mv monorepo, lost commits changelog, movedPackages, package history
+description: How Relizy keeps the commits made before a package directory was moved or renamed (moves detected from git, monorepo.movedPackages for the others), and how to keep their scopes valid.
+metaDescription: 'How Relizy keeps the commits made before a package directory was moved or renamed, detected from git or set in monorepo.movedPackages.'
+keywords: relizy move package, rename package directory, git mv monorepo, lost commits changelog, movedPackages, package history, scopeMap, renamed package.json
 category: Guide
 tags: [guide, monorepo, git, changelog, bump]
 ---
@@ -64,14 +65,14 @@ the `package.json` of a move when:
 
 Keep the move in its own commit, without editing the `package.json`, and move
 one package per commit in a large monorepo. Check the result with
-[`relizy bump --dry-run`](../cli/bump.md) (or the `preview_release` tool of the
+[`relizy bump --dry-run`](./../cli/bump.md) (or the `preview_release` tool of the
 [MCP server](./ai-agents.md)): the commits made before the move must still be
 listed for the package.
 
 ## Declaring a move
 
 For the moves git does not see, declare them with
-[`monorepo.movedPackages`](../config/monorepo.md#movedpackages), as
+[`monorepo.movedPackages`](./../config/monorepo.md#movedpackages), as
 `old path: new path`:
 
 ```ts
@@ -99,12 +100,13 @@ The scope of a commit is often the directory name of its package
 (`fix(components): ...`). After a move, the commits made before it keep their
 old scope:
 
-- [`relizy commitlint`](../commitlint/index.md) rejects it, as it is no longer
+- [`relizy commitlint`](./../commitlint/index.md) rejects it, as it is no longer
   the name of a package;
 - the changelog shows the package under two names (`components` and `ui`).
 
-Rename the old scopes with the `scopeMap` option of the config: its
-keys are allowed scopes, and the changelog shows the commits under the new name.
+Rename the old scopes with the [`scopeMap`](./../config/overview.md) option of the
+config: its keys are allowed scopes, and the changelog shows the commits under
+the new name.
 
 ```ts
 import { defineConfig } from 'relizy'

@@ -1,183 +1,95 @@
 ---
 title: AI-Enhanced Changelogs
-description: Use AI (Claude Code or any Vercel AI SDK model) to turn raw commit-based changelogs into polished release notes and social media posts.
-keywords: ai changelog, ai release notes, claude ai, ai sdk, openai, gemini, ai social media, intelligent changelog, relizy ai, automated release notes
+description: Rewrite the GitHub/GitLab release notes and the social posts with AI (Claude Code or any Vercel AI SDK model), from the changelog Relizy generates.
+keywords: ai changelog, ai release notes, claude code, anthropic, ai sdk, openai, gemini, ai social posts, ai-preview, relizy ai
 category: Guide
-tags: [ai, changelog, release-notes, claude, ai-sdk, social-media, automation]
+tags: [guide, ai, changelog, release-notes, claude, ai-sdk, social]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## What it does
+## What It Does
 
-Relizy can pass your commit-based changelog through an AI model (Claude
-Code by default, or any model of the Vercel AI SDK) to produce cleaner,
-more readable content for:
+Relizy generates the changelog from the commits, then a model rewrites it for each target you turn on:
 
-- **GitHub / GitLab release notes** — commits get rewritten into
-  end-user-facing prose while the compare link and contributor list stay
-  untouched.
-- **Twitter** — a short, plain-text announcement that fits within the
-  character limit.
-- **Slack** - a concise summary for your release channel, written in
-  standard markdown and rendered with the Slack `changelogFormat`.
+| Target                               | Output                                                                                              |
+| ------------------------------------ | --------------------------------------------------------------------------------------------------- |
+| GitHub / GitLab release notes        | Markdown for the users: each change explained, the headings and references kept                     |
+| [Twitter](./social-media.md#twitter) | Plain text, the most visible changes, within the length budget of the tweet                         |
+| [Slack](./social-media.md#slack)     | Standard markdown, converted to Slack mrkdwn by Relizy, short or complete following its `changelog` |
 
-Under the hood, Relizy:
+Only the changes are sent: the compare link, the contributors, the titles, the versions and the URLs are added by Relizy around the rewrite. The built-in prompts make the model:
 
-1. Builds the raw changelog from your commits (as before).
-2. Sends **only the body** to the model with a target-specific system prompt.
-3. Reassembles the final output: compare link + AI body + contributors
-   (for provider releases), or pipes AI output into your template (for
-   social).
+- never invent a change, and keep every change of the release notes;
+- keep the section headings of your [`types`](./../config/changelog.md#types) (text, emojis and order), the PR and issue references, the scopes and the links;
+- keep the code blocks of the commit bodies (migration examples) and the breaking changes first;
+- translate the prose only, never the code, the option or package names, in the [`language`](./../config/ai.md#language) you set;
+- treat the commits as data: an instruction written in a commit message is rewritten like any other text, never followed.
 
-The raw changelog remains the source of truth. PR/issue references,
-commit scopes, and links are preserved exactly. Nothing is invented.
-
-## When to enable it
-
-Turn AI on when you want:
-
-- Release notes that read like a human wrote them, without manual editing.
-- Platform-appropriate social posts (short for Twitter, structured for
-  Slack) from the same source.
-- Consistent tone across every release.
-
-AI is **off by default**. With it disabled, Relizy behaves exactly like
-before. You can also toggle AI per-target or globally via the CLI.
+Before the changelog, the model gets the context of the release: the project (or the package), the version, the previous one and the kind of release (`major release`, `prerelease (beta)`...). A social post only gets the project and the version, and a post of several versions gets none.
 
 ## Setup
 
-Relizy supports two AI providers:
+Pick a provider:
 
-| Provider                | Models                                                                                  | Requirements                                                      |
-| ----------------------- | --------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| `claude-code` (default) | Claude (Haiku by default)                                                               | `@yoloship/claude-sdk`, the `claude` CLI, an Anthropic credential |
-| `ai-sdk`                | Any [Vercel AI SDK](https://ai-sdk.dev/) model: OpenAI, Google, Mistral, Anthropic, ... | `ai` and the package of your provider                             |
+| Provider                | Models                                                                                       | Requirements                                                                                |
+| ----------------------- | -------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `claude-code` (default) | Claude (`haiku` by default)                                                                  | `@yoloship/claude-sdk`, the `claude` CLI, an Anthropic API key or a Claude Code OAuth token |
+| `ai-sdk`                | Any model of the [Vercel AI SDK](https://ai-sdk.dev/): OpenAI, Google, Mistral, Anthropic... | `ai` and the package of the provider                                                        |
 
-Set up one of them, then [enable AI](#enable-ai-in-your-config).
+### Claude Code
 
-### Option A: Claude Code (default)
+1. Install the SDK, an optional peer dependency of Relizy:
 
-#### 1. Install the Claude SDK
+   ```bash
+   pnpm add -D @yoloship/claude-sdk
+   ```
 
-It's an optional peer dependency — you only need it when AI is enabled.
+2. Install the `claude` CLI, which the SDK runs (in CI too, before Relizy):
 
-::: code-group
+   ```bash
+   npm install -g @anthropic-ai/claude-code
+   # or: brew install --cask claude-code
+   # or: curl -fsSL https://claude.ai/install.sh | bash
+   ```
 
-```bash [pnpm]
-pnpm add -D @yoloship/claude-sdk
-```
+3. Set `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` (or their `RELIZY_` variants): see [Tokens](./../config/overview.md#tokens) and [`providers['claude-code']`](./../config/ai.md#providers-claude-code).
 
-```bash [npm]
-npm install -D @yoloship/claude-sdk
-```
+Pick the model with [`providers['claude-code'].model`](./../config/ai.md#claude-code-model): `haiku` (fast and cheap, enough for these rewrites), `sonnet`, `opus` or a versioned id.
 
-```bash [yarn]
-yarn add -D @yoloship/claude-sdk
-```
+### Vercel AI SDK
 
-:::
+1. Install `ai` and the [package of your provider](https://ai-sdk.dev/providers/ai-sdk-providers):
 
-#### 2. Install the `claude` CLI binary
+   ```bash
+   pnpm add -D ai @ai-sdk/openai
+   ```
 
-The SDK spawns the `claude` CLI under the hood, so the binary must be on `PATH`.
+2. Set the model:
 
-```bash
-# npm (global) — works everywhere, recommended for CI
-npm install -g @anthropic-ai/claude-code
+   ```ts
+   import { openai } from '@ai-sdk/openai'
+   import { defineConfig } from 'relizy'
 
-# Homebrew (macOS)
-brew install --cask claude-code
+   export default defineConfig({
+     ai: {
+       provider: 'ai-sdk',
+       providers: {
+         'ai-sdk': { model: openai('gpt-5-mini'), reasoning: 'low' },
+       },
+     },
+   })
+   ```
 
-# Native installer
-curl -fsSL https://claude.ai/install.sh | bash
-```
+3. Set the variable your provider package reads (`OPENAI_API_KEY` for `@ai-sdk/openai`, `GOOGLE_GENERATIVE_AI_API_KEY` for `@ai-sdk/google`): Relizy does not handle these credentials. See [`providers['ai-sdk']`](./../config/ai.md#providers-ai-sdk).
 
-In CI, add a step before running Relizy:
+## Turn It On
 
-```yaml
-- name: Install Claude Code CLI
-  run: npm install -g @anthropic-ai/claude-code
-```
-
-#### 3. Provide credentials
-
-Export your Anthropic API key (recommended for CI):
-
-```bash
-export RELIZY_ANTHROPIC_API_KEY="sk-ant-..."
-# or, if you prefer the vendor-standard name:
-export ANTHROPIC_API_KEY="sk-ant-..."
-```
-
-If you use Claude Code's OAuth flow instead, export the token:
-
-```bash
-export RELIZY_CLAUDE_CODE_OAUTH_TOKEN="..."
-# or
-export CLAUDE_CODE_OAUTH_TOKEN="..."
-```
-
-Credentials can also live in your config file — see
-[Credential resolution](/config/ai#credential-resolution).
-
-### Option B: Vercel AI SDK
-
-#### 1. Install the AI SDK and your provider
-
-Both are optional peer dependencies, only needed when AI is enabled. Pick the [package of your provider](https://ai-sdk.dev/providers/ai-sdk-providers) (`@ai-sdk/openai`, `@ai-sdk/google`, `@ai-sdk/mistral`, ...):
-
-::: code-group
-
-```bash [pnpm]
-pnpm add -D ai @ai-sdk/openai
-```
-
-```bash [npm]
-npm install -D ai @ai-sdk/openai
-```
-
-```bash [yarn]
-yarn add -D ai @ai-sdk/openai
-```
-
-:::
-
-#### 2. Set the model
+Each target is independent:
 
 ```ts
-// relizy.config.ts
-import { openai } from '@ai-sdk/openai'
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  ai: {
-    provider: 'ai-sdk',
-    providers: {
-      'ai-sdk': { model: openai('gpt-5-mini') },
-    },
-  },
-})
-```
-
-Every provider works the same way, e.g. `google('gemini-2.5-flash')` from `@ai-sdk/google`. A model id of the [Vercel AI Gateway](https://vercel.com/docs/ai-gateway) also works without any provider package: `model: 'openai/gpt-5-mini'`.
-
-#### 3. Provide credentials
-
-Relizy does not handle the credentials of the AI SDK: the package of your provider reads its own environment variable, e.g. `OPENAI_API_KEY` for `@ai-sdk/openai`, `GOOGLE_GENERATIVE_AI_API_KEY` for `@ai-sdk/google`, or `AI_GATEWAY_API_KEY` for a gateway model id.
-
-```bash
-export OPENAI_API_KEY="sk-..."
-```
-
-To pass the key explicitly, create the provider instance yourself, see [`providers['ai-sdk'].model`](/config/ai#model-1).
-
-### Enable AI in your config
-
-```ts
-// relizy.config.ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
@@ -185,351 +97,113 @@ export default defineConfig({
     providerRelease: { enabled: true },
     social: {
       twitter: { enabled: true },
-      slack: { enabled: true },
+      slack: { enabled: false },
     },
   },
 })
 ```
 
-That's all — your next release will have AI-rewritten notes.
+A social target also needs its platform (`social.twitter.enabled`, `social.slack.enabled`). A [version group](./../config/monorepo.md#groups) can override `ai.providerRelease`, e.g. to skip the AI for the many releases of an `independent` group (see [`providerRelease`](./../config/ai.md#providerrelease)).
 
-## Model
-
-### With `claude-code`
-
-By default Relizy uses the `haiku` alias — fast and cheap, which is the
-right profile for short rewrites. Pick a different alias or a fully
-versioned id if you want more depth:
-
-```ts
-export default defineConfig({
-  ai: {
-    providers: {
-      'claude-code': { model: 'sonnet' }, // or 'opus', or 'claude-sonnet-4-6'
-    },
-  },
-})
-```
-
-See the full reference in [AI Configuration](/config/ai#model).
-
-### With `ai-sdk`
-
-The model is the one you set in `providers['ai-sdk'].model`. A small, fast model is enough for these short rewrites. For the models that support reasoning, you can lower the effort to make the rewrite faster and cheaper:
-
-```ts
-export default defineConfig({
-  ai: {
-    provider: 'ai-sdk',
-    providers: {
-      'ai-sdk': { model: openai('gpt-5-mini'), reasoning: 'low' },
-    },
-  },
-})
-```
-
-See [`reasoning`](/config/ai#reasoning).
-
-## Preview with `--dry-run`
-
-In dry-run mode, the AI call **does** execute — that's the point of the
-preview — but nothing is published. You'll see the rewritten output in
-Relizy's log boxes, and the API calls to GitHub, GitLab, Twitter, and
-Slack are skipped.
+`--ai` and `--no-ai` turn every target on or off for a run:
 
 ```bash
-relizy release --patch --dry-run
-```
-
-In the output you'll see things like:
-
-```
-ℹ ✨ Rewriting release notes with AI (provider: claude-code)
-ℹ ✅ AI rewrite done in 1240ms (612 → 431 chars)
-
-┌────────────────────────────────────┐
-│ [dry-run] Release Preview          │
-│ Tag: v2.1.0                        │
-│ ...rewritten body here...          │
-└────────────────────────────────────┘
-```
-
-For deeper inspection, bump the log level:
-
-```bash
-relizy release --patch --dry-run --log-level verbose
-```
-
-This prints the full system prompt, the raw input, and the AI output for
-every target.
-
-## Per-target control
-
-Each target is independent. Enable only what you need:
-
-```ts
-export default defineConfig({
-  ai: {
-    providerRelease: { enabled: true }, // GitHub/GitLab: ON
-    social: {
-      twitter: { enabled: true }, // Twitter: ON
-      slack: { enabled: false }, // Slack: OFF (keep raw)
-    },
-  },
-})
-```
-
-## CLI flags
-
-Override config at runtime:
-
-```bash
-# Force AI on for this run (all applicable targets)
-relizy release --patch --ai
-relizy provider-release --ai
+relizy release --ai
+relizy provider-release --no-ai
 relizy social --ai
-
-# Force AI off for this run
-relizy release --patch --no-ai
 ```
 
-`--ai` / `--no-ai` override whatever is in the config file for the
-duration of the command.
+With a target on, the safety check of the command checks the provider (credentials, packages, `claude` CLI) before anything is written.
 
-## Customizing the output
+## Dry Run
 
-### Extra guidelines — add rules on top of defaults
+A dry run does **not** call the AI: each call costs. The release notes and the posts keep their raw text, and the output tells which rewrite is simulated:
 
-The most common case. Appended to every built-in prompt.
-
-```ts
-export default defineConfig({
-  ai: {
-    extraGuidelines: [
-      'Lead with breaking changes when present.',
-      'Never mention the internal codename "Phoenix".',
-      'When scope is "api", start the line with "API:".',
-    ].join('\n'),
-  },
-})
+```text
+✨ The notes of v2.1.0: AI rewrite simulated (claude-code not called in dry run, see --ai-preview)
 ```
 
-### System prompt overrides — take full control
+To see the real rewrites without releasing, add the global `--ai-preview`: the AI is called (it costs), and its output is shown in the previews of the dry run.
 
-Replace the built-in prompt for a specific target. You own everything
-when you do this — the base prompt is not included.
-
-```ts
-export default defineConfig({
-  ai: {
-    systemPromptOverrides: {
-      providerRelease: 'Write a blog-style post. Use H2 headers. Output language: {{language}}.',
-      twitter: 'One hype tweet. Max {{maxLength}} chars. No hashtags.',
-      // slack not set → built-in Slack prompt is used
-    },
-  },
-})
+```bash
+relizy release --dry-run --ai-preview
 ```
 
-Placeholders available: `{{language}}` everywhere, plus `{{maxLength}}`
-for Twitter.
+`--log-level verbose` also prints the system prompt and the input of each call, and the output of the model when it is called.
 
-### Non-English output
+In a release, each rewrite is shown with its duration, its tokens and, with `claude-code`, its cost. The [summary of the release](./../config/release.md#report) adds up the calls.
+
+## Calls and Cost
+
+- Provider release: one call per release created, so one per package of an `independent` release.
+- Social posts: one call per platform with AI, even when the post announces several versions: each version is sent in its own element and read back, a version missing from the output keeps its raw changelog.
+- Dry run: no call, unless `--ai-preview`.
+
+## Customize the Output
+
+Add rules to the built-in prompts with [`extraGuidelines`](./../config/ai.md#extraguidelines), for every target or for one:
 
 ```ts
 export default defineConfig({
   ai: {
     language: 'fr',
-    extraGuidelines: 'Garde les noms de packages et les références en anglais.',
+    extraGuidelines: {
+      global: 'Keep the package names and the references in English.',
+      twitter: 'Add the #opensource hashtag.',
+    },
   },
 })
 ```
 
-## Fallback behavior
+Replace the prompt of a target with [`systemPromptOverrides`](./../config/ai.md#systempromptoverrides) when you need full control: the built-in rules are then not sent for it.
 
-If the AI call fails — network error, quota, invalid credentials — Relizy
-decides based on `ai.fallback`:
+When a call fails, [`fallback`](./../config/ai.md#fallback) keeps the raw text (`raw`, default, with a warning) or stops the command (`fail`).
 
-| Mode              | Behavior                                                           |
-| ----------------- | ------------------------------------------------------------------ |
-| `'raw'` (default) | Log a warning and use the unmodified changelog. Release continues. |
-| `'fail'`          | Re-throw with context. The release aborts.                         |
+## Example
 
-```ts
-export default defineConfig({
-  ai: {
-    fallback: 'fail', // strict mode — don't ship raw when AI was expected
-  },
-})
-```
-
-Pick `'raw'` for most workflows. Pick `'fail'` in CI where AI-enhanced
-content is contractual.
-
-## Cost and latency
-
-With `claude-code`, Claude Haiku (the default) is fast and inexpensive. A
-typical call for release notes processes a few hundred tokens and
-completes in 1–3 seconds. With `ai-sdk`, cost and latency depend on the
-model you choose.
-
-Counts per release:
-
-- Provider release: **1 call** (or 1 per package in independent mode).
-- Social: **1 call per enabled platform**.
-
-Use `--dry-run` while you're tuning prompts to avoid spending on trial
-runs that don't publish.
-
-## Before / after
-
-### Provider release — raw commits
+Release notes generated from the commits:
 
 ```md
 ### 🚀 Enhancements
 
-- **auth**: add OAuth2 PKCE flow support (abc1234)
-- **api**: implement rate limiting middleware (#142)
+- **auth:** Add OAuth2 PKCE flow support ([#142](https://github.com/acme/app/pull/142))
+
+  Public clients can no longer keep a secret. `createClient({ pkce: true })` enables it.
 
 ### 🩹 Fixes
 
-- **core**: fix memory leak in connection pool (def5678)
-
-#### ⚠️ Breaking Changes
-
-- **auth**: remove deprecated session-based auth (#138)
+- **core:** Fix memory leak in connection pool ([#145](https://github.com/acme/app/pull/145))
 ```
 
-### Provider release — AI-rewritten
+The same notes rewritten by the model, for example:
 
 ```md
 ### 🚀 Enhancements
 
-- **auth**: Added OAuth2 PKCE flow support for public clients needing safer login (abc1234)
-- **api**: Introduced rate-limiting middleware to protect endpoints from abuse (#142)
+- **auth:** Public clients can now sign in safely with the OAuth2 PKCE flow: pass `pkce: true` to `createClient` ([#142](https://github.com/acme/app/pull/142))
 
 ### 🩹 Fixes
 
-- **core**: Fixed a memory leak in the connection pool that could build up under sustained load (def5678)
-
-#### ⚠️ Breaking Changes
-
-- **auth**: Removed deprecated session-based authentication (#138). Migrate to OAuth2 or token auth.
-```
-
-Compare link and contributors section are added back automatically around
-this body — they never touch AI.
-
-### Twitter — AI-rewritten (inside your template)
-
-Template:
-
-```
-📣 {{projectName}} {{newVersion}} is out!
-
-{{changelog}}
-
-{{releaseUrl}}
-```
-
-Result:
-
-```
-📣 my-app 2.1.0 is out!
-
-OAuth2 PKCE support for safer public-client login, rate-limiting to keep endpoints healthy, and a connection-pool memory leak is gone.
-
-https://github.com/user/my-app/releases/tag/v2.1.0
-```
-
-### Slack — AI-rewritten
-
-```
-• *OAuth2 PKCE flow* — safer login for public clients
-• *Rate-limiting middleware* — protects API endpoints
-• *Memory leak fix* — connection pool under sustained load
+- **core:** The connection pool no longer leaks memory under sustained load ([#145](https://github.com/acme/app/pull/145))
 ```
 
 ## Troubleshooting
 
-### "No authentication credential found"
+| Error                                                         | Fix                                                                                     |
+| ------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `No authentication credential found for claude-code provider` | Set an Anthropic API key or a Claude Code OAuth token                                   |
+| `@yoloship/claude-sdk is not installed`                       | `pnpm add -D @yoloship/claude-sdk`                                                      |
+| ``The `claude` CLI binary was not found on PATH``             | Install the `claude` CLI, in CI too                                                     |
+| `No model configured for the ai-sdk provider`                 | Set `ai.providers['ai-sdk'].model`                                                      |
+| `ai is not installed`                                         | `pnpm add -D ai` and the package of your provider                                       |
+| `Unknown AI provider`                                         | `ai.provider` is `'claude-code'` or `'ai-sdk'`                                          |
+| `AI generation failed, falling back to raw body`              | The error of the provider follows (credentials of the provider package, quota, network) |
 
-With `claude-code`, no API key or OAuth token reached the provider. Check:
+When the output is not what you want: check the prompt with `--dry-run --log-level verbose`, the output with `--dry-run --ai-preview`, then add `extraGuidelines` before overriding the prompt.
 
-```bash
-echo $RELIZY_ANTHROPIC_API_KEY
-echo $ANTHROPIC_API_KEY
-echo $CLAUDE_CODE_OAUTH_TOKEN
-```
+## See Also
 
-Or set it directly in config — see
-[Credential resolution](/config/ai#credential-resolution).
-
-### "@yoloship/claude-sdk is not installed"
-
-Install it:
-
-```bash
-pnpm add -D @yoloship/claude-sdk
-```
-
-### "The `claude` CLI binary was not found on PATH"
-
-The SDK needs the Claude Code CLI to run. Install it:
-
-```bash
-npm install -g @anthropic-ai/claude-code
-```
-
-In CI, add it as a step before running Relizy. See [Installation](/guide/installation#ai-enhanced-changelogs-optional).
-
-### "No model configured for the ai-sdk provider"
-
-With `provider: 'ai-sdk'`, set the model in `ai.providers['ai-sdk'].model`,
-see [Option B: Vercel AI SDK](#option-b-vercel-ai-sdk).
-
-### "ai is not installed"
-
-Install the AI SDK, along with the package of your provider:
-
-```bash
-pnpm add -D ai @ai-sdk/openai
-```
-
-### The ai-sdk provider fails at runtime
-
-The error of the provider package is in the warning (or in the error with
-`fallback: 'fail'`). The most common cause is a missing API key: check
-the environment variable read by your provider package (e.g.
-`OPENAI_API_KEY`). Preview with `--dry-run` to see it before releasing.
-
-### "Unknown AI provider"
-
-You set `ai.provider` to something Relizy doesn't know: use `'claude-code'`
-or `'ai-sdk'`. See
-[Adding a new AI provider](/config/ai#adding-a-new-ai-provider) if you
-want to plug your own.
-
-### The AI output isn't what I want
-
-1. Preview with `--dry-run --log-level verbose` to see the exact prompt
-   and input.
-2. Start with `extraGuidelines` — it's the lightest lever.
-3. Move to `systemPromptOverrides` for a target when you need full
-   control.
-
-### Rate limiting
-
-The default `fallback: 'raw'` means a rate-limited request simply falls
-back to the unmodified changelog. For heavy release cadence, consider:
-
-- Using a lower-volume model or spacing releases.
-- `--no-ai` for non-critical releases.
-
-## Next steps
-
-- [AI Configuration reference](/config/ai) — every option with types and defaults
-- [Provider release CLI](/cli/provider-release) — command reference
-- [Social CLI](/cli/social) — command reference
-- [Twitter integration](/guide/twitter-integration) — Twitter-specific tuning
-- [Slack integration](/guide/slack-integration) — Slack-specific tuning
+- [AI Configuration](./../config/ai.md)
+- [Social Media](./social-media.md)
+- [`relizy provider-release`](./../cli/provider-release.md)
+- [`relizy social`](./../cli/social.md)

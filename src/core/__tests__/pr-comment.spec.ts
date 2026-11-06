@@ -1,11 +1,14 @@
 import type { PullRequestInfo } from '../pr-comment'
-import { execSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import { runGitSync } from '../git-exec'
 import { detectPullRequest, findGitHubPR, findGitLabMR, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
 
-vi.mock('node:child_process')
+vi.mock('../git-exec', async importActual => ({
+  ...(await importActual<typeof import('../git-exec')>()),
+  runGitSync: vi.fn(),
+}))
 
 globalThis.fetch = vi.fn()
 
@@ -342,6 +345,43 @@ describe('Given detectPullRequest function', () => {
     vi.clearAllMocks()
   })
 
+  describe('When the branch has no open pull request, after a merge', () => {
+    const githubConfig = () => createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' } })
+
+    it('Then finds the GitHub pull request of the commit', async () => {
+      vi.mocked(runGitSync).mockReturnValue('main')
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 12, html_url: 'https://github.com/user/repo/pull/12' }]) } as Response)
+
+      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
+      expect(result).toEqual({ number: 12, url: 'https://github.com/user/repo/pull/12', provider: 'github' })
+    })
+
+    it('Then finds the GitLab merge request of the commit, from a detached HEAD too', async () => {
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ iid: 7, web_url: 'https://gitlab.com/user/repo/-/merge_requests/7' }]) } as Response)
+      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'glpat-token' } })
+
+      const result = await detectPullRequest({ config, sha: 'abc123' })
+
+      expect(fetch).toHaveBeenCalledWith('https://gitlab.com/api/v4/projects/user%2Frepo/repository/commits/abc123/merge_requests', expect.anything())
+      expect(result).toEqual({ number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' })
+    })
+
+    it('Then keeps the open pull request of the branch first', async () => {
+      vi.mocked(runGitSync).mockReturnValue('feat/parser')
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 3, html_url: 'https://github.com/user/repo/pull/3' }]) } as Response)
+
+      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(result?.number).toBe(3)
+    })
+  })
+
   describe('When CLI override --pr-number is provided', () => {
     it('Then returns GitHub PR info with override number', async () => {
       const config = createMockConfig({
@@ -406,7 +446,7 @@ describe('Given detectPullRequest function', () => {
           github: 'gh-token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/my-branch\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/my-branch')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([
@@ -434,7 +474,7 @@ describe('Given detectPullRequest function', () => {
           github: undefined,
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 
@@ -454,7 +494,7 @@ describe('Given detectPullRequest function', () => {
           gitlab: 'gl-token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/my-branch\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/my-branch')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([
@@ -482,7 +522,7 @@ describe('Given detectPullRequest function', () => {
           gitlab: undefined,
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 
@@ -502,7 +542,7 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/no-pr\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/no-pr')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([]),
@@ -520,8 +560,8 @@ describe('Given detectPullRequest function', () => {
         repo: undefined,
       })
       // Mock detectGitProvider to return null
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (typeof cmd === 'string' && cmd.includes('git remote get-url')) {
+      vi.mocked(runGitSync).mockImplementation((args) => {
+        if (args.includes('get-url')) {
           throw new Error('Not a git repository')
         }
         return ''
@@ -545,7 +585,7 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
 
       const result = await detectPullRequest({ config })
 
@@ -581,74 +621,12 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 
       expect(result).toBeNull()
       expect(fetch).not.toHaveBeenCalled()
-    })
-  })
-
-  describe('When using token from repo config', () => {
-    it('Then falls back to repo token for GitHub', async () => {
-      const config = createMockConfig({
-        repo: {
-          provider: 'github',
-          domain: 'github.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          github: undefined,
-        },
-      })
-      vi.mocked(execSync).mockReturnValue('main\n')
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([]),
-      } as Response)
-
-      await detectPullRequest({ config })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer repo-token',
-          }),
-        }),
-      )
-    })
-
-    it('Then falls back to repo token for GitLab', async () => {
-      const config = createMockConfig({
-        repo: {
-          provider: 'gitlab',
-          domain: 'gitlab.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          gitlab: undefined,
-        },
-      })
-      vi.mocked(execSync).mockReturnValue('main\n')
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([]),
-      } as Response)
-
-      await detectPullRequest({ config })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'PRIVATE-TOKEN': 'repo-token',
-          }),
-        }),
-      )
     })
   })
 })
@@ -687,6 +665,26 @@ describe('Given postPrComment function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
+  })
+
+  describe('When the GitLab token is the job token of the CI job', () => {
+    it('Then it does not comment, and tells which token to set', async () => {
+      vi.stubEnv('CI_JOB_TOKEN', 'job-token')
+      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'job-token' } })
+      const warnSpy = vi.spyOn(logger, 'warn')
+
+      try {
+        const posted = await postPrComment({ config, pr: { number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' }, body: commentBody })
+
+        expect(posted).toBe(false)
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('The CI_JOB_TOKEN of GitLab cannot comment merge requests'))
+    })
   })
 
   describe('When mode is append', () => {
@@ -935,7 +933,6 @@ describe('Given postPrComment function', () => {
           provider: 'bitbucket' as any,
           domain: 'bitbucket.org',
           repo: 'user/repo',
-          token: 'test-token',
         },
         prComment: {
           mode: 'append',

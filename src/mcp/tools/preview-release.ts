@@ -3,6 +3,7 @@ import type { ServerContext } from '../context'
 import type { PackageSet } from './project'
 import type { ReleasePlan, ReleasePlanArgs } from './release-plan'
 
+import { z } from 'zod'
 import { getReleaseTagNames } from '../../core'
 import { code, codeList, tableCell } from '../markdown'
 import { formatNotes, withCapturedLogs } from '../runtime'
@@ -10,23 +11,35 @@ import { relativePath } from './project'
 import { explainBump, formatCommits, isBumped, planRelease, releasePlanSchema } from './release-plan'
 import { defineTool } from './types'
 
+/** Below the 80,000 characters the server announces for a result, with room for the notes */
+const MAX_PREVIEW_LENGTH = 75_000
+
+/** The steps of `relizy release` after the bump, in its order: it publishes before the release commit */
 const RELEASE_STEPS: [string, string][] = [
   ['changelog', 'write the changelogs'],
+  ['publish', 'publish to npm'],
   ['commit', 'commit'],
   ['gitTag', 'tag'],
   ['push', 'push'],
-  ['publish', 'publish to npm'],
   ['providerRelease', 'create the GitHub/GitLab releases'],
   ['social', 'post on the social networks'],
   ['prComment', 'comment the pull request'],
 ]
 
+/** The tags and the push need the release commit */
+const COMMIT_STEPS = new Set(['gitTag', 'push'])
+
 /** Steps of `relizy release` after the bump, as configured */
 function releaseSteps(release: object): string {
-  return RELEASE_STEPS.filter(([key]) => (release as Record<string, unknown>)[key] !== false).map(([, label]) => label).join(', ')
+  const enabled = (key: string) => (release as Record<string, unknown>)[key] !== false
+
+  return RELEASE_STEPS
+    .filter(([key]) => enabled(key) && (!COMMIT_STEPS.has(key) || enabled('commit')))
+    .map(([, label]) => label)
+    .join(', ')
 }
 
-function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, plan: ReleasePlan): string[] {
+function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, plan: ReleasePlan, full: boolean): string[] {
   const title = set.group ? `## Group ${code(set.group.name)} (${set.versionMode})` : `## ${set.versionMode} mode`
 
   if (!isBumped(result)) {
@@ -42,7 +55,7 @@ function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, p
     lines.push(`**Version:** ${result.oldVersion ?? result.rootPackage.version} → ${result.newVersion} (commits since ${code(result.fromTag ?? 'the first commit')})`, '')
 
     if (commits.length > 0) {
-      lines.push(`Commits: ${formatCommits(commits, 10)}`, '')
+      lines.push(`Commits: ${formatCommits(commits, full ? undefined : 10)}`, '')
     }
   }
 
@@ -50,7 +63,7 @@ function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, p
     lines.push(
       '| Package | Version | Why |',
       '| --- | --- | --- |',
-      ...result.bumpedPackages.map(pkg => `| ${code(pkg.name)} (${code(relativePath(plan.config.cwd, pkg.path))}) | ${pkg.oldVersion} → ${pkg.newVersion} | ${tableCell(explainBump(pkg, { set, plan }))} |`),
+      ...result.bumpedPackages.map(pkg => `| ${code(pkg.name)} (${code(relativePath(plan.config.cwd, pkg.path))}) | ${pkg.oldVersion} → ${pkg.newVersion} | ${tableCell(explainBump(pkg, { set, plan, full }))} |`),
       '',
     )
   }
@@ -90,24 +103,36 @@ function trimEnd(lines: string[]): string[] {
   return lines.slice(0, end + 1)
 }
 
-export async function previewRelease(context: ServerContext, args: ReleasePlanArgs): Promise<string> {
+/** The preview within the size of a result, cut with a note */
+export function fitPreview(text: string): string {
+  if (text.length <= MAX_PREVIEW_LENGTH) {
+    return text
+  }
+
+  return `${text.slice(0, MAX_PREVIEW_LENGTH)}\n\n_The preview is cut at ${MAX_PREVIEW_LENGTH} characters: preview fewer version groups (\`groups\`), or read the commits of a package with \`preview_changelog({ package })\`._`
+}
+
+export async function previewRelease(context: ServerContext, { full = false, ...args }: ReleasePlanArgs & { full?: boolean }): Promise<string> {
   const { value: plan, logs } = await withCapturedLogs(() => planRelease(context, args))
   const lines = [
     `# Release preview (relizy ${context.version})`,
     '',
-    ...plan.results.flatMap(entry => [...trimEnd(describeSet(entry, plan)), '']),
+    ...plan.results.flatMap(entry => [...trimEnd(describeSet(entry, plan, full)), '']),
     ...describeNextSteps(plan),
   ]
   const notes = formatNotes(logs)
 
-  return notes ? `${lines.join('\n')}\n\n${notes}` : lines.join('\n')
+  return fitPreview(notes ? `${lines.join('\n')}\n\n${notes}` : lines.join('\n'))
 }
 
 export const previewReleaseTool = defineTool({
   name: 'preview_release',
   title: 'Preview the next release',
   description: 'Compute what `relizy release` (or `relizy bump`) would do now, without writing anything: the version of each package and of each version group, why each package is released (its commits, a bumped dependency, a peer dependency whose published range rejects the new version, a package of another group, a graduation), the packages not released, and the git tags. Call it before a release and to answer "what will be released?". Read-only: no hook, no prompt, no network unless `fetchTags`.',
-  inputSchema: releasePlanSchema,
+  inputSchema: {
+    ...releasePlanSchema,
+    full: z.boolean().optional().describe('List every commit explaining a bump. Default: the first 10 commits of a version, the first 5 of a package'),
+  },
   openWorld: true,
   run: previewRelease,
 })

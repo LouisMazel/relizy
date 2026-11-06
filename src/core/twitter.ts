@@ -1,5 +1,7 @@
-import type { TwitterCredentials, TwitterOptions } from '../types'
+import type { SocialTemplateVariables, TweetSection, TwitterCredentials, TwitterOptions } from '../types'
 import { logger } from '@maz-ui/node'
+import { recordLink, showPreview } from './progress'
+import { fillSocialTemplate } from './release-overview'
 import { extractChangelogSummary } from './social'
 
 export interface ResolvedTwitterCredentials {
@@ -51,74 +53,178 @@ export function getTwitterCredentials({ socialCredentials, tokenCredentials }: {
   }
 }
 
-export function formatTweetMessage({ template, projectName, version, changelog, releaseUrl, changelogUrl, postMaxLength }: {
+/**
+ * Length of any URL in a post: X shortens them all to t.co links
+ */
+const TWEET_URL_LENGTH = 23
+
+const URL_REGEX = /https?:\/\/\S+/g
+const EMOJI_REGEX = /\p{Extended_Pictographic}/u
+
+/**
+ * Code points counting 1 in a post (Latin, Greek, Cyrillic... and the common
+ * punctuation), the others count 2 (twitter-text v3 config)
+ */
+const LIGHT_CODE_POINT_RANGES: [number, number][] = [
+  [0x0000, 0x10FF],
+  [0x2000, 0x200D],
+  [0x2010, 0x201F],
+  [0x2032, 0x2037],
+]
+
+const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
+
+function getCodePointLength(codePoint: number): number {
+  return LIGHT_CODE_POINT_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 1 : 2
+}
+
+function getTextLength(text: string): number {
+  let length = 0
+
+  for (const { segment } of segmenter.segment(text.normalize('NFC'))) {
+    // An emoji counts 2, whatever the code points of its sequence (skin tone, ZWJ...)
+    length += EMOJI_REGEX.test(segment)
+      ? 2
+      : [...segment].reduce((sum, char) => sum + getCodePointLength(char.codePointAt(0)!), 0)
+  }
+
+  return length
+}
+
+/**
+ * Length of a post as X counts it: a URL counts 23 characters, an emoji or a
+ * CJK character counts 2.
+ */
+export function getTweetLength(text: string): number {
+  const urls = text.match(URL_REGEX) ?? []
+
+  return getTextLength(text.replace(URL_REGEX, '')) + urls.length * TWEET_URL_LENGTH
+}
+
+/**
+ * Cut a text so that it fits in `maxLength` (as X counts it) with the ellipsis
+ */
+function truncateTweetText(text: string, maxLength: number, ellipsis: string): string {
+  if (getTweetLength(text) <= maxLength) {
+    return text
+  }
+
+  const segments = [...segmenter.segment(text)].map(({ segment }) => segment)
+
+  while (segments.length > 0 && getTweetLength(`${segments.join('')}${ellipsis}`) > maxLength) {
+    segments.pop()
+  }
+
+  return `${segments.join('')}${ellipsis}`
+}
+
+// Escape @ mentions to prevent unintended Twitter mentions by inserting a
+// zero-width space after @ (e.g., scoped package names like @scope/pkg)
+function escapeMentions(text: string): string {
+  return text.replace(/@\b/g, '@\u200B')
+}
+
+interface TweetSectionState {
+  collapsed: boolean
+  highlights: number
+  packageHighlights: boolean[]
+}
+
+function renderTweetSection(section: TweetSection, state: TweetSectionState): string {
+  const lines: string[] = section.title ? [section.title] : []
+
+  if (section.packages) {
+    if (state.collapsed) {
+      const count = `${section.packages.length} packages`
+      return section.title ? `${section.title}: ${count}` : count
+    }
+
+    lines.push(...section.packages.map((pkg, index) => state.packageHighlights[index] ? `• ${pkg.label}: ${pkg.highlights[0]}` : `• ${pkg.label}`))
+  }
+
+  lines.push(...(section.highlights ?? []).slice(0, state.highlights).map(highlight => `• ${highlight}`))
+
+  return lines.join('\n')
+}
+
+/**
+ * Render the sections of a tweet within `maxLength` (as X counts it), by
+ * priority: the version line of every section (an `independent` group is
+ * collapsed to `<title>: N packages` when its packages do not fit, the last
+ * groups first), then the highlights, the first sections first.
+ */
+export function fitTweetSections(sections: TweetSection[], maxLength: number): string {
+  const states: TweetSectionState[] = sections.map(section => ({
+    collapsed: false,
+    highlights: 0,
+    packageHighlights: (section.packages ?? []).map(() => false),
+  }))
+  const render = () => escapeMentions(sections.map((section, index) => renderTweetSection(section, states[index]!)).join('\n\n'))
+  const fits = () => getTweetLength(render()) <= maxLength
+
+  for (let index = sections.length - 1; index >= 0 && !fits(); index--) {
+    states[index]!.collapsed = Boolean(sections[index]!.packages)
+  }
+
+  for (const [index, section] of sections.entries()) {
+    const state = states[index]!
+
+    while (state.highlights < (section.highlights?.length ?? 0)) {
+      state.highlights++
+      if (!fits()) {
+        state.highlights--
+        break
+      }
+    }
+
+    if (state.collapsed) {
+      continue
+    }
+
+    for (const [pkgIndex, pkg] of (section.packages ?? []).entries()) {
+      if (pkg.highlights.length === 0) {
+        continue
+      }
+
+      state.packageHighlights[pkgIndex] = true
+      if (!fits()) {
+        state.packageHighlights[pkgIndex] = false
+      }
+    }
+  }
+
+  return render()
+}
+
+export function formatTweetMessage({ template, variables, changelog, postMaxLength }: {
   template: string
-  projectName: string
-  version: string
-  changelog: string
-  releaseUrl?: string
-  changelogUrl?: string
+  variables: SocialTemplateVariables
+  /**
+   * Changelog of a single version (markdown, summarized to fit), or the
+   * sections of a release of several versions
+   */
+  changelog: string | TweetSection[]
   postMaxLength: number
 }): string {
-  const MAX_LENGTH = postMaxLength
   const ELLIPSIS = '...'
 
-  const changelogSummary = extractChangelogSummary(changelog, { maxLength: MAX_LENGTH, stripBoldMarkers: true })
+  // Every placeholder but the changelog, whose length depends on the space they leave
+  const templateWithValues = fillSocialTemplate(template, variables)
+  const availableForChangelog = Math.max(0, postMaxLength - getTweetLength(templateWithValues.replaceAll('{{changelog}}', '')))
 
-  // Step 1: Build template with all placeholders replaced except changelog
-  let templateWithValues = template
-    .replace('{{projectName}}', projectName)
-    .replace('{{newVersion}}', version)
+  const finalChangelog = typeof changelog === 'string'
+    ? truncateTweetText(escapeMentions(extractChangelogSummary(changelog, { maxLength: postMaxLength, stripBoldMarkers: true })), availableForChangelog, ELLIPSIS)
+    : fitTweetSections(changelog, availableForChangelog)
 
-  if (releaseUrl) {
-    templateWithValues = templateWithValues.replace('{{releaseUrl}}', releaseUrl)
-  }
-  else {
-    // Remove the releaseUrl placeholder if no URL is provided
-    templateWithValues = templateWithValues.replace('{{releaseUrl}}', '')
-  }
+  const message = templateWithValues.replaceAll('{{changelog}}', finalChangelog).trim()
 
-  if (changelogUrl) {
-    templateWithValues = templateWithValues.replace('{{changelogUrl}}', changelogUrl)
-  }
-  else {
-    // Remove the changelogUrl placeholder if no URL is provided
-    templateWithValues = templateWithValues.replace('{{changelogUrl}}', '')
-  }
-
-  // Step 2: Calculate how much space is available for the changelog
-  const templateWithoutChangelog = templateWithValues.replace('{{changelog}}', '')
-  const availableForChangelog = MAX_LENGTH - templateWithoutChangelog.length
-
-  // Step 3: Escape @ mentions in changelog to prevent unintended Twitter mentions
-  // by inserting a zero-width space after @ (e.g., scoped package names like @scope/pkg)
-  const escapedChangelog = changelogSummary.replace(/@\b/g, '@\u200B')
-
-  // Step 4: Truncate changelog if needed
-  let finalChangelog = escapedChangelog
-  if (escapedChangelog.length > availableForChangelog) {
-    const maxLength = Math.max(0, availableForChangelog - ELLIPSIS.length)
-    finalChangelog = escapedChangelog.substring(0, maxLength) + ELLIPSIS
-  }
-
-  // Step 5: Build final message
-  let message = templateWithValues.replace('{{changelog}}', finalChangelog).trim()
-
-  // Step 6: Safety check - if message still exceeds limit, truncate entire message
-  // This should only happen if the template + URLs alone are > 280 chars
-  if (message.length > MAX_LENGTH) {
-    message = message.substring(0, MAX_LENGTH - ELLIPSIS.length) + ELLIPSIS
-  }
-
-  return message
+  // Only exceeds the limit when the template and its URLs alone do
+  return truncateTweetText(message, postMaxLength, ELLIPSIS)
 }
 
 export async function postReleaseToTwitter({
-  version,
-  projectName,
+  variables,
   changelog,
-  releaseUrl,
-  changelogUrl,
   credentials,
   template,
   postMaxLength,
@@ -128,18 +234,15 @@ export async function postReleaseToTwitter({
 
   const message = formatTweetMessage({
     template,
-    projectName,
-    version,
+    variables,
     changelog,
-    releaseUrl,
-    changelogUrl,
     postMaxLength,
   })
 
-  logger.debug(`Tweet message (${message.length} chars):\n${message}`)
+  logger.debug(`Tweet message (${getTweetLength(message)} chars):\n${message}`)
 
   if (dryRun) {
-    logger.box(`[dry-run] Twitter Post Preview (${message.length}/${postMaxLength} chars)\n\n${message}`)
+    showPreview({ title: 'Twitter post', meta: [`Length: ${getTweetLength(message)}/${postMaxLength} chars`], content: message })
     return
   }
 
@@ -162,6 +265,7 @@ export async function postReleaseToTwitter({
 
     logger.info(`Tweet posted successfully! Tweet ID: ${tweet.data.id}`)
     logger.info(`Tweet URL: https://twitter.com/i/web/status/${tweet.data.id}`)
+    recordLink({ step: 'social', label: 'Tweet', url: `https://x.com/i/web/status/${tweet.data.id}` })
 
     return tweet
   }
@@ -193,8 +297,8 @@ export async function postReleaseToTwitter({
 
     if (httpCode === 402) {
       logger.warn(
-        'Twitter/X returned 402 (Payment Required — likely `CreditsDepleted`).\n'
-        + 'Since February 2026, the X API runs on a pay-per-use model — there is no free tier anymore.\n'
+        'Twitter/X returned 402 (Payment Required - likely `CreditsDepleted`).\n'
+        + 'Since February 2026, the X API runs on a pay-per-use model - there is no free tier anymore.\n'
         + 'Each POST /2/tweets costs $0.010, debited from credits you top up in advance.\n'
         + 'Top up your balance at https://developer.x.com → Billing, then retry.\n'
         + 'Reference: https://docs.x.com/x-api/getting-started/pricing',

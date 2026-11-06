@@ -408,6 +408,36 @@ describe('Given lintCommitMessage function', () => {
     })
   })
 
+  describe('When the message credits an AI tool', () => {
+    it('Then reports the AI co-authors, the session trailers and the "Generated with" line', async () => {
+      const message = 'feat: add the parser of the commits\n\n🤖 Generated with [Claude Code](https://claude.com/claude-code)\n\nClaude-Session: https://claude.ai/code/session_01\nCo-authored-by: Claude Opus 4.5 <noreply@anthropic.com>\nCo-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>'
+
+      expect(await problemsOf(message)).toEqual([
+        { message: 'The message credits an AI tool: "🤖 Generated with [Claude Code](https://claude.com/claude-code)"', fix: 'remove this line, and turn off the commit attribution in the settings of the tool' },
+        { message: 'The message credits an AI tool: "Claude-Session: https://claude.ai/code/session_01"', fix: 'remove this line, and turn off the commit attribution in the settings of the tool' },
+        { message: 'The message credits an AI tool: "Co-authored-by: Claude Opus 4.5 <noreply@anthropic.com>"', fix: 'remove this line, and turn off the commit attribution in the settings of the tool' },
+        { message: 'The message credits an AI tool: "Co-authored-by: Cursor <199161495+cursoragent@users.noreply.github.com>"', fix: 'remove this line, and turn off the commit attribution in the settings of the tool' },
+      ])
+    })
+
+    it('Then accepts the people, even named like a tool', async () => {
+      expect(await rulesOf('feat: add the parser of the commits\n\nCo-authored-by: Claude Dupont <claude@example.com>\nCo-authored-by: Raphaël <lestote@users.noreply.github.com>\nSigned-off-by: Mazel <me@example.com>')).toEqual([])
+    })
+
+    it('Then reports the authors and trailers added in its value', async () => {
+      const rule: ['error', { authors: string[], trailers: string[] }] = ['error', { authors: ['bot@acme.dev'], trailers: ['Agent-Session'] }]
+      const config = { commitlint: { rules: { 'no-ai-attribution': rule } } }
+      const message = 'feat: add the parser of the commits\n\nAgent-Session: 42\nCo-authored-by: Acme Agent <bot@acme.dev>'
+
+      expect(await rulesOf(message, { config })).toEqual(['no-ai-attribution', 'no-ai-attribution'])
+    })
+
+    it('Then can be turned off', async () => {
+      const config = { commitlint: { rules: { 'no-ai-attribution': 'off' as const } } }
+      expect(await rulesOf('feat: add the parser of the commits\n\nCo-authored-by: Claude <noreply@anthropic.com>', { config })).toEqual([])
+    })
+  })
+
   describe('When configuring the rule levels', () => {
     it('Then turns an error into a warning that keeps the commit valid', async () => {
       const result = await lint('feat: Add a new thing', { config: { commitlint: { rules: { 'subject-case': 'warn' } } } })
@@ -423,6 +453,12 @@ describe('Given lintCommitMessage function', () => {
     it('Then accepts the commitlint tuples', async () => {
       expect(await messagesOf('feat: add a rather long description', { config: { commitlint: { rules: { 'header-max-length': [2, 'always', 20] } } } }))
         .toEqual(['The header is 35 characters long, the maximum is 20'])
+    })
+
+    it('Then fails clearly when a commitlint tuple misses the number of its rule', async () => {
+      await expect(lint('feat: add a new thing', { config: { commitlint: { rules: { 'header-max-length': [2, 'always'] as never } } } }))
+        .rejects
+        .toThrow('commitlint: the rule "header-max-length" needs a number, e.g. [\'error\', 500] or [2, \'always\', 500], got "always"')
     })
 
     it('Then warns about the unknown rules once per config, not once per commit', async () => {

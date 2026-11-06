@@ -1,22 +1,22 @@
-import type { ReleaseType } from 'semver'
-import type { ConfigType, GitCommit, PackageBase, ReadPackage } from '../types'
+import type { ConfigType, GitCommit, MonorepoConfig, PackageBase, PrivatePackages, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { VersionChange } from './dependencies'
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import fastGlob from 'fast-glob'
+import { bumpPeerDependents, computeNewVersions, getExternalDependents, markDependents } from './bump-plan'
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { parseCommits } from './commits'
-import { expandPackagesToBumpWithDependents, getOutOfRangePeers, getPackageDependencies, isBreakingVersionChange } from './dependencies'
+import { getPackageDependencies } from './dependencies'
+import { runGitSync } from './git-exec'
 import { getGitDiff, parseNameStatus } from './git-refs'
 import { GLOB_IGNORE } from './glob'
 import { getPackageJsonHistory, getPreviousPackagePaths } from './moved-packages'
 import { reconcileFromTag } from './rewritten-tags'
 import { NEW_PACKAGE_MARKER, resolveTags } from './tags'
-import { determineReleaseType, getPackageNewVersion, isChangedPreid, isGraduating, isPrerelease, isStableReleaseType } from './version'
+import { determineReleaseType, getPackageNewVersion } from './version'
 
 /**
  * Get the first commit hash that touched a specific package directory, or one
@@ -29,15 +29,10 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
   const previousPaths = relativePath
     ? getPreviousPackagePaths({ packagePath: relativePath, commits: getPackageJsonHistory(relativePath, cwd), movedPackages, cwd })
     : []
-  const pathspecs = [relativePath, ...previousPaths].map(path => `"${path}"`).join(' ')
 
   try {
     // Get the oldest commit that touched this package directory
-    const result = execSync(
-      `git log --reverse --format="%H" -- ${pathspecs} | head -1`,
-      { cwd, encoding: 'utf8' },
-    )
-    const hash = result.trim()
+    const hash = runGitSync(['log', '--reverse', '--format=%H', '--', relativePath, ...previousPaths], { cwd }).split('\n')[0]?.trim()
 
     if (hash) {
       logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)
@@ -57,10 +52,7 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
  */
 function getCommitParentHash(hash: string, cwd: string): string | null {
   try {
-    const parent = execSync(
-      `git rev-parse --verify --quiet "${hash}^"`,
-      { cwd, encoding: 'utf8' },
-    ).trim()
+    const parent = runGitSync(['rev-parse', '--verify', '--quiet', `${hash}^`], { cwd })
 
     return parent || null
   }
@@ -119,7 +111,7 @@ export function readPackageJson(packagePath: string): ReadPackage | undefined {
  * Resolve a set of path globs (relative to `cwd`) to the absolute directories
  * they match. Shared by package discovery and ignore resolution.
  */
-export function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
+function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
   const dirs = new Set<string>()
 
   for (const pattern of globs ?? []) {
@@ -139,12 +131,7 @@ export function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
 }
 
 /**
- * Relative POSIX paths of every package ignored by config, resolved from BOTH
- * `monorepo.ignored` (path globs) and `monorepo.ignorePackageNames` (names).
- *
- * The name-based source is resolved against the configured `packages` globs so
- * the two options behave identically downstream (path filtering + root commit
- * exclusion).
+ * Relative POSIX paths of every package ignored by config (`monorepo.ignored`)
  */
 export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string[] {
   const cwd = config.cwd
@@ -152,16 +139,6 @@ export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string
 
   for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.ignored)) {
     paths.add(relative(cwd, absolutePath).split(sep).join('/'))
-  }
-
-  const ignorePackageNames = config.monorepo?.ignorePackageNames ?? []
-  if (ignorePackageNames.length > 0) {
-    for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.packages)) {
-      const packageBase = readPackageJson(absolutePath)
-      if (packageBase && ignorePackageNames.includes(packageBase.name)) {
-        paths.add(relative(cwd, absolutePath).split(sep).join('/'))
-      }
-    }
   }
 
   return [...paths].filter(Boolean)
@@ -304,18 +281,27 @@ export async function getRootPackage({
   }
 }
 
+/**
+ * What relizy does with the private packages of a config: `monorepo.privatePackages`,
+ * and always `release` for a project without workspace packages, whose only
+ * package is the root (a private app is versioned, never published)
+ */
+export function getPrivatePackagesMode(config: { monorepo?: MonorepoConfig }): PrivatePackages {
+  const isStandalone = !config.monorepo?.packages?.length && !config.monorepo?.groups?.length
+
+  return isStandalone ? 'release' : config.monorepo?.privatePackages ?? 'ignore'
+}
+
 export function readPackages({
   cwd,
   patterns,
-  ignorePackageNames,
   ignored,
-  includePrivates,
+  privatePackages,
 }: {
   cwd: string
   patterns?: string[]
-  ignorePackageNames: NonNullable<ResolvedRelizyConfig['monorepo']>['ignorePackageNames']
   ignored?: NonNullable<ResolvedRelizyConfig['monorepo']>['ignored']
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
 }) {
   const packages: ReadPackage[] = []
   const foundPaths = new Set<string>()
@@ -345,7 +331,7 @@ export function readPackages({
 
         const packageBase = readPackageJson(matchPath)
 
-        if (!packageBase || (packageBase.private && !includePrivates) || ignorePackageNames?.includes(packageBase.name))
+        if (!packageBase || (packageBase.private && patterns?.length && privatePackages !== 'release'))
           continue
 
         foundPaths.add(matchPath)
@@ -361,242 +347,6 @@ export function readPackages({
   }
 
   return packages
-}
-
-/**
- * Release type of a package bumped only because one of its dependencies is
- * bumped: a patch (or the matching prerelease).
- */
-export function getDependencyReleaseType(currentVersion: string, releaseType: ReleaseType): ReleaseType {
-  if (isStableReleaseType(releaseType))
-    return 'patch'
-  if (isPrerelease(currentVersion))
-    return 'prerelease'
-  return 'prepatch'
-}
-
-function getPackageReleaseType({
-  pkg,
-  config,
-  force,
-}: {
-  pkg: PackageBase
-  config: ResolvedRelizyConfig
-  force: boolean
-}) {
-  const releaseType = config.bump.type
-
-  if (force) {
-    return determineReleaseType({
-      currentVersion: pkg.version,
-      commits: pkg.commits,
-      releaseType,
-      preid: config.bump.preid,
-      types: config.types,
-      force,
-      capZeroMajor: config.bump.capZeroMajor,
-    })
-  }
-
-  const breakingPeer = Boolean(pkg.breakingPeerDependency)
-
-  if (pkg.reason === 'dependency' && !breakingPeer) {
-    return getDependencyReleaseType(pkg.version, releaseType)
-  }
-
-  return determineReleaseType({
-    currentVersion: pkg.version,
-    commits: pkg.commits,
-    releaseType,
-    preid: config.bump.preid,
-    types: config.types,
-    force,
-    capZeroMajor: config.bump.capZeroMajor,
-    breakingPeer,
-  })
-}
-
-/**
- * Packages without commits of their own that depend on a package bumped outside
- * of the config (see `getPackages` `externalBumps`).
- */
-function getExternalDependents(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined): PackageBase[] {
-  if (!externalBumps?.size) {
-    return []
-  }
-
-  return packages.filter(pkg => pkg.commits.length === 0 && pkg.dependencies.some(name => externalBumps.has(name)))
-}
-
-/**
- * Mark the seeds and their dependents (following `bump.dependencyTypes`) as
- * bumped, keeping the reason of the packages already bumped. A seed with a
- * `dependency` is bumped because of that dependency, the others for their commits.
- * With `outOfRangePeer`, the dependency of the seeds is a peer dependency whose
- * published range rejects its new version.
- */
-function markDependents({
-  packages,
-  seeds,
-  outOfRangePeer = false,
-}: {
-  packages: Map<string, PackageBase>
-  seeds: { pkg: PackageBase, dependency?: string }[]
-  outOfRangePeer?: boolean
-}): void {
-  const seedDependencies = new Map(seeds.map(({ pkg, dependency }) => [pkg.name, dependency]))
-
-  const expandedPackages = expandPackagesToBumpWithDependents({
-    allPackages: Array.from(packages.values()),
-    packagesWithCommits: seeds.map(({ pkg }) => pkg),
-  })
-
-  for (const pkg of expandedPackages) {
-    const current = packages.get(pkg.name)!
-    // The expansion marks its seeds as bumped by commits
-    const dependency = seedDependencies.get(pkg.name)
-
-    if (current.reason && current.reason !== 'commits') {
-      continue
-    }
-
-    if (current.reason === 'commits') {
-      packages.set(pkg.name, { ...pkg, reason: 'commits' })
-    }
-    else {
-      packages.set(pkg.name, dependency
-        ? { ...pkg, reason: 'dependency', dependencyChain: [dependency], ...(outOfRangePeer ? { outOfRangePeer: dependency } : {}) }
-        : pkg)
-    }
-  }
-}
-
-function computeNewVersions({
-  packages,
-  config,
-  force,
-  suffix,
-  newVersionOverride,
-}: {
-  packages: Map<string, PackageBase>
-  config: ResolvedRelizyConfig
-  force: boolean
-  suffix: string | undefined
-  newVersionOverride?: string
-}): void {
-  for (const pkg of Array.from(packages.values())) {
-    const releaseType = getPackageReleaseType({
-      pkg,
-      config,
-      force,
-    })
-
-    const newVersion = releaseType
-      ? newVersionOverride ?? getPackageNewVersion({
-        name: pkg.name,
-        currentVersion: pkg.version,
-        releaseType,
-        preid: config.bump.preid,
-        suffix,
-      })
-      : undefined
-
-    const graduating = (releaseType && isGraduating(pkg.version, releaseType)) || isChangedPreid(pkg.version, config.bump.preid)
-
-    packages.set(pkg.name, {
-      ...pkg,
-      newVersion,
-      reason: pkg.reason || (releaseType && graduating && 'graduation') || undefined,
-    })
-  }
-}
-
-/**
- * The packages to bump because of their peer dependencies, given the bumped
- * versions: the packages not bumped out of range (`seeds`, with `bumpOutOfRange`)
- * and the bumped packages whose dependency makes a breaking change (`breaking`).
- */
-function findPeerDependents({
-  packages,
-  bumped,
-  bumpOutOfRange,
-}: {
-  packages: Map<string, PackageBase>
-  bumped: Map<string, VersionChange>
-  bumpOutOfRange: boolean
-}) {
-  const seeds: { pkg: PackageBase, dependency: string }[] = []
-  const breaking: { pkg: PackageBase, dependency: string }[] = []
-
-  for (const pkg of packages.values()) {
-    if (pkg.breakingPeerDependency || (!pkg.reason && !bumpOutOfRange)) {
-      continue
-    }
-
-    const outOfRange = getOutOfRangePeers({ packagePath: pkg.path, bumped })
-    const breakingPeer = outOfRange.find(isBreakingVersionChange)
-
-    if (!pkg.reason && outOfRange[0]) {
-      seeds.push({ pkg, dependency: outOfRange[0].dependency })
-    }
-    else if (pkg.reason && breakingPeer) {
-      breaking.push({ pkg, dependency: breakingPeer.dependency })
-    }
-  }
-
-  return { seeds, breaking }
-}
-
-/**
- * Follow the peer dependencies whose published range rejects the new version
- * of a bumped dependency, until nothing changes:
- * - with `bumpOutOfRange` (`bump.outOfRangePeers: 'bump'`), the packages not
- *   bumped are bumped as dependents, and their own dependents follow;
- * - the packages bumped while the dependency makes a breaking change are
- *   bumped as for a breaking commit (`breakingPeerDependency`).
- */
-function bumpPeerDependents({
-  packages,
-  externalBumps,
-  bumpOutOfRange,
-  ...versionContext
-}: {
-  packages: Map<string, PackageBase>
-  externalBumps?: Map<string, VersionChange>
-  bumpOutOfRange: boolean
-  config: ResolvedRelizyConfig
-  force: boolean
-  suffix: string | undefined
-  newVersionOverride?: string
-}): void {
-  for (;;) {
-    const bumped = new Map(externalBumps)
-
-    for (const pkg of packages.values()) {
-      if (pkg.reason && pkg.newVersion) {
-        bumped.set(pkg.name, { oldVersion: pkg.version, newVersion: pkg.newVersion })
-      }
-    }
-
-    const { seeds, breaking } = findPeerDependents({ packages, bumped, bumpOutOfRange })
-
-    if (seeds.length === 0 && breaking.length === 0) {
-      return
-    }
-
-    for (const { pkg, dependency } of seeds) {
-      logger.debug(`${pkg.name}: the published range of its peer dependency ${dependency} does not accept its new version, bumped as a dependent`)
-    }
-
-    markDependents({ packages, seeds, outOfRangePeer: true })
-
-    for (const { pkg, dependency } of breaking) {
-      logger.debug(`${pkg.name}: its peer dependency ${dependency} makes a breaking change, bumped as for a breaking commit`)
-      packages.set(pkg.name, { ...packages.get(pkg.name)!, breakingPeerDependency: dependency })
-    }
-
-    computeNewVersions({ packages, ...versionContext })
-  }
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -630,9 +380,8 @@ export async function getPackages({
   const readedPackages = readPackages({
     cwd: config.cwd,
     patterns,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
     ignored: config.monorepo?.ignored,
-    includePrivates: config.monorepo?.includePrivates,
+    privatePackages: config.monorepo?.privatePackages,
   })
 
   const packages = new Map<string, PackageBase>()
@@ -669,12 +418,8 @@ export async function getPackages({
         continue
       }
 
-      if (packageBase.private && !config.monorepo?.includePrivates) {
+      if (packageBase.private && getPrivatePackagesMode(config) !== 'release') {
         logger.debug(`${packageBase.name} is private and will be ignored`)
-        continue
-      }
-      if (config.monorepo?.ignorePackageNames?.includes(packageBase.name)) {
-        logger.debug(`${packageBase.name} ignored by config (monorepo.ignorePackageNames)`)
         continue
       }
       if (!packageBase.version) {

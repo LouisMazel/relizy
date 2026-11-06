@@ -52,12 +52,27 @@ describe('aiSdkProvider', () => {
       const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
       const result = await aiSdkProvider.generate(config, request)
 
-      expect(result).toBe('generated output')
+      expect(result).toEqual({ text: 'generated output', usage: {} })
 
       const [options] = mockGenerateText.mock.calls[0]
       expect(options.model).toBe(model)
       expect(options.instructions).toBe('You are helpful.')
       expect(options.prompt).toContain('<changelog>\nSummarize changes\n</changelog>')
+    })
+
+    it('sends the context of the release before the changelog', async () => {
+      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      await aiSdkProvider.generate(config, { ...request, context: { project: 'relizy', version: '2.0.0' } })
+
+      const [options] = mockGenerateText.mock.calls[0]
+      expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
+    })
+
+    it('returns the tokens of every step of the call', async () => {
+      mockGenerateText.mockResolvedValue({ text: 'done', totalUsage: { inputTokens: 1200, outputTokens: 300, totalTokens: 1500 } })
+
+      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      expect(await aiSdkProvider.generate(config, request)).toEqual({ text: 'done', usage: { inputTokens: 1200, outputTokens: 300 } })
     })
 
     it('lets the provider default apply when reasoning is not configured', async () => {
@@ -101,7 +116,7 @@ describe('aiSdkProvider', () => {
       const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
       const result = await aiSdkProvider.generate(config, request)
 
-      expect(result).toBe('done')
+      expect(result.text).toBe('done')
       expect(logger.verbose).toHaveBeenCalledWith('AI SDK steps:', 'reasoning, text')
     })
   })

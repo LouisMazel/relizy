@@ -46,6 +46,11 @@ function childrenOf(options: ConfigOption[], path: string): ConfigOption[] {
   return options.filter(option => prefix.test(option.path))
 }
 
+/** The type of an option, with the values it accepts when its type hides them */
+function typeOf(option: ConfigOption): string {
+  return option.values ? `${option.type} (${option.values.join(' | ')})` : option.type
+}
+
 function optionsTable(options: ConfigOption[]): string {
   return [
     '| Option | Type | Default | Description |',
@@ -53,7 +58,7 @@ function optionsTable(options: ConfigOption[]): string {
     ...options.map((option) => {
       const defaultValue = defaultOf(option)
 
-      return `| ${code(option.path)} | ${code(tableCell(truncateText(option.type, 80)))} | ${defaultValue ? code(tableCell(defaultValue)) : ''} | ${tableCell(truncateText(firstParagraph(option.description), 160))} |`
+      return `| ${code(option.path)} | ${code(tableCell(truncateText(typeOf(option), 80)))} | ${defaultValue ? code(tableCell(defaultValue)) : ''} | ${tableCell(truncateText(firstParagraph(option.description), 160))} |`
     }),
   ].join('\n')
 }
@@ -89,7 +94,7 @@ export function getConfigOption(context: ServerContext, { path }: { path?: strin
 
     throw new ToolInputError([
       `relizy ${context.version} has no config option "${path}".`,
-      ...(suggestions.length > 0 ? ['', 'Closest options:', ...suggestions.map(candidate => `- \`${candidate.path}\` (\`${truncateText(candidate.type, 80)}\`)`)] : []),
+      ...(suggestions.length > 0 ? ['', 'Closest options:', ...suggestions.map(candidate => `- \`${candidate.path}\` (\`${truncateText(typeOf(candidate), 80)}\`)`)] : []),
       '',
       'List the options with `get_config_option()`, or search them with `search_docs`.',
     ].join('\n'))
@@ -103,6 +108,7 @@ export function getConfigOption(context: ServerContext, { path }: { path?: strin
     `# \`${option.path}\``,
     '',
     `- **Type:** \`${option.type}\``,
+    ...(option.values ? [`- **Values:** ${option.values.map(value => code(value)).join(', ')}${option.type.endsWith('[]') ? ' (for each item)' : ''}`] : []),
     ...(defaultValue ? [`- **Default:** \`${defaultValue}\``] : []),
     ...(option.deprecated ? [`- **Deprecated:** ${option.deprecated}`] : []),
     ...(option.see ? [`- **See:** ${option.see}`] : []),

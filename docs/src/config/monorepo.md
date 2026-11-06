@@ -1,221 +1,98 @@
 ---
 title: Monorepo Configuration
-description: Configure monorepo-specific behavior.
-keywords: monorepo config, version mode, workspace packages, monorepo versioning, package management
+description: Reference of the monorepo options - version mode, packages, version groups, ignored and private packages, moved packages.
+keywords: monorepo config, versionMode, packages, version groups, monorepo.groups, VersionGroup, ignored packages, privatePackages, movedPackages
 category: Configuration
-tags: [config, monorepo, versioning, workspace]
+tags: [config, monorepo, versioning, workspace, groups]
 ---
 
 # {{ $frontmatter.title }}
 
-> Optional for standalone package
-
-{{ $frontmatter.description }}
-
-## versionMode
-
-Choose how versions are managed:
+{{ $frontmatter.description }} A standalone package needs none of them.
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   monorepo: {
-    versionMode: 'selective', // 'unified' | 'selective' | 'independent'
+    versionMode: 'selective',
+    packages: ['packages/*', 'apps/*'],
+    ignored: ['apps/docs'],
   },
 })
 ```
 
-- **unified**: All packages share the same version
-- **selective**: Only changed packages bumped (recommended)
-- **independent**: Each package has its own version
+## versionMode
 
-Learn more: [Version Modes](../guide/version-modes.md)
+- **Type:** `'unified' | 'selective' | 'independent'`
+- **Required** unless [`groups`](#groups) is set (they cannot be set together)
 
-::: tip Independent mode commit messages
-In `independent` mode, Relizy uses shorter release commit titles by default
-and moves the full package list into the commit body so you stay under
-commitlint header limits. See [Commit Templates](./commit-templates.md) for
-placeholders and examples.
-:::
+How the packages are versioned: one version for all of them (`unified`), one version for the packages with commits (`selective`), or a version per package (`independent`). See [Version Modes](./../guide/version-modes.md).
 
 ## packages
 
-Specify where packages are located:
+- **Type:** `string[]`
+- **Required** unless [`groups`](#groups) is set (they cannot be set together)
 
-```ts
-export default defineConfig({
-  monorepo: {
-    packages: [
-      'packages/*',
-      'apps/*',
-      'libs/*',
-    ],
-  },
-})
-```
+Glob patterns, relative to `cwd`, of the package directories (`['packages/*']`). A directory is a package when it has a `package.json`.
 
 ## groups
 
-Release several sets of packages with different version modes in a single run, e.g. a `selective` group for most packages and an `independent` group for packages with their own version line. Replaces `versionMode` and `packages`, which cannot be set with it.
+- **Type:** `VersionGroup[]`
+- **Default:** none
+
+Sets of packages released together in a single run, each with its own version mode. Replaces `versionMode` and `packages`. Every package belongs to one group: a package matched by several groups goes to the group listing its exact path (no glob), any other overlap is an error. At most one group uses the `unified` or `selective` mode: it owns the root version and the repository tags. See [Version Groups](./../guide/version-groups.md) for the behavior and the examples.
+
+| Field         | Type                                                   | Effect                                                                                                                                    |
+| ------------- | ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string` (required)                                    | Name in the logs, targeted by `--group <name>`                                                                                            |
+| `title`       | `string` (default: `name`)                             | Name in the bump confirmation, the social posts, the PR comment and the release summary                                                   |
+| `versionMode` | `'unified' \| 'selective' \| 'independent'` (required) | Version mode of the packages of the group                                                                                                 |
+| `packages`    | `string[]` (required)                                  | Glob patterns of the package directories of the group                                                                                     |
+| `ignored`     | `string[]` (default: `[]`)                             | Package directories to ignore in the group, on top of [`monorepo.ignored`](#ignored)                                                      |
+| `bump`        | `{ capZeroMajor?, dependencyTypes? }`                  | Overrides [`bump.capZeroMajor`](./bump.md#capzeromajor) and [`bump.dependencyTypes`](./bump.md#dependencytypes)                           |
+| `changelog`   | `{ rootChangelog?, includeCommitBody? }`               | Overrides [`changelog.rootChangelog`](./changelog.md#rootchangelog) and [`changelog.includeCommitBody`](./changelog.md#includecommitbody) |
+| `release`     | `{ providerRelease?, social? }`                        | `providerRelease: false`: no provider release for its packages; `social: false`: left out of the social posts                             |
+| `ai`          | `{ providerRelease? }`                                 | Overrides [`ai.providerRelease`](./ai.md), e.g. `{ enabled: false }` to limit the AI calls of an `independent` group                      |
 
 ```ts
 export default defineConfig({
   monorepo: {
     groups: [
-      { name: 'main', versionMode: 'selective', packages: ['packages/*', 'shared-components/*'] },
-      {
-        name: 'header',
-        versionMode: 'independent',
-        packages: ['shared-components/navigation'],
-        changelog: { rootChangelog: false },
-      },
+      { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+      { name: 'tooling', title: 'Tooling', versionMode: 'independent', packages: ['tooling/*'], changelog: { rootChangelog: false } },
     ],
   },
 })
 ```
 
-- A package matched by several groups goes to the group listing its exact path; any other overlap is an error.
-- At most one group uses the `unified` or `selective` mode: it owns the root version and the repository tags.
-- Each group can override `bump.capZeroMajor`, `bump.dependencyTypes`, `changelog.rootChangelog` and `changelog.includeCommitBody`, and add its own `ignored` patterns.
-
-Learn more: [Version Groups](../guide/version-groups.md)
+The options without a group field (`privatePackages`, `movedPackages`) apply to every group.
 
 ## ignored
 
-Exclude packages by **path**, using the same glob syntax as [`packages`](#packages).
-This is the recommended way to ignore packages, for consistency with `packages`.
+- **Type:** `string[]`
+- **Default:** `[]`
 
-```ts
-export default defineConfig({
-  monorepo: {
-    packages: ['packages/*', 'shared-components/*'],
-    ignored: [
-      'shared-components/navigation', // a single package
-      'packages/internal-*', // or a glob
-    ],
-  },
-})
-```
+Glob patterns of package directories to leave out, matched as [`packages`](#packages). An ignored package is not bumped, has no changelog, is not published, gets no provider release and is not listed in the PR comment.
 
-Ignored packages are excluded from **bump**, **changelog**, **publish**,
-**provider-release** and **pr-comment**.
+In `unified` and `selective` mode, a commit whose changed files are all inside ignored packages does not count for the root version nor the root changelog: keep the changes of an ignored package in their own commits, so a breaking change there does not bump the whole repository.
 
-::: warning Root bump & changelog (unified / selective)
-In `unified` and `selective` mode the root version is derived from **all**
-commits in the repository. Commits whose changed files **all** live inside an
-ignored package are excluded from the root version bump and the root changelog.
+## privatePackages
 
-This means a **breaking change** scoped to an ignored package no longer bumps
-the whole repository - as long as that change lives in its own commit. Keep
-ignored-package changes in dedicated commits (do not mix them with changes to
-released packages in the same commit), otherwise the commit still counts for the
-root.
-:::
+- **Type:** `'ignore' | 'release'`
+- **Default:** `'ignore'`
+- **CLI:** `--private-packages <mode>` (`bump`, `changelog`, `release`)
 
-## ignorePackageNames
+What relizy does with the private packages of the workspace (`"private": true` in their `package.json`):
 
-::: warning Deprecated
-`ignorePackageNames` is deprecated in favor of [`ignored`](#ignored) (path
-globs), for consistency with `packages`. Both options are still honored and
-**merged together**, so you can migrate incrementally.
-:::
+- `ignore`: they are left out of the release.
+- `release`: they are released as the other packages (bump, changelog, tag, GitHub/GitLab release, PR comment), but never published to a registry.
 
-Exclude specific packages by their `package.json` **name**:
-
-```ts
-export default defineConfig({
-  monorepo: {
-    ignorePackageNames: [
-      'example-a',
-      'docs',
-      '@myorg/private',
-    ],
-  },
-})
-```
-
-## includePrivates
-
-Include private packages (packages with `"private": true` in their `package.json`)
-in the release workflow, everywhere except publishing.
-
-By default, private packages are excluded from every pipeline step. When this
-option is enabled, they are versioned like public ones:
-
-- they get their own version bump and their own `CHANGELOG.md`
-- their commits are included in the aggregated root changelog
-- they get their own git tag (in `independent` mode)
-- they get their own GitHub/GitLab release (in `independent` mode)
-- they are listed in the packages table of [PR comments](/guide/pr-comment)
-
-Private packages **are never published** to a registry: `relizy publish`
-always skips them, and PR comments never show install commands for them.
-
-This is useful for monorepos that contain internal-only packages (apps,
-examples, private libraries) that still need versioning and release notes, and
-for fully private projects. See [Private Projects & Apps](/guide/private-projects).
-
-```ts
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*', 'apps/*'],
-    includePrivates: true,
-  },
-})
-```
-
-You can also enable it ad-hoc from the CLI with the `--include-private` flag on
-`relizy bump`, `relizy changelog`, and `relizy release`.
-
-> [!NOTE]
-> `ignored` / `ignorePackageNames` still take precedence. A private package
-> listed in `ignored` (or `ignorePackageNames`) stays excluded even if
-> `includePrivates` is `true`.
+A project without workspace packages (a private app with a single `package.json`) is released, private or not. `ignored` still applies: an ignored private package stays out. See [Private Projects & Apps](./../guide/private-projects.md).
 
 ## movedPackages
 
 - **Type:** `Record<string, string>`
 - **Default:** `{}`
 
-Package directories moved or renamed, as `old path: new path` (relative to
-`cwd`, no glob). The commits that changed the old directory belong to the
-package: its changelog and its bump keep the commits made before the move.
-
-Relizy already detects the moves whose `package.json` git sees as renamed
-(`git mv`) and that keep their package name. Declare the moves it cannot see: a
-`package.json` rewritten or a package renamed in the commit of the move, or a
-commit moving more files than the rename detection of git handles
-(`diff.renameLimit`).
-
-```ts
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-    movedPackages: {
-      'packages/components': 'packages/ui',
-    },
-  },
-})
-```
-
-Chains are followed (`a: b` then `b: c`), and the option applies to every
-[version group](#groups). The entries can be removed once a release includes the
-move.
-
-Learn more: [Moving & Renaming Packages](../guide/moved-packages.md)
-
-## Complete Example
-
-```ts
-export default defineConfig({
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*', 'apps/*'],
-    ignored: ['apps/docs'],
-    includePrivates: false,
-  },
-})
-```
+Package directories moved or renamed that git does not detect, as `old path: new path` (relative to `cwd`, no glob), so the commits made before the move still belong to the package. See [Moving & Renaming Packages](./../guide/moved-packages.md).

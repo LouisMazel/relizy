@@ -5,7 +5,7 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { expandPackagesToBumpWithDependents } from '../dependencies'
 import * as gitRefs from '../git-refs'
-import { getCommitChangedFiles, getPackageCommits, getPackages, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
+import { getCommitChangedFiles, getPackageCommits, getPackages, getPrivatePackagesMode, isCommitInPackage, isCommitOnlyInIgnoredPackages, readPackages, resolveIgnoredPackagePaths } from '../repo'
 
 // Mock file system
 vi.mock('node:fs', async () => {
@@ -57,6 +57,14 @@ vi.mock('fast-glob', () => ({
 
       if (pattern === 'packages/pkg-a') {
         return [`${cwd}/packages/pkg-a`]
+      }
+
+      if (pattern === 'packages/pkg-b') {
+        return [`${cwd}/packages/pkg-b`]
+      }
+
+      if (pattern === '.') {
+        return [cwd]
       }
 
       return []
@@ -415,7 +423,7 @@ describe('Given getPackages function', () => {
       expect(packages.every(pkg => !pkg.private)).toBe(true)
     })
 
-    it('Then excludes packages in ignorePackageNames', async () => {
+    it('Then excludes the packages of monorepo.ignored', async () => {
       setupMockCommits('default', [
         createMockCommit('feat', 'some feature'),
       ])
@@ -426,7 +434,7 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          ignorePackageNames: ['pkg-a'],
+          ignored: ['packages/pkg-a'],
         },
       })
 
@@ -440,7 +448,7 @@ describe('Given getPackages function', () => {
     })
   })
 
-  describe('When includePrivates is enabled', () => {
+  describe('When privatePackages is release', () => {
     it('Then includes private packages in the result', async () => {
       vol.fromJSON({
         [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
@@ -463,7 +471,7 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          includePrivates: true,
+          privatePackages: 'release',
         },
       })
 
@@ -476,7 +484,7 @@ describe('Given getPackages function', () => {
       expect(packages.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
     })
 
-    it('Then still excludes packages listed in ignorePackageNames', async () => {
+    it('Then still excludes the private packages of monorepo.ignored', async () => {
       vol.fromJSON({
         [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
         [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({
@@ -496,8 +504,8 @@ describe('Given getPackages function', () => {
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],
-          includePrivates: true,
-          ignorePackageNames: ['pkg-b'],
+          privatePackages: 'release',
+          ignored: ['packages/pkg-b'],
         },
       })
 
@@ -527,41 +535,49 @@ describe('Given getPackages function', () => {
       }, mockCwd)
     })
 
-    describe('When includePrivates is not provided', () => {
+    describe('When privatePackages is not provided', () => {
       it('Then excludes private packages', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: undefined,
         })
 
         expect(result.map(p => p.name)).toEqual(['pkg-a'])
       })
     })
 
-    describe('When includePrivates is true', () => {
+    describe('When privatePackages is release', () => {
       it('Then includes private packages', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: undefined,
-          includePrivates: true,
+          privatePackages: 'release',
         })
 
         expect(result.map(p => p.name).sort()).toEqual(['pkg-a', 'pkg-b'])
       })
     })
 
-    describe('When includePrivates is true but a private package is in ignorePackageNames', () => {
-      it('Then still excludes it via ignorePackageNames', () => {
+    describe('When privatePackages is release but a private package is in monorepo.ignored', () => {
+      it('Then still excludes it', () => {
         const result = readPackages({
           cwd: mockCwd,
           patterns: ['packages/*'],
-          ignorePackageNames: ['pkg-b'],
-          includePrivates: true,
+          ignored: ['packages/pkg-b'],
+          privatePackages: 'release',
         })
 
         expect(result.map(p => p.name)).toEqual(['pkg-a'])
+      })
+    })
+
+    describe('When there are no patterns (standalone project) and the root is private', () => {
+      it('Then reads the root, its only package', () => {
+        vol.fromJSON({ [`${mockCwd}/package.json`]: JSON.stringify({ name: 'app', version: '1.0.0', private: true }) }, mockCwd)
+
+        const result = readPackages({ cwd: mockCwd, patterns: undefined })
+
+        expect(result.map(p => p.name)).toEqual(['app'])
       })
     })
   })
@@ -809,17 +825,6 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
     })
   })
 
-  describe('When resolving ignored packages from ignorePackageNames', () => {
-    it('Then resolves the name to its relative path via the packages globs', () => {
-      const config = createMockConfig({
-        cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignorePackageNames: ['pkg-a'] },
-      })
-
-      expect(resolveIgnoredPackagePaths(config)).toEqual(['packages/pkg-a'])
-    })
-  })
-
   describe('When the root package aggregates commits with an ignored package', () => {
     it('Then excludes commits that only touch an ignored package', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
@@ -875,7 +880,6 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
       const result = readPackages({
         cwd: mockCwd,
         patterns: ['packages/*'],
-        ignorePackageNames: undefined,
         ignored: ['packages/pkg-a'],
       })
 
@@ -1016,6 +1020,23 @@ describe('Given a package moved to another directory', () => {
       })
 
       expect(commits.map(c => c.message)).toEqual(['feat(pkg-b): add a feature'])
+    })
+  })
+})
+
+describe('Given getPrivatePackagesMode', () => {
+  describe('When the project has no workspace packages (standalone)', () => {
+    it('Then releases its private root package', () => {
+      expect(getPrivatePackagesMode({})).toBe('release')
+      expect(getPrivatePackagesMode({ monorepo: { privatePackages: 'ignore' } })).toBe('release')
+    })
+  })
+
+  describe('When the project is a monorepo', () => {
+    it('Then follows monorepo.privatePackages, ignore by default', () => {
+      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'] } })).toBe('ignore')
+      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'], privatePackages: 'release' } })).toBe('release')
+      expect(getPrivatePackagesMode({ monorepo: { groups: [{ name: 'main', versionMode: 'selective', packages: ['packages/*'] }] } })).toBe('ignore')
     })
   })
 })

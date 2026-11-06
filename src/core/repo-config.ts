@@ -1,12 +1,14 @@
 import type { GitProvider, Reference, RepoConfig } from '../types'
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseJSON, parseJSONC } from 'confbox'
+import { runGitSync } from './git-exec'
 
 /**
- * Repository resolution and links, ported from changelogen 0.6.2 without
- * behavior change: https://github.com/unjs/changelogen/blob/v0.6.2/src/repo.ts
+ * Repository resolution and links, ported from changelogen 0.6.2:
+ * https://github.com/unjs/changelogen/blob/v0.6.2/src/repo.ts. One change: the
+ * provider of a self-hosted host is read from its name, or undefined, instead
+ * of the host itself.
  *
  * MIT License - Copyright (c) Pooya Parsa <pooya@pi0.io>
  */
@@ -27,6 +29,14 @@ const domainToProvider: Record<string, GitProvider> = {
   'github.com': 'github',
   'gitlab.com': 'gitlab',
   'bitbucket.org': 'bitbucket',
+}
+
+/**
+ * Provider of a host other than the public ones (GitHub Enterprise, a
+ * self-hosted GitLab), from its name, as `detectGitProvider()` does
+ */
+function getHostProvider(host: string): GitProvider | undefined {
+  return (['github', 'gitlab', 'bitbucket'] as const).find(provider => host.includes(provider))
 }
 
 // https://regex101.com/r/NA4Io6/1
@@ -88,7 +98,8 @@ function readClosestPackageJson(cwd: string): { repository?: string | { url?: st
 }
 
 function getGitRemoteURL(cwd: string, remote = 'origin'): string {
-  return execSync(`git --work-tree="${cwd}" remote get-url "${remote}"`, { encoding: 'utf8', cwd }).trim()
+  // A repository without remote is expected: the stderr of git (`error: No such remote`) is not shown
+  return runGitSync([`--work-tree=${cwd}`, 'remote', 'get-url', remote], { cwd })
 }
 
 /**
@@ -143,10 +154,10 @@ export function getRepoConfig(repoUrl = ''): RepoConfig {
   const m = repoUrl.match(PROVIDER_URL_REGEX)?.groups ?? {}
   if (m.repo && m.provider) {
     repo = m.repo
-    provider = m.provider in domainToProvider
-      ? domainToProvider[m.provider]
-      : m.provider as GitProvider
-    domain = provider! in providerToDomain ? providerToDomain[provider!] : provider
+    // A prefix (`github:`) or a host (`git@gitlab.example.com:`)
+    const isPrefix = Object.hasOwn(providerToDomain, m.provider)
+    provider = isPrefix ? m.provider as GitProvider : domainToProvider[m.provider] ?? getHostProvider(m.provider)
+    domain = isPrefix ? providerToDomain[m.provider as GitProvider] : m.provider
   }
   else if (url) {
     domain = url.hostname
@@ -155,7 +166,7 @@ export function getRepoConfig(repoUrl = ''): RepoConfig {
       .slice(1)
       .join('/')
       .replace(/\.git$/, '')
-    provider = domainToProvider[domain]
+    provider = domainToProvider[domain] ?? getHostProvider(domain)
   }
   else if (m.repo) {
     repo = m.repo

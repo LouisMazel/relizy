@@ -1,5 +1,5 @@
 import type { Code } from 'mdast'
-import type { CommitlintCodeBlocksLinter, GitCommit } from '../../types'
+import type { CommitlintChangelogLinter, GitCommit } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import { createRequire } from 'node:module'
 import { join } from 'node:path'
@@ -65,10 +65,10 @@ interface ProjectEslint {
  * files (markdown support, file not ignored).
  */
 async function loadProjectEslint(cwd: string, required = false): Promise<ChangelogLinter | undefined> {
-  // `codeBlocksLinter: 'eslint'`: an error rather than a silent fallback
+  // `changelogLinter: 'eslint'`: an error rather than a silent fallback
   const unavailable = (reason: string, error?: unknown) => {
     if (required) {
-      throw new Error(`commitlint: codeBlocksLinter is "eslint" but ${reason}`)
+      throw new Error(`commitlint: changelogLinter is "eslint" but ${reason}`)
     }
     logger.debug(`commitlint: ${reason}, using the built-in parser`, ...(error ? [error] : []))
     return undefined
@@ -194,7 +194,7 @@ const linters = new Map<string, Promise<ChangelogLinter>>()
  * it lints the CHANGELOG.md files, otherwise a syntax check of the code blocks
  * with oxc. Loaded once per cwd and choice.
  */
-export function getChangelogLinter(cwd: string, choice: CommitlintCodeBlocksLinter = 'auto'): Promise<ChangelogLinter> {
+export function getChangelogLinter(cwd: string, choice: CommitlintChangelogLinter = 'auto'): Promise<ChangelogLinter> {
   const key = `${choice}:${cwd}`
   let linter = linters.get(key)
   if (!linter) {

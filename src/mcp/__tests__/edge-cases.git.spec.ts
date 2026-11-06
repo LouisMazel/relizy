@@ -36,7 +36,7 @@ function createApp(config: string) {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'app', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { logLevel: 'silent', ${config} }\n`)
+  repository.write('relizy.config.mjs', `export default { logLevel: 'silent', ${config} }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
 
@@ -86,11 +86,11 @@ describe('Given get_project with relizy rules in the project', () => {
     it('Then it asks to run relizy mcp init, and says nothing once up to date', async () => {
       const repository = createApp('')
 
-      repository.writeFile('.claude/rules/relizy.md', '<!-- Managed by relizy 0.1.0 (sha256:abc): x -->\n\n# relizy\n')
+      repository.write('.claude/rules/relizy.md', '<!-- Managed by relizy 0.1.0 (sha256:abc): x -->\n\n# relizy\n')
 
       expect(await getProject(createTestContext(repository.cwd), {})).toContain('`.claude/rules/relizy.md` holds the rules of relizy 0.1.0: ask the user to run `relizy mcp init`')
 
-      repository.writeFile('.claude/rules/relizy.md', `<!-- Managed by relizy ${readOwnVersion()} (sha256:abc): x -->\n\n# relizy\n`)
+      repository.write('.claude/rules/relizy.md', `<!-- Managed by relizy ${readOwnVersion()} (sha256:abc): x -->\n\n# relizy\n`)
 
       const text = await getProject(createTestContext(repository.cwd), {})
 
@@ -113,6 +113,22 @@ describe('Given preview_release with every step of the release turned off', () =
       expect(text).toContain('`relizy release` would then write the changelogs, commit.')
       expect(text).toContain('Continuing with local tags')
     })
+
+    it('Then it lists the steps of the release in their order, publishing before the release commit', async () => {
+      const repository = createApp(`release: { prComment: false }`)
+
+      const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
+
+      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm, commit, tag, push, create the GitHub/GitLab releases, post on the social networks.')
+    })
+
+    it('Then it leaves out the tags and the push without the release commit', async () => {
+      const repository = createApp(`release: { commit: false, social: false, prComment: false, providerRelease: false }`)
+
+      const text = await previewRelease(createTestContext(repository.cwd), { force: true, type: 'patch' })
+
+      expect(text).toContain('`relizy release` would then write the changelogs, publish to npm.')
+    })
   })
 
   describe('When a package of an independent monorepo is forced', () => {
@@ -120,7 +136,7 @@ describe('Given preview_release with every step of the release turned off', () =
       const repository = createRepository()
       repository.writeJson('.', { name: 'mono', version: '0.0.0', private: true })
       repository.writeJson('packages/a', { name: 'a', version: '1.0.0' })
-      repository.writeFile('relizy.config.mjs', `export default { logLevel: 'silent', monorepo: { versionMode: 'independent', packages: ['packages/*'] } }\n`)
+      repository.write('relizy.config.mjs', `export default { logLevel: 'silent', monorepo: { versionMode: 'independent', packages: ['packages/*'] } }\n`)
       repository.commit('chore: init')
       repository.git('tag', '-a', 'a@1.0.0', '-m', 'a@1.0.0')
 

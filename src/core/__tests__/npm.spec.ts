@@ -4,26 +4,16 @@ import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
-import { input } from '@inquirer/prompts'
 import { execPromise, logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import {
-  detectPackageManager,
-  determinePublishTag,
-  getAuthCommand,
-  getNpmRegistry,
-  getPackagesToPublishInIndependentMode,
-  getPackagesToPublishInSelectiveMode,
-  isVersionAlreadyPublishedError,
-  isVersionPublished,
-  publishPackage,
-  resolveAllConfiguredRegistryTargets,
-  resolveRegistryTargetsForPackage,
-  withRegistryNpmrc,
-} from '../npm'
-import { getIndependentTag, resolveTags } from '../tags'
-import { isInCI } from '../utils'
+import { isInCI } from '../ci-env'
+import { RelizyCancelError } from '../errors'
+import { determinePublishTag, getAuthCommand, publishPackage } from '../npm'
+import { detectPackageManager, getNpmRegistry, resolveRegistryTargetsForPackage, withRegistryNpmrc } from '../npm-registry'
+import { isVersionAlreadyPublishedError, isVersionPublished } from '../npm-versions'
+import { askText } from '../prompts'
+import { getIndependentTag } from '../tags'
 import { isPrerelease } from '../version'
 
 vi.mock('node:child_process')
@@ -40,9 +30,9 @@ vi.mock('node:path', async () => {
   }
 })
 // Remove the node:process mock - we'll spy on globalThis.process directly
-vi.mock('@inquirer/prompts')
-vi.mock('../utils', async () => {
-  const actual = await vi.importActual('../utils')
+vi.mock('../prompts')
+vi.mock('../ci-env', async () => {
+  const actual = await vi.importActual('../ci-env')
   return {
     ...actual,
     isInCI: vi.fn(),
@@ -267,187 +257,12 @@ describe('Given determinePublishTag function', () => {
   })
 })
 
-describe('Given getPackagesToPublishInSelectiveMode function', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    vi.mocked(join).mockImplementation((...args) => args.join('/'))
-  })
-
-  describe('When filtering by root version', () => {
-    it('Then returns packages matching root version', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '1.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', path: '/packages/b', version: '1.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-c', path: '/packages/c', version: '0.9.0' },
-      ]
-      vi.mocked(readFileSync)
-        .mockReturnValueOnce(JSON.stringify({ version: '1.0.0' }))
-        .mockReturnValueOnce(JSON.stringify({ version: '1.0.0' }))
-        .mockReturnValueOnce(JSON.stringify({ version: '0.9.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '1.0.0')
-
-      expect(result).toHaveLength(2)
-      expect(result.map(p => p.name)).toEqual(['pkg-a', 'pkg-b'])
-    })
-
-    it('Then returns empty array when no packages match', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '0.9.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '0.9.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '1.0.0')
-
-      expect(result).toHaveLength(0)
-    })
-
-    it('Then handles all packages matching', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '2.0.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', path: '/packages/b', version: '2.0.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '2.0.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, '2.0.0')
-
-      expect(result).toHaveLength(2)
-    })
-  })
-
-  describe('When root version is undefined', () => {
-    it('Then returns empty array', () => {
-      const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', path: '/packages/a', version: '1.0.0' },
-      ]
-      vi.mocked(readFileSync).mockReturnValue(JSON.stringify({ version: '1.0.0' }))
-
-      const result = getPackagesToPublishInSelectiveMode(packages, undefined)
-
-      expect(result).toHaveLength(0)
-    })
-  })
-})
-
-describe('Given getPackagesToPublishInIndependentMode function', () => {
-  let config: ResolvedRelizyConfig
-
-  beforeEach(() => {
-    vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
-    vi.mocked(resolveTags).mockResolvedValue({ from: 'v1.0.0', to: 'v1.1.0' })
-  })
-
-  describe('When filtering packages with commits', () => {
-    it('Then returns packages with commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [{ message: 'commit 1' } as any],
-        },
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-b',
-          path: '/packages/b',
-          version: '1.0.0',
-          commits: [],
-        },
-      ]
-
-      const result = await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('pkg-a')
-    })
-
-    it('Then excludes packages without commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [],
-        },
-      ]
-
-      const result = await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(result).toHaveLength(0)
-    })
-
-    it('Then uses newVersion when available', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          newVersion: '1.1.0',
-          commits: [{ message: 'commit' } as any],
-        },
-      ]
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(resolveTags).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newVersion: '1.1.0',
-        }),
-      )
-    })
-
-    it('Then falls back to version when no newVersion', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          newVersion: undefined,
-          commits: [{ message: 'commit' } as any],
-        },
-      ]
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(resolveTags).toHaveBeenCalledWith(
-        expect.objectContaining({
-          newVersion: '1.0.0',
-        }),
-      )
-    })
-
-    it('Then logs debug info for packages with commits', async () => {
-      const packages: PackageBase[] = [
-        {
-          ...createMockPackageInfo(),
-          name: 'pkg-a',
-          path: '/packages/a',
-          version: '1.0.0',
-          commits: [{ message: 'c1' } as any, { message: 'c2' } as any],
-        },
-      ]
-      const loggerSpy = vi.spyOn(logger, 'debug')
-
-      await getPackagesToPublishInIndependentMode(packages, config)
-
-      expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('pkg-a: 2 commit(s)'),
-      )
-    })
-  })
-})
-
 describe('Given getAuthCommand function', () => {
   let config: ResolvedRelizyConfig
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' }, publish: { private: false, args: [], safetyCheck: false } })
+    config = createMockConfig({ bump: { type: 'patch' }, publish: { args: [], safetyCheck: false } })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
   })
@@ -457,6 +272,12 @@ describe('Given getAuthCommand function', () => {
       const result = getAuthCommand({ packageManager: 'npm', config })
 
       expect(result).toBe('npm whoami')
+    })
+
+    it('Then leaves out the arguments of publish.args', () => {
+      config.publish.args = ['--provenance']
+
+      expect(getAuthCommand({ packageManager: 'npm', config })).toBe('npm whoami')
     })
 
     it('Then includes registry when specified', () => {
@@ -487,7 +308,7 @@ describe('Given getAuthCommand function', () => {
   describe('When a publish token is configured', () => {
     it('Then never puts the auth token in the command (it is injected via .npmrc)', () => {
       config.publish.registry = 'https://registry.example.com/npm/'
-      config.publish.token = 'secret-token'
+      config.tokens.registry = 'secret-token'
 
       const result = getAuthCommand({ packageManager: 'npm', config })
 
@@ -504,7 +325,7 @@ describe('Given withRegistryNpmrc function', () => {
   const config = createMockConfig({
     cwd: '/project',
     bump: { type: 'patch' },
-    publish: { private: false, args: [] },
+    publish: { args: [] },
   })
 
   beforeEach(() => {
@@ -532,6 +353,59 @@ describe('Given withRegistryNpmrc function', () => {
       expect(result).toBe('done')
       expect(contentDuringFn).toContain('//nexus.internal/repo/:_authToken=tok-123')
       expect(rmSync).toHaveBeenCalledWith('/project/.npmrc', { force: true })
+    })
+  })
+
+  describe('When the process stops while the token is on disk', () => {
+    const target = { name: 'npm', registry: 'https://registry.npmjs.org/', token: 'npm_secret' }
+
+    it('Then removes the .npmrc it created on exit (process.exit)', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => {
+          process.emit('exit', 0)
+          expect(rmSync).toHaveBeenCalledWith('/project/.npmrc', { force: true })
+          return Promise.resolve()
+        },
+      })
+
+      // Once
+      expect(rmSync).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then restores the original .npmrc on a signal (Ctrl+C, kill), then lets the signal stop the process', async () => {
+      vi.mocked(existsSync).mockReturnValue(true)
+      vi.mocked(readFileSync).mockReturnValue('legacy-peer-deps=true\n' as any)
+      const kill = vi.spyOn(process, 'kill').mockImplementation(() => true)
+
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => {
+          process.emit('SIGINT', 'SIGINT')
+          return Promise.resolve()
+        },
+      })
+
+      expect(writeFileSync).toHaveBeenLastCalledWith('/project/.npmrc', 'legacy-peer-deps=true\n')
+      expect(kill).toHaveBeenCalledWith(process.pid, 'SIGINT')
+      kill.mockRestore()
+    })
+
+    it('Then leaves no listener once done', async () => {
+      vi.mocked(existsSync).mockReturnValue(false)
+      const listeners = () => ['exit', 'SIGINT', 'SIGTERM', 'SIGHUP'].map(event => process.listenerCount(event))
+      const before = listeners()
+
+      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.resolve() })
+      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.reject(new Error('E403')) }).catch(() => {})
+
+      expect(listeners()).toEqual(before)
     })
   })
 
@@ -701,7 +575,8 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
     it('Then returns a single target built from the legacy fields', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { private: false, args: [], registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest' },
+        publish: { args: [], registry: 'https://registry.npmjs.org/', tag: 'latest' },
+        tokens: { registry: 'legacy-token' },
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)
@@ -717,7 +592,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' }],
@@ -735,7 +609,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
@@ -753,7 +626,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
@@ -771,7 +643,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
@@ -788,7 +659,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org', // no trailing slash
           registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }], // trailing slash
@@ -807,7 +677,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -827,7 +696,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -845,7 +713,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
@@ -869,7 +736,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' },
@@ -889,17 +755,35 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
         publish: {
-          private: false,
           args: [],
           registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
         },
       })
 
+      vi.mocked(execSync).mockReturnValue('https://my-proxy.example/\n' as any)
+
       // pkg name is 'test-package', not matched by '@scope/*'.
       const result = resolveRegistryTargetsForPackage(pkg, config)
 
       expect(result.map(t => t.name)).toEqual(['default'])
-      expect(result[0]?.registry).toBe('')
+      expect(result[0]?.registry).toBe('https://my-proxy.example/')
+    })
+
+    it('Then reads the .npmrc registry once per config', () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          args: [],
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+        },
+      })
+
+      vi.mocked(execSync).mockReturnValue('https://my-proxy.example/\n' as any)
+
+      resolveRegistryTargetsForPackage(pkg, config)
+      resolveRegistryTargetsForPackage({ ...pkg, name: 'other-package' }, config)
+
+      expect(vi.mocked(execSync).mock.calls.filter(([command]) => command === 'npm config get registry')).toHaveLength(1)
     })
   })
 
@@ -907,92 +791,10 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
     it('Then keeps the empty legacy target so the .npmrc-resolved registry is used', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        publish: { private: false, args: [] },
+        publish: { args: [] },
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('default')
-      expect(result[0]?.registry).toBe('')
-    })
-  })
-})
-
-describe('Given resolveAllConfiguredRegistryTargets function', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('When registries mix global and scoped entries', () => {
-    it('Then returns every distinct registry regardless of package scoping', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          private: false,
-          args: [],
-          registry: 'https://registry.npmjs.org/',
-          registries: [
-            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
-          ],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result.map(t => t.name)).toEqual(['default', 'nexus', 'jfrog'])
-    })
-  })
-
-  describe('When a registry duplicates the default with only a trailing slash difference', () => {
-    it('Then deduplicates it', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          private: false,
-          args: [],
-          registry: 'https://registry.npmjs.org',
-          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('default')
-    })
-  })
-
-  describe('When no default registry is configured but explicit registries are', () => {
-    it('Then omits the empty legacy target', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          private: false,
-          args: [],
-          registries: [
-            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
-          ],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result.map(t => t.name)).toEqual(['nexus', 'jfrog'])
-      expect(result.some(t => t.registry === '')).toBe(false)
-    })
-  })
-
-  describe('When neither a default registry nor explicit registries are configured', () => {
-    it('Then keeps the empty legacy target as the .npmrc fallback', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: { private: false, args: [] },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
 
       expect(result).toHaveLength(1)
       expect(result[0]?.name).toBe('default')
@@ -1042,7 +844,7 @@ describe('Given isVersionPublished function', () => {
     vi.stubEnv('RELIZY_NPM_TOKEN', undefined)
     vi.stubEnv('NPM_TOKEN', undefined)
     vi.stubEnv('NODE_AUTH_TOKEN', undefined)
-    config = createMockConfig({ cwd: '/project', publish: { private: false, args: [], safetyCheck: false } })
+    config = createMockConfig({ cwd: '/project', publish: { args: [], safetyCheck: false } })
     pkg = { ...createMockPackageInfo(), name: '@scope/pkg', path: '/packages/pkg', version: '1.0.0' }
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(readFileSync).mockReturnValue('')
@@ -1217,7 +1019,7 @@ describe('Given publishPackage function', () => {
         domain: 'gitlab.com',
         repo: 'user/repo',
       },
-      publish: { private: false, args: [], safetyCheck: false },
+      publish: { args: [], safetyCheck: false },
     })
     pkg = {
       ...createMockPackageInfo(),
@@ -1439,7 +1241,7 @@ describe('Given publishPackage function', () => {
   describe('When OTP error occurs', () => {
     it('Then retries with OTP in non-CI environment', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('OTP required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1451,8 +1253,20 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
       expect(execPromise).toHaveBeenCalledTimes(2)
+    })
+
+    it('Then fails the publish, not a cancelled run, when the OTP prompt is cancelled', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      vi.mocked(askText).mockRejectedValue(new RelizyCancelError('Cancelled'))
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('OTP required'))
+
+      const error = await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false }).catch(error_ => error_)
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error).not.toBeInstanceOf(RelizyCancelError)
+      expect(error.message).toContain('OTP input cancelled')
     })
 
     it('Then throws error in CI environment', async () => {
@@ -1469,7 +1283,7 @@ describe('Given publishPackage function', () => {
 
     it('Then handles EOTP error code', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('Error EOTP'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1481,12 +1295,12 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
     })
 
     it('Then handles one-time password error message', async () => {
       vi.mocked(isInCI).mockReturnValue(false)
-      vi.mocked(input).mockResolvedValue('123456')
+      vi.mocked(askText).mockResolvedValue('123456')
       vi.mocked(execPromise)
         .mockRejectedValueOnce(new Error('One-time password required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
@@ -1498,7 +1312,7 @@ describe('Given publishPackage function', () => {
         dryRun: false,
       })
 
-      expect(input).toHaveBeenCalled()
+      expect(askText).toHaveBeenCalled()
     })
   })
 
@@ -1719,6 +1533,39 @@ describe('Given publishPackage function', () => {
 
       expect(execPromise).toHaveBeenCalledWith(
         expect.stringContaining('yarn publish'),
+        expect.any(Object),
+      )
+    })
+
+    it('Then detects Yarn Berry from the .yarnrc.yml of the project, whatever the current directory', async () => {
+      cwdSpy.mockReturnValue('/elsewhere')
+      vi.mocked(existsSync).mockImplementation(file => file === '/project/.yarnrc.yml')
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: false,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringMatching(/^yarn npm publish .*--no-git-checks/),
+        expect.any(Object),
+      )
+    })
+
+    it('Then adds the arguments of publish.args after the ones of relizy, before --dry-run', async () => {
+      config.publish.args = ['--provenance', '--json']
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: true,
+      })
+
+      expect(execPromise).toHaveBeenCalledWith(
+        expect.stringMatching(/^pnpm publish .*--no-git-checks --provenance --json --dry-run$/),
         expect.any(Object),
       )
     })
@@ -2111,7 +1958,7 @@ describe('Given publishPackage function', () => {
         { name: 'otp-reuse', registry: 'https://otp-reuse.internal/repo/' },
       ]
 
-      vi.mocked(input).mockResolvedValueOnce('999999')
+      vi.mocked(askText).mockResolvedValueOnce('999999')
       vi.mocked(execPromise).mockImplementation((command) => {
         if ((command as string).includes('otp-reuse.internal') && !(command as string).includes('--otp 999999')) {
           return Promise.reject(new Error('OTP required'))
@@ -2122,18 +1969,18 @@ describe('Given publishPackage function', () => {
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
       // First attempt failed (no otp yet), retry succeeded with the prompted otp.
-      expect(input).toHaveBeenCalledTimes(1)
+      expect(askText).toHaveBeenCalledTimes(1)
       expect(callsFor('otp-reuse.internal')).toHaveLength(2)
       expect(callsFor('otp-reuse.internal')[1]![0]).toContain('--otp 999999')
 
       // A second package published to the same registry should reuse the cached OTP:
       // no further prompt, and the command carries it on the very first attempt.
       vi.mocked(execPromise).mockClear()
-      vi.mocked(input).mockClear()
+      vi.mocked(askText).mockClear()
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).not.toHaveBeenCalled()
+      expect(askText).not.toHaveBeenCalled()
       expect(callsFor('otp-reuse.internal')).toHaveLength(1)
       expect(callsFor('otp-reuse.internal')[0]![0]).toContain('--otp 999999')
     })
@@ -2158,7 +2005,7 @@ describe('Given publishPackage function', () => {
         { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo' }, // no trailing slash
       ]
 
-      vi.mocked(input).mockResolvedValueOnce('555555')
+      vi.mocked(askText).mockResolvedValueOnce('555555')
       vi.mocked(execPromise).mockImplementation((command) => {
         if ((command as string).includes('otp-trailing-slash.internal') && !(command as string).includes('--otp 555555')) {
           return Promise.reject(new Error('OTP required'))
@@ -2168,18 +2015,18 @@ describe('Given publishPackage function', () => {
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).toHaveBeenCalledTimes(1)
+      expect(askText).toHaveBeenCalledTimes(1)
 
       // Same registry, but declared with a trailing slash this time (different package/config).
       vi.mocked(execPromise).mockClear()
-      vi.mocked(input).mockClear()
+      vi.mocked(askText).mockClear()
       config.publish.registries = [
         { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo/' }, // trailing slash
       ]
 
       await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
 
-      expect(input).not.toHaveBeenCalled()
+      expect(askText).not.toHaveBeenCalled()
       const calls = callsFor('otp-trailing-slash.internal')
       expect(calls).toHaveLength(1)
       expect(calls[0]![0]).toContain('--otp 555555')

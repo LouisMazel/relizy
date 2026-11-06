@@ -3,15 +3,11 @@ import type { ResolvedRelizyConfig } from './config'
 import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
 import { convert } from 'convert-gitmoji'
 import { fetch } from 'node-fetch-native'
+import { isAIAttributionLine, isAIAuthor } from './ai-attribution'
 import { getFirstCommit } from './git'
 import { stripNameStatus } from './git-refs'
+import { reportProgress } from './progress'
 import { formatCompareChanges, formatReference } from './repo-config'
-
-const CHANGELOG_RELEASE_HEAD_REGEX
-  // eslint-disable-next-line sonarjs/super-linear-regex, regexp/no-super-linear-backtracking, regexp/optimal-quantifier-concatenation, regexp/no-misleading-capturing-group
-  = /^#{2,}\s+(?:\S.*)?(v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)).*$/gm
-
-const VERSION_REGEX = /^v?(\d+\.\d+\.\d+(-[a-zA-Z0-9.]+)?)$/
 
 const GITHUB_NOREPLY_EMAIL_REGEX = /^(?:\d+\+)?([^@]+)@users\.noreply\.github\.com$/i
 
@@ -76,7 +72,7 @@ export function buildChangelogBody({ commits, config, minify }: {
 /**
  * Collect unique contributor names from a set of commits.
  * Respects `config.noAuthors`, filters `[bot]` authors, and applies `config.excludeAuthors`.
- * Returns plain formatted names (no emails, no GitHub handles) — useful for lightweight
+ * Returns plain formatted names (no emails, no GitHub handles) - useful for lightweight
  * rendering contexts like Slack messages.
  */
 export function collectContributorNames({ commits, config }: {
@@ -90,7 +86,8 @@ export function collectContributorNames({ commits, config }: {
   const names = new Set<string>()
   for (const author of commits.flatMap(getCommitAuthors)) {
     const name = formatName(author.name)
-    if (!name || name.includes('[bot]')) {
+    // Bots and AI tools (`Co-authored-by: Claude <noreply@anthropic.com>`) are not contributors
+    if (!name || name.includes('[bot]') || isAIAuthor(author)) {
       continue
     }
     if (
@@ -140,6 +137,7 @@ export async function buildContributors({ commits, config }: {
   }
 
   if (config.repo?.provider === 'github') {
+    reportProgress('Finding the GitHub profiles of the contributors')
     await Promise.all(
       Array.from(_authors.keys(), async (authorName) => {
         const meta = _authors.get(authorName)
@@ -219,9 +217,9 @@ export async function generateMarkDown({
   }
 
   const changelogTitle = (updatedConfig.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}')
-    .replace('{{oldVersion}}', updatedConfig.from)
-    .replace('{{newVersion}}', updatedConfig.to)
-    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+    .replaceAll('{{oldVersion}}', updatedConfig.from)
+    .replaceAll('{{newVersion}}', updatedConfig.to)
+    .replaceAll('{{date}}', new Date().toISOString().split('T')[0] as string)
   const title = `## ${changelogTitle}`
 
   const compareLink = minify ? '' : buildCompareLink({ config: updatedConfig, from, to, isFirstCommit })
@@ -233,33 +231,57 @@ export async function generateMarkDown({
   return [title, compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
 }
 
-export function parseChangelogMarkdown(contents: string) {
-  const headings = [...contents.matchAll(CHANGELOG_RELEASE_HEAD_REGEX)]
-  const releases: { version?: string, body: string }[] = []
+// --- Internal utils ---
 
-  for (let i = 0; i < headings.length; i++) {
-    const heading = headings[i]
-    const nextHeading = headings[i + 1]
-    const [, title] = heading as RegExpExecArray
-    const version = title?.match(VERSION_REGEX)
-    const release = {
-      version: version ? version[1] : undefined,
-      body: contents
-        .slice(
-          heading?.index as number + (heading?.[0]?.length || 0),
-          nextHeading?.index as number ?? contents.length,
-        )
-        .trim(),
-    }
-    releases.push(release)
-  }
+/**
+ * Trailers without a hyphen, which reference an issue: `Closes #12`, `Fixes: #12`
+ */
+const REFERENCE_TRAILERS = new Set(['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved', 'ref', 'refs', 'see', 'cc', 'link'])
 
-  return {
-    releases,
-  }
+const BREAKING_TRAILER_REGEX = /^BREAKING[ -]CHANGE: /
+
+/**
+ * `Co-authored-by: ...`, `Signed-off-by: ...`, `Closes #12`: a plain word
+ * (`Note: ...`) is text, not a trailer
+ */
+function isTrailerLine(line: string): boolean {
+  const token = /^(?<token>[\w-]+)(?:: | #)/.exec(line)?.groups?.token
+  return BREAKING_TRAILER_REGEX.test(line) || (!!token && (token.includes('-') || REFERENCE_TRAILERS.has(token.toLowerCase())))
 }
 
-// --- Internal utils ---
+/**
+ * The body without its git trailers (its last paragraph, when made of
+ * `Token: value` lines) and without the lines crediting an AI tool. A
+ * `BREAKING CHANGE:` footer is kept: it tells how to migrate.
+ */
+function stripTrailers(body: string): string {
+  const paragraphs = body
+    .split('\n')
+    .filter(line => !isAIAttributionLine(line))
+    .join('\n')
+    .split(/\n[ \t]*\n/)
+    // A removed line can leave an empty paragraph
+    .map(paragraph => paragraph.replace(/^\n+/, '').trimEnd())
+    .filter(Boolean)
+
+  const trailers = paragraphs.at(-1)?.split('\n') ?? []
+  // A trailer value can continue on the next lines, indented
+  if (!isTrailerLine(trailers[0] ?? '') || !trailers.every(line => isTrailerLine(line) || /^\s+\S/.test(line))) {
+    return paragraphs.join('\n\n')
+  }
+
+  const breakingChanges = trailers.filter((line, index) => {
+    const start = trailers.findLastIndex((candidate, candidateIndex) => candidateIndex <= index && !/^\s/.test(candidate))
+    return BREAKING_TRAILER_REGEX.test(trailers[start] ?? '')
+  })
+  const content = paragraphs.slice(0, -1)
+  // The separator GitHub writes before the trailers of a squash merge
+  if (/^-{3,}$/.test(content.at(-1)?.trim() ?? '')) {
+    content.pop()
+  }
+
+  return [...content, ...(breakingChanges.length > 0 ? [breakingChanges.join('\n')] : [])].join('\n\n')
+}
 
 function getCommitBody(commit: GitCommit) {
   if (!commit.body) {
@@ -267,7 +289,7 @@ function getCommitBody(commit: GitCommit) {
   }
 
   // `getGitDiff` appends the `--name-status` list of the commit after its body
-  const contentLines = stripNameStatus(commit.body).split('\n')
+  const contentLines = stripTrailers(stripNameStatus(commit.body)).split('\n')
 
   // Keep a single blank line between paragraphs, none around the body
   // (a blank line is only kept after a content line, so none can lead)

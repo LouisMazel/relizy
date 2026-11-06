@@ -6,7 +6,7 @@ import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getFirstCommit, getIndependentTag } from '../../core'
-import { generateChangelog, writeChangelogToFile } from '../changelog'
+import { aggregateIndependentChangelogs, generateChangelog, writeChangelogToFile } from '../changelog'
 import { buildChangelogBody, buildCompareLink, buildContributors } from '../markdown'
 import { getNewPackageCompareBase, getPackageCommits } from '../repo'
 import { executeHook } from '../utils'
@@ -491,6 +491,18 @@ describe('Given generateChangelog function', () => {
         newVersion: '1.1.0',
       })).rejects.toThrow('No tag found for test-package')
     })
+  })
+})
+
+describe('Given aggregateIndependentChangelogs function', () => {
+  const date = new Date('2026-11-06T10:00:00Z')
+
+  it('Then joins the changelogs of the packages under a dated title', () => {
+    expect(aggregateIndependentChangelogs(['## pkg-a v1.1.0', '', '## pkg-b v2.0.1'], date)).toBe('**Multiple Packages Updated** - 2026-11-06\n\n## pkg-a v1.1.0\n\n## pkg-b v2.0.1')
+  })
+
+  it('Then returns undefined when no package has an entry', () => {
+    expect(aggregateIndependentChangelogs(['', ''], date)).toBeUndefined()
   })
 })
 

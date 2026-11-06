@@ -110,7 +110,7 @@ describe('claudeCodeProvider', () => {
       const config = createMockConfig({})
       const result = await claudeCodeProvider.generate(config, request)
 
-      expect(result).toBe('Result text')
+      expect(result).toEqual({ text: 'Result text', usage: {} })
 
       const [options, auth] = mockClaudeRun.mock.calls[0]
       expect(options.systemPrompt).toBe('You are helpful.')
@@ -120,15 +120,15 @@ describe('claudeCodeProvider', () => {
       expect(auth).toEqual({ apiKey: 'sk-test', oauthToken: undefined })
     })
 
-    it('ignores maxLength (not forwarded to claudeRun options)', async () => {
+    it('sends the context of the release before the changelog', async () => {
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
-      mockClaudeRun.mockResolvedValue({ output: 'short' })
+      mockClaudeRun.mockResolvedValue({ output: 'Result text' })
 
       const config = createMockConfig({})
-      await claudeCodeProvider.generate(config, { ...request, maxLength: 100 })
+      await claudeCodeProvider.generate(config, { ...request, context: { project: 'relizy', version: '2.0.0' } })
 
       const [options] = mockClaudeRun.mock.calls[0]
-      expect(options).not.toHaveProperty('maxLength')
+      expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
     })
 
     it('passes model when configured', async () => {
@@ -221,7 +221,7 @@ describe('claudeCodeProvider', () => {
       const config = createMockConfig({})
       const result = await claudeCodeProvider.generate(config, request)
 
-      expect(result).toBe('')
+      expect(result.text).toBe('')
     })
 
     it('logs event types when SDK returns events', async () => {
@@ -234,7 +234,23 @@ describe('claudeCodeProvider', () => {
       const config = createMockConfig({})
       const result = await claudeCodeProvider.generate(config, request)
 
-      expect(result).toBe('done')
+      expect(result.text).toBe('done')
+    })
+
+    it('returns the tokens of the result event, cached prompt included, and the cost of the CLI', async () => {
+      vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
+      mockClaudeRun.mockResolvedValue({
+        output: 'done',
+        costUsd: 0.0042,
+        events: [
+          { type: 'output' },
+          { type: 'result', usage: { input_tokens: 12, cache_creation_input_tokens: 3000, cache_read_input_tokens: 1500, output_tokens: 420 } },
+        ],
+      })
+
+      const result = await claudeCodeProvider.generate(createMockConfig({}), request)
+
+      expect(result.usage).toEqual({ inputTokens: 4512, outputTokens: 420, costUsd: 0.0042 })
     })
   })
 

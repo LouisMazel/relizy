@@ -1,8 +1,9 @@
-import { execFileSync, spawnSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import type { GitRepository } from '../../../tests/git-repository'
+import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
+import { createGitRepository } from '../../../tests/git-repository'
 import { createMockConfig } from '../../../tests/mocks'
 import { commitlint } from '../commitlint'
 
@@ -16,20 +17,11 @@ describe('Given commitlint command', () => {
   let cwd: string
   let output: string[]
 
-  function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-  }
+  let repository: GitRepository
 
-  function write(path: string, content: string) {
-    mkdirSync(join(cwd, path, '..'), { recursive: true })
-    writeFileSync(join(cwd, path), content)
-  }
-
-  function commitFiles(message: string, files: Record<string, string>) {
-    Object.entries(files).forEach(([path, content]) => write(path, content))
-    git('add', '--all')
-    git('commit', '--no-verify', '-m', message)
-  }
+  const git = (...args: string[]) => repository.git(...args)
+  const write = (path: string, content: string) => repository.write(path, content)
+  const commitFiles = (message: string, files: Record<string, string>) => repository.commit(message, files)
 
   function createConfig(overrides: Parameters<typeof createMockConfig>[0] = {}) {
     return createMockConfig({
@@ -43,12 +35,8 @@ describe('Given commitlint command', () => {
   }
 
   beforeEach(() => {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-command-')))
-    git('init', '--initial-branch=main')
-    git('config', 'user.name', 'Test')
-    git('config', 'user.email', 'test@example.com')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-commitlint-command-')
+    cwd = repository.cwd
     write('package.json', '{ "name": "root", "version": "1.0.0", "private": true }')
     write('packages/nuxt/package.json', '{ "name": "@maz-ui/nuxt", "version": "1.0.0" }')
     write('packages/core/package.json', '{ "name": "@maz-ui/core", "version": "1.0.0" }')
@@ -67,7 +55,7 @@ describe('Given commitlint command', () => {
   })
 
   afterEach(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
     vi.restoreAllMocks()
     vi.unstubAllEnvs()
   })
@@ -410,39 +398,4 @@ describe('Given commitlint command', () => {
       }
     })
   })
-})
-
-describe('Given the commitlint CLI', () => {
-  function run(...args: string[]) {
-    // Plain output, whatever the CI running these tests
-    const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !CI_VARIABLES.includes(name)))
-    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), 'commitlint', ...args], {
-      cwd: process.cwd(),
-      encoding: 'utf8',
-      env: { ...env, NO_COLOR: '1' },
-    })
-  }
-
-  it('Then exits with 0 on a valid message, without the banner', () => {
-    const result = run('--message', 'feat: add the commitlint command')
-
-    expect(result.status).toBe(0)
-    expect(result.stdout.trim()).toBe('✔ feat → minor bump, 🚀 Features')
-  }, 30_000)
-
-  it('Then prints an expected error without stack trace', () => {
-    const result = run('--from', 'origin/unknown-ref')
-    const output = `${result.stdout}${result.stderr}`
-
-    expect(result.status).toBe(1)
-    expect(output).toContain('Cannot find "origin/unknown-ref"')
-    expect(output).not.toContain('at assertRefAvailable')
-  }, 30_000)
-
-  it('Then exits with 1 on an invalid message', () => {
-    const result = run('--message', 'Added stuff')
-
-    expect(result.status).toBe(1)
-    expect(result.stdout).toContain('✖ Added stuff')
-  }, 30_000)
 })

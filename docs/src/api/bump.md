@@ -1,7 +1,7 @@
 ---
 title: bump()
-description: Bump package versions programmatically.
-keywords: relizy bump api, version bump api, programmatic bump, semver api, monorepo versioning api
+description: Compute and write the new versions from Node.js, and get the bumped packages.
+keywords: relizy bump api, programmatic bump, BumpResult, BumpOptions, version groups, canary version, semver api
 category: API Reference
 tags: [api, bump, versioning, semver, typescript]
 ---
@@ -10,152 +10,66 @@ tags: [api, bump, versioning, semver, typescript]
 
 {{ $frontmatter.description }}
 
-## Signature
-
 ```ts
-function bump(options: BumpOptions): Promise<BumpResult>
+function bump(options?: Partial<BumpOptions>): Promise<BumpResult>
 ```
+
+`bump()` runs [`relizy bump`](./../cli/bump.md): it checks the working directory, computes the new versions, asks to confirm them (unless `yes`), and writes them to the `package.json` files.
 
 ## Options
 
-```ts
-interface BumpOptions {
-  /**
-   * Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
-   * @default 'release'
-   */
-  type?: ReleaseType
-  /**
-   * Prerelease identifier (e.g. 'beta', 'alpha')
-   * @default undefined
-   */
-  preid?: string
-  /**
-   * Check if there are any changes to commit before bumping.
-   * @default true
-   */
-  clean?: boolean
-  /**
-   * Dependency fields whose internal dependencies bump the package, on every
-   * bump of these dependencies.
-   * @default ['dependencies']
-   */
-  dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
-  /**
-   * What to do with a package whose published peer dependency range rejects
-   * the new version of the dependency (checked as npm does, prereleases
-   * included). A package released while its dependency makes a breaking change
-   * gets a major. See the
-   * [bump config reference](../config/bump.md#outofrangepeers).
-   * @default 'bump'
-   */
-  outOfRangePeers?: 'bump' | 'warn' | 'error'
-  /**
-   * Skip confirmation prompt about bumping packages
-   * @default true
-   */
-  yes?: boolean
-  /**
-   * Run without side effects
-   * @default false
-   */
-  dryRun?: boolean
-  /**
-   * Use custom config
-   * @default undefined
-   */
-  config?: ResolvedRelizyConfig
-  /**
-   * Set log level
-   * @default undefined
-   */
-  logLevel?: LogLevel
-  /**
-   * Bump all packages even if there are no commits
-   * @default false
-   */
-  force?: boolean
-  /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
-   * @default 'relizy'
-   */
-  configName?: string
-  /**
-   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
-   * @default undefined
-   */
-  suffix?: string
+The flags of [`relizy bump`](./../cli/bump.md#options), camelCased, and the [shared options](./usage.md#shared-options):
 
-  /**
-   * Enable canary bump mode.
-   * Computes a canary version with format {nextVersion}-0.{preid}-{sha}
-   * The next version is auto-detected from commits, then the canary suffix is appended.
-   * @default false
-   */
-  canary?: boolean
-  /**
-   * Only process these version groups of `monorepo.groups`, by name
-   * @default undefined (every group)
-   */
-  groups?: string[]
-}
-```
+| Option            | Description                                                                                                                                                               |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `type`            | `BumpReleaseType`: `'release'` (default) computes the bump from the commits, or `'major'`, `'minor'`, `'patch'`, `'prerelease'`, `'premajor'`, `'preminor'`, `'prepatch'` |
+| `preid`           | Prerelease identifier: `'beta'`, `'rc'`...                                                                                                                                |
+| `suffix`          | With a prerelease type, replaces the last number of the version                                                                                                           |
+| `canary`          | Writes a canary version, `{nextVersion}-0.canary-{sha}` (`preid` replaces `canary`)                                                                                       |
+| `force`           | Bumps the packages even without a commit triggering a bump                                                                                                                |
+| `yes`             | Confirms the new versions without asking (default `false`). Without an interactive terminal, `bump()` throws unless `true`                                                |
+| `clean`           | `false` bumps with uncommitted changes                                                                                                                                    |
+| `dependencyTypes` | Overrides [`bump.dependencyTypes`](./../config/bump.md#dependencytypes)                                                                                                   |
+| `privatePackages` | Overrides [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)                                                                                           |
+| `capZeroMajor`    | Overrides [`bump.capZeroMajor`](./../config/bump.md#capzeromajor)                                                                                                         |
+| `outOfRangePeers` | Overrides [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers)                                                                                                   |
 
-## Returns
+See [BumpOptions](./../typedoc/interfaces/BumpOptions.md) for the types.
 
-```ts
-type BumpResult = { bumped: false } | {
-  bumped: true
-  /**
-   * Root version before and after the bump (unified and selective modes)
-   */
-  oldVersion?: string
-  newVersion?: string
-  /**
-   * Tag of the previous release
-   */
-  fromTag?: string
-  rootPackage?: RootPackage
-  bumpedPackages: (PackageBase & { oldVersion: string })[]
-  /**
-   * Result of each version group that bumped, when `monorepo.groups` is set.
-   * The fields above then aggregate them: `bumpedPackages` lists the packages
-   * of every group, `newVersion` is the version of the unified/selective group.
-   */
-  groups?: (Omit<BumpResult, 'groups'> & { name: string, versionMode: VersionMode })[]
-}
-```
+## Result
 
-## Example
+`BumpResult` is `{ bumped: false }` when no commit triggers a bump. Otherwise, `bumped` is `true` and the result has:
 
-### Standard Bump
+- `bumpedPackages`: the bumped packages, with their `oldVersion` and `newVersion`;
+- `oldVersion`, `newVersion`, `fromTag`, `rootPackage`: the root version before and after, and the previous release tag (`unified` and `selective` modes);
+- `groups`: with [version groups](./../guide/version-groups.md), the result of each group that bumped (`GroupBumpResult`: `name`, `title`, `versionMode`, and the fields above). The other fields then aggregate them: `bumpedPackages` lists the packages of every group, `newVersion` is the one of the `unified`/`selective` group.
+
+See [BumpResultTruthy](./../typedoc/interfaces/BumpResultTruthy.md) and [GroupBumpResult](./../typedoc/interfaces/GroupBumpResult.md).
+
+## Examples
 
 ```ts
 import { bump } from 'relizy'
 
-const result = await bump({
-  type: 'minor',
-})
+const result = await bump({ yes: true })
 
-console.log(`Bumped from ${result.oldVersion} to ${result.newVersion}`)
+if (result.bumped) {
+  for (const pkg of result.bumpedPackages) {
+    console.log(`${pkg.name}: ${pkg.oldVersion} -> ${pkg.newVersion}`)
+  }
+}
 ```
 
-### Canary Bump
+Preview the versions without writing them:
 
 ```ts
-import { bump } from 'relizy'
-
-const result = await bump({
-  canary: true,
-  preid: 'snapshot', // optional, defaults to 'canary'
-})
-
-console.log(`Canary version: ${result.newVersion}`)
-// e.g., "1.3.0-0.snapshot-a3f4b2c"
+const preview = await bump({ type: 'minor', dryRun: true, yes: true })
 ```
+
+The result is the `bumpResult` option of [`changelog()`](./changelog.md), [`publish()`](./publish.md), [`providerRelease()`](./provider-release.md) and [`social()`](./social.md).
 
 ## See Also
 
-- [Canary Releases guide](../guide/canary-releases.md)
-- [CLI reference](../cli/bump.md)
-- [API usage](usage.md)
+- [`relizy bump`](./../cli/bump.md)
+- [Bump config](./../config/bump.md)
+- [Prereleases](./../guide/prereleases.md)
