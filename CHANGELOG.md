@@ -1,5 +1,53 @@
 # Changelog
 
+## v2.0.0-beta.2 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.1...v2.0.0-beta.2)
+
+### 🚀 Features
+
+- ⚠️ Rewrite only the stable versions with the AI ([08a18d0](https://github.com/LouisMazel/relizy/commit/08a18d0))
+
+  The AI no longer rewrites the prereleases (beta, canary...): their provider release notes and social posts keep their raw changelog, without an AI call. In a post announcing several versions, only the stable ones are rewritten.
+
+  Turn it off with `ai.onlyStable: false`, or for one target with its own `onlyStable`:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    ai: {
+      providerRelease: { enabled: true, onlyStable: false },
+    },
+  })
+  ```
+
+  See the [migration guide](https://relizy.dev/guide/migration-v2#ai-on-prereleases).
+
+#### ⚠️ Breaking Changes
+
+- ⚠️ Rewrite only the stable versions with the AI ([08a18d0](https://github.com/LouisMazel/relizy/commit/08a18d0))
+
+  The AI no longer rewrites the prereleases (beta, canary...): their provider release notes and social posts keep their raw changelog, without an AI call. In a post announcing several versions, only the stable ones are rewritten.
+
+  Turn it off with `ai.onlyStable: false`, or for one target with its own `onlyStable`:
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    ai: {
+      providerRelease: { enabled: true, onlyStable: false },
+    },
+  })
+  ```
+
+  See the [migration guide](https://relizy.dev/guide/migration-v2#ai-on-prereleases).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0-beta.1 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.0...v2.0.0-beta.1)
