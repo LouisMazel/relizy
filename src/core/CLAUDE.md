@@ -47,6 +47,8 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 ## Git Cache
 
+Git only runs through `src/core/git-exec.ts` (`runGitSync`, `runGit`, their `try*` variants): `execFile` without shell, the arguments as an array, never a command string.
+
 `src/core/git-cache.ts` caches the git reads of a command run: the same branch, tags and commit ranges are read for each package and each step.
 
 - Active only inside `withGitCache()`, opened by each command (`bump`, `release`...; a command run by another one shares the cache) and by each MCP tool call. Outside it, `cachedGitRead()` always runs git, so the low-level functions behave as before.

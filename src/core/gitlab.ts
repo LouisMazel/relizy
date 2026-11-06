@@ -1,13 +1,13 @@
 import type { BumpResultTruthy, PostedRelease, ProviderReleaseOptions } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { RootPackage } from './repo'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { generateAIProviderReleaseBody, isAIProviderReleaseEnabled } from './ai'
 import { generateChangelog } from './changelog'
 import { loadRelizyConfig } from './config'
 import { formatRepoTag } from './format'
-import { getFirstCommit } from './git'
+import { getCurrentGitBranch, getFirstCommit } from './git'
 import { getGitlabAuthHeader } from './gitlab-auth'
 import { reportProgress, showPreview } from './progress'
 import { getPrivatePackagesMode, getRootPackage, readPackageJson } from './repo'
@@ -149,12 +149,7 @@ async function gitlabIndependentMode({
   logger.info(`Creating ${packages.length} GitLab release(s) for independent packages`)
 
   logger.debug('Getting current branch...')
-  const { stdout: currentBranch } = await execPromise('git rev-parse --abbrev-ref HEAD', {
-    noSuccess: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: config.cwd,
-  })
+  const currentBranch = getCurrentGitBranch(config.cwd)
 
   const postedReleases: PostedRelease[] = []
 
@@ -204,7 +199,7 @@ async function gitlabIndependentMode({
       tag_name: to,
       name: to,
       description: releaseBody,
-      ref: currentBranch.trim(),
+      ref: currentBranch,
     }
 
     logger.debug(`Creating release for ${to} (ref: ${release.ref})`)
@@ -273,18 +268,13 @@ async function gitlabUnified({
   })
 
   logger.debug('Getting current branch...')
-  const { stdout: currentBranch } = await execPromise('git rev-parse --abbrev-ref HEAD', {
-    noSuccess: true,
-    noStdout: true,
-    logLevel: config.logLevel,
-    cwd: config.cwd,
-  })
+  const currentBranch = getCurrentGitBranch(config.cwd)
 
   const release = {
     tag_name: to,
     name: to,
     description: releaseBody,
-    ref: currentBranch.trim(),
+    ref: currentBranch,
   }
 
   logger.info(`Creating release for ${to} (ref: ${release.ref})`)

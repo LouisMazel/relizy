@@ -1,8 +1,8 @@
-import { execPromise } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { buildChangelogBody, buildCompareLink, buildContributors, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
 import { generateAIProviderReleaseBody } from '../ai'
+import { getCurrentGitBranch } from '../git'
 import { createGitlabRelease, gitlab } from '../gitlab'
 
 vi.mock('convert-gitmoji', () => ({
@@ -62,6 +62,7 @@ vi.mock('../markdown', () => ({
 vi.mock('../git', () => ({
   getFirstCommit: vi.fn().mockReturnValue('initial-commit'),
   getCurrentGitRef: vi.fn().mockReturnValue('HEAD'),
+  getCurrentGitBranch: vi.fn().mockReturnValue('main'),
 }))
 
 vi.mock('../ai', () => ({
@@ -478,7 +479,7 @@ describe('Given gitlab function', () => {
     vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
     vi.mocked(buildContributors).mockResolvedValue('')
     vi.mocked(isPrerelease).mockReturnValue(false)
-    vi.mocked(execPromise).mockResolvedValue({ stdout: 'main', stderr: '' })
+    vi.mocked(getCurrentGitBranch).mockReturnValue('main')
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({
@@ -505,10 +506,7 @@ describe('Given gitlab function', () => {
     it('Then gets current branch for ref', async () => {
       await gitlab({ force: false })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git rev-parse --abbrev-ref HEAD',
-        expect.any(Object),
-      )
+      expect(getCurrentGitBranch).toHaveBeenCalled()
     })
 
     it('Then returns posted releases array', async () => {
@@ -748,10 +746,7 @@ describe('Given gitlab function', () => {
     it('Then gets current branch for each release', async () => {
       await gitlab({ force: false })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git rev-parse --abbrev-ref HEAD',
-        expect.any(Object),
-      )
+      expect(getCurrentGitBranch).toHaveBeenCalled()
     })
   })
 

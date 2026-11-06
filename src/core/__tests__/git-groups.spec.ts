@@ -1,12 +1,20 @@
-import type { ChildProcess } from 'node:child_process'
 import type { BumpResultTruthy, GroupBumpResult } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { execFile, execSync } from 'node:child_process'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { createCommitAndTags, formatGitCommand, getReleaseTagNames, getReleaseTags } from '../git'
+import { createCommitAndTags, getReleaseTagNames, getReleaseTags } from '../git'
+import { formatGitCommand, runGit, runGitSync } from '../git-exec'
 import { readPackageJson } from '../repo'
 
-vi.mock('node:child_process')
+vi.mock('../git-exec', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../git-exec')>()
+  return {
+    ...actual,
+    runGitSync: vi.fn(),
+    runGit: vi.fn(),
+    tryGitSync: vi.fn(),
+    tryGit: vi.fn(),
+  }
+})
 
 vi.mock('../repo', () => ({
   readPackageJson: vi.fn(),
@@ -56,7 +64,7 @@ function createGroupsConfig(): ResolvedRelizyConfig {
 }
 
 function getExecutedCommands(): string[] {
-  return vi.mocked(execFile).mock.calls.map(([, args]) => formatGitCommand(args as string[]))
+  return vi.mocked(runGit).mock.calls.map(([args]) => formatGitCommand(args))
 }
 
 describe('Given the release tags of version groups', () => {
@@ -102,11 +110,8 @@ describe('Given createCommitAndTags function with version groups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '7.0.0', path: '/project', private: true })
-    vi.mocked(execSync).mockReturnValue('')
-    vi.mocked(execFile).mockImplementation(((_file: string, _args: string[], _options: unknown, callback: (error: null) => void) => {
-      callback(null)
-      return {} as ChildProcess
-    }) as unknown as typeof execFile)
+    vi.mocked(runGitSync).mockReturnValue('')
+    vi.mocked(runGit).mockResolvedValue('')
   })
 
   function commit(groups: GroupBumpResult[], config = createGroupsConfig()) {

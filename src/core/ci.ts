@@ -1,9 +1,9 @@
 import type { ResolvedRelizyConfig } from './config'
-import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { getCIName, isInCI } from './ci-env'
 import { clearGitCache, oncePerRun } from './git-cache'
+import { runGitSync, tryGitSync } from './git-exec'
 
 /**
  * What relizy does for itself in a CI job, whatever the provider: the full
@@ -22,19 +22,6 @@ export interface GitIdentity {
 export const RELIZY_BOT_IDENTITY: GitIdentity = { name: 'relizy[bot]', email: 'noreply@relizy.dev' }
 
 type Env = NodeJS.ProcessEnv
-
-function git(args: string[], cwd: string, env: Env = process.env): string {
-  return execFileSync('git', args, { cwd, env, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
-}
-
-function tryGit(args: string[], cwd: string, env: Env = process.env): string | undefined {
-  try {
-    return git(args, cwd, env)
-  }
-  catch {
-    return undefined
-  }
-}
 
 function getHost(url: string | undefined, fallback: string): string {
   try {
@@ -119,7 +106,7 @@ export function getCiBranch(env: Env = process.env): string | undefined {
  * how to fetch it.
  */
 export function ensureFullHistory(cwd: string): void {
-  if (tryGit(['rev-parse', '--is-shallow-repository'], cwd) !== 'true') {
+  if (tryGitSync(['rev-parse', '--is-shallow-repository'], { cwd }) !== 'true') {
     return
   }
 
@@ -129,7 +116,7 @@ export function ensureFullHistory(cwd: string): void {
   }
 
   try {
-    git(['fetch', '--unshallow', '--tags', '--quiet'], cwd)
+    runGitSync(['fetch', '--unshallow', '--tags', '--quiet'], { cwd })
     clearGitCache()
     logger.info('Fetched the full git history of the shallow clone')
   }
@@ -148,7 +135,7 @@ export function ensureFullHistory(cwd: string): void {
  * pushed, and checked against the remote before publishing.
  */
 export function attachCiBranch(cwd: string, env: Env = process.env): void {
-  if (!isInCI() || tryGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd) !== 'HEAD') {
+  if (!isInCI() || tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd }) !== 'HEAD') {
     return
   }
 
@@ -158,12 +145,12 @@ export function attachCiBranch(cwd: string, env: Env = process.env): void {
     return
   }
 
-  git(['checkout', '-B', branch], cwd)
+  runGitSync(['checkout', '-B', branch], { cwd })
   clearGitCache()
 
-  const tracked = tryGit(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], cwd) !== undefined
+  const tracked = tryGitSync(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd }) !== undefined
   if (tracked) {
-    git(['branch', `--set-upstream-to=origin/${branch}`], cwd)
+    runGitSync(['branch', `--set-upstream-to=origin/${branch}`], { cwd })
   }
 
   logger.info(`Checked out the branch "${branch}" of the CI job (detached HEAD)`)
@@ -180,7 +167,7 @@ export function applyCiGitIdentity(cwd: string, env: Env = process.env): GitIden
     return undefined
   }
 
-  if (tryGit(['config', 'user.name'], cwd) && tryGit(['config', 'user.email'], cwd)) {
+  if (tryGitSync(['config', 'user.name'], { cwd }) && tryGitSync(['config', 'user.email'], { cwd })) {
     return undefined
   }
 
@@ -237,7 +224,7 @@ function pushThrough({ url, remoteUrl, env }: { url: string, remoteUrl: string, 
 }
 
 function canPush({ remote, branch, cwd, env }: { remote: string, branch: string, cwd: string, env: Env }): boolean {
-  return tryGit(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], cwd, env) !== undefined
+  return tryGitSync(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], { cwd, env }) !== undefined
 }
 
 /**
@@ -316,20 +303,20 @@ export function ensurePushAccess({ config, env = process.env }: { config: Resolv
   const cwd = config.cwd
 
   return oncePerRun({ key: 'push-access', cwd, run: () => Promise.resolve().then(() => {
-    const branch = tryGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
+    const branch = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
     if (!branch || branch === 'HEAD') {
       logger.debug('Detached HEAD: the push access is not checked')
       return
     }
 
-    const remote = tryGit(['config', `branch.${branch}.remote`], cwd) || 'origin'
+    const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
     if (canPush({ remote, branch, cwd, env })) {
       logger.debug(`The release can be pushed to "${remote}"`)
       return
     }
 
     const token = getGitlabPushToken(config, env)
-    const remoteUrl = tryGit(['remote', 'get-url', '--push', remote], cwd)
+    const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd })
     if (token && remoteUrl?.startsWith('http') && env.CI_SERVER_URL && env.CI_PROJECT_PATH) {
       const url = new URL(env.CI_SERVER_URL)
       url.username = 'oauth2'

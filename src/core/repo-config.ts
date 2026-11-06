@@ -1,8 +1,8 @@
 import type { GitProvider, Reference, RepoConfig } from '../types'
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseJSON, parseJSONC } from 'confbox'
+import { runGitSync } from './git-exec'
 
 /**
  * Repository resolution and links, ported from changelogen 0.6.2:
@@ -98,8 +98,8 @@ function readClosestPackageJson(cwd: string): { repository?: string | { url?: st
 }
 
 function getGitRemoteURL(cwd: string, remote = 'origin'): string {
-  // A repository without remote is expected: no `error: No such remote` on the stderr of the user
-  return execSync(`git --work-tree="${cwd}" remote get-url "${remote}"`, { encoding: 'utf8', cwd, stdio: ['ignore', 'pipe', 'ignore'] }).trim()
+  // A repository without remote is expected: the stderr of git (`error: No such remote`) is not shown
+  return runGitSync([`--work-tree=${cwd}`, 'remote', 'get-url', remote], { cwd })
 }
 
 /**

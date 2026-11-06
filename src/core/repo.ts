@@ -1,7 +1,6 @@
 import type { ConfigType, GitCommit, MonorepoConfig, PackageBase, PrivatePackages, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { VersionChange } from './dependencies'
-import { execSync } from 'node:child_process'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
@@ -11,6 +10,7 @@ import { bumpPeerDependents, computeNewVersions, getExternalDependents, markDepe
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { parseCommits } from './commits'
 import { getPackageDependencies } from './dependencies'
+import { runGitSync } from './git-exec'
 import { getGitDiff, parseNameStatus } from './git-refs'
 import { GLOB_IGNORE } from './glob'
 import { getPackageJsonHistory, getPreviousPackagePaths } from './moved-packages'
@@ -29,15 +29,10 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
   const previousPaths = relativePath
     ? getPreviousPackagePaths({ packagePath: relativePath, commits: getPackageJsonHistory(relativePath, cwd), movedPackages, cwd })
     : []
-  const pathspecs = [relativePath, ...previousPaths].map(path => `"${path}"`).join(' ')
 
   try {
     // Get the oldest commit that touched this package directory
-    const result = execSync(
-      `git log --reverse --format="%H" -- ${pathspecs} | head -1`,
-      { cwd, encoding: 'utf8' },
-    )
-    const hash = result.trim()
+    const hash = runGitSync(['log', '--reverse', '--format=%H', '--', relativePath, ...previousPaths], { cwd }).split('\n')[0]?.trim()
 
     if (hash) {
       logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)
@@ -57,10 +52,7 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
  */
 function getCommitParentHash(hash: string, cwd: string): string | null {
   try {
-    const parent = execSync(
-      `git rev-parse --verify --quiet "${hash}^"`,
-      { cwd, encoding: 'utf8' },
-    ).trim()
+    const parent = runGitSync(['rev-parse', '--verify', '--quiet', `${hash}^`], { cwd })
 
     return parent || null
   }

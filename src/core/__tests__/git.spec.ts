@@ -1,10 +1,8 @@
-import type { ChildProcess } from 'node:child_process'
 import type { BumpResultTruthy } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { execFile, execFileSync, execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { anyHookContext, createMockConfig, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
 import { getIndependentTag, hasLernaJson, loadRelizyConfig, readPackageJson } from '../../core'
@@ -17,20 +15,20 @@ import {
   createCommitAndTags,
   detectGitProvider,
   fetchGitTags,
-  formatGitCommand,
   getCurrentGitBranch,
   getCurrentGitRef,
   getFirstCommit,
   getGitStatus,
+  getGitUpstream,
   getShortCommitSha,
   pushCommitAndTags,
   rollbackModifiedFiles,
 } from '../git'
+import { formatGitCommand, runGit, runGitSync, tryGit, tryGitSync } from '../git-exec'
 import { askConfirm } from '../prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from '../release-files'
 import { executeHook } from '../utils'
 
-vi.mock('node:child_process')
 vi.mock('node:fs')
 vi.mock('node:path')
 
@@ -62,6 +60,17 @@ vi.mock('../utils', () => {
   }
 })
 
+vi.mock('../git-exec', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../git-exec')>()
+  return {
+    ...actual,
+    runGitSync: vi.fn(),
+    runGit: vi.fn(),
+    tryGitSync: vi.fn(),
+    tryGit: vi.fn(),
+  }
+})
+
 vi.mock('../ci-env', () => ({ isInCI: vi.fn(() => false) }))
 
 vi.mock('../release-files', () => {
@@ -78,43 +87,61 @@ vi.mock('../prompts', () => {
   }
 })
 
+beforeEach(() => {
+  vi.mocked(runGitSync).mockReset()
+  vi.mocked(runGitSync).mockReturnValue('')
+  vi.mocked(runGit).mockReset()
+  vi.mocked(runGit).mockResolvedValue('')
+  vi.mocked(tryGitSync).mockImplementation((args, options) => {
+    try {
+      return vi.mocked(runGitSync)(args, options)
+    }
+    catch {
+      return undefined
+    }
+  })
+  vi.mocked(tryGit).mockImplementation(async (args, options) => {
+    try {
+      return await vi.mocked(runGit)(args, options)
+    }
+    catch {
+      return undefined
+    }
+  })
+})
+
 describe('Given getGitStatus function', () => {
   describe('When git status is clean', () => {
     it('Then returns empty string', () => {
-      vi.mocked(execSync).mockReturnValue('  ')
+      vi.mocked(runGitSync).mockReturnValue('')
 
       const result = getGitStatus()
 
       expect(result).toBe('')
-      expect(execSync).toHaveBeenCalledWith('git status --porcelain', {
-        cwd: undefined,
-        encoding: 'utf8',
-      })
+      expect(runGitSync).toHaveBeenCalledWith(['status', '--porcelain'], { cwd: undefined, trim: true })
     })
 
     it('Then uses provided cwd', () => {
-      vi.mocked(execSync).mockReturnValue('')
+      vi.mocked(runGitSync).mockReturnValue('')
 
       getGitStatus('/custom/path')
 
-      expect(execSync).toHaveBeenCalledWith('git status --porcelain', {
-        cwd: '/custom/path',
-        encoding: 'utf8',
-      })
+      expect(runGitSync).toHaveBeenCalledWith(['status', '--porcelain'], { cwd: '/custom/path', trim: true })
     })
   })
 
   describe('When git status has changes', () => {
-    it('Then returns trimmed status output', () => {
-      vi.mocked(execSync).mockReturnValue(' M package.json\n?? new-file.ts  \n')
+    it('Then returns the status output, untrimmed when asked', () => {
+      vi.mocked(runGitSync).mockReturnValue(' M package.json\n?? new-file.ts\n')
 
-      const result = getGitStatus()
+      const result = getGitStatus('/repo', false)
 
-      expect(result).toBe('M package.json\n?? new-file.ts')
+      expect(result).toBe(' M package.json\n?? new-file.ts\n')
+      expect(runGitSync).toHaveBeenCalledWith(['status', '--porcelain'], { cwd: '/repo', trim: false })
     })
 
     it('Then returns multiple lines of changes', () => {
-      vi.mocked(execSync).mockReturnValue('M src/core/git.ts\nA src/core/new.ts\nD old-file.ts')
+      vi.mocked(runGitSync).mockReturnValue('M src/core/git.ts\nA src/core/new.ts\nD old-file.ts')
 
       const result = getGitStatus()
 
@@ -130,21 +157,21 @@ describe('Given checkGitStatusIfDirty function', () => {
 
   describe('When git status is clean', () => {
     it('Then does not throw error', () => {
-      vi.mocked(execSync).mockReturnValue('')
+      vi.mocked(runGitSync).mockReturnValue('')
 
       expect(() => checkGitStatusIfDirty('/repo')).not.toThrow()
     })
 
     it('Then reads the status of the project directory', () => {
-      vi.mocked(execSync).mockReturnValue('')
+      vi.mocked(runGitSync).mockReturnValue('')
 
       checkGitStatusIfDirty('/repo')
 
-      expect(execSync).toHaveBeenCalledWith('git status --porcelain', expect.objectContaining({ cwd: '/repo' }))
+      expect(runGitSync).toHaveBeenCalledWith(['status', '--porcelain'], expect.objectContaining({ cwd: '/repo' }))
     })
 
     it('Then logs debug message', () => {
-      vi.mocked(execSync).mockReturnValue('  ')
+      vi.mocked(runGitSync).mockReturnValue('  ')
       const loggerSpy = vi.spyOn(logger, 'debug')
 
       checkGitStatusIfDirty('/repo')
@@ -155,13 +182,13 @@ describe('Given checkGitStatusIfDirty function', () => {
 
   describe('When git status is dirty', () => {
     it('Then throws error with dirty status message', () => {
-      vi.mocked(execSync).mockReturnValue(' M package.json\n?? src/new.ts\n')
+      vi.mocked(runGitSync).mockReturnValue(' M package.json\n?? src/new.ts\n')
 
       expect(() => checkGitStatusIfDirty('/repo')).toThrow('Uncommitted changes: package.json (modified), src/new.ts (new)\nCommit or stash them first, or keep them with --no-clean.')
     })
 
     it('Then names each change of the porcelain status', () => {
-      vi.mocked(execSync).mockReturnValue('M  file1.ts\nA  file2.ts\nR  old.ts -> new.ts\n D "with space.ts"\nUU conflict.ts\n')
+      vi.mocked(runGitSync).mockReturnValue('M  file1.ts\nA  file2.ts\nR  old.ts -> new.ts\n D "with space.ts"\nUU conflict.ts\n')
       const debugSpy = vi.spyOn(logger, 'debug')
 
       expect(() => checkGitStatusIfDirty('/repo')).toThrow('Uncommitted changes: file1.ts (modified), file2.ts (added), new.ts (renamed), and 2 more')
@@ -177,33 +204,23 @@ describe('Given fetchGitTags function', () => {
 
   describe('When fetching tags succeeds', () => {
     it('Then executes git fetch command', async () => {
-      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      vi.mocked(runGit).mockResolvedValue('')
 
       await fetchGitTags()
 
-      expect(execPromise).toHaveBeenCalledWith('git fetch --tags', {
-        cwd: undefined,
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-      })
+      expect(runGit).toHaveBeenCalledWith(['fetch', '--tags'], { cwd: undefined })
     })
 
     it('Then uses provided cwd', async () => {
-      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      vi.mocked(runGit).mockResolvedValue('')
 
       await fetchGitTags('/project/path')
 
-      expect(execPromise).toHaveBeenCalledWith('git fetch --tags', {
-        cwd: '/project/path',
-        noStderr: true,
-        noStdout: true,
-        noSuccess: true,
-      })
+      expect(runGit).toHaveBeenCalledWith(['fetch', '--tags'], { cwd: '/project/path' })
     })
 
     it('Then logs debug messages', async () => {
-      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      vi.mocked(runGit).mockResolvedValue('')
       const loggerSpy = vi.spyOn(logger, 'debug')
 
       await fetchGitTags()
@@ -216,7 +233,7 @@ describe('Given fetchGitTags function', () => {
   describe('When fetching tags fails', () => {
     it('Then catches error and logs failure', async () => {
       const error = new Error('Network error')
-      vi.mocked(execPromise).mockRejectedValue(error)
+      vi.mocked(runGit).mockRejectedValue(error)
       const loggerFailSpy = vi.spyOn(logger, 'fail')
       const loggerInfoSpy = vi.spyOn(logger, 'info')
 
@@ -230,7 +247,7 @@ describe('Given fetchGitTags function', () => {
     })
 
     it('Then does not throw error on failure', async () => {
-      vi.mocked(execPromise).mockRejectedValue(new Error('Failed'))
+      vi.mocked(runGit).mockRejectedValue(new Error('Failed'))
 
       await expect(fetchGitTags()).resolves.toBeUndefined()
     })
@@ -244,7 +261,7 @@ describe('Given detectGitProvider function', () => {
 
   describe('When remote URL is GitHub', () => {
     it('Then returns github for github.com HTTPS URL', () => {
-      vi.mocked(execSync).mockReturnValue('https://github.com/user/repo.git')
+      vi.mocked(runGitSync).mockReturnValue('https://github.com/user/repo.git')
 
       const result = detectGitProvider()
 
@@ -252,7 +269,7 @@ describe('Given detectGitProvider function', () => {
     })
 
     it('Then returns github for github.com SSH URL', () => {
-      vi.mocked(execSync).mockReturnValue('git@github.com:user/repo.git')
+      vi.mocked(runGitSync).mockReturnValue('git@github.com:user/repo.git')
 
       const result = detectGitProvider()
 
@@ -260,15 +277,11 @@ describe('Given detectGitProvider function', () => {
     })
 
     it('Then uses provided cwd', () => {
-      vi.mocked(execSync).mockReturnValue('https://github.com/user/repo.git')
+      vi.mocked(runGitSync).mockReturnValue('https://github.com/user/repo.git')
 
       detectGitProvider('/custom/path')
 
-      expect(execSync).toHaveBeenCalledWith('git remote get-url origin', {
-        cwd: '/custom/path',
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
+      expect(runGitSync).toHaveBeenCalledWith(['remote', 'get-url', 'origin'], { cwd: '/custom/path' })
     })
   })
 
@@ -278,7 +291,7 @@ describe('Given detectGitProvider function', () => {
       ['custom gitlab domain', 'https://gitlab.company.com/team/repo.git'],
       ['SSH URL', 'git@gitlab.com:group/project.git'],
     ])('Then returns gitlab for %s', (_label, url) => {
-      vi.mocked(execSync).mockReturnValue(url)
+      vi.mocked(runGitSync).mockReturnValue(url)
 
       const result = detectGitProvider()
 
@@ -292,7 +305,7 @@ describe('Given detectGitProvider function', () => {
       ['custom bitbucket domain', 'https://bitbucket.company.com/team/repo.git'],
       ['SSH URL', 'git@bitbucket.org:workspace/repo.git'],
     ])('Then returns bitbucket for %s', (_label, url) => {
-      vi.mocked(execSync).mockReturnValue(url)
+      vi.mocked(runGitSync).mockReturnValue(url)
 
       const result = detectGitProvider()
 
@@ -302,7 +315,7 @@ describe('Given detectGitProvider function', () => {
 
   describe('When remote URL is unknown provider', () => {
     it('Then returns null for unrecognized URL', () => {
-      vi.mocked(execSync).mockReturnValue('https://example.com/user/repo.git')
+      vi.mocked(runGitSync).mockReturnValue('https://example.com/user/repo.git')
 
       const result = detectGitProvider()
 
@@ -312,7 +325,7 @@ describe('Given detectGitProvider function', () => {
 
   describe('When git command fails', () => {
     it('Then returns null and catches error', () => {
-      vi.mocked(execSync).mockImplementation(() => {
+      vi.mocked(runGitSync).mockImplementation(() => {
         throw new Error('Not a git repository')
       })
 
@@ -322,7 +335,7 @@ describe('Given detectGitProvider function', () => {
     })
 
     it('Then handles missing remote', () => {
-      vi.mocked(execSync).mockImplementation(() => {
+      vi.mocked(runGitSync).mockImplementation(() => {
         throw new Error('No such remote')
       })
 
@@ -334,30 +347,41 @@ describe('Given detectGitProvider function', () => {
 
   describe('When using default cwd', () => {
     it('Then defaults to process.cwd()', () => {
-      vi.mocked(execSync).mockReturnValue('https://github.com/user/repo.git')
+      vi.mocked(runGitSync).mockReturnValue('https://github.com/user/repo.git')
 
       detectGitProvider()
 
-      expect(execSync).toHaveBeenCalledWith('git remote get-url origin', {
-        cwd: process.cwd(),
-        encoding: 'utf8',
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
+      expect(runGitSync).toHaveBeenCalledWith(['remote', 'get-url', 'origin'], { cwd: process.cwd() })
     })
   })
 })
 
-/** The git commands run without shell (`execFile`), as shown in the logs */
+/** The git commands run without shell (`runGit`), as shown in the logs */
 function getGitCommands(): string[] {
-  return vi.mocked(execFile).mock.calls.map(([, args]) => formatGitCommand(args as string[]))
+  return vi.mocked(runGit).mock.calls.map(([args]) => formatGitCommand(args))
 }
 
-/** `execFile` calling back as git does, failing the commands containing `failing.match` */
-function mockGitExecFile(failing?: { match: string, error: Error }) {
-  vi.mocked(execFile).mockImplementation(((_file: string, args: string[], _options: unknown, callback: (error: Error | null) => void) => {
-    callback(failing && formatGitCommand(args).includes(failing.match) ? failing.error : null)
-    return {} as ChildProcess
-  }) as unknown as typeof execFile)
+/** `runGit` rejecting the commands containing `failing.match`, resolving the others */
+function mockGitRun(failing?: { match: string, error: Error }) {
+  vi.mocked(runGit).mockImplementation((args) => {
+    if (failing && formatGitCommand(args).includes(failing.match)) {
+      return Promise.reject(failing.error)
+    }
+    return Promise.resolve('')
+  })
+}
+
+/** `git status --porcelain` returning `status`, `git add` failing with `addError` when given */
+function mockGitStatusAndAdd(status: string, addError?: Error) {
+  vi.mocked(runGitSync).mockImplementation((args) => {
+    if (args[0] === 'status') {
+      return status
+    }
+    if (args[0] === 'add' && addError) {
+      throw addError
+    }
+    return ''
+  })
 }
 
 describe('Given createCommitAndTags function', () => {
@@ -397,8 +421,8 @@ describe('Given createCommitAndTags function', () => {
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
     vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/project', private: false })
-    vi.mocked(execSync).mockReturnValue('')
-    mockGitExecFile()
+    vi.mocked(runGitSync).mockReturnValue('')
+    mockGitRun()
   })
 
   describe('When creating commit in dry-run mode', () => {
@@ -411,7 +435,7 @@ describe('Given createCommitAndTags function', () => {
         dryRun: true,
       })
 
-      expect(execFile).not.toHaveBeenCalled()
+      expect(runGit).not.toHaveBeenCalled()
     })
 
     it('Then executes before and after hooks', async () => {
@@ -629,12 +653,7 @@ describe('Given createCommitAndTags function', () => {
   describe('When adding files to staging', () => {
     it('Then adds standard file patterns', async () => {
       // Mock git status to return modified release files
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (cmd === 'git status --porcelain') {
-          return ' M package.json\n M packages/a/CHANGELOG.md\n M packages/a/package.json\n'
-        }
-        return ''
-      })
+      mockGitStatusAndAdd(' M package.json\n M packages/a/CHANGELOG.md\n M packages/a/package.json\n')
 
       await createCommitAndTags({
         config,
@@ -644,18 +663,13 @@ describe('Given createCommitAndTags function', () => {
         dryRun: false,
       })
 
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'package.json'], { cwd: config.cwd, stdio: 'ignore' })
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/CHANGELOG.md'], { cwd: config.cwd, stdio: 'ignore' })
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/package.json'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'package.json'], { cwd: config.cwd })
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'packages/a/CHANGELOG.md'], { cwd: config.cwd })
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'packages/a/package.json'], { cwd: config.cwd })
     })
 
     it('Then only adds the files written by the run, and forgets them once committed', async () => {
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (cmd === 'git status --porcelain') {
-          return ' M package.json\n M packages/a/package.json\n M packages/b/package.json\n'
-        }
-        return ''
-      })
+      mockGitStatusAndAdd(' M package.json\n M packages/a/package.json\n M packages/b/package.json\n')
       vi.mocked(getReleaseFiles).mockReturnValueOnce(['package.json', 'packages/a/package.json'])
 
       await createCommitAndTags({
@@ -666,20 +680,15 @@ describe('Given createCommitAndTags function', () => {
         dryRun: false,
       })
 
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'package.json'], { cwd: config.cwd, stdio: 'ignore' })
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'packages/a/package.json'], { cwd: config.cwd, stdio: 'ignore' })
-      expect(execFileSync).not.toHaveBeenCalledWith('git', ['add', 'packages/b/package.json'], expect.anything())
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'package.json'], { cwd: config.cwd })
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'packages/a/package.json'], { cwd: config.cwd })
+      expect(runGitSync).not.toHaveBeenCalledWith(['add', 'packages/b/package.json'], expect.anything())
       expect(resetReleaseFiles).toHaveBeenCalled()
     })
 
     it('Then skips lerna.json when not present', async () => {
       // Mock git status to return lerna.json as modified
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (cmd === 'git status --porcelain') {
-          return ' M lerna.json\n'
-        }
-        return ''
-      })
+      mockGitStatusAndAdd(' M lerna.json\n')
       vi.mocked(hasLernaJson).mockReturnValue(false)
       const loggerSpy = vi.spyOn(logger, 'verbose')
 
@@ -696,12 +705,7 @@ describe('Given createCommitAndTags function', () => {
 
     it('Then adds lerna.json when present', async () => {
       // Mock git status to return lerna.json as modified
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (cmd === 'git status --porcelain') {
-          return ' M lerna.json\n'
-        }
-        return ''
-      })
+      mockGitStatusAndAdd(' M lerna.json\n')
       vi.mocked(hasLernaJson).mockReturnValue(true)
       vi.mocked(existsSync).mockReturnValue(true)
 
@@ -713,14 +717,11 @@ describe('Given createCommitAndTags function', () => {
         dryRun: false,
       })
 
-      expect(execFileSync).toHaveBeenCalledWith('git', ['add', 'lerna.json'], { cwd: config.cwd, stdio: 'ignore' })
+      expect(runGitSync).toHaveBeenCalledWith(['add', 'lerna.json'], { cwd: config.cwd })
     })
 
     it('Then ignores errors when pattern matches no files', async () => {
-      vi.mocked(execSync).mockReturnValue(' M packages/a/CHANGELOG.md\n')
-      vi.mocked(execFileSync).mockImplementation(() => {
-        throw new Error('No files matched')
-      })
+      mockGitStatusAndAdd(' M packages/a/CHANGELOG.md\n', new Error('No files matched'))
 
       await expect(createCommitAndTags({
         config,
@@ -759,9 +760,9 @@ describe('Given createCommitAndTags function', () => {
         dryRun: false,
       })
 
-      const gitArgs = vi.mocked(execFile).mock.calls.map(([file, args]) => [file, args])
-      expect(gitArgs).toContainEqual(['git', ['commit', '-m', 'release: `whoami` $HOME "5.0.0"']])
-      expect(gitArgs).toContainEqual(['git', ['tag', '-a', 'v5.0.0', '-m', 'Tag \'5.0.0\' $(id)']])
+      const gitArgs = vi.mocked(runGit).mock.calls.map(([args]) => args)
+      expect(gitArgs).toContainEqual(['commit', '-m', 'release: `whoami` $HOME "5.0.0"'])
+      expect(gitArgs).toContainEqual(['tag', '-a', 'v5.0.0', '-m', 'Tag \'5.0.0\' $(id)'])
     })
 
     it('Then uses default message when template is undefined', async () => {
@@ -877,7 +878,7 @@ describe('Given createCommitAndTags function', () => {
   describe('When tag creation fails', () => {
     it('Then logs error and throws', async () => {
       const error = new Error('Tag already exists')
-      mockGitExecFile({ match: 'git tag', error })
+      mockGitRun({ match: 'git tag', error })
       const loggerSpy = vi.spyOn(logger, 'error')
 
       await expect(createCommitAndTags({
@@ -892,7 +893,7 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then executes error hook', async () => {
-      mockGitExecFile({ match: 'git tag', error: new Error('Failed') })
+      mockGitRun({ match: 'git tag', error: new Error('Failed') })
 
       try {
         await createCommitAndTags({
@@ -913,7 +914,7 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When commit fails', () => {
     it('Then executes error hook', async () => {
-      mockGitExecFile({ match: 'git commit', error: new Error('Commit failed') })
+      mockGitRun({ match: 'git commit', error: new Error('Commit failed') })
 
       try {
         await createCommitAndTags({
@@ -967,7 +968,7 @@ describe('Given pushCommitAndTags function', () => {
       social: true,
       prComment: true,
     }
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+    vi.mocked(runGit).mockResolvedValue('')
   })
 
   describe('When pushing with gitTag enabled', () => {
@@ -975,29 +976,19 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'normal',
         cwd: '/project',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git push --follow-tags',
-        {
-          noStderr: true,
-          noStdout: true,
-          noError: true,
-          logLevel: 'normal',
-          cwd: '/project',
-        },
-      )
+      expect(runGit).toHaveBeenCalledWith(['push', '--follow-tags'], { cwd: '/project' })
     })
 
     it('Then makes sure the release can be pushed first (the GitLab token may be needed), not in dry-run', async () => {
-      await pushCommitAndTags({ config, dryRun: false, logLevel: 'normal', cwd: '/project' })
+      await pushCommitAndTags({ config, dryRun: false, cwd: '/project' })
       expect(ensurePushAccess).toHaveBeenCalledWith({ config })
-      expect(vi.mocked(ensurePushAccess).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(execPromise).mock.invocationCallOrder[0]!)
+      expect(vi.mocked(ensurePushAccess).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(runGit).mock.invocationCallOrder[0]!)
 
       vi.mocked(ensurePushAccess).mockClear()
-      await pushCommitAndTags({ config, dryRun: true, logLevel: 'normal', cwd: '/project' })
+      await pushCommitAndTags({ config, dryRun: true, cwd: '/project' })
       expect(ensurePushAccess).not.toHaveBeenCalled()
     })
 
@@ -1007,7 +998,6 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'normal',
         cwd: '/project',
       })
 
@@ -1022,14 +1012,10 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: false,
-        logLevel: 'normal',
         cwd: '/project',
       })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git push',
-        expect.any(Object),
-      )
+      expect(runGit).toHaveBeenCalledWith(['push'], { cwd: '/project' })
     })
   })
 
@@ -1040,12 +1026,11 @@ describe('Given pushCommitAndTags function', () => {
       await pushCommitAndTags({
         config,
         dryRun: true,
-        logLevel: 'normal',
         cwd: '/project',
       })
 
       expect(loggerSpy).toHaveBeenCalledWith('[dry-run] git push --follow-tags')
-      expect(execPromise).not.toHaveBeenCalled()
+      expect(runGit).not.toHaveBeenCalled()
     })
 
     it('Then still logs success message', async () => {
@@ -1060,22 +1045,18 @@ describe('Given pushCommitAndTags function', () => {
       expect(loggerSpy).toHaveBeenCalledWith('Pushing changes and tags completed!')
     })
   })
+})
 
-  describe('When logLevel is not provided', () => {
-    it('Then calls execPromise with undefined logLevel', async () => {
-      await pushCommitAndTags({
-        config,
-        dryRun: false,
-        cwd: '/project',
-      })
+describe('Given getGitUpstream function', () => {
+  it('Then passes a branch with quotes and $() to git as a single argument', async () => {
+    const branch = 'feat/$(id)"x\'`y`'
+    vi.mocked(runGitSync).mockReturnValue(branch)
+    vi.mocked(runGit).mockImplementation(args => Promise.resolve(args[0] === 'config' ? 'origin' : 'refs/remotes/origin/main'))
 
-      expect(execPromise).toHaveBeenCalledWith(
-        expect.any(String),
-        expect.objectContaining({
-          logLevel: undefined,
-        }),
-      )
-    })
+    const upstream = await getGitUpstream('/project')
+
+    expect(upstream).toMatchObject({ remote: 'origin', name: 'origin/main' })
+    expect(vi.mocked(runGit).mock.calls.map(([args]) => args)).toContainEqual(['config', '--get', `branch.${branch}.remote`])
   })
 })
 
@@ -1086,32 +1067,18 @@ describe('Given getFirstCommit function', () => {
 
   describe('When repository has commits', () => {
     it('Then returns first commit hash', () => {
-      vi.mocked(execSync).mockReturnValue('abc123def456\n')
+      vi.mocked(runGitSync).mockReturnValue('abc123def456')
 
       const result = getFirstCommit('/project')
 
       expect(result).toBe('abc123def456')
-      expect(execSync).toHaveBeenCalledWith(
-        'git rev-list --max-parents=0 HEAD',
-        {
-          cwd: '/project',
-          encoding: 'utf8',
-        },
-      )
-    })
-
-    it('Then trims whitespace from result', () => {
-      vi.mocked(execSync).mockReturnValue('  abc123  \n')
-
-      const result = getFirstCommit('/project')
-
-      expect(result).toBe('abc123')
+      expect(runGitSync).toHaveBeenCalledWith(['rev-list', '--max-parents=0', 'HEAD'], { cwd: '/project' })
     })
   })
 
   describe('When repository has multiple root commits', () => {
     it('Then returns first root commit', () => {
-      vi.mocked(execSync).mockReturnValue('first123\nsecond456\n')
+      vi.mocked(runGitSync).mockReturnValue('first123\nsecond456')
 
       const result = getFirstCommit('/project')
 
@@ -1127,30 +1094,16 @@ describe('Given getCurrentGitBranch function', () => {
 
   describe('When on a named branch', () => {
     it('Then returns branch name', () => {
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = getCurrentGitBranch('/project')
 
       expect(result).toBe('main')
-      expect(execSync).toHaveBeenCalledWith(
-        'git rev-parse --abbrev-ref HEAD',
-        {
-          cwd: '/project',
-          encoding: 'utf8',
-        },
-      )
-    })
-
-    it('Then trims whitespace from branch name', () => {
-      vi.mocked(execSync).mockReturnValue('  feature/new-feature  \n')
-
-      const result = getCurrentGitBranch('/project')
-
-      expect(result).toBe('feature/new-feature')
+      expect(runGitSync).toHaveBeenCalledWith(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd: '/project' })
     })
 
     it('Then handles branch with slashes', () => {
-      vi.mocked(execSync).mockReturnValue('bugfix/issue-123\n')
+      vi.mocked(runGitSync).mockReturnValue('bugfix/issue-123')
 
       const result = getCurrentGitBranch('/project')
 
@@ -1160,7 +1113,7 @@ describe('Given getCurrentGitBranch function', () => {
 
   describe('When in detached HEAD state', () => {
     it('Then returns HEAD', () => {
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
 
       const result = getCurrentGitBranch('/project')
 
@@ -1176,7 +1129,7 @@ describe('Given getCurrentGitRef function', () => {
 
   describe('When on a branch', () => {
     it('Then returns branch name from getCurrentGitBranch', () => {
-      vi.mocked(execSync).mockReturnValue('develop\n')
+      vi.mocked(runGitSync).mockReturnValue('develop')
 
       const result = getCurrentGitRef('/project')
 
@@ -1184,7 +1137,7 @@ describe('Given getCurrentGitRef function', () => {
     })
 
     it('Then handles feature branches', () => {
-      vi.mocked(execSync).mockReturnValue('feature/login\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/login')
 
       const result = getCurrentGitRef('/project')
 
@@ -1194,15 +1147,7 @@ describe('Given getCurrentGitRef function', () => {
 
   describe('When in detached HEAD state', () => {
     it('Then returns HEAD as fallback', () => {
-      vi.mocked(execSync).mockReturnValue('')
-
-      const result = getCurrentGitRef('/project')
-
-      expect(result).toBe('HEAD')
-    })
-
-    it('Then returns HEAD when branch is empty string', () => {
-      vi.mocked(execSync).mockReturnValue('  \n')
+      vi.mocked(runGitSync).mockReturnValue('')
 
       const result = getCurrentGitRef('/project')
 
@@ -1218,37 +1163,23 @@ describe('Given getShortCommitSha function', () => {
 
   describe('When getting short SHA with default length', () => {
     it('Then returns 7-character SHA', () => {
-      vi.mocked(execSync).mockReturnValue('a3f4b2c\n')
+      vi.mocked(runGitSync).mockReturnValue('a3f4b2c')
 
       const result = getShortCommitSha('/project')
 
       expect(result).toBe('a3f4b2c')
-      expect(execSync).toHaveBeenCalledWith(
-        'git rev-parse --short=7 HEAD',
-        { cwd: '/project', encoding: 'utf8' },
-      )
-    })
-
-    it('Then trims whitespace from result', () => {
-      vi.mocked(execSync).mockReturnValue('  abc1234  \n')
-
-      const result = getShortCommitSha('/project')
-
-      expect(result).toBe('abc1234')
+      expect(runGitSync).toHaveBeenCalledWith(['rev-parse', '--short=7', 'HEAD'], { cwd: '/project' })
     })
   })
 
   describe('When getting short SHA with custom length', () => {
     it('Then uses specified length', () => {
-      vi.mocked(execSync).mockReturnValue('a3f4b\n')
+      vi.mocked(runGitSync).mockReturnValue('a3f4b')
 
       const result = getShortCommitSha('/project', 5)
 
       expect(result).toBe('a3f4b')
-      expect(execSync).toHaveBeenCalledWith(
-        'git rev-parse --short=5 HEAD',
-        { cwd: '/project', encoding: 'utf8' },
-      )
+      expect(runGitSync).toHaveBeenCalledWith(['rev-parse', '--short=5', 'HEAD'], { cwd: '/project' })
     })
   })
 })
@@ -1269,8 +1200,8 @@ describe('Given rollbackModifiedFiles function', () => {
       await rollbackModifiedFiles({ config })
 
       expect(restoreReleaseFiles).not.toHaveBeenCalled()
-      expect(execPromise).not.toHaveBeenCalled()
-      expect(execSync).not.toHaveBeenCalled()
+      expect(runGit).not.toHaveBeenCalled()
+      expect(runGitSync).not.toHaveBeenCalled()
     })
   })
 
@@ -1281,8 +1212,8 @@ describe('Given rollbackModifiedFiles function', () => {
       await rollbackModifiedFiles({ config })
 
       expect(restoreReleaseFiles).toHaveBeenCalledWith('/project')
-      expect(execPromise).not.toHaveBeenCalled()
-      expect(execSync).not.toHaveBeenCalled()
+      expect(runGit).not.toHaveBeenCalled()
+      expect(runGitSync).not.toHaveBeenCalled()
     })
   })
 
@@ -1316,7 +1247,7 @@ describe('Given confirmDirtyGitStatus function', () => {
   })
 
   function mockGitStatus(status: string) {
-    vi.mocked(execSync).mockReturnValue(status as any)
+    vi.mocked(runGitSync).mockReturnValue(status as any)
   }
 
   describe('When the working directory is clean', () => {

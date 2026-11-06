@@ -1,27 +1,19 @@
-import { execSync } from 'node:child_process'
-import { execPromise } from '@maz-ui/node'
 import { getCurrentGitBranch, getFirstCommit } from '../git'
 import { cachedGitRead, clearGitCache, oncePerRun, withGitCache } from '../git-cache'
+import { runGit, runGitSync } from '../git-exec'
 import { getGitDiff, isAncestor, listTags, retagAnnotatedLocal, tagExists } from '../git-refs'
 
-vi.mock('@maz-ui/node', async (importActual) => {
-  const actual = await importActual<typeof import('@maz-ui/node')>()
+vi.mock('../git-exec', async (importActual) => {
+  const actual = await importActual<typeof import('../git-exec')>()
   return {
     ...actual,
-    execPromise: vi.fn(),
+    runGit: vi.fn(),
+    runGitSync: vi.fn(),
   }
 })
 
-vi.mock('node:child_process', async (importActual) => {
-  const actual = await importActual<typeof import('node:child_process')>()
-  return {
-    ...actual,
-    execSync: vi.fn(),
-  }
-})
-
-const mockExec = vi.mocked(execPromise)
-const mockExecSync = vi.mocked(execSync)
+const mockRun = vi.mocked(runGit)
+const mockRunSync = vi.mocked(runGitSync)
 
 beforeEach(() => {
   vi.clearAllMocks()
@@ -169,8 +161,8 @@ describe('Given oncePerRun', () => {
 describe('Given the git reads of a run', () => {
   describe('When they are read several times inside withGitCache', () => {
     it('Then each one runs git once', async () => {
-      mockExec.mockResolvedValue({ stdout: 'v1.1.0\nv1.0.0\n', stderr: '' } as any)
-      mockExecSync.mockReturnValue('main\n' as any)
+      mockRun.mockResolvedValue('v1.1.0\nv1.0.0')
+      mockRunSync.mockReturnValue('main')
 
       await withGitCache(async () => {
         for (let i = 0; i < 3; i++) {
@@ -181,26 +173,26 @@ describe('Given the git reads of a run', () => {
         }
       })
 
-      expect(mockExecSync).toHaveBeenCalledTimes(1)
-      expect(mockExec).toHaveBeenCalledTimes(3)
+      expect(mockRunSync).toHaveBeenCalledTimes(1)
+      expect(mockRun).toHaveBeenCalledTimes(3)
     })
 
     it('Then getFirstCommit runs git once', () => {
-      mockExecSync.mockReturnValue('abc123\n' as any)
+      mockRunSync.mockReturnValue('abc123')
 
       withGitCache(() => {
         expect(getFirstCommit('/repo')).toBe('abc123')
         expect(getFirstCommit('/repo')).toBe('abc123')
       })
 
-      expect(mockExecSync).toHaveBeenCalledTimes(1)
+      expect(mockRunSync).toHaveBeenCalledTimes(1)
     })
   })
 
   describe('When a caller changes what it got', () => {
     it('Then the next caller gets the commits and the tags read from git', async () => {
-      mockExecSync.mockReturnValue('\x1Efeat: add\x1Fabc1234\x1FJane\x1Fjane@example.com\n' as any)
-      mockExec.mockResolvedValue({ stdout: 'v1.0.0\n', stderr: '' } as any)
+      mockRunSync.mockReturnValue('\x1Efeat: add\x1Fabc1234\x1FJane\x1Fjane@example.com')
+      mockRun.mockResolvedValue('v1.0.0')
 
       await withGitCache(async () => {
         const commits = getGitDiff('v1.0.0', 'HEAD', '/repo')
@@ -216,14 +208,14 @@ describe('Given the git reads of a run', () => {
         expect(await listTags({ cwd: '/repo' })).toEqual(['v1.0.0'])
       })
 
-      expect(mockExecSync).toHaveBeenCalledTimes(1)
-      expect(mockExec).toHaveBeenCalledTimes(1)
+      expect(mockRunSync).toHaveBeenCalledTimes(1)
+      expect(mockRun).toHaveBeenCalledTimes(1)
     })
   })
 
   describe('When relizy moves a tag', () => {
     it('Then the tags are read again', async () => {
-      mockExec.mockResolvedValue({ stdout: 'v1.0.0\n', stderr: '' } as any)
+      mockRun.mockResolvedValue('v1.0.0')
 
       await withGitCache(async () => {
         await listTags({ cwd: '/repo' })
@@ -231,7 +223,7 @@ describe('Given the git reads of a run', () => {
         await listTags({ cwd: '/repo' })
       })
 
-      const listCalls = mockExec.mock.calls.filter(([command]) => command.startsWith('git tag --sort'))
+      const listCalls = mockRun.mock.calls.filter(([args]) => args[0] === 'tag' && args.includes('--sort=-creatordate'))
       expect(listCalls).toHaveLength(2)
     })
   })

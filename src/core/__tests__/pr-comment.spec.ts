@@ -1,11 +1,14 @@
 import type { PullRequestInfo } from '../pr-comment'
-import { execSync } from 'node:child_process'
 import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
+import { runGitSync } from '../git-exec'
 import { detectPullRequest, findGitHubPR, findGitLabMR, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
 
-vi.mock('node:child_process')
+vi.mock('../git-exec', async importActual => ({
+  ...(await importActual<typeof import('../git-exec')>()),
+  runGitSync: vi.fn(),
+}))
 
 globalThis.fetch = vi.fn()
 
@@ -346,7 +349,7 @@ describe('Given detectPullRequest function', () => {
     const githubConfig = () => createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' } })
 
     it('Then finds the GitHub pull request of the commit', async () => {
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
       vi.mocked(fetch)
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
         .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 12, html_url: 'https://github.com/user/repo/pull/12' }]) } as Response)
@@ -358,7 +361,7 @@ describe('Given detectPullRequest function', () => {
     })
 
     it('Then finds the GitLab merge request of the commit, from a detached HEAD too', async () => {
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
       vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ iid: 7, web_url: 'https://gitlab.com/user/repo/-/merge_requests/7' }]) } as Response)
       const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'glpat-token' } })
 
@@ -369,7 +372,7 @@ describe('Given detectPullRequest function', () => {
     })
 
     it('Then keeps the open pull request of the branch first', async () => {
-      vi.mocked(execSync).mockReturnValue('feat/parser\n')
+      vi.mocked(runGitSync).mockReturnValue('feat/parser')
       vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 3, html_url: 'https://github.com/user/repo/pull/3' }]) } as Response)
 
       const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
@@ -443,7 +446,7 @@ describe('Given detectPullRequest function', () => {
           github: 'gh-token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/my-branch\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/my-branch')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([
@@ -471,7 +474,7 @@ describe('Given detectPullRequest function', () => {
           github: undefined,
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 
@@ -491,7 +494,7 @@ describe('Given detectPullRequest function', () => {
           gitlab: 'gl-token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/my-branch\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/my-branch')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([
@@ -519,7 +522,7 @@ describe('Given detectPullRequest function', () => {
           gitlab: undefined,
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 
@@ -539,7 +542,7 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('feature/no-pr\n')
+      vi.mocked(runGitSync).mockReturnValue('feature/no-pr')
       vi.mocked(fetch).mockResolvedValue({
         ok: true,
         json: () => Promise.resolve([]),
@@ -557,8 +560,8 @@ describe('Given detectPullRequest function', () => {
         repo: undefined,
       })
       // Mock detectGitProvider to return null
-      vi.mocked(execSync).mockImplementation((cmd) => {
-        if (typeof cmd === 'string' && cmd.includes('git remote get-url')) {
+      vi.mocked(runGitSync).mockImplementation((args) => {
+        if (args.includes('get-url')) {
           throw new Error('Not a git repository')
         }
         return ''
@@ -582,7 +585,7 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
 
       const result = await detectPullRequest({ config })
 
@@ -618,7 +621,7 @@ describe('Given detectPullRequest function', () => {
           github: 'token',
         },
       })
-      vi.mocked(execSync).mockReturnValue('main\n')
+      vi.mocked(runGitSync).mockReturnValue('main')
 
       const result = await detectPullRequest({ config })
 

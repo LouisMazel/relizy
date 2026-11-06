@@ -2,8 +2,7 @@ import type { BumpResultTruthy, GitCommit, PackageBase, PostedRelease } from '..
 import type { ResolvedRelizyConfig } from './config'
 import type { AIRewrite, ReleaseLink } from './progress'
 import type { ReleaseAI, ReleaseContent, ReleaseGit, ReleasePublish, ReleaseStepReport } from './release-report'
-import { execSync } from 'node:child_process'
-import { getCurrentGitBranch, getGitUpstream } from './git'
+import { getCurrentGitBranch, getGitUpstream, getShortCommitSha } from './git'
 import { collectContributorNames } from './markdown'
 import { getPublishTag } from './npm'
 import { detectPackageManager, resolveRegistryTargetsForPackages } from './npm-registry'
@@ -49,7 +48,7 @@ export async function getReleaseGit({ config, committed, dryRun }: { config: Res
   try {
     const branch = getCurrentGitBranch(config.cwd)
     const commit = committed && !dryRun
-      ? execSync('git rev-parse --short HEAD', { cwd: config.cwd, encoding: 'utf8' }).trim()
+      ? getShortCommitSha(config.cwd)
       : undefined
     const upstream = await getGitUpstream(config.cwd)
 

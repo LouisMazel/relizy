@@ -1,5 +1,4 @@
-import { execSync } from 'node:child_process'
-import { execPromise } from '@maz-ui/node'
+import { runGit, runGitSync } from '../git-exec'
 import {
   findReachableCommitBySubject,
   getCommitSubject,
@@ -13,161 +12,147 @@ import {
   tagExists,
 } from '../git-refs'
 
-vi.mock('@maz-ui/node', async (importActual) => {
-  const actual = await importActual<typeof import('@maz-ui/node')>()
+vi.mock('../git-exec', async (importActual) => {
+  const actual = await importActual<typeof import('../git-exec')>()
   return {
     ...actual,
-    execPromise: vi.fn(),
+    runGit: vi.fn(),
+    runGitSync: vi.fn(),
   }
 })
 
-vi.mock('node:child_process', async (importActual) => {
-  const actual = await importActual<typeof import('node:child_process')>()
-  return {
-    ...actual,
-    execSync: vi.fn(),
-  }
-})
-
-const mockExec = vi.mocked(execPromise)
-const mockExecSync = vi.mocked(execSync)
+const mockRun = vi.mocked(runGit)
+const mockRunSync = vi.mocked(runGitSync)
 
 beforeEach(() => {
-  vi.clearAllMocks()
+  vi.resetAllMocks()
 })
 
 describe('Given isAncestor', () => {
   it('Then returns true when git merge-base exits 0', async () => {
-    mockExec.mockResolvedValue({ stdout: '', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     const result = await isAncestor('v1.0.0', 'HEAD', '/repo')
     expect(result).toBe(true)
-    expect(mockExec).toHaveBeenCalledWith(
-      expect.stringContaining('git merge-base --is-ancestor'),
-      expect.objectContaining({ cwd: '/repo', noError: true }),
-    )
+    expect(mockRun).toHaveBeenCalledWith(['merge-base', '--is-ancestor', 'v1.0.0', 'HEAD'], { cwd: '/repo' })
   })
 
   it('Then returns false when the command rejects (not an ancestor)', async () => {
-    mockExec.mockRejectedValue(new Error('exit 1'))
+    mockRun.mockRejectedValue(new Error('exit 1'))
     expect(await isAncestor('v1.0.0', 'HEAD')).toBe(false)
   })
 })
 
 describe('Given getCommitSubject', () => {
-  it('Then returns the trimmed subject', async () => {
-    mockExec.mockResolvedValue({ stdout: 'chore(release): bump version to 1.0.0\n', stderr: '' } as any)
+  it('Then returns the subject', async () => {
+    mockRun.mockResolvedValue('chore(release): bump version to 1.0.0')
     expect(await getCommitSubject('v1.0.0')).toBe('chore(release): bump version to 1.0.0')
   })
 
   it('Then returns null on empty output', async () => {
-    mockExec.mockResolvedValue({ stdout: '\n', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     expect(await getCommitSubject('v1.0.0')).toBeNull()
   })
 
   it('Then returns null when the command rejects', async () => {
-    mockExec.mockRejectedValue(new Error('bad ref'))
+    mockRun.mockRejectedValue(new Error('bad ref'))
     expect(await getCommitSubject('nope')).toBeNull()
   })
 })
 
 describe('Given findReachableCommitBySubject', () => {
   it('Then returns the first matching commit SHA', async () => {
-    mockExec.mockResolvedValue({ stdout: 'abc123def\n', stderr: '' } as any)
+    mockRun.mockResolvedValue('abc123def')
     const sha = await findReachableCommitBySubject('bump version to 1.0.0', 'HEAD')
     expect(sha).toBe('abc123def')
-    expect(mockExec).toHaveBeenCalledWith(
-      expect.stringContaining('--fixed-strings'),
-      expect.objectContaining({ noError: true }),
+    expect(mockRun).toHaveBeenCalledWith(
+      ['log', 'HEAD', '--grep=bump version to 1.0.0', '--fixed-strings', '--format=%H', '-n', '1'],
+      { cwd: undefined },
     )
   })
 
+  it('Then passes a subject with quotes and substitutions as a single argument', async () => {
+    mockRun.mockResolvedValue('abc123def')
+    const subject = 'fix: "quoted" $(whoami) `id`'
+    await findReachableCommitBySubject(subject, 'HEAD')
+    expect(mockRun.mock.calls[0]![0]).toContain(`--grep=${subject}`)
+  })
+
   it('Then returns null when no commit matches', async () => {
-    mockExec.mockResolvedValue({ stdout: '', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     expect(await findReachableCommitBySubject('nothing', 'HEAD')).toBeNull()
   })
 
   it('Then returns null when the command rejects', async () => {
-    mockExec.mockRejectedValue(new Error('fail'))
+    mockRun.mockRejectedValue(new Error('fail'))
     expect(await findReachableCommitBySubject('x', 'HEAD')).toBeNull()
   })
 })
 
 describe('Given tagExists', () => {
   it('Then returns true when the tag resolves', async () => {
-    mockExec.mockResolvedValue({ stdout: 'sha', stderr: '' } as any)
+    mockRun.mockResolvedValue('sha')
     expect(await tagExists('v1.0.0')).toBe(true)
-    expect(mockExec).toHaveBeenCalledWith(
-      expect.stringContaining('refs/tags/v1.0.0'),
-      expect.anything(),
-    )
+    expect(mockRun).toHaveBeenCalledWith(['rev-parse', '--verify', '--quiet', 'refs/tags/v1.0.0'], { cwd: undefined })
   })
 
   it('Then returns false when the tag does not exist', async () => {
-    mockExec.mockRejectedValue(new Error('not found'))
+    mockRun.mockRejectedValue(new Error('not found'))
     expect(await tagExists('missing')).toBe(false)
   })
 })
 
 describe('Given retagAnnotatedLocal', () => {
   it('Then force-creates an annotated tag at the given commit', async () => {
-    mockExec.mockResolvedValue({ stdout: '', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     await retagAnnotatedLocal({ tag: 'v1.0.0', commit: 'abc123', message: 'Bump to 1.0.0', cwd: '/repo' })
-    const cmd = mockExec.mock.calls[0]![0] as string
-    expect(cmd).toContain('git tag -f -a')
-    expect(cmd).toContain('v1.0.0')
-    expect(cmd).toContain('abc123')
-    expect(cmd).not.toContain('-s -a')
+    expect(mockRun).toHaveBeenCalledWith(['tag', '-f', '-a', 'v1.0.0', 'abc123', '-m', 'Bump to 1.0.0'], { cwd: '/repo' })
   })
 
   it('Then adds the sign flag when signed is true', async () => {
-    mockExec.mockResolvedValue({ stdout: '', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     await retagAnnotatedLocal({ tag: 'v1.0.0', commit: 'abc123', message: 'm', signed: true })
-    expect(mockExec.mock.calls[0]![0]).toContain('git tag -f -s -a')
+    expect(mockRun.mock.calls[0]![0]).toEqual(['tag', '-f', '-s', '-a', 'v1.0.0', 'abc123', '-m', 'm'])
   })
 })
 
 describe('Given pushTagForce', () => {
   it('Then force-pushes the tag to origin', async () => {
-    mockExec.mockResolvedValue({ stdout: '', stderr: '' } as any)
+    mockRun.mockResolvedValue('')
     await pushTagForce('v1.0.0', '/repo')
-    expect(mockExec).toHaveBeenCalledWith(
-      expect.stringContaining('git push origin'),
-      expect.objectContaining({ cwd: '/repo' }),
-    )
-    expect(mockExec.mock.calls[0]![0]).toContain('--force')
+    expect(mockRun).toHaveBeenCalledWith(['push', 'origin', 'v1.0.0', '--force'], { cwd: '/repo' })
   })
 })
 
 describe('Given getGitDiff', () => {
   it('Then reads the log with record and field separators', () => {
-    mockExecSync.mockReturnValue('')
+    mockRunSync.mockReturnValue('')
 
     getGitDiff('v1.0.0', 'HEAD', '/repo')
 
-    expect(mockExecSync).toHaveBeenCalledWith(
-      'git --no-pager log v1.0.0...HEAD --pretty="%x1E%s%x1F%h%x1F%an%x1F%ae%n%b" --name-status',
-      expect.objectContaining({ cwd: '/repo', encoding: 'utf8' }),
+    expect(mockRunSync).toHaveBeenCalledWith(
+      ['--no-pager', 'log', 'v1.0.0...HEAD', '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b', '--name-status'],
+      { cwd: '/repo' },
     )
   })
 
-  it('Then reads a log larger than the default buffer of execSync', () => {
-    mockExecSync.mockReturnValue('')
+  it('Then reads the log with the default buffer of git-exec (1 GB), not a smaller one', () => {
+    mockRunSync.mockReturnValue('')
 
     getGitDiff(undefined, 'HEAD', '/repo')
 
-    expect(mockExecSync).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ maxBuffer: 1024 ** 3 }))
+    expect(mockRunSync.mock.calls[0]![1]).not.toHaveProperty('maxBuffer')
   })
 
   it('Then logs the whole history when there is no from ref', () => {
-    mockExecSync.mockReturnValue('')
+    mockRunSync.mockReturnValue('')
 
     getGitDiff(undefined, 'HEAD', '/repo')
 
-    expect(mockExecSync).toHaveBeenCalledWith(expect.stringContaining('log HEAD '), expect.anything())
+    expect(mockRunSync.mock.calls[0]![0].slice(0, 3)).toEqual(['--no-pager', 'log', 'HEAD'])
   })
 
   it('Then keeps the co-author trailers and changed files of a GitHub squash merge', () => {
-    mockExecSync.mockReturnValue([
+    mockRunSync.mockReturnValue([
       '\x1Efeat: support multiple registries (#113)\x1Ff5bbc52\x1FMazel\x1Fme@example.com',
       '* feat: support multiple registries (#112)',
       '',
@@ -195,7 +180,7 @@ describe('Given getGitDiff', () => {
   })
 
   it('Then keeps a subject containing a pipe', () => {
-    mockExecSync.mockReturnValue('\x1Efeat: support a | b\x1Fabc1234\x1FAlice\x1Falice@example.com\n')
+    mockRunSync.mockReturnValue('\x1Efeat: support a | b\x1Fabc1234\x1FAlice\x1Falice@example.com\n')
 
     const [commit] = getGitDiff('v1.0.0', 'HEAD', '/repo')
 

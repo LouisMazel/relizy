@@ -109,7 +109,7 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
 
   let from = options.from
   if (!from) {
-    const start = await resolveDefaultRangeStart({ cwd: config.cwd, logLevel: options.logLevel })
+    const start = await resolveDefaultRangeStart({ cwd: config.cwd })
     logger.debug(`commitlint: linting from the ${start.reason}`)
     from = start.from
   }

@@ -1,15 +1,13 @@
 import type { BumpResultTruthy, GitCommit } from '../../types'
-import { execSync } from 'node:child_process'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
-import { getCurrentGitBranch, getGitUpstream } from '../git'
+import { getCurrentGitBranch, getGitUpstream, getShortCommitSha } from '../git'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../release-facts'
-
-vi.mock('node:child_process', () => ({ execSync: vi.fn() }))
 
 vi.mock('../git', () => ({
   getCurrentGitBranch: vi.fn(),
   getGitUpstream: vi.fn(),
+  getShortCommitSha: vi.fn(),
 }))
 
 function commit(type: string, hash: string, { breaking = false, author = 'Ada' } = {}): GitCommit {
@@ -38,7 +36,7 @@ describe('Given the git of a release', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(getCurrentGitBranch).mockReturnValue('main')
-    vi.mocked(execSync).mockReturnValue('a1b2c3d\n')
+    vi.mocked(getShortCommitSha).mockReturnValue('a1b2c3d')
   })
 
   it('Then gives the branch, the release commit and the remote', async () => {
@@ -52,7 +50,7 @@ describe('Given the git of a release', () => {
 
     expect(await getReleaseGit({ config, committed: true, dryRun: true })).toEqual({ branch: 'main' })
     expect(await getReleaseGit({ config, committed: false, dryRun: false })).toEqual({ branch: 'main' })
-    expect(execSync).not.toHaveBeenCalled()
+    expect(getShortCommitSha).not.toHaveBeenCalled()
   })
 
   it('Then gives nothing out of a git repository', async () => {

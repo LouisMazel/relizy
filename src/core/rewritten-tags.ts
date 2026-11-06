@@ -106,12 +106,11 @@ async function rebind({
     message,
     signed: config.signTags,
     cwd: config.cwd,
-    logLevel: config.logLevel,
   })
   logger.success(`Re-bound tag "${from}" -> ${short(twin)} locally.`)
 
   if (push) {
-    await pushTagForce(from, config.cwd, config.logLevel)
+    await pushTagForce(from, config.cwd)
     logger.success(`Force-pushed tag "${from}" to origin.`)
   }
   else {

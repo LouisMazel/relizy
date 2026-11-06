@@ -1,6 +1,6 @@
-import { execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join, posix } from 'node:path'
+import { runGitSync } from './git-exec'
 import { parseNameStatus } from './git-refs'
 
 /** A package directory moved from `from` to `to` (POSIX paths, relative to the repository) */
@@ -22,7 +22,7 @@ function isPackageJson(path: string): boolean {
 
 function readPackageName(ref: string, cwd: string): string | undefined {
   try {
-    const content = execSync(`git show "${ref}"`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+    const content = runGitSync(['show', ref], { cwd })
 
     return (JSON.parse(content) as { name?: string }).name
   }
@@ -112,12 +112,10 @@ export function getPreviousPackagePaths({
  * package before its first tag. Read from `rev` (HEAD by default).
  */
 export function getPackageJsonHistory(packageRelativePath: string, cwd: string, rev?: string): { body: string, shortHash: string }[] {
-  const revision = rev ? `"${rev}" ` : ''
-
   try {
-    const output = execSync(
-      `git --no-pager log --follow --name-status --format="%x1E%h" ${revision}-- "${packageRelativePath}/package.json"`,
-      { cwd, encoding: 'utf8' },
+    const output = runGitSync(
+      ['--no-pager', 'log', '--follow', '--name-status', '--format=%x1E%h', ...(rev ? [rev] : []), '--', `${packageRelativePath}/package.json`],
+      { cwd, trim: false },
     )
 
     return output.split('\x1E').slice(1).map((record) => {

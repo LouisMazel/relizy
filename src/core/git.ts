@@ -1,61 +1,25 @@
-import type { LogLevel } from '@maz-ui/node'
-
 import type { BumpResultTruthy, GitProvider, GroupBumpResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import { execFile, execFileSync, execSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { ensurePushAccess } from './ci'
 import { isInCI } from './ci-env'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES, formatRepoTag } from './format'
 import { cachedGitRead, clearGitCache } from './git-cache'
+import { formatGitCommand, runGit, runGitSync, tryGit, tryGitSync } from './git-exec'
 import { isAncestor, tagExists } from './git-refs'
 import { getRootGroupBumpResult } from './groups'
 import { askConfirm } from './prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { hasLernaJson, readPackageJson } from './repo'
-import { shellArg } from './shell'
 import { getIndependentTag } from './tags'
 import { executeHook, getHookContext } from './utils'
 
-/**
- * Runs git without a shell: the arguments are passed as they are, so the
- * messages of the templates can contain quotes, `$` or backticks, on every
- * platform.
- */
-function runGit(args: string[], cwd: string): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile('git', args, { cwd, maxBuffer: 64 * 1024 * 1024 }, (error) => {
-      if (error) {
-        reject(error)
-        return
-      }
-
-      resolve()
-    })
-  })
-}
-
-/**
- * A git command as shown in the logs: the arguments with spaces or quotes are quoted
- */
-export function formatGitCommand(args: string[]): string {
-  return ['git', ...args.map(arg => /^[\w@./:=+-]+$/.test(arg) ? arg : JSON.stringify(arg))].join(' ')
-}
-
 export function getGitStatus(cwd?: string, trim = true) {
-  const status = execSync('git status --porcelain', {
-    cwd,
-    encoding: 'utf8',
-  })
-
-  if (trim)
-    return status.trim()
-
-  return status
+  return runGitSync(['status', '--porcelain'], { cwd, trim })
 }
 
 export function checkGitStatusIfDirty(cwd: string) {
@@ -146,7 +110,7 @@ export async function confirmDirtyGitStatus({ dryRun, cwd }: { dryRun: boolean, 
 export async function fetchGitTags(cwd?: string): Promise<void> {
   logger.debug('Fetching git tags from remote')
   try {
-    await execPromise('git fetch --tags', { cwd, noStderr: true, noStdout: true, noSuccess: true })
+    await runGit(['fetch', '--tags'], { cwd })
     logger.debug('Git tags fetched successfully')
   }
   catch (error) {
@@ -159,11 +123,7 @@ export async function fetchGitTags(cwd?: string): Promise<void> {
 
 export function detectGitProvider(cwd: string = process.cwd()): GitProvider | null {
   try {
-    const remoteUrl = execSync('git remote get-url origin', {
-      cwd,
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'ignore'],
-    }).trim()
+    const remoteUrl = runGitSync(['remote', 'get-url', 'origin'], { cwd })
 
     if (remoteUrl.includes('github.com')) {
       return 'github'
@@ -258,7 +218,7 @@ function stageReleaseFiles({ config, dryRun }: { config: ResolvedRelizyConfig, d
 
     try {
       logger.debug(`git add ${pattern}`)
-      execFileSync('git', ['add', pattern], { cwd: config.cwd, stdio: 'ignore' })
+      runGitSync(['add', pattern], { cwd: config.cwd })
     }
     catch {
       // Ignore errors if pattern doesn't match any files
@@ -345,7 +305,7 @@ async function createReleaseTags({ config, releaseTags, dryRun }: {
     else {
       logger.debug(`Executing: ${formatGitCommand(tagArgs)}`)
       try {
-        await runGit(tagArgs, config.cwd)
+        await runGit(tagArgs, { cwd: config.cwd })
         clearGitCache()
         logger.debug(`Tag created: ${tagName}`)
       }
@@ -412,7 +372,7 @@ export async function createCommitAndTags({
     }
     else {
       logger.debug(`Executing: ${formatGitCommand(commitArgs)}`)
-      await runGit(commitArgs, internalConfig.cwd)
+      await runGit(commitArgs, { cwd: internalConfig.cwd })
       clearGitCache()
       logger.success(`Committed: ${commitMessage}${noVerify ? ' (--no-verify)' : ''}`)
       resetReleaseFiles()
@@ -450,8 +410,6 @@ export interface GitUpstream {
   name: string
 }
 
-const quietExec = { noStderr: true, noStdout: true, noSuccess: true, noError: true } as const
-
 /**
  * Resolve the upstream of the current branch. Returns null on a detached HEAD
  * or when the branch has no upstream configured.
@@ -464,24 +422,21 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
       return null
     }
 
-    // The branch of a pull request is named by its author: quoted
-    const remoteKey = shellArg(`branch.${branch}.remote`)
-    const mergeKey = shellArg(`branch.${branch}.merge`)
-    const [{ stdout: remote }, { stdout: mergeRef }, { stdout: trackingRef }] = await Promise.all([
-      execPromise(`git config --get ${remoteKey}`, { cwd, ...quietExec }),
-      execPromise(`git config --get ${mergeKey}`, { cwd, ...quietExec }),
-      execPromise('git rev-parse --symbolic-full-name @{upstream}', { cwd, ...quietExec }),
+    const [remote, mergeRef, trackingRef] = await Promise.all([
+      runGit(['config', '--get', `branch.${branch}.remote`], { cwd }),
+      runGit(['config', '--get', `branch.${branch}.merge`], { cwd }),
+      runGit(['rev-parse', '--symbolic-full-name', '@{upstream}'], { cwd }),
     ])
 
-    if (!remote.trim() || !mergeRef.trim() || !trackingRef.trim()) {
+    if (!remote || !mergeRef || !trackingRef) {
       return null
     }
 
     return {
-      remote: remote.trim(),
-      mergeRef: mergeRef.trim(),
-      trackingRef: trackingRef.trim(),
-      name: trackingRef.trim().replace(/^refs\/remotes\//, ''),
+      remote,
+      mergeRef,
+      trackingRef,
+      name: trackingRef.replace(/^refs\/remotes\//, ''),
     }
   }
   catch {
@@ -490,8 +445,7 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
 }
 
 async function fetchUpstream(upstream: GitUpstream, cwd: string): Promise<void> {
-  const refspec = shellArg(`+${upstream.mergeRef}:${upstream.trackingRef}`)
-  await execPromise(`git fetch ${shellArg(upstream.remote)} ${refspec}`, { cwd, ...quietExec })
+  await runGit(['fetch', upstream.remote, `+${upstream.mergeRef}:${upstream.trackingRef}`], { cwd })
   clearGitCache()
 }
 
@@ -540,9 +494,8 @@ export async function assertBranchUpToDateWithRemote({ cwd }: { cwd: string }): 
     return
   }
 
-  const range = shellArg(`HEAD..${upstream.trackingRef}`)
-  const { stdout } = await execPromise(`git rev-list --count ${range}`, { cwd, ...quietExec })
-  const missingCommits = Number.parseInt(stdout.trim(), 10) || 0
+  const count = await runGit(['rev-list', '--count', `HEAD..${upstream.trackingRef}`], { cwd })
+  const missingCommits = Number.parseInt(count, 10) || 0
 
   if (missingCommits > 0) {
     throw new BranchBehindRemoteError(upstream.name, missingCommits)
@@ -571,17 +524,15 @@ function isPushRejectedAsBehind(error: unknown): boolean {
  */
 async function recoverRejectedPush({
   config,
-  command,
+  pushArgs,
   tags,
   pushError,
-  logLevel,
   cwd,
 }: {
   config: ResolvedRelizyConfig
-  command: string
+  pushArgs: string[]
   tags: string[]
   pushError: unknown
-  logLevel?: LogLevel
   cwd: string
 }): Promise<void> {
   const upstream = await getGitUpstream(cwd)
@@ -594,16 +545,14 @@ async function recoverRejectedPush({
 
   try {
     await fetchUpstream(upstream, cwd)
-    const noVerifyFlag = config.release.noVerify ? ' --no-verify' : ''
-    await execPromise(`git merge --no-edit${noVerifyFlag} ${shellArg(upstream.name)}`, { cwd, ...quietExec })
+    await runGit(['merge', '--no-edit', ...(config.release.noVerify ? ['--no-verify'] : []), upstream.name], { cwd })
     clearGitCache()
   }
   catch (mergeError) {
-    await execPromise('git merge --abort', { cwd, ...quietExec }).catch(() => {})
+    await tryGit(['merge', '--abort'], { cwd })
 
     if (tags.length > 0) {
-      const tagRefs = tags.map(tag => shellArg(`refs/tags/${tag}`)).join(' ')
-      await execPromise(`git push ${shellArg(upstream.remote)} ${tagRefs}`, { cwd, ...quietExec }).catch(() => {})
+      await tryGit(['push', upstream.remote, ...tags.map(tag => `refs/tags/${tag}`)], { cwd })
     }
 
     const recoverRef = tags[0] ?? 'HEAD'
@@ -616,7 +565,7 @@ async function recoverRejectedPush({
     )
   }
 
-  await execPromise(command, { noStderr: true, noStdout: true, logLevel, cwd })
+  await runGit(pushArgs, { cwd })
 
   logger.success(`Merged "${upstream.name}" into the release commit and pushed`)
 }
@@ -624,19 +573,18 @@ async function recoverRejectedPush({
 export async function pushCommitAndTags({
   config,
   dryRun,
-  logLevel,
   cwd,
   tags = [],
 }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
-  logLevel?: LogLevel
   cwd: string
   tags?: string[]
 }) {
   logger.start('Start push changes and tags')
 
-  const command = config.release.gitTag ? 'git push --follow-tags' : 'git push'
+  const pushArgs = config.release.gitTag ? ['push', '--follow-tags'] : ['push']
+  const command = formatGitCommand(pushArgs)
 
   if (dryRun) {
     logger.info(`[dry-run] ${command}`)
@@ -648,7 +596,7 @@ export async function pushCommitAndTags({
     await ensurePushAccess({ config })
 
     try {
-      await execPromise(command, { noStderr: true, noStdout: true, noError: true, logLevel, cwd })
+      await runGit(pushArgs, { cwd })
     }
     catch (error) {
       if (!isPushRejectedAsBehind(error)) {
@@ -656,7 +604,7 @@ export async function pushCommitAndTags({
         throw error
       }
 
-      await recoverRejectedPush({ config, command, tags, pushError: error, logLevel, cwd })
+      await recoverRejectedPush({ config, pushArgs, tags, pushError: error, cwd })
     }
   }
 
@@ -817,14 +765,7 @@ export function getFirstCommit(cwd: string): string {
     key: ['first-commit'],
     cwd,
     read: () => {
-      const result = execSync(
-        'git rev-list --max-parents=0 HEAD',
-        {
-          cwd,
-          encoding: 'utf8',
-        },
-      )
-      return result.trim()
+      return runGitSync(['rev-list', '--max-parents=0', 'HEAD'], { cwd })
     },
   })
 }
@@ -834,12 +775,7 @@ export function getCurrentGitBranch(cwd: string): string {
     key: ['current-branch'],
     cwd,
     read: () => {
-      const result = execSync('git rev-parse --abbrev-ref HEAD', {
-        cwd,
-        encoding: 'utf8',
-      })
-
-      return result.trim()
+      return runGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
     },
   })
 }
@@ -853,14 +789,9 @@ export function getCurrentGitRef(cwd: string): string {
  * The full hash of HEAD, undefined outside a git repository or before the first commit
  */
 export function getHeadCommit(cwd: string): string | undefined {
-  try {
-    return execSync('git rev-parse HEAD', { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || undefined
-  }
-  catch {
-    return undefined
-  }
+  return tryGitSync(['rev-parse', 'HEAD'], { cwd }) || undefined
 }
 
 export function getShortCommitSha(cwd: string, length = 7): string {
-  return execSync(`git rev-parse --short=${length} HEAD`, { cwd, encoding: 'utf8' }).trim()
+  return runGitSync(['rev-parse', `--short=${length}`, 'HEAD'], { cwd })
 }

@@ -1,8 +1,8 @@
 import type { PackageManager } from '../types'
 import type { InitAnswers, ProjectDetection } from './init'
-import { execFileSync } from 'node:child_process'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { tryGitSync } from './git-exec'
 import { getExecCommand } from './npm-registry'
 
 /**
@@ -51,17 +51,8 @@ export interface WorkflowFile {
 const RELEASE_TYPES = ['auto', 'patch', 'minor', 'major']
 
 function getDefaultBranch(cwd: string): string {
-  const git = (...args: string[]) => {
-    try {
-      return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()
-    }
-    catch {
-      return ''
-    }
-  }
-
-  const remoteHead = git('symbolic-ref', '--short', 'refs/remotes/origin/HEAD').replace(/^origin\//, '')
-  const current = git('rev-parse', '--abbrev-ref', 'HEAD')
+  const remoteHead = (tryGitSync(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], { cwd }) ?? '').replace(/^origin\//, '')
+  const current = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
   return remoteHead || (current && current !== 'HEAD' ? current : 'main')
 }
 
