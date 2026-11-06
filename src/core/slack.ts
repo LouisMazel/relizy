@@ -256,6 +256,20 @@ function formatSlackSections({ sections, changelogFormat, maxLength, surrounding
 }
 
 /**
+ * The packages of the 📦 Packages block: the ones the sections do not already
+ * list (the packages of an `independent` group)
+ */
+function getUnlistedPackages(packages: PackageBumpEntry[], changelog: string | SlackReleaseSection[]): PackageBumpEntry[] {
+  if (typeof changelog === 'string') {
+    return packages
+  }
+
+  const listed = new Set(changelog.flatMap(section => section.packages?.map(pkg => pkg.name) ?? []))
+
+  return packages.filter(pkg => !listed.has(pkg.name))
+}
+
+/**
  * Format the Slack message using blocks.
  * - `summary` format: the changelog is a single mrkdwn section (2500 chars by default).
  * - `full` format: the changelog is rendered as rich_text blocks, commit bodies
@@ -333,12 +347,14 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   const trailingBlocks: any[] = []
 
   // Add packages section
-  if (packages.length > 0) {
+  const unlistedPackages = getUnlistedPackages(packages, changelog)
+
+  if (unlistedPackages.length > 0) {
     trailingBlocks.push({
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: formatListSection('*📦 Packages*', packagesLine.split('\n'), 'packages'),
+        text: formatListSection('*📦 Packages*', formatPackagesForSlack(unlistedPackages).split('\n'), 'packages'),
       },
     })
   }

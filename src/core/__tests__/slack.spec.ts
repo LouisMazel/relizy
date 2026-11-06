@@ -1350,6 +1350,19 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
     expect(blocks[2].text.text).toBe('*Tooling*\n*@maz-ui/eslint-config* `5.0.0` → `5.1.0`\n*🚀 Features*\n• Stop enforcing the catalog\n*@maz-ui/upgrade* `5.2.1`')
   })
 
+  it('Then lists in the packages block only the packages the sections do not list', () => {
+    const packages = [
+      { name: '@maz-ui/lib', oldVersion: '6.0.0', newVersion: '7.0.0', version: '7.0.0', hasTransition: true },
+      { name: '@maz-ui/eslint-config', oldVersion: '5.0.0', newVersion: '5.1.0', version: '5.1.0', hasTransition: true },
+    ]
+
+    const blocks = formatSlackMessage({ variables, changelog: sections, packages })
+    const packagesBlock = blocks.find((block: any) => block.text?.text?.includes('📦 Packages'))
+
+    expect(packagesBlock.text.text).toContain('@maz-ui/lib')
+    expect(packagesBlock.text.text).not.toContain('@maz-ui/eslint-config')
+  })
+
   it('Then renders the title of each group before its rich text in full format', () => {
     const blocks = formatSlackMessage({ variables, changelog: sections, changelogFormat: 'full' })
 
