@@ -34,13 +34,13 @@ These options go before or after the command name.
 | Flag                   | Description                                                                                                                                                                                                                                                  | Config                                                       |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------ |
 | `--config <name>`      | Load `<name>.config.<ext>` instead of `relizy.config.<ext>` (e.g. `relizy.standalone`). Fails when the file does not exist                                                                                                                                   | [Multiple configs](./../config/overview.md#multiple-configs) |
-| `--log-level <level>`  | `silent`, `error`, `warning`, `normal`, `default` (default), `debug`, `trace` or `verbose`. `verbose`, `debug` and `trace` show the details of each step                                                                                                     | [`logLevel`](./../config/overview.md#loglevel)               |
+| `--log-level <level>`  | `silent`, `error`, `warning`, `normal`, `default`, `debug`, `trace` or `verbose`, instead of the `logLevel` of the config (`default` by default). `verbose`, `debug` and `trace` show the details of each step                                               | [`logLevel`](./../config/overview.md#loglevel)               |
 | `--dry-run`            | Preview the run: no file written but the [report](./../config/release.md#report), no commit, tag, push, publication nor post. Shows what would be generated (changelogs, release notes, posts, PR comment). The AI is not called, its rewrites are simulated | -                                                            |
 | `--no-preview`         | With `--dry-run`, do not show what would be generated (still shown with `--log-level verbose`)                                                                                                                                                               | -                                                            |
 | `--ai-preview`         | With `--dry-run`, call the AI to preview its rewrites of the release notes and the posts. Each call costs, as in a real release                                                                                                                              | [AI](./../config/ai.md)                                      |
 | `--group <names>`      | Only process these [version groups](./../guide/version-groups.md), comma-separated names. Used by `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`                                                                                 | [`monorepo.groups`](./../config/monorepo.md#groups)          |
 | `--pr-number <number>` | Number of the pull request or merge request to comment, instead of the detected one. Used by `release` and `pr-comment`                                                                                                                                      | [PR comment](./../config/pr-comment.md)                      |
-| `--no-safety-check`    | Skip the checks run before writing anything (tokens, registry access, branch up to date). Used by `release`, `provider-release` and `social`                                                                                                                 | [`safetyCheck`](./../config/overview.md#safetycheck)         |
+| `--no-safety-check`    | Skip the checks run before writing anything (tokens, registry access, branch up to date). Used by `release`, `publish`, `provider-release` and `social`                                                                                                      | [`safetyCheck`](./../config/overview.md#safetycheck)         |
 
 With `--group`, only the targeted groups are bumped, published and tagged, in a single release commit. Without it, every group is processed:
 
@@ -66,11 +66,11 @@ RELIZY_REPORTER=ci relizy release --dry-run --yes
 
 ## Exit Codes
 
-| Code | When                                                                                                                                       |
-| ---- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `0`  | Success, or nothing to release (`release` and `bump` without a commit triggering a bump)                                                   |
-| `0`  | A prompt refused or cancelled (bump confirmation, uncommitted changes, rewritten tag): nothing was written, the `error:*` hooks do not run |
-| `1`  | An error, an unknown option or an invalid value, or commit messages with errors (`commitlint`)                                             |
+| Code | When                                                                                                                                                                    |
+| ---- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `0`  | Success, or nothing to release (`release` and `bump` without a commit triggering a bump)                                                                                |
+| `0`  | A prompt refused or cancelled (bump confirmation, uncommitted changes, rewritten tag): nothing was written, the `error:*` hooks do not run                              |
+| `1`  | An error, an unknown option or an invalid value, commit messages with errors (`commitlint`), a failed provider release (`provider-release`) or a failed post (`social`) |
 
 `release` and `bump` ask to confirm the new versions. Without an interactive terminal (CI), they fail right away with code `1` unless `--yes` is given:
 

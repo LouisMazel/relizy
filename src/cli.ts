@@ -234,7 +234,7 @@ program
   .option('--no-ai', 'Force-disable AI for release notes')
   .action(async (options) => {
     try {
-      await providerRelease({
+      const result = await providerRelease({
         token: options.token,
         from: options.from,
         to: options.to,
@@ -246,6 +246,11 @@ program
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
+
+      // The error is already shown by the output of the command
+      if (result.error) {
+        process.exitCode = 1
+      }
     }
     catch (error) {
       exitWithError('Failed to publish release -', error)
@@ -262,7 +267,7 @@ program
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
-      await social({
+      const result = await social({
         from: options.from,
         to: options.to,
         dryRun: program.opts().dryRun,
@@ -273,6 +278,11 @@ program
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
       })
+
+      // The errors are already shown by the output of the command
+      if (result.hasErrors) {
+        process.exitCode = 1
+      }
     }
     catch (error) {
       exitWithError('Failed to post the release on social media -', error)
