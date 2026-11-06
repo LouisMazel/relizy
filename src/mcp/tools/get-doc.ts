@@ -83,7 +83,7 @@ export function getDoc(context: ServerContext, { id, sections, full = false }: G
 export const getDocTool = defineTool({
   name: 'get_doc',
   title: 'Read a relizy doc page',
-  description: 'Read a page of the docs of the installed relizy: guide (getting-started, version-modes, version-groups, prereleases, github-actions, gitlab-ci, dependency-management...), config (bump, changelog, monorepo, publish, release, hooks...), cli (bump, release, publish, commitlint...), commitlint or api. Accepts an id ("guide/version-groups", "config/bump") or a page name ("version-groups"). Long pages return an outline: then ask for specific sections.',
+  description: 'Read a page of the docs of the installed relizy: guide (getting-started, version-modes, version-groups, prereleases, github-actions, gitlab-ci, dependency-management...), config (bump, changelog, monorepo, publish, release, hooks...), cli (bump, release, publish...), commitlint (rules, config, cli...) or api. Accepts an id ("guide/version-groups", "config/bump") or a page name ("version-groups"). Long pages return an outline: then ask for specific sections.',
   inputSchema: {
     id: z.string().min(1).describe('Doc id or page name: "guide/version-groups", "config/publish", "cli/release", "version-modes"'),
     sections: z.array(z.string()).max(10).optional().describe('Only return these sections (heading titles, e.g. ["Configuration"])'),

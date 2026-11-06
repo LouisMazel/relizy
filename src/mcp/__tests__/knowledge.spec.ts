@@ -29,6 +29,19 @@ function citedDocIds(): string[] {
   return [...new Set([...ids, ...Object.values(CONFIG_DOC_IDS)])]
 }
 
+/** The `https://relizy.dev/<page>#<anchor>` links of the code, outside the tests */
+function citedDocUrls(): { file: string, id: string, anchor?: string }[] {
+  const files = listFiles(join(ROOT_DIR, 'src')).filter(file => file.endsWith('.ts') && !file.includes('__tests__'))
+
+  return files.flatMap(file => [...readFileSync(file, 'utf8').matchAll(/https:\/\/relizy\.dev\/([a-z0-9/-]+)(?:#([a-z0-9-]+))?/g)]
+    .map(([, path, anchor]) => ({ file: file.slice(ROOT_DIR.length + 1), id: path!.endsWith('/') ? `${path}index` : path!, anchor })))
+}
+
+/** The anchor VitePress gives a heading: `## Removed ignorePackageNames` is `removed-ignorepackagenames` */
+function headingAnchors(markdown: string): Set<string> {
+  return new Set([...markdown.matchAll(/^#{1,6} (.+)$/gm)].map(([, title]) => title!.toLowerCase().replaceAll('`', '').replaceAll(/[^a-z0-9 -]/g, '').trim().replaceAll(/ +/g, '-')))
+}
+
 describe('Given the docs bundle generated from the sources', () => {
   let knowledge: Knowledge
 
@@ -118,6 +131,25 @@ describe('Given the docs bundle generated from the sources', () => {
 
       expect(ids.length).toBeGreaterThan(15)
       expect(ids.filter(id => !knowledge.docsById.has(id))).toEqual([])
+    })
+
+    it('Then the pages named in the description of get_doc exist too', () => {
+      const description = readFileSync(join(ROOT_DIR, 'src/mcp/tools/get-doc.ts'), 'utf8')
+      const names = [...description.matchAll(/\b(guide|config|cli|commitlint) \(([^)]+)\)/g)]
+        .flatMap(([, section, list]) => list!.split(', ').map(name => name.replace('...', '').trim()).filter(Boolean).map(name => `${section}/${name}`))
+
+      expect(names.length).toBeGreaterThan(10)
+      expect(names.filter(id => !knowledge.docsById.has(id))).toEqual([])
+    })
+  })
+
+  describe('When the code links to the docs', () => {
+    it('Then every relizy.dev link reaches an existing page and heading', () => {
+      const links = citedDocUrls()
+
+      expect(links.length).toBeGreaterThan(5)
+      expect(links.filter(({ id }) => !knowledge.docsById.has(id)).map(({ file, id }) => `${file}: ${id}`)).toEqual([])
+      expect(links.filter(({ id, anchor }) => anchor && knowledge.docsById.has(id) && !headingAnchors(knowledge.readDoc(id)).has(anchor)).map(({ file, id, anchor }) => `${file}: ${id}#${anchor}`)).toEqual([])
     })
   })
 
