@@ -24,7 +24,7 @@ describe('Given getRepoConfig', () => {
       { input: 'github:donaldsh/test', output: { domain: 'github.com', provider: 'github', repo: 'donaldsh/test' } },
       { input: 'gitlab:donaldsh/test.git', output: { domain: 'gitlab.com', provider: 'gitlab', repo: 'donaldsh/test' } },
       { input: 'git@bitbucket.org:donaldsh/test.git', output: { domain: 'bitbucket.org', provider: 'bitbucket', repo: 'donaldsh/test' } },
-      { input: 'a@x:b/c', output: { domain: 'x', provider: 'x', repo: 'b/c' } },
+      { input: 'a@x:b/c', output: { domain: 'x', provider: undefined, repo: 'b/c' } },
       { input: 'github:unjs/changelogen', output: github },
       { input: 'git@github.com:unjs/changelogen.git', output: github },
       { input: 'gitlab:unjs/changelogen', output: gitlab },
@@ -62,14 +62,25 @@ describe('Given getRepoConfig', () => {
   })
 
   describe('When the repository is self-hosted', () => {
-    it('Then the provider is the prefix or undefined', () => {
+    it('Then the provider is undefined when the host does not name one', () => {
       const selfhosted = { repo: 'unjs/changelogen', domain: 'git.unjs.io' }
 
-      expect(getRepoConfig('selfhosted:unjs/changelogen')).toMatchObject({ provider: 'selfhosted', repo: 'unjs/changelogen' })
+      expect(getRepoConfig('selfhosted:unjs/changelogen')).toStrictEqual({ provider: undefined, repo: 'unjs/changelogen', domain: 'selfhosted' })
       expect(getRepoConfig('https://git.unjs.io/unjs/changelogen')).toStrictEqual({ ...selfhosted, provider: undefined })
       expect(getRepoConfig('https://git.unjs.io/unjs/changelogen.git')).toMatchObject(selfhosted)
       expect(getRepoConfig('https://donaldsh@git.unjs.io/unjs/changelogen.git')).toMatchObject(selfhosted)
       expect(getRepoConfig('git@git.unjs.io:unjs/changelogen.git')).toMatchObject(selfhosted)
+    })
+  })
+
+  describe('When the host of a self-hosted repository names its provider', () => {
+    it.each([
+      { input: 'git@gitlab.example.com:team/app.git', output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' } },
+      { input: 'https://gitlab.example.com/team/app.git', output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' } },
+      { input: 'https://github.mycompany.com/team/app', output: { domain: 'github.mycompany.com', provider: 'github', repo: 'team/app' } },
+      { input: 'git@bitbucket.mycompany.com:team/app.git', output: { domain: 'bitbucket.mycompany.com', provider: 'bitbucket', repo: 'team/app' } },
+    ])('Then $input keeps its host and gets the provider', ({ input, output }) => {
+      expect(getRepoConfig(input)).toStrictEqual(output)
     })
   })
 
