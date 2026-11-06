@@ -637,6 +637,8 @@ export async function init(options: InitOptions = {}): Promise<InitResult> {
   const configFile = join(cwd, `${configName}.config.ts`)
   const interactive = !options.yes && Boolean(process.stdin.isTTY) && !isInCI()
 
+  // Apart from the command typed, or the line of the package manager running the script
+  process.stdout.write('\n')
   intro(c.bold(' relizy init '))
   const detection = detectProject({ cwd, configName })
   showDetection(detection)

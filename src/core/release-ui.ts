@@ -561,6 +561,8 @@ class PrettyUi extends StepUi {
   }
 
   protected onStart(title: string): void {
+    // Apart from the command typed, or the line of the package manager running the script
+    process.stdout.write('\n')
     intro(this.options.dryRun ? `${bold(title)}  ${dryRunBadge()} ${dim('nothing will be written')}` : bold(title))
   }
 

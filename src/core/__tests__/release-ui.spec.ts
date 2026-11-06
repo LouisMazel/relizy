@@ -399,6 +399,8 @@ describe('Given the terminal output', () => {
     })
 
     expect(clack.intro).toHaveBeenCalledWith(expect.stringContaining('DRY RUN'))
+    // A blank line apart from the command typed
+    expect(output[0]).toBe('\n')
     expect(spin.start).toHaveBeenCalledWith('Creating the releases')
     expect(spin.stop).toHaveBeenCalledWith(expect.stringMatching(/^1 GitHub release created {2}\d+ms {2}dry run$/))
     expect(clack.log.message).toHaveBeenCalledWith('v2.0.0')
