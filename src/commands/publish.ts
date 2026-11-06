@@ -83,8 +83,8 @@ function hasPublishablePackage(config: ResolvedRelizyConfig): boolean {
 }
 
 export async function publishSafetyCheck({ config, packages }: { config: ResolvedRelizyConfig, packages?: PackageBase[] }) {
-  if (!config.safetyCheck || !config.release.publish || !config.publish.safetyCheck) {
-    logger.debug('Safety check disabled or publish disabled')
+  if (!config.safetyCheck || !config.publish.safetyCheck) {
+    logger.debug('Safety check of the publication disabled')
     return
   }
 

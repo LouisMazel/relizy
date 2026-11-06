@@ -135,7 +135,8 @@ async function releaseSafetyCheck({
   try {
     await Promise.all([
       providerReleaseSafetyCheck({ config, provider, ai }),
-      publishSafetyCheck({ config }),
+      // The release only publishes with release.publish (disabled by --no-publish)
+      ...(config.release.publish ? [publishSafetyCheck({ config })] : []),
       // The release only posts with release.social (disabled by --no-social and --canary)
       ...(config.release.social ? [socialSafetyCheck({ config })] : []),
       ...(shouldPushReleaseCommit(config) ? [assertBranchUpToDateWithRemote({ cwd: config.cwd }), ensurePushAccess({ config })] : []),

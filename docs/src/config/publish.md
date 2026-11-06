@@ -129,7 +129,7 @@ export default defineConfig({
 - **Type:** `boolean`
 - **Default:** `true`
 
-Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. A registry scoped by `packageFilter` to packages outside of the release is not checked. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`) or `release.publish: false`.
+Before publishing, authenticate (`whoami`, npm and pnpm) against each registry the released packages need. A registry scoped by `packageFilter` to packages outside of the release is not checked. Skipped with the global [`safetyCheck`](./overview.md#safetycheck) (`--no-safety-check`), and by `relizy release` when it does not publish (`release.publish: false`, `--no-publish`).
 
 ## safetyCheckTimeout
 

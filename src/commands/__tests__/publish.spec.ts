@@ -160,13 +160,14 @@ describe('Given publishSafetyCheck function', () => {
     })
   })
 
-  describe('When publish is disabled', () => {
-    it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [] }, safetyCheck: true, release: { publish: false } })
+  describe('When release.publish is false, for relizy publish run alone', () => {
+    it('Then it still checks the access to the registry', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: false } })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
 
-      expect(processExitSpy).not.toHaveBeenCalled()
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('whoami'), expect.any(Object))
     })
   })
 

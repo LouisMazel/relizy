@@ -20,7 +20,7 @@ import { bump } from '../bump'
 import { changelog } from '../changelog'
 import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
-import { publish } from '../publish'
+import { publish, publishSafetyCheck } from '../publish'
 import { release } from '../release'
 import { social, socialSafetyCheck } from '../social'
 
@@ -330,6 +330,17 @@ describe('Given release command', () => {
       await release({})
 
       expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When the release does not publish', () => {
+    it('Then it skips the safety check of the publication', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: true, release: { commit: false, changelog: false, publish: false, push: false, providerRelease: false, social: false, prComment: false, clean: true, noVerify: false, gitTag: false } })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      await release({})
+
+      expect(publishSafetyCheck).not.toHaveBeenCalled()
     })
   })
 
