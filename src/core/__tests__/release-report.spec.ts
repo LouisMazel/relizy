@@ -83,6 +83,13 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).toContain('| Step | Result |\n| --- | --- |')
   })
 
+  it('Then gives why a step did nothing: the social posts of a prerelease', () => {
+    const report = { ...released, steps: [{ name: 'social', status: 'skipped', detail: 'twitter: prerelease' }] } satisfies ReleaseReport
+
+    expect(formatReleaseReportMarkdown(report)).toContain('| ⏭️ **Social media** | skipped (twitter: prerelease) |')
+    expect(formatReleaseReportText(report)).toContain('Social media: Skipped (twitter: prerelease)')
+  })
+
   it('Then renders the summary of a release as markdown: what each step did, with its links', () => {
     const markdown = formatReleaseReportMarkdown(detailed)
 

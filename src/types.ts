@@ -215,6 +215,10 @@ export interface SocialNetworkResult {
    * The post, when the platform gives it (Twitter)
    */
   url?: string
+  /**
+   * Why nothing was posted on the platform (`prerelease` with `onlyStable`, `nothing to announce`)
+   */
+  skipped?: string
 }
 
 export interface SocialResult {

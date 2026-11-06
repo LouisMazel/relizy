@@ -992,6 +992,19 @@ describe('Given the output of release in CI', () => {
     ]))
   })
 
+  it('Then marks the social posts skipped when no platform posted, with why', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0-beta.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    vi.mocked(social).mockResolvedValue({ results: [{ platform: 'twitter', success: true, skipped: 'prerelease' }], hasErrors: false })
+
+    await release({ safetyCheck: false })
+
+    const lines = output.join('').split('\n')
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✔ twitter skipped \(prerelease\) {2}\d+ms$/),
+      expect.stringMatching(/^ {2}○ Social media +skipped \(twitter: prerelease\)$/),
+    ]))
+  })
+
   it('Then marks the steps that failed without stopping the release', async () => {
     vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
     vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [], error: 'Bad credentials' })

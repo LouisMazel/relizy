@@ -12,7 +12,7 @@ import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
 import { runCommand } from './run-command'
 
-type SocialNetworkResponse<T> = { success: true, response?: T } | { success: false, error: string }
+type SocialNetworkResponse<T> = { success: true, response?: T, skipped?: string } | { success: false, error: string }
 
 function computeTwitterChangelogBudget({
   template,
@@ -192,12 +192,12 @@ async function handleTwitterPost({
     // Check if this is a prerelease and if we should skip it
     if (twitterConfig.onlyStable && prerelease) {
       logger.info(`Skipping Twitter post for prerelease ${variables.newVersion || variables.packageList} (social.twitter.onlyStable is enabled)`)
-      return { success: true, response: undefined }
+      return { success: true, skipped: 'prerelease' }
     }
 
     if (notAnnounced) {
       logger.info('No version to announce on Twitter (social.twitter.exclude)')
-      return { success: true, response: undefined }
+      return { success: true, skipped: 'nothing to announce' }
     }
 
     try {
@@ -303,12 +303,12 @@ async function handleSlackPost({
     // Check if this is a prerelease and if we should skip it
     if ((slackConfig.onlyStable ?? true) && prerelease) {
       logger.info(`Skipping Slack post for prerelease ${variables.newVersion || variables.packageList} (social.slack.onlyStable is enabled)`)
-      return { success: true, response: undefined }
+      return { success: true, skipped: 'prerelease' }
     }
 
     if (notAnnounced) {
       logger.info('No version to announce on Slack (social.slack.announcements, social.slack.exclude)')
-      return { success: true, response: undefined }
+      return { success: true, skipped: 'nothing to announce' }
     }
 
     reportProgress('Posting on Slack')
@@ -1021,7 +1021,7 @@ async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups,
 
   if (prerelease) {
     logger.info('Skipping the Teams cards of the prereleases (social.teams.onlyStable is enabled)')
-    return { success: true, response: undefined }
+    return { success: true, skipped: 'prerelease' }
   }
 
   try {
@@ -1029,7 +1029,7 @@ async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups,
 
     if (cards.length === 0) {
       logger.info('No version to announce on Teams (social.teams.announcements, social.teams.exclude)')
-      return { success: true, response: undefined }
+      return { success: true, skipped: 'nothing to announce' }
     }
 
     reportProgress('Posting on Teams')
@@ -1110,7 +1110,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
         run: () => postRelease({ config, options, dryRun }),
       })
 
-      const posted = result.results.filter(({ success }) => success)
+      const posted = result.results.filter(({ success, skipped }) => success && !skipped)
       ui.complete(posted.length === 0
         ? { message: describeSocialResult(result), ...(result.hasErrors ? { failed: true } : { nothing: true }) }
         : {
@@ -1124,21 +1124,33 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
 }
 
 /**
- * What the posts did: `Posted on twitter, slack`
+ * What the posts did: `Posted on twitter, slack skipped (prerelease)`
  */
 export function describeSocialResult(result: SocialResult): string {
-  const posted = result.results.filter(({ success }) => success).map(({ platform }) => platform)
+  const posted = result.results.filter(({ success, skipped }) => success && !skipped).map(({ platform }) => platform)
   const failed = result.results.filter(({ success }) => !success).map(({ platform }) => platform)
 
   return [
     posted.length > 0 ? `Posted on ${posted.join(', ')}` : '',
+    ...describeSkippedPosts(result),
     failed.length > 0 ? `${failed.join(', ')} failed` : '',
   ].filter(Boolean).join(', ') || 'Nothing posted'
+}
+
+/**
+ * The platforms that posted nothing, with why: `twitter skipped (prerelease)`
+ */
+function describeSkippedPosts(result: SocialResult): string[] {
+  return result.results.filter(({ skipped }) => skipped).map(({ platform, skipped }) => `${platform} skipped (${skipped})`)
 }
 
 function toNetworkResult(platform: string, response: SocialNetworkResponse<unknown>): SocialNetworkResult {
   if (!response.success) {
     return { platform, success: false, error: response.error }
+  }
+
+  if (response.skipped) {
+    return { platform, success: true, skipped: response.skipped }
   }
 
   const tweetId = platform === 'twitter' ? (response.response as TweetV2PostTweetResult | undefined)?.data?.id : undefined

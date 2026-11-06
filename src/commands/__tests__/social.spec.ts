@@ -385,9 +385,11 @@ describe('Given social command', () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(isPrerelease).mockReturnValue(true)
 
-      await social({})
+      const result = await social({})
 
       expect(postReleaseToTwitter).not.toHaveBeenCalled()
+      // Nothing posted: the summary of the release says why
+      expect(result).toEqual({ results: [{ platform: 'twitter', success: true, skipped: 'prerelease' }], hasErrors: false })
     })
   })
 
@@ -1212,7 +1214,7 @@ describe('Given social command with version groups', () => {
       const result = await social({ bumpResult })
 
       expect(postReleaseToTeams).not.toHaveBeenCalled()
-      expect(result).toEqual({ results: [{ platform: 'teams', success: true }], hasErrors: false })
+      expect(result).toEqual({ results: [{ platform: 'teams', success: true, skipped: 'nothing to announce' }], hasErrors: false })
     })
 
     it('Then posts one card for the release with cards: release, with the summary of each changelog', async () => {
@@ -1351,7 +1353,7 @@ describe('Given social command with version groups', () => {
         variables: expect.objectContaining({ releaseTitle: 'test-package 7.0.0 is out!', packageList: '' }),
         changelog,
       }))
-      expect(result).toEqual({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true }], hasErrors: false })
+      expect(result).toEqual({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true, skipped: 'nothing to announce' }], hasErrors: false })
     })
   })
 })

@@ -556,8 +556,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     if (socialResults?.hasErrors) {
       steps.push({ name: 'social', status: 'failed', detail: socialResults.results.filter(result => !result.success).map(result => `${result.platform}: ${result.error}`).join(', ') })
     }
+    else if (socialResults?.results.length && socialResults.results.every(result => result.skipped)) {
+      // Every platform posted nothing: a prerelease with `onlyStable`, or no version to announce
+      steps.push({ name: 'social', status: 'skipped', detail: socialResults.results.map(result => `${result.platform}: ${result.skipped}`).join(', ') })
+    }
     else {
-      addStep('social', Boolean(socialResults?.results.length), socialResults?.results.map(result => result.platform).join(', '))
+      addStep('social', Boolean(socialResults?.results.length), socialResults?.results.map(result => result.skipped ? `${result.platform} skipped (${result.skipped})` : result.platform).join(', '))
     }
 
     currentStep = 'PR comment'

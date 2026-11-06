@@ -14,7 +14,8 @@ export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'pro
 export interface ReleaseStepReport {
   name: ReleaseStepName
   /**
-   * `skipped` when the step is disabled (`release.<step>: false`, `--no-<step>`)
+   * `skipped` when the step is disabled (`release.<step>: false`, `--no-<step>`),
+   * or did nothing (every social post skipped, then `detail` says why)
    */
   status: 'done' | 'skipped' | 'failed'
   /**
@@ -190,7 +191,7 @@ export function describeReleaseAI(ai: ReleaseAI): string {
  */
 function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
   if (step.status === 'skipped') {
-    return 'skipped'
+    return step.detail ? `skipped (${step.detail})` : 'skipped'
   }
 
   if (step.status === 'done' && step.name === 'publish' && report.publish) {
@@ -244,6 +245,14 @@ export function getReleaseSummary(report: ReleaseReport): ReleaseSummaryEntry[] 
   return entries
 }
 
+function describeStepText(step: ReleaseStepReport): string {
+  if (step.status === 'skipped') {
+    return step.detail ? `Skipped (${step.detail})` : 'Skipped'
+  }
+
+  return step.detail ?? (step.status === 'done' ? 'Done' : 'Failed')
+}
+
 /**
  * The report as plain text, for the terminal
  */
@@ -262,7 +271,7 @@ export function formatReleaseReportText(report: ReleaseReport): string {
     lines.push(`Tag(s): ${report.tags.length > 0 ? report.tags.join(', ') : 'None'}`)
   }
 
-  lines.push(...report.steps.map(step => `${STEP_LABELS[step.name]}: ${step.status === 'skipped' ? 'Skipped' : step.detail ?? (step.status === 'done' ? 'Done' : 'Failed')}`))
+  lines.push(...report.steps.map(step => `${STEP_LABELS[step.name]}: ${describeStepText(step)}`))
 
   return lines.join('\n').trim()
 }
