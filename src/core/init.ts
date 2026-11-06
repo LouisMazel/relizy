@@ -1,13 +1,17 @@
 import type { BumpConfig, GitProvider, PackageManager, PrCommentMode, RelizyConfig, VersionMode } from '../types'
+import type { ChangelogFormatter } from './changelog-format'
+import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import fastGlob from 'fast-glob'
 import * as semver from 'semver'
+import { findChangelogFormatter } from './changelog-format'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
 import { getDefaultConfig } from './config'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { detectGitProvider } from './git'
 import { GLOB_IGNORE } from './glob'
-import { detectPackageManager } from './npm'
+import { detectPackageManager } from './npm-registry'
 
 /**
  * A package found by `relizy init`, released or not (apps, private packages...).
@@ -47,6 +51,8 @@ export interface ProjectDetection {
     scripts: Record<string, string>
     /** relizy is in the dependencies of the root package.json */
     hasRelizy: boolean
+    /** The formatter of the changelogs, from the dependencies of the root package.json */
+    formatter?: ChangelogFormatter
     access?: 'public' | 'restricted'
     registry?: string
   }
@@ -68,7 +74,7 @@ export type InitGoal = 'publish' | 'version'
 
 export type DependencyType = NonNullable<BumpConfig['dependencyTypes']>[number]
 
-export type InitAITarget = 'providerRelease' | 'twitter' | 'slack'
+export type InitAITarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 
 /**
  * Answers of `relizy init`, detected values when a question is not asked.
@@ -91,6 +97,7 @@ export interface InitAnswers {
   twitter: boolean
   slack: boolean
   slackChannel?: string
+  teams: boolean
   changelogUrl?: string
   prCommentMode: PrCommentMode
   ai: InitAITarget[]
@@ -190,6 +197,7 @@ export function detectProject({ cwd, configName = 'relizy' }: { cwd: string, con
       private: rootJson.private === true,
       scripts: rootJson.scripts && typeof rootJson.scripts === 'object' ? rootJson.scripts : {},
       hasRelizy: 'relizy' in dependencies,
+      formatter: findChangelogFormatter(dependencies),
       access: getAccess(rootJson),
       registry: getRegistry(rootJson),
     },
@@ -234,7 +242,7 @@ export function suggestPatterns(detection: ProjectDetection, goal: InitGoal): st
 }
 
 /** Packages matched by the globs */
-export function getPackagesOfPatterns(detection: ProjectDetection, patterns: string[]): InitPackage[] {
+function getPackagesOfPatterns(detection: ProjectDetection, patterns: string[]): InitPackage[] {
   return detection.workspaces.filter(workspace => patterns.includes(workspace.pattern)).flatMap(workspace => workspace.packages)
 }
 
@@ -293,10 +301,40 @@ export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns 
     buildCmd: detection.root.scripts.build ? getRunCommand(detection.packageManager, 'build') : undefined,
     twitter: false,
     slack: false,
+    teams: false,
     prCommentMode: defaults.prComment.mode,
     ai: [],
     aiLanguage: defaults.ai.language,
   }
+}
+
+/**
+ * The answers of an existing config kept by `relizy init`: the steps after
+ * the config (the secrets of the release workflow) follow what it releases
+ */
+export function getAnswersFromConfig(detection: ProjectDetection, config: ResolvedRelizyConfig): InitAnswers {
+  const goal: InitGoal = config.release?.publish === false ? 'version' : 'publish'
+  const socials = ['twitter', 'slack', 'teams'] as const
+
+  return {
+    ...getDefaultAnswers(detection, { goal, patterns: [] }),
+    twitter: Boolean(config.social?.twitter?.enabled),
+    slack: Boolean(config.social?.slack?.enabled),
+    teams: Boolean(config.social?.teams?.enabled),
+    ai: [
+      ...(config.ai?.providerRelease?.enabled ? ['providerRelease' as const] : []),
+      ...socials.filter(target => config.ai?.social?.[target]?.enabled),
+    ],
+  }
+}
+
+/**
+ * `templates.commitMessage` of a resolved config, unless it is a default of
+ * relizy
+ */
+export function getCustomCommitMessage(config: ResolvedRelizyConfig): string | undefined {
+  const message = config.templates?.commitMessage
+  return message && !Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES).includes(message as never) ? message : undefined
 }
 
 export function isPublicNpmRegistry(registry: string): boolean {
@@ -328,7 +366,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
       versionMode: answers.versionMode ?? 'selective',
       packages: answers.patterns,
       ...(ignored.length > 0 && { ignored }),
-      ...(released.some(pkg => pkg.private) && { includePrivates: true }),
+      ...(released.some(pkg => pkg.private) && { privatePackages: 'release' as const }),
     }
   }
 
@@ -372,10 +410,12 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     config.release = release
   }
 
-  if (answers.twitter || answers.slack) {
+  if (answers.twitter || answers.slack || answers.teams) {
     config.social = {
       ...(answers.twitter && { twitter: { enabled: true } }),
       ...(answers.slack && { slack: { enabled: true, ...(answers.slackChannel && { channel: answers.slackChannel }) } }),
+      // The AI rewrites the changelog of the cards: they show it
+      ...(answers.teams && { teams: { enabled: true, ...(answers.ai.includes('teams') && { changelog: 'summary' as const }) } }),
       ...(answers.changelogUrl && { changelogUrl: answers.changelogUrl }),
     }
   }
@@ -388,6 +428,7 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     const social = {
       ...(answers.ai.includes('twitter') && { twitter: { enabled: true } }),
       ...(answers.ai.includes('slack') && { slack: { enabled: true } }),
+      ...(answers.ai.includes('teams') && { teams: { enabled: true } }),
     }
     config.ai = {
       ...(answers.aiLanguage && answers.aiLanguage !== defaults.ai.language && { language: answers.aiLanguage }),

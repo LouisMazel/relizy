@@ -2,7 +2,7 @@ This project releases with **relizy**: versions, changelogs, git tags, npm publi
 
 ### Look it up before you guess
 
-- **MCP server `relizy`** (when available): `preview_release` (what the next release bumps and why), `preview_changelog`, `lint_commit`, `get_project` (resolved config, version mode, groups, packages), `get_config_option`, `search_docs`, `get_doc`.
+- **MCP server `relizy`** (when available): `preview_release` (what the next release bumps and why), `preview_changelog`, `lint_commit`, `get_project` (resolved config, version mode, groups, packages), `get_config_option`, `search_docs`, `get_doc`, `check_migration` (what to change to upgrade from relizy 1).
 - **Version-matched docs** in `node_modules/relizy/agent-docs/` (start with `README.md`).
 
 Never invent a config option nor a CLI flag: check it with `get_config_option` or the docs.

@@ -1,315 +1,134 @@
 ---
 title: Programmatic API
-description: Use Relizy programmatically in your Node.js scripts and tools.
-keywords: [relizy api, programmatic api, node.js api, monorepo api, version management api, release automation api, typescript api]
+description: Run the relizy commands from Node.js - the exported functions, their shared options, their results and their errors.
+keywords: relizy api, programmatic api, node.js api, release api, bump api, typescript, RelizyCancelError
 category: API Reference
-tags: [api, programmatic, node.js, typescript, integration]
+tags: [api, programmatic, node.js, typescript]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Installation
+## Exports
 
-::: code-group
-
-```bash [pnpm]
-pnpm add -D relizy
-```
-
-```bash [npm]
-npm install -D relizy
-```
-
-```bash [yarn]
-yarn add -D relizy
-```
-
-```bash [bun]
-bun add -D relizy
-```
-
-:::
-
-## Import
+`relizy` exports one function per command, the config helpers, the commit linter, the errors, and the types of the config, the options and the results.
 
 ```ts
-import { bump, changelog, prComment, providerRelease, publish, release } from 'relizy'
+import {
+  bump,
+  changelog,
+  commitlint,
+  defineConfig,
+  isRelizyCancelError,
+  lintCommitMessage,
+  loadRelizyConfig,
+  prComment,
+  providerRelease,
+  publish,
+  release,
+  RelizyCancelError,
+  social,
+} from 'relizy'
 ```
 
-## Quick Example
+| Export                                                     | Returns                                 | CLI                                                       |
+| ---------------------------------------------------------- | --------------------------------------- | --------------------------------------------------------- |
+| [`release()`](./release.md)                                | `Promise<ReleaseReport>`                | [`relizy release`](./../cli/release.md)                   |
+| [`bump()`](./bump.md)                                      | `Promise<BumpResult>`                   | [`relizy bump`](./../cli/bump.md)                         |
+| [`changelog()`](./changelog.md)                            | `Promise<void>`                         | [`relizy changelog`](./../cli/changelog.md)               |
+| [`publish()`](./publish.md)                                | `Promise<PublishResponse \| undefined>` | [`relizy publish`](./../cli/publish.md)                   |
+| [`providerRelease()`](./provider-release.md)               | `Promise<ProviderReleaseResult>`        | [`relizy provider-release`](./../cli/provider-release.md) |
+| [`social()`](./social.md)                                  | `Promise<SocialResult>`                 | [`relizy social`](./../cli/social.md)                     |
+| [`prComment()`](./pr-comment.md)                           | `Promise<boolean>`                      | [`relizy pr-comment`](./../cli/pr-comment.md)             |
+| [`commitlint()`](./commitlint.md)                          | `Promise<CommitlintRunResult>`          | [`relizy commitlint`](./../commitlint/cli.md)             |
+| [`lintCommitMessage()`](./commitlint.md#lintcommitmessage) | `Promise<CommitlintResult>`             | -                                                         |
+| [`loadRelizyConfig()`](./load-relizy-config.md)            | `Promise<ResolvedRelizyConfig>`         | -                                                         |
+| `defineConfig()`                                           | Its argument, typed as `RelizyConfig`   | [Configuration](./../config/overview.md)                  |
+| `RelizyCancelError`, `isRelizyCancelError()`               | See [Errors](#errors)                   | -                                                         |
 
-```ts
-import { release } from 'relizy'
+The [typedoc](./../typedoc/index.md) lists every export and type.
 
-// Perform a minor release
-await release({
-  type: 'minor',
-  publish: true,
-  providerRelease: true,
-})
-```
+## Shared Options
 
-## Why Use the API?
+The commands take the options of their CLI command, camelCased (`--format-cmd` is `formatCmd`, `--no-push` is `push: false`), and these ones:
 
-The programmatic API is useful for:
+| Option       | Description                                                                                                                |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `configName` | Config to load, as `--config`: `relizy.standalone` for `relizy.standalone.config.ts`                                       |
+| `config`     | A config resolved by [`loadRelizyConfig()`](./load-relizy-config.md), see below. Not an option of `release()`              |
+| `dryRun`     | Write nothing, as `--dry-run`                                                                                              |
+| `logLevel`   | As `--log-level`                                                                                                           |
+| `groups`     | Only these [version groups](./../guide/version-groups.md), as `--group` (an array of names), for the commands of `--group` |
 
-- 🔧 Custom release workflows
-- 🤖 Integration into build tools
-- 📦 Custom monorepo tooling
-- 🎯 Conditional release logic
-- 📊 Release automation scripts
+`prComment()` and `commitlint()` use the given `config` as it is. `bump()`, `changelog()`, `publish()`, `providerRelease()` and `social()` still load the config file (`configName`, `relizy` by default) and put the given `config` over it, the options of the call on top: pass the same `configName` as the one of the config, or an option it leaves unset (a hook, `repo`, `bump.preid`) comes from `relizy.config.ts`.
 
-## Available Functions
+The functions print the logs of the logger, not the output of the CLI, unless `RELIZY_REPORTER` is set (see [Output](./../cli/commands.md#output)).
 
-| Function                                   | Description                          |
-| ------------------------------------------ | ------------------------------------ |
-| [`release()`](release.md)                  | Complete release workflow            |
-| [`bump()`](bump.md)                        | Bump package versions                |
-| [`changelog()`](changelog.md)              | Generate changelogs                  |
-| [`publish()`](publish.md)                  | Publish to npm                       |
-| [`providerRelease()`](provider-release.md) | Create GitHub or GitLab releases     |
-| [`prComment()`](pr-comment.md)             | Post release info as a PR/MR comment |
-
-## Basic Usage
-
-### Full Release
-
-```ts
-import { release } from 'relizy'
-
-await release({
-  type: 'patch',
-  commit: true,
-  tag: true,
-  push: true,
-  publish: false,
-})
-```
-
-### Version Bump Only
-
-```ts
-import { bump } from 'relizy'
-
-const result = await bump({
-  type: 'minor',
-})
-
-console.log(`New version: ${result.newVersion}`)
-```
-
-### Changelog Generation
-
-```ts
-import { changelog } from 'relizy'
-
-await changelog({
-  from: 'v1.0.0',
-  to: 'HEAD',
-})
-```
-
-### NPM Publishing
-
-```ts
-import { publish } from 'relizy'
-
-await publish({
-  packages: ['core', 'utils'],
-  tag: 'latest',
-  access: 'public',
-})
-```
-
-### Provider Release
-
-```ts
-import { providerRelease } from 'relizy'
-
-await providerRelease({
-  draft: false,
-  prerelease: false,
-})
-```
-
-## Configuration
-
-Load configuration from file:
-
-```ts
-import { loadConfig, release } from 'relizy'
-
-const config = await loadConfig()
-
-await release({
-  ...config,
-  type: 'minor',
-})
-```
-
-Or define inline:
-
-```ts
-await release({
-  type: 'minor',
-  monorepo: {
-    versionMode: 'selective',
-    packages: ['packages/*'],
-  },
-  publish: true,
-})
-```
-
-## Error Handling
-
-```ts
-import { release } from 'relizy'
-
-try {
-  await release({
-    type: 'minor',
-  })
-  console.log('Release successful!')
-}
-catch (error) {
-  console.error('Release failed:', error.message)
-  process.exit(1)
-}
-```
-
-## TypeScript Support
-
-Relizy is written in TypeScript and provides full type definitions:
-
-```ts
-import type { BumpOptions, ReleaseOptions } from 'relizy'
-
-const options: ReleaseOptions = {
-  type: 'minor',
-  publish: true,
-  providerRelease: false,
-}
-```
-
-## Custom Workflows
-
-### Conditional Publishing
-
-```ts
-import { release } from 'relizy'
-
-const isProduction = process.env.NODE_ENV === 'production'
-
-await release({
-  type: 'minor',
-  publish: isProduction, // Only publish in production
-  providerRelease: isProduction,
-})
-```
-
-### Multi-Stage Release
-
-```ts
-import { bump, changelog, providerRelease, publish } from 'relizy'
-
-// Stage 1: Bump version
-const { newVersion } = await bump({ type: 'minor' })
-
-// Stage 2: Generate changelog
-await changelog()
-
-// Stage 3: Run tests
-await runTests()
-
-// Stage 4: Publish if tests pass
-await publish()
-
-// Stage 5: Create release
-await providerRelease()
-```
-
-### Monorepo Custom Logic
-
-```ts
-import { bump } from 'relizy'
-
-// Get changed packages
-const { packages } = await bump({
-  type: 'minor',
-  dryRun: true,
-})
-
-// Custom logic for each package
-for (const pkg of packages) {
-  console.log(`${pkg.name} will be bumped to ${pkg.newVersion}`)
-
-  // Your custom logic here
-  if (pkg.name === '@myorg/critical') {
-    // Special handling for critical packages
-  }
-}
-
-// Perform actual bump
-await bump({ type: 'minor' })
-```
+`release()` and `bump()` ask to confirm the new versions: pass `yes: true` in a script. Without an interactive terminal, they throw instead of asking.
 
 ## Examples
 
-### Automated Release Script
-
 ```ts
-#!/usr/bin/env node
 import { release } from 'relizy'
 
-async function main() {
-  const releaseType = process.argv[2] || 'patch'
+const report = await release({ type: 'minor', yes: true, social: false })
 
-  console.log(`Starting ${releaseType} release...`)
-
-  await release({
-    releaseType,
-    yes: true, // Skip prompts
-    publish: true,
-    providerRelease: true,
-    logLevel: 'info',
-  })
-
-  console.log('Release complete!')
+if (report.released) {
+  console.log(`Released ${report.version}: ${report.tags.join(', ')}`)
 }
-
-main().catch((error) => {
-  console.error(error)
-  process.exit(1)
-})
 ```
 
-### CI/CD Integration
+The steps one by one, the result of the bump given to the next ones:
 
 ```ts
-import { release } from 'relizy'
+import { bump, changelog, publish } from 'relizy'
 
-const isCI = process.env.CI === 'true'
+const bumpResult = await bump({ yes: true })
 
-await release({
-  type: 'minor',
-  yes: isCI, // Auto-confirm in CI
-  noGitChecks: isCI, // Skip git checks in CI
-  publish: isCI,
-  providerRelease: isCI,
-})
+if (bumpResult.bumped) {
+  await changelog({ bumpResult })
+  await publish({ bumpResult, tag: 'next' })
+}
 ```
 
-## Next Steps
+`bump()` returns `{ bumped: false }` when no commit triggers a bump: test `bumped` before reading `newVersion` or `bumpedPackages`.
 
-Explore individual API functions:
+## Errors
 
-- [release()](release.md) - Complete release workflow
-- [bump()](bump.md) - Version bumping
-- [changelog()](changelog.md) - Changelog generation
-- [publish()](publish.md) - NPM publishing
-- [providerRelease()](provider-release.md) - Provider releases
-- [createCommitAndTags()](create-commit-and-tags.md) - Create commit and tags
-- [prComment()](pr-comment.md) - PR/MR comments
-- [loadRelizyConfig()](load-relizy-config.md) - Load Relizy config
+The functions throw when they fail. A refused or cancelled prompt (bump confirmation, uncommitted changes, rewritten tag) throws a `RelizyCancelError`: nothing was written, the `error:*` hooks did not run and `release()` did not post a failed PR comment.
+
+```ts
+import { isRelizyCancelError, release } from 'relizy'
+
+try {
+  await release({ yes: true })
+}
+catch (error) {
+  if (!isRelizyCancelError(error)) {
+    throw error
+  }
+}
+```
+
+`providerRelease()` and `social()` do not throw when the provider or a platform fails: the error is in their result (`error`, `hasErrors`). `providerRelease()` still throws on an error of the config.
+
+## TypeScript
+
+The types of the options and the results are exported (`ReleaseOptions`, `BumpOptions`, `BumpResult`, `ReleaseReport`, `RelizyConfig`...):
+
+```ts
+import type { ReleaseOptions } from 'relizy'
+
+const options: ReleaseOptions = {
+  type: 'patch',
+  yes: true,
+  publish: false,
+}
+```
+
+## See Also
+
+- [CLI commands](./../cli/commands.md)
+- [Configuration](./../config/overview.md)
+- [Hooks](./../config/hooks.md)

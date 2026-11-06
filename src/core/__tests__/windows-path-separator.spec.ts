@@ -15,7 +15,7 @@
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
@@ -112,19 +112,7 @@ function makeMockPkg() {
 }
 
 function makeCommit(overrides: Partial<GitCommit>): GitCommit {
-  return {
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    message: 'feat: test',
-    body: '',
-    type: 'feat',
-    scope: '',
-    references: [],
-    description: 'test',
-    isBreaking: false,
-    authors: [],
-    ...overrides,
-  } as GitCommit
+  return createMockCommit('feat', 'feat: test', { description: 'test', ...overrides })
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────
@@ -203,7 +191,7 @@ describe('Given Windows-style path separators from path.relative()', () => {
     })
 
     it('Then a commit touching a different package is correctly excluded', async () => {
-      // This commit only modifies pkg-b — it must NOT appear for pkg-a.
+      // This commit only modifies pkg-b - it must NOT appear for pkg-a.
       const otherPkgBody = '\nM\tpackages/pkg-b/src/index.ts\n'
 
       vi.mocked(commitsModule.parseCommits).mockReturnValue([

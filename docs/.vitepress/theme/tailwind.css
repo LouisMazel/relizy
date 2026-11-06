@@ -1,0 +1,115 @@
+/*
+ * Tailwind for the custom pages of the docs (the homepage), on top of the
+ * maz-ui theme: the utilities follow the maz-ui preset and color mode.
+ *
+ * - No preflight: it would reset the pages of the docs rendered by VitePress.
+ * - Utilities out of a cascade layer, like the styles of VitePress (`h1`,
+ *   `p`...), which would win over layered utilities.
+ * - Only the components of the custom pages are scanned, so no utility
+ *   reaches the classes of VitePress (`container`, `hidden`...).
+ */
+@layer theme;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' source(none);
+@import 'maz-ui/tailwindcss/theme.css';
+@import 'maz-ui/tailwindcss/utilities.css';
+
+@source './components/home';
+@source './components/terminal';
+
+/* Project tokens, next to the maz-ui ones */
+@theme {
+  /*
+   * The terminal of the homepage: always dark, in both color modes, with the
+   * colors of a terminal (bg-terminal, text-terminal-green...)
+   */
+  --color-terminal: oklch(0.16 0.015 285);
+  --color-terminal-bar: oklch(0.2 0.018 285);
+  --color-terminal-line: oklch(0.3 0.02 285);
+  --color-terminal-fg: oklch(0.86 0.01 285);
+  --color-terminal-bright: oklch(0.97 0.005 285);
+  --color-terminal-dim: oklch(0.6 0.015 285);
+  --color-terminal-green: oklch(0.8 0.17 150);
+  --color-terminal-magenta: oklch(0.74 0.2 320);
+  --color-terminal-yellow: oklch(0.86 0.15 90);
+  --color-terminal-cyan: oklch(0.8 0.12 220);
+  --color-terminal-red: oklch(0.7 0.19 25);
+
+  /* Entrance of the sections of the homepage */
+  --animate-rise: rise 0.7s var(--maz-easing-out) backwards;
+  /* Light passing over a text: the AI of the terminal */
+  --animate-shimmer: shimmer 1.6s linear infinite;
+  /* Spinner of the terminal */
+  --animate-blink: blink 1s steps(2, start) infinite;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(1.25rem);
+  }
+}
+
+@keyframes shimmer {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+@keyframes blink {
+  to {
+    visibility: hidden;
+  }
+}
+
+/*
+ * The building blocks of the custom pages. The colors, fonts, radius, shadow
+ * and motion come from the maz-ui preset (theme/preset.ts).
+ */
+
+/* A text in the gradient of the brand: the primary to the secondary color */
+@utility text-gradient {
+  background-image: linear-gradient(to right, var(--maz-primary), var(--maz-secondary));
+  background-clip: text;
+  color: transparent;
+}
+
+/* The small uppercase label above a section title */
+@utility eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--maz-primary);
+}
+
+/* The title of a section */
+@utility section-title {
+  margin-top: calc(var(--spacing) * 3);
+  font-size: var(--text-3xl);
+  line-height: var(--text-3xl--line-height);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  color: var(--maz-foreground);
+
+  @variant tab-m {
+    font-size: var(--text-5xl);
+    line-height: var(--text-5xl--line-height);
+  }
+}
+
+/* The icon of a feature card */
+@utility feature-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--spacing) * 10);
+  height: calc(var(--spacing) * 10);
+  margin-bottom: calc(var(--spacing) * 4);
+  border-radius: var(--maz-rounded-xl);
+  background-color: color-mix(in oklab, var(--maz-primary) 10%, transparent);
+  color: var(--maz-primary);
+}

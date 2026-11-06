@@ -24,6 +24,7 @@ import {
   stripGitComments,
   summarizeResults,
 } from '../core'
+import { ensureFullHistory } from '../core/ci'
 
 export interface CommitlintOptions {
   /**
@@ -103,9 +104,12 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
     return { mode: 'edit', entries: [{ result }], messageFile, helpUrl }
   }
 
+  // A range needs the history: a shallow CI clone may miss its start
+  ensureFullHistory(config.cwd)
+
   let from = options.from
   if (!from) {
-    const start = await resolveDefaultRangeStart({ cwd: config.cwd, logLevel: options.logLevel })
+    const start = await resolveDefaultRangeStart({ cwd: config.cwd })
     logger.debug(`commitlint: linting from the ${start.reason}`)
     from = start.from
   }

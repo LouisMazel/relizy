@@ -116,7 +116,7 @@ describe('Given loadProjectConfig', () => {
     it('Then the hooks are removed and the run never prompts', async () => {
       const repository = createRepository()
       repository.writeJson('.', { name: 'app', version: '1.0.0' })
-      repository.writeFile('relizy.config.mjs', `export default { logLevel: 'silent', hooks: { 'before:bump': 'touch hooked' } }\n`)
+      repository.write('relizy.config.mjs', `export default { logLevel: 'silent', hooks: { 'before:bump': 'touch hooked' } }\n`)
 
       const config = await loadProjectConfig({ cwd: repository.cwd })
 

@@ -1,19 +1,36 @@
 import type { ResolvedRelizyConfig } from '../config'
-import { execSync } from 'node:child_process'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
+  BranchBehindRemoteError,
   getGitUpstream,
   getReleaseTagNames,
   pushCommitAndTags,
 } from '../git'
+import { runGit, runGitSync } from '../git-exec'
 import { isAncestor, tagExists } from '../git-refs'
 import { readPackageJson } from '../repo'
 
-vi.mock('node:child_process')
+vi.mock('../git-exec', async (importActual) => {
+  const actual = await importActual<typeof import('../git-exec')>()
+  const runGit = vi.fn()
+  return {
+    ...actual,
+    runGit,
+    runGitSync: vi.fn(),
+    tryGit: vi.fn(async (...args: Parameters<typeof actual.runGit>) => {
+      try {
+        return await runGit(...args)
+      }
+      catch {
+        return undefined
+      }
+    }),
+  }
+})
 
 vi.mock('../git-refs', () => ({
   tagExists: vi.fn(),
@@ -28,13 +45,14 @@ vi.mock('../repo', () => ({
 type GitResponse = string | Error | (() => string)
 
 const upstreamResponses: Record<string, GitResponse> = {
-  'git config --get branch.develop.remote': 'origin\n',
-  'git config --get branch.develop.merge': 'refs/heads/develop\n',
-  'git rev-parse --symbolic-full-name @{upstream}': 'refs/remotes/origin/develop\n',
+  'config --get branch.develop.remote': 'origin\n',
+  'config --get branch.develop.merge': 'refs/heads/develop\n',
+  'rev-parse --symbolic-full-name @{upstream}': 'refs/remotes/origin/develop\n',
 }
 
 function mockGit(responses: Record<string, GitResponse>) {
-  vi.mocked(execPromise).mockImplementation((command: string) => {
+  vi.mocked(runGit).mockImplementation((args: string[]) => {
+    const command = args.join(' ')
     const key = Object.keys(responses).find(prefix => command.startsWith(prefix))
     const response = key === undefined ? '' : responses[key]
 
@@ -45,7 +63,7 @@ function mockGit(responses: Record<string, GitResponse>) {
 
       const stdout = typeof response === 'function' ? response() : response
 
-      return Promise.resolve({ stdout: stdout ?? '', stderr: '' })
+      return Promise.resolve((stdout ?? '').trim())
     }
     catch (error) {
       return Promise.reject(error)
@@ -54,7 +72,7 @@ function mockGit(responses: Record<string, GitResponse>) {
 }
 
 function getExecutedCommands(): string[] {
-  return vi.mocked(execPromise).mock.calls.map(([command]) => command)
+  return vi.mocked(runGit).mock.calls.map(([args]) => args.join(' '))
 }
 
 function createPushRejectedError(reason = 'non-fast-forward') {
@@ -95,7 +113,7 @@ function createReleaseConfig(overrides: Partial<ResolvedRelizyConfig['release']>
 describe('Given getGitUpstream function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(execSync).mockReturnValue('develop\n')
+    vi.mocked(runGitSync).mockReturnValue('develop')
   })
 
   describe('When the current branch tracks a remote branch', () => {
@@ -115,7 +133,7 @@ describe('Given getGitUpstream function', () => {
 
   describe('When HEAD is detached', () => {
     it('Then returns null', async () => {
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
       mockGit(upstreamResponses)
 
       const upstream = await getGitUpstream('/project')
@@ -128,7 +146,7 @@ describe('Given getGitUpstream function', () => {
     it('Then returns null', async () => {
       mockGit({
         ...upstreamResponses,
-        'git rev-parse --symbolic-full-name @{upstream}': new Error('no upstream configured'),
+        'rev-parse --symbolic-full-name @{upstream}': new Error('no upstream configured'),
       })
 
       const upstream = await getGitUpstream('/project')
@@ -138,48 +156,78 @@ describe('Given getGitUpstream function', () => {
   })
 })
 
+describe('Given a branch named with shell metacharacters', () => {
+  it('Then passes it inside a single git argument', async () => {
+    const branch = 'feat/$(whoami)"`id`\''
+    vi.clearAllMocks()
+    vi.mocked(runGitSync).mockReturnValue(branch)
+    mockGit({
+      [`config --get branch.${branch}.remote`]: 'origin\n',
+      [`config --get branch.${branch}.merge`]: 'refs/heads/develop\n',
+      'rev-parse --symbolic-full-name': 'refs/remotes/origin/develop\n',
+    })
+
+    await expect(getGitUpstream('/project')).resolves.toMatchObject({ remote: 'origin' })
+
+    expect(vi.mocked(runGit).mock.calls.map(([args]) => args)).toContainEqual(['config', '--get', `branch.${branch}.remote`])
+  })
+})
+
 describe('Given assertBranchUpToDateWithRemote function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(execSync).mockReturnValue('develop\n')
+    vi.mocked(runGitSync).mockReturnValue('develop')
   })
 
   describe('When the branch contains every remote commit', () => {
     it('Then resolves after fetching the upstream branch', async () => {
-      mockGit({ ...upstreamResponses, 'git rev-list --count': '0\n' })
+      mockGit({ ...upstreamResponses, 'rev-list --count': '0\n' })
 
       await expect(assertBranchUpToDateWithRemote({ cwd: '/project' })).resolves.toBeUndefined()
 
-      expect(getExecutedCommands()).toContain('git fetch origin +refs/heads/develop:refs/remotes/origin/develop')
-      expect(getExecutedCommands()).toContain('git rev-list --count HEAD..refs/remotes/origin/develop')
+      expect(getExecutedCommands()).toContain('fetch origin +refs/heads/develop:refs/remotes/origin/develop')
+      expect(getExecutedCommands()).toContain('rev-list --count HEAD..refs/remotes/origin/develop')
     })
   })
 
   describe('When the remote branch received new commits', () => {
     it('Then rejects with the number of missing commits', async () => {
-      mockGit({ ...upstreamResponses, 'git rev-list --count': '2\n' })
+      mockGit({ ...upstreamResponses, 'rev-list --count': '2\n' })
 
-      await expect(assertBranchUpToDateWithRemote({ cwd: '/project' }))
-        .rejects
-        .toThrow('The current branch is behind "origin/develop" by 2 commit(s)')
+      const error = await assertBranchUpToDateWithRemote({ cwd: '/project' }).catch((error: unknown) => error)
+
+      expect(error).toBeInstanceOf(BranchBehindRemoteError)
+      expect(error).toMatchObject({ upstream: 'origin/develop', missingCommits: 2 })
+      expect((error as Error).message).toContain('The current branch is behind "origin/develop" by 2 commits')
+    })
+
+    it('Then gives the fix for where it runs: pull the commits locally, run the job again in CI', () => {
+      expect(new BranchBehindRemoteError('origin/develop', 1, false).message).toBe(
+        'The current branch is behind "origin/develop" by 1 commit that this checkout does not have: the release commit would not be pushed.\n'
+        + 'Fix: get them with "git pull --rebase", then run the release again.',
+      )
+      expect(new BranchBehindRemoteError('origin/develop', 2, true).message).toBe(
+        'The current branch is behind "origin/develop" by 2 commits, pushed after this job checked out the branch: the release commit would not be pushed.\n'
+        + 'Fix: run the job again on the latest commit of "origin/develop".',
+      )
     })
   })
 
   describe('When the branch has no upstream', () => {
     it('Then resolves without fetching', async () => {
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
       mockGit(upstreamResponses)
 
       await expect(assertBranchUpToDateWithRemote({ cwd: '/project' })).resolves.toBeUndefined()
 
-      expect(getExecutedCommands().some(command => command.startsWith('git fetch'))).toBe(false)
+      expect(getExecutedCommands().some(command => command.startsWith('fetch'))).toBe(false)
     })
   })
 
   describe('When the remote cannot be fetched', () => {
     it('Then resolves with a warning', async () => {
       const warnSpy = vi.spyOn(logger, 'warn')
-      mockGit({ ...upstreamResponses, 'git fetch': new Error('network error') })
+      mockGit({ ...upstreamResponses, fetch: new Error('network error') })
 
       await expect(assertBranchUpToDateWithRemote({ cwd: '/project' })).resolves.toBeUndefined()
 
@@ -191,28 +239,28 @@ describe('Given assertBranchUpToDateWithRemote function', () => {
 describe('Given pushCommitAndTags function with a rejected push', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(execSync).mockReturnValue('develop\n')
+    vi.mocked(runGitSync).mockReturnValue('develop')
   })
 
   describe('When the push is rejected as non-fast-forward', () => {
     describe('When the remote commits merge cleanly', () => {
       it('Then merges the upstream branch and pushes again', async () => {
-        mockGit({ ...upstreamResponses, 'git push': rejectFirstPush(createPushRejectedError()) })
+        mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError()) })
 
         await pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] })
 
         const commands = getExecutedCommands()
-        expect(commands).toContain('git fetch origin +refs/heads/develop:refs/remotes/origin/develop')
-        expect(commands).toContain('git merge --no-edit origin/develop')
-        expect(commands.filter(command => command === 'git push --follow-tags')).toHaveLength(2)
+        expect(commands).toContain('fetch origin +refs/heads/develop:refs/remotes/origin/develop')
+        expect(commands).toContain('merge --no-edit origin/develop')
+        expect(commands.filter(command => command === 'push --follow-tags')).toHaveLength(2)
       })
 
       it('Then passes --no-verify to the merge when noVerify is enabled', async () => {
-        mockGit({ ...upstreamResponses, 'git push': rejectFirstPush(createPushRejectedError()) })
+        mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError()) })
 
         await pushCommitAndTags({ config: createReleaseConfig({ noVerify: true }), dryRun: false, cwd: '/project' })
 
-        expect(getExecutedCommands()).toContain('git merge --no-edit --no-verify origin/develop')
+        expect(getExecutedCommands()).toContain('merge --no-edit --no-verify origin/develop')
       })
     })
 
@@ -220,10 +268,10 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
       it('Then aborts the merge, pushes the tags and rejects with recovery instructions', async () => {
         mockGit({
           ...upstreamResponses,
-          'git push --follow-tags': () => {
+          'push --follow-tags': () => {
             throw createPushRejectedError()
           },
-          'git merge --no-edit': new Error('CONFLICT (content): Merge conflict in package.json'),
+          'merge --no-edit': new Error('CONFLICT (content): Merge conflict in package.json'),
         })
 
         await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] }))
@@ -231,19 +279,19 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
           .toThrow('git fetch --tags && git merge v1.0.1 && git push')
 
         const commands = getExecutedCommands()
-        expect(commands).toContain('git merge --abort')
-        expect(commands).toContain('git push origin refs/tags/v1.0.1')
+        expect(commands).toContain('merge --abort')
+        expect(commands).toContain('push origin refs/tags/v1.0.1')
       })
 
       it('Then still rejects with recovery instructions when the cleanup commands fail', async () => {
         mockGit({
           ...upstreamResponses,
-          'git push origin': new Error('network error'),
-          'git push --follow-tags': () => {
+          'push origin': new Error('network error'),
+          'push --follow-tags': () => {
             throw createPushRejectedError()
           },
-          'git merge --no-edit': new Error('CONFLICT (content): Merge conflict in package.json'),
-          'git merge --abort': new Error('There is no merge to abort'),
+          'merge --no-edit': new Error('CONFLICT (content): Merge conflict in package.json'),
+          'merge --abort': new Error('There is no merge to abort'),
         })
 
         await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] }))
@@ -255,11 +303,11 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
 
   describe('When the push is rejected because the remote has unknown commits', () => {
     it('Then merges the upstream branch and pushes again', async () => {
-      mockGit({ ...upstreamResponses, 'git push': rejectFirstPush(createPushRejectedError('fetch first')) })
+      mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError('fetch first')) })
 
       await pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' })
 
-      expect(getExecutedCommands()).toContain('git merge --no-edit origin/develop')
+      expect(getExecutedCommands()).toContain('merge --no-edit origin/develop')
     })
   })
 
@@ -268,21 +316,21 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
       const pushError = Object.assign(new Error('Command failed: git push --follow-tags'), {
         stderr: ' ! [remote rejected] develop -> develop (protected branch hook declined)\n',
       })
-      mockGit({ ...upstreamResponses, 'git push': pushError })
+      mockGit({ ...upstreamResponses, push: pushError })
 
       await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' }))
         .rejects
         .toBe(pushError)
 
-      expect(getExecutedCommands().some(command => command.startsWith('git merge'))).toBe(false)
+      expect(getExecutedCommands().some(command => command.startsWith('merge'))).toBe(false)
     })
   })
 
   describe('When the branch has no upstream', () => {
     it('Then rethrows the push error', async () => {
-      vi.mocked(execSync).mockReturnValue('HEAD\n')
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
       const pushError = createPushRejectedError()
-      mockGit({ 'git push': pushError })
+      mockGit({ push: pushError })
 
       await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' }))
         .rejects

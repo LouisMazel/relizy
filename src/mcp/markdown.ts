@@ -64,7 +64,7 @@ export function truncateText(value: string, max: number): string {
 }
 
 /** Lines of a text joined on a single line */
-export function singleLine(value: string): string {
+function singleLine(value: string): string {
   return value.split('\n').map(line => line.trim()).filter(Boolean).join(' ')
 }
 

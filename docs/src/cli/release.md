@@ -1,9 +1,9 @@
 ---
 title: release
-description: Execute the complete release workflow in a single command.
-keywords: relizy release, automated release, release workflow, npm publish, git tag, changelog generation
+description: Run the whole release in one command - bump, changelog, publish, commit, tag, push, provider release, social posts and PR comment.
+keywords: relizy release, release workflow, release steps, npm publish, git tag, changelog, github release, gitlab release, canary
 category: CLI Reference
-tags: [cli, release, workflow, automation, publish]
+tags: [cli, release, workflow, publish, steps]
 ---
 
 # {{ $frontmatter.title }}
@@ -16,292 +16,123 @@ tags: [cli, release, workflow, automation, publish]
 relizy release [options]
 ```
 
-## What It Does
+Without a type flag, the bump of each package is computed from its commits (see [SemVer Convention](./../guide/semver-convention.md)). The [global options](./commands.md#global-options) apply too (`--dry-run`, `--group`, `--pr-number`, `--no-safety-check`...).
 
-The `release` command combines multiple operations:
+## Steps
 
-1. ✅ Bumps version in package.json
-2. ✅ Generates/updates CHANGELOG.md
-3. ✅ Creates a git commit
-4. ✅ Creates a git tag
-5. ✅ Publishes to npm
-6. ✅ Creates GitHub or GitLab release
-7. ✅ Posts to social media (optional)
-8. ✅ Posts a comment on the PR/MR (optional)
+Before the first step, `release` checks that it can run to the end, so a failure does not leave a half-done release:
 
-## Branch Safety
+- the new versions can be confirmed: an interactive terminal, or `--yes`;
+- unless `--no-safety-check`: the token of the git provider (and the AI provider when used), the access to the registry (npm and pnpm), the credentials of the enabled social platforms, and, when the release commit is pushed, that the branch is up to date with its upstream and can be pushed to.
 
-Packages are published **before** the release commit and tags are pushed, so a failed publish never leaves a tag behind. In return, Relizy makes sure the release commit can actually be pushed:
+Then the steps run in this order:
 
-- **Remote sync check**: when `push` and `commit` are enabled, Relizy fetches the upstream branch during the safety checks and again right before publishing. If new commits were pushed to the branch while the release was running (e.g. during a long CI build), the release stops before publishing and restores the release files. Re-run it from the latest commit. The check is skipped on a detached HEAD or when the branch has no upstream.
-- **Existing tag check**: right after the bump, Relizy fails if a tag it is about to create already exists. This catches a re-run after a release that published its packages but never got its release commit onto the branch, and prints how to recover (`git fetch --tags && git merge <tag> && git push`).
-- **Rejected push recovery**: if the push is still rejected because the remote branch moved in the meantime (non-fast-forward), Relizy merges the remote branch into the release commit and pushes again. A merge (not a rebase) keeps the tags on the exact commit that was published, and the concurrent commits show up in the next changelog. If the merge conflicts, Relizy aborts it, pushes the tags so the release commit is preserved, and prints the recovery command.
+| #   | Step                          | What it does                                                                                                                                                                                                                              | Skipped by                           |
+| --- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| 1   | Bump                          | Computes the new versions, asks to confirm them, writes the `package.json` files. When no commit triggers a bump, comments the PR (`no-release`), shows the summary, writes the report and stops with code `0`, without `success:release` | -                                    |
+| 2   | Changelog                     | Writes the `CHANGELOG.md` files, then runs `--format-cmd`                                                                                                                                                                                 | `--no-changelog`                     |
+| 3   | Publish                       | Runs `--build-cmd`, then publishes the packages in dependency order                                                                                                                                                                       | `--no-publish`                       |
+| 4   | Commit and tag                | Commits the release files and creates the tags                                                                                                                                                                                            | `--no-commit` (tags: `--no-git-tag`) |
+| 5   | Push                          | Pushes the commit and the tags                                                                                                                                                                                                            | `--no-push`, `--no-commit`           |
+| 6   | Provider release              | Creates the GitHub or GitLab releases                                                                                                                                                                                                     | `--no-provider-release`              |
+| 7   | Social                        | Posts on X (Twitter) and Slack, when a platform is enabled in [`social`](./../config/social.md)                                                                                                                                           | `--no-social`                        |
+| 8   | PR comment                    | Comments the pull request or merge request of the release                                                                                                                                                                                 | `--no-pr-comment`                    |
+| 9   | Summary and `success:release` | Shows the summary, writes the [report](./../config/release.md#report), runs the `success:release` hook                                                                                                                                    | -                                    |
+
+`--no-commit` skips the commit, the tags and the push. `--no-git-tag` only skips the tags: the commit is still created and pushed. Each step but the PR comment runs its `before:*`, `success:*` and `error:*` [hooks](./../config/hooks.md).
+
+A failed provider release, social post or PR comment does not stop the release: the step is marked as failed in the summary, and the release ends with `success:release` and code `0`. Any other error, a failed check included, stops it, writes the failed [report](./../config/release.md#report), posts a failed PR comment, runs the `error:release` hook and exits with code `1`.
+
+### Branch Safety
+
+The packages are published **before** the release commit and its tags are pushed, so a failed publication never leaves a tag behind. In return:
+
+- **Branch up to date**: when the commit is pushed, relizy fetches the upstream branch during the checks and again right before publishing. If commits landed on it meanwhile, the release stops before publishing and restores the release files: run it again from the latest commit. `--dry-run` stops too, except on a pull request or a merge request, where it only warns: the commits pushed after it started get their own run. Skipped on a detached HEAD or a branch without upstream.
+- **Existing tags**: right after the bump, the release fails if a tag it would create already exists, and tells how to recover.
+- **Rejected push**: if the push is still rejected because the remote branch moved, relizy merges the remote branch into the release commit (the tags stay on the published commit) and pushes again. On a conflict, it aborts the merge, pushes the tags and prints the recovery command.
+- **Failed publication**: the files written by the release are restored.
 
 ## Options
 
-### Release Type
-
-Specify the version bump type:
-
-```bash
-# Patch release (1.0.0 → 1.0.1)
-relizy release --patch
-
-# Minor release (1.0.0 → 1.1.0)
-relizy release --minor
-
-# Major release (1.0.0 → 2.0.0)
-relizy release --major
-```
-
-All available version flags: `--patch`, `--minor`, `--major`, `--prerelease`, `--prepatch`, `--preminor`, `--premajor`
-
-If no type is specified, Relizy automatically detects it from commits.
-
-### --canary
-
-Publish a temporary test version without git side effects:
-
-```bash
-relizy release --canary
-```
-
-When `--canary` is used, Relizy automatically disables: changelog generation, git commit, git tag, git push, provider release (GitHub/GitLab), and social media posting. Only publishing to npm and PR comments remain active.
-
-The canary version format is `{nextVersion}-0.canary-{sha}` (e.g., `1.3.0-0.canary-a3f4b2c`).
-
-Use `--preid` to customize the prerelease identifier:
-
-```bash
-relizy release --canary --preid snapshot
-# → 1.3.0-0.snapshot-a3f4b2c
-```
-
-See the [Canary Releases guide](/guide/canary-releases) for full details.
-
-### --no-commit
-
-Skip creating git commit:
-
-```bash
-relizy release --no-commit
-```
-
-### --no-push
-
-Skip pushing to remote:
-
-```bash
-relizy release --no-push
-```
-
-### --dry-run
-
-Preview changes without executing:
-
-```bash
-relizy release --dry-run
-```
-
-### --yes
-
-Skip all confirmations:
-
-```bash
-relizy release --yes
-```
-
-### --no-git-tag
-
-Skip pushing git tag:
-
-```bash
-relizy release --no-git-tag
-```
-
-### --no-social
-
-Skip social media posting:
-
-```bash
-relizy release --no-social
-```
-
-### --no-pr-comment
-
-Skip PR/MR comment posting:
-
-```bash
-relizy release --no-pr-comment
-```
-
-### --pr-number
-
-Override the auto-detected PR/MR number:
-
-```bash
-relizy release --patch --pr-number 42
-```
-
-Useful in CI/CD where the PR number is available as an environment variable:
-
-```bash
-relizy release --patch --yes --pr-number ${{ github.event.pull_request.number }}
-```
-
-### --ai / --no-ai
-
-Force-enable or force-disable AI enhancement for release notes and social media:
-
-```bash
-# Force AI for this release
-relizy release --patch --ai
-
-# Disable AI for this release
-relizy release --patch --no-ai
-```
-
-These flags override the `ai.providerRelease` and `ai.social` settings in your config file. See the [AI-Enhanced Changelogs](/guide/ai-changelog) guide for setup.
-
-### --slack-format
-
-Choose how much of the changelog the Slack message shows, overriding `social.slack.changelogFormat`:
-
-```bash
-# Complete changelog: commit bodies and PR links, rendered as Slack rich text
-relizy release --slack-format full --minor
-
-# Short changelog: commit titles only
-relizy release --slack-format summary --minor
-```
-
-See the [Slack Integration](/guide/slack-integration#full-changelog) guide for the rendering details.
-
-### --no-provider-release
-
-Skip provider release creation (GitHub/GitLab):
-
-```bash
-relizy release --no-provider-release
-```
-
-### --no-publish
-
-Skip npm publishing:
-
-```bash
-relizy release --no-publish
-```
-
-### --skip-existing-versions
-
-Skip packages whose version already exists on the registry instead of failing:
-
-```bash
-relizy release --skip-existing-versions
-```
-
-Makes a re-run idempotent: already-published versions are skipped with a warning, and only missing packages are published. Particularly useful for [canary releases](/guide/canary-releases), where re-running a pipeline on the same commit regenerates the same version. Without this flag, an already-published version fails the release with a clear error message. See [`publish.skipExistingVersions`](/config/publish#skipexistingversions) for details.
-
-### --include-private
-
-Include private packages (packages with `"private": true` in their
-`package.json`) in the release. By default, private packages are skipped
-entirely.
-
-```bash
-relizy release --minor --include-private
-```
-
-When enabled:
-
-- Private packages are bumped alongside public ones.
-- Private packages get their own `CHANGELOG.md`.
-- Their commits are included in the aggregated root changelog.
-- In `independent` mode, they get their own git tag and GitHub/GitLab release.
-- They are listed in the PR comment, without install commands.
-
-Private packages **are never published** to a registry, even with this flag.
-See [Private Projects & Apps](/guide/private-projects) to version a project
-that publishes nothing.
-
-This is equivalent to setting `monorepo.includePrivates: true` in
-`relizy.config.ts`. See
-[Monorepo Configuration — includePrivates](../config/monorepo.md#includeprivates).
-
-### --group
-
-Only process the given [version groups](/guide/version-groups) of `monorepo.groups` (comma-separated names). Without it, every group is processed. Only the targeted groups are bumped, published and tagged, in a single release commit.
-
-```bash
-relizy release --group header
-relizy release --group main,header
-```
+| Flag                                                     | Description                                                                                                 | Config                                                                        |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| `--major`, `--minor`, `--patch`                          | Force the bump type of the release                                                                          | [`bump.type`](./../config/bump.md#type)                                       |
+| `--prerelease`, `--premajor`, `--preminor`, `--prepatch` | Bump to a prerelease version, see [Prerelease Versions](./../guide/prereleases.md#prerelease-versions)      | [`bump.type`](./../config/bump.md#type)                                       |
+| `--preid <id>`                                           | Prerelease identifier: `alpha`, `beta`, `rc`...                                                             | [`bump.preid`](./../config/bump.md#preid)                                     |
+| `--suffix <suffix>`                                      | With a prerelease type, replace the last number: `1.0.0-beta.0` becomes `1.0.0-beta.<suffix>`               | -                                                                             |
+| `--canary`                                               | Publish a canary version of the current commit, see [Canary](#canary)                                       | -                                                                             |
+| `--force`                                                | Bump the packages even without a commit triggering a bump                                                   | -                                                                             |
+| `--yes`                                                  | Confirm the new versions without asking. Required without an interactive terminal (CI)                      | [`bump.yes`](./../config/bump.md#yes)                                         |
+| `--from <ref>`                                           | Start of the commit range (tag or commit), instead of the last release tag                                  | [`from`](./../config/overview.md#from-to)                                     |
+| `--to <ref>`                                             | End of the commit range, `HEAD` by default                                                                  | [`to`](./../config/overview.md#from-to)                                       |
+| `--no-clean`                                             | Release with uncommitted changes. In a terminal, asks to confirm when they touch a file the release commits | [`release.clean`](./../config/release.md#steps)                               |
+| `--private-packages <mode>`                              | `release`: version the private packages too (never published), `ignore`: leave them out                     | [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages)         |
+| `--no-changelog`                                         | Do not write the changelogs                                                                                 | [`release.changelog`](./../config/release.md#steps)                           |
+| `--format-cmd <cmd>`                                     | Command run after writing the changelogs, <code v-pre>{{files}}</code> replaced by their paths              | [`changelog.formatCmd`](./../config/changelog.md#formatcmd)                   |
+| `--no-format-cmd`                                        | Do not format the changelogs (no formatter detected)                                                        | [`changelog.formatCmd: false`](./../config/changelog.md#formatcmd)            |
+| `--no-root-changelog`                                    | Do not write the root `CHANGELOG.md` of a monorepo                                                          | [`changelog.rootChangelog`](./../config/changelog.md#rootchangelog)           |
+| `--no-publish`                                           | Do not publish the packages                                                                                 | [`release.publish`](./../config/release.md#steps)                             |
+| `--build-cmd <cmd>`                                      | Command run before publishing, e.g. `"pnpm build"` (quoted: it is one argument)                             | [`publish.buildCmd`](./../config/publish.md#buildcmd)                         |
+| `--registry <url>`                                       | Registry to publish to: every package goes there, on top of its non-exclusive `publish.registries` entries  | [`publish.registry`](./../config/publish.md#registry)                         |
+| `--tag <tag>`                                            | Dist-tag of the publication. Default: `latest` for a stable version, `next` for a prerelease                | [`publish.tag`](./../config/publish.md#tag)                                   |
+| `--access <type>`                                        | `public` or `restricted`                                                                                    | [`publish.access`](./../config/publish.md#access)                             |
+| `--otp <code>`                                           | One-time password of the registry (2FA)                                                                     | [`publish.otp`](./../config/publish.md#otp)                                   |
+| `--publish-token <token>`                                | Registry token, for npm, pnpm and bun                                                                       | [`tokens.registry`](./../config/overview.md#tokens)                           |
+| `--skip-existing-versions`                               | Skip the packages whose version is already on the registry instead of failing                               | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
+| `--no-commit`                                            | Do not commit, tag nor push                                                                                 | [`release.commit`](./../config/release.md#steps)                              |
+| `--no-git-tag`                                           | Do not create the tags                                                                                      | [`release.gitTag`](./../config/release.md#steps)                              |
+| `--no-verify`                                            | Commit with `git commit --no-verify` (skip the git hooks)                                                   | [`release.noVerify`](./../config/release.md#steps)                            |
+| `--no-push`                                              | Do not push the commit and the tags                                                                         | [`release.push`](./../config/release.md#steps)                                |
+| `--no-provider-release`                                  | Do not create the GitHub or GitLab releases                                                                 | [`release.providerRelease`](./../config/release.md#steps)                     |
+| `--provider <provider>`                                  | Git provider: `github` or `gitlab`                                                                          | [`repo`](./../config/overview.md#repo)                                        |
+| `--token <token>`                                        | Token of the git provider (GitHub or GitLab)                                                                | [`tokens`](./../config/overview.md#tokens)                                    |
+| `--ai`, `--no-ai`                                        | Force or disable the AI rewrite of the release notes and the social posts                                   | [AI](./../config/ai.md)                                                       |
+| `--no-social`                                            | Do not post on social media                                                                                 | [`release.social`](./../config/release.md#steps)                              |
+| `--slack-format <format>`                                | `full` (bodies and PR links), `summary` (commit titles) or `none` changelog in the Slack message            | [`social.slack`](./../config/social.md#slack)                                 |
+| `--no-pr-comment`                                        | Do not comment the pull request                                                                             | [`release.prComment`](./../config/release.md#steps)                           |
+| `--report-json <file>`                                   | Write the report of the release to this JSON file                                                           | [`release.report`](./../config/release.md#report)                             |
+| `--report-dotenv <file>`                                 | Write the outputs of the release to this dotenv file (`RELIZY_RELEASED=true`...), for GitLab CI             | [`release.report`](./../config/release.md#report)                             |
+| `--report-markdown <file>`                               | Write the summary of the release to this markdown file                                                      | [`release.report`](./../config/release.md#report)                             |
+
+On GitHub Actions, the outputs of the step and the summary of the run are written without option.
+
+## Canary
+
+`--canary` publishes a temporary version of the current commit, `{nextVersion}-0.canary-{sha}` (e.g. `1.3.0-0.canary-a3f4b2c`), with the `canary` dist-tag:
+
+- it skips the changelog, the commit, the tags, the push, the provider release and the social posts;
+- it keeps the checks, the publication and the PR comment;
+- it restores the `package.json` files once published (right away with `--no-publish`);
+- the version comes from the commits: the type flags, `--force` and `--suffix` are ignored;
+- `--preid` changes the identifier (`1.3.0-0.snapshot-a3f4b2c`), `--tag` the dist-tag, `--skip-existing-versions` makes a re-run on the same commit succeed.
+
+See [Canary Releases](./../guide/prereleases.md#canary-releases).
 
 ## Examples
 
-### Basic Release
-
 ```bash
-# Interactive release
-relizy release --patch
+# Preview: versions, changelogs, release notes, posts
+relizy release --dry-run
 
-# Output:
-# → Bumping version to 1.0.1
-# → Generating changelog
-# → Creating commit
-# → Creating tag v1.0.1
-# → Pushing to remote
-# ✓ Release complete!
-```
+# In CI
+relizy release --yes
 
-### Complete Release with Publishing
+# A beta prerelease, published with the next dist-tag
+relizy release --prerelease --preid beta --yes
 
-```bash
-relizy release --minor
+# Version and tag, publish nothing
+relizy release --no-publish --no-provider-release
 
-# This will:
-# 1. Bump to 1.1.0
-# 2. Update changelog
-# 3. Commit and tag
-# 4. Publish to npm
-# 5. Create GitHub release
-```
-
-### Monorepo Selective Release
-
-```bash
-relizy release --selective --minor
-
-# Only packages with changes are bumped
-```
-
-### CI/CD Usage
-
-```bash
-# Automated release in CI
-relizy release --patch --yes --no-clean
-```
-
-### Canary Release
-
-```bash
-# Publish a canary version
-relizy release --canary
-
-# Canary with custom preid in CI
-relizy release --canary --preid snapshot --yes
-
-# Canary with PR comment
+# Canary of a pull request
 relizy release --canary --yes --pr-number 42
+
+# GitLab CI: the outputs for the next jobs
+relizy release --yes --report-dotenv relizy.env
 ```
 
 ## See Also
 
-- [AI-Enhanced Changelogs](/guide/ai-changelog) - AI-powered release notes
-- [Canary Releases](/guide/canary-releases) - Full guide on canary releases
-- [bump](/cli/bump) - Version bumping only
-- [changelog](/cli/changelog) - Changelog generation only
-- [publish](/cli/publish) - NPM publishing only
-- [provider-release](/cli/provider-release) - Provider releases only
-- [pr-comment](/cli/pr-comment) - PR/MR comments only
+- [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md), [social](./social.md), [pr-comment](./pr-comment.md): each step alone
+- [Release config](./../config/release.md)
+- [CI/CD](./../guide/ci-cd.md)
+- [`release()`](./../api/release.md)

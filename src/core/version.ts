@@ -1,15 +1,14 @@
 import type { ReleaseType } from 'semver'
-import type { GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types'
+import type { BumpResultTruthy, GitCommit, PackageBase, RelizyConfig, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { confirm } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import * as semver from 'semver'
 import { recordReleaseFile } from './release-files'
-import { hasLernaJson } from './repo'
+import { hasLernaJson, readPackageJson } from './repo'
 
 export function isGraduatingToStableBetweenVersion(version: string, newVersion: string): boolean {
   const isSameBase = semver.major(version) === semver.major(newVersion)
@@ -29,7 +28,7 @@ type SemverChangeType = 'major' | 'minor' | 'patch' | undefined
  * semver §4), breaking changes must not graduate to `1.0.0` automatically.
  * This helper downgrades an auto-detected `major` change to `minor` in that
  * case. Explicit CLI release types (major, premajor, ...) are NOT passed
- * through this function — only commit-based detection is capped.
+ * through this function - only commit-based detection is capped.
  */
 export function capReleaseTypeForZeroMajor(
   currentVersion: string,
@@ -472,14 +471,6 @@ export function updateLernaVersion({
   }
 }
 
-export function extractVersionFromPackageTag(tag: string): string | null {
-  const atIndex = tag.lastIndexOf('@')
-  if (atIndex === -1) {
-    return null
-  }
-  return tag.slice(atIndex + 1)
-}
-
 export function isPrerelease(version?: string): boolean {
   if (!version)
     return false
@@ -498,11 +489,42 @@ export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
   return prereleaseTypes.includes(releaseType)
 }
 
+/**
+ * The versions a command announces when they are known before it runs: those
+ * of its bump result, else the version of the root `package.json` (one
+ * version, without version groups nor `independent` mode). Undefined when
+ * unknown, as in `relizy release` before its bump.
+ */
+export function getKnownReleaseVersions({ config, bumpResult }: { config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy }): string[] | undefined {
+  if (bumpResult) {
+    const versions = [bumpResult.newVersion, ...(bumpResult.groups ?? []).map(group => group.newVersion), ...bumpResult.bumpedPackages.map(pkg => pkg.newVersion)]
+    const known = versions.filter((version): version is string => Boolean(version))
+    return known.length > 0 ? known : undefined
+  }
+
+  if (config.monorepo?.groups?.length || config.monorepo?.versionMode === 'independent') {
+    return undefined
+  }
+
+  const version = readPackageJson(config.cwd)?.version
+  return version ? [version] : undefined
+}
+
+/**
+ * True when every version of the release is a prerelease: a prerelease bump
+ * (`--prerelease`, `--prepatch`, `--preminor`, `--premajor`), or versions
+ * known before the run that are all prereleases. The steps with `onlyStable`
+ * then do nothing, and their safety checks are skipped.
+ */
+export function isPrereleaseOnlyRelease(config: ResolvedRelizyConfig, versions?: string[]): boolean {
+  return isPrereleaseReleaseType(config.bump.type) || (versions !== undefined && versions.length > 0 && versions.every(version => isPrerelease(version)))
+}
+
 export function isGraduating(currentVersion: string, releaseType: ReleaseType): boolean {
   return isPrerelease(currentVersion) && isStableReleaseType(releaseType)
 }
 
-export function getPreid(version: string): string | null {
+function getPreid(version: string): string | null {
   if (!version)
     return null
 
@@ -531,7 +553,7 @@ export function isChangedPreid(
   return currentPreid !== targetPreid
 }
 
-export function getBumpedPackageIndependently({
+function getBumpedPackageIndependently({
   pkg,
   dryRun,
 }: {
@@ -551,225 +573,6 @@ export function getBumpedPackageIndependently({
 
   writeVersion(pkg.path, newVersion, dryRun)
   return { bumped: true, newVersion, oldVersion: currentVersion }
-}
-
-function displayRootAndLernaUpdates({
-  versionMode,
-  currentVersion,
-  newVersion,
-  dryRun,
-  lernaJsonExists,
-}: {
-  versionMode: VersionMode
-  currentVersion?: string
-  newVersion?: string
-  dryRun: boolean
-  lernaJsonExists: boolean
-}) {
-  if (versionMode !== 'independent' && currentVersion && newVersion) {
-    logger.log(`${dryRun ? '[dry-run] ' : ''}Root package.json: ${currentVersion} → ${newVersion}`)
-    logger.log('')
-
-    if (lernaJsonExists) {
-      logger.log(`${dryRun ? '[dry-run] ' : ''}lerna.json: ${currentVersion} → ${newVersion}`)
-      logger.log('')
-    }
-  }
-}
-
-const PRIVATE_SUFFIX = ' 🔒 [private: bump only, not published]'
-
-function displayUnifiedModePackages({
-  packages,
-  newVersion,
-  force,
-}: {
-  packages: PackageBase[]
-  newVersion: string
-  force: boolean
-}) {
-  logger.log(`${packages.length} package(s):`)
-  packages.forEach((pkg) => {
-    logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-  })
-  logger.log('')
-}
-
-function displaySelectiveModePackages({
-  packages,
-  newVersion,
-  force,
-}: {
-  packages: PackageBase[]
-  newVersion: string
-  force: boolean
-}) {
-  if (force) {
-    logger.log(`${packages.length} package(s):`)
-    packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (force)${pkg.private ? PRIVATE_SUFFIX : ''}`)
-    })
-    logger.log('')
-  }
-  else {
-    const packagesWithCommits = packages.filter(p => 'reason' in p && p.reason === 'commits')
-    const packagesAsDependents = packages.filter(p => 'reason' in p && p.reason === 'dependency')
-    const packagesAsGraduation = packages.filter(p => 'reason' in p && p.reason === 'graduation')
-
-    if (packagesWithCommits.length > 0) {
-      logger.log(`${packagesWithCommits.length} package(s) with commits:`)
-      packagesWithCommits.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-
-    if (packagesAsDependents.length > 0) {
-      logger.log(`${packagesAsDependents.length} dependent package(s):`)
-      packagesAsDependents.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-
-    if (packagesAsGraduation.length > 0) {
-      logger.log(`${packagesAsGraduation.length} graduation package(s):`)
-      packagesAsGraduation.forEach((pkg) => {
-        logger.log(`  • ${pkg.name}: ${pkg.version} → ${newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-  }
-}
-
-function displayIndependentModePackages({
-  packages,
-  force,
-}: {
-  packages: PackageBase[]
-  force: boolean
-}) {
-  if (force) {
-    logger.log(`${packages.length} package(s):`)
-    packages.forEach((pkg) => {
-      logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (force)${pkg.private ? PRIVATE_SUFFIX : ''}`)
-    })
-    logger.log('')
-  }
-  else {
-    const packagesWithCommits = packages.filter(p => 'reason' in p && p.reason === 'commits')
-    const packagesAsDependents = packages.filter(p => 'reason' in p && p.reason === 'dependency')
-    const packagesAsGraduation = packages.filter(p => 'reason' in p && p.reason === 'graduation')
-
-    if (packagesWithCommits.length > 0) {
-      logger.log(`${packagesWithCommits.length} package(s) with commits:`)
-      packagesWithCommits.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} (${pkg.commits.length} commits) ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-
-    if (packagesAsDependents.length > 0) {
-      logger.log(`${packagesAsDependents.length} dependent package(s):`)
-      packagesAsDependents.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-
-    if (packagesAsGraduation.length > 0) {
-      logger.log(`${packagesAsGraduation.length} graduation package(s):`)
-      packagesAsGraduation.forEach((pkg) => {
-        pkg.newVersion && logger.log(`  • ${pkg.name}: ${pkg.version} → ${pkg.newVersion} ${force ? '(force)' : ''}${pkg.private ? PRIVATE_SUFFIX : ''}`)
-      })
-      logger.log('')
-    }
-  }
-}
-
-export async function confirmBump({
-  versionMode,
-  config,
-  packages,
-  force,
-  currentVersion,
-  newVersion,
-  dryRun,
-}: {
-  versionMode: VersionMode
-  config: ResolvedRelizyConfig
-  packages: PackageBase[]
-  force: boolean
-  currentVersion?: string
-  newVersion?: string
-  dryRun: boolean
-}) {
-  if (packages.length === 0) {
-    logger.debug('No packages to bump')
-    return
-  }
-
-  const lernaJsonExists = hasLernaJson(config.cwd)
-
-  logger.log('')
-  logger.info(`${dryRun ? '[dry-run] ' : ''}The following packages will be updated:\n`)
-
-  if (packages.some(p => p.private)) {
-    logger.log('🔒 Private packages are versioned and get a CHANGELOG, but are never published to a registry, nor included in provider releases or PR comments.\n')
-  }
-
-  displayRootAndLernaUpdates({
-    versionMode,
-    currentVersion,
-    newVersion,
-    lernaJsonExists,
-    dryRun,
-  })
-
-  if (versionMode === 'unified') {
-    if (!newVersion) {
-      throw new Error('Cannot confirm bump in unified mode without a new version')
-    }
-
-    displayUnifiedModePackages({ packages, newVersion, force })
-  }
-  else if (versionMode === 'selective') {
-    if (!newVersion) {
-      throw new Error('Cannot confirm bump in selective mode without a new version')
-    }
-
-    displaySelectiveModePackages({ packages, newVersion, force })
-  }
-  else if (versionMode === 'independent') {
-    displayIndependentModePackages({ packages, force })
-  }
-
-  try {
-    const confirmed = await confirm({
-      message: `${dryRun ? '[dry-run] ' : ''}Do you want to proceed with these version updates?`,
-      default: true,
-    })
-
-    if (!confirmed) {
-      logger.log('')
-      logger.fail('Bump refused')
-      process.exit(0)
-    }
-  }
-  catch (error) {
-    const userHasExited = error instanceof Error && error.name === 'ExitPromptError'
-
-    if (userHasExited) {
-      logger.log('')
-      logger.fail('Bump cancelled')
-      process.exit(0)
-    }
-
-    logger.fail('Error while confirming bump')
-    process.exit(1)
-  }
-
-  logger.log('')
 }
 
 export function getBumpedIndependentPackages({

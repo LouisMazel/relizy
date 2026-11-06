@@ -1,7 +1,6 @@
 /// <reference types="vitest" />
 
 import { coverageConfigDefaults, defaultExclude, defineConfig } from 'vitest/config'
-import { isInCI } from './src/core/utils'
 
 export default defineConfig({
   plugins: [],
@@ -23,11 +22,11 @@ export default defineConfig({
         'src/**/*.md',
       ],
       thresholds: {
-        autoUpdate: !isInCI(),
-        statements: 95.65,
+        autoUpdate: !process.env.CI,
+        statements: 96.62,
         functions: 98.85,
-        branches: 91.44,
-        lines: 95.51,
+        branches: 91.78,
+        lines: 96.52,
       },
     },
     exclude: [...defaultExclude, '.claude/**'],

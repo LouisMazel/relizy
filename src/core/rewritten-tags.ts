@@ -1,8 +1,8 @@
 import type { OnRewrittenTag, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import process from 'node:process'
-import { confirm, select } from '@inquirer/prompts'
 import { logger } from '@maz-ui/node'
+import { isRelizyCancelError, RelizyCancelError } from './errors'
 import {
   findReachableCommitBySubject,
   getCommitSubject,
@@ -11,6 +11,7 @@ import {
   retagAnnotatedLocal,
   tagExists,
 } from './git-refs'
+import { askConfirm, askSelect } from './prompts'
 
 /**
  * Per-process memo so the user is prompted at most once per (from, to) pair,
@@ -105,12 +106,11 @@ async function rebind({
     message,
     signed: config.signTags,
     cwd: config.cwd,
-    logLevel: config.logLevel,
   })
   logger.success(`Re-bound tag "${from}" -> ${short(twin)} locally.`)
 
   if (push) {
-    await pushTagForce(from, config.cwd, config.logLevel)
+    await pushTagForce(from, config.cwd)
     logger.success(`Force-pushed tag "${from}" to origin.`)
   }
   else {
@@ -146,17 +146,18 @@ async function promptOrphan({
 
   let answer: string
   try {
-    answer = await select({
+    answer = await askSelect({
       message: `How should relizy handle the rewritten tag "${from}"?`,
-      choices,
-      default: twin ? 'ephemeral' : 'keep',
+      options: choices.map(({ name, value }) => ({ value, label: name })),
+      initialValue: twin ? 'ephemeral' : 'keep',
     })
   }
   catch (error) {
-    const userHasExited = error instanceof Error && error.name === 'ExitPromptError'
-    logger.log('')
-    logger.fail(userHasExited ? 'Cancelled' : 'Error while resolving rewritten tag')
-    process.exit(userHasExited ? 0 : 1)
+    if (isRelizyCancelError(error)) {
+      throw error
+    }
+
+    throw new Error(`Error while resolving the rewritten tag "${from}"`, { cause: error })
   }
 
   switch (answer) {
@@ -166,9 +167,9 @@ async function promptOrphan({
     case 'rebind-local':
       return rebind({ from, twin: twin!, config, dryRun, push: false })
     case 'rebind-push': {
-      const confirmed = await confirm({
+      const confirmed = await askConfirm({
         message: `Force-push tag "${from}" to origin? This rewrites the already-published tag.`,
-        default: false,
+        initialValue: false,
       }).catch(() => false)
 
       if (!confirmed) {
@@ -182,9 +183,7 @@ async function promptOrphan({
       return from
     case 'abort':
     default:
-      logger.log('')
-      logger.fail('Aborted. Re-bind the tag or fix your history, then retry.')
-      process.exit(0)
+      throw new RelizyCancelError('Aborted. Re-bind the tag or fix your history, then retry.')
   }
 }
 

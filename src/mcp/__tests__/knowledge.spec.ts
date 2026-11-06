@@ -1,6 +1,6 @@
 import type { Knowledge } from '../knowledge/load'
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
 import { getDefaultConfig } from '../../core'
 import { cleanMarkdown, CONFIG_DOC_IDS, extractConfigReference, parseFrontmatter, parseJsDoc } from '../knowledge/generate'
@@ -27,6 +27,50 @@ function citedDocIds(): string[] {
   const ids = files.flatMap(file => [...readFileSync(file, 'utf8').matchAll(/["`]((?:guide|config|cli|commitlint|api)\/[a-z-]+)[#"`]/g)].map(match => match[1]!))
 
   return [...new Set([...ids, ...Object.values(CONFIG_DOC_IDS)])]
+}
+
+/** The `https://relizy.dev/<page>#<anchor>` links of the code, outside the tests */
+function citedDocUrls(): { file: string, id: string, anchor?: string }[] {
+  const files = listFiles(join(ROOT_DIR, 'src')).filter(file => file.endsWith('.ts') && !file.includes('__tests__'))
+
+  return files.flatMap(file => [...readFileSync(file, 'utf8').matchAll(/https:\/\/relizy\.dev\/([a-z0-9/-]+)(?:#([a-z0-9-]+))?/g)]
+    .map(([, path, anchor]) => ({ file: file.slice(ROOT_DIR.length + 1), id: path!.endsWith('/') ? `${path}index` : path!, anchor })))
+}
+
+/** A page without its code blocks, whose `#` lines are not headings */
+function withoutCodeBlocks(markdown: string): string {
+  let inBlock = false
+
+  return markdown.split('\n').filter((line) => {
+    if (line.startsWith('```')) {
+      inBlock = !inBlock
+      return false
+    }
+    return !inBlock
+  }).join('\n')
+}
+
+/**
+ * The anchors of the headings of a page, as VitePress slugifies them
+ * (`## CI/CD Variables` is `ci-cd-variables`), or their custom `{#id}`
+ */
+function headingAnchors(markdown: string): Set<string> {
+  return new Set([...withoutCodeBlocks(markdown).matchAll(/^#{1,6} (.+)$/gm)].map(([, title]) => {
+    const custom = title!.match(/\{#([^}]+)\}$/)
+    if (custom) {
+      return custom[1]!
+    }
+
+    const slug = title!.normalize('NFKD').replaceAll(/[\u0300-\u036F]/g, '').replaceAll(/[\s~`!@#$%^&*()\-_+=[\]{}|\\;:"'“”‘’<>,.?/]/g, '-').split('-').filter(Boolean).join('-')
+
+    return slug.replace(/^(\d)/, '_$1').toLowerCase()
+  }))
+}
+
+/** The targets of the links and images of a page, outside its code blocks */
+function markdownLinks(markdown: string): string[] {
+  // The url, without its title: [text](./page.md "title")
+  return [...withoutCodeBlocks(markdown).matchAll(/\]\(([^)]+)\)/g)].map(([, target]) => target!.split(' ')[0]!)
 }
 
 describe('Given the docs bundle generated from the sources', () => {
@@ -87,10 +131,24 @@ describe('Given the docs bundle generated from the sources', () => {
     it('Then the nested options are documented with their JSDoc', () => {
       expect(knowledge.configByPath.get('bump.outOfRangePeers')).toEqual(expect.objectContaining({ type: '\'bump\' | \'warn\' | \'error\'', default: '\'bump\'', docId: 'config/bump' }))
       expect(knowledge.configByPath.get('monorepo.groups[].versionMode')).toEqual(expect.objectContaining({ type: 'VersionMode', docId: 'config/monorepo' }))
-      expect(knowledge.configByPath.get('monorepo.ignorePackageNames')?.deprecated).toContain('Use `ignored`')
       expect(knowledge.configByPath.has('monorepo.groups[].bump.capZeroMajor')).toBe(true)
       expect(knowledge.configByPath.has('monorepo.groups[].bump.type')).toBe(false)
       expect(knowledge.configByPath.get('scopeMap')?.docId).toBe('config/overview')
+    })
+
+    it('Then the @default of the JSDoc match the default config', () => {
+      const defaults = getDefaultConfig() as Record<string, unknown>
+      const mismatches = knowledge.config.flatMap((option) => {
+        const value = option.path.split('.').reduce<unknown>((parent, key) => (parent as Record<string, unknown> | undefined)?.[key], defaults)
+
+        if (option.path === 'cwd' || option.default === undefined || value === undefined || (typeof value === 'object' && !Array.isArray(value))) {
+          return []
+        }
+
+        return option.default.replaceAll('\'', '"') === JSON.stringify(value) ? [] : [`${option.path}: ${option.default} !== ${JSON.stringify(value)}`]
+      })
+
+      expect(mismatches).toEqual([])
     })
 
     it('Then every option points to an existing doc page', () => {
@@ -105,6 +163,55 @@ describe('Given the docs bundle generated from the sources', () => {
       expect(ids.length).toBeGreaterThan(15)
       expect(ids.filter(id => !knowledge.docsById.has(id))).toEqual([])
     })
+
+    it('Then the pages named in the description of get_doc exist too', () => {
+      const description = readFileSync(join(ROOT_DIR, 'src/mcp/tools/get-doc.ts'), 'utf8')
+      const names = [...description.matchAll(/\b(guide|config|cli|commitlint) \(([^)]+)\)/g)]
+        .flatMap(([, section, list]) => list!.split(', ').map(name => name.replace('...', '').trim()).filter(Boolean).map(name => `${section}/${name}`))
+
+      expect(names.length).toBeGreaterThan(10)
+      expect(names.filter(id => !knowledge.docsById.has(id))).toEqual([])
+    })
+  })
+
+  describe('When a doc page links to another one', () => {
+    it('Then the link is relative to the .md file and reaches an existing page and heading', () => {
+      const docsDir = join(ROOT_DIR, 'docs/src')
+      const pages = listFiles(docsDir).filter(file => file.endsWith('.md') && !file.includes('/typedoc/'))
+      const anchorsByPage = new Map(pages.map(page => [page, headingAnchors(readFileSync(page, 'utf8'))]))
+
+      const broken = pages.flatMap(page => markdownLinks(readFileSync(page, 'utf8'))
+        .filter(url => !/^[a-z]+:/.test(url))
+        .flatMap((url) => {
+          const [path, anchor] = url.split('#')
+          const target = path ? join(dirname(page), path) : page
+          const problem = path && !path.startsWith('./')
+            ? 'not relative to the file (./)'
+            : path && !path.endsWith('.md')
+              ? (existsSync(target) || existsSync(join(docsDir, 'public', relative(docsDir, target))) ? undefined : 'not a .md file')
+              // The typedoc pages are generated by the build of the docs
+              : target.startsWith(join(docsDir, 'typedoc'))
+                ? undefined
+                : !anchorsByPage.has(target)
+                    ? 'missing page'
+                    : anchor && !anchorsByPage.get(target)!.has(anchor) ? 'missing heading' : undefined
+
+          return problem ? [`${relative(docsDir, page)}: ${url} (${problem})`] : []
+        }))
+
+      expect(pages.length).toBeGreaterThan(30)
+      expect(broken).toEqual([])
+    })
+  })
+
+  describe('When the code links to the docs', () => {
+    it('Then every relizy.dev link reaches an existing page and heading', () => {
+      const links = citedDocUrls()
+
+      expect(links.length).toBeGreaterThan(5)
+      expect(links.filter(({ id }) => !knowledge.docsById.has(id)).map(({ file, id }) => `${file}: ${id}`)).toEqual([])
+      expect(links.filter(({ id, anchor }) => anchor && knowledge.docsById.has(id) && !headingAnchors(knowledge.readDoc(id)).has(anchor)).map(({ file, id, anchor }) => `${file}: ${id}#${anchor}`)).toEqual([])
+    })
   })
 
   describe('When a CLI command is added', () => {
@@ -115,8 +222,56 @@ describe('Given the docs bundle generated from the sources', () => {
       expect(commands.length).toBeGreaterThan(5)
       expect(pages.filter(page => !knowledge.docsById.has(page))).toEqual([])
     })
+
+    it('Then each of its flags is on its page, and the global ones on cli/commands', () => {
+      const missing = Object.entries(getCliFlags()).flatMap(([page, flags]) => flags
+        .filter(flag => !new RegExp(`${flag}(?![\\w-])`).test(knowledge.readDoc(page)))
+        .map(flag => `${page}: ${flag}`))
+
+      expect(missing).toEqual([])
+    })
+  })
+
+  describe('When a config option is added', () => {
+    it('Then it is named on its doc page', () => {
+      const missing = knowledge.config
+        .filter((option) => {
+          const key = option.path.split('.').at(-1)!.replace('[]', '')
+          return !new RegExp(`(?<![\\w-])${key}(?![\\w-])`).test(knowledge.readDoc(option.docId))
+        })
+        .map(option => `${option.docId}: ${option.path}`)
+
+      expect(missing).toEqual([])
+    })
   })
 })
+
+/**
+ * The long flags of each command of `src/cli.ts`, by doc page: `cli/commands`
+ * for the global options, `cli/mcp` for the subcommands of `relizy mcp`
+ */
+function getCliFlags(): Record<string, string[]> {
+  const source = readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8')
+  const commands = [...source.matchAll(/\.command\('([a-z-]+)'/g)]
+  // The options shared by several commands: `function slackFormatOption() { return new Option('--slack-format...`
+  const sharedOptions = [...source.matchAll(/function (\w+Option)\(\) \{\n {2}return new Option\('(--[a-z-]+)/g)].map(match => ({ call: `${match[1]}()`, flag: match[2]! }))
+  const flagsOf = (text: string, withOptionObjects = true) => [
+    ...[...text.matchAll(/\.option\('(?:-\w, )?(--[a-z-]+)/g)].map(match => match[1]!),
+    ...(withOptionObjects ? [...text.matchAll(/new Option\('(--[a-z-]+)/g)].map(match => match[1]!) : []),
+    ...(withOptionObjects ? sharedOptions.filter(option => text.includes(option.call)).map(option => option.flag) : []),
+  ]
+  const pages: Record<string, string[]> = { 'cli/commands': flagsOf(source.slice(0, commands[0]!.index), false) }
+
+  commands.forEach((match, index) => {
+    const name = match[1]!
+    const previous = commands[index - 1]?.[1]
+    const page = name === 'commitlint' ? 'commitlint/cli' : name === 'serve' || previous === 'mcp' || previous === 'serve' ? 'cli/mcp' : `cli/${name}`
+
+    pages[page] = [...new Set([...(pages[page] ?? []), ...flagsOf(source.slice(match.index, commands[index + 1]?.index))])]
+  })
+
+  return pages
+}
 
 describe('Given parseFrontmatter', () => {
   describe('When the page has a frontmatter', () => {
@@ -230,6 +385,35 @@ export interface RelizyConfig extends Base {
       expect(options.find(option => option.path === 'children[].old')?.deprecated).toBe('Deprecated')
       expect(options.find(option => option.path === 'nested')?.type).toBe('object')
       expect(options.find(option => option.path === 'scopeMap')?.description).toBe('')
+    })
+  })
+
+  describe('When a type hides its values behind an alias', () => {
+    it('Then it lists the values, and only when the type does not show them', () => {
+      const source = `
+export type Mode = 'unified' | 'selective'
+type Level = Mode | 'off' | 0
+export interface RelizyConfig {
+  mode?: Mode
+  modes?: Mode[]
+  items?: Array<Level>
+  inline?: 'a' | 'b'
+  enabled?: boolean
+  either?: boolean | 'warn'
+  other?: Mode | Record<string, string>
+}
+`
+      const values = Object.fromEntries(extractConfigReference(source).map(option => [option.path, option.values]))
+
+      expect(values).toEqual({
+        mode: ['"unified"', '"selective"'],
+        modes: ['"unified"', '"selective"'],
+        items: ['"unified"', '"selective"', '"off"', '0'],
+        inline: undefined,
+        enabled: undefined,
+        either: undefined,
+        other: undefined,
+      })
     })
   })
 })

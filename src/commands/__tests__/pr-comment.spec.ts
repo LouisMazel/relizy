@@ -1,16 +1,25 @@
 import type { PullRequestInfo } from '../../core/pr-comment'
+import type { ReleaseReport } from '../../core/release-report'
 import { logger } from '@maz-ui/node'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { captureCliOutput } from '../../../tests/cli-output'
 import { createMockConfig } from '../../../tests/mocks'
-import { detectPullRequest, getCurrentGitBranch, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
+import { detectPullRequest, formatReleaseReportMarkdown, getCurrentGitBranch, loadRelizyConfig, postPrComment, readPackageJson, readPackages } from '../../core'
 import { buildCommentBody, prComment, tryPostPrComment } from '../pr-comment'
 
 vi.mock('../../core', async () => {
   const actual = await vi.importActual<typeof import('../../core')>('../../core/packages')
   const versionActual = await vi.importActual<typeof import('../../core')>('../../core/version')
   const groupsActual = await vi.importActual<typeof import('../../core')>('../../core/groups')
+  const overviewActual = await vi.importActual<typeof import('../../core')>('../../core/release-overview')
   return {
+    ...await vi.importActual<typeof import('../../core/release-ui')>('../../core/release-ui'),
+    ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+    formatReleaseReportMarkdown: (await vi.importActual<typeof import('../../core/release-report')>('../../core/release-report')).formatReleaseReportMarkdown,
+    getReleaseOverview: overviewActual.getReleaseOverview,
+    withoutPrivatePackages: overviewActual.withoutPrivatePackages,
     getMonorepoPackagePatterns: groupsActual.getMonorepoPackagePatterns,
+    getPrivatePackagesMode: (await vi.importActual<typeof import('../../core/repo')>('../../core/repo')).getPrivatePackagesMode,
     hasRepositoryVersion: groupsActual.hasRepositoryVersion,
     loadRelizyConfig: vi.fn(),
     detectPullRequest: vi.fn(),
@@ -20,7 +29,7 @@ vi.mock('../../core', async () => {
     getCurrentGitBranch: vi.fn(),
     PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     // Use the real collectPackageBumps so the package table renders in tests
     collectPackageBumps: actual.collectPackageBumps,
     // Real implementation so the metadata "from" version is derived from fromTag
@@ -221,7 +230,7 @@ describe('Given prComment command', () => {
       await prComment({ dryRun: true })
 
       expect(loggerSpy).toHaveBeenCalledWith(
-        expect.stringContaining('[dry-run] PR Comment Preview'),
+        expect.stringContaining('[dry-run] PR comment'),
       )
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('#42'),
@@ -247,11 +256,12 @@ describe('Given prComment command', () => {
       vi.mocked(detectPullRequest).mockResolvedValue(null)
       const loggerSpy = vi.spyOn(logger, 'box')
 
-      await prComment({ dryRun: true })
+      const posted = await prComment({ dryRun: true })
 
       expect(loggerSpy).toHaveBeenCalledWith(
         expect.stringContaining('Not detected'),
       )
+      expect(posted).toBe(false)
     })
   })
 
@@ -524,7 +534,7 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         ...overrides,
       })
     }
@@ -540,7 +550,7 @@ describe('Given buildCommentBody', () => {
       expect(body).not.toContain('unknown')
     })
 
-    it('Then lists private packages in the packages table when includePrivates is enabled', () => {
+    it('Then lists private packages in the packages table with privatePackages: release', () => {
       const body = buildCommentBody({
         ...baseParams,
         config: createIndependentConfig(),
@@ -590,7 +600,7 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
       })
       const body = buildCommentBody({
         ...baseParams,
@@ -742,8 +752,8 @@ describe('Given buildCommentBody with version groups', () => {
           fromTag: 'v6.19.1',
           bumpedPackages: [components, nav],
           groups: [
-            { name: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
-            { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
+            { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+            { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
           ],
         },
       },
@@ -751,9 +761,46 @@ describe('Given buildCommentBody with version groups', () => {
 
     expect(body).toContain('**Version**')
     expect(body).toContain('`6.19.1` → `6.20.0`')
-    expect(body).toContain('| `@scope/nav` | `1.2.0` → `2.0.0` |')
+    expect(body).toContain([
+      '### main `6.20.0` (selective)',
+      '',
+      '| Package | Version |',
+      '| --- | --- |',
+      '| `@scope/components` | `6.19.1` → `6.20.0` |',
+      '',
+      '### header (independent)',
+      '',
+      '| Package | Version |',
+      '| --- | --- |',
+      '| `@scope/nav` | `1.2.0` → `2.0.0` |',
+    ].join('\n'))
+    expect(body).not.toContain('### Packages')
     expect(body).toContain('pnpm add @scope/components@6.20.0')
     expect(body).toContain('pnpm add @scope/nav@2.0.0')
+  })
+
+  it('Then titles the tables after the title of the groups, the unified/selective group first, without the private packages', () => {
+    const login = { ...nav, name: '@scope/login', private: true }
+    const body = buildCommentBody({
+      config: createGroupsConfig(),
+      branch: 'main',
+      date: '2026-02-22 14:30 UTC',
+      releaseContext: {
+        status: 'success',
+        bumpResult: {
+          bumped: true,
+          newVersion: '6.20.0',
+          bumpedPackages: [components, nav, login],
+          groups: [
+            { name: 'header', title: 'Header', versionMode: 'independent', bumped: true, bumpedPackages: [nav, login] },
+            { name: 'main', title: 'Maz UI', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+          ],
+        },
+      },
+    })
+
+    expect(body.indexOf('### Maz UI `6.20.0` (selective)')).toBeLessThan(body.indexOf('### Header (independent)'))
+    expect(body).not.toContain('@scope/login')
   })
 
   it('Then omits the global version when only an independent group is released', () => {
@@ -768,7 +815,7 @@ describe('Given buildCommentBody with version groups', () => {
         bumpResult: {
           bumped: true,
           bumpedPackages: [nav],
-          groups: [{ name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
+          groups: [{ name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
         },
       },
     })
@@ -787,5 +834,72 @@ describe('Given buildCommentBody with version groups', () => {
     await prComment({ dryRun: true })
 
     expect(readPackages).toHaveBeenCalledWith(expect.objectContaining({ patterns: ['packages/*', 'shared/*'] }))
+  })
+})
+
+describe('Given the comment of a release', () => {
+  it('Then is the summary of the release, after the marker', () => {
+    const report: ReleaseReport = {
+      status: 'released',
+      released: true,
+      dryRun: false,
+      canary: false,
+      release: { projectName: 'lib', groups: [{ name: '', title: 'lib', versionMode: 'unified', version: '1.1.0', oldVersion: '1.0.0', tag: 'v1.1.0', packages: [{ name: 'lib', oldVersion: '1.0.0', newVersion: '1.1.0', tag: 'v1.1.0', private: false }] }] },
+      version: '1.1.0',
+      tags: ['v1.1.0'],
+      steps: [{ name: 'publish', status: 'done', detail: 'lib@1.1.0' }],
+    }
+
+    const body = buildCommentBody({ config: createMockConfig({}), branch: 'main', date: '2026-02-22 14:30 UTC', releaseContext: { status: 'success', report } })
+
+    expect(body).toBe(`<!-- relizy-pr-comment -->\n\n${formatReleaseReportMarkdown(report)}`)
+    expect(body).toContain('| `lib` | `1.0.0` → `1.1.0` |')
+  })
+})
+
+describe('Given the output of prComment in CI', () => {
+  let output: ReturnType<typeof captureCliOutput>
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' }, prComment: { mode: 'append' } }))
+    vi.mocked(getCurrentGitBranch).mockReturnValue('feature-branch')
+    vi.mocked(readPackageJson).mockReturnValue({ name: 'test-project', version: '1.2.3', path: '/root', private: false })
+    vi.mocked(readPackages).mockReturnValue([])
+    vi.mocked(detectPullRequest).mockResolvedValue({ number: 42, url: 'https://github.com/user/repo/pull/42', provider: 'github' })
+    vi.mocked(postPrComment).mockResolvedValue(true)
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+  })
+
+  it('Then tells the pull request it commented, with its link', async () => {
+    await prComment({})
+
+    expect(output.lines()).toEqual([
+      'relizy pr-comment · ci',
+      '▸ Commenting the pull request',
+      expect.stringMatching(/^✔ Pull request #42 commented {2}\d+ms$/),
+      '  https://github.com/user/repo/pull/42',
+      expect.stringMatching(/^✔ Commented the pull request #42 {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is no pull request to comment', async () => {
+    vi.mocked(detectPullRequest).mockResolvedValue(null)
+
+    await prComment({})
+
+    expect(output.lines().at(-1)).toMatch(/^○ No pull request to comment {2}\d+ms$/)
+  })
+
+  it('Then shows the error once', async () => {
+    vi.mocked(postPrComment).mockRejectedValue(new Error('403 Forbidden'))
+
+    await expect(prComment({})).rejects.toThrow('403 Forbidden')
+
+    expect(output.lines()).toEqual(expect.arrayContaining(['✖ PR comment failed', '  403 Forbidden']))
   })
 })

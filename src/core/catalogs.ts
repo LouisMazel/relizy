@@ -1,7 +1,7 @@
 import type { Buffer } from 'node:buffer'
-import { execFileSync } from 'node:child_process'
 import { posix } from 'node:path'
 import { parseJSON, parseYAML } from 'confbox'
+import { runGitSyncBuffer } from './git-exec'
 
 /**
  * Catalogs of the package managers: the versions of the dependencies declared
@@ -12,7 +12,7 @@ import { parseJSON, parseYAML } from 'confbox'
  * - yarn (4.10+): `catalog` and `catalogs` of `.yarnrc.yml`
  * - bun: `catalog` and `catalogs` of the root `package.json`, or of its `workspaces` field
  */
-export const CATALOG_FILES = ['pnpm-workspace.yaml', '.yarnrc.yml', 'package.json'] as const
+const CATALOG_FILES = ['pnpm-workspace.yaml', '.yarnrc.yml', 'package.json'] as const
 
 export type CatalogFile = typeof CATALOG_FILES[number]
 
@@ -116,7 +116,7 @@ export function readFilesAtCommits(cwd: string, objects: string[]): (string | un
   let output: Buffer
 
   try {
-    output = execFileSync('git', ['cat-file', '--batch'], { cwd, input: `${objects.join('\n')}\n`, stdio: ['pipe', 'pipe', 'ignore'], maxBuffer: 256 * 1024 * 1024 })
+    output = runGitSyncBuffer(['cat-file', '--batch'], { cwd, input: `${objects.join('\n')}\n` })
   }
   catch {
     return objects.map(() => undefined)

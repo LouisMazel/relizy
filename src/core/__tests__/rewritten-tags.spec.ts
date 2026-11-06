@@ -1,4 +1,5 @@
 import { createMockConfig } from '../../../tests/mocks'
+import { RelizyCancelError } from '../errors'
 import { reconcileFromTag, resetRewrittenTagCache } from '../rewritten-tags'
 
 const TO = 'develop'
@@ -18,13 +19,13 @@ vi.mock('../git-refs', async (importActual) => {
   }
 })
 
-vi.mock('@inquirer/prompts', () => ({
-  select: vi.fn(),
-  confirm: vi.fn(),
+vi.mock('../prompts', () => ({
+  askSelect: vi.fn(),
+  askConfirm: vi.fn(),
 }))
 
 const git = await import('../git-refs')
-const prompts = await import('@inquirer/prompts')
+const prompts = await import('../prompts')
 
 function mockGit({
   tagExists = true,
@@ -164,25 +165,22 @@ describe('Given reconcileFromTag', () => {
 
   describe('When strategy resolves to interactive prompt', () => {
     let ttyDescriptor: PropertyDescriptor | undefined
-    let exitSpy: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
       // Force a TTY so the default strategy resolves to `prompt`.
       ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdout, 'isTTY')
       Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
-      exitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never)
     })
 
     afterEach(() => {
       if (ttyDescriptor) {
         Object.defineProperty(process.stdout, 'isTTY', ttyDescriptor)
       }
-      exitSpy.mockRestore()
     })
 
     it('Then "ephemeral" choice returns the equivalent commit without mutating the tag', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('ephemeral')
+      vi.mocked(prompts.askSelect).mockResolvedValue('ephemeral')
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -194,7 +192,7 @@ describe('Given reconcileFromTag', () => {
 
     it('Then "rebind-local" choice moves the tag locally without pushing', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('rebind-local')
+      vi.mocked(prompts.askSelect).mockResolvedValue('rebind-local')
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -206,8 +204,8 @@ describe('Given reconcileFromTag', () => {
 
     it('Then "rebind-push" force-pushes only after a second confirmation', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('rebind-push')
-      vi.mocked(prompts.confirm).mockResolvedValue(true)
+      vi.mocked(prompts.askSelect).mockResolvedValue('rebind-push')
+      vi.mocked(prompts.askConfirm).mockResolvedValue(true)
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -219,8 +217,8 @@ describe('Given reconcileFromTag', () => {
 
     it('Then "rebind-push" with a declined confirmation does NOT push', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('rebind-push')
-      vi.mocked(prompts.confirm).mockResolvedValue(false)
+      vi.mocked(prompts.askSelect).mockResolvedValue('rebind-push')
+      vi.mocked(prompts.askConfirm).mockResolvedValue(false)
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -232,8 +230,8 @@ describe('Given reconcileFromTag', () => {
 
     it('Then a cancelled push confirmation falls back to a local re-bind', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('rebind-push')
-      vi.mocked(prompts.confirm).mockRejectedValue(new Error('cancelled'))
+      vi.mocked(prompts.askSelect).mockResolvedValue('rebind-push')
+      vi.mocked(prompts.askConfirm).mockRejectedValue(new Error('cancelled'))
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -245,8 +243,8 @@ describe('Given reconcileFromTag', () => {
 
     it('Then a prompt choice never mutates in dry-run mode', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('rebind-push')
-      vi.mocked(prompts.confirm).mockResolvedValue(true)
+      vi.mocked(prompts.askSelect).mockResolvedValue('rebind-push')
+      vi.mocked(prompts.askConfirm).mockResolvedValue(true)
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config, dryRun: true })
@@ -256,19 +254,17 @@ describe('Given reconcileFromTag', () => {
       expect(git.pushTagForce).not.toHaveBeenCalled()
     })
 
-    it('Then "abort" exits the process', async () => {
+    it('Then "abort" cancels the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('abort')
+      vi.mocked(prompts.askSelect).mockResolvedValue('abort')
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
+      await expect(reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })).rejects.toThrow(RelizyCancelError)
     })
 
     it('Then "keep" returns the orphaned tag unchanged', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockResolvedValue('keep')
+      vi.mocked(prompts.askSelect).mockResolvedValue('keep')
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
@@ -277,36 +273,37 @@ describe('Given reconcileFromTag', () => {
       expect(git.retagAnnotatedLocal).not.toHaveBeenCalled()
     })
 
-    it('Then a cancelled prompt (Ctrl-C) exits cleanly with code 0', async () => {
+    it('Then a cancelled prompt (Ctrl-C) cancels the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      const exitError = new Error('cancelled')
-      exitError.name = 'ExitPromptError'
-      vi.mocked(prompts.select).mockRejectedValue(exitError)
+      // askSelect throws its cancel message when the prompt is cancelled (see prompts.spec)
+      vi.mocked(prompts.askSelect).mockRejectedValue(new RelizyCancelError('Cancelled'))
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
-
-      expect(exitSpy).toHaveBeenCalledWith(0)
+      await expect(reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })).rejects.toThrow(RelizyCancelError)
     })
 
-    it('Then an unexpected prompt error exits with code 1', async () => {
+    it('Then an unexpected prompt error fails the run', async () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
-      vi.mocked(prompts.select).mockRejectedValue(new Error('boom'))
+      vi.mocked(prompts.askSelect).mockRejectedValue(new Error('boom'))
       const config = createMockConfig({})
 
-      await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
+      const error = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config }).catch((error: unknown) => error)
 
-      expect(exitSpy).toHaveBeenCalledWith(1)
+      expect(error).not.toBeInstanceOf(RelizyCancelError)
+      expect(error).toEqual(expect.objectContaining({ message: `Error while resolving the rewritten tag "${ORPHAN_TAG}"` }))
     })
 
     it('Then prompts only when twin exists; otherwise offers keep/abort', async () => {
       mockGit({ isAncestor: false, twin: null })
-      vi.mocked(prompts.select).mockResolvedValue('keep')
+      vi.mocked(prompts.askSelect).mockResolvedValue('keep')
       const config = createMockConfig({})
 
       const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config })
 
       expect(result).toBe(ORPHAN_TAG)
+      const { options, initialValue } = vi.mocked(prompts.askSelect).mock.calls[0]![0]
+      expect(options.map(option => option.value)).toEqual(['keep', 'abort'])
+      expect(initialValue).toBe('keep')
     })
   })
 

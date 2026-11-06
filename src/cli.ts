@@ -8,13 +8,14 @@ import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
 import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
-import { getCIName, isInCI } from './core/utils'
+import { getCIName, isInCI } from './core/ci-env'
+import { isErrorReported, isRelizyCancelError } from './core/errors'
+import { setDryRunOptions } from './core/progress'
+import { enableCliUi } from './core/release-ui'
 
 const hasSilentFlag = process.argv.includes('--log-level') && process.argv.includes('silent')
-// Run in the commit-msg hook at every commit: no banner, only the lint output
-const isCommitlint = process.argv[2] === 'commitlint'
-// The MCP server speaks the protocol on stdout: no banner, no log
-const isMcpServer = process.argv[2] === 'mcp' && process.argv[3] !== 'init'
+// The other commands start with their own title line
+const isInit = process.argv[2] === 'init'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -24,7 +25,7 @@ const packageJson = JSON.parse(
 
 const version = packageJson.version
 
-if (!hasSilentFlag && !isCommitlint && !isMcpServer) {
+if (!hasSilentFlag && isInit) {
   printBanner({
     name: 'Relizy',
     version: `v${version}`,
@@ -39,18 +40,18 @@ if (!hasSilentFlag && !isCommitlint && !isMcpServer) {
   })
 }
 
-if (isInCI() && !isCommitlint && !isMcpServer) {
-  logger.log(`Running in CI: ${getCIName()}`)
-}
-else {
-  logger.debug('Running locally')
-}
+logger.debug(isInCI() ? `Running in CI: ${getCIName()}` : 'Running locally')
 
 const program = new Command()
 
 function hasCliFlag(flag: string): boolean {
   return process.argv.includes(flag)
 }
+
+program.hook('preAction', () => {
+  enableCliUi()
+  setDryRunOptions({ preview: !hasCliFlag('--no-preview'), ai: hasCliFlag('--ai-preview') })
+})
 
 function getReleaseType(options: any) {
   let type: BumpOptions['type'] = 'release'
@@ -77,8 +78,38 @@ function parseGroupNames(value: string): string[] {
   return value.split(',').map(name => name.trim()).filter(Boolean)
 }
 
+/** The files of the report given on the command line, if any */
+function getReportOverride(options: { reportJson?: string, reportDotenv?: string, reportMarkdown?: string }) {
+  const report = { json: options.reportJson, dotenv: options.reportDotenv, markdown: options.reportMarkdown }
+  return Object.values(report).some(Boolean) ? report : undefined
+}
+
+function privatePackagesOption() {
+  return new Option('--private-packages <mode>', 'What to do with the private packages, overrides monorepo.privatePackages (release: version them, never publish them)').choices(['ignore', 'release'])
+}
+
 function slackFormatOption() {
-  return new Option('--slack-format <format>', 'Slack changelog format, overrides social.slack.changelogFormat').choices(['summary', 'full'])
+  return new Option('--slack-format <format>', 'Changelog of the Slack message, overrides social.slack.changelog').choices(['full', 'summary', 'none'])
+}
+
+/**
+ * Exit after a failed command: with code 0 when the user refused or cancelled
+ * a prompt (nothing was written), with code 1 otherwise.
+ */
+function exitWithError(message: string, error: unknown): never {
+  if (isRelizyCancelError(error)) {
+    if (!isErrorReported(error)) {
+      logger.log('')
+      logger.fail(error.message)
+    }
+    process.exit(0)
+  }
+
+  // Already shown by the output of the command
+  if (!isErrorReported(error)) {
+    logger.error(message, error)
+  }
+  process.exit(1)
 }
 
 program
@@ -87,8 +118,10 @@ program
   .version(version)
   .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
   .option('--no-safety-check', 'Skip safety check')
-  .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose)', 'default')
+  .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose), instead of the logLevel of the config')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
+  .option('--no-preview', 'In dry-run, do not show what would be generated (changelogs, release notes, posts, PR comment)')
+  .option('--ai-preview', 'In dry-run, call the AI to preview its rewrites (it costs), instead of simulating them')
   .option('--pr-number <number>', 'Override PR/MR number for PR comment features', Number)
   .option('--group <names>', 'Only release these version groups of monorepo.groups (comma-separated names)', parseGroupNames)
 
@@ -108,10 +141,10 @@ program
   .option('--force', 'Bump even if there are no commits')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--canary', 'Publish a canary release from the current commit')
-  .option('--include-private', 'Include private packages in the bump')
+  .addOption(privatePackagesOption())
   .action(async (options) => {
     try {
-      const result = await bump({
+      await bump({
         type: getReleaseType(options),
         preid: options.preid,
         clean: hasCliFlag('--no-clean') ? false : undefined,
@@ -123,15 +156,11 @@ program
         configName: program.opts().config,
         groups: program.opts().group,
         canary: options.canary,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
       })
-      if (!result.bumped) {
-        process.exit(1)
-      }
     }
     catch (error) {
-      logger.error('Failed to bump packages -', error)
-      process.exit(1)
+      exitWithError('Failed to bump packages -', error)
     }
   })
 
@@ -140,9 +169,10 @@ program
   .description('Generate changelogs for all packages')
   .option('--from <ref>', 'Start commit reference')
   .option('--to <ref>', 'End commit reference')
-  .option('--format-cmd <cmd>', 'Command to format CHANGELOG files after generation (e.g. "pnpm lint")')
+  .option('--format-cmd <cmd>', 'Command formatting the changelogs once written, {{files}} replaced by their paths (e.g. "eslint --fix {{files}}")')
+  .option('--no-format-cmd', 'Do not format the changelogs (no formatter detected)')
   .option('--no-root-changelog', 'Skip generation of root changelog file')
-  .option('--include-private', 'Include private packages in changelog generation')
+  .addOption(privatePackagesOption())
   .action(async (options) => {
     try {
       await changelog({
@@ -154,12 +184,11 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
       })
     }
     catch (error) {
-      logger.error('Failed to generate changelog -', error)
-      process.exit(1)
+      exitWithError('Failed to generate changelog -', error)
     }
   })
 
@@ -171,7 +200,7 @@ program
   .option('--access <type>', 'Package access level (public or restricted)')
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
-  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .action(async (options) => {
     try {
@@ -187,11 +216,11 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
+        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
       })
     }
     catch (error) {
-      logger.error('Failed to publish packages -', error)
-      process.exit(1)
+      exitWithError('Failed to publish packages -', error)
     }
   })
 
@@ -206,7 +235,7 @@ program
   .option('--no-ai', 'Force-disable AI for release notes')
   .action(async (options) => {
     try {
-      await providerRelease({
+      const result = await providerRelease({
         token: options.token,
         from: options.from,
         to: options.to,
@@ -218,10 +247,14 @@ program
         safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
       })
+
+      // The error is already shown by the output of the command
+      if (result.error) {
+        process.exitCode = 1
+      }
     }
     catch (error) {
-      logger.error('Failed to publish release -', error)
-      process.exit(1)
+      exitWithError('Failed to publish release -', error)
     }
   })
 
@@ -235,7 +268,7 @@ program
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
-      await social({
+      const result = await social({
         from: options.from,
         to: options.to,
         dryRun: program.opts().dryRun,
@@ -246,9 +279,14 @@ program
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
       })
+
+      // The errors are already shown by the output of the command
+      if (result.hasErrors) {
+        process.exitCode = 1
+      }
     }
-    catch {
-      process.exit(1)
+    catch (error) {
+      exitWithError('Failed to post the release on social media -', error)
     }
   })
 
@@ -303,12 +341,14 @@ program
   .command('init')
   .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
   .option('--yes', 'Accept the detected values without asking')
-  .option('--force', 'Replace an existing config file')
+  .option('--force', 'Replace an existing config file (kept by default, the other steps still run)')
+  .option('--no-workflow', 'Do not offer the release workflow of the CI (GitHub Actions, GitLab CI)')
   .action(async (options) => {
     try {
       await init({
         yes: options.yes,
         force: options.force,
+        workflow: options.workflow,
         dryRun: program.opts().dryRun,
         configName: program.opts().config,
         logLevel: program.opts().logLevel,
@@ -381,8 +421,7 @@ program
       })
     }
     catch (error) {
-      logger.error('Failed to post PR comment -', error)
-      process.exit(1)
+      exitWithError('Failed to post PR comment -', error)
     }
   })
 
@@ -408,7 +447,8 @@ program
   .option('--access <type>', 'Package access level (public or restricted)')
   .option('--otp <code>', 'One-time password for 2FA')
   .option('--no-verify', 'Skip git hooks during commit')
-  .option('--format-cmd <cmd>', 'Command to format CHANGELOG files after generation (e.g. "pnpm lint")')
+  .option('--format-cmd <cmd>', 'Command formatting the changelogs once written, {{files}} replaced by their paths (e.g. "eslint --fix {{files}}")')
+  .option('--no-format-cmd', 'Do not format the changelogs (no formatter detected)')
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
   .option('--no-root-changelog', 'Skip generation of root changelog file')
   .option('--token <token>', 'Git token (github or gitlab)')
@@ -421,12 +461,15 @@ program
   .option('--no-social', 'Skip social media posting')
   .option('--no-pr-comment', 'Skip PR comment posting')
   .option('--yes', 'Skip confirmation prompt about bumping packages')
-  .option('--publish-token <token>', 'NPM token (e.g. "123456") - only supported for pnpm and npm')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
   .option('--canary', 'Publish a canary release from the current commit')
-  .option('--include-private', 'Include private packages in bump and changelog phases')
+  .addOption(privatePackagesOption())
   .option('--ai', 'Force-enable AI for release notes and social posts')
   .option('--no-ai', 'Force-disable AI for release notes and social posts')
+  .option('--report-json <file>', 'Write the report of the release to this JSON file')
+  .option('--report-dotenv <file>', 'Write the outputs of the release to this dotenv file (RELIZY_RELEASED=true...), for the artifacts:reports:dotenv of GitLab CI')
+  .option('--report-markdown <file>', 'Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI')
   .addOption(slackFormatOption())
   .action(async (options) => {
     try {
@@ -435,7 +478,7 @@ program
         preid: options.preid,
         suffix: options.suffix,
         canary: options.canary,
-        includePrivates: options.includePrivate || undefined,
+        privatePackages: options.privatePackages,
         from: options.from,
         to: options.to,
         changelog: hasCliFlag('--no-changelog') ? false : undefined,
@@ -468,11 +511,11 @@ program
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
         slackFormat: options.slackFormat,
+        report: getReportOverride(options),
       })
     }
     catch (error) {
-      logger.error('Failed to release -', error)
-      process.exit(1)
+      exitWithError('Failed to release -', error)
     }
   })
 

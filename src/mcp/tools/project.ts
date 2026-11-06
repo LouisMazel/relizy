@@ -25,9 +25,8 @@ export function readPackageSets(config: ResolvedRelizyConfig): PackageSet[] {
   const read = (setConfig: ResolvedRelizyConfig) => readPackages({
     cwd: setConfig.cwd,
     patterns: setConfig.monorepo?.packages,
-    ignorePackageNames: setConfig.monorepo?.ignorePackageNames,
     ignored: setConfig.monorepo?.ignored,
-    includePrivates: setConfig.monorepo?.includePrivates,
+    privatePackages: setConfig.monorepo?.privatePackages,
   })
 
   if (hasVersionGroups(config)) {

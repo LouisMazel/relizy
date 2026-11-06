@@ -1,5 +1,6 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import process from 'node:process'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import { anyHookContext, createMockConfig, setInteractiveTerminal } from '../../../tests/mocks'
 import {
   assertBranchUpToDateWithRemote,
   assertReleaseTagsAvailable,
@@ -9,15 +10,19 @@ import {
   fetchGitTags,
   loadRelizyConfig,
   pushCommitAndTags,
+  RelizyCancelError,
   rollbackModifiedFiles,
 } from '../../core'
-import { bump } from '../bump'
+import { ensurePushAccess, prepareCiRepository } from '../../core/ci'
+import { BranchBehindRemoteError } from '../../core/git'
+import { recordAIRewrite } from '../../core/progress'
 
+import { bump } from '../bump'
 import { changelog } from '../changelog'
 import { prComment } from '../pr-comment'
 import { providerRelease } from '../provider-release'
-import { publish } from '../publish'
-import { buildReleaseSummary, release } from '../release'
+import { publish, publishSafetyCheck } from '../publish'
+import { release } from '../release'
 import { social, socialSafetyCheck } from '../social'
 
 vi.mock('../../core', async () => {
@@ -36,6 +41,11 @@ vi.mock('../../core', async () => {
     createCommitAndTags: vi.fn(),
   }
 })
+// The git of the summary, without the repository of the tests
+vi.mock('../../core/release-facts', async importActual => ({
+  ...await importActual<typeof import('../../core/release-facts')>(),
+  getReleaseGit: vi.fn(() => Promise.resolve({ branch: 'main', commit: 'a1b2c3d', remote: 'origin/main' })),
+}))
 vi.mock('../bump', () => ({
   bump: vi.fn(),
 }))
@@ -46,11 +56,14 @@ vi.mock('../publish', () => ({
   publish: vi.fn(),
   publishSafetyCheck: vi.fn(),
 }))
-vi.mock('../provider-release', () => ({
+vi.mock('../provider-release', async importActual => ({
+  describeProviderReleaseResult: (await importActual<typeof import('../provider-release')>()).describeProviderReleaseResult,
   providerRelease: vi.fn(),
   providerReleaseSafetyCheck: vi.fn(),
 }))
-vi.mock('../social', () => ({
+vi.mock('../social', async importActual => ({
+  describeSocialResult: (await importActual<typeof import('../social')>()).describeSocialResult,
+  isAnySocialPlatformEnabled: (await importActual<typeof import('../social')>()).isAnySocialPlatformEnabled,
   social: vi.fn(),
   socialSafetyCheck: vi.fn(),
 }))
@@ -59,18 +72,29 @@ vi.mock('../pr-comment', () => {
   // Test double mirroring the real gate + delegation so the assertions below can
   // keep targeting `prComment`. The real `tryPostPrComment` logic is unit-tested
   // in pr-comment.spec.ts.
-  const tryPostPrComment = vi.fn(async ({ config, releaseContext, prNumber, dryRun, logLevel, configName }: any) => {
+  const tryPostPrComment = vi.fn(async ({ config, releaseContext, prNumber, dryRun }: any) => {
     if (!config.release.prComment) {
       return false
     }
     try {
-      return await prComment({ prNumber, dryRun, logLevel, configName, config, releaseContext })
+      return await prComment({ prNumber, dryRun, config, releaseContext })
     }
     catch {
       return false
     }
   })
   return { prComment, tryPostPrComment }
+})
+
+// The commands run as in a terminal, where the bump is confirmed (`confirmBump` is mocked)
+let restoreTerminal: () => void
+
+beforeEach(() => {
+  restoreTerminal = setInteractiveTerminal(true)
+})
+
+afterEach(() => {
+  restoreTerminal()
 })
 
 describe('Given release command', () => {
@@ -115,6 +139,7 @@ describe('Given release command', () => {
       hasErrors: false,
     })
     vi.mocked(prComment).mockResolvedValue(false)
+    vi.mocked(createCommitAndTags).mockResolvedValue([])
   })
 
   describe('When running full release workflow', () => {
@@ -129,11 +154,10 @@ describe('Given release command', () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
       await release({})
 
-      expect(bump).toHaveBeenCalled()
-      expect(changelog).toHaveBeenCalled()
-      expect(publish).toHaveBeenCalled()
-      expect(providerRelease).toHaveBeenCalled()
-      expect(social).toHaveBeenCalled()
+      const callOrder = [bump, changelog, publish, providerRelease, social].map(step => vi.mocked(step).mock.invocationCallOrder[0])
+
+      expect(callOrder.every(Boolean)).toBe(true)
+      expect(callOrder).toEqual([...callOrder].sort((a, b) => a! - b!))
     })
 
     it('Then checks the social config when the release posts', async () => {
@@ -167,7 +191,7 @@ describe('Given release command', () => {
 
     it('Then creates the tags of every version group that bumped', async () => {
       const nav = { name: '@scope/nav', version: '1.2.0', newVersion: '2.0.0', oldVersion: '1.2.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
-      const groups = [{ name: 'header', versionMode: 'independent' as const, bumped: true as const, bumpedPackages: [nav] }]
+      const groups = [{ name: 'header', title: 'header', versionMode: 'independent' as const, bumped: true as const, bumpedPackages: [nav] }]
       vi.mocked(bump).mockResolvedValue({ bumpedPackages: [nav], bumped: true, groups })
 
       await release({})
@@ -186,7 +210,21 @@ describe('Given release command', () => {
         'success:release',
         expect.any(Object),
         false,
+        anyHookContext,
       )
+    })
+
+    it('Then gives the bump result and the overview of the release to the hooks after the bump', async () => {
+      const bumpResult = { newVersion: '1.0.0', oldVersion: '0.9.0', bumpedPackages: [], bumped: true as const }
+      vi.mocked(bump).mockResolvedValue(bumpResult)
+
+      await release({})
+
+      expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), false, {
+        bumpResult,
+        release: expect.objectContaining({ groups: [expect.objectContaining({ version: '1.0.0', tag: 'v1.0.0' })] }),
+      })
     })
   })
 
@@ -297,6 +335,41 @@ describe('Given release command', () => {
     })
   })
 
+  describe('When the release does not publish', () => {
+    it('Then it skips the safety check of the publication', async () => {
+      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: true, release: { commit: false, changelog: false, publish: false, push: false, providerRelease: false, social: false, prComment: false, clean: true, noVerify: false, gitTag: false } })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      await release({})
+
+      expect(publishSafetyCheck).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When the provider is given', () => {
+    it('Then the provider release uses it, over repo.provider', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ provider: 'gitlab' })
+
+      expect(providerRelease).toHaveBeenCalledWith(expect.objectContaining({ provider: 'gitlab' }))
+    })
+  })
+
+  describe('When the options of the bump, changelog and publish sections are given', () => {
+    it('Then forwards them to the config of the release', async () => {
+      await release({ capZeroMajor: false, outOfRangePeers: 'error', dependencyTypes: ['peerDependencies'], includeCommitBody: true, args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000, checkWorkspaceDependencies: false })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          bump: expect.objectContaining({ capZeroMajor: false, outOfRangePeers: 'error', dependencyTypes: ['peerDependencies'] }),
+          changelog: expect.objectContaining({ includeCommitBody: true }),
+          publish: expect.objectContaining({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000, checkWorkspaceDependencies: false }),
+        }),
+      }))
+    })
+  })
+
   describe('When a Slack changelog format is given', () => {
     it('Then forwards it to the social step', async () => {
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
@@ -323,7 +396,7 @@ describe('Given release command', () => {
       await release({ dryRun: true })
 
       expect(executeHook).toHaveBeenCalledWith('before:release', expect.any(Object), true)
-      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true)
+      expect(executeHook).toHaveBeenCalledWith('success:release', expect.any(Object), true, anyHookContext)
     })
   })
 
@@ -333,7 +406,29 @@ describe('Given release command', () => {
 
       await expect(release({})).rejects.toThrow('Bump failed')
 
-      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
+    })
+
+    it('Then runs the error hook and posts the failed comment when a check fails, before the bump', async () => {
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin"'))
+
+      await expect(release({})).rejects.toThrow('cannot push')
+
+      expect(bump).not.toHaveBeenCalled()
+      expect(executeHook).not.toHaveBeenCalledWith('before:release', expect.any(Object), false)
+      expect(executeHook).toHaveBeenCalledWith('error:release', expect.any(Object), false, undefined)
+      expect(prComment).toHaveBeenCalledWith(expect.objectContaining({
+        releaseContext: expect.objectContaining({ status: 'failed', error: expect.stringContaining('cannot push') }),
+      }))
+    })
+
+    it('Then rethrows a cancelled prompt without the error hook nor the failed PR comment', async () => {
+      vi.mocked(bump).mockRejectedValue(new RelizyCancelError('Bump refused'))
+
+      await expect(release({})).rejects.toThrow(RelizyCancelError)
+
+      expect(executeHook).not.toHaveBeenCalledWith('error:release', expect.any(Object), false, anyHookContext)
+      expect(prComment).not.toHaveBeenCalled()
     })
 
     it('Then stops execution on error', async () => {
@@ -357,25 +452,22 @@ describe('Given release command', () => {
       )
     })
 
-    it('Then forwards includePrivates to config overrides, bump, and changelog', async () => {
+    it('Then gives privatePackages to the config the sub-commands get', async () => {
       const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
       vi.mocked(bump).mockResolvedValue(bumpResult)
 
-      await release({ includePrivates: true })
+      await release({ privatePackages: 'release' })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            monorepo: expect.objectContaining({ includePrivates: true }),
+            monorepo: expect.objectContaining({ privatePackages: 'release' }),
           }),
         }),
       )
-      expect(bump).toHaveBeenCalledWith(
-        expect.objectContaining({ includePrivates: true }),
-      )
-      expect(changelog).toHaveBeenCalledWith(
-        expect.objectContaining({ includePrivates: true }),
-      )
+      const config = await vi.mocked(loadRelizyConfig).mock.results[0]!.value
+      expect(bump).toHaveBeenCalledWith(expect.objectContaining({ config }))
+      expect(changelog).toHaveBeenCalledWith(expect.objectContaining({ config }))
     })
 
     it('Then passes bumpResult to subsequent steps', async () => {
@@ -408,6 +500,16 @@ describe('Given release command', () => {
           }),
         }),
       )
+    })
+
+    it('Then gives the commit the release started from, to find the pull request after a merge', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '2.0.0', bumpedPackages: [], bumped: true })
+
+      await release({})
+
+      expect(prComment).toHaveBeenCalledWith(expect.objectContaining({
+        releaseContext: expect.objectContaining({ sha: expect.stringMatching(/^[0-9a-f]{40}$/) }),
+      }))
     })
 
     it('Then posts no-release comment when no packages bumped', async () => {
@@ -480,7 +582,7 @@ describe('Given release command', () => {
     beforeEach(() => {
       vi.mocked(assertBranchUpToDateWithRemote).mockReset()
       vi.mocked(assertReleaseTagsAvailable).mockReset()
-      vi.mocked(createCommitAndTags).mockReset()
+      vi.mocked(createCommitAndTags).mockReset().mockResolvedValue([])
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.1', bumpedPackages: [], bumped: true })
     })
 
@@ -489,6 +591,67 @@ describe('Given release command', () => {
 
       expect(assertBranchUpToDateWithRemote).toHaveBeenCalledTimes(2)
       expect(vi.mocked(assertBranchUpToDateWithRemote).mock.invocationCallOrder[1]).toBeLessThan(vi.mocked(publish).mock.invocationCallOrder[0]!)
+    })
+
+    it('Then prepares the CI clone, and checks during the safety checks that the release can be pushed', async () => {
+      await release({})
+
+      expect(prepareCiRepository).toHaveBeenCalledWith(expect.any(String))
+      expect(ensurePushAccess).toHaveBeenCalledWith({ config: expect.objectContaining({ release: expect.objectContaining({ push: true }) }) })
+      expect(vi.mocked(ensurePushAccess).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(publish).mock.invocationCallOrder[0]!)
+    })
+
+    it('Then fails before publishing when the release cannot be pushed', async () => {
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.'))
+
+      await expect(release({})).rejects.toThrow('cannot push')
+
+      expect(bump).not.toHaveBeenCalled()
+      expect(publish).not.toHaveBeenCalled()
+    })
+
+    it('Then fails in dry-run too when the release cannot be pushed', async () => {
+      // Set when the tests run on a pull request
+      vi.stubEnv('GITHUB_EVENT_NAME', undefined)
+      vi.stubEnv('CI_PIPELINE_SOURCE', undefined)
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin": git push --dry-run was refused.'))
+
+      try {
+        await expect(release({ dryRun: true })).rejects.toThrow('cannot push')
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(bump).not.toHaveBeenCalled()
+    })
+
+    it('Then only warns in the dry run of a pull request, whose token is read-only', async () => {
+      const { logger } = await import('@maz-ui/node')
+      vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitHub Actions.'))
+
+      try {
+        await release({ dryRun: true })
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('The push is not checked on a pull request'))
+      expect(bump).toHaveBeenCalled()
+    })
+
+    it('Then fails a release of a pull request that cannot be pushed', async () => {
+      vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+      vi.mocked(ensurePushAccess).mockRejectedValueOnce(new Error('relizy cannot push the release commit and tags to "origin" from GitHub Actions.'))
+
+      try {
+        await expect(release({})).rejects.toThrow('cannot push')
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
     })
 
     it('Then checks that the release tag is still available', async () => {
@@ -505,6 +668,15 @@ describe('Given release command', () => {
       expect(pushCommitAndTags).toHaveBeenCalledWith(expect.objectContaining({ tags: ['v1.0.1'] }))
     })
 
+    it('Then runs the error:push hook when the before:push hook fails', async () => {
+      vi.mocked(executeHook).mockImplementation(hook => hook === 'before:push' ? Promise.reject(new Error('hook failed')) : Promise.resolve(undefined))
+
+      await expect(release({})).rejects.toThrow('hook failed')
+
+      expect(pushCommitAndTags).not.toHaveBeenCalled()
+      expect(executeHook).toHaveBeenCalledWith('error:push', expect.any(Object), false, anyHookContext)
+    })
+
     describe('When the branch is behind its remote right before publishing', () => {
       beforeEach(() => {
         vi.mocked(assertBranchUpToDateWithRemote)
@@ -518,6 +690,48 @@ describe('Given release command', () => {
         expect(publish).not.toHaveBeenCalled()
         expect(pushCommitAndTags).not.toHaveBeenCalled()
         expect(rollbackModifiedFiles).toHaveBeenCalled()
+      })
+    })
+
+    describe('When the branch of a pull request received new commits after its dry run started', () => {
+      beforeEach(() => {
+        vi.mocked(assertBranchUpToDateWithRemote).mockRejectedValue(new BranchBehindRemoteError('origin/feat', 2))
+      })
+
+      afterEach(() => {
+        vi.unstubAllEnvs()
+      })
+
+      it('Then only warns once, as the run of the latest commit previews them', async () => {
+        const { logger } = await import('@maz-ui/node')
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+
+        await release({ dryRun: true })
+
+        const warnings = vi.mocked(logger.warn).mock.calls.filter(([message]) => String(message).startsWith('This run is outdated'))
+        expect(warnings).toHaveLength(1)
+        expect(publish).toHaveBeenCalled()
+      })
+
+      it('Then fails the dry run outside a pull request', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', undefined)
+        vi.stubEnv('CI_PIPELINE_SOURCE', undefined)
+
+        await expect(release({ dryRun: true })).rejects.toThrow('The current branch is behind "origin/feat" by 2 commits')
+      })
+
+      it('Then fails a release of a pull request', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+
+        await expect(release({})).rejects.toThrow('The current branch is behind "origin/feat"')
+        expect(publish).not.toHaveBeenCalled()
+      })
+
+      it('Then fails the dry run of a pull request on another error', async () => {
+        vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+        vi.mocked(assertBranchUpToDateWithRemote).mockRejectedValue(new Error('git rev-list failed'))
+
+        await expect(release({ dryRun: true })).rejects.toThrow('git rev-list failed')
       })
     })
 
@@ -552,6 +766,22 @@ describe('Given release command', () => {
         await release({})
 
         expect(assertBranchUpToDateWithRemote).not.toHaveBeenCalled()
+      })
+    })
+
+    describe('When the publish is disabled and the push enabled', () => {
+      it('Then still checks the remote branch right before the push', async () => {
+        const config = createMockConfig({
+          bump: { type: 'patch' },
+          release: { commit: true, push: true, publish: false, changelog: true, gitTag: true },
+        })
+        vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+        await release({})
+
+        expect(publish).not.toHaveBeenCalled()
+        expect(assertBranchUpToDateWithRemote).toHaveBeenCalledTimes(2)
+        expect(vi.mocked(assertBranchUpToDateWithRemote).mock.invocationCallOrder[1]).toBeLessThan(vi.mocked(pushCommitAndTags).mock.invocationCallOrder[0]!)
       })
     })
   })
@@ -641,123 +871,227 @@ describe('Given release command', () => {
   })
 })
 
-describe('Given buildReleaseSummary function', () => {
-  const bumpResult = { bumped: true, newVersion: '2.0.0', bumpedPackages: [] } as any
-
-  function summaryConfig(release: Record<string, boolean> = {}) {
-    return createMockConfig({
-      release: {
-        commit: true,
-        changelog: true,
-        push: true,
-        publish: true,
-        providerRelease: true,
-        social: true,
-        prComment: true,
-        clean: true,
-        noVerify: false,
-        gitTag: true,
-        ...release,
-      },
-    })
-  }
-
-  describe('When every step ran successfully', () => {
-    it('Then renders each step outcome', () => {
-      const summary = buildReleaseSummary({
-        config: summaryConfig(),
-        bumpResult,
-        publishResponse: { publishedPackages: [{}, {}, {}] } as any,
-        createdTags: ['v2.0.0'],
-        provider: 'github',
-        postedReleases: [{}] as any,
-        socialResults: { hasErrors: false, results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true }] } as any,
-        prCommentPosted: true,
-      })
-
-      expect(summary).toContain('Version: 2.0.0')
-      expect(summary).toContain('Tag(s): v2.0.0')
-      expect(summary).toContain('Pushed: Yes')
-      expect(summary).toContain('Published packages: 3')
-      expect(summary).toContain('Provider release: 1 release')
-      expect(summary).toContain('Social media: 2 succeeded')
-      expect(summary).toContain('PR comment: Posted')
-      expect(summary).toContain('Git provider: github')
-    })
+describe('Given the report of release', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      release: { commit: true, changelog: true, publish: true, push: true, providerRelease: true, social: true, prComment: false, clean: true, noVerify: false, gitTag: true },
+      social: { twitter: { enabled: true }, slack: { enabled: true } },
+    }))
+    vi.mocked(createCommitAndTags).mockResolvedValue(['v1.0.0'])
+    vi.mocked(publish).mockResolvedValue({ publishedPackages: [{} as any, {} as any] })
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [{ name: 'v1.0.0', tag: 'v1.0.0', prerelease: false, version: '1.0.0' }] })
   })
 
-  describe('When steps are disabled', () => {
-    it('Then marks them as Disabled and shows no tags', () => {
-      const summary = buildReleaseSummary({
-        config: summaryConfig({ push: false, publish: false, providerRelease: false, social: false, prComment: false }),
-        bumpResult,
-        createdTags: [],
-        postedReleases: [],
-        prCommentPosted: false,
-      })
+  it('Then returns what each step did', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumpedPackages: [], bumped: true })
+    vi.mocked(social).mockResolvedValue({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: false, error: 'down' }], hasErrors: true })
 
-      expect(summary).toContain('Pushed: Disabled')
-      expect(summary).toContain('Published packages: Disabled')
-      expect(summary).toContain('Provider release: Disabled')
-      expect(summary).toContain('Social media: Disabled')
-      expect(summary).toContain('PR comment: Disabled')
-      expect(summary).toContain('Tag(s): None')
-    })
+    const report = await release({})
+
+    expect(report).toEqual(expect.objectContaining({ status: 'released', released: true, dryRun: false, version: '1.0.0', tags: ['v1.0.0'] }))
+    expect(report.steps).toEqual([
+      { name: 'changelog', status: 'done' },
+      { name: 'publish', status: 'done', detail: '2 packages' },
+      { name: 'commit', status: 'done', detail: 'v1.0.0' },
+      { name: 'push', status: 'done' },
+      { name: 'providerRelease', status: 'done', detail: '1 release on github' },
+      { name: 'social', status: 'failed', detail: 'slack: down' },
+      { name: 'prComment', status: 'skipped' },
+    ])
   })
 
-  describe('When in independent version mode', () => {
-    it('Then summarizes the number of packages bumped', () => {
-      const summary = buildReleaseSummary({
-        config: createMockConfig({ versionMode: 'independent', release: { push: true, publish: true, providerRelease: true, social: true, prComment: true, commit: true, changelog: true, clean: true, noVerify: false, gitTag: true } }),
-        bumpResult: { bumped: true, newVersion: undefined, bumpedPackages: [{}, {}, {}] } as any,
-        createdTags: ['pkg-a@1.0.0'],
-        postedReleases: [],
-        prCommentPosted: true,
-      })
+  it('Then is not released in dry-run', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: true })
 
-      expect(summary).toContain('Version: 3 packages bumped independently')
-    })
+    const report = await release({ dryRun: true })
+
+    expect(report).toEqual(expect.objectContaining({ status: 'released', released: false, dryRun: true }))
   })
 
-  describe('When provider, social and pr-comment reported failures', () => {
-    it('Then reflects each failure', () => {
-      const summary = buildReleaseSummary({
-        config: summaryConfig(),
-        bumpResult,
-        createdTags: ['v2.0.0'],
-        postedReleases: [],
-        providerError: 'boom',
-        socialResults: { hasErrors: true, results: [{ platform: 'slack', success: true }, { platform: 'twitter', success: false }] } as any,
-        prCommentPosted: false,
-      })
+  it('Then reports when there is nothing to release', async () => {
+    vi.mocked(bump).mockResolvedValue({ bumped: false })
 
-      expect(summary).toContain('Provider release: Failed: boom')
-      expect(summary).toContain('Social media: 1 succeeded, 1 failed (twitter)')
-      expect(summary).toContain('PR comment: Failed')
-    })
+    const report = await release({})
+
+    expect(report).toEqual(expect.objectContaining({ status: 'nothing', released: false, steps: [] }))
+    expect(changelog).not.toHaveBeenCalled()
   })
 })
 
-describe('Given buildReleaseSummary function with version groups', () => {
-  it('Then shows the version of each group', () => {
-    const summary = buildReleaseSummary({
-      config: createMockConfig({ bump: { type: 'release' } }),
-      bumpResult: {
-        bumped: true,
-        newVersion: '7.0.0',
-        bumpedPackages: [],
-        groups: [
-          { name: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', bumpedPackages: [] },
-          { name: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [{} as any, {} as any] },
-        ],
-      },
-      createdTags: ['v7.0.0', '@scope/nav@2.0.0', '@scope/login@2.0.1'],
-      provider: 'github',
-      postedReleases: [],
-      prCommentPosted: false,
-    })
+describe('Given the output of release in CI', () => {
+  const env = { ...process.env }
+  let output: string[]
 
-    expect(summary).toContain('Version: main: 7.0.0, header: 2 package(s) bumped independently')
-    expect(summary).toContain('Tag(s): v7.0.0, @scope/nav@2.0.0, @scope/login@2.0.1')
+  beforeEach(async () => {
+    vi.clearAllMocks()
+    Object.assign(process.env, { RELIZY_REPORTER: 'ci', NO_COLOR: '1' })
+    delete process.env.GITHUB_ACTIONS
+    delete process.env.GITLAB_CI
+    const { logger } = await import('@maz-ui/node')
+    vi.mocked(logger.removeReporter).mockReturnValue({ options: { reporters: [] } } as never)
+    output = []
+    vi.spyOn(process.stdout, 'write').mockImplementation((chunk: string | Uint8Array) => {
+      output.push(String(chunk))
+      return true
+    })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      release: { commit: true, changelog: true, publish: true, push: true, providerRelease: true, social: true, prComment: false, clean: true, noVerify: false, gitTag: true },
+      social: { twitter: { enabled: true }, slack: { enabled: true } },
+    }))
+    vi.mocked(createCommitAndTags).mockResolvedValue(['v1.0.0'])
+    vi.mocked(publish).mockResolvedValue({ publishedPackages: [{ name: 'pkg-a', version: '0.9.0', newVersion: '1.0.0' } as any] })
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [{ name: 'v1.0.0', tag: 'v1.0.0', prerelease: false, version: '1.0.0' }] })
+    vi.mocked(social).mockResolvedValue({ results: [{ platform: 'twitter', success: true }], hasErrors: false })
+  })
+
+  afterEach(() => {
+    process.env = { ...env }
+    vi.restoreAllMocks()
+  })
+
+  it('Then fails right away without --yes in CI, with the fix, before any step', async () => {
+    setInteractiveTerminal(false)
+    process.env.GITHUB_ACTIONS = 'true'
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch', yes: false } }))
+    const message = 'relizy release asks to confirm the new versions, but the terminal is not interactive (GitHub Actions): run "relizy release --yes" to confirm them in advance'
+
+    await expect(release({})).rejects.toThrow(message)
+
+    expect(bump).not.toHaveBeenCalled()
+    // An annotation of the run, with the fix
+    expect(output.join('').split('\n')).toContain(`::error title=relizy: Checks failed::${message}%0AFull log: node_modules/.cache/relizy/release.log`)
+  })
+
+  it('Then shows what each step did, then the summary', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [{ name: 'pkg-a', path: '/pkg-a', version: '0.9.0', oldVersion: '0.9.0', newVersion: '1.0.0', commits: [], reason: 'commits' } as any] })
+
+    await release({ safetyCheck: false })
+
+    const lines = output.join('').split('\n')
+    expect(lines).toEqual(expect.arrayContaining([
+      'relizy release · ci',
+      '▸ Checking the release',
+      expect.stringMatching(/^✔ Ready to release \(tokens, registry, branch\) {2}\d+ms$/),
+      expect.stringMatching(/^✔ pkg-a {2}0\.9\.0 {2}→ {2}1\.0\.0 {2}forced {2}\d+ms$/),
+      // The package and the root changelog
+      expect.stringMatching(/^✔ 2 changelogs written {2}\d+ms$/),
+      expect.stringMatching(/^✔ Published pkg-a@1\.0\.0 {2}\d+ms$/),
+      expect.stringMatching(/^✔ Committed and tagged v1\.0\.0 {2}\d+ms$/),
+      expect.stringMatching(/^✔ Pushed the commit and the tags {2}\d+ms$/),
+      expect.stringMatching(/^✔ 1 GitHub release created {2}\d+ms$/),
+      expect.stringMatching(/^✔ Posted on twitter {2}\d+ms$/),
+      '○ PR comment skipped (--no-pr-comment)',
+      expect.stringMatching(/^ {2}✔ Publish +pkg-a@1\.0\.0 · latest · registry\.npmjs\.org$/),
+      expect.stringMatching(/^ {2}✔ Commit and tags +a1b2c3d · v1\.0\.0$/),
+      expect.stringMatching(/^ {2}✔ Push +main → origin\/main$/),
+      expect.stringMatching(/^ {4}Install +pnpm add pkg-a@1\.0\.0$/),
+      expect.stringMatching(/^✔ Released relizy 1\.0\.0 {2}\d+ms$/),
+    ]))
+  })
+
+  it('Then marks the social posts skipped when no platform posted, with why', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0-beta.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    vi.mocked(social).mockResolvedValue({ results: [{ platform: 'twitter', success: true, skipped: 'prerelease' }], hasErrors: false })
+
+    await release({ safetyCheck: false })
+
+    const lines = output.join('').split('\n')
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✔ twitter skipped \(prerelease\) {2}\d+ms$/),
+      expect.stringMatching(/^ {2}○ Social media +skipped \(twitter: prerelease\)$/),
+    ]))
+  })
+
+  it('Then marks the steps that failed without stopping the release', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    vi.mocked(providerRelease).mockResolvedValue({ detectedProvider: 'github', postedReleases: [], error: 'Bad credentials' })
+    vi.mocked(social).mockResolvedValue({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: false, error: 'down' }], hasErrors: true })
+
+    await release({})
+
+    const lines = output.join('').split('\n')
+    expect(lines).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^▲ GitHub release failed: Bad credentials {2}\d+ms$/),
+      expect.stringMatching(/^▲ Posted on twitter, slack failed {2}\d+ms$/),
+      expect.stringMatching(/^ {2}▲ Provider release +Bad credentials$/),
+      expect.stringMatching(/^✔ Released relizy 1\.0\.0 {2}\d+ms$/),
+    ]))
+  })
+
+  it('Then comments the pull request with the summary of the steps done before', async () => {
+    const config = createMockConfig({ bump: { type: 'patch' }, release: { commit: true, changelog: true, publish: false, push: false, providerRelease: false, social: false, prComment: true, clean: true, noVerify: false, gitTag: true } })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    vi.mocked(prComment).mockResolvedValue(true)
+
+    await release({})
+
+    const { releaseContext } = vi.mocked(prComment).mock.calls[0]![0]!
+    expect(releaseContext?.report?.steps.map(step => step.name)).toEqual(['changelog', 'publish', 'commit', 'push', 'providerRelease', 'social'])
+    expect(output.join('')).toMatch(/✔ Pull request commented {2}\d+ms\n/)
+  })
+
+  it('Then gives the AI rewrites, their tokens and their cost to the comment and to the summary of the release', async () => {
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      release: { commit: true, changelog: true, publish: false, push: false, providerRelease: true, social: true, prComment: true, clean: true, noVerify: false, gitTag: true },
+      social: { twitter: { enabled: true } },
+    })
+    vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    // The steps record their AI rewrites, as the real ones do
+    vi.mocked(providerRelease).mockImplementation(() => {
+      recordAIRewrite({ subject: 'the notes of v1.0.0', provider: 'claude-code', simulated: false, durationMs: 4000, inputTokens: 3000, outputTokens: 600, costUsd: 0.01 })
+      return Promise.resolve({ detectedProvider: 'github', postedReleases: [] })
+    })
+    vi.mocked(social).mockImplementation(() => {
+      recordAIRewrite({ subject: 'the Twitter post', provider: 'claude-code', simulated: false, durationMs: 2000, inputTokens: 1200, outputTokens: 200, costUsd: 0.02 })
+      return Promise.resolve({ results: [{ platform: 'twitter', success: true }], hasErrors: false })
+    })
+    vi.mocked(prComment).mockResolvedValue(true)
+
+    const report = await release({})
+
+    const ai = { provider: 'claude-code', rewrites: 2, simulated: false, durationMs: 6000, inputTokens: 4200, outputTokens: 800, costUsd: 0.03 }
+    expect(vi.mocked(prComment).mock.calls[0]![0]!.releaseContext?.report?.ai).toEqual(ai)
+    expect(report.ai).toEqual(ai)
+    expect(output.join('')).toContain('2 rewrites by claude-code in 6.0s · 5k tokens · $0.030')
+  })
+
+  it('Then comments the pull request when there is nothing to release', async () => {
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, release: { prComment: true } }))
+    vi.mocked(bump).mockResolvedValue({ bumped: false })
+    vi.mocked(prComment).mockResolvedValue(false)
+
+    await release({})
+
+    expect(vi.mocked(prComment).mock.calls[0]![0]!.releaseContext).toEqual(expect.objectContaining({ status: 'no-release', report: expect.objectContaining({ status: 'nothing' }) }))
+    expect(output.join('')).toMatch(/✔ No pull request to comment {2}\d+ms\n/)
+  })
+
+  it('Then tells when there is nothing to release', async () => {
+    vi.mocked(bump).mockResolvedValue({ bumped: false })
+
+    await release({ safetyCheck: false })
+
+    expect(output.join('')).toMatch(/✔ No commit to release {2}\d+ms\n/)
+    expect(output.join('')).toMatch(/○ Nothing to release {2}\d+ms\n/)
+  })
+
+  it('Then shows the error once, with the step that failed and the summary of the steps done', async () => {
+    vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', oldVersion: '0.9.0', bumped: true, bumpedPackages: [] })
+    vi.mocked(publish).mockRejectedValue(new Error('E403 Forbidden'))
+
+    await expect(release({ safetyCheck: false })).rejects.toThrow('E403 Forbidden')
+
+    const text = output.join('')
+    expect(text).toMatch(/✖ Publishing the packages failed {2}\d+ms\n/)
+    expect(text).toMatch(/ {2}✔ Changelog +done\n/)
+    // The failed step is told by the error, not by the summary
+    expect(text).not.toMatch(/ {2}✔ Publish/)
+    expect(text).toContain('✖ Publish failed\n  E403 Forbidden\n')
   })
 })

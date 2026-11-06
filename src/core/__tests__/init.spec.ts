@@ -108,7 +108,7 @@ describe('Given the init helpers', () => {
 
       const config = buildInitConfig(detection, answers(detection, { goal: 'version', patterns: ['tools/*'] }))
 
-      expect(config.monorepo).toEqual({ versionMode: 'selective', packages: ['tools/*'], includePrivates: true })
+      expect(config.monorepo).toEqual({ versionMode: 'selective', packages: ['tools/*'], privatePackages: 'release' })
       expect(config.release).toEqual(expect.objectContaining({ publish: false }))
       expect(config.publish).toBeUndefined()
     })
@@ -131,11 +131,12 @@ describe('Given the init helpers', () => {
 
   describe('When detecting a standalone package', () => {
     it('Then suggests publishing a public package and versioning a private one', () => {
-      writePackage('.', { name: 'lib', version: '0.3.0', devDependencies: { relizy: '^1.0.0' } })
+      writePackage('.', { name: 'lib', version: '0.3.0', devDependencies: { relizy: '^1.0.0', eslint: '^9.0.0' } })
       const detection = detectProject({ cwd })
 
       expect(detection.workspaces).toEqual([])
       expect(detection.root.hasRelizy).toBe(true)
+      expect(detection.root.formatter).toBe('eslint')
       expect(suggestGoal(detection)).toBe('publish')
       expect(suggestPatterns(detection, 'publish')).toEqual([])
 
@@ -239,6 +240,17 @@ describe('Given the init helpers', () => {
         ai: { social: { twitter: { enabled: true } } },
       })
       expect(isPublicNpmRegistry('https://registry.npmjs.org')).toBe(true)
+    })
+
+    it('Then shows the changelog in the Teams cards when the AI rewrites it', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const detection = { ...detectProject({ cwd }), provider: 'github' as const }
+
+      expect(buildInitConfig(detection, answers(detection, { teams: true }))).toEqual({ social: { teams: { enabled: true } } })
+      expect(buildInitConfig(detection, answers(detection, { teams: true, ai: ['teams'] }))).toEqual({
+        social: { teams: { enabled: true, changelog: 'summary' } },
+        ai: { social: { teams: { enabled: true } } },
+      })
     })
   })
 

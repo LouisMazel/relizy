@@ -1,9 +1,8 @@
+import type { GitRepository } from '../../../tests/git-repository'
 import type { ResolvedRelizyConfig } from '../config'
-import { execFileSync } from 'node:child_process'
-import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
-import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import process from 'node:process'
+import { createGitRepository } from '../../../tests/git-repository'
 import { createMockConfig } from '../../../tests/mocks'
 import { bump } from '../../commands/bump'
 import { getCatalogName, getChangedCatalogEntries, getCommitCatalogChanges, prefetchCatalogChanges, readCatalogEntries, readFilesAtCommits, referencesCatalogEntries, resetCatalogCache } from '../catalogs'
@@ -60,25 +59,16 @@ describe('Given getCatalogName', () => {
  * an entry of a catalog belongs to the packages referencing this entry.
  */
 describe('Given getPackageCommits with catalogs on a real git repository', () => {
+  let repository: GitRepository
   let cwd: string
   let base: string
 
-  function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-  }
-
-  function write(path: string, content: string) {
-    mkdirSync(dirname(join(cwd, path)), { recursive: true })
-    writeFileSync(join(cwd, path), content)
-  }
+  const git = (...args: string[]) => repository.git(...args)
+  const write = (path: string, content: string) => repository.write(path, content)
+  const commit = (message: string) => repository.commit(message)
 
   function writeJson(path: string, content: Record<string, unknown>) {
     write(path, `${JSON.stringify(content, null, 2)}\n`)
-  }
-
-  function commit(message: string) {
-    git('add', '--all')
-    git('commit', '--no-verify', '--allow-empty', '-m', message)
   }
 
   function createConfig(): ResolvedRelizyConfig {
@@ -105,11 +95,8 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
   }
 
   function initRepository(files: () => void) {
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-catalogs-')))
-    git('init', '--quiet', '--initial-branch=main')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'commit.gpgsign', 'false')
+    repository = createGitRepository('relizy-catalogs-')
+    cwd = repository.cwd
 
     files()
     writeJson('packages/ui/package.json', { name: 'ui', version: '1.0.0', dependencies: { vue: 'catalog:' }, devDependencies: { vitest: 'catalog:test' } })
@@ -120,7 +107,7 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
   }
 
   afterEach(() => {
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
     resetCatalogCache()
   })
 
@@ -259,46 +246,34 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
 })
 
 describe('Given a bump in selective mode after a commit that only updates a catalog', () => {
+  let repository: GitRepository
   let cwd: string
   let initialCwd: string
 
-  function git(...args: string[]) {
-    return execFileSync('git', args, { cwd, encoding: 'utf8' }).trim()
-  }
-
-  function writePackage(path: string, content: Record<string, unknown>) {
-    mkdirSync(join(cwd, path), { recursive: true })
-    writeFileSync(join(cwd, path, 'package.json'), `${JSON.stringify(content, null, 2)}\n`)
-  }
+  const git = (...args: string[]) => repository.git(...args)
 
   beforeEach(() => {
     initialCwd = process.cwd()
-    cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-catalogs-bump-')))
-    git('init', '--quiet', '--initial-branch=main')
-    git('config', 'user.name', 'Relizy')
-    git('config', 'user.email', 'relizy@example.com')
-    git('config', 'commit.gpgsign', 'false')
-    git('config', 'tag.gpgsign', 'false')
+    repository = createGitRepository('relizy-catalogs-bump-')
+    cwd = repository.cwd
     git('remote', 'add', 'origin', 'https://github.com/acme/mono.git')
 
-    writePackage('.', { name: 'mono', version: '1.0.0', private: true })
-    writePackage('packages/ui', { name: '@acme/ui', version: '1.0.0', dependencies: { vue: 'catalog:' } })
-    writePackage('packages/utils', { name: '@acme/utils', version: '1.0.0' })
-    writeFileSync(join(cwd, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.4.0\n')
-    writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', safetyCheck: false, monorepo: { versionMode: 'selective', packages: ['packages/*'] } }\n`)
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', 'chore: init')
+    repository.writeJson('.', { name: 'mono', version: '1.0.0', private: true })
+    repository.writeJson('packages/ui', { name: '@acme/ui', version: '1.0.0', dependencies: { vue: 'catalog:' } })
+    repository.writeJson('packages/utils', { name: '@acme/utils', version: '1.0.0' })
+    repository.commit('chore: init', {
+      'pnpm-workspace.yaml': 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.4.0\n',
+      'relizy.config.mjs': `export default { logLevel: 'silent', safetyCheck: false, monorepo: { versionMode: 'selective', packages: ['packages/*'] } }\n`,
+    })
     git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
 
-    writeFileSync(join(cwd, 'pnpm-workspace.yaml'), 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.5.0\n')
-    git('add', '-A')
-    git('commit', '--no-verify', '-m', 'fix(deps): update vue to 3.5')
+    repository.commit('fix(deps): update vue to 3.5', { 'pnpm-workspace.yaml': 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.5.0\n' })
     process.chdir(cwd)
   })
 
   afterEach(() => {
     process.chdir(initialCwd)
-    rmSync(cwd, { recursive: true, force: true })
+    repository.remove()
     resetCatalogCache()
   })
 

@@ -20,13 +20,8 @@ export default defineConfig({
 
   ai: {
     provider: 'claude-code',
-    providers: {
-      'claude-code': {
-        oauthToken: process.env.CLAUDE_CODE_OAUTH_TOKEN,
-      },
-    },
     providerRelease: { enabled: true },
-    social: { twitter: { enabled: true }, slack: { enabled: false } },
+    social: { twitter: { enabled: true } },
   },
 
   templates: {
@@ -34,32 +29,23 @@ export default defineConfig({
     changelogTitle: '{{newVersion}} ({{date}})',
   },
 
-  changelog: {
-    formatCmd: 'git add --all && pnpm pre-commit && git reset',
-  },
-
   publish: {
     registry: 'https://registry.npmjs.org',
     buildCmd: process.env.CI ? undefined : 'pnpm build',
     access: 'public',
-    token: process.env.RELIZY_NPM_TOKEN,
     packageManager: 'pnpm',
-    safetyCheck: true,
   },
 
   social: {
     changelogUrl: 'https://relizy.dev/changelog',
     twitter: { enabled: true },
-    slack: { enabled: false },
   },
   prComment: {
     mode: 'update',
   },
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
-    title: false,
   },
-  safetyCheck: true,
   hooks: {
     // The CI builds before the bump: the docs bundle of the MCP server (agent-docs/) gets the new version
     'success:bump': () => {

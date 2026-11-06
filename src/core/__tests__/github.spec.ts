@@ -17,8 +17,9 @@ vi.mock('convert-gitmoji', () => ({
   convert: vi.fn((input: string) => input),
 }))
 
-vi.mock('../repo', () => {
+vi.mock('../repo', async () => {
   return {
+    getPrivatePackagesMode: (await vi.importActual<typeof import('../repo')>('../repo')).getPrivatePackagesMode,
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
     getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
@@ -26,9 +27,11 @@ vi.mock('../repo', () => {
   }
 })
 
-vi.mock('../version', () => {
+vi.mock('../version', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../version')>()
   return {
     isPrerelease: vi.fn(),
+    extractVersionFromTag: actual.extractVersionFromTag,
   }
 })
 
@@ -45,7 +48,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -69,9 +72,10 @@ vi.mock('../git', () => ({
   getCurrentGitRef: vi.fn().mockReturnValue('HEAD'),
 }))
 
-vi.mock('../ai', () => ({
+vi.mock('../ai', async importActual => ({
   generateAIProviderReleaseBody: vi.fn(),
   isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+  isAIRewritingVersion: (await importActual<typeof import('../ai')>()).isAIRewritingVersion,
 }))
 
 describe('Given github function', () => {
@@ -177,6 +181,42 @@ describe('Given github function', () => {
       expect(getRootPackage).not.toHaveBeenCalled()
     })
 
+    it('Then names the release after the version, not after the end of the range', async () => {
+      const config = createMockConfig({
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        to: 'abc1234',
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+
+      await github({ to: 'abc1234', force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'v1.0.0', name: 'v1.0.0' }))
+    })
+
+    it('Then uses the new version of the root package', async () => {
+      vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', newVersion: '1.1.0', path: '/root', commits: [], fromTag: 'v1.0.0', private: false })
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'v1.1.0' }))
+    })
+
+    it('Then reads the prerelease from the version, whatever the tag template', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        templates: { tagBody: 'release-{{newVersion}}' },
+      }))
+      vi.mocked(isPrerelease).mockImplementation(version => version === '1.0.0')
+
+      await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ tag_name: 'release-1.0.0', prerelease: true }))
+    })
+
     it('Then marks as prerelease when version is prerelease', async () => {
       vi.mocked(isPrerelease).mockReturnValue(true)
 
@@ -260,6 +300,19 @@ describe('Given github function', () => {
       expect(result[1]).toMatchObject({ name: 'pkg-b', tag: 'pkg-b@2.0.0' })
     })
 
+    it('Then names the releases after the versions, not after the end of the range', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        to: 'abc1234',
+      }))
+
+      const result = await github({ to: 'abc1234', force: false })
+
+      expect(result.map(release => release.tag)).toEqual(['pkg-a@1.0.0', 'pkg-b@2.0.0'])
+    })
+
     it('Then uses newVersion from bumped packages', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
         {
@@ -282,10 +335,10 @@ describe('Given github function', () => {
       })
     })
 
-    it('Then creates GitHub releases for private packages when includePrivates is enabled', async () => {
+    it('Then creates GitHub releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })
@@ -304,10 +357,10 @@ describe('Given github function', () => {
       )
     })
 
-    it('Then excludes private packages from GitHub releases when includePrivates is disabled', async () => {
+    it('Then excludes private packages from GitHub releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: false },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })
@@ -336,6 +389,15 @@ describe('Given github function', () => {
 
       expect(createGithubRelease).toHaveBeenCalledTimes(1)
       expect(result).toHaveLength(1)
+    })
+
+    it('Then skips packages with empty changelog body', async () => {
+      vi.mocked(buildChangelogBody).mockReturnValueOnce('')
+
+      const result = await github({ force: false })
+
+      expect(createGithubRelease).toHaveBeenCalledTimes(1)
+      expect(result.map(release => release.name)).toEqual(['pkg-b'])
     })
 
     it('Then builds release body in dry-run mode', async () => {
@@ -415,28 +477,6 @@ describe('Given github function', () => {
       await expect(github({ force: false })).rejects.toThrow(
         'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
-    })
-
-    it('Then accepts token from repo config', async () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-        repo: {
-          provider: 'github',
-          domain: 'github.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          github: undefined,
-          gitlab: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-          slack: undefined,
-        },
-      })
-      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-
-      await expect(github({ force: false })).resolves.not.toThrow()
     })
   })
 
@@ -608,9 +648,14 @@ describe('Given github function', () => {
 
       await github({ force: false })
 
+      // The release it rewrites, and whether to simulate it (dry-run)
       expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
         config,
         rawBody: '### Features\n\n- Original feature',
+        label: 'v1.0.0',
+        // What the model knows of the release, besides its changelog
+        context: { project: 'test', version: '1.0.0', previousVersion: '0.9.0' },
+        dryRun: false,
       })
       expect(createGithubRelease).toHaveBeenCalledWith(
         expect.anything(),
@@ -636,6 +681,30 @@ describe('Given github function', () => {
           body: expect.not.stringContaining('Original feature'),
         }),
       )
+    })
+
+    it('Then keeps the raw notes of a prerelease, unless onlyStable is off', async () => {
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        monorepo: { versionMode: 'unified' },
+        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+        tokens: { github: 'test-token' },
+        ai: { providerRelease: { enabled: true } },
+      })
+      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
+      vi.mocked(generateAIProviderReleaseBody).mockResolvedValue('### Features\n\n- AI-rewritten feature')
+      vi.mocked(isPrerelease).mockImplementation(version => !!version?.includes('-'))
+
+      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+
+      expect(generateAIProviderReleaseBody).not.toHaveBeenCalled()
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ body: expect.stringContaining('Original feature') }))
+
+      config.ai!.providerRelease!.onlyStable = false
+      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+
+      expect(generateAIProviderReleaseBody).toHaveBeenCalledWith(expect.objectContaining({ label: 'v2.0.0-beta.0' }))
     })
 
     it('Then does not call AI when providerRelease is not enabled', async () => {

@@ -1,16 +1,13 @@
-import { execSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { runGitSync } from '../git-exec'
 import { getDetectedPackageMoves, getPackageJsonHistory, getPreviousPackagePaths } from '../moved-packages'
 
-vi.mock('node:child_process', async (importActual) => {
-  const actual = await importActual<typeof import('node:child_process')>()
-  return {
-    ...actual,
-    execSync: vi.fn(),
-  }
-})
+vi.mock('../git-exec', async importActual => ({
+  ...(await importActual<typeof import('../git-exec')>()),
+  runGitSync: vi.fn(),
+}))
 
 function commitWithLines(...lines: string[]): { body: string } {
   return { body: `Move the package\n\n${lines.join('\n')}\n` }
@@ -47,22 +44,22 @@ describe('Given getDetectedPackageMoves', () => {
     const commits = [{ ...commitWithLines(rename('packages/components/package.json', 'packages/ui/package.json', 87)), shortHash: 'abc1234' }]
 
     function mockPackageNames(names: Record<string, string>) {
-      vi.mocked(execSync).mockImplementation(((command: string) => {
-        const ref = command.slice('git show "'.length, -1)
+      vi.mocked(runGitSync).mockImplementation((args) => {
+        const ref = args[1] as string
 
         if (!(ref in names)) {
           throw new Error(`fatal: invalid object name ${ref}`)
         }
 
         return JSON.stringify({ name: names[ref] })
-      }) as typeof execSync)
+      })
     }
 
     it('Then it is a move when the package keeps its name', () => {
       mockPackageNames({ 'abc1234^:packages/components/package.json': '@scope/ui', 'abc1234:packages/ui/package.json': '@scope/ui' })
 
       expect(getDetectedPackageMoves(commits, cwd)).toEqual([{ from: 'packages/components', to: 'packages/ui', detected: true }])
-      expect(execSync).toHaveBeenCalledWith('git show "abc1234^:packages/components/package.json"', expect.objectContaining({ cwd }))
+      expect(runGitSync).toHaveBeenCalledWith(['show', 'abc1234^:packages/components/package.json'], expect.objectContaining({ cwd }))
     })
 
     it('Then git paired the package.json of two different packages when the names differ', () => {
@@ -79,7 +76,7 @@ describe('Given getDetectedPackageMoves', () => {
 
     it('Then it is not a move without the hash of the commit', () => {
       expect(getDetectedPackageMoves([commitWithLines(rename('packages/components/package.json', 'packages/ui/package.json', 87))], cwd)).toEqual([])
-      expect(execSync).not.toHaveBeenCalled()
+      expect(runGitSync).not.toHaveBeenCalled()
     })
   })
 
@@ -178,22 +175,22 @@ describe('Given getPreviousPackagePaths', () => {
 describe('Given getPackageJsonHistory', () => {
   describe('When git follows the package.json', () => {
     it('Then it returns one record per commit, with its file lines', () => {
-      vi.mocked(execSync).mockReturnValue(`\x1Eabc1234\n\nR100\tpackages/components/package.json\tpackages/ui/package.json\n\x1Edef5678\n\nA\tpackages/components/package.json\n`)
+      vi.mocked(runGitSync).mockReturnValue(`\x1Eabc1234\n\nR100\tpackages/components/package.json\tpackages/ui/package.json\n\x1Edef5678\n\nA\tpackages/components/package.json\n`)
 
       expect(getPackageJsonHistory('packages/ui', cwd)).toEqual([
         { shortHash: 'abc1234', body: '\nR100\tpackages/components/package.json\tpackages/ui/package.json\n' },
         { shortHash: 'def5678', body: '\nA\tpackages/components/package.json\n' },
       ])
-      expect(execSync).toHaveBeenCalledWith(
-        'git --no-pager log --follow --name-status --format="%x1E%h" -- "packages/ui/package.json"',
-        { cwd, encoding: 'utf8' },
+      expect(runGitSync).toHaveBeenCalledWith(
+        ['--no-pager', 'log', '--follow', '--name-status', '--format=%x1E%h', '--', 'packages/ui/package.json'],
+        { cwd, trim: false },
       )
     })
   })
 
   describe('When git fails', () => {
     it('Then it returns no commit', () => {
-      vi.mocked(execSync).mockImplementation(() => {
+      vi.mocked(runGitSync).mockImplementation(() => {
         throw new Error('not a git repository')
       })
 

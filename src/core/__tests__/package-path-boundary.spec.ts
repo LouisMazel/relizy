@@ -14,7 +14,7 @@
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
@@ -66,18 +66,10 @@ function makePackage(name: string, directory: string) {
 }
 
 function makeCommit(description: string, nameStatus: string[], text = ''): GitCommit {
-  return {
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    message: `feat: ${description}`,
+  return createMockCommit('feat', `feat: ${description}`, {
     body: `\n${[text, nameStatus.join('\n')].filter(Boolean).join('\n\n')}\n`,
-    type: 'feat',
-    scope: '',
-    references: [],
     description,
-    isBreaking: false,
-    authors: [],
-  } as GitCommit
+  })
 }
 
 async function commitsOf(pkg: ReturnType<typeof makePackage>) {

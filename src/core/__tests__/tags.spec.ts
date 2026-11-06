@@ -1,11 +1,10 @@
-import { execPromise } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { runGit } from '../git-exec'
 import { extractVersionFromRepoTag, NEW_PACKAGE_MARKER, resolveTags } from '../tags'
 
 const FIRST_COMMIT_HASH = 'FAKE_COMMIT_HASH'
 const TEST_BRANCH = 'test-branch'
 const LAST_TAG = 'v1.0.0' // Simulates the most recent tag (could be stable or prerelease)
-const LAST_STABLE_TAG = 'v0.9.0' // Simulates the last stable tag
 
 vi.mock('../git', async (importActual) => {
   const actual = await importActual<typeof import('../git')>()
@@ -17,48 +16,31 @@ vi.mock('../git', async (importActual) => {
   }
 })
 
-vi.mock('@maz-ui/node', async (importActual) => {
-  const actual = await importActual<typeof import('@maz-ui/node')>()
+vi.mock('../git-exec', async (importActual) => {
+  const actual = await importActual<typeof import('../git-exec')>()
 
   return {
     ...actual,
-    execPromise: vi.fn((param) => {
+    runGitSync: vi.fn(() => ''),
+    runGit: vi.fn((args: string[]) => {
       // Mock for the repository tags
-      if (param === `git tag --sort=-creatordate`) {
+      if (args.join(' ') === 'tag --sort=-creatordate') {
         // Simulate a realistic scenario:
         // - v2.0.0-beta.0 (newest, prerelease, major 2 - simulates future beta)
         // - v1.0.0 (LAST_TAG, stable, major 1)
-        // - v0.9.0 (LAST_STABLE_TAG, stable, major 0)
+        // - v0.9.0 (stable, major 0)
         // - v0.8.0 (older stable)
-        return Promise.resolve({
-          stdout: 'v2.0.0-beta.0\nv1.0.0\nv0.9.0\nv0.8.0',
-        })
+        return Promise.resolve('v2.0.0-beta.0\nv1.0.0\nv0.9.0\nv0.8.0')
       }
 
-      // Mock for getLastStableTag
-      if (param === `git tag --sort=-creatordate | grep -E '^[^0-9@]*[0-9]+\\.[0-9]+\\.[0-9]+$' | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_STABLE_TAG, // v0.9.0
-        })
-      }
-
-      // Mock for getLastTag
-      if (param === `git tag --sort=-creatordate | head -n 1`) {
-        return Promise.resolve({
-          stdout: LAST_TAG, // v1.0.0
-        })
-      }
-
-      return Promise.resolve({
-        stdout: '',
-      })
+      return Promise.resolve('')
     }),
   }
 })
 
 describe('Given resolveTags function', () => {
   beforeEach(() => {
-    vi.mocked(execPromise).mockClear()
+    vi.mocked(runGit).mockClear()
   })
 
   describe('When user provides tags', () => {
@@ -137,9 +119,7 @@ describe('Given resolveTags function', () => {
         // because `git push --follow-tags` failed, then package.json was manually bumped to 0.1.0
         // to match what was published on npm. Without the fallback, the package would be flagged
         // as __NEW_PACKAGE__ even though its tag history is intact.
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'pkg-a@0.1.0-beta.6\npkg-a@0.1.0-beta.5\npkg-a@0.1.0-beta.4',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('pkg-a@0.1.0-beta.6\npkg-a@0.1.0-beta.5\npkg-a@0.1.0-beta.4')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'changelog'>({
@@ -155,9 +135,7 @@ describe('Given resolveTags function', () => {
 
       it('Then prefers a stable tag over a prerelease when both exist for the package', async () => {
         // Sanity check: the fallback should NOT kick in when a stable tag is available.
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'pkg-a@0.1.0-beta.6\npkg-a@0.1.0\npkg-a@0.1.0-beta.5',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('pkg-a@0.1.0-beta.6\npkg-a@0.1.0\npkg-a@0.1.0-beta.5')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'changelog'>({
@@ -175,9 +153,7 @@ describe('Given resolveTags function', () => {
         // Major-compatibility filter must still apply during the fallback: if every
         // prerelease tag is from a future major (e.g. tags at 2.x while we are on 1.x),
         // we treat the package as new rather than rewinding to an incompatible major.
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'pkg-a@2.0.0-beta.0\npkg-a@2.0.0-beta.1',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('pkg-a@2.0.0-beta.0\npkg-a@2.0.0-beta.1')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'changelog'>({
@@ -191,9 +167,7 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then picks the highest version of the package, not the most recent tag', async () => {
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'pkg-a@1.0.1\npkg-a@1.1.0\npkg-a@1.0.0',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('pkg-a@1.0.1\npkg-a@1.1.0\npkg-a@1.0.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'changelog'>({
@@ -204,13 +178,11 @@ describe('Given resolveTags function', () => {
         })
 
         expect(result.from).toBe('pkg-a@1.1.0')
-        expect(execPromise).toHaveBeenCalledWith(`git tag --list 'pkg-a@*' --sort=-creatordate`, expect.anything())
+        expect(runGit).toHaveBeenCalledWith(['tag', '--list', 'pkg-a@*', '--sort=-creatordate'], expect.anything())
       })
 
       it('Then ignores the tags of another package starting with the same name', async () => {
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'pkg-a@utils@2.0.0\npkg-a@1.1.0',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('pkg-a@utils@2.0.0\npkg-a@1.1.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
         const result = await resolveTags<'bump'>({
@@ -279,9 +251,9 @@ describe('Given resolveTags function', () => {
         // Reproduces the maz-ui case: repo only has tags at major >= 3, while
         // the new sub-package starts at 0.0.0 → all tags get filtered out by
         // isTagVersionCompatibleWithCurrent. Without the marker, the resolver
-        // would fall back to getFirstCommit(repo) and overflow execSync's
+        // would fall back to getFirstCommit(repo) and overflow runGitSync's
         // buffer (ENOBUFS) when getGitDiff spans the full history.
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v3.2.0\nv3.1.0\nv3.0.0' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('v3.2.0\nv3.1.0\nv3.0.0')
 
         const result = await resolveTags<'bump'>({
           config,
@@ -298,9 +270,7 @@ describe('Given resolveTags function', () => {
         // v0.1.0-beta.{1..6} because the prior release left them un-pushed, package.json
         // was manually bumped to 0.1.0. We should resume from the most recent prerelease
         // tag instead of treating the package as new and skipping its history entirely.
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'v0.1.0-beta.6\nv0.1.0-beta.5\nv0.1.0-beta.4',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('v0.1.0-beta.6\nv0.1.0-beta.5\nv0.1.0-beta.4')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
         const result = await resolveTags<'changelog'>({
@@ -316,9 +286,7 @@ describe('Given resolveTags function', () => {
 
       it('Then ignores a more recent tag of another package matching the template glob when falling back to a prerelease tag', async () => {
         // `vue-utils@0.5.0` is listed by `git tag --list 'v*'` but does not follow `v{{newVersion}}`
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'vue-utils@0.5.0\nv1.0.0-beta.1\nv1.0.0-beta.0',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('vue-utils@0.5.0\nv1.0.0-beta.1\nv1.0.0-beta.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
         const result = await resolveTags<'changelog'>({
@@ -336,7 +304,7 @@ describe('Given resolveTags function', () => {
 
         // Root package on a fresh repo with no tags at all: legitimate fallback
         // to the first commit (small history, no ENOBUFS risk).
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: '' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('')
 
         const result = await resolveTags<'bump'>({
           config,
@@ -374,7 +342,7 @@ describe('Given resolveTags function', () => {
         })
 
         // When graduating from 1.0.0-next.0 to stable, should use last stable tag with major <= 1
-        // which is v1.0.0 (LAST_TAG), not v0.9.0 (LAST_STABLE_TAG)
+        // which is v1.0.0 (LAST_TAG), not v0.9.0
         expect(result).toEqual({ from: LAST_TAG, to: TEST_BRANCH })
       })
 
@@ -461,13 +429,12 @@ describe('Given resolveTags function', () => {
         expect(result.to).toBe(TEST_BRANCH)
       })
 
+      // eslint-disable-next-line sonarjs/parameterized-tests -- the three cases differ by their setup, not only by data
       it('Then ignores a more recent tag of another package matching the template glob', async () => {
         // A package released independently in the same repository tagged `vue-utils@1.0.0`
         // after `v6.18.0`: its major is compatible with 6.18.0, so it must not become the start
         // of the repository range, otherwise the commits since `v6.18.0` are lost.
-        vi.mocked(execPromise).mockResolvedValueOnce({
-          stdout: 'vue-utils@1.0.0\nv6.18.0\nv6.17.0',
-        } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('vue-utils@1.0.0\nv6.18.0\nv6.17.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
         const result = await resolveTags<'bump'>({
@@ -481,7 +448,7 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then lists the tags of a custom template', async () => {
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'release/6.18.0-final\nrelease/6.17.0-final' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('release/6.18.0-final\nrelease/6.17.0-final')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
         config.templates = { ...config.templates, tagBody: 'release/{{newVersion}}-final' }
@@ -497,7 +464,7 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then still recognizes the v1.2.3 tags when the template was changed', async () => {
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: '@scope/pkg@1.0.0\nv6.18.0\nv6.17.0' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('@scope/pkg@1.0.0\nv6.18.0\nv6.17.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
         config.templates = { ...config.templates, tagBody: 'release-{{newVersion}}' }
@@ -514,7 +481,7 @@ describe('Given resolveTags function', () => {
 
       it('Then picks the highest version, not the most recent tag', async () => {
         // v6.17.1 is a hotfix of an older version, tagged after v6.18.0 on a maintenance branch
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v6.17.1\nv6.18.0\nv6.17.0' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('v6.17.1\nv6.18.0\nv6.17.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
         const result = await resolveTags<'bump'>({
@@ -529,7 +496,7 @@ describe('Given resolveTags function', () => {
 
       it('Then ignores the tags above the current version', async () => {
         // v6.19.0 was released from another branch that is not merged yet
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v6.19.0\nv6.18.0' } as any)
+        vi.mocked(runGit).mockResolvedValueOnce('v6.19.0\nv6.18.0')
 
         const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
         const result = await resolveTags<'bump'>({
@@ -548,8 +515,8 @@ describe('Given resolveTags function', () => {
         // Reproduces the maz-ui case: a new sub-package at 0.0.0 is added to a
         // monorepo whose tags are at higher majors. Without the marker, the
         // unified resolver would fall back to getFirstCommit(repo) and overflow
-        // execSync's buffer (ENOBUFS) when getGitDiff spans the full history.
-        vi.mocked(execPromise).mockResolvedValueOnce({ stdout: 'v3.2.0\nv3.1.0\nv3.0.0' } as any)
+        // runGitSync's buffer (ENOBUFS) when getGitDiff spans the full history.
+        vi.mocked(runGit).mockResolvedValueOnce('v3.2.0\nv3.1.0\nv3.0.0')
 
         const result = await resolveTags<'bump'>({
           config,

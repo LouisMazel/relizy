@@ -15,5 +15,6 @@ Rules:
 - Never run relizy release, bump, publish, changelog, provider-release, social nor pr-comment without the explicit approval of the user: they write, commit, tag, push and publish. Use --dry-run to show what they would do. Most projects release from their CI.
 - Never edit the versions of the package.json files, the CHANGELOG.md files nor the release tags by hand: relizy computes them from the commits.
 - One package (or one concern) per commit in a monorepo: the files of a commit decide the packages it bumps.
-- Set up a project with \`relizy init\` (\`--yes\` without questions) and the agents with \`relizy mcp init\`.`
+- Set up a project with \`relizy init\` (\`--yes\` without questions) and the agents with \`relizy mcp init\`.
+- Upgrading from relizy 1: check_migration() lists what to change (config, templates, hooks, code), with get_doc({ id: "guide/migration-v2" }).`
 }

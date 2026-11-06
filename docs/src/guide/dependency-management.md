@@ -1,7 +1,8 @@
 ---
 title: Dependency Management
-description: Learn how Relizy handles dependencies between packages in monorepos.
-keywords: dependency management, monorepo dependencies, workspace dependencies, transitive dependencies, package dependencies
+description: How Relizy bumps the packages depending on a released package in a monorepo - dependency types, transitive dependents, peer dependency ranges, workspace protocol, catalogs and ignored packages.
+metaDescription: 'How Relizy bumps the dependents of a released package in a monorepo: dependency types, transitive dependents, peer ranges and catalogs.'
+keywords: dependency management, monorepo dependencies, dependents, transitive dependencies, dependencyTypes, workspace protocol, peer dependencies, outOfRangePeers, pnpm catalog, bun catalog, yarn catalog
 category: Guide
 tags: [guide, dependencies, monorepo, workspace]
 ---
@@ -10,201 +11,69 @@ tags: [guide, dependencies, monorepo, workspace]
 
 {{ $frontmatter.description }}
 
-## Overview
+## Dependents
 
-In monorepos, packages often depend on each other. When you update package A, any package that depends on A should also be updated. Relizy handles this automatically.
+When a package is released, the packages of the workspace depending on it are released too, so that they are published with its new version. A package is a dependent when it lists the released package in one of the fields of [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) (`['dependencies']` by default), whatever the range it uses.
 
-## How It Works
-
-When you release a package:
-
-1. **Detect Changes** - Relizy identifies which packages have commits
-2. **Find Dependents** - It looks for packages that depend on changed packages
-3. **Calculate Bumps** - Dependent packages are bumped appropriately
-4. **Update Versions** - Dependencies in `package.json` are updated
-5. **Transitive Updates** - The process repeats for transitive dependencies
-
-## Simple Example
-
-Imagine this dependency graph:
+The dependents are followed transitively:
 
 ```text
-packages/ui
-  └── depends on @myorg/core (workspace:*)
-
-packages/core
-  └── no dependencies
+@myorg/app  ──dependencies──▶  @myorg/ui  ──dependencies──▶  @myorg/core
 ```
 
-When `core` is updated:
+A `fix` commit in `packages/core` releases `@myorg/core`, then `@myorg/ui` (depends on core), then `@myorg/app` (depends on ui). A diamond (`app` depending on `ui` and `admin`, both depending on `core`) releases each package once.
 
-<!-- TODO: Check dependency updates (est-ce que si un package est update, on update la version dans les autres (si on utilise pas workspace:*)) -->
-
-```bash
-relizy release --minor
-
-# What happens:
-# 1. core: 1.0.0 → 1.1.0 (has commits)
-# 2. ui: 1.0.0 → 1.0.1 (depends on core - patched)
-```
-
-## Transitive Dependencies
-
-Relizy handles multi-level dependency chains automatically.
-
-### Example
-
-```text
-packages/app
-  └── depends on @myorg/ui
-
-packages/ui
-  └── depends on @myorg/core
-
-packages/core
-  └── no dependencies
-```
-
-When `core` changes:
-
-```bash
-relizy release --minor
-
-# What happens:
-# 1. core: 1.0.0 → 1.1.0 (has commits)
-# 2. ui: 1.0.0 → 1.0.1 (depends on core - patched)
-# 3. app: 1.0.0 → 1.0.1 (depends on ui - patched)
-```
-
-All three packages are bumped and their dependencies are updated!
-
-## Dependency Types
-
-You can configure which dependency fields trigger updates:
+To also follow the peer or dev dependencies, list their fields:
 
 ```ts
-// relizy.config.ts
+import { defineConfig } from 'relizy'
+
 export default defineConfig({
   bump: {
-    dependencyTypes: [
-      'dependencies', // Production dependencies
-      'devDependencies', // Development dependencies
-      'peerDependencies', // Peer dependencies
-    ],
+    dependencyTypes: ['dependencies', 'peerDependencies'],
   },
 })
 ```
 
-### Production Dependencies
+The list replaces the default one: keep `dependencies` in it. Without `peerDependencies` in the list, a package is still released when its published peer dependency range rejects the new version, see [Peer Dependencies](#peer-dependencies).
 
-Most common - used at runtime:
+## Version of a Dependent
 
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.0.0"
-  }
-}
-```
+What a dependent gets depends on the [version mode](./version-modes.md):
 
-If `core` is updated, any package listing it in `dependencies` will be bumped.
+| Mode          | Dependent without commits of its own                                                     |
+| ------------- | ---------------------------------------------------------------------------------------- |
+| `unified`     | Every package is released with the root version anyway                                   |
+| `selective`   | The root version of the release, like the packages with commits (`1.4.2` to `1.6.0`)     |
+| `independent` | A patch of its own version (with `--prerelease`, a `prepatch`, or the next `prerelease`) |
 
-### Dev Dependencies
-
-Used only during development:
-
-```json
-{
-  "devDependencies": {
-    "@myorg/test-utils": "^1.0.0"
-  }
-}
-```
-
-By default, changes to dev dependencies also trigger bumps. Disable if you want:
-
-```ts
-export default defineConfig({
-  bump: {
-    dependencyTypes: ['dependencies'], // Only production deps
-  },
-})
-```
-
-### Peer Dependencies
-
-Dependencies that consumers must provide:
-
-```json
-{
-  "peerDependencies": {
-    "@myorg/core": "^1.0.0"
-  }
-}
-```
-
-Peer dependencies are not in `dependencyTypes` by default: a package is bumped only when its published range no longer accepts the new version of its peer dependency, and gets a major when that dependency makes a breaking change. See [Out-of-Range Peer Dependencies](#out-of-range-peer-dependencies).
-
-## Version Mode Differences
-
-How dependencies are handled varies by version mode:
-
-### Unified Mode
-
-All packages get the same version:
+A dependent with commits of its own is bumped from its commits, as any package. In `independent` mode, for the example above with a `feat` commit in `core`:
 
 ```text
-core: 1.0.0 → 1.1.0
-ui: 1.0.0 → 1.1.0 (depends on core)
-app: 1.0.0 → 1.1.0 (depends on ui)
+@myorg/core   2.0.0 → 2.1.0   feat
+@myorg/ui     1.5.0 → 1.5.1   depends on core
+@myorg/app    0.3.2 → 0.3.3   depends on ui
 ```
 
-Dependencies in `package.json` are updated to match:
+Relizy only writes the `version` of the released `package.json` files: it never rewrites the dependency ranges. The ranges published are the ones of the [workspace protocol](#workspace-protocol), replaced by the package manager.
 
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.1.0"
-  }
-}
-```
+## Peer Dependencies
 
-### Selective Mode
+A peer dependency declared as `workspace:*` is published as the exact version of the dependency, `workspace:^` as `^<version>`. When the new version of the dependency falls out of the published range, the consumers of the package get peer dependency errors (npm) or warnings (pnpm). With [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers) (`bump` by default), Relizy releases these packages too, even without `peerDependencies` in `dependencyTypes`:
 
-Only changed packages (and dependents) are bumped, but they share versions:
+- `workspace:*`: on every release of the dependency; `workspace:^`: on a major, a minor in `0.x`, or a prerelease (the ranges are checked as npm does, `^6.19.1` rejects `6.20.0-beta.0`);
+- when the dependency makes a breaking change (`6.19.1` to `7.0.0`), the package is bumped as for a breaking commit (a minor in `0.x` with [`capZeroMajor`](./../config/bump.md#capzeromajor)), as its consumers have to upgrade the dependency too.
 
 ```text
-core: 1.0.0 → 1.1.0 (has commits)
-ui: 1.0.0 → 1.0.1 (depends on core - patched)
-app: 1.2.0 → 1.2.0 (no changes, doesn't depend on core)
+@myorg/core   2.0.0 → 3.0.0   breaking commit
+@myorg/ui     1.5.0 → 2.0.0   peer "@myorg/core": "workspace:^", published as "^2.0.0"
 ```
 
-### Independent Mode
-
-Each package has its own version. Dependents get minimum patch bump:
-
-```text
-core: 2.0.0 → 2.1.0 (has feature commits)
-ui: 1.5.0 → 1.5.1 (depends on core, gets patch bump)
-```
-
-If a dependent also has commits, it gets the appropriate bump:
-
-```text
-core: 2.0.0 → 2.1.0 (has feature commits)
-ui: 1.5.0 → 1.6.0 (has its own feature commits)
-```
-
-A package whose published peer dependency range rejects a breaking change of its dependency gets a major, as for a breaking commit:
-
-```text
-core: 2.0.0 → 3.0.0 (has a breaking commit)
-ui: 1.5.0 → 2.0.0 ("core": "workspace:^", published as "^2.0.0", now "^3.0.0")
-```
+An explicit release type (`--patch`, `--minor`, `--major`) applies as is: it does not turn into a major for a breaking peer dependency.
 
 ## Workspace Protocol
 
-Relizy supports the workspace protocol used by pnpm, bun and yarn:
+Declare the internal dependencies with the `workspace:` protocol of pnpm, yarn and bun:
 
 ```json
 {
@@ -214,24 +83,17 @@ Relizy supports the workspace protocol used by pnpm, bun and yarn:
 }
 ```
 
-The package manager replaces these specifiers when publishing (`workspace:*` becomes the exact version, `workspace:^` becomes `^1.2.0`). Before publishing, Relizy checks that they resolve to versions published by the release or already on the registry. See [`publish.checkWorkspaceDependencies`](../config/publish.md#checkworkspacedependencies).
+The package manager replaces it when publishing: `workspace:*` with the exact version, `workspace:^` with `^1.2.0`, `workspace:~` with `~1.2.0`. An explicit range (`"^1.0.0"`, `"workspace:^1.0.0"`) is published as is, and Relizy does not update it.
 
-### Out-of-Range Peer Dependencies
-
-A peer dependency declared as `workspace:*` is published as the exact version of the dependency. When the dependency is released again, the package must be released too, otherwise its consumers get peer dependency errors (npm) or warnings (pnpm). Relizy bumps such packages automatically, only when their published range no longer accepts the new version (`workspace:*` on every release, `workspace:^` on a major or a prerelease), even when `peerDependencies` is not in `dependencyTypes`.
-
-- The ranges are checked as npm does: `^6.19.1` rejects the canary `6.20.0-0.canary-abc1234`, so the package is released as a canary too.
-- When the dependency makes a breaking change (`6.19.1` to `7.0.0`), the package gets a major (a minor in `0.x`), as its consumers have to upgrade the dependency.
-
-See [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers).
-
-### Publish Order
-
-Packages are published after the internal packages they depend on through `dependencies`, `peerDependencies` or `optionalDependencies`, whatever `dependencyTypes` is.
+Before publishing, Relizy checks that every `workspace:` dependency resolves to a version published by the release or already on the registry, see [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies). The packages are published in dependency order (`dependencies`, `peerDependencies` and `optionalDependencies`, whatever `dependencyTypes`), see [Publish](./../config/publish.md).
 
 ## Catalogs
 
-The catalogs of pnpm (`pnpm-workspace.yaml`), yarn 4.10+ (`.yarnrc.yml`) and bun (root `package.json`) declare the versions of the dependencies once, referenced with `catalog:` (the default catalog) or `catalog:<name>` by the packages:
+The catalogs declare the versions of the dependencies once, referenced with `catalog:` (the default catalog) or `catalog:<name>`:
+
+- pnpm: `catalog` and `catalogs` of `pnpm-workspace.yaml`
+- yarn 4.10+: `catalog` and `catalogs` of `.yarnrc.yml`
+- bun: `catalog` and `catalogs` of the root `package.json`, or of its `workspaces` field
 
 ```yaml
 # pnpm-workspace.yaml
@@ -242,256 +104,48 @@ catalogs:
     vue: ^2.7.16
 ```
 
-```json
-{
-  "name": "@myorg/ui",
-  "dependencies": {
-    "vue": "catalog:"
-  }
-}
-```
+A commit changing an entry of a catalog belongs to the packages referencing this entry in their `dependencies`, `devDependencies`, `peerDependencies` or `optionalDependencies`, as if it had edited their `package.json`. In `selective` and `independent` mode, it decides which packages are released; in every mode, the commit appears in their changelogs. Its type decides the bump, as for any commit:
 
-A commit that changes an entry of a catalog belongs to the packages using this entry, in any dependency field, as if it had edited their `package.json`: their published dependencies change. The other packages do not get the commit. As for any commit, its type decides the bump:
+| Commit                           | Changed entry       | Result                                                   |
+| -------------------------------- | ------------------- | -------------------------------------------------------- |
+| `fix(deps): update vue to 3.5`   | `vue` of `catalog`  | The packages using `vue` with `catalog:` get a patch     |
+| `chore: update vitest`           | `vitest`            | The commit belongs to the packages using vitest, no bump |
+| `chore: allow the esbuild build` | none (not an entry) | No package gets the commit                               |
 
-| Commit                           | Changed entry       | Result                                                             |
-| -------------------------------- | ------------------- | ------------------------------------------------------------------ |
-| `fix(deps): update vue to 3.5`   | `vue` of `catalog`  | `@myorg/ui` is released (patch), with the commit in its changelog  |
-| `chore(deps): update vitest`     | `vitest`            | The commit belongs to the packages using vitest, no bump (`chore`) |
-| `chore: allow the esbuild build` | none (not an entry) | No package gets the commit                                         |
-
-The packages depending on a released package are then bumped following `dependencyTypes`, as usual. The package manager replaces `catalog:` with the range of the catalog when publishing, as it does for `workspace:`.
+The dependents of the released packages then follow `dependencyTypes`, as usual. The package manager replaces `catalog:` with the range of the catalog when publishing.
 
 ## Between Version Groups
 
 With [version groups](./version-groups.md), a package depending on a package bumped by another group is bumped too, following the `dependencyTypes` of its own group and the out-of-range peer dependencies. See [Dependencies Between Groups](./version-groups.md#dependencies-between-groups).
 
-## Complex Dependency Graphs
+## Circular Dependencies
 
-Relizy handles complex scenarios automatically:
+A cycle between packages (`ui → core → ui`) is reported with a warning (`Circular dependency detected`), and the release goes on: each package of the cycle is released once. Break the cycle to get a reliable publish order.
 
-### Diamond Dependencies
+## Ignored Packages
 
-```text
-       app
-      /   \
-    ui     admin
-      \   /
-       core
-```
-
-When `core` changes, all packages are updated in the correct order.
-
-### Circular Dependencies
-
-::: warning
-Circular dependencies are detected and will cause an error. Refactor your packages to remove cycles:
-
-```text
-ui → core → ui  // ❌ Not allowed
-```
-
-:::
-
-## Ignoring Packages
-
-You can exclude packages from dependency tracking:
+The packages matched by [`monorepo.ignored`](./../config/monorepo.md#ignored) (path globs) are left out of the release: they are never bumped, changelogged nor published, and they do not release their dependents. In `unified` and `selective` mode, a commit only changing ignored packages does not bump the root version.
 
 ```ts
-// relizy.config.ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   monorepo: {
-    ignorePackageNames: [
-      'example-*', // Ignore example packages
-      'docs', // Ignore docs package
-    ],
+    versionMode: 'selective',
+    packages: ['packages/*', 'examples/*'],
+    ignored: ['examples/*'],
   },
 })
 ```
 
-Ignored packages:
+The private packages follow [`monorepo.privatePackages`](./../config/monorepo.md#privatepackages).
 
-- Won't trigger dependent updates
-- Won't be bumped automatically
-- Can still be manually released
+## Checking the Dependents
 
-## Dry Run for Dependency Testing
-
-Use dry run to preview dependency updates:
+Preview the packages a release bumps before running it:
 
 ```bash
-relizy release --minor --dry-run
+relizy release --dry-run
 ```
 
-Output shows the full dependency tree:
-
-```text
-Packages to bump:
-✓ @myorg/core: 1.0.0 → 1.1.0 (has commits)
-✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on core)
-✓ @myorg/app: 1.0.0 → 1.0.1 (depends on ui)
-```
-
-## Manual Package Selection
-
-Override automatic dependency detection:
-
-```bash
-relizy release --minor
-
-# Relizy will still bump dependents:
-# ✓ core: 1.0.0 → 1.1.0
-# ✓ ui: 1.0.0 → 1.0.1
-# ✓ app: 1.0.0 → 1.0.1 (depends on ui)
-```
-
-## Best Practices
-
-### 1. Use Workspace Protocol
-
-For monorepos with pnpm, bun or yarn:
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "workspace:*" // ("*" for npm)
-  }
-}
-```
-
-This ensures packages always reference workspace versions during development.
-
-### 2. Set Correct Dependency Types
-
-Only track the dependency types that matter:
-
-```ts
-export default defineConfig({
-  bump: {
-    // Don't bump for devDependency changes
-    dependencyTypes: ['dependencies', 'peerDependencies'],
-  },
-})
-```
-
-### 3. Review Dry Run Output
-
-Always check dependency updates before releasing:
-
-```bash
-relizy release --minor --dry-run
-```
-
-### 4. Keep Dependency Graphs Simple
-
-Avoid complex dependency chains when possible. Flatter is better.
-
-### 5. Use Consistent Version Ranges
-
-Stick to one range style across your monorepo:
-
-// Good ✅
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.0.0",
-    "@myorg/utils": "^2.0.0"
-  }
-}
-```
-
-// Mixed ❌
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.0.0",
-    "@myorg/utils": "~2.0.0"
-  }
-}
-```
-
-## Troubleshooting
-
-### Dependent Packages Not Bumping
-
-Check your `dependencyTypes` configuration:
-
-```ts
-export default defineConfig({
-  bump: {
-    dependencyTypes: [
-      'dependencies', // Add missing types
-      'devDependencies',
-    ],
-  },
-})
-```
-
-### Wrong Version in Dependencies
-
-Ensure you're using the correct version range format:
-
-```json
-{
-  "dependencies": {
-    "@myorg/core": "^1.0.0" // ✅ Caret
-    // not: "workspace:*"     // ❌ Will be replaced
-  }
-}
-```
-
-### Circular Dependency Error
-
-Refactor packages to break the cycle:
-
-```text
-Before (circular):
-ui → core → ui
-
-After (fixed):
-ui → core
-utils → core
-```
-
-## Examples
-
-### Full Monorepo Release
-
-```bash
-# In a monorepo with:
-# - packages/core (has commits)
-# - packages/utils (depends on core)
-# - packages/ui (depends on utils)
-# - packages/app (depends on ui)
-
-relizy release --minor
-
-# Output:
-# ✓ @myorg/core: 1.0.0 → 1.1.0
-# ✓ @myorg/utils: 1.0.0 → 1.0.1 (depends on core)
-# ✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on utils)
-# ✓ @myorg/app: 1.0.0 → 1.0.1 (depends on ui)
-```
-
-### Selective Release
-
-```bash
-# Only bump packages/core and its dependents
-
-relizy release --minor
-
-# Output:
-# ✓ @myorg/core: 1.0.0 → 1.1.0
-# ✓ @myorg/utils: 1.0.0 → 1.0.1 (depends on core)
-# ✓ @myorg/ui: 1.0.0 → 1.0.1 (depends on utils)
-# ○ @myorg/unrelated: 1.0.0 (no dependency)
-```
-
-## Next Steps
-
-- [Version Modes](version-modes.md) - Understand versioning strategies
-- [Configuration](../config/monorepo.md) - Configure dependency behavior
-- [CLI Commands](../cli/release.md) - Learn about release options
+The `preview_release` tool of the [MCP server](./ai-agents.md) also tells why each package is released (its commits, a dependency, a peer dependency). A dependent that is not bumped usually lists the package in a field missing from `dependencyTypes`, or is ignored.

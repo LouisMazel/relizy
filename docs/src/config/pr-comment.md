@@ -1,43 +1,24 @@
 ---
 title: PR Comment Configuration
-description: Configure automatic PR/MR comment posting with release information.
-keywords: pr comment config, pull request comment config, merge request comment config, release comment settings, pr comment mode
+description: Option of the release comment posted on the pull request or merge request - update the previous comment or add a new one.
+keywords: pr comment config, prComment, pull request comment, merge request comment, pr comment mode, append, update
 category: Configuration
-tags: [config, pr-comment, pull-request, merge-request, automation]
+tags: [config, pr-comment, pull-request, merge-request]
 ---
 
 # {{ $frontmatter.title }}
 
 {{ $frontmatter.description }}
 
-## Overview
-
-The `prComment` configuration controls how Relizy posts release information as comments on your pull requests and merge requests. It supports both GitHub and GitLab, with two comment modes.
-
-## Configuration Structure
-
-```ts
-interface PrCommentConfig {
-  /**
-   * PR comment mode
-   * - 'append': Create a new comment each time
-   * - 'update': Find and update an existing comment
-   * @default 'update'
-   */
-  mode?: 'append' | 'update'
-}
-```
+What the comment contains, how the pull request is found and the tokens it needs: [PR Comments](./../guide/pr-comment.md). In `relizy release`, the comment is posted when [`release.prComment`](./release.md#steps) is `true` (the default).
 
 ## mode
 
-- **Type:** `'append' | 'update'`
+- **Type:** `'update' | 'append'`
 - **Default:** `'update'`
 
-Controls how Relizy manages comments on the PR/MR.
-
-### Append Mode
-
-Creates a **new comment** each time. This preserves a history of all release attempts on the PR:
+- `update`: edit the previous comment of Relizy on the pull request (found by its hidden `<!-- relizy-pr-comment -->` marker), or add one when there is none. The pull request keeps a single Relizy comment.
+- `append`: add a new comment at each run, to keep one per release attempt.
 
 ```ts
 import { defineConfig } from 'relizy'
@@ -48,174 +29,3 @@ export default defineConfig({
   },
 })
 ```
-
-### Update Mode
-
-**Finds and updates** the existing Relizy comment instead of creating a new one. Uses a hidden HTML marker (`<!-- relizy-pr-comment -->`) to identify the previous comment:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  prComment: {
-    mode: 'update',
-  },
-})
-```
-
-If no previous comment is found, a new one is created.
-
-::: tip
-`update` is the default: only one Relizy comment ever appears on the PR. Use `append` to keep a comment per release attempt.
-:::
-
-## release.prComment
-
-- **Type:** `boolean`
-- **Default:** `true`
-
-Enable or disable PR comment posting in the release workflow:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    prComment: true, // Enable PR commenting in release workflow (default)
-  },
-})
-```
-
-To disable:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    prComment: false, // Disable PR commenting in release workflow
-  },
-})
-```
-
-Or use the CLI flag:
-
-```bash
-relizy release --patch --no-pr-comment
-```
-
-## Complete Examples
-
-### Append Mode
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  prComment: {
-    mode: 'append',
-  },
-  release: {
-    prComment: true,
-  },
-})
-```
-
-### Update Mode (Default)
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  prComment: {
-    mode: 'update',
-  },
-  release: {
-    prComment: true,
-  },
-})
-```
-
-### Disabled
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    prComment: false,
-  },
-})
-```
-
-## Authentication
-
-PR comments use the same tokens as provider releases. No additional token configuration is needed:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  tokens: {
-    github: process.env.GITHUB_TOKEN,
-    // or
-    gitlab: process.env.GITLAB_TOKEN,
-  },
-})
-```
-
-**Environment Variables:**
-
-- GitHub: `RELIZY_GITHUB_TOKEN` or `GITHUB_TOKEN` or `GH_TOKEN`
-- GitLab: `RELIZY_GITLAB_TOKEN` or `GITLAB_TOKEN` or `GITLAB_API_TOKEN` or `CI_JOB_TOKEN`
-
-## Integration with Release Workflow
-
-PR comment posting is automatically triggered when enabled in the `release` configuration:
-
-```ts
-import { defineConfig } from 'relizy'
-
-export default defineConfig({
-  release: {
-    prComment: true,
-  },
-  prComment: {
-    mode: 'update',
-  },
-})
-```
-
-Then run:
-
-```bash
-relizy release --patch
-```
-
-This will:
-
-1. Bump version
-2. Generate changelog
-3. Create git commit and tag
-4. Push to remote
-5. Create GitHub/GitLab release
-6. Publish to npm
-7. Post to social media
-8. **Post a comment on the PR/MR** 💬
-
-## Standalone Usage
-
-You can also post PR comments independently using the `pr-comment` command:
-
-```bash
-relizy pr-comment
-```
-
-See the [CLI reference](../cli/pr-comment.md) for more details.
-
-## See Also
-
-- [PR Comments Guide](../guide/pr-comment.md)
-- [CLI Reference](../cli/pr-comment.md)
-- [API Reference](../api/pr-comment.md)
-- [Release Configuration](./release.md)

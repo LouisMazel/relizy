@@ -1,16 +1,17 @@
-import { execPromise } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { buildChangelogBody, buildCompareLink, buildContributors, getIndependentTag, getPackagesOrBumpedPackages, getRootPackage, isBumpedPackage, isPrerelease, loadRelizyConfig, readPackageJson, resolveTags } from '../../core'
 import { generateAIProviderReleaseBody } from '../ai'
+import { getCurrentGitBranch } from '../git'
 import { createGitlabRelease, gitlab } from '../gitlab'
 
 vi.mock('convert-gitmoji', () => ({
   convert: vi.fn((input: string) => input),
 }))
 
-vi.mock('../repo', () => {
+vi.mock('../repo', async () => {
   return {
+    getPrivatePackagesMode: (await vi.importActual<typeof import('../repo')>('../repo')).getPrivatePackagesMode,
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
     getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
@@ -18,9 +19,11 @@ vi.mock('../repo', () => {
   }
 })
 
-vi.mock('../version', () => {
+vi.mock('../version', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../version')>()
   return {
     isPrerelease: vi.fn(),
+    extractVersionFromTag: actual.extractVersionFromTag,
   }
 })
 
@@ -37,7 +40,7 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], includePrivates?: boolean): T[] => includePrivates ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -59,11 +62,13 @@ vi.mock('../markdown', () => ({
 vi.mock('../git', () => ({
   getFirstCommit: vi.fn().mockReturnValue('initial-commit'),
   getCurrentGitRef: vi.fn().mockReturnValue('HEAD'),
+  getCurrentGitBranch: vi.fn().mockReturnValue('main'),
 }))
 
-vi.mock('../ai', () => ({
+vi.mock('../ai', async importActual => ({
   generateAIProviderReleaseBody: vi.fn(),
   isAIProviderReleaseEnabled: vi.fn().mockImplementation((config: any) => !!config.ai?.providerRelease?.enabled),
+  isAIRewritingVersion: (await importActual<typeof import('../ai')>()).isAIRewritingVersion,
 }))
 
 globalThis.fetch = vi.fn()
@@ -82,6 +87,28 @@ describe('Given createGitlabRelease function', () => {
         _links: { self: 'https://gitlab.com/api/v4/projects/user%2Frepo/releases/v1.0.0' },
       }),
     } as Response)
+  })
+
+  describe('When the token is the job token of the CI job', () => {
+    it('Then it authenticates with the JOB-TOKEN header', async () => {
+      vi.stubEnv('CI_JOB_TOKEN', 'job-token')
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: { gitlab: 'job-token' },
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+      })
+
+      try {
+        await createGitlabRelease({ config, release: { tag_name: 'v1.0.0', name: 'v1.0.0', description: 'Release notes' } })
+      }
+      finally {
+        vi.unstubAllEnvs()
+      }
+
+      expect(fetch).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({
+        headers: { 'Content-Type': 'application/json', 'JOB-TOKEN': 'job-token' },
+      }))
+    })
   })
 
   describe('When creating release with valid config', () => {
@@ -223,48 +250,6 @@ describe('Given createGitlabRelease function', () => {
       expect(fetch).toHaveBeenCalledWith(
         'https://gitlab.com/api/v4/projects/user%2Frepo/releases',
         expect.anything(),
-      )
-    })
-
-    it('Then uses token from repo config when tokens.gitlab not set', async () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        tokens: {
-          gitlab: undefined,
-        },
-        repo: {
-          provider: 'gitlab',
-          domain: 'gitlab.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-      })
-
-      await createGitlabRelease({
-        config,
-        release: {
-          tag_name: 'v1.0.0',
-          name: 'v1.0.0',
-          description: 'Release notes',
-        },
-      })
-
-      await createGitlabRelease({
-        config,
-        release: {
-          tag_name: 'v1.0.0',
-          name: 'v1.0.0',
-          description: 'Release notes',
-        },
-      })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'PRIVATE-TOKEN': 'repo-token',
-          }),
-        }),
       )
     })
   })
@@ -495,7 +480,7 @@ describe('Given gitlab function', () => {
     vi.mocked(buildChangelogBody).mockReturnValue('- Feature')
     vi.mocked(buildContributors).mockResolvedValue('')
     vi.mocked(isPrerelease).mockReturnValue(false)
-    vi.mocked(execPromise).mockResolvedValue({ stdout: 'main', stderr: '' })
+    vi.mocked(getCurrentGitBranch).mockReturnValue('main')
     vi.mocked(fetch).mockResolvedValue({
       ok: true,
       json: () => Promise.resolve({
@@ -522,10 +507,7 @@ describe('Given gitlab function', () => {
     it('Then gets current branch for ref', async () => {
       await gitlab({ force: false })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git rev-parse --abbrev-ref HEAD',
-        expect.any(Object),
-      )
+      expect(getCurrentGitBranch).toHaveBeenCalled()
     })
 
     it('Then returns posted releases array', async () => {
@@ -649,6 +631,13 @@ describe('Given gitlab function', () => {
       expect(fetch).toHaveBeenCalledTimes(2)
     })
 
+    it('Then returns the releases of a dry run, without creating them', async () => {
+      const result = await gitlab({ dryRun: true, force: false })
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result.map(release => release.tag)).toEqual(['pkg-a@1.0.0', 'pkg-b@2.0.0'])
+    })
+
     it('Then uses independent tags for each package', async () => {
       await gitlab({ force: false })
 
@@ -699,10 +688,10 @@ describe('Given gitlab function', () => {
       expect(result).toHaveLength(1)
     })
 
-    it('Then creates GitLab releases for private packages when includePrivates is enabled', async () => {
+    it('Then creates GitLab releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: true },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })
@@ -719,10 +708,10 @@ describe('Given gitlab function', () => {
       expect(calls[1][1]?.body).toContain('"tag_name":"@scope/private@1.0.0"')
     })
 
-    it('Then excludes private packages from GitLab releases when includePrivates is disabled', async () => {
+    it('Then excludes private packages from GitLab releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], includePrivates: false },
+        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })
@@ -765,10 +754,7 @@ describe('Given gitlab function', () => {
     it('Then gets current branch for each release', async () => {
       await gitlab({ force: false })
 
-      expect(execPromise).toHaveBeenCalledWith(
-        'git rev-parse --abbrev-ref HEAD',
-        expect.any(Object),
-      )
+      expect(getCurrentGitBranch).toHaveBeenCalled()
     })
   })
 
@@ -930,9 +916,14 @@ describe('Given gitlab function', () => {
 
       await gitlab({ force: false })
 
+      // The release it rewrites, and whether to simulate it (dry-run)
       expect(generateAIProviderReleaseBody).toHaveBeenCalledWith({
         config,
         rawBody: '### Features\n\n- Original feature',
+        label: 'v1.0.0',
+        // What the model knows of the release, besides its changelog
+        context: { project: 'test', version: '1.0.0', previousVersion: '0.9.0' },
+        dryRun: false,
       })
       const call = vi.mocked(fetch).mock.calls[0]
       const payload = JSON.parse(call[1]?.body as string)

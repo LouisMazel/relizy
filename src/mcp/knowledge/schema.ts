@@ -28,6 +28,8 @@ export const configOptionSchema = z.object({
   /** Dotted path, `[]` for the items of an array: `monorepo.groups[].versionMode` */
   path: z.string(),
   type: z.string(),
+  /** Values accepted by the type when it hides them behind an alias: `["\"unified\"", "\"selective\"", "\"independent\""]` for `VersionMode` */
+  values: z.array(z.string()).optional(),
   description: z.string(),
   /** `@default` of the JSDoc */
   default: z.string().optional(),

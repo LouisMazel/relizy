@@ -1,178 +1,57 @@
 ---
 title: What is Relizy?
-description: Relizy is a powerful, automated release management tool designed for modern projects (monorepos or single packages).
-keywords: relizy, release management, monorepo tool, version management, automated releases, npm publishing, changelog generator
+description: Relizy automates the releases of single packages and monorepos from Conventional Commits - version bumps, changelogs, git tags, npm publishing, GitHub and GitLab releases, social posts and PR comments - with one command.
+metaDescription: 'Relizy automates the releases of packages and monorepos from Conventional Commits: versions, changelogs, tags, npm, GitHub and GitLab releases.'
+keywords: relizy, release automation, monorepo release tool, version management, conventional commits, changelog generator, npm publishing, github releases, gitlab releases, semantic versioning
 category: Guide
 tags: [guide, introduction, overview, features]
 ---
 
 # {{ $frontmatter.title }}
 
-{{ $frontmatter.description }} It handles the entire release workflow from version bumping to publishing, with first-class support for both monorepos and single packages.
-
-## The Problem
-
-Managing releases in JavaScript projects—especially monorepos—involves many repetitive tasks:
-
-- 📝 Writing changelogs manually
-- 🔢 Updating version numbers in package.json files
-- 🏷️ Creating and pushing git tags
-- 📦 Publishing packages to npm
-- 🚀 Creating releases on GitHub/GitLab
-- 🔗 Managing dependencies between packages
-- 🐦 Posting release announcements to Twitter (X) and/or Slack
-
-Doing all this manually is tedious, error-prone, and time-consuming.
-
-## The Solution
-
-Relizy automates the entire release workflow with a single command:
+Relizy is a release tool for JavaScript and TypeScript projects, single packages or monorepos. It reads your [Conventional Commits](https://www.conventionalcommits.org/), computes the next [semantic version](https://semver.org/) of each package and runs the whole release with one command:
 
 ```bash
 relizy release
 ```
 
-This one command will:
+This command bumps the versions, writes the changelogs, publishes to npm, commits, tags and pushes, then creates the GitHub or GitLab release, posts the announcements and comments on the pull request of the release. Each step can be turned off. See [the steps of `relizy release`](./../cli/release.md#steps).
 
-- ✅ Analyze your commits using Conventional Commits
-- ✅ Determine which packages need updates
-- ✅ Bump versions in package.json files
-- ✅ Update dependencies between packages
-- ✅ Generate beautiful changelogs
-- ✅ Create git commits and tags
-- ✅ Publish to npm (optional)
-- ✅ Create GitHub/GitLab releases (optional)
-- ✅ Post release announcements to Twitter (X) and/or Slack (optional)
+A single package needs no configuration. A monorepo needs a `monorepo` section in `relizy.config.ts`, which [`relizy init`](./../cli/init.md) writes for you.
 
-## Key Features
+## Version Modes
 
-### 🎯 Zero Configuration
+In a monorepo, choose how the packages are versioned:
 
-No configuration needed for standalone / single packages.
+- **`unified`**: every package shares one version and is bumped at each release.
+- **`selective`** (recommended): one shared version, only the packages with changes (and their dependents) are bumped.
+- **`independent`**: each package has its own version, bumped from its own commits.
 
-Relizy works out of the box with sensible defaults. No complex configuration files or steep learning curve.
+See [Version Modes](./version-modes.md).
 
-For monorepos, you must use the `monorepo` configuration option.
+## Features
 
-### 📦 Monorepo First
-
-Built specifically to handle the complexity of monorepos:
-
-- **Unified versioning** - All packages share the same version
-- **Selective versioning** - Only bump packages with changes and packages that depend on them
-- **Independent versioning** - Each package has its own version and tags
-
-### 🐤 Canary Releases
-
-Publish temporary test versions from any branch:
-
-- **Quick testing** - Publish a canary version from a pull request
-- **No side effects** - No git commits, tags, or changelog entries
-- **npm dist-tag** - Canary versions use the `canary` dist-tag, so `latest` is never affected
-- **CI/CD ready** - Automate canary releases on every pull request
-
-Learn more in the [Canary Releases](/guide/canary-releases) guide.
-
-### 🤖 Smart Automation
-
-Automatically detects:
-
-- Which packages need version bumps based on commits
-- Dependent packages that need updates
-- The appropriate semantic version bump (major/minor/patch)
-- Auto detect your git provider (GitHub or GitLab)
-
-### 🔄 Based on Standards
-
-Built on proven standards:
-
-- [Conventional Commits](https://www.conventionalcommits.org/) for commit parsing
-- [Semantic Versioning](https://semver.org/) for version management
-- A changelog format inspired by [changelogen](https://github.com/unjs/changelogen)
-
-## Use Cases
-
-### Monorepo Projects
-
-Perfect for monorepos with multiple interconnected packages:
-
-```text
-my-project/
-├── packages/
-│   ├── core/
-│   ├── utils/
-│   └── ui/
-├── relizy.config.ts
-└── package.json
-```
-
-Relizy automatically handles dependency updates when one package depends on another.
-
-### Private Apps and Internal Projects
-
-Relizy is not only for packages published to npm. Web apps, APIs, workers and internal monorepos get the same versions, changelogs, git tags and GitHub/GitLab releases, with publishing turned off:
-
-```text
-my-platform/
-├── apps/
-│   ├── web/        (private)
-│   └── api/        (private)
-├── packages/
-│   └── shared/     (private)
-└── relizy.config.ts
-```
-
-Nothing is ever published: private packages are always skipped by the publish step. Learn more in [Private Projects & Apps](/guide/private-projects).
-
-### Single Package Projects
-
-Works just as well for simple single-package projects:
-
-```text
-my-library/
-├── package.json
-├── src/
-├── CHANGELOG.md
-└── relizy.config.ts (optional)
-```
-
-### CI/CD Pipelines
-
-Integrate seamlessly into your automation:
-
-```yaml
-# GitHub Actions example
-- name: Release
-  run: relizy release --yes
-```
-
-## How It Works
-
-1. **Analyze Commits** - Relizy scans your git history for Conventional Commits
-2. **Calculate Versions** - Determines the new version based on commit types
-3. **Update Files** - Updates package.json and generates CHANGELOG.md
-4. **Git Operations** - Creates commits and tags
-5. **Publish** - Publishes to npm
-6. **Provider Release** - Creates releases on GitHub/GitLab
-
-> Each step is optional and can be disabled using the corresponding configuration option.
-
-## Who Is It For?
-
-Relizy is perfect for:
-
-- 👥 **Teams** following Conventional Commits
-- 📦 **Monorepo maintainers** managing multiple packages
-- 🔧 **Library authors** publishing to npm
-- 🔒 **Product teams** versioning private apps and services that are never published
-- 🤖 **DevOps engineers** building CI/CD pipelines
-- 🚀 **Projects** that want automated, consistent releases
+- [Version modes](./version-modes.md): `unified`, `selective` or `independent`.
+- [Version groups](./version-groups.md): several sets of packages, each with its own version mode, released in one run.
+- [Changelogs](./changelog.md): a `CHANGELOG.md` per package and at the root, grouped by commit type.
+- [Dependency management](./dependency-management.md): the dependents of a bumped package are bumped too, including through pnpm, Yarn and Bun catalogs.
+- [npm publishing](./../config/publish.md): in dependency order, with the right dist-tag, 2FA and registry checks.
+- GitHub and GitLab releases: [`relizy provider-release`](./../cli/provider-release.md), run by `relizy release`.
+- [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter), [Slack](./social-media.md#slack) and [Microsoft Teams](./social-media.md#microsoft-teams).
+- [PR comment](./pr-comment.md): a summary of the release on the pull request or merge request it comes from.
+- [Release report](./../config/release.md#report): the summary of the release in the CI, and in a file with `--report-json`, `--report-dotenv` or `--report-markdown`.
+- [AI release notes](./ai-changelog.md): the provider releases and the social posts rewritten by an AI model.
+- [`relizy commitlint`](./../commitlint/index.md): lints the commit messages, with a preview of their changelog entry.
+- [MCP server](./ai-agents.md): lets your AI agents preview a release, lint a commit and read the docs.
+- [`relizy init`](./../cli/init.md): writes the config, the CI workflow, the commit-msg hook and the setup of your AI agents.
+- [Canary releases](./prereleases.md#canary-releases) and [prereleases](./prereleases.md#prerelease-versions): test versions from a pull request, `alpha`, `beta` and `rc` versions.
+- [Private projects](./private-projects.md): versions, changelogs, tags and releases for apps that are never published.
+- [Moved packages](./moved-packages.md): the commits made before a package moved keep counting.
+- [Rewritten tags](./rewritten-tags.md): detects the release tags orphaned by a rebase, which would break the changelogs.
 
 ## Next Steps
 
-Ready to get started? Check out:
-
-- [Installation](installation.md) - Install Relizy in your project
-- [Getting Started](getting-started.md) - Your first release
-- [Version Modes](version-modes.md) - Choose the right versioning strategy
-- [Canary Releases](canary-releases.md) - Publish test versions from pull requests
+- [Getting Started](./getting-started.md): install Relizy and run your first release.
+- [Semver Convention](./semver-convention.md): how commits decide the version.
+- [CI/CD](./ci-cd.md): release from your pipeline.
+- [Configuration](./../config/overview.md): every option.

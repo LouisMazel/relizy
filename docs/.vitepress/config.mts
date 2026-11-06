@@ -1,14 +1,177 @@
-import type { HeadConfig, UserConfig } from 'vitepress'
+import type { HeadConfig, PageData, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
+import llmstxt from 'vitepress-plugin-llms'
 import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 
 const SITE_URL = 'https://relizy.dev'
+const CLI_COMMAND_PAGE = /^(?:cli\/(?!commands\.md)[\w-]+|commitlint\/cli)\.md$/
 const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_PAGES
 
+// Kept out of the search engines: the 404 page, which also answers with a 200 at /404, and the
+// typedoc reference, generated without descriptions and covered by the pages of the API section
+function getIndexingTag(pageData: PageData, url: string): HeadConfig {
+  return pageData.isNotFound || pageData.relativePath.startsWith('typedoc/')
+    ? ['meta', { name: 'robots', content: 'noindex' }]
+    : ['link', { rel: 'canonical', href: url }]
+}
+
 // https://vitepress.dev/reference/site-config
+// One definition per section, shared by the nav and the sidebar
+const guideSidebar = [
+  {
+    text: 'Introduction',
+    items: [
+      { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
+      { text: 'Getting Started', link: '/guide/getting-started' },
+      { text: 'Private Projects & Apps', link: '/guide/private-projects' },
+      { text: 'Migrating from v1', link: '/guide/migration-v2' },
+    ],
+  },
+  {
+    text: 'Core Concepts',
+    items: [
+      { text: 'Version Modes', link: '/guide/version-modes' },
+      { text: 'Version Groups', link: '/guide/version-groups' },
+      { text: 'Dependency Management', link: '/guide/dependency-management' },
+      { text: 'Changelog Generation', link: '/guide/changelog' },
+      { text: 'Semver Convention', link: '/guide/semver-convention' },
+      { text: 'Prereleases & Canary', link: '/guide/prereleases' },
+      { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
+      { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
+    ],
+  },
+  {
+    text: 'CI/CD',
+    items: [
+      { text: 'Release from CI', link: '/guide/ci-cd' },
+      { text: 'GitHub Actions', link: '/guide/github-actions' },
+      { text: 'GitLab CI', link: '/guide/gitlab-ci' },
+      { text: 'Trusted Publishing (OIDC)', link: '/guide/trusted-publishing' },
+    ],
+  },
+  {
+    text: 'Integrations',
+    items: [
+      { text: 'PR Comments', link: '/guide/pr-comment' },
+      { text: 'Social Media (Twitter, Slack)', link: '/guide/social-media' },
+      { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
+      { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
+    ],
+  },
+  {
+    text: 'Contributing',
+    items: [
+      { text: 'Contributing Guide', link: '/guide/contributing' },
+    ],
+  },
+]
+
+const configSidebar = [
+  {
+    text: 'Configuration',
+    items: [
+      { text: 'Overview', link: '/config/overview' },
+      { text: 'Release', link: '/config/release' },
+      { text: 'Monorepo', link: '/config/monorepo' },
+      { text: 'Bump', link: '/config/bump' },
+      { text: 'Changelog', link: '/config/changelog' },
+      { text: 'Publish', link: '/config/publish' },
+      { text: 'Templates', link: '/config/commit-templates' },
+      { text: 'Hooks', link: '/config/hooks' },
+      { text: 'AI', link: '/config/ai' },
+      { text: 'Social', link: '/config/social' },
+      { text: 'PR Comment', link: '/config/pr-comment' },
+    ],
+  },
+]
+
+const cliSidebar = [
+  {
+    text: 'CLI Reference',
+    items: [
+      { text: 'Overview', link: '/cli/commands' },
+      { text: 'init', link: '/cli/init' },
+      { text: 'release', link: '/cli/release' },
+      { text: 'bump', link: '/cli/bump' },
+      { text: 'changelog', link: '/cli/changelog' },
+      { text: 'publish', link: '/cli/publish' },
+      { text: 'provider-release', link: '/cli/provider-release' },
+      { text: 'social', link: '/cli/social' },
+      { text: 'pr-comment', link: '/cli/pr-comment' },
+      { text: 'commitlint', link: '/commitlint/cli' },
+      { text: 'mcp', link: '/cli/mcp' },
+    ],
+  },
+]
+
+const commitlintSidebar = [
+  {
+    text: 'Commit Linting',
+    items: [
+      { text: 'Introduction', link: '/commitlint/' },
+      { text: 'Rules', link: '/commitlint/rules' },
+      { text: 'Custom Rules', link: '/commitlint/custom-rules' },
+      { text: 'Configuration', link: '/commitlint/config' },
+      { text: 'CLI', link: '/commitlint/cli' },
+      { text: 'Migrating from commitlint', link: '/commitlint/migration' },
+    ],
+  },
+]
+
+const apiSidebar = [
+  {
+    text: 'Programmatic API',
+    items: [
+      { text: 'Overview', link: '/api/usage' },
+      { text: 'release()', link: '/api/release' },
+      { text: 'bump()', link: '/api/bump' },
+      { text: 'changelog()', link: '/api/changelog' },
+      { text: 'publish()', link: '/api/publish' },
+      { text: 'providerRelease()', link: '/api/provider-release' },
+      { text: 'social()', link: '/api/social' },
+      { text: 'prComment()', link: '/api/pr-comment' },
+      { text: 'commitlint()', link: '/api/commitlint' },
+      { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
+    ],
+  },
+]
+
+// The section of a page in its breadcrumbs links to the first page of the section: /guide, /config... do not exist
+const breadcrumbSections: Record<string, { name: string, link: string }> = {
+  guide: { name: 'Guide', link: guideSidebar[0]!.items[0]!.link },
+  config: { name: 'Config', link: configSidebar[0]!.items[0]!.link },
+  cli: { name: 'CLI', link: cliSidebar[0]!.items[0]!.link },
+  commitlint: { name: 'Commitlint', link: commitlintSidebar[0]!.items[0]!.link },
+  api: { name: 'API', link: apiSidebar[0]!.items[0]!.link },
+}
+
+function getBreadcrumbList(url: string, title: string): HeadConfig {
+  const path = url.slice(SITE_URL.length)
+  const section = breadcrumbSections[path.split('/')[1]!]
+  const breadcrumbs = [{ name: 'Home', url: SITE_URL }]
+
+  if (section && section.link !== path) {
+    breadcrumbs.push({ name: section.name, url: `${SITE_URL}${section.link}` })
+  }
+
+  breadcrumbs.push({ name: title, url })
+
+  return ['script', { type: 'application/ld+json' }, JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    'itemListElement': breadcrumbs.map((crumb, i) => ({
+      '@type': 'ListItem',
+      'position': i + 1,
+      'name': crumb.name,
+      'item': crumb.url,
+    })),
+  })]
+}
+
 export default defineConfig({
   srcDir: 'src',
   lang: 'en-US',
@@ -21,12 +184,12 @@ export default defineConfig({
     ['meta', { name: 'author', content: 'Louis Mazel' }],
     ['meta', { name: 'robots', content: isProduction ? 'index, follow' : 'noindex, nofollow' }],
     ['meta', { name: 'theme-color', content: '#8b5cf6' }],
-    ['meta', { property: 'og:image', content: `${SITE_URL}/social.jpg` }],
+    ['meta', { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
     ['meta', { property: 'og:image:width', content: '1200' }],
     ['meta', { property: 'og:image:height', content: '630' }],
     ['meta', { property: 'og:locale', content: 'en_US' }],
     ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:image', content: `${SITE_URL}/social.jpg` }],
+    ['meta', { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
     ['meta', { name: 'twitter:site', content: '@mazeel' }],
     ['meta', { name: 'twitter:creator', content: '@mazeel' }],
     ['link', { rel: 'icon', type: 'image/svg+xml', href: `${SITE_URL}/logo.svg` }],
@@ -50,6 +213,9 @@ export default defineConfig({
       'operatingSystem': 'Cross-platform',
       'url': SITE_URL,
       'downloadUrl': 'https://www.npmjs.com/package/relizy',
+      'softwareVersion': packageJson.version,
+      'license': 'https://opensource.org/licenses/MIT',
+      'sameAs': ['https://github.com/LouisMazel/relizy', 'https://www.npmjs.com/package/relizy'],
       'offers': {
         '@type': 'Offer',
         'price': '0',
@@ -88,47 +254,51 @@ export default defineConfig({
 
         const url = item.url === 'index' ? '' : item.url
 
-        modifyItems.push({
-          ...item,
-          url,
-          changefreq: 'daily',
-          priority: 1,
-        })
+        modifyItems.push({ ...item, url })
       }
 
       return modifyItems
     },
   },
 
-  transformHead: ({ siteData, pageData, title, description, head }) => {
+  transformPageData: (pageData) => {
+    // The pages of the commands are titled after the command: "relizy bump command", not "bump"
+    if (CLI_COMMAND_PAGE.test(pageData.relativePath)) {
+      pageData.titleTemplate = 'relizy :title command | Relizy'
+    }
+  },
+
+  transformHead: ({ siteData, pageData, title, description }) => {
     const currentTitle = title ?? pageData.title ?? pageData.frontmatter.title ?? siteData.title
-    const currentDescription = description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
+    // metaDescription: a shorter description for the search results, the page and llms.txt keep the full one
+    const currentDescription = pageData.frontmatter.metaDescription ?? description ?? pageData.frontmatter.description ?? pageData.description ?? siteData.description
 
     const slug = pageData.relativePath.replace('.md', '')
-    const currentUrl = `${SITE_URL}/${slug === 'index' ? '' : slug}`
+    // commitlint/index.md is served at /commitlint/, index.md at /
+    const currentUrl = `${SITE_URL}/${slug.replace(/(^|\/)index$/, '$1')}`
     const isArticle = pageData.relativePath !== 'index.md'
     const lastUpdatedISO = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString()
 
     const pageHead: HeadConfig[] = [
       ['meta', { property: 'og:site_name', content: 'Relizy' }],
       ['meta', { property: 'og:title', content: currentTitle }],
-      ['link', { rel: 'canonical', href: currentUrl }],
       ['meta', { property: 'og:url', content: currentUrl }],
       ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
       ['meta', { name: 'description', content: currentDescription }],
       ['meta', { property: 'og:description', content: currentDescription }],
-      ['meta', { property: 'og:image', content: `${SITE_URL}/social.jpg` }],
+      ['meta', { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
       ['meta', { property: 'og:image:alt', content: currentDescription }],
       ['meta', { name: 'twitter:title', content: currentTitle }],
       ['meta', { name: 'twitter:description', content: currentDescription }],
-      ['meta', { name: 'twitter:image', content: `${SITE_URL}/social.jpg` }],
+      ['meta', { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
       ['meta', { name: 'twitter:image:alt', content: currentDescription }],
     ]
+
+    pageHead.push(getIndexingTag(pageData, currentUrl))
 
     if (isArticle) {
       pageHead.push(
         ['meta', { property: 'article:modified_time', content: lastUpdatedISO }],
-        ['meta', { property: 'article:published_time', content: lastUpdatedISO }],
         ['meta', { property: 'article:author', content: 'Louis Mazel' }],
       )
     }
@@ -159,33 +329,15 @@ export default defineConfig({
 
     // Add JSON-LD BreadcrumbList for article pages
     if (isArticle) {
-      const parts = slug.split('/')
-      const breadcrumbs = [
-        { name: 'Home', url: SITE_URL },
-        ...parts.map((part, i) => ({
-          name: part.charAt(0).toUpperCase() + part.slice(1).replace(/-/g, ' '),
-          url: `${SITE_URL}/${parts.slice(0, i + 1).join('/')}`,
-        })),
-      ]
-
-      pageHead.push(['script', { type: 'application/ld+json' }, JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'BreadcrumbList',
-        'itemListElement': breadcrumbs.map((crumb, i) => ({
-          '@type': 'ListItem',
-          'position': i + 1,
-          'name': crumb.name,
-          'item': crumb.url,
-        })),
-      })])
+      pageHead.push(getBreadcrumbList(currentUrl, pageData.title))
     }
 
-    return [...head, ...pageHead]
+    return pageHead
   },
 
   themeConfig: {
     siteTitle: 'Relizy',
-    logo: { src: 'https://raw.githubusercontent.com/LouisMazel/relizy/refs/heads/main/resources/logo.svg', alt: 'Relizy logo' },
+    logo: { src: '/logo.svg', alt: 'Relizy logo' },
 
     search: {
       provider: 'local' as const,
@@ -196,248 +348,34 @@ export default defineConfig({
       { icon: 'npm', link: 'https://www.npmjs.com/package/relizy' },
     ],
 
-    footer: {
-      message: 'Released under the MIT License.',
-      copyright: 'Made by LouisMazel with ❤️',
-    },
+    // footer: {
+    //   message: 'Released under the MIT License.',
+    //   copyright: 'Made by LouisMazel with ❤️',
+    // },
 
     nav: [
-      {
-        text: 'Guide',
-        items: [
-          { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
-          { text: 'Getting Started', link: '/guide/getting-started' },
-          { text: 'Installation', link: '/guide/installation' },
-          { text: 'Private Projects & Apps', link: '/guide/private-projects' },
-          { text: 'Version Modes', link: '/guide/version-modes' },
-          { text: 'Version Groups', link: '/guide/version-groups' },
-          { text: 'Dependency Management', link: '/guide/dependency-management' },
-          { text: 'Changelog Generation', link: '/guide/changelog' },
-          { text: 'Canary Releases', link: '/guide/canary-releases' },
-          { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
-          { text: 'Semver Convention', link: '/guide/semver-convention' },
-          { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
-          { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
-          { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
-          { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
-          { text: 'Social Media Integration', link: '/guide/social-media' },
-          { text: 'Twitter Integration', link: '/guide/twitter-integration' },
-          { text: 'Slack Integration', link: '/guide/slack-integration' },
-          { text: 'PR Comments', link: '/guide/pr-comment' },
-          { text: 'CI/CD Setup', link: '/guide/ci-cd' },
-          { text: 'GitHub Actions', link: '/guide/github-actions' },
-          { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          { text: 'Contributing', link: '/guide/contributing' },
-        ],
-      },
-      {
-        text: 'Config',
-        items: [
-          { text: 'Overview', link: '/config/overview' },
-          { text: 'Release Config', link: '/config/release' },
-          { text: 'Monorepo Config', link: '/config/monorepo' },
-          { text: 'Changelog Config', link: '/config/changelog' },
-          { text: 'Bump Config', link: '/config/bump' },
-          { text: 'Publish Config', link: '/config/publish' },
-          { text: 'AI Config', link: '/config/ai' },
-          { text: 'Social Config', link: '/config/social' },
-          { text: 'PR Comment Config', link: '/config/pr-comment' },
-          { text: 'Commit Templates', link: '/config/commit-templates' },
-          { text: 'Hooks Config', link: '/config/hooks' },
-          { text: 'Multiple Configs', link: '/config/multiple-configs' },
-        ],
-      },
-      {
-        text: 'CLI',
-        items: [
-          { text: 'Overview', link: '/cli/commands' },
-          { text: 'init', link: '/cli/init' },
-          { text: 'release', link: '/cli/release' },
-          { text: 'bump', link: '/cli/bump' },
-          { text: 'changelog', link: '/cli/changelog' },
-          { text: 'publish', link: '/cli/publish' },
-          { text: 'provider-release', link: '/cli/provider-release' },
-          { text: 'social', link: '/cli/social' },
-          { text: 'pr-comment', link: '/cli/pr-comment' },
-          { text: 'mcp', link: '/cli/mcp' },
-          { text: 'commitlint', link: '/commitlint/cli' },
-        ],
-      },
-      {
-        text: 'Commitlint',
-        items: [
-          { text: 'Introduction', link: '/commitlint/' },
-          { text: 'Getting Started', link: '/commitlint/getting-started' },
-          { text: 'Rules', link: '/commitlint/rules' },
-          { text: 'Custom Rules', link: '/commitlint/custom-rules' },
-          { text: 'Configuration', link: '/commitlint/config' },
-          { text: 'CLI', link: '/commitlint/cli' },
-          { text: 'Migrating from commitlint', link: '/commitlint/migration' },
-        ],
-      },
-      {
-        text: 'API',
-        items: [
-          { text: 'Overview', link: '/api/usage' },
-          { text: 'release()', link: '/api/release' },
-          { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
-          { text: 'bump()', link: '/api/bump' },
-          { text: 'changelog()', link: '/api/changelog' },
-          { text: 'publish()', link: '/api/publish' },
-          { text: 'providerRelease()', link: '/api/provider-release' },
-          { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
-          { text: 'social()', link: '/api/social' },
-          { text: 'prComment()', link: '/api/pr-comment' },
-        ],
-      },
+      { text: 'Guide', items: guideSidebar },
+      { text: 'Config', items: configSidebar[0]!.items },
+      { text: 'CLI', items: cliSidebar[0]!.items },
+      { text: 'Commitlint', items: commitlintSidebar[0]!.items },
+      { text: 'API', items: apiSidebar[0]!.items },
       {
         text: `v${packageJson.version}`,
         items: [
-          {
-            text: 'Changelog',
-            link: '/changelog',
-          },
-          {
-            text: 'Contributing',
-            link: '/guide/contributing',
-          },
+          { text: 'Changelog', link: '/changelog' },
+          { text: 'Migrating from v1', link: '/guide/migration-v2' },
+          { text: 'Contributing', link: '/guide/contributing' },
         ],
       },
-      {
-        text: 'TypeDoc',
-        items: typedocSidebar,
-      },
+      { text: 'TypeDoc', items: typedocSidebar },
     ],
 
     sidebar: {
-      '/guide/': [
-        {
-          text: 'Introduction',
-          items: [
-            { text: 'What is Relizy?', link: '/guide/what-is-relizy' },
-            { text: 'Getting Started', link: '/guide/getting-started' },
-            { text: 'Installation', link: '/guide/installation' },
-            { text: 'Private Projects & Apps', link: '/guide/private-projects' },
-          ],
-        },
-        {
-          text: 'Core Concepts',
-          items: [
-            { text: 'Version Modes', link: '/guide/version-modes' },
-            { text: 'Version Groups', link: '/guide/version-groups' },
-            { text: 'Dependency Management', link: '/guide/dependency-management' },
-            { text: 'Changelog Generation', link: '/guide/changelog' },
-            { text: 'Canary Releases', link: '/guide/canary-releases' },
-            { text: 'Prerelease Versioning', link: '/guide/prerelease-versioning' },
-            { text: 'Semver Convention', link: '/guide/semver-convention' },
-            { text: 'Rewritten Tags & Rebases', link: '/guide/rewritten-tags' },
-            { text: 'Moving & Renaming Packages', link: '/guide/moved-packages' },
-          ],
-        },
-        {
-          text: 'AI',
-          items: [
-            { text: 'AI-Enhanced Changelogs', link: '/guide/ai-changelog' },
-            { text: 'AI Agents (MCP)', link: '/guide/ai-agents' },
-          ],
-        },
-        {
-          text: 'Social Media',
-          items: [
-            { text: 'Overview', link: '/guide/social-media' },
-            { text: 'Twitter Integration', link: '/guide/twitter-integration' },
-            { text: 'Slack Integration', link: '/guide/slack-integration' },
-          ],
-        },
-        {
-          text: 'PR Comments',
-          items: [
-            { text: 'PR Comments', link: '/guide/pr-comment' },
-          ],
-        },
-        {
-          text: 'Integration',
-          items: [
-            { text: 'CI/CD Setup', link: '/guide/ci-cd' },
-            { text: 'GitHub Actions', link: '/guide/github-actions' },
-            { text: 'GitLab CI', link: '/guide/gitlab-ci' },
-          ],
-        },
-        {
-          text: 'Contributing',
-          items: [
-            { text: 'Contributing Guide', link: '/guide/contributing' },
-          ],
-        },
-      ],
-      '/cli/': [
-        {
-          text: 'CLI Reference',
-          items: [
-            { text: 'Commands Overview', link: '/cli/commands' },
-            { text: 'init', link: '/cli/init' },
-            { text: 'release', link: '/cli/release' },
-            { text: 'bump', link: '/cli/bump' },
-            { text: 'changelog', link: '/cli/changelog' },
-            { text: 'publish', link: '/cli/publish' },
-            { text: 'provider-release', link: '/cli/provider-release' },
-            { text: 'social', link: '/cli/social' },
-            { text: 'pr-comment', link: '/cli/pr-comment' },
-            { text: 'mcp', link: '/cli/mcp' },
-            { text: 'commitlint', link: '/commitlint/cli' },
-          ],
-        },
-      ],
-      '/commitlint/': [
-        {
-          text: 'Commit Linting',
-          items: [
-            { text: 'Introduction', link: '/commitlint/' },
-            { text: 'Getting Started', link: '/commitlint/getting-started' },
-            { text: 'Rules', link: '/commitlint/rules' },
-            { text: 'Custom Rules', link: '/commitlint/custom-rules' },
-            { text: 'Configuration', link: '/commitlint/config' },
-            { text: 'CLI', link: '/commitlint/cli' },
-            { text: 'Migrating from commitlint', link: '/commitlint/migration' },
-          ],
-        },
-      ],
-      '/api/': [
-        {
-          text: 'Programmatic API',
-          items: [
-            { text: 'API Usage', link: '/api/usage' },
-            { text: 'release()', link: '/api/release' },
-            { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
-            { text: 'bump()', link: '/api/bump' },
-            { text: 'changelog()', link: '/api/changelog' },
-            { text: 'publish()', link: '/api/publish' },
-            { text: 'providerRelease()', link: '/api/provider-release' },
-            { text: 'createCommitAndTags()', link: '/api/create-commit-and-tags' },
-            { text: 'social()', link: '/api/social' },
-            { text: 'prComment()', link: '/api/pr-comment' },
-          ],
-        },
-      ],
-      '/config/': [
-        {
-          text: 'Configuration',
-          items: [
-            { text: 'Overview', link: '/config/overview' },
-            { text: 'Release Config', link: '/config/release' },
-            { text: 'Monorepo Config', link: '/config/monorepo' },
-            { text: 'Changelog Config', link: '/config/changelog' },
-            { text: 'Bump Config', link: '/config/bump' },
-            { text: 'Publish Config', link: '/config/publish' },
-            { text: 'AI Config', link: '/config/ai' },
-            { text: 'Social Config', link: '/config/social' },
-            { text: 'PR Comment Config', link: '/config/pr-comment' },
-            { text: 'Commit Templates', link: '/config/commit-templates' },
-            { text: 'Hooks Config', link: '/config/hooks' },
-            { text: 'Multiple Configs', link: '/config/multiple-configs' },
-          ],
-        },
-      ],
+      '/guide/': guideSidebar,
+      '/cli/': cliSidebar,
+      '/commitlint/': commitlintSidebar,
+      '/api/': apiSidebar,
+      '/config/': configSidebar,
     },
 
     editLink: {
@@ -447,38 +385,27 @@ export default defineConfig({
   },
 
   buildEnd: ({ outDir }) => {
-    if (!isProduction) {
-      // Overwrite robots.txt to block all crawlers on preview deployments
-      writeFileSync(resolve(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n')
-
-      // Remove sitemap to avoid indexing preview URLs
-      try {
-        unlinkSync(resolve(outDir, 'sitemap.xml'))
-      }
-      catch {}
+    if (isProduction) {
       return
     }
 
-    // Cloudflare Pages worker: 301 redirect pages.dev and www.relizy.dev to
-    // the canonical apex. Cloudflare _redirects only supports relative paths,
-    // so we need a worker to match on hostname.
-    writeFileSync(
-      resolve(outDir, '_worker.js'),
-      `export default {
-  async fetch(request, env) {
-    const url = new URL(request.url)
-    if (url.hostname === 'relizy.pages.dev' || url.hostname === 'www.relizy.dev') {
-      url.hostname = 'relizy.dev'
-      return Response.redirect(url.toString(), 301)
+    // Overwrite robots.txt to block all crawlers on preview deployments
+    writeFileSync(resolve(outDir, 'robots.txt'), 'User-agent: *\nDisallow: /\n')
+
+    // Remove sitemap to avoid indexing preview URLs
+    try {
+      unlinkSync(resolve(outDir, 'sitemap.xml'))
     }
-    return env.ASSETS.fetch(request)
-  },
-}
-`,
-    )
+    catch {}
   },
 
   vite: {
+    // The utilities of the custom pages (the homepage), see theme/tailwind.css
+    plugins: [
+      tailwindcss(),
+      // llms.txt, llms-full.txt and a .md file per page, read by the AI assistants
+      llmstxt({ title: 'Relizy', domain: SITE_URL }),
+    ],
     build: {
       target: 'esnext',
       minify: 'esbuild',

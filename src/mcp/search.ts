@@ -7,7 +7,7 @@ import MiniSearch from 'minisearch'
  * Words of other tools and of the users mapped to the words of the relizy
  * docs: a search for "changesets" or "snapshot release" finds the right pages.
  */
-export const SYNONYMS: Record<string, string[]> = {
+const SYNONYMS: Record<string, string[]> = {
   changeset: ['release', 'bump', 'changelog'],
   changesets: ['release', 'bump', 'changelog'],
   lerna: ['monorepo', 'version', 'mode'],

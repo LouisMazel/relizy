@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
+import { formatRepoTag } from './format'
 import { getCurrentGitRef, getFirstCommit } from './git'
 import { buildChangelogBody, buildCompareLink, buildContributors } from './markdown'
 import { recordReleaseFile } from './release-files'
@@ -87,7 +88,7 @@ function resolveChangelogTags({
   const displayFromTag = isFirstCommit || isNewPackage
     ? (isIndependent
         ? getIndependentTag({ version: '0.0.0', name: pkg.name })
-        : config.templates.tagBody.replace('{{newVersion}}', '0.0.0'))
+        : formatRepoTag(config.templates.tagBody, '0.0.0'))
     : gitFromRef
 
   // The marker is not a git ref: point the compare link at a real commit.
@@ -103,7 +104,7 @@ function resolveChangelogTags({
   const displayToTag = config.to
     || (isIndependent
       ? getIndependentTag({ version: newVersion, name: pkg.name })
-      : config.templates.tagBody.replace('{{newVersion}}', newVersion))
+      : formatRepoTag(config.templates.tagBody, newVersion))
 
   if (!displayToTag) {
     throw new Error(`No tag found for ${pkg.name}`)
@@ -123,9 +124,9 @@ function renderTitle({
 }): string {
   const template = config.templates?.changelogTitle || '{{oldVersion}}...{{newVersion}}'
   const changelogTitle = template
-    .replace('{{oldVersion}}', fromTag)
-    .replace('{{newVersion}}', toTag)
-    .replace('{{date}}', new Date().toISOString().split('T')[0] as string)
+    .replaceAll('{{oldVersion}}', fromTag)
+    .replaceAll('{{newVersion}}', toTag)
+    .replaceAll('{{date}}', new Date().toISOString().split('T')[0] as string)
   return `## ${changelogTitle}`
 }
 
@@ -192,12 +193,26 @@ function isFullChangelogOutput(sections: ResolvedSections, minify?: boolean): bo
 }
 
 /**
+ * The root changelog of an `independent` release: the changelogs of its
+ * packages under a dated title, undefined when none has an entry.
+ */
+export function aggregateIndependentChangelogs(changelogs: string[], date = new Date()): string | undefined {
+  const entries = changelogs.filter(Boolean)
+
+  if (entries.length === 0) {
+    return undefined
+  }
+
+  return `**Multiple Packages Updated** - ${date.toISOString().split('T')[0]}\n\n${entries.join('\n\n')}`
+}
+
+/**
  * Generate the changelog string for a single package.
  *
  * - Fetches commits internally using `changelog: true`, so types that only
  *   declare a `title` (e.g. `docs: { title: '📖 Documentation' }`) are
  *   included even though they don't trigger a version bump. Callers must
- *   provide `pkg.path` — `pkg.commits` is no longer consumed.
+ *   provide `pkg.path` - `pkg.commits` is no longer consumed.
  * - `include` toggles which sections appear in the output. `compareLink`
  *   and `contributors` are also skipped when `minify` is true.
  * - `transformBody` is invoked between body rendering and final assembly,
@@ -302,6 +317,7 @@ export async function generateChangelog(
 
 /**
  * Write changelog to file
+ * @returns The path of the changelog, also in dry-run
  */
 export function writeChangelogToFile({
   cwd,
@@ -313,7 +329,7 @@ export function writeChangelogToFile({
   pkg: ReadPackage | PackageBase
   changelog: string
   dryRun: boolean
-}) {
+}): string {
   const changelogPath = join(pkg.path, 'CHANGELOG.md')
 
   let existingChangelog = ''
@@ -345,4 +361,6 @@ export function writeChangelogToFile({
     writeFileSync(changelogPath, updatedChangelog, 'utf8')
     logger.info(`Changelog updated for ${pkg.name} (${('newVersion' in pkg && pkg.newVersion) || pkg.version})`)
   }
+
+  return changelogPath
 }

@@ -10,6 +10,7 @@ import {
   assignPackagesToGroups,
   getGroupBumpResult,
   getMonorepoPackagePatterns,
+  getReleaseTargets,
   getRootGroupBumpResult,
   getVersionGroupName,
   hasRepositoryVersion,
@@ -24,10 +25,7 @@ const MAIN_GROUP: VersionGroup = { name: 'main', versionMode: 'selective', packa
 const HEADER_GROUP: VersionGroup = { name: 'header', versionMode: 'independent', packages: ['shared/nav', 'shared/login'] }
 
 function createGroupsConfig(groups: VersionGroup[], cwd = '/project'): ResolvedRelizyConfig {
-  const config = createMockConfig({ bump: { type: 'release' } })
-  config.cwd = cwd
-  config.monorepo = { groups }
-  return config
+  return createMockConfig({ cwd, bump: { type: 'release' }, monorepo: { groups } })
 }
 
 function bumpedPackage(name: string, newVersion: string) {
@@ -107,6 +105,12 @@ describe('Given validateVersionGroups function', () => {
       const config = createGroupsConfig([MAIN_GROUP, { ...MAIN_GROUP, name: 'other', versionMode: 'unified' }])
 
       expect(() => validateVersionGroups(config)).toThrow('Only one version group can use the unified or selective mode (found main, other)')
+    })
+
+    it('Then rejects an empty title', () => {
+      const config = createGroupsConfig([{ ...MAIN_GROUP, title: ' ' }])
+
+      expect(() => validateVersionGroups(config)).toThrow('Version group "main" has an empty title')
     })
   })
 })
@@ -268,15 +272,13 @@ describe('Given the version groups of a workspace', () => {
 
     it('Then keeps the global monorepo options', () => {
       const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP], cwd)
-      config.monorepo!.includePrivates = true
-      config.monorepo!.ignorePackageNames = ['@scope/legacy']
+      config.monorepo!.privatePackages = 'release'
       config.monorepo!.movedPackages = { 'packages/legacy': 'packages/components' }
 
       const [main] = resolveVersionGroups({ config })
 
       expect(main!.config.monorepo).toEqual(expect.objectContaining({
-        includePrivates: true,
-        ignorePackageNames: ['@scope/legacy'],
+        privatePackages: 'release',
         movedPackages: { 'packages/legacy': 'packages/components' },
       }))
       expect(main!.config.monorepo!.groups).toBeUndefined()
@@ -291,6 +293,19 @@ describe('Given the version groups of a workspace', () => {
       expect(main!.config.changelog.rootChangelog).toBe(true)
       expect(header!.config.bump).toEqual(expect.objectContaining({ capZeroMajor: false, type: 'release' }))
       expect(header!.config.changelog).toEqual(expect.objectContaining({ rootChangelog: false, includeCommitBody: true }))
+    })
+
+    it('Then overrides the release and ai options with the ones of the group', () => {
+      const config = createGroupsConfig([MAIN_GROUP, { ...HEADER_GROUP, release: { social: false, providerRelease: false }, ai: { providerRelease: { enabled: false } } }], cwd)
+      config.release = { ...config.release, social: true, providerRelease: true, publish: true }
+      config.ai = { ...config.ai, providerRelease: { enabled: true }, social: { twitter: { enabled: true } } }
+
+      const [main, header] = resolveVersionGroups({ config })
+
+      expect(main!.config.release).toEqual(config.release)
+      expect(main!.config.ai).toEqual(config.ai)
+      expect(header!.config.release).toEqual({ ...config.release, social: false, providerRelease: false })
+      expect(header!.config.ai).toEqual({ ...config.ai, providerRelease: { enabled: false } })
     })
 
     it('Then marks the derived configs with the name of their group', () => {
@@ -372,9 +387,18 @@ describe('Given the bump results of the groups', () => {
       }))
       expect(result.bumpedPackages.map(pkg => pkg.name)).toEqual(['@scope/components', '@scope/nav'])
       expect(result.groups).toEqual([
-        { ...mainResult, name: 'main', versionMode: 'selective' },
-        { ...headerResult, name: 'header', versionMode: 'independent' },
+        { ...mainResult, name: 'main', title: 'main', versionMode: 'selective' },
+        { ...headerResult, name: 'header', title: 'header', versionMode: 'independent' },
       ])
+    })
+
+    it('Then gives each group its title', () => {
+      const result = mergeGroupBumpResults([
+        { group: { ...MAIN_GROUP, title: 'Maz UI' }, result: mainResult },
+        { group: HEADER_GROUP, result: headerResult },
+      ]) as BumpResultTruthy
+
+      expect(result.groups!.map(group => group.title)).toEqual(['Maz UI', 'header'])
     })
 
     it('Then has no repository version when only an independent group bumped', () => {
@@ -390,7 +414,7 @@ describe('Given the bump results of the groups', () => {
   })
 
   describe('When reading the result of a group', () => {
-    const groups: GroupBumpResult[] = [{ ...headerResult, name: 'header', versionMode: 'independent' }]
+    const groups: GroupBumpResult[] = [{ ...headerResult, name: 'header', title: 'header', versionMode: 'independent' }]
 
     it('Then returns undefined without bump result', () => {
       expect(getGroupBumpResult(undefined, 'header')).toBeUndefined()
@@ -409,12 +433,49 @@ describe('Given the bump results of the groups', () => {
     })
 
     it('Then finds the result of the unified/selective group', () => {
-      const mainGroup: GroupBumpResult = { ...mainResult, name: 'main', versionMode: 'selective' }
+      const mainGroup: GroupBumpResult = { ...mainResult, name: 'main', title: 'main', versionMode: 'selective' }
 
       expect(getRootGroupBumpResult([...groups, mainGroup])).toBe(mainGroup)
       expect(getRootGroupBumpResult(groups)).toBeUndefined()
       expect(getRootGroupBumpResult(undefined)).toBeUndefined()
     })
+  })
+})
+
+describe('Given getReleaseTargets function', () => {
+  const header: GroupBumpResult = { bumped: true, bumpedPackages: [bumpedPackage('@scope/nav', '1.1.0')], name: 'header', title: 'header', versionMode: 'independent' }
+
+  it('Then gives the config and its bump result as is without version groups', () => {
+    const config = createMockConfig({ bump: { type: 'release' } })
+    const bumpResult: BumpResultTruthy = { bumped: true, bumpedPackages: [] }
+
+    expect([...getReleaseTargets({ config, bumpResult, nothing: 'nothing to do', leftOut: () => 'left out' })]).toEqual([{ config, bumpResult }])
+  })
+
+  it('Then gives each group that bumped with its config and its bump result, and logs the skipped ones', () => {
+    const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP])
+    const debug = vi.spyOn(logger, 'debug')
+
+    const targets = [...getReleaseTargets({ config, bumpResult: { bumped: true, bumpedPackages: header.bumpedPackages, groups: [header] }, nothing: 'nothing to do' })]
+
+    expect(targets).toEqual([{ group: HEADER_GROUP, config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }), bumpResult: header }])
+    expect(debug).toHaveBeenCalledWith('Version group "main" did not bump, nothing to do')
+  })
+
+  it('Then gives every targeted group without bump result, and leaves out the ones with a reason', () => {
+    const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP, { ...HEADER_GROUP, name: 'other', packages: ['apps/*'] }])
+    const info = vi.spyOn(logger, 'info')
+
+    const targets = [...getReleaseTargets({
+      config,
+      bumpResult: undefined,
+      only: ['header', 'other'],
+      nothing: 'nothing to do',
+      leftOut: groupConfig => getVersionGroupName(groupConfig) === 'other' ? 'left out of the step' : undefined,
+    })]
+
+    expect(targets.map(({ group, bumpResult }) => [group?.name, bumpResult])).toEqual([['header', undefined]])
+    expect(info).toHaveBeenCalledWith('Version group "other" is left out of the step')
   })
 })
 
@@ -442,8 +503,8 @@ describe('Given hasRepositoryVersion function', () => {
 
   it('Then depends on the unified/selective group in the bump result with groups', () => {
     const config = createGroupsConfig([MAIN_GROUP, HEADER_GROUP])
-    const header: GroupBumpResult = { bumped: true, bumpedPackages: [], name: 'header', versionMode: 'independent' }
-    const main: GroupBumpResult = { bumped: true, bumpedPackages: [], newVersion: '7.0.0', name: 'main', versionMode: 'selective' }
+    const header: GroupBumpResult = { bumped: true, bumpedPackages: [], name: 'header', title: 'header', versionMode: 'independent' }
+    const main: GroupBumpResult = { bumped: true, bumpedPackages: [], newVersion: '7.0.0', name: 'main', title: 'main', versionMode: 'selective' }
 
     expect(hasRepositoryVersion(config, { bumped: true, bumpedPackages: [], groups: [header] })).toBe(false)
     expect(hasRepositoryVersion(config, { bumped: true, bumpedPackages: [], groups: [main, header] })).toBe(true)

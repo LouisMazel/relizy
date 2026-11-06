@@ -6,11 +6,11 @@ import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { getPublishedRange, parseWorkspaceProtocol, parseWorkspaceSpecifier } from '../dependencies'
-import { isVersionPublished } from '../npm'
+import { isVersionPublished } from '../npm-versions'
 import { checkWorkspaceDependencies, findStalePeerDependents, readWorkspacePackages, reportStalePeerDependents, sortPackagesForPublish } from '../workspace'
 
-vi.mock('../npm', async (importActual) => {
-  const actual = await importActual<typeof import('../npm')>()
+vi.mock('../npm-versions', async (importActual) => {
+  const actual = await importActual<typeof import('../npm-versions')>()
   return {
     ...actual,
     isVersionPublished: vi.fn(),

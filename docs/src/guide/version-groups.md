@@ -57,18 +57,7 @@ export default defineConfig({
 })
 ```
 
-Each group has:
-
-| Option        | Description                                                                                                               |
-| ------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | Name of the group, used in the logs and with [`--group`](#releasing-a-single-group)                                       |
-| `versionMode` | `unified`, `selective` or `independent`                                                                                   |
-| `packages`    | Glob patterns of the package directories of the group                                                                     |
-| `ignored`     | Glob patterns of package directories to ignore in this group, on top of `monorepo.ignored`                                |
-| `bump`        | `capZeroMajor` and `dependencyTypes` of the group, overriding the global [`bump`](../config/bump.md) options              |
-| `changelog`   | `rootChangelog` and `includeCommitBody` of the group, overriding the global [`changelog`](../config/changelog.md) options |
-
-The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and the rest of the config apply to every group.
+Each group has a `name`, a `versionMode` and its `packages` (globs of package directories), and can set a `title`, its own `ignored` patterns and override some `bump`, `changelog`, `release` and `ai` options: see the [reference of the group options](./../config/monorepo.md#groups). The other options of the config, `monorepo.ignored`, `privatePackages`, `movedPackages` and [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers) included, apply to every group.
 
 ### Rules
 
@@ -78,24 +67,39 @@ The other `monorepo` options (`ignored`, `includePrivates`, `movedPackages`) and
 
 ## What a Release Does
 
-`relizy release` processes every group in one run:
+`relizy release` runs [its steps](./../cli/release.md#steps) once, for every group:
 
-1. **Bump**: each group is bumped with its own version mode and options. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped too, see [Dependencies Between Groups](#dependencies-between-groups).
+1. **Bump**: each group is bumped with its own version mode and options, after a single confirmation for every group. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped too, see [Dependencies Between Groups](#dependencies-between-groups).
 2. **Changelog**: each group generates its changelogs. Set `changelog.rootChangelog: false` on a group to keep it out of the root `CHANGELOG.md`.
 3. **Publish**: the packages of every group are published in a single order, each package after the internal packages it depends on (`dependencies`, `peerDependencies` and `optionalDependencies`), whatever their group.
 4. **Commit and tags**: a single release commit, with the tags of every group.
-5. **Provider releases and social posts**: one per group, as each group would do on its own.
-6. **PR comment**: a single comment listing the packages of every group.
+5. **Provider releases**: one per tag, as each group would do on its own (one for the `unified`/`selective` group, one per package of an `independent` group). Set `release.providerRelease: false` on a group to leave it out, or `ai.providerRelease.enabled: false` to create its provider releases without AI.
+6. **Social posts**: **one** post per platform for the whole release, with a section per group (see [One Release, Presented by Group](#one-release-presented-by-group)). Set `release.social: false` on a group to leave it out of the posts.
+7. **PR comment**: a single comment, with a table per group.
 
-A group without relevant commits is skipped: it is not bumped, published nor tagged.
+The hooks of each step (`before:social`, `success:twitter`...) run once per release, with the config of the release.
 
-### Canary Releases
+A group without relevant commits is skipped: it is not bumped, published nor tagged. With `--canary`, the canary versions of every group are published in the same run, see [Canary Releases](./prereleases.md#canary-releases).
 
-With `--canary`, the canary versions of every group are written before anything is published, and rolled back **once**, after the last package is published. The `workspace:` dependencies between groups therefore resolve to the canary versions of the run:
+### One Release, Presented by Group
 
-```bash
-relizy release --canary --yes
+A release of several versions (several groups, or several packages of an `independent` group) is announced **once** per platform: the title is `New releases of <projectName>` (<code v-pre>{{releaseTitle}}</code>), then a section per group, under its `title`, the `unified`/`selective` group first. A release of a single version keeps `<name> <version> is out!`.
+
+```text
+📣 New releases of maz-ui
+
+maz-ui 5.2.1
+• mcp: label the bundled docs with their maz-ui version
+
+Tooling
+• @maz-ui/eslint-config 5.1.0: stop enforcing the pnpm catalog
+• @maz-ui/upgrade 5.2.1
+
+https://github.com/LouisMazel/maz-ui/releases/tag/v5.2.1
+https://maz-ui.com/changelog
 ```
+
+The post never exceeds the limits of the platform: on Twitter, the version line of every group comes first (an `independent` group is collapsed to `Tooling: 3 packages` when its packages do not fit), then the highlights; on Slack, the budget of the message is shared between the groups, each one keeping at least its title and version lines. With AI ([`ai.social`](./../config/ai.md)), each platform makes **one** call for the whole release. See [Social Media](./social-media.md) for the templates and the limits.
 
 ### Releasing a Single Group
 
@@ -110,7 +114,7 @@ It works with `release`, `bump`, `changelog`, `publish`, `provider-release` and 
 
 ## Release Commit
 
-The release commit lists the packages of every group. Unless you set [`templates.commitMessage`](../config/commit-templates.md):
+The release commit lists the packages of every group. Unless you set [`templates.commitMessage`](./../config/commit-templates.md):
 
 - when the `unified`/`selective` group is released, the title is <code v-pre>chore(release): bump version to {{newVersion}}</code>, with its version;
 - otherwise, the title is <code v-pre>chore(release): bump {{packageCount}} packages</code>;
@@ -131,16 +135,16 @@ When a package depends on a package bumped by another group, it is bumped too, s
 
 Which dependencies count:
 
-- the ones of the [`bump.dependencyTypes`](../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped on every bump of its dependency;
-- the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major or a prerelease (canary, beta).
+- the ones of the [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped on every bump of its dependency;
+- the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major or a prerelease (canary, beta).
 
-A dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too. In a `unified`/`selective` group, the major goes to the root version, so to every package released by the group.
+A dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](./../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too. In a `unified`/`selective` group, the major goes to the root version, so to every package released by the group.
 
 With the configuration of the example above, `@scope/navigation` (peer dependency `"@scope/components": "workspace:*"`) is released with a patch each time `@scope/components` is, without any other option.
 
-The groups are computed in dependency order, and again until no group changes when they depend on each other (a package of `main` depending on a package of `header`, itself depending on `main`). Everything is computed and confirmed before any file is written. Canary releases follow the same rules.
+The groups are computed in dependency order, and again until no group changes when they depend on each other (a package of `main` depending on a package of `header`, itself depending on `main`). Everything is computed before any file is written, then confirmed **once**: the prompt lists the packages of every group, each group under its `title`. Refusing it writes nothing.
 
-Two checks run before publishing (see [`publish.checkWorkspaceDependencies`](../config/publish.md#checkworkspacedependencies)):
+Two checks run before publishing (see [`publish.checkWorkspaceDependencies`](./../config/publish.md#checkworkspacedependencies)):
 
 - a `workspace:` dependency resolving to a version neither published by the release nor on the registry fails the release;
 - a package not released whose published peer dependency range rejects the new version of a dependency (e.g. a group not targeted by `--group`, or with `bump.outOfRangePeers: 'warn'`) is reported with a warning, or fails the release with `bump.outOfRangePeers: 'error'`.

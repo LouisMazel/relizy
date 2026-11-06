@@ -1,7 +1,7 @@
 ---
 title: mcp
-description: Start the Relizy MCP server for AI coding agents, and set up the agents of a project with its rules.
-keywords: relizy mcp, mcp server, model context protocol, ai agents, claude code, cursor, copilot, codex, relizy mcp init
+description: Start the Relizy MCP server for AI coding agents, and set up the agents of a project with its rules and its MCP server.
+keywords: relizy mcp, relizy mcp init, mcp server, model context protocol, ai agents, claude code, cursor, copilot, codex, agents.md
 category: CLI Reference
 tags: [cli, mcp, ai, agents]
 ---
@@ -10,7 +10,7 @@ tags: [cli, mcp, ai, agents]
 
 {{ $frontmatter.description }}
 
-See the [AI agents guide](/guide/ai-agents) for what the server gives to your agents.
+What the server gives to your agents: [AI Agents (MCP)](./../guide/ai-agents.md).
 
 ## Usage
 
@@ -21,11 +21,7 @@ relizy mcp init [options]          # Configure the AI agents of the project
 
 ## relizy mcp
 
-Starts the MCP server on stdio: the command your AI agent runs, you do not run it yourself. stdout only carries the protocol (no banner, no log).
-
-```bash
-relizy mcp
-```
+Starts the MCP server on stdio (`serve` is the default subcommand). Your AI agent runs it, you do not: stdout only carries the protocol, without banner nor log.
 
 ### --cwd
 
@@ -39,16 +35,18 @@ relizy mcp --cwd apps/web
 
 Configures the AI agents of the project for Relizy:
 
-- the **rules**: how to commit and release with Relizy, in `.claude/rules/relizy.md` for Claude Code and in a section of `AGENTS.md` (Codex, Cursor, Copilot, Windsurf, Zed, Gemini...);
-- the **MCP server**: a `relizy` entry in `.mcp.json` (Claude Code), `.cursor/mcp.json` and `.vscode/mcp.json` (GitHub Copilot).
+- the **rules** (how to commit and release with Relizy): `.claude/rules/relizy.md` for Claude Code, and a `relizy` section of `AGENTS.md`, read by Codex, Cursor, Copilot and others;
+- the **MCP server**: a `relizy` entry in `.mcp.json` (Claude Code), `.cursor/mcp.json` (Cursor) and `.vscode/mcp.json` (GitHub Copilot).
 
 ```bash
 relizy mcp init
 ```
 
-It configures the agents detected in the project (`CLAUDE.md`, `.claude/`, `AGENTS.md`, `.cursor/`, `.vscode/mcp.json`...), or Claude Code and `AGENTS.md` when none is detected. When the project installs Relizy, the MCP configs start the installed version through its package manager (`pnpm exec relizy mcp`); otherwise they run `npx -y relizy@<version> mcp`.
+It configures the agents detected in the project (`.claude/`, `CLAUDE.md`, `.mcp.json`, `.cursor/`, `.vscode/mcp.json`, `.github/copilot-instructions.md`, `AGENTS.md`, `.codex/`, `.windsurf/`, `GEMINI.md`...), or Claude Code and `AGENTS.md` when none is detected.
 
-It only writes what it owns: an existing file it did not generate, rules edited by hand and MCP entries written by hand are left untouched. Run it again after each upgrade of Relizy to update the rules: it is idempotent.
+The MCP entries start the installed Relizy through the package manager of the project (`pnpm exec relizy mcp`, `yarn run relizy mcp`, `bun x --no-install relizy mcp`, `npx --no-install relizy mcp`) when Relizy is a dependency of the project, else `npx -y relizy@<version> mcp`. Codex and Windsurf only read `AGENTS.md`: add the command printed by `relizy mcp init` to their MCP config.
+
+It only writes what it owns: a file it did not generate, rules edited by hand and MCP entries written by hand are left untouched. The rules carry the version of Relizy that wrote them: run `relizy mcp init` again after an upgrade to update them.
 
 ### --targets
 
@@ -68,15 +66,15 @@ Only write the rules.
 
 ### --remove
 
-Remove what `relizy mcp init` added (other tools, such as maz-ui, keep their own rules and servers).
+Remove what `relizy mcp init` added. The rules and servers of other tools (such as maz-ui) are kept.
 
 ```bash
 relizy mcp init --remove
 ```
 
-### --dry-run
+### Dry Run
 
-The global option: show the changes without writing them.
+The global `--dry-run` lists the changes without writing them:
 
 ```bash
 relizy mcp init --dry-run

@@ -1,12 +1,22 @@
-import type { LogLevel } from '@maz-ui/node'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseType } from 'semver'
-import type { ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
+
+/** What relizy does with the private packages of the workspace, see `monorepo.privatePackages` */
+export type PrivatePackages = 'ignore' | 'release'
 export type GitProvider = 'github' | 'gitlab' | 'bitbucket'
 export type PackageManager = 'npm' | 'yarn' | 'pnpm' | 'bun'
 export type SemverBumpType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease'
+/**
+ * Release type of a bump: a semver release type, or `release` to compute it
+ * from the commits (the `ReleaseType` of semver)
+ */
+export type BumpReleaseType = 'major' | 'premajor' | 'minor' | 'preminor' | 'patch' | 'prepatch' | 'prerelease' | 'release'
+/**
+ * Log level of relizy (the `LogLevel` of `@maz-ui/node`)
+ */
+export type RelizyLogLevel = 'silent' | 'error' | 'warning' | 'normal' | 'default' | 'debug' | 'trace' | 'verbose'
 
 /**
  * COMMIT TYPES
@@ -153,6 +163,10 @@ export interface GroupBumpResult extends Omit<BumpResultTruthy, 'groups'> {
    */
   name: string
   /**
+   * Title of the version group (`title`, else `name`)
+   */
+  title: string
+  /**
    * Version mode of the version group
    */
   versionMode: VersionMode
@@ -197,6 +211,14 @@ export interface SocialNetworkResult {
    * Error message if the post failed
    */
   error?: string
+  /**
+   * The post, when the platform gives it (Twitter)
+   */
+  url?: string
+  /**
+   * Why nothing was posted on the platform (`prerelease` with `onlyStable`, `nothing to announce`)
+   */
+  skipped?: string
 }
 
 export interface SocialResult {
@@ -254,6 +276,17 @@ export interface ReleaseContext {
    * Error message (available when status is 'failed')
    */
   error?: string
+  /**
+   * The report of the release so far (`relizy release`): the comment is its
+   * summary, as the summary of the terminal and of the GitHub Actions run
+   */
+  report?: ReleaseReport
+  /**
+   * The commit the release started from, before its release commit: when the
+   * branch has no open pull request (a release run after a merge), the pull
+   * request of this commit is commented
+   */
+  sha?: string
 }
 
 export interface MonorepoConfig {
@@ -278,13 +311,6 @@ export interface MonorepoConfig {
    */
   groups?: VersionGroup[]
   /**
-   * Package names to ignore.
-   * @deprecated Use `ignored` (path globs) instead, for consistency with
-   * `packages`. Both options are still honored and merged together.
-   * @default []
-   */
-  ignorePackageNames?: string[]
-  /**
    * Glob patterns (relative to `cwd`, POSIX separators) of package directories
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
@@ -293,19 +319,20 @@ export interface MonorepoConfig {
    * ignored packages are also excluded from the root version bump and the root
    * changelog (a breaking change in an ignored package no longer bumps the
    * whole repository).
-   *
-   * Prefer this over `ignorePackageNames` for path-based configuration
-   * consistent with `packages`. Both options are honored and merged together.
    * @default []
    */
   ignored?: string[]
   /**
-   * Include private packages (with `"private": true` in package.json) in
-   * bump and changelog operations. Private packages remain excluded from
-   * publish, provider-release, and pr-comment regardless of this flag.
-   * @default false
+   * What relizy does with the private packages of the workspace (`"private": true`
+   * in their package.json):
+   * - `ignore`: they are left out of the release
+   * - `release`: they are released as the other packages (bump, changelog, tag,
+   *   GitHub/GitLab release, PR comment), but never published to the registry
+   *
+   * A project without workspace packages (a private app) is released, private or not.
+   * @default 'ignore'
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Package directories moved or renamed, as `old path: new path` (relative to
    * `cwd`, POSIX separators, no glob). The commits that changed the old
@@ -330,6 +357,12 @@ export interface VersionGroup {
    */
   name: string
   /**
+   * Name of the group in the outputs of a release: bump confirmation, social
+   * posts, PR comment and release summary.
+   * @default name
+   */
+  title?: string
+  /**
    * Version mode of the packages of this group.
    */
   versionMode: VersionMode
@@ -351,6 +384,18 @@ export interface VersionGroup {
    * Changelog options of this group, overriding the global `changelog` ones.
    */
   changelog?: Pick<ChangelogConfig, 'rootChangelog' | 'includeCommitBody'>
+  /**
+   * Release steps of this group, overriding the global `release` ones:
+   * `providerRelease: false` creates no provider release for its packages,
+   * `social: false` leaves the group out of the social posts.
+   */
+  release?: Pick<ReleaseConfig, 'providerRelease' | 'social'>
+  /**
+   * AI options of this group, overriding the global `ai` ones, e.g.
+   * `{ providerRelease: { enabled: false } }` to create the provider releases
+   * of the group without AI.
+   */
+  ai?: Pick<AIConfig, 'providerRelease'>
 }
 
 export type ConfigType = {
@@ -369,7 +414,7 @@ export interface BumpConfig {
    * Release type (e.g. 'major', 'minor', 'patch', 'prerelease', 'prepatch', 'preminor', 'premajor')
    * @default 'release'
    */
-  type?: ReleaseType
+  type?: BumpReleaseType
   /**
    * Prerelease identifier (e.g. 'beta', 'alpha')
    */
@@ -445,7 +490,7 @@ export interface BumpOptions extends BumpConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Bump all packages even if there are no commits
    * @default false
@@ -466,10 +511,9 @@ export interface BumpOptions extends BumpConfig {
    */
   canary?: boolean
   /**
-   * Include private packages in the bump.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` bumps the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -479,9 +523,13 @@ export interface BumpOptions extends BumpConfig {
 
 export interface ChangelogConfig {
   /**
-   * Command to format the changelog (e.g. `prettier --write CHANGELOG.md`).
+   * Command formatting the changelogs once written, run from the root: `{{files}}` is
+   * replaced by their paths (e.g. `eslint --fix {{files}}`). Without it, the formatter
+   * of the root `package.json` (Biome, Prettier, oxfmt, dprint, else ESLint) formats
+   * the changelogs written; `false` formats nothing.
+   * @default the formatter detected
    */
-  formatCmd?: string
+  formatCmd?: string | false
   /**
    * Generate changelog at root level with all changes
    * @default true
@@ -518,7 +566,7 @@ export interface ChangelogOptions extends ChangelogConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
    * @default 'relizy'
@@ -534,10 +582,9 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   suffix?: string
   /**
-   * Include private packages in the changelog generation.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` generates the changelogs of the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -579,14 +626,14 @@ export interface ProviderReleaseOptions {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Run without side effects
    * @default false
    */
   dryRun?: boolean
   /**
-   * Skip safety check
+   * Check the token and the provider before creating the releases (`false` skips it, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -636,14 +683,14 @@ export interface SocialOptions {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Run without side effects
    * @default false
    */
   dryRun?: boolean
   /**
-   * Skip safety check
+   * Check the credentials of the enabled platforms before posting (`false` skips it, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -653,9 +700,9 @@ export interface SocialOptions {
    */
   ai?: boolean
   /**
-   * Override `social.slack.changelogFormat` for this run
+   * Override `social.slack.changelog` for this run
    */
-  slackFormat?: SlackChangelogFormat
+  slackFormat?: SocialChangelog
   /**
    * Prerelease suffix, forwarded to package discovery in independent mode
    * when no bump result is available (standalone `social` runs).
@@ -700,10 +747,9 @@ export interface RegistryTarget {
    */
   otp?: string
   /**
-   * Glob pattern matching package names this registry applies to. Distinct
-   * from `PublishConfig.packages` (which packages get published at all) -
-   * this only routes already-publishable packages to this registry.
-   * Omitted or empty = applies to every publishable package (mirroring).
+   * Glob patterns of the package names this registry applies to: it routes
+   * the published packages to this registry. Omitted or empty, it applies to
+   * every published package (mirroring).
    */
   packageFilter?: string[]
   /**
@@ -718,20 +764,19 @@ export interface RegistryTarget {
 
 export interface PublishConfig {
   /**
-   * Arguments passed to the publish command
+   * Extra arguments of the publish command of every package and registry,
+   * after the ones of relizy (e.g. `['--provenance']`)
+   * @default []
    */
   args?: string[]
-  /**
-   * Publish the private packages
-   * @default false
-   */
-  private?: boolean
   /**
    * Package manager (e.g. `pnpm`, `npm`, `yarn` or `bun`)
    */
   packageManager?: PackageManager
   /**
-   * NPM registry URL (e.g. `https://registry.npmjs.org/`)
+   * NPM registry URL (e.g. `https://registry.npmjs.org/`). Without it, the
+   * registry of the npm config (`.npmrc`), unless `registries` is set: the
+   * packages then go only to the declared registries
    */
   registry?: string
   /**
@@ -747,20 +792,11 @@ export interface PublishConfig {
    */
   otp?: string
   /**
-   * Glob pattern matching for packages to publish
-   */
-  packages?: string[]
-  /**
    * Command to build your packages before publishing (e.g. `pnpm build`)
    */
   buildCmd?: string
   /**
-   * NPM token (e.g. `123456`) - supported for npm, pnpm and bun (injected via
-   * `.npmrc`). Yarn is not supported (it uses `.yarnrc.yml`).
-   */
-  token?: string
-  /**
-   * Skip safety check
+   * Authenticate to each registry the packages need (`whoami`) before publishing
    * @default true
    */
   safetyCheck?: boolean
@@ -775,8 +811,8 @@ export interface PublishConfig {
    * Additional registries to publish to, on top of `registry` (if set).
    * Entries without `packageFilter` apply to every package (mirroring);
    * entries with `packageFilter` only apply to packages matching one of the
-   * glob patterns. Fully additive: leaving this unset preserves the
-   * single-registry behavior.
+   * glob patterns. Without `registry`, only these registries are used: a
+   * package that no entry covers goes to the registry of the npm config.
    */
   registries?: RegistryTarget[]
   /**
@@ -805,6 +841,11 @@ export interface PublishConfig {
 
 export interface PublishOptions extends PublishConfig {
   /**
+   * Registry token (npm, pnpm and bun, injected via `.npmrc`), instead of
+   * `tokens.registry`. Yarn is not supported (it uses `.yarnrc.yml`).
+   */
+  token?: string
+  /**
    * Run without side effects
    * @default false
    */
@@ -820,7 +861,7 @@ export interface PublishOptions extends PublishConfig {
   /**
    * Set log level
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
    * @default 'relizy'
@@ -840,6 +881,30 @@ export interface PublishOptions extends PublishConfig {
    * @default all groups
    */
   groups?: string[]
+}
+
+export interface ReleaseReportConfig {
+  /**
+   * In GitHub Actions, write the outputs of the step (`released`, `status`,
+   * `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`,
+   * `install`, `failed_steps`, `report`, `summary`) and the summary of the run
+   * @default true
+   */
+  github?: boolean
+  /**
+   * File to write the report to, as JSON (relative to `cwd`)
+   */
+  json?: string
+  /**
+   * File to write the outputs to, as dotenv (`RELIZY_RELEASED=true`...),
+   * for the `artifacts:reports:dotenv` of GitLab CI (relative to `cwd`)
+   */
+  dotenv?: string
+  /**
+   * File to write the summary of the release to, as markdown (the summary of
+   * a GitHub Actions run), e.g. for an artifact of GitLab CI (relative to `cwd`)
+   */
+  markdown?: string
 }
 
 export interface ReleaseConfig {
@@ -870,12 +935,13 @@ export interface ReleaseConfig {
   publish?: boolean
   /**
    * Skip git verification while committing by using --no-verify flag
-   * @default true
+   * @default false
    */
   noVerify?: boolean
   /**
-   * Determine if the working directory is clean and if it is not clean, exit
-   * @default false
+   * Check that the working directory is clean before the release (with
+   * `bump.clean`), a confirmation is asked otherwise
+   * @default true
    */
   clean?: boolean
   /**
@@ -884,15 +950,23 @@ export interface ReleaseConfig {
    */
   gitTag?: boolean
   /**
-   * Post release announcements to social media platforms
-   * @default false
+   * Post release announcements to social media platforms (the platforms
+   * enabled in `social`)
+   * @default true
    */
   social?: boolean
   /**
-   * Post release announcements to social media platforms
-   * @default false
+   * Post a comment with the outcome of the release on the pull request
+   * @default true
    */
   prComment?: boolean
+  /**
+   * Report of the release, to run something only when a release happens:
+   * the outputs and the summary of GitHub Actions, a JSON file, a dotenv file
+   * (GitLab CI). Written in dry-run too, where `released` is `false`.
+   * @default { github: true }
+   */
+  report?: ReleaseReportConfig
 }
 
 export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConfig, PublishConfig {
@@ -912,7 +986,7 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   token?: string
   /**
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * @default 'relizy'
    */
@@ -932,7 +1006,7 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   provider?: GitProvider
   /**
-   * Skip safety check
+   * Run the safety checks before writing anything: tokens, registry access, branch up to date (`false` skips them, as `--no-safety-check`)
    * @default true
    */
   safetyCheck?: boolean
@@ -950,19 +1024,18 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   canary?: boolean
   /**
-   * Include private packages in bump and changelog operations.
-   * @default false
+   * Override of `monorepo.privatePackages`: `release` releases the private packages too
    */
-  includePrivates?: boolean
+  privatePackages?: PrivatePackages
   /**
    * Override AI configuration for this run
    * true = force-enable AI, false = force-disable AI, undefined = use config
    */
   ai?: boolean
   /**
-   * Override `social.slack.changelogFormat` for this run
+   * Override `social.slack.changelog` for this run
    */
-  slackFormat?: SlackChangelogFormat
+  slackFormat?: SocialChangelog
   /**
    * Only process these version groups (`monorepo.groups`), by name.
    * @default all groups
@@ -1003,8 +1076,8 @@ export interface TwitterSocialConfig {
   onlyStable?: boolean
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}} (see `SocialTemplateVariables`)
+   * @default '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   template?: string
   /**
@@ -1016,6 +1089,10 @@ export interface TwitterSocialConfig {
    * @default 280
    */
   postMaxLength?: number
+  /**
+   * Versions never announced in the tweet
+   */
+  exclude?: SocialExclude
 }
 
 export interface SlackCredentials {
@@ -1029,9 +1106,16 @@ export interface SlackCredentials {
 }
 
 /**
- * Slack changelog rendering:
- * - `summary`: short changelog (commit titles only) in a single mrkdwn section.
- * - `full`: complete changelog (commit bodies and PR/issue links) rendered as rich text blocks.
+ * The changelog of a post:
+ * - `full`: the commit bodies and the PR/issue links included.
+ * - `summary`: the commit titles only.
+ * - `none` (or `false`): no changelog, the links of the post lead to it.
+ */
+export type SocialChangelog = 'full' | 'summary' | 'none' | false
+
+/**
+ * How the Slack message renders its changelog: `summary` in mrkdwn sections,
+ * `full` as rich text blocks
  */
 export type SlackChangelogFormat = 'summary' | 'full'
 
@@ -1050,7 +1134,7 @@ export interface SlackSocialConfig {
   /**
    * Slack channel ID or name (e.g., "#releases" or "C1234567890").
    * Required when using token-based authentication.
-   * Ignored (with warning) when webhookUrl is set — the channel is baked into the webhook URL.
+   * Ignored (with warning) when webhookUrl is set - the channel is baked into the webhook URL.
    */
   channel?: string
   /**
@@ -1061,7 +1145,7 @@ export interface SlackSocialConfig {
   webhookUrl?: string
   /**
    * Custom message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}, {{packages}} (see `SocialTemplateVariables`)
    */
   template?: string
   /**
@@ -1069,14 +1153,15 @@ export interface SlackSocialConfig {
    */
   credentials?: SlackCredentials
   /**
-   * Changelog rendering of the Slack message.
-   * - `summary`: commit titles only, in a single section capped at `postMaxLength`.
+   * The changelog of the Slack message.
    * - `full`: commit bodies and PR/issue links included, rendered as rich text blocks
    *   (one per changelog section). Commit bodies follow `changelog.includeCommitBody`.
+   * - `summary`: commit titles only, in a single section capped at `postMaxLength`.
+   * - `none` (or `false`): no changelog.
    * Can be overridden with the `--slack-format` CLI flag.
    * @default 'summary'
    */
-  changelogFormat?: SlackChangelogFormat
+  changelog?: SocialChangelog
   /**
    * Maximum length (in characters) of the changelog rendered inside the Slack message.
    * When exceeded, `summary` drops the last commits, `full` cuts the changelog where the limit
@@ -1097,6 +1182,171 @@ export interface SlackSocialConfig {
    * @default false
    */
   noPackages?: boolean
+  /**
+   * The versions to announce and their content (title, message, links).
+   * Without it, every version is announced; with it, only the versions
+   * matching an entry.
+   */
+  announcements?: SocialAnnouncement[]
+  /**
+   * Versions never announced, even when an announcement matches them
+   */
+  exclude?: SocialExclude
+}
+
+/**
+ * A link of an announcement: a button of a Teams card, a link of a Slack
+ * section. The `title` and the `url` accept the variables of the announcement
+ * (see `SocialAnnouncementVariables`), e.g.
+ * `{ title: '🎨 Storybook', url: 'https://{{shortName}}.example.com' }`.
+ * A link whose URL is empty is left out.
+ */
+export interface SocialLink {
+  title: string
+  url: string
+}
+
+/**
+ * The content of the announcement of a version. The texts accept the
+ * variables of the announcement (see `SocialAnnouncementVariables`).
+ */
+export interface SocialAnnouncementContent {
+  /**
+   * Title of the version: of its Teams card (or section), of its Slack section
+   * (or header, when the message announces a single version)
+   */
+  title?: string
+  /**
+   * Text under the title, in markdown (bold, italic, links, lists)
+   */
+  message?: string
+  /**
+   * URL of the changelog link of the version; `false` removes the link
+   */
+  changelogUrl?: string | false
+  /**
+   * Links added after the release notes and the changelog
+   */
+  links?: SocialLink[]
+}
+
+/**
+ * An announcement of `social.teams.announcements` or
+ * `social.slack.announcements`: the content of the versions of a version
+ * group, or of the packages matching a glob.
+ * - `{ group }`: the root version of a `unified`/`selective` group, each
+ *   package of an `independent` group.
+ * - `{ package }`: the packages of an `independent` group (or without
+ *   version groups) whose name matches the glob (`@scope/*`); the version of
+ *   a project without monorepo is announced under its name. Its fields
+ *   override the ones of its group entry.
+ */
+export type SocialAnnouncement = SocialAnnouncementContent & ({ group: string, package?: never } | { package: string, group?: never })
+
+/**
+ * Versions never announced by a platform
+ */
+export interface SocialExclude {
+  /**
+   * Names of the version groups (`monorepo.groups`)
+   */
+  groups?: string[]
+  /**
+   * Package names or globs (`@scope/internal-*`), matched against the
+   * packages of the `independent` groups and the name of the project
+   */
+  packages?: string[]
+}
+
+/**
+ * Variables of the texts and links of an announcement
+ */
+export interface SocialAnnouncementVariables {
+  /**
+   * The package name, the project name (the title of the group with version
+   * groups) for a `unified`/`selective` version
+   */
+  name: string
+  /**
+   * `name` without its scope (`@scope/ui` gives `ui`)
+   */
+  shortName: string
+  newVersion: string
+  tag: string
+  projectName: string
+  /**
+   * Title of the version group, empty without version groups
+   */
+  groupTitle: string
+  /**
+   * GitHub/GitLab release of the version
+   */
+  releaseUrl: string
+  /**
+   * Changelog of the version
+   */
+  changelogUrl: string
+}
+
+/**
+ * - `version`: one card per version released (the root version, each package
+ *   of an `independent` group).
+ * - `release`: one card for the release, with a section per version.
+ */
+export type TeamsCardsMode = 'version' | 'release'
+
+export interface TeamsSocialConfig extends SocialAnnouncementContent {
+  /**
+   * Enable the Teams cards
+   * @default false
+   */
+  enabled?: boolean
+  /**
+   * Skip the prerelease versions (alpha, beta, rc, etc.)
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
+   * URL of the Teams workflow ("When a Teams webhook request is received"
+   * trigger). It holds a secret (`sig`): prefer the environment.
+   * Env fallback: RELIZY_TEAMS_WEBHOOK_URL, TEAMS_WEBHOOK_URL, or the URL in
+   * base64 in RELIZY_TEAMS_WEBHOOK_URL_B64, TEAMS_WEBHOOK_URL_B64 (a masked
+   * GitLab variable refuses the characters of the URL).
+   */
+  webhookUrl?: string
+  /**
+   * One card per version, or one card for the release
+   * @default 'version'
+   */
+  cards?: TeamsCardsMode
+  /**
+   * The changelog in the card: `full` (the commit bodies included), `summary`
+   * (the commit titles, rewritten with `ai.social.teams`), or `none` (or
+   * `false`), the buttons linking to it. Cut between two changes to fit in the
+   * 28 KB of a card.
+   * @default 'none'
+   */
+  changelog?: SocialChangelog
+  /**
+   * Text of the badge above the title; `false` removes it
+   * @default 'New release' ('Prerelease' for a prerelease)
+   */
+  badge?: string | false
+  /**
+   * Locale of the date of the card (BCP 47, e.g. `fr-FR`)
+   * @default 'en-US'
+   */
+  locale?: string
+  /**
+   * The versions to announce and their content. Without it, every version is
+   * announced with the content of `social.teams`; with it, only the versions
+   * matching an entry.
+   */
+  announcements?: SocialAnnouncement[]
+  /**
+   * Versions never announced, even when an announcement matches them
+   */
+  exclude?: SocialExclude
 }
 
 export type AIProviderName = 'claude-code' | 'ai-sdk'
@@ -1133,7 +1383,7 @@ export interface AiSdkProviderOptions {
   reasoning?: CallSettings['reasoning']
 }
 
-export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack'
+export type AIPromptTarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 export type AISystemPromptOverrides = Partial<Record<AIPromptTarget, string>>
 
 export interface AIExtraGuidelines extends Partial<Record<AIPromptTarget, string>> {
@@ -1149,6 +1399,12 @@ export interface AITargetConfig {
    * @default false
    */
   enabled?: boolean
+  /**
+   * Rewrite only the stable versions: a prerelease keeps its raw changelog,
+   * without an AI call. Overrides `ai.onlyStable` for this target.
+   * @default ai.onlyStable
+   */
+  onlyStable?: boolean
 }
 
 export interface AISocialConfig {
@@ -1160,6 +1416,10 @@ export interface AISocialConfig {
    * Slack-specific AI activation
    */
   slack?: AITargetConfig
+  /**
+   * Teams-specific AI activation (with `social.teams.changelog: 'summary'`)
+   */
+  teams?: AITargetConfig
 }
 
 export interface AIConfig {
@@ -1201,6 +1461,12 @@ export interface AIConfig {
    */
   systemPromptOverrides?: AISystemPromptOverrides
   /**
+   * Rewrite only the stable versions: the prereleases (beta, canary...) keep
+   * their raw changelog, without an AI call. The `onlyStable` of a target overrides it.
+   * @default true
+   */
+  onlyStable?: boolean
+  /**
    * Enable AI rewriting for GitHub/GitLab release notes.
    */
   providerRelease?: AITargetConfig
@@ -1220,6 +1486,10 @@ export interface SocialConfig {
    */
   slack?: SlackSocialConfig
   /**
+   * Microsoft Teams configuration
+   */
+  teams?: TeamsSocialConfig
+  /**
    * URL to full changelog (e.g., https://example.com/changelog)
    * This URL will be included in social media posts to allow users to view the complete changelog
    */
@@ -1229,27 +1499,72 @@ export interface SocialConfig {
   // discord?: DiscordSocialConfig
 }
 
-export interface TwitterOptions {
+/**
+ * Variables of the social templates (`templates.twitterMessage`, `templates.slackMessage`)
+ */
+export interface SocialTemplateVariables {
   /**
-   * Release information
-   */
-  version: string
-  /**
-   * Project name
+   * `projectName` of the config, else the name of the root `package.json`
    */
   projectName: string
   /**
-   * Changelog content
+   * `<name> <version> is out!` when a single version line is released (the
+   * root version, or a single package of an `independent` group),
+   * `New releases of <projectName>` otherwise
    */
-  changelog: string
+  releaseTitle: string
   /**
-   * Release URL (GitHub/GitLab)
+   * The version released, empty when several version lines are released
+   */
+  newVersion: string
+  /**
+   * Comma-separated `name@version` of the released packages
+   */
+  packageList: string
+  /**
+   * Number of released packages
+   */
+  packageCount: string
+  /**
+   * Release URL (GitHub/GitLab) of the release, or of its only version line
    */
   releaseUrl?: string
   /**
-   * Full changelog URL (e.g., https://example.com/changelog)
+   * Full changelog URL (`social.changelogUrl`)
    */
   changelogUrl?: string
+}
+
+/**
+ * A section of a tweet announcing several versions: a `unified`/`selective`
+ * group (its version line and highlights), or an `independent` group (its
+ * packages, each with its highlights).
+ */
+export interface TweetSection {
+  /**
+   * `<title> <version>` of a `unified`/`selective` group, the title of an
+   * `independent` group (none without version groups)
+   */
+  title?: string
+  /**
+   * Highlights of a `unified`/`selective` group, one bullet each
+   */
+  highlights?: string[]
+  /**
+   * Packages of an `independent` group: `<name> <version>`, followed by its first highlight
+   */
+  packages?: { label: string, highlights: string[] }[]
+}
+
+export interface TwitterOptions {
+  /**
+   * Variables of the template
+   */
+  variables: SocialTemplateVariables
+  /**
+   * Changelog of a single version (markdown), or the sections of a release of several versions
+   */
+  changelog: string | TweetSection[]
   /**
    * Twitter credentials (all fields required)
    */
@@ -1275,27 +1590,46 @@ export interface TwitterOptions {
   postMaxLength: number
 }
 
+/**
+ * A section of a Slack message announcing several versions: a
+ * `unified`/`selective` group (its changelog), or an `independent` group (its
+ * packages, each with its changelog).
+ */
+export interface SlackReleaseSection {
+  /**
+   * `<title> <version>` of a `unified`/`selective` group, the title of an
+   * `independent` group (none without version groups)
+   */
+  title?: string
+  /**
+   * Message of the announcement of a `unified`/`selective` group (markdown),
+   * shown under its title
+   */
+  message?: string
+  /**
+   * Links of the announcement of a `unified`/`selective` group, shown under its message
+   */
+  links?: SocialLink[]
+  /**
+   * Changelog of a `unified`/`selective` group (markdown)
+   */
+  changelog?: string
+  /**
+   * Packages of an `independent` group, with their changelog (markdown), and
+   * the title (replacing the package name), message and links of their announcement
+   */
+  packages?: { name: string, title?: string, oldVersion?: string, newVersion: string, message?: string, links?: SocialLink[], changelog: string }[]
+}
+
 export interface SlackOptions {
   /**
-   * Release information
+   * Variables of the template, and of the header of the rich blocks format
    */
-  version: string
+  variables: SocialTemplateVariables
   /**
-   * Project name
+   * Changelog of a single version (markdown), or the sections of a release of several versions
    */
-  projectName: string
-  /**
-   * Changelog content
-   */
-  changelog: string
-  /**
-   * Release URL (GitHub/GitLab)
-   */
-  releaseUrl?: string
-  /**
-   * Full changelog URL (e.g., https://example.com/changelog)
-   */
-  changelogUrl?: string
+  changelog: string | SlackReleaseSection[]
   /**
    * Slack channel ID or name. Required when using token-based auth.
    */
@@ -1331,6 +1665,12 @@ export interface SlackOptions {
    */
   packages?: SlackPackageEntry[]
   /**
+   * Announcement of a single version (`social.slack.announcements`): its
+   * message, shown before the changelog, and its links, replacing the buttons
+   * of the rich blocks format
+   */
+  announcement?: { message?: string, links: SocialLink[] }
+  /**
    * Run without side effects
    * @default false
    */
@@ -1357,11 +1697,11 @@ export interface TemplatesConfig {
    * Default in `independent` mode (when not customized): `'chore(release): bump {{packageCount}} packages'`.
    *
    * Available variables:
-   * - `{{newVersion}}` — in `independent` mode, comma-separated list of bumped `name@version` (legacy behavior); otherwise the new version.
-   * - `{{packageCount}}` — number of bumped packages.
-   * - `{{packageNames}}` — comma-separated list of bumped package names.
-   * - `{{packageList}}` — comma-separated list of bumped `name@version`.
-   * - `{{rootVersion}}` — version from the root `package.json`.
+   * - `{{newVersion}}` - in `independent` mode, comma-separated list of bumped `name@version`; otherwise the new version.
+   * - `{{packageCount}}` - number of bumped packages.
+   * - `{{packageNames}}` - comma-separated list of bumped package names.
+   * - `{{packageList}}` - comma-separated list of bumped `name@version`.
+   * - `{{rootVersion}}` - version from the root `package.json`.
    */
   commitMessage?: string
   /**
@@ -1374,15 +1714,15 @@ export interface TemplatesConfig {
    */
   commitBody?: string
   /**
-   * Tag message template
+   * Message of the annotated tags. Available variables: {{newVersion}}
    * @default 'Bump version to {{newVersion}}'
-   * Available variables: {{newVersion}}
    */
   tagMessage?: string
   /**
-   * Not used with "independent" version mode
+   * Name of the repository tag (`unified` and `selective` modes, standalone
+   * projects), also used to find the previous release. The packages of an
+   * `independent` mode are tagged `<name>@<version>`. Available variables: {{newVersion}}
    * @default 'v{{newVersion}}'
-   * Available variables: {{newVersion}}
    */
   tagBody?: string
   /**
@@ -1392,13 +1732,13 @@ export interface TemplatesConfig {
   emptyChangelogContent?: string
   /**
    * Twitter message template
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
-   * @default '📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}} (see `SocialTemplateVariables`)
+   * @default '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}'
    */
   twitterMessage?: string
   /**
    * Slack message template (optional - if not provided, uses rich blocks format)
-   * Available variables: {{projectName}}, {{newVersion}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}
+   * Available variables: {{releaseTitle}}, {{projectName}}, {{newVersion}}, {{packageList}}, {{packageCount}}, {{changelog}}, {{releaseUrl}}, {{changelogUrl}}, {{contributors}}, {{packages}} (see `SocialTemplateVariables`)
    * @default undefined
    */
   slackMessage?: string
@@ -1420,10 +1760,6 @@ export interface RepoConfig {
    */
   repo?: string
   /**
-   * Git token
-   */
-  token?: string
-  /**
    * Git provider (e.g. `github` or `gitlab`)
    * @default 'github'
    */
@@ -1431,31 +1767,31 @@ export interface RepoConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack' | 'teams'
 
 /**
  * API tokens configuration
  */
 export interface TokensConfig {
   /**
-   * registry token for publishing
-   * Environment variables: NPM_TOKEN, RELIZY_NPM_TOKEN, NODE_AUTH_TOKEN
+   * Registry token for publishing
+   * Environment variables, in this order: RELIZY_NPM_TOKEN, NPM_TOKEN, NODE_AUTH_TOKEN
    */
   registry?: string
   /**
    * GitHub token for creating releases
-   * Environment variables: GITHUB_TOKEN, GH_TOKEN, RELIZY_GITHUB_TOKEN
+   * Environment variables, in this order: RELIZY_GITHUB_TOKEN, GITHUB_TOKEN, GH_TOKEN
    */
   github?: string
   /**
    * GitLab token for creating releases
-   * Environment variables: GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN, RELIZY_GITLAB_TOKEN
+   * Environment variables, in this order: RELIZY_GITLAB_TOKEN, GITLAB_TOKEN, GITLAB_API_TOKEN, CI_JOB_TOKEN
    */
   gitlab?: string
   /**
    * Twitter API credentials for posting tweets
-   * Environment variables: TWITTER_API_KEY, TWITTER_API_KEY_SECRET, TWITTER_ACCESS_TOKEN, TWITTER_ACCESS_TOKEN_SECRET
-   * Or with RELIZY_ prefix: RELIZY_TWITTER_API_KEY, etc.
+   * Environment variables: RELIZY_TWITTER_API_KEY, then TWITTER_API_KEY, and the same for
+   * API_KEY_SECRET, ACCESS_TOKEN and ACCESS_TOKEN_SECRET
    */
   twitter?: {
     apiKey?: string
@@ -1465,7 +1801,7 @@ export interface TokensConfig {
   }
   /**
    * Slack bot token for posting messages
-   * Environment variables: SLACK_TOKEN, RELIZY_SLACK_TOKEN
+   * Environment variables, in this order: RELIZY_SLACK_TOKEN, SLACK_TOKEN
    */
   slack?: string
   /**
@@ -1480,11 +1816,27 @@ export interface TokensConfig {
 }
 
 /**
+ * Third parameter of the function hooks of the steps, when the release is
+ * known (in `relizy release`, and in the commands given a bump result)
+ */
+export interface HookContext {
+  /**
+   * Result of the bump of the release
+   */
+  bumpResult: BumpResultTruthy
+  /**
+   * The packages and versions of the release, by version group (in the
+   * `twitter` and `slack` hooks, what the post announces)
+   */
+  release: ReleaseOverview
+}
+
+/**
  * Hooks configuration
  * Useful to run custom scripts before, after a step or on error
  */
 export type HookConfig = {
-  [K in `${HookType}:${HookStep}`]?: string | ((config: ResolvedRelizyConfig, dryRun: boolean) => any)
+  [K in `${HookType}:${HookStep}`]?: string | ((config: ResolvedRelizyConfig, dryRun: boolean, context?: HookContext) => any)
 } & {
   'generate:changelog'?: (config: ResolvedRelizyConfig, dryRun: boolean, params: {
     commits: GitCommit[]
@@ -1593,6 +1945,13 @@ export interface CommitlintBuiltInRules {
    * @default 'off'
    */
   'no-breaking': never
+  /**
+   * The message does not credit an AI tool: no AI co-author (`Co-authored-by: Claude <noreply@anthropic.com>`),
+   * no session trailer (`Claude-Session:`), no "Generated with" line. The value adds
+   * names or emails of AI authors (matched as substrings) and trailers.
+   * @default 'error'
+   */
+  'no-ai-attribution': { authors?: string[], trailers?: string[] }
 }
 
 export type CommitlintRuleName = keyof CommitlintBuiltInRules
@@ -1657,12 +2016,13 @@ export type CommitlintCustomRule = (
 export type CommitlintCustomRuleOutcome = boolean | string | [boolean, string?]
 
 /**
- * Tool checking the code blocks of the commit bodies (`body-changelog-lint`):
+ * Tool checking the changelog entry of a commit, as written in the CHANGELOG.md
+ * files (`body-changelog-lint`):
  * - `auto`: the ESLint of the project when it lints the CHANGELOG.md files, otherwise `oxc`;
- * - `eslint`: the ESLint of the project, an error when it does not lint the CHANGELOG.md files;
- * - `oxc`: a syntax check of the JavaScript, TypeScript and JSON code blocks.
+ * - `eslint`: the ESLint of the project on the whole entry, an error when it does not lint the CHANGELOG.md files;
+ * - `oxc`: a syntax check of the JavaScript, TypeScript and JSON code blocks of the entry.
  */
-export type CommitlintCodeBlocksLinter = 'auto' | 'eslint' | 'oxc'
+export type CommitlintChangelogLinter = 'auto' | 'eslint' | 'oxc'
 
 export interface CommitlintConfig {
   /**
@@ -1706,11 +2066,12 @@ export interface CommitlintConfig {
    */
   title?: boolean
   /**
-   * Tool checking the code blocks of the commit bodies, rendered as in the
-   * changelogs (`body-changelog-lint`).
+   * Tool checking the changelog entry of a commit, as written in the
+   * changelogs (`body-changelog-lint`): the whole entry with ESLint, its code
+   * blocks with oxc.
    * @default 'auto'
    */
-  codeBlocksLinter?: CommitlintCodeBlocksLinter
+  changelogLinter?: CommitlintChangelogLinter
   /**
    * URL printed with the errors, e.g. the commit guidelines of the team.
    */
@@ -1754,10 +2115,6 @@ export interface RelizyConfig {
    * End tag
    */
   to?: string
-  /**
-   * New version of the release
-   */
-  newVersion?: string
   /**
    * Renames the scopes of the commits in the changelog (`{ ui: 'components' }`).
    * Its keys are also allowed scopes for `relizy commitlint`.
@@ -1840,7 +2197,7 @@ export interface RelizyConfig {
    * Set log level
    * @default 'default'
    */
-  logLevel?: LogLevel
+  logLevel?: RelizyLogLevel
   /**
    * Global safety check. The safety check will verify if tokens or others required for release are set (depends on the release options)
    * @default true

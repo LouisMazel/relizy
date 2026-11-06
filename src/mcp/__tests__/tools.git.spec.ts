@@ -1,4 +1,4 @@
-import type { TestRepository } from './helpers'
+import type { GitRepository } from '../../../tests/git-repository'
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -9,7 +9,7 @@ import { getDoc } from '../tools/get-doc'
 import { getProject } from '../tools/get-project'
 import { lintCommit } from '../tools/lint-commit'
 import { previewChangelog } from '../tools/preview-changelog'
-import { previewRelease } from '../tools/preview-release'
+import { fitPreview, previewRelease } from '../tools/preview-release'
 import { searchDocs } from '../tools/search-docs'
 import { ToolInputError } from '../tools/types'
 import { cleanTempDirs, createRepository, createTempDir, createTestContext } from './helpers'
@@ -21,15 +21,15 @@ const BASE_CONFIG = `logLevel: 'silent', safetyCheck: false, noAuthors: true,
   // Never run by the MCP server
   hooks: { 'before:bump': 'touch hooked', 'generate:changelog': () => { throw new Error('hook ran') } },`
 
-function snapshot(repository: TestRepository) {
+function snapshot(repository: GitRepository) {
   return { status: repository.git('status', '--porcelain'), tags: repository.git('tag'), head: repository.git('rev-parse', 'HEAD') }
 }
 
-function createStandalone(): TestRepository {
+function createStandalone(): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'standalone', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} publish: { token: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} tokens: { registry: 'npm_abcdefghijklmnopqrstuvwxyz' } }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
   repository.commit('feat: add the export command', { 'export.js': 'export {}' })
@@ -39,14 +39,14 @@ function createStandalone(): TestRepository {
   return repository
 }
 
-function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): TestRepository {
+function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '2.0.0', private: true })
   repository.writeJson('packages/core', { name: '@scope/core', version: '2.0.0' })
   repository.writeJson('packages/ui', { name: '@scope/ui', version: '2.0.0', dependencies: { '@scope/core': 'workspace:^' } })
   repository.writeJson('packages/docs', { name: '@scope/docs', version: '2.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
   repository.commit('chore: init')
   repository.git('tag', '-a', 'v2.0.0', '-m', 'v2.0.0')
 
@@ -59,14 +59,14 @@ function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): T
   return repository
 }
 
-function createGroups(): TestRepository {
+function createGroups(): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '6.19.1', private: true })
   repository.writeJson('packages/components', { name: '@scope/components', version: '6.19.1' })
   repository.writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:*' } })
   repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG}
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG}
   monorepo: { groups: [
     { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
     { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
@@ -87,7 +87,7 @@ afterAll(() => {
 })
 
 describe('Given preview_release on a standalone package', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createStandalone()
@@ -116,6 +116,31 @@ describe('Given preview_release on a standalone package', () => {
       expect(await previewRelease(context, { type: 'major' })).toContain('1.0.0 → 2.0.0')
       expect(await previewRelease(context, { from: 'HEAD~1' })).toContain('**Version:** 1.0.0 → 1.0.1 (commits since `HEAD~1`)')
       expect(await previewRelease(context, { from: 'HEAD' })).toContain('Nothing to release: none of the commits since `HEAD` triggers a bump')
+    })
+  })
+
+  describe('When the release has more commits than the preview lists', () => {
+    it('Then it lists the first ones, and every one with full', async () => {
+      const busy = createStandalone()
+      for (let index = 1; index <= 10; index++) {
+        busy.commit(`fix: fix the case ${index}`, { [`case-${index}.js`]: 'export {}' })
+      }
+      const context = createTestContext(busy.cwd)
+
+      const preview = await previewRelease(context, {})
+      const full = await previewRelease(context, { full: true })
+
+      expect(preview).toContain('; and 3 more (`full: true` lists them all)')
+      // The latest commits first
+      expect(preview).toContain('fix: fix the case 10 (')
+      expect(preview).not.toContain('feat: add the export command')
+      expect(full).not.toContain('more (`full: true`')
+      expect(full).toContain('feat: add the export command')
+    }, 30_000)
+
+    it('Then cuts a preview longer than a tool result can be', () => {
+      expect(fitPreview('short')).toBe('short')
+      expect(fitPreview('x'.repeat(80_000))).toMatch(/^x{75000}\n\n_The preview is cut at 75000 characters: preview fewer version groups/)
     })
   })
 
@@ -232,16 +257,27 @@ describe('Given preview_release on a monorepo', () => {
       expect(text).not.toContain('## root')
       expect(text).toContain('Add the parser')
     })
+
+    it('Then the root changelog of an independent release aggregates the changelogs of its packages, as relizy changelog writes it', async () => {
+      const repository = createMonorepo('independent')
+
+      const text = await previewChangelog(createTestContext(repository.cwd), { package: 'root' })
+
+      expect(text).toContain('## root (monorepo, the changelogs of the packages) → `CHANGELOG.md`')
+      expect(text).toContain('**Multiple Packages Updated** - ')
+      expect(text).toContain('Add the parser')
+      expect(text).not.toContain('## @scope/core →')
+    })
   })
 })
 
-function createMovedPackage({ movedPackages }: { movedPackages?: Record<string, string> } = {}): TestRepository {
+function createMovedPackage({ movedPackages }: { movedPackages?: Record<string, string> } = {}): GitRepository {
   const repository = createRepository()
 
   repository.writeJson('.', { name: 'monorepo', version: '1.0.0', private: true })
   repository.writeJson('packages/components', { name: '@scope/components', version: '1.0.0' })
   repository.writeJson('packages/icons', { name: '@scope/icons', version: '1.0.0' })
-  repository.writeFile('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: ${JSON.stringify(movedPackages ?? {})} } }\n`)
+  repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: ${JSON.stringify(movedPackages ?? {})} } }\n`)
   repository.commit('chore: init', { 'packages/components/button.js': 'export const button = 1\n' })
 
   for (const name of ['components', 'icons']) {
@@ -310,7 +346,7 @@ describe('Given preview_release on a monorepo whose package moved', () => {
   })
 
   describe('When git cannot see the move (package.json rewritten)', () => {
-    function rewriteAndMove(repository: TestRepository) {
+    function rewriteAndMove(repository: GitRepository) {
       repository.git('mv', 'packages/components', 'packages/ui')
       repository.writeJson('packages/ui', {
         name: '@scope/components',
@@ -344,7 +380,7 @@ describe('Given preview_release on a monorepo whose package moved', () => {
 })
 
 describe('Given preview_release with version groups', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createGroups()
@@ -401,7 +437,7 @@ describe('Given preview_release with a package depending on a package of another
 })
 
 describe('Given lint_commit', () => {
-  let repository: TestRepository
+  let repository: GitRepository
 
   beforeAll(() => {
     repository = createMonorepo('selective')
@@ -494,7 +530,7 @@ describe('Given the knowledge tools', () => {
   describe('When the docs are searched', () => {
     it('Then the pages and the config options are ranked, words of other tools included', () => {
       expect(searchDocs(context, { query: 'version groups' })).toContain('`guide/version-groups`')
-      expect(searchDocs(context, { query: 'snapshot release' })).toContain('guide/canary-releases')
+      expect(searchDocs(context, { query: 'snapshot release' })).toContain('guide/prereleases')
       expect(searchDocs(context, { query: 'out of range peers' })).toContain('get_config_option({ path: "bump.outOfRangePeers" })')
       expect(searchDocs(context, { query: 'github', category: 'guide', limit: 2 })).toContain('(category: guide)')
     })
@@ -541,13 +577,29 @@ describe('Given the knowledge tools', () => {
       const groups = getConfigOption(context, { path: 'monorepo.groups' })
 
       expect(groups).toContain('# `monorepo.groups`')
-      expect(groups).toContain('| `monorepo.groups[].versionMode` | `VersionMode` |')
+      expect(groups).toContain('| `monorepo.groups[].versionMode` | `VersionMode ("unified" \\| "independent" \\| "selective")` |')
+      expect(getConfigOption(context, { path: 'monorepo.versionMode' })).toContain('- **Values:** `"unified"`, `"independent"`, `"selective"`')
+      expect(getConfigOption(context, { path: 'bump.type' })).toContain('`"prerelease"`, `"release"`')
+      expect(getConfigOption(context, { path: 'logLevel' })).toContain('- **Values:** `"silent"`,')
+      expect(getConfigOption(context, { path: 'release.push' })).not.toContain('**Values:**')
       expect(getConfigOption(context, { path: 'release.push' })).toContain('- **Default:** `true`')
       expect(getConfigOption(context, { path: 'config.bump.dependencyTypes' })).toContain('- **Default:** `[\'dependencies\']`')
       expect(getConfigOption(context, { path: 'publish.packageManager' })).toContain('- **Default:** `"pnpm"`')
-      expect(getConfigOption(context, { path: 'monorepo.ignorePackageNames' })).toContain('- **Deprecated:**')
       expect(getConfigOption(context, { path: 'commitlint' })).toContain('- **See:** https://relizy.dev/commitlint/')
       expect(getConfigOption(context, { path: 'monorepo.groups.name' })).toContain('# `monorepo.groups[].name`')
+    })
+
+    it('Then a deprecated option tells it', () => {
+      const { knowledge } = context
+      const deprecated = { ...knowledge.configByPath.get('monorepo.ignored')!, path: 'monorepo.legacy', deprecated: 'Use `ignored`' }
+      knowledge.configByPath.set(deprecated.path, deprecated)
+
+      try {
+        expect(getConfigOption(context, { path: 'monorepo.legacy' })).toContain('- **Deprecated:** Use `ignored`')
+      }
+      finally {
+        knowledge.configByPath.delete(deprecated.path)
+      }
     })
 
     it('Then without path it lists the top-level options', () => {

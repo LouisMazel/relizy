@@ -84,6 +84,7 @@ export function getPackageManagerWorkspaceSources(cwd: string): { file: string, 
 export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePackage[] {
   const patterns = [...new Set([
     ...(config.monorepo?.packages ?? []),
+    ...(config.monorepo?.groups ?? []).flatMap(group => group.packages),
     ...getPackageManagerWorkspaces(config.cwd),
     ...(config.commitlint?.packages ?? []),
   ].map(pattern => pattern.replace(/^\.\//, '')))]

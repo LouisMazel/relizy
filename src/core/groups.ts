@@ -24,8 +24,8 @@ export interface ResolvedVersionGroup {
 
 /**
  * Configs derived for a group by `resolveVersionGroups`, with the name of their group.
- * `loadRelizyConfig` returns them as they are instead of loading the config file
- * again, which would bring `monorepo.groups` back.
+ * `loadRelizyConfig` applies the overrides to them without loading the config
+ * file again, which would bring `monorepo.groups` back, and keeps them marked.
  */
 const groupConfigs = new WeakMap<object, string>()
 
@@ -46,8 +46,23 @@ export function hasVersionGroups(config: ResolvedRelizyConfig): boolean {
   return Boolean(config.monorepo?.groups?.length) && !groupConfigs.has(config)
 }
 
+/**
+ * True when every version group leaves its packages out of the step
+ * (`release: { providerRelease: false }`): the step does nothing, its safety check is skipped
+ */
+export function isStepLeftOutByEveryGroup(config: ResolvedRelizyConfig, step: 'providerRelease' | 'social'): boolean {
+  return hasVersionGroups(config) && config.monorepo!.groups!.every(group => group.release?.[step] === false)
+}
+
 function isRootVersionMode(versionMode: VersionMode): boolean {
   return versionMode !== 'independent'
+}
+
+/**
+ * Name of the group in the outputs of a release: its `title`, else its `name`
+ */
+export function getVersionGroupTitle(group: Pick<VersionGroup, 'name' | 'title'>): string {
+  return group.title || group.name
 }
 
 /**
@@ -82,6 +97,10 @@ export function validateVersionGroups(config: ResolvedRelizyConfig): void {
     }
 
     names.add(group.name)
+
+    if (group.title !== undefined && (typeof group.title !== 'string' || !group.title.trim())) {
+      throw new Error(`Version group "${group.name}" has an empty title`)
+    }
 
     if (!VERSION_MODES.includes(group.versionMode)) {
       throw new Error(`Version group "${group.name}" has an invalid versionMode "${group.versionMode}" (expected ${VERSION_MODES.join(', ')})`)
@@ -230,12 +249,13 @@ function deriveGroupConfig({
       // The packages of the other groups are released by their own group: they
       // must stay out of this group, including its root version and changelog.
       ignored: [...new Set([...(config.monorepo?.ignored ?? []), ...(group.ignored ?? []), ...otherGroupsPaths.map(path => fastGlob.escapePath(path))])],
-      ignorePackageNames: config.monorepo?.ignorePackageNames,
-      includePrivates: config.monorepo?.includePrivates,
+      privatePackages: config.monorepo?.privatePackages,
       movedPackages: config.monorepo?.movedPackages,
     },
     bump: { ...config.bump, ...group.bump },
     changelog: { ...config.changelog, ...group.changelog },
+    release: { ...config.release, ...group.release },
+    ai: { ...config.ai, ...group.ai },
   } as ResolvedRelizyConfig
 
   return markVersionGroupConfig(groupConfig, group.name)
@@ -305,6 +325,63 @@ export function getGroupBumpResult(bumpResult: BumpResultTruthy | undefined, nam
 }
 
 /**
+ * A config a step of the release (changelog, publish, provider release,
+ * social posts) runs with: the config without version groups, else a group
+ */
+export interface ReleaseTarget {
+  /** Undefined without version groups */
+  group?: VersionGroup
+  config: ResolvedRelizyConfig
+  /** The bump result of the config or of the group, undefined when the step computes it */
+  bumpResult: BumpResultTruthy | undefined
+}
+
+/**
+ * The configs a step runs with: the config itself without version groups,
+ * else the targeted groups (`only`) that bumped, in their declaration order,
+ * each with its config and its bump result. The groups that did not bump and
+ * the ones `leftOut` returns a reason for are logged and skipped.
+ */
+export function* getReleaseTargets({
+  config,
+  bumpResult,
+  only,
+  nothing,
+  leftOut,
+}: {
+  config: ResolvedRelizyConfig
+  bumpResult: BumpResultTruthy | undefined
+  only?: string[]
+  /** What the step does not do for a group that did not bump: `no changelog to generate` */
+  nothing: string
+  /** Why a group is left out of the step (`left out of the social posts (release.social: false)`), undefined to run it */
+  leftOut?: (groupConfig: ResolvedRelizyConfig) => string | undefined
+}): Generator<ReleaseTarget> {
+  if (!hasVersionGroups(config)) {
+    yield { config, bumpResult }
+    return
+  }
+
+  for (const { group, config: groupConfig } of resolveVersionGroups({ config, only })) {
+    const groupBumpResult = getGroupBumpResult(bumpResult, group.name)
+
+    if (groupBumpResult === null) {
+      logger.debug(`Version group "${group.name}" did not bump, ${nothing}`)
+      continue
+    }
+
+    const reason = leftOut?.(groupConfig)
+
+    if (reason) {
+      logger.info(`Version group "${group.name}" is ${reason}`)
+      continue
+    }
+
+    yield { group, config: groupConfig, bumpResult: groupBumpResult }
+  }
+}
+
+/**
  * Merge the results of the groups into one bump result (see `BumpResultTruthy.groups`).
  */
 export function mergeGroupBumpResults(results: { group: VersionGroup, result: BumpResult }[]): BumpResult {
@@ -313,6 +390,7 @@ export function mergeGroupBumpResults(results: { group: VersionGroup, result: Bu
     .map(({ group, result }) => ({
       ...result,
       name: group.name,
+      title: getVersionGroupTitle(group),
       versionMode: group.versionMode,
     }))
 

@@ -1,8 +1,13 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { ResolvedRelizyConfig } from '../core'
+import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
-import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, getCurrentGitBranch, getMonorepoPackagePatterns, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages } from '../core'
+import { collectPackageBumps, detectPullRequest, extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatReleaseReportMarkdown, getCurrentGitBranch, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { formatUtcDate } from '../core/format'
+import { getHeadCommit } from '../core/git'
+import { withGitCache } from '../core/git-cache'
+import { recordLink, showPreview } from '../core/progress'
+import { runCommand } from './run-command'
 
 export interface PrCommentOptions {
   prNumber?: number
@@ -24,16 +29,6 @@ interface CommentBodyParams {
   packages?: Array<{ name: string, version: string, private: boolean }>
   /** Fallback root version for standalone CLI mode */
   rootVersion?: string
-}
-
-function getFormattedDate(): string {
-  const now = new Date()
-  const year = now.getUTCFullYear()
-  const month = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const day = String(now.getUTCDate()).padStart(2, '0')
-  const hours = String(now.getUTCHours()).padStart(2, '0')
-  const minutes = String(now.getUTCMinutes()).padStart(2, '0')
-  return `${year}-${month}-${day} ${hours}:${minutes} UTC`
 }
 
 function getInstallCommand(packageManager?: string): string {
@@ -105,6 +100,39 @@ function buildPackageTableLines(
     )
   }
   return lines
+}
+
+/**
+ * One table per version group (its title, version and version mode), when
+ * the release has several groups
+ */
+function buildGroupTableLines(overview: ReleaseOverview): string[] {
+  return overview.groups.flatMap((group) => {
+    const version = group.version ? ` \`${group.version}\`` : ''
+    const lines = ['', `### ${group.title}${version} (${group.versionMode})`, '', '| Package | Version |', '| --- | --- |']
+
+    for (const pkg of group.packages) {
+      lines.push(pkg.oldVersion !== pkg.newVersion
+        ? `| \`${pkg.name}\` | \`${pkg.oldVersion}\` → \`${pkg.newVersion}\` |`
+        : `| \`${pkg.name}\` | \`${pkg.newVersion}\` |`)
+    }
+
+    return group.packages.length > 0 ? lines : lines.slice(0, 2)
+  })
+}
+
+/**
+ * The overview of a release of several version groups, with the packages the
+ * comment lists (the private ones with `monorepo.privatePackages: 'release'` only)
+ */
+function getGroupsOverview(config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy): ReleaseOverview | undefined {
+  if (!bumpResult?.groups || bumpResult.groups.length < 2) {
+    return undefined
+  }
+
+  const overview = getReleaseOverview({ config, bumpResult })
+
+  return config.monorepo?.privatePackages === 'release' ? overview : withoutPrivatePackages(overview)
 }
 
 function resolvePackageNames(
@@ -231,10 +259,10 @@ function buildSuccessComment({
   rootVersion,
 }: CommentBodyParams): string {
   const bumpResult = releaseContext?.bumpResult
-  const includePrivates = config.monorepo?.includePrivates
+  const privatePackages = getPrivatePackagesMode(config)
   const allBumpedPackages = bumpResult?.bumpedPackages ?? []
-  const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, includePrivates)
-  const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, includePrivates)
+  const bumpedPackages = filterPrivatePackagesUnlessIncluded(allBumpedPackages, privatePackages)
+  const listedPackages = packages && filterPrivatePackagesUnlessIncluded(packages, privatePackages)
   // Independent mode has no global version: each package has its own,
   // listed in the packages table below. Same with version groups when the
   // unified/selective group is not released.
@@ -260,7 +288,8 @@ function buildSuccessComment({
     branch,
   }))
 
-  lines.push(...buildPackageTableLines(bumpedPackages, listedPackages))
+  const groupsOverview = getGroupsOverview(config, bumpResult)
+  lines.push(...(groupsOverview ? buildGroupTableLines(groupsOverview) : buildPackageTableLines(bumpedPackages, listedPackages)))
 
   if (isPublishing) {
     lines.push(...buildPublishedInstallLines({ config, bumpedPackages: allBumpedPackages, packages, version, distTag }))
@@ -273,7 +302,7 @@ function buildNoReleaseComment({ branch, date }: CommentBodyParams): string {
   const lines: string[] = [
     PR_COMMENT_MARKER,
     '',
-    '## ℹ️ Release — no new version',
+    '## ℹ️ Release: no new version',
     '',
     'No new version was published. There are no qualifying commits since the last release.',
     '',
@@ -306,6 +335,11 @@ function buildFailedComment({ branch, date, releaseContext }: CommentBodyParams)
 }
 
 export function buildCommentBody(params: CommentBodyParams): string {
+  const report = params.releaseContext?.report
+  if (report) {
+    return `${PR_COMMENT_MARKER}\n\n${formatReleaseReportMarkdown(report)}`
+  }
+
   const status = params.releaseContext?.status ?? 'success'
   switch (status) {
     case 'no-release':
@@ -317,19 +351,53 @@ export function buildCommentBody(params: CommentBodyParams): string {
   }
 }
 
-export async function prComment(options: PrCommentOptions = {}): Promise<boolean> {
-  const dryRun = options.dryRun ?? false
-  logger.debug(`Dry run: ${dryRun}`)
+export function prComment(options: PrCommentOptions = {}): Promise<boolean> {
+  // One git cache for the run: the same refs and ranges are read for each package and each step
+  return withGitCache(() => runPrComment(options))
+}
 
-  const config = options.config ?? await loadRelizyConfig({
-    configFile: options.configName,
-    overrides: {
-      logLevel: options.logLevel,
+function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
+  return runCommand({
+    name: 'pr-comment',
+    label: 'PR comment',
+    options: { config: options.config, dryRun: options.dryRun },
+    loadConfig: async () => options.config ?? await loadRelizyConfig({
+      configFile: options.configName,
+      overrides: {
+        logLevel: options.logLevel,
+      },
+    }),
+    run: async ({ config, dryRun, ui }) => {
+      const { posted, pr } = await ui.step({
+        running: 'Commenting the pull request',
+        done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',
+        run: () => commentPullRequest({ config, options, dryRun }),
+      })
+
+      const number = formatPrNumber(pr)
+      ui.complete(posted
+        ? { message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`, links: pr ? [{ label: number.trim(), url: pr.url }] : [] }
+        : { message: 'No pull request to comment', nothing: true })
+
+      return posted
     },
   })
+}
 
+function formatPrNumber(pr: { number: number } | undefined): string {
+  return pr ? ` #${pr.number}` : ''
+}
+
+/**
+ * Build the comment and post it on the pull request of the branch
+ */
+async function commentPullRequest({ config, options, dryRun }: {
+  config: ResolvedRelizyConfig
+  options: PrCommentOptions
+  dryRun: boolean
+}): Promise<{ posted: boolean, pr?: { number: number, url: string } }> {
   const branch = getCurrentGitBranch(config.cwd) ?? 'unknown'
-  const date = getFormattedDate()
+  const date = formatUtcDate(new Date())
 
   // For standalone CLI (no releaseContext), read packages from disk as fallback
   let packages: Array<{ name: string, version: string, private: boolean }> = []
@@ -345,9 +413,8 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
     const readPkgs = readPackages({
       cwd: config.cwd,
       patterns: getMonorepoPackagePatterns(config),
-      ignorePackageNames: config.monorepo?.ignorePackageNames,
       ignored: config.monorepo?.ignored,
-      includePrivates: config.monorepo?.includePrivates,
+      privatePackages: config.monorepo?.privatePackages,
     })
     packages = readPkgs.map(pkg => ({ name: pkg.name, version: pkg.version, private: pkg.private }))
   }
@@ -364,24 +431,27 @@ export async function prComment(options: PrCommentOptions = {}): Promise<boolean
   const pr = await detectPullRequest({
     config,
     prNumber: options.prNumber,
+    sha: options.releaseContext?.sha ?? getHeadCommit(config.cwd),
   })
+
+  if (pr) {
+    recordLink({ step: 'prComment', label: `#${pr.number}`, url: pr.url })
+  }
 
   if (dryRun) {
     const mode: PrCommentMode = config.prComment.mode
     const prDisplay = pr ? `#${pr.number} (${pr.url})` : 'Not detected'
     const statusDisplay = options.releaseContext?.status ?? 'success'
-    logger.box(
-      `[dry-run] PR Comment Preview\n\nPR: ${prDisplay}\nMode: ${mode}\nStatus: ${statusDisplay}\n\n${body}`,
-    )
-    return true
+    showPreview({ title: 'PR comment', meta: [`PR: ${prDisplay}`, `Mode: ${mode}`, `Status: ${statusDisplay}`], content: body })
+    return { posted: Boolean(pr), ...(pr ? { pr } : {}) }
   }
 
   if (!pr) {
     logger.warn('No PR/MR detected. Use --pr-number to specify one manually.')
-    return false
+    return { posted: false }
   }
 
-  return await postPrComment({ config, pr, body })
+  return { posted: await postPrComment({ config, pr, body }), pr }
 }
 
 /**
@@ -394,15 +464,11 @@ export async function tryPostPrComment({
   releaseContext,
   prNumber,
   dryRun,
-  logLevel,
-  configName,
 }: {
   config: ResolvedRelizyConfig
   releaseContext: ReleaseContext
   prNumber?: number
   dryRun: boolean
-  logLevel?: string
-  configName?: string
 }): Promise<boolean> {
   if (!config.release.prComment) {
     logger.info('Skipping PR comment (--no-pr-comment)')
@@ -413,8 +479,6 @@ export async function tryPostPrComment({
     return await prComment({
       prNumber,
       dryRun,
-      logLevel: logLevel as any,
-      configName,
       config,
       releaseContext,
     })

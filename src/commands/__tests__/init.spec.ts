@@ -2,13 +2,21 @@ import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import process from 'node:process'
+import { stripVTControlCharacters } from 'node:util'
 import { cancel, confirm, log, multiselect, note, select, text } from '@clack/prompts'
 import { logger } from '@maz-ui/node'
+import { setInteractiveTerminal } from '../../../tests/mocks'
 import { getDefaultConfig } from '../../core'
 import { init } from '../init'
 
 const CANCEL = Symbol('cancel')
+
+/**
+ * The notes shown by init, without their colors (on in CI)
+ */
+function notes() {
+  return vi.mocked(note).mock.calls.map(([text, title]) => [stripVTControlCharacters(String(text)), title])
+}
 
 vi.mock('@clack/prompts', () => ({
   cancel: vi.fn(),
@@ -29,8 +37,8 @@ function typesExcept(...hidden: string[]) {
 }
 
 // The CI running these tests must not switch the command to the non-interactive mode
-vi.mock('../../core/utils', async importActual => ({
-  ...await importActual<typeof import('../../core/utils')>(),
+vi.mock('../../core/ci-env', async importActual => ({
+  ...await importActual<typeof import('../../core/ci-env')>(),
   isInCI: () => false,
 }))
 
@@ -145,10 +153,22 @@ describe('Given init command', () => {
       vi.unstubAllEnvs()
     })
 
-    it('Then refuses to replace an existing config without --force', async () => {
-      write('relizy.config.mjs', 'export default {}')
+    it('Then keeps an existing config without --force, and sets up the rest from it', async () => {
+      const config = 'export default { release: { publish: false }, social: { slack: { enabled: true } } }'
+      write('relizy.config.mjs', config)
 
-      await expect(init({ cwd, yes: true })).rejects.toThrow('A relizy config already exists (relizy.config.mjs), run with --force to replace it')
+      const result = await init({ cwd, yes: true })
+
+      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, configFile: join(cwd, 'relizy.config.mjs'), scripts: ['release'] }))
+      expect(read('relizy.config.mjs')).toBe(config)
+      expect(existsSync(join(cwd, 'relizy.config.ts'))).toBe(false)
+      expect(vi.mocked(log.info)).toHaveBeenCalledWith('A relizy config already exists (relizy.config.mjs): kept, run with --force to replace it')
+      expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint --edit')
+      // The secrets follow the kept config: Slack, nothing published
+      const workflow = read('.github/workflows/release.yml')
+      expect(workflow).toContain('slack-token')
+      expect(workflow).not.toContain('npm-token')
+      expect(readJson('package.json').version).toBeUndefined()
     })
 
     it('Then replaces an existing config of another format with --force', async () => {
@@ -187,30 +207,38 @@ describe('Given init command', () => {
   })
 
   describe('When answering the questions', () => {
-    let ttyDescriptor: PropertyDescriptor | undefined
+    let restoreTerminal: () => void
 
     beforeEach(() => {
-      ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      restoreTerminal = setInteractiveTerminal(true)
     })
 
     afterEach(() => {
-      if (ttyDescriptor) {
-        Object.defineProperty(process.stdin, 'isTTY', ttyDescriptor)
-      }
-      else {
-        delete (process.stdin as { isTTY?: boolean }).isTTY
-      }
+      restoreTerminal()
     })
 
-    it('Then cancels when the existing config is kept', async () => {
+    it('Then keeps the existing config and asks the other steps only', async () => {
       write('relizy.config.ts', 'export default {}')
-      answer(confirm, [false])
+      answer(select, ['keep', 'manual'])
+      answer(confirm, [true, true, true, true])
+
+      const result = await init({ cwd })
+
+      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, workflow: { file: '.github/workflows/release.yml' } }))
+      expect(read('relizy.config.ts')).toBe('export default {}')
+      expect(notes()).toContainEqual([expect.stringContaining('keep     relizy.config.ts'), 'Changes'])
+      expect(readJson('package.json').scripts.release).toBe('relizy release')
+    })
+
+    it('Then cancels from the existing config, nothing written', async () => {
+      write('relizy.config.ts', 'export default {}')
+      answer(select, ['cancel'])
 
       const result = await init({ cwd })
 
       expect(result.written).toBe(false)
-      expect(read('relizy.config.ts')).toBe('export default {}')
+      expect(vi.mocked(cancel)).toHaveBeenCalledWith('Init cancelled, nothing written')
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
     })
 
     it('Then stops without writing when a question is cancelled', async () => {
@@ -240,7 +268,8 @@ describe('Given init command', () => {
     it('Then writes the basic and advanced answers', async () => {
       answer(select, ['publish', 'selective', 'restricted', 'append'])
       answer(multiselect, [['packages/*'], ['dependencies', 'devDependencies'], typesExcept('chore'), ['slack'], ['providerRelease']])
-      answer(confirm, [true, false, false, true, false, true])
+      // advanced, capZeroMajor, rootChangelog, hook, script, workflow, apply
+      answer(confirm, [true, false, false, true, false, false, true])
       answer(text, ['', 'https://npm.acme.dev', 'pnpm build', '#releases', 'https://acme.dev/changelog', 'fr'])
 
       const result = await init({ cwd })
@@ -266,16 +295,76 @@ describe('Given init command', () => {
       write('.git/hooks/commit-msg', '#!/bin/sh\nnpx commitlint --edit "$1"\n')
       answer(select, ['version', 'selective'])
       answer(multiselect, [['packages/*', 'tools/*']])
-      answer(confirm, [false, true, true, true, true])
+      // advanced, hook, script, workflow, apply, replace the hook
+      answer(confirm, [false, true, true, false, true, true])
 
       const result = await init({ cwd })
 
       expect(result.config).toEqual({
-        monorepo: { versionMode: 'selective', packages: ['packages/*', 'tools/*'], includePrivates: true },
+        monorepo: { versionMode: 'selective', packages: ['packages/*', 'tools/*'], privatePackages: 'release' },
         release: { publish: false },
       })
       expect(result.hook?.status).toBe('replaced')
       expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint')
+    })
+  })
+
+  describe('When generating the release workflow of the CI', () => {
+    it('Then writes the GitHub Actions workflow without asking, released on demand, with the secrets of the config', async () => {
+      const result = await init({ cwd, yes: true })
+
+      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
+      const workflow = read('.github/workflows/release.yml')
+      expect(workflow).toContain('  workflow_dispatch:\n')
+      // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+      expect(workflow).toContain('        uses: relizy/action@v2\n        with:\n          release-type: ${{ inputs.release }}\n')
+      // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+      expect(workflow).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+      expect(workflow).toContain('      pull-requests: write\n')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
+      expect(notes()).toContainEqual([expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps'])
+    })
+
+    it('Then keeps an existing workflow without asking', async () => {
+      write('.github/workflows/release.yml', 'name: Mine\n')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.workflow).toBeUndefined()
+      expect(read('.github/workflows/release.yml')).toBe('name: Mine\n')
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith('.github/workflows/release.yml already exists: the release workflow is not generated')
+    })
+
+    it('Then writes nothing with --no-workflow, nor in dry run where it shows it', async () => {
+      await init({ cwd, yes: true, workflow: false })
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
+
+      rmSync(join(cwd, 'relizy.config.ts'))
+      vi.mocked(note).mockClear()
+      await init({ cwd, yes: true, dryRun: true })
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('name: Release'), '.github/workflows/release.yml')
+    })
+
+    it('Then puts the GitLab CI job aside an existing .gitlab-ci.yml, released at each push, with the include to add', async () => {
+      execFileSync('git', ['remote', 'set-url', 'origin', 'git@gitlab.com:acme/mono.git'], { cwd })
+      write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
+      write('.nvmrc', 'v24.11.0\n')
+      answer(select, ['publish', 'selective', 'push'])
+      answer(multiselect, [['packages/*']])
+      // advanced, hook, script, workflow, apply
+      answer(confirm, [false, false, false, true, true])
+
+      const restoreTerminal = setInteractiveTerminal(true)
+      const result = await init({ cwd }).finally(restoreTerminal)
+
+      expect(result.workflow).toEqual({ file: '.gitlab/ci/relizy.yml', include: 'include:\n  - local: .gitlab/ci/relizy.yml' })
+      expect(read('.gitlab-ci.yml')).toBe('test:\n  script: [pnpm test]\n')
+      const job = read('.gitlab/ci/relizy.yml')
+      // On gitlab.com: the component of the CI/CD catalog, at each push, with the Node version of the project
+      expect(job).toContain('  - component: gitlab.com/relizy/relizy/release@2\n    inputs:\n      when: on_success\n      image: node:24\n')
+      expect(job).not.toContain('RELEASE_TYPE')
+      expect(notes()).toContainEqual([expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps'])
     })
   })
 
@@ -322,20 +411,14 @@ describe('Given init command', () => {
     })
 
     describe('And answering the questions', () => {
-      let ttyDescriptor: PropertyDescriptor | undefined
+      let restoreTerminal: () => void
 
       beforeEach(() => {
-        ttyDescriptor = Object.getOwnPropertyDescriptor(process.stdin, 'isTTY')
-        Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+        restoreTerminal = setInteractiveTerminal(true)
       })
 
       afterEach(() => {
-        if (ttyDescriptor) {
-          Object.defineProperty(process.stdin, 'isTTY', ttyDescriptor)
-        }
-        else {
-          delete (process.stdin as { isTTY?: boolean }).isTTY
-        }
+        restoreTerminal()
       })
 
       it('Then only asks the questions relevant to a standalone package', async () => {
@@ -356,6 +439,22 @@ describe('Given init command', () => {
         expect(vi.mocked(select)).toHaveBeenCalledWith(expect.objectContaining({ message: 'Access of the published packages:', initialValue: 'restricted' }))
         expect(vi.mocked(text)).toHaveBeenCalledWith(expect.objectContaining({ initialValue: expect.stringContaining('run format') }))
         expect(result.hook).toBeUndefined()
+      })
+
+      it('Then leaves the formatting of the changelogs to the formatter detected', async () => {
+        writePackage('.', { name: 'lib', version: '0.4.0', scripts: { format: 'prettier -w .' }, devDependencies: { prettier: '^3.0.0' } })
+        answer(select, ['publish', 'public'])
+        answer(confirm, [true, true, false, true])
+        answer(multiselect, [typesExcept(), ['twitter'], ['twitter']])
+        answer(text, ['', '', '', '', ''])
+
+        const result = await init({ cwd })
+
+        expect(result.config.changelog).toBeUndefined()
+        expect(vi.mocked(text)).toHaveBeenCalledWith(expect.objectContaining({
+          message: 'Command formatting the changelogs once written (leave empty to use prettier, detected):',
+          initialValue: undefined,
+        }))
       })
 
       it('Then keeps an existing commit-msg hook when the replacement is declined', async () => {

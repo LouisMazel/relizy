@@ -1,8 +1,9 @@
 import type { ResolvedRelizyConfig } from '../../core'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockCommit } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { captureCliOutput } from '../../../tests/cli-output'
+import { anyHookContext, createMockCommit, setInteractiveTerminal } from '../../../tests/mocks'
+import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -27,10 +28,14 @@ vi.mock('node:process', () => ({
 // Mock core functions
 vi.mock('../../core', async () => ({
   ...await vi.importActual<typeof import('../../core/groups')>('../../core/groups'),
+  ...await vi.importActual<typeof import('../../core/errors')>('../../core/errors'),
+  ...await vi.importActual<typeof import('../../core/release-ui')>('../../core/release-ui'),
+  getHookContext: (await vi.importActual<typeof import('../../core/utils')>('../../core/utils')).getHookContext,
   checkGitStatusIfDirty: vi.fn(),
   confirmDirtyGitStatus: vi.fn(),
   resetReleaseFiles: vi.fn(),
-  confirmBump: vi.fn(() => true),
+  confirmBump: vi.fn(({ display }: { display: () => void }) => display()),
+  displayBump: vi.fn(),
   determineSemverChange: vi.fn(() => 'minor'),
   fetchGitTags: vi.fn(() => {}),
   getCanaryVersion: vi.fn(() => '1.1.0-0.canary-abc1234'),
@@ -101,6 +106,17 @@ vi.mock('../../core', async () => ({
   writeVersion: vi.fn(),
   executeHook: vi.fn(() => {}),
 }))
+
+// The commands run as in a terminal, where the bump is confirmed (`confirmBump` is mocked)
+let restoreTerminal: () => void
+
+beforeEach(() => {
+  restoreTerminal = setInteractiveTerminal(true)
+})
+
+afterEach(() => {
+  restoreTerminal()
+})
 
 describe('Given bump command', () => {
   const mockCwd = '/test-repo'
@@ -213,19 +229,14 @@ describe('Given bump command', () => {
         'success:bump',
         expect.any(Object),
         false,
+        anyHookContext,
       )
-      expect(checkGitStatusIfDirty).toHaveBeenCalledWith()
+      expect(checkGitStatusIfDirty).toHaveBeenCalledWith(mockCwd)
       expect(confirmDirtyGitStatus).not.toHaveBeenCalled()
       expect(resetReleaseFiles).toHaveBeenCalled()
       expect(fetchGitTags).toHaveBeenCalledWith(mockCwd)
-      expect(readPackages).toHaveBeenCalledWith({
-        cwd: mockCwd,
-        ignorePackageNames: undefined,
-        patterns: ['packages/*'],
-      })
-      expect(confirmBump).toHaveBeenCalledWith(
-        expect.any(Object),
-      )
+      expect(confirmBump).toHaveBeenCalledTimes(1)
+      expect(displayBump).toHaveBeenCalledWith(expect.objectContaining({ versionMode: 'unified', currentVersion: '1.0.0', newVersion: '1.1.0' }))
       expect(result.bumped).toBe(true)
       if (result.bumped) {
         expect(result.newVersion).toBe('1.1.0')
@@ -309,7 +320,7 @@ describe('Given bump command', () => {
       await bump({ type: 'patch', yes: true, dryRun: true })
 
       expect(checkGitStatusIfDirty).not.toHaveBeenCalled()
-      expect(confirmDirtyGitStatus).toHaveBeenCalledWith({ dryRun: true })
+      expect(confirmDirtyGitStatus).toHaveBeenCalledWith({ dryRun: true, cwd: mockCwd })
     })
 
     it('Then updates lerna.json in unified mode', async () => {
@@ -768,17 +779,29 @@ describe('Given bump command', () => {
     })
   })
 
-  describe('When includePrivates option is provided', () => {
+  describe('When the privatePackages option is provided', () => {
     it('Then forwards it to loadRelizyConfig overrides', async () => {
-      await bump({ includePrivates: true }).catch(() => undefined)
+      await bump({ privatePackages: 'release' }).catch(() => undefined)
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            monorepo: expect.objectContaining({ includePrivates: true }),
+            monorepo: expect.objectContaining({ privatePackages: 'release' }),
           }),
         }),
       )
+    })
+  })
+
+  describe('When the bump options of the config are given', () => {
+    it('Then forwards capZeroMajor and outOfRangePeers to the config', async () => {
+      await bump({ capZeroMajor: false, outOfRangePeers: 'warn' }).catch(() => undefined)
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          bump: expect.objectContaining({ capZeroMajor: false, outOfRangePeers: 'warn' }),
+        }),
+      }))
     })
   })
 
@@ -884,6 +907,17 @@ describe('Given bump command', () => {
       })
 
       expect(result.bumped).toBe(false)
+    })
+  })
+
+  describe('When a prompt is refused', () => {
+    it('Then rethrows the cancellation without the error hook nor writing', async () => {
+      vi.mocked(confirmDirtyGitStatus).mockRejectedValueOnce(new RelizyCancelError('Release cancelled: commit or stash your changes first'))
+
+      await expect(bump({ type: 'patch' })).rejects.toThrow(RelizyCancelError)
+
+      expect(executeHook).not.toHaveBeenCalledWith('error:bump', expect.any(Object), false)
+      expect(writeVersion).not.toHaveBeenCalled()
     })
   })
 
@@ -1048,7 +1082,7 @@ describe('Given bump command', () => {
         canary: true,
       })
 
-      expect(confirmBump).toHaveBeenCalledWith(
+      expect(displayBump).toHaveBeenCalledWith(
         expect.objectContaining({
           currentVersion: '1.0.0',
           newVersion: '1.1.0-0.canary-abc1234',
@@ -1232,12 +1266,94 @@ describe('Given bump command', () => {
         canary: true,
       })
 
-      expect(confirmBump).toHaveBeenCalledWith(
+      expect(displayBump).toHaveBeenCalledWith(
         expect.objectContaining({
           versionMode: 'independent',
           force: false,
         }),
       )
     })
+  })
+})
+
+describe('Given the output of bump in CI', () => {
+  const mockCwd = '/test-repo'
+  let output: ReturnType<typeof captureCliOutput>
+  const config = {
+    cwd: mockCwd,
+    bump: { type: 'minor', yes: true, clean: true, dependencyTypes: ['dependencies'] },
+    release: { clean: true },
+    monorepo: { versionMode: 'unified', packages: ['packages/*'] },
+    types: { feat: { title: 'Features', semver: 'minor' }, fix: { title: 'Bug Fixes', semver: 'patch' } },
+    templates: { commitMessage: 'chore: bump version {{newVersion}}', tagBody: 'v{{newVersion}}', tagMessage: 'chore: bump version {{newVersion}}', emptyChangelogContent: 'No changes' },
+    logLevel: 'default',
+  } as unknown as ResolvedRelizyConfig
+
+  function mockPackages(newVersion: string | undefined) {
+    vi.mocked(getRootPackage).mockResolvedValueOnce({ name: 'root-package', private: false, version: '1.0.0', newVersion, path: mockCwd, fromTag: 'v1.0.0', commits: newVersion ? [createMockCommit('feat', 'add feature')] : [] })
+    vi.mocked(getPackages).mockResolvedValueOnce(newVersion
+      ? ['pkg-a', 'pkg-b'].map(name => ({ name, version: '1.0.0', path: `${mockCwd}/packages/${name}`, newVersion, reason: 'commits' as const, commits: [createMockCommit('feat', 'add feature')], fromTag: 'v1.0.0', dependencies: [], private: false }))
+      : [])
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vol.fromJSON({
+      [`${mockCwd}/package.json`]: JSON.stringify({ name: 'root-package', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-a/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0' }),
+      [`${mockCwd}/packages/pkg-b/package.json`]: JSON.stringify({ name: 'pkg-b', version: '1.0.0' }),
+    }, mockCwd)
+    vi.mocked(loadRelizyConfig).mockResolvedValueOnce(config)
+    output = captureCliOutput()
+  })
+
+  afterEach(() => {
+    output.restore()
+    vol.reset()
+  })
+
+  it('Then lists the packages with --yes, then tells what it bumped', async () => {
+    mockPackages('1.1.0')
+
+    await bump({ type: 'minor', yes: true })
+
+    expect(output.lines()).toEqual([
+      'relizy bump · ci',
+      '▸ Computing the versions',
+      expect.stringMatching(/^✔ 2 packages to release {2}\d+ms$/),
+      '  pkg-a  1.0.0  →  1.1.0  1 feature',
+      '  pkg-b  1.0.0  →  1.1.0  1 feature',
+      expect.stringMatching(/^✔ Bumped 2 packages {2}\d+ms$/),
+    ])
+  })
+
+  it('Then tells when there is nothing to bump', async () => {
+    mockPackages(undefined)
+
+    await bump({ type: 'minor', yes: true })
+
+    expect(output.lines().at(-1)).toMatch(/^○ Nothing to bump: no commit since the last release triggers a new version {2}\d+ms$/)
+  })
+
+  it('Then fails right away without --yes when nobody can confirm, with the fix', async () => {
+    setInteractiveTerminal(false)
+    vi.mocked(loadRelizyConfig).mockReset().mockResolvedValueOnce({ ...config, bump: { ...config.bump, yes: false } })
+
+    await expect(bump({ type: 'minor' })).rejects.toThrow('relizy bump asks to confirm the new versions, but the terminal is not interactive: run "relizy bump --yes" to confirm them in advance')
+
+    expect(getPackages).not.toHaveBeenCalled()
+    expect(output.lines()).toEqual(expect.arrayContaining(['✖ Bump failed', '  relizy bump asks to confirm the new versions, but the terminal is not interactive: run "relizy bump --yes" to confirm them in advance']))
+  })
+
+  it('Then shows the error once', async () => {
+    vi.mocked(fetchGitTags).mockRejectedValueOnce(new Error('fetch failed'))
+
+    await expect(bump({ type: 'minor', yes: true })).rejects.toThrow('fetch failed')
+
+    expect(output.lines()).toEqual(expect.arrayContaining([
+      expect.stringMatching(/^✖ Computing the versions failed {2}\d+ms$/),
+      '✖ Bump failed',
+      '  fetch failed',
+    ]))
   })
 })

@@ -1,12 +1,20 @@
 import type { BumpResultTruthy, GroupBumpResult } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
-import { execSync } from 'node:child_process'
-import { execPromise } from '@maz-ui/node'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { createCommitAndTags, getReleaseTagNames, getReleaseTags } from '../git'
+import { formatGitCommand, runGit, runGitSync } from '../git-exec'
 import { readPackageJson } from '../repo'
 
-vi.mock('node:child_process')
+vi.mock('../git-exec', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../git-exec')>()
+  return {
+    ...actual,
+    runGitSync: vi.fn(),
+    runGit: vi.fn(),
+    tryGitSync: vi.fn(),
+    tryGit: vi.fn(),
+  }
+})
 
 vi.mock('../repo', () => ({
   readPackageJson: vi.fn(),
@@ -15,6 +23,7 @@ vi.mock('../repo', () => ({
 
 vi.mock('../utils', () => ({
   executeHook: vi.fn(),
+  getHookContext: vi.fn(),
 }))
 
 function bumpedPackage(name: string, newVersion: string): BumpResultTruthy['bumpedPackages'][number] {
@@ -23,6 +32,7 @@ function bumpedPackage(name: string, newVersion: string): BumpResultTruthy['bump
 
 const mainGroup: GroupBumpResult = {
   name: 'main',
+  title: 'main',
   versionMode: 'selective',
   bumped: true,
   newVersion: '7.0.0',
@@ -32,26 +42,29 @@ const mainGroup: GroupBumpResult = {
 
 const headerGroup: GroupBumpResult = {
   name: 'header',
+  title: 'header',
   versionMode: 'independent',
   bumped: true,
   bumpedPackages: [bumpedPackage('@scope/nav', '1.2.1'), bumpedPackage('@scope/login', '2.0.0')],
 }
 
 function createGroupsConfig(): ResolvedRelizyConfig {
-  const config = createMockConfig({ bump: { type: 'release' } })
-  config.monorepo = {
-    groups: [
-      { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-      { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
-    ],
-  }
+  const config = createMockConfig({
+    bump: { type: 'release' },
+    monorepo: {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+      ],
+    },
+    signTags: false,
+  })
   config.templates = { ...config.templates, commitMessage: undefined, commitBody: undefined, tagBody: 'v{{newVersion}}', tagMessage: 'Bump version to {{newVersion}}' }
-  config.signTags = false
   return config
 }
 
 function getExecutedCommands(): string[] {
-  return vi.mocked(execPromise).mock.calls.map(([command]) => command as string)
+  return vi.mocked(runGit).mock.calls.map(([args]) => formatGitCommand(args))
 }
 
 describe('Given the release tags of version groups', () => {
@@ -97,8 +110,8 @@ describe('Given createCommitAndTags function with version groups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '7.0.0', path: '/project', private: true })
-    vi.mocked(execSync).mockReturnValue('')
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' } as any)
+    vi.mocked(runGitSync).mockReturnValue('')
+    vi.mocked(runGit).mockResolvedValue('')
   })
 
   function commit(groups: GroupBumpResult[], config = createGroupsConfig()) {
@@ -109,7 +122,6 @@ describe('Given createCommitAndTags function with version groups', () => {
       newVersion: groups.find(group => group.versionMode !== 'independent')?.newVersion,
       groups,
       dryRun: false,
-      logLevel: 'silent',
     })
   }
 
@@ -128,9 +140,9 @@ describe('Given createCommitAndTags function with version groups', () => {
 
     expect(tags).toEqual(['v7.0.0', '@scope/nav@1.2.1', '@scope/login@2.0.0'])
     expect(getExecutedCommands()).toEqual(expect.arrayContaining([
-      'git tag  -a v7.0.0 -m "Bump version to 7.0.0"',
-      'git tag  -a @scope/nav@1.2.1 -m "Bump version to 1.2.1"',
-      'git tag  -a @scope/login@2.0.0 -m "Bump version to 2.0.0"',
+      'git tag -a v7.0.0 -m "Bump version to 7.0.0"',
+      'git tag -a @scope/nav@1.2.1 -m "Bump version to 1.2.1"',
+      'git tag -a @scope/login@2.0.0 -m "Bump version to 2.0.0"',
     ]))
   })
 

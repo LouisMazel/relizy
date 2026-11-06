@@ -1,14 +1,28 @@
 import type { AIPromptTarget } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
+import type { AIReleaseContext } from './prompts'
+import type { AIGenerateRequest } from './provider'
 import { logger } from '@maz-ui/node'
-import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, SLACK_PROMPT, TWITTER_PROMPT } from './prompts'
+import { upperFirst } from '@maz-ui/utils/helpers/upperFirst'
+import { formatDuration, plural } from '../format'
+import { describeAIUsage, isAIPreviewEnabled, recordAIRewrite, reportProgress, reportStepNote } from '../progress'
+import { getSocialChangelog } from '../social'
+import { isPrerelease, isPrereleaseOnlyRelease } from '../version'
+import { BASE_PROMPT, MAX_LENGTH_PROMPT, PROVIDER_RELEASE_PROMPT, RELEASES_PROMPT, SLACK_FORMAT_PROMPTS, SLACK_PROMPT, TEAMS_PROMPT, TWITTER_PROMPT, TWITTER_RELEASES_PROMPT } from './prompts'
 import { getAIProvider } from './registry'
+
+export type { AIReleaseContext } from './prompts'
 
 const PLATFORM_PROMPTS: Record<AIPromptTarget, string> = {
   providerRelease: PROVIDER_RELEASE_PROMPT,
   twitter: TWITTER_PROMPT,
   slack: SLACK_PROMPT,
+  teams: TEAMS_PROMPT,
 }
+
+const PLATFORM_NAMES = { twitter: 'Twitter', slack: 'Slack', teams: 'Teams' } as const
+
+export type AISocialPlatform = keyof typeof PLATFORM_NAMES
 
 function substitutePlaceholders(prompt: string, vars: Record<string, string | undefined>): string {
   let result = prompt
@@ -51,6 +65,9 @@ function assemblePrompt(
   }
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
+  if (target === 'slack') {
+    parts.push(SLACK_FORMAT_PROMPTS[getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full' ? 'full' : 'summary'])
+  }
   if (maxLength !== undefined) {
     parts.push(MAX_LENGTH_PROMPT)
   }
@@ -67,18 +84,51 @@ export function applyAIOverride(config: ResolvedRelizyConfig, ai?: boolean): voi
     config.ai = {} as ResolvedRelizyConfig['ai']
   }
   const aiConfig = config.ai as NonNullable<ResolvedRelizyConfig['ai']>
-  aiConfig.providerRelease = { enabled: ai }
+  // `--ai` and `--no-ai` switch the targets, their `onlyStable` stays
+  aiConfig.providerRelease = { ...aiConfig.providerRelease, enabled: ai }
   aiConfig.social = {
-    twitter: { enabled: ai },
-    slack: { enabled: ai },
+    twitter: { ...aiConfig.social?.twitter, enabled: ai },
+    slack: { ...aiConfig.social?.slack, enabled: ai },
+    teams: { ...aiConfig.social?.teams, enabled: ai },
   }
+}
+
+/**
+ * True when the AI rewrites this version for the target: with `onlyStable`
+ * (of the target, else `ai.onlyStable`), a prerelease keeps its raw changelog
+ */
+export function isAIRewritingVersion(config: ResolvedRelizyConfig, target: AIPromptTarget, version: string | undefined): boolean {
+  return !isAIOnlyStable(config, target) || !isPrerelease(version)
+}
+
+/**
+ * True when the AI of the target can run in the release: false when every
+ * version is a prerelease (see `isPrereleaseOnlyRelease`) with `onlyStable`,
+ * where they keep their raw changelog. The safety checks skip its provider then.
+ */
+export function isAIRunInRelease(config: ResolvedRelizyConfig, target: AIPromptTarget, versions?: string[]): boolean {
+  return !isAIOnlyStable(config, target) || !isPrereleaseOnlyRelease(config, versions)
+}
+
+function isAIOnlyStable(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {
+  const targetConfig = target === 'providerRelease' ? config.ai?.providerRelease : config.ai?.social?.[target]
+
+  return targetConfig?.onlyStable ?? config.ai?.onlyStable ?? true
 }
 
 export function isAIProviderReleaseEnabled(config: ResolvedRelizyConfig): boolean {
   return !!config.ai?.providerRelease?.enabled
 }
 
-export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: 'twitter' | 'slack'): boolean {
+export function isAISocialEnabled(config: ResolvedRelizyConfig, platform: AISocialPlatform): boolean {
+  // The AI writes the changelog of a Teams card with `changelog: 'summary'`, of a Slack message unless `changelog: 'none'`
+  if (platform === 'teams' && getSocialChangelog(config.social?.teams?.changelog, 'none') !== 'summary') {
+    return false
+  }
+  if (platform === 'slack' && getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'none') {
+    return false
+  }
+
   return !!config.social?.[platform]?.enabled && !!config.ai?.social?.[platform]?.enabled
 }
 
@@ -87,24 +137,70 @@ export async function aiSafetyCheck({ config }: { config: ResolvedRelizyConfig }
   await provider.safetyCheck(config)
 }
 
-export async function generateAIProviderReleaseBody({ config, rawBody }: { config: ResolvedRelizyConfig, rawBody: string }): Promise<string> {
+/**
+ * The AI is not called in dry-run (each call costs): the raw text is kept
+ * and the output tells that the rewrite is simulated
+ */
+function simulateRewrite({ subject, provider }: { subject: string, provider: string }): void {
+  logger.info(`✨ AI rewrite of ${subject} simulated (dry run, --ai-preview to call the AI): the raw text is kept`)
+  reportStepNote(`${upperFirst(subject)}: AI rewrite simulated (${provider} not called in dry run, see --ai-preview)`, { ai: true })
+  recordAIRewrite({ subject, provider, simulated: true })
+}
+
+/**
+ * Call the provider, and record the rewrite with its duration, tokens and cost
+ */
+async function rewrite({ subject, config, request }: {
+  subject: string
+  config: ResolvedRelizyConfig
+  request: AIGenerateRequest
+}): Promise<string> {
+  const provider = getAIProvider(config)
+  const started = Date.now()
+  logger.info(`✨ Rewriting ${subject} with AI (${provider.name})`)
+  reportProgress(`Rewriting ${subject} with AI (${provider.name})`, { ai: true })
+
+  const { text, usage = {} } = await provider.generate(config, request)
+
+  const durationMs = Date.now() - started
+  const details = [formatDuration(durationMs), ...describeAIUsage(usage)].join(', ')
+  logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${details}`)
+  reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider.name}) in ${details}`, { ai: true })
+  recordAIRewrite({ subject, provider: provider.name, simulated: false, durationMs, ...usage })
+
+  return text
+}
+
+export async function generateAIProviderReleaseBody({ config, rawBody, label, context, dryRun = false }: {
+  config: ResolvedRelizyConfig
+  rawBody: string
+  /**
+   * The release, for the output: `v2.0.0`
+   */
+  label?: string
+  context?: AIReleaseContext
+  dryRun?: boolean
+}): Promise<string> {
   if (!rawBody.trim()) {
     logger.debug('AI skipped: empty changelog body')
     return rawBody
   }
 
   const provider = getAIProvider(config)
+  const subject = label ? `the notes of ${label}` : 'the release notes'
+
   const systemPrompt = assemblePrompt(config, 'providerRelease')
 
-  logger.info(`✨ Rewriting release notes with AI (provider: ${provider.name})`)
   logger.verbose('AI system prompt:', systemPrompt)
   logger.verbose('AI input body:', rawBody)
 
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return rawBody
+  }
+
   try {
-    const started = Date.now()
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody })
-    const elapsed = Date.now() - started
-    logger.info(`✅ AI rewrite done in ${elapsed}ms (${rawBody.length} → ${output.length} chars)`)
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
     logger.verbose('AI output body:', output)
     return output
   }
@@ -113,14 +209,16 @@ export async function generateAIProviderReleaseBody({ config, rawBody }: { confi
   }
 }
 
-export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength }: {
+export async function generateAISocialChangelog({ config, rawBody, fallbackBody, platform, maxLength, context, dryRun = false }: {
   config: ResolvedRelizyConfig
+  dryRun?: boolean
   /** Input sent to the AI. Typically the rich (non-minified) changelog so the model has context. */
   rawBody: string
   /** Value returned when the AI fails and fallback is 'raw'. Defaults to rawBody. */
   fallbackBody?: string
-  platform: 'twitter' | 'slack'
+  platform: AISocialPlatform
   maxLength?: number
+  context?: AIReleaseContext
 }): Promise<string> {
   const fallbackValue = fallbackBody ?? rawBody
 
@@ -130,23 +228,109 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
 
   const provider = getAIProvider(config)
+  const subject = `the ${PLATFORM_NAMES[platform]} post`
+
   const systemPrompt = assemblePrompt(config, platform, maxLength)
 
-  const maxLengthHint = maxLength ? `, max ${maxLength} chars` : ''
-  logger.info(`✨ Rewriting ${platform} post with AI (provider: ${provider.name}${maxLengthHint})`)
   logger.verbose(`AI system prompt (${platform}):`, systemPrompt)
   logger.verbose(`AI input body (${platform}):`, rawBody)
 
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return fallbackValue
+  }
+
   try {
-    const started = Date.now()
-    const output = await provider.generate(config, { systemPrompt, prompt: rawBody, maxLength })
-    const elapsed = Date.now() - started
-    logger.info(`✅ AI rewrite done for ${platform} in ${elapsed}ms (${rawBody.length} → ${output.length} chars)`)
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
     logger.verbose(`AI output body (${platform}):`, output)
     return output
   }
   catch (error) {
     return handleFallback(config, fallbackValue, error)
+  }
+}
+
+/**
+ * A version of a post announcing several versions
+ */
+export interface AISocialRelease {
+  id: string
+  /**
+   * `<name> <version>`
+   */
+  title: string
+  /**
+   * Changelog of the version (markdown)
+   */
+  body: string
+  /**
+   * Maximum number of highlights (Twitter)
+   */
+  highlights?: number
+}
+
+const RELEASE_OUTPUT_REGEX = /<release\s+id="([^"]+)"[^>]*>([\s\S]*?)<\/release>/g
+
+function escapeAttribute(value: string): string {
+  return value.replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;')
+}
+
+/**
+ * Rewrite the changelogs of the versions of a post in a single AI call. Returns
+ * the rewritten changelog of each version found in the output, by id: the
+ * missing ones (or all of them when the call fails and `ai.fallback` is `raw`)
+ * keep their raw changelog.
+ */
+export async function generateAISocialReleases({ config, releases, platform, maxLength, dryRun = false }: {
+  config: ResolvedRelizyConfig
+  dryRun?: boolean
+  releases: AISocialRelease[]
+  platform: AISocialPlatform
+  maxLength?: number
+}): Promise<Map<string, string>> {
+  const input = releases.filter(release => release.body.trim())
+
+  if (input.length === 0) {
+    logger.debug(`AI skipped for ${platform}: empty changelogs`)
+    return new Map()
+  }
+
+  const provider = getAIProvider(config)
+  const subject = `the ${PLATFORM_NAMES[platform]} post of ${plural(input.length, 'version')}`
+
+  const releasesPrompt = platform === 'twitter' ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}` : RELEASES_PROMPT
+  const systemPrompt = `${assemblePrompt(config, platform, maxLength)}\n\n${releasesPrompt}`
+  const prompt = input
+    .map((release) => {
+      const highlights = release.highlights ? ` highlights="${release.highlights}"` : ''
+      return `<release id="${escapeAttribute(release.id)}" title="${escapeAttribute(release.title)}"${highlights}>\n${release.body}\n</release>`
+    })
+    .join('\n\n')
+
+  logger.verbose(`AI system prompt (${platform}):`, systemPrompt)
+  logger.verbose(`AI input body (${platform}):`, prompt)
+
+  if (dryRun && !isAIPreviewEnabled()) {
+    simulateRewrite({ subject, provider: provider.name })
+    return new Map()
+  }
+
+  try {
+    const output = await rewrite({ subject, config, request: { systemPrompt, prompt } })
+    const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
+    const missing = input.filter(release => !rewritten.get(release.id))
+
+    logger.verbose(`AI output body (${platform}):`, output)
+
+    if (missing.length > 0) {
+      logger.warn(`AI output has no changelog for ${missing.map(release => release.title).join(', ')}: their raw changelog is used`)
+    }
+
+    return rewritten
+  }
+  catch (error) {
+    handleFallback(config, '', error)
+    return new Map()
   }
 }
 
