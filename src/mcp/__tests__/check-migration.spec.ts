@@ -239,4 +239,37 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
     expect(text).toContain('**`monorepo.includePrivates` is renamed `monorepo.privatePackages`** (`relizy.config.mjs:3`)')
   })
+
+  it('Then points out includePrivates in the code, --include-private in the scripts and the CI calls without --yes', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', scripts: { release: 'relizy release --include-private' }, devDependencies: { relizy: '^1.14.0' } }),
+      'scripts/release.ts': `import { bump } from 'relizy'
+
+await bump({ includePrivates: true, yes: true })
+`,
+      '.github/workflows/release.yml': 'jobs:\n  release:\n    steps:\n      - run: npx relizy release\n      - run: npx relizy bump --yes\n',
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**The `includePrivates` option of `bump()`, `changelog()` and `release()` is renamed `privatePackages`** (`scripts/release.ts:3`)')
+    expect(text).toContain('**The `--include-private` flag is renamed `--private-packages <mode>`** (`package.json:1`)')
+    expect(text).toContain('**`relizy release` or `relizy bump` in CI without `--yes`** (`.github/workflows/release.yml:4`)')
+  })
+
+  it('Then leaves the dependency types of a version group alone, used as they are by relizy 1', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'monorepo', version: '1.0.0', private: true, devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {
+  monorepo: {
+    groups: [{ name: 'main', title: 'Main', versionMode: 'selective', packages: ['packages/*'], bump: { dependencyTypes: ['peerDependencies'] } }],
+  },
+}
+`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).not.toContain('`bump.dependencyTypes` without `dependencies`')
+  })
 })

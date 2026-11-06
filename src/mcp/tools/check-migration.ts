@@ -100,12 +100,13 @@ function checkTemplates(config: ResolvedRelizyConfig, configFiles: { file: strin
     })
   }
 
-  const repeated = templates.flatMap(template => [...new Set((template.match(/\{\{\w+\}\}/g) ?? []).filter((variable, index, all) => all.indexOf(variable) !== index))])
+  // The changelog title and the tag body replace every occurrence too
+  const repeated = [...templates, config.templates?.changelogTitle, config.templates?.tagBody].filter((template): template is string => Boolean(template)).flatMap(template => [...new Set((template.match(/\{\{\w+\}\}/g) ?? []).filter((variable, index, all) => all.indexOf(variable) !== index))])
 
   if (repeated.length > 0) {
     findings.push({
       severity: 'review',
-      title: `A social template repeats ${[...new Set(repeated)].map(variable => code(variable)).join(', ')}`,
+      title: `A template repeats ${[...new Set(repeated)].map(variable => code(variable)).join(', ')}`,
       section: 'Every Occurrence Is Replaced',
       detail: 'Every occurrence of a variable is replaced, not only the first one.',
     })
@@ -115,12 +116,12 @@ function checkTemplates(config: ResolvedRelizyConfig, configFiles: { file: strin
 }
 
 /**
- * `bump.dependencyTypes` lists without `dependencies`: v1 added the default
- * `dependencies` to them
+ * The global `bump.dependencyTypes` without `dependencies`: v1 added the
+ * default `dependencies` to it (not to the list of a version group, used as is)
  */
 function checkDependencyTypes(config: ResolvedRelizyConfig, configFiles: { file: string, text: string }[]): MigrationFinding[] {
-  const lists = [config.bump?.dependencyTypes, ...(config.monorepo?.groups ?? []).map(group => group.bump?.dependencyTypes)]
-  const withoutDependencies = lists.some(list => list && !list.includes('dependencies'))
+  const list = config.bump?.dependencyTypes
+  const withoutDependencies = Boolean(list && !list.includes('dependencies'))
   const locations = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bdependencyTypes\b/).filter(line => !/['"]dependencies['"]/.test(text.split('\n')[line - 1]!))))
 
   return withoutDependencies
@@ -164,7 +165,7 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     findings.push({
       severity: 'change',
       title: '`publish.private` is removed',
-      section: 'Removed publish.private',
+      section: 'Removed Private Publish Option',
       detail: 'relizy never read it: the private packages are never published. Remove the option, and set `monorepo.privatePackages: \'release\'` to version them.',
       locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bprivate\s*:/))),
     })
@@ -280,9 +281,9 @@ function getImportedNames(text: string): Map<string, string> {
 /** What replaces a function that `relizy` no longer exports */
 const REMOVED_EXPORTS: [names: string[], instead: string][] = [
   [['createCommitAndTags', 'pushCommitAndTags'], '`release()` with its `commit`, `gitTag` and `push` options'],
-  [['planBumps', 'confirmBump', 'displayBump', 'getPackages'], '`bump()`, with `dryRun` to preview it'],
-  [['formatTweetMessage', 'postReleaseToTwitter', 'formatSlackMessage', 'postReleaseToSlack', 'getReleaseOverview', 'getSocialTemplateVariables'], '`social()`, or the `release` parameter of a hook'],
-  [['buildReleaseSummary', 'formatReleaseReportText', 'formatReleaseReportMarkdown'], 'the report returned by `release()`'],
+  [['planBumps', 'confirmBump', 'getPackages'], '`bump()`, with `dryRun` to preview it'],
+  [['formatTweetMessage', 'postReleaseToTwitter', 'formatSlackMessage', 'postReleaseToSlack'], '`social()`, or the `release` parameter of a hook'],
+  [['buildReleaseSummary'], 'the report returned by `release()`'],
   [['generateChangelog', 'generateMarkDown'], '`changelog()`'],
   [['getDefaultConfig', 'mergeTypes'], '`loadRelizyConfig()`, which returns the config with its defaults'],
   [['isPrerelease'], '`prerelease()` of semver'],
@@ -395,6 +396,13 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
     },
     {
       severity: 'change',
+      title: 'The `includePrivates` option of `bump()`, `changelog()` and `release()` is renamed `privatePackages`',
+      section: 'Private Packages',
+      detail: 'Replace `includePrivates: true` with `privatePackages: \'release\'`: relizy 2 ignores `includePrivates`.',
+      locations: collect(/\bincludePrivates\b/),
+    },
+    {
+      severity: 'change',
       title: 'The `relizy/types` entry is removed',
       section: 'Types Entry',
       detail: 'Import the types from `relizy`.',
@@ -421,6 +429,46 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
   ]
 
   return checks.filter(check => check.locations.length > 0)
+}
+
+/** The scripts of `package.json` and the CI files, where the CLI of relizy runs */
+const CLI_FILES = ['package.json', '.gitlab-ci.yml', '.github/workflows/*.{yml,yaml}']
+const CI_FILE = /^\.git(?:hub|lab)/
+
+/**
+ * The calls of the CLI: the renamed `--include-private`, and the `release` or
+ * `bump` of a CI without `--yes`, which fail in relizy 2
+ */
+function checkCliCalls(cwd: string): MigrationFinding[] {
+  const files = fastGlob.sync(CLI_FILES, { cwd, dot: true, onlyFiles: true })
+    .map(file => ({ file, text: readFileSync(join(cwd, file), 'utf8') }))
+  const findings: MigrationFinding[] = []
+
+  const includePrivate = files.flatMap(({ file, text }) => locate(file, findLines(text, /--include-private\b/)))
+  if (includePrivate.length > 0) {
+    findings.push({
+      severity: 'change',
+      title: 'The `--include-private` flag is renamed `--private-packages <mode>`',
+      section: 'Private Packages',
+      detail: 'Replace `--include-private` with `--private-packages release`: relizy 2 does not know `--include-private`.',
+      locations: includePrivate,
+    })
+  }
+
+  const withoutYes = files
+    .filter(({ file }) => CI_FILE.test(file))
+    .flatMap(({ file, text }) => locate(file, findLines(text, /\b(?:relizy|rly)\s+(?:release|bump)\b(?!.*(?:--yes|\s-y\b))/)))
+  if (withoutYes.length > 0) {
+    findings.push({
+      severity: 'change',
+      title: '`relizy release` or `relizy bump` in CI without `--yes`',
+      section: 'Confirmation in CI',
+      detail: 'Without an interactive terminal, relizy 1 took the confirmation as refused and exited with code 0 without releasing; relizy 2 fails with code 1. Add `--yes` (unless the script it runs passes it).',
+      locations: withoutYes,
+    })
+  }
+
+  return findings
 }
 
 /**
@@ -518,6 +566,7 @@ export async function checkMigration(context: ServerContext, { config: configNam
     ...checkAIAttribution(config),
     ...checkReleaseSummary(config),
     ...checkSourceFiles(config.cwd),
+    ...checkCliCalls(config.cwd),
   ]
   const changes = findings.filter(finding => finding.severity === 'change')
   const reviews = findings.filter(finding => finding.severity === 'review')
