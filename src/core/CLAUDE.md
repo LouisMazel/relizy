@@ -52,6 +52,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 - Active only inside `withGitCache()`, opened by each command (`bump`, `release`...; a command run by another one shares the cache) and by each MCP tool call. Outside it, `cachedGitRead()` always runs git, so the low-level functions behave as before.
 - Cached: `getCurrentGitBranch()`, `getFirstCommit()`, `tagExists()`, `isAncestor()`, `listTags()` and `getGitDiff()` (a copy of the commits is returned to each caller).
 - A git write changing HEAD, a branch or a tag must call `clearGitCache()` (commit, tag, fetch, checkout, merge), as do the commands of the user (`executeHook()`, `formatCmd`, `buildCmd`).
+- A check done once per run (`ensurePushAccess()`, `prepareCiRepository()`) goes through `oncePerRun()`, never a module-level cache: the API can run several releases in one process.
 
 ## Package Discovery and Configuration
 

@@ -4,7 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
-import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY, resetCiState } from '../ci'
+import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY } from '../ci'
+import { withGitCache } from '../git-cache'
 
 // The setup file mocks this module and execPromise: these tests run the real git commands on temporary repositories
 vi.unmock('../ci')
@@ -59,7 +60,6 @@ beforeEach(() => {
   // No identity from the git config of the machine
   vi.stubEnv('GIT_CONFIG_GLOBAL', '/dev/null')
   vi.stubEnv('GIT_CONFIG_NOSYSTEM', '1')
-  resetCiState()
   vi.spyOn(logger, 'info').mockImplementation(() => undefined)
   vi.spyOn(logger, 'warn').mockImplementation(() => undefined)
 })
@@ -192,6 +192,23 @@ describe('Given the push of the release', () => {
     git(origin, 'checkout', '--quiet', '--detach')
 
     await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).resolves.toBeUndefined()
+  })
+
+  it('When the push is refused, Then checks it once per run, and again in the next run once the remote accepts it', async () => {
+    const origin = createOrigin()
+    const cwd = clone(origin)
+    const config = createMockConfig({ cwd })
+    git(origin, 'checkout', '--quiet', '--detach')
+    // Refused at once: nothing listens on the port 9
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+
+    await withGitCache(async () => {
+      await expect(ensurePushAccess({ config })).rejects.toThrow('cannot push')
+      git(cwd, 'remote', 'set-url', 'origin', `file://${origin}`)
+      await expect(ensurePushAccess({ config })).rejects.toThrow('cannot push')
+    })
+
+    await expect(withGitCache(() => ensurePushAccess({ config }))).resolves.toBeUndefined()
   })
 
   it('When the job token of GitLab cannot push, Then pushes with the GitLab token through the environment, and fails before publishing when it cannot either', async () => {

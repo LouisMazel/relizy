@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { execFileSync } from 'node:child_process'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { clearGitCache } from './git-cache'
+import { clearGitCache, oncePerRun } from './git-cache'
 import { getCIName, isInCI } from './utils'
 
 /**
@@ -195,22 +195,21 @@ export function applyCiGitIdentity(cwd: string, env: Env = process.env): GitIden
   return identity
 }
 
-const prepared = new Set<string>()
-
 /**
  * Prepare the repository of a CI job for a command reading the history or
  * committing: once per repository and run, a no-op outside a CI (except the
  * shallow clone warning).
  */
 export function prepareCiRepository(cwd: string): void {
-  if (prepared.has(cwd)) {
-    return
-  }
-  prepared.add(cwd)
-
-  ensureFullHistory(cwd)
-  attachCiBranch(cwd)
-  applyCiGitIdentity(cwd)
+  oncePerRun({
+    key: 'prepare-ci-repository',
+    cwd,
+    run: () => {
+      ensureFullHistory(cwd)
+      attachCiBranch(cwd)
+      applyCiGitIdentity(cwd)
+    },
+  })
 }
 
 /**
@@ -304,8 +303,6 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
     + 'Nothing to fix: the run of the latest commit previews the release with them, and the release checks the branch again.'
 }
 
-const pushAccess = new Map<string, Promise<void>>()
-
 /**
  * Check, before publishing anything, that the release commit and the tags can
  * be pushed: a push failing after the publish leaves versions on the registry
@@ -316,12 +313,8 @@ const pushAccess = new Map<string, Promise<void>>()
  */
 export function ensurePushAccess({ config, env = process.env }: { config: ResolvedRelizyConfig, env?: Env }): Promise<void> {
   const cwd = config.cwd
-  const cached = pushAccess.get(cwd)
-  if (cached) {
-    return cached
-  }
 
-  const check = Promise.resolve().then(() => {
+  return oncePerRun({ key: 'push-access', cwd, run: () => Promise.resolve().then(() => {
     const branch = tryGit(['rev-parse', '--abbrev-ref', 'HEAD'], cwd)
     if (!branch || branch === 'HEAD') {
       logger.debug('Detached HEAD: the push access is not checked')
@@ -350,16 +343,5 @@ export function ensurePushAccess({ config, env = process.env }: { config: Resolv
     }
 
     throw new Error(getPushError({ remote, remoteUrl, env }))
-  })
-
-  pushAccess.set(cwd, check)
-  return check
-}
-
-/**
- * Forget what was prepared, for the tests
- */
-export function resetCiState(): void {
-  prepared.clear()
-  pushAccess.clear()
+  }) })
 }

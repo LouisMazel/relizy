@@ -1,7 +1,7 @@
 import { execSync } from 'node:child_process'
 import { execPromise } from '@maz-ui/node'
 import { getCurrentGitBranch, getFirstCommit } from '../git'
-import { cachedGitRead, clearGitCache, withGitCache } from '../git-cache'
+import { cachedGitRead, clearGitCache, oncePerRun, withGitCache } from '../git-cache'
 import { getGitDiff, isAncestor, listTags, retagAnnotatedLocal, tagExists } from '../git-refs'
 
 vi.mock('@maz-ui/node', async (importActual) => {
@@ -138,6 +138,31 @@ describe('Given cachedGitRead', () => {
 
       expect(read).toHaveBeenCalledTimes(2)
     })
+  })
+})
+
+describe('Given oncePerRun', () => {
+  it('Then runs once per run and cwd, even after a git write, and again in the next run', () => {
+    const run = vi.fn(() => 'checked')
+
+    withGitCache(() => {
+      oncePerRun({ key: 'check', cwd: '/repo', run })
+      clearGitCache()
+      oncePerRun({ key: 'check', cwd: '/repo', run })
+      oncePerRun({ key: 'check', cwd: '/other', run })
+    })
+    withGitCache(() => oncePerRun({ key: 'check', cwd: '/repo', run }))
+
+    expect(run).toHaveBeenCalledTimes(3)
+  })
+
+  it('Then runs each time outside withGitCache', () => {
+    const run = vi.fn()
+
+    oncePerRun({ key: 'check', cwd: '/repo', run })
+    oncePerRun({ key: 'check', cwd: '/repo', run })
+
+    expect(run).toHaveBeenCalledTimes(2)
   })
 })
 
