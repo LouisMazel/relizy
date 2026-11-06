@@ -188,28 +188,6 @@ function dedupRegistryTargets(targets: RegistryTarget[]): RegistryTarget[] {
 }
 
 /**
- * Resolve every distinct registry referenced by the config (legacy `registry`
- * plus every `registries` entry, regardless of package scoping). Conservative
- * fallback for the pre-publish authentication safety check when the package
- * list to publish isn't known yet - prefer `resolveRegistryTargetsForPackages`
- * once it is, so a registry scoped to packages outside this release doesn't
- * needlessly block it.
- *
- * When `publish.registry` is not set but `registries` are, only the declared
- * registries are checked: the `.npmrc` registry is only the fallback of a
- * package that no entry covers, checked once the packages are known.
- */
-export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig): RegistryTarget[] {
-  const explicitTargets = config.publish.registries ?? []
-  const skipDefault = !config.publish.registry && explicitTargets.length > 0
-
-  return dedupRegistryTargets([
-    ...(skipDefault ? [] : [buildLegacyRegistryTarget(config)]),
-    ...explicitTargets,
-  ])
-}
-
-/**
  * Resolve the registry targets a given package should be published to: the
  * legacy registry (if any) plus every `registries` entry that either has no
  * `packageFilter` (mirrored to all packages) or whose `packageFilter` glob
@@ -223,7 +201,7 @@ export function resolveAllConfiguredRegistryTargets(config: ResolvedRelizyConfig
  *   package, it is published to the `.npmrc` registry.
  */
 export function resolveRegistryTargetsForPackage(
-  pkg: PackageBase,
+  pkg: Pick<PackageBase, 'name'>,
   config: ResolvedRelizyConfig,
 ): RegistryTarget[] {
   const explicitTargets = config.publish.registries ?? []
@@ -249,7 +227,7 @@ export function resolveRegistryTargetsForPackage(
  * scoped to packages that are not part of this release does not block it.
  */
 export function resolveRegistryTargetsForPackages(
-  packages: PackageBase[],
+  packages: Pick<PackageBase, 'name'>[],
   config: ResolvedRelizyConfig,
 ): RegistryTarget[] {
   const allTargets = packages.flatMap(pkg => resolveRegistryTargetsForPackage(pkg, config))

@@ -16,7 +16,6 @@ import {
   isVersionAlreadyPublishedError,
   isVersionPublished,
   publishPackage,
-  resolveAllConfiguredRegistryTargets,
   resolveRegistryTargetsForPackage,
   withRegistryNpmrc,
 } from '../npm'
@@ -804,85 +803,6 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       })
 
       const result = resolveRegistryTargetsForPackage(pkg, config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('default')
-      expect(result[0]?.registry).toBe('')
-    })
-  })
-})
-
-describe('Given resolveAllConfiguredRegistryTargets function', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-  })
-
-  describe('When registries mix global and scoped entries', () => {
-    it('Then returns every distinct registry regardless of package scoping', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          args: [],
-          registry: 'https://registry.npmjs.org/',
-          registries: [
-            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
-          ],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result.map(t => t.name)).toEqual(['default', 'nexus', 'jfrog'])
-    })
-  })
-
-  describe('When a registry duplicates the default with only a trailing slash difference', () => {
-    it('Then deduplicates it', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          args: [],
-          registry: 'https://registry.npmjs.org',
-          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result).toHaveLength(1)
-      expect(result[0]?.name).toBe('default')
-    })
-  })
-
-  describe('When no default registry is configured but explicit registries are', () => {
-    it('Then omits the empty legacy target', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: {
-          args: [],
-          registries: [
-            { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
-          ],
-        },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
-
-      expect(result.map(t => t.name)).toEqual(['nexus', 'jfrog'])
-      expect(result.some(t => t.registry === '')).toBe(false)
-    })
-  })
-
-  describe('When neither a default registry nor explicit registries are configured', () => {
-    it('Then keeps the empty legacy target as the .npmrc fallback', () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        publish: { args: [] },
-      })
-
-      const result = resolveAllConfiguredRegistryTargets(config)
 
       expect(result).toHaveLength(1)
       expect(result[0]?.name).toBe('default')

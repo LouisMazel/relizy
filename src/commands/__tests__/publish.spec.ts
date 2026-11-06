@@ -189,6 +189,10 @@ describe('Given publishSafetyCheck function', () => {
         release: { publish: true },
       })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      vi.mocked(readPackages).mockReturnValueOnce([
+        { name: 'pkg', version: '1.0.0', private: false, path: '/project/pkg' },
+        { name: '@scope/foo', version: '1.0.0', private: false, path: '/project/foo' },
+      ])
 
       await publishSafetyCheck({ config })
 
@@ -196,6 +200,50 @@ describe('Given publishSafetyCheck function', () => {
       expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
       expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--registry https://nexus.internal/repo/'), expect.any(Object))
       expect(execPromise).toHaveBeenNthCalledWith(3, expect.stringContaining('--registry https://jfrog.internal/repo/'), expect.any(Object))
+    })
+
+    it('Then skips a registry scoped to no package of the workspace', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+        },
+        safetyCheck: true,
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+
+      await publishSafetyCheck({ config })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(expect.stringContaining('--registry https://registry.npmjs.org/'), expect.any(Object))
+    })
+
+    it('Then checks the .npmrc registry of a package that no entry covers, without publish.registry', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'npm',
+          registries: [{ name: 'github', registry: 'https://npm.pkg.github.com/', packageFilter: ['@acme/*'] }],
+        },
+        safetyCheck: true,
+      })
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      vi.mocked(readPackages).mockReturnValueOnce([
+        { name: '@acme/core', version: '1.0.0', private: false, path: '/project/core' },
+        { name: 'foo', version: '1.0.0', private: false, path: '/project/foo' },
+      ])
+
+      await publishSafetyCheck({ config })
+
+      const registries = vi.mocked(execPromise).mock.calls.map(([command]) => String(command).match(/--registry (\S+)/)?.[1])
+      expect(registries).toHaveLength(2)
+      expect(registries).toContain('https://npm.pkg.github.com/')
     })
 
     it('Then deduplicates a registry declared both as legacy and explicit', async () => {

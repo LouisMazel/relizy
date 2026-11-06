@@ -1,7 +1,7 @@
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveAllConfiguredRegistryTargets, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, createCommandUi, executeBuildCmd, getAuthCommand, getGroupBumpResult, getHookContext, getIndependentTag, getMonorepoPackagePatterns, hasVersionGroups, isFancyUi, isRelizyCancelError, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, resolveVersionGroups, sortPackagesForPublish, withRegistryNpmrc } from '../core'
 import { prepareCiRepository } from '../core/ci'
 import { withGitCache } from '../core/git-cache'
 import { reportProgress } from '../core/progress'
@@ -74,12 +74,16 @@ async function checkRegistryAuth({
   }
 }
 
-function hasPublishablePackage(config: ResolvedRelizyConfig): boolean {
+/**
+ * The packages of the workspace that can be published, before the bump tells
+ * which ones the release publishes
+ */
+function readPublishablePackages(config: ResolvedRelizyConfig): Pick<PackageBase, 'name'>[] {
   return filterOutPrivatePackages(readPackages({
     cwd: config.cwd,
     patterns: getMonorepoPackagePatterns(config),
     ignored: config.monorepo?.ignored,
-  })).length > 0
+  }))
 }
 
 export async function publishSafetyCheck({ config, packages }: { config: ResolvedRelizyConfig, packages?: PackageBase[] }) {
@@ -88,9 +92,11 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     return
   }
 
-  // Before the bump, a project whose packages are all private (a private app)
-  // publishes nothing: no registry to authenticate to
-  if (!packages && !hasPublishablePackage(config)) {
+  // Before the bump, every package that can be published: a package that no
+  // `registries` entry covers needs the .npmrc registry. A project whose
+  // packages are all private (a private app) publishes nothing
+  const packagesToCheck: Pick<PackageBase, 'name'>[] = packages ?? readPublishablePackages(config)
+  if (packagesToCheck.length === 0) {
     logger.debug('No publishable package (all private), skipping the registry check')
     return
   }
@@ -104,12 +110,9 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     return
   }
 
-  // When the packages to publish are already known, only check the registries
-  // they actually need - a registry scoped to packages outside this release
-  // should not block it. Otherwise, conservatively check everything configured.
-  const registryTargets = packages
-    ? resolveRegistryTargetsForPackages(packages, config)
-    : resolveAllConfiguredRegistryTargets(config)
+  // Only the registries the packages need: a registry scoped to other
+  // packages should not block the release
+  const registryTargets = resolveRegistryTargetsForPackages(packagesToCheck, config)
   const showRegistryLabel = registryTargets.length > 1
 
   for (const registryTarget of registryTargets) {
