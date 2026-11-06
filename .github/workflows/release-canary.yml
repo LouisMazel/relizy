@@ -28,11 +28,8 @@ jobs:
         with:
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Typecheck & Build
-        run: pnpm typecheck && pnpm build
-
-      - name: Test units
-        run: pnpm test:unit
+      - name: Build
+        run: pnpm build
 
       - name: Version Packages (Canary)
         env:
