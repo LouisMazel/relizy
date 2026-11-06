@@ -17,6 +17,9 @@ jobs:
       - name: Build
         run: pnpm build
 
+      - name: Install Claude Code CLI
+        run: npm install -g @anthropic-ai/claude-code
+
       - name: Dry run release
         env:
           RELIZY_GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
