@@ -11,13 +11,9 @@
   - `c12` from 3.3.3 to 3.3.4
   - `fast-glob` from 3.3.2 to 3.3.3
 
-  Claude-Session: https://claude.ai/code/session_01KFeGtn1VttzYn51vUuV9Rv
-
 - **deps:** Upgrade oxc-parser to v0.157 ([001efa3](https://github.com/LouisMazel/relizy/commit/001efa3))
 
   - `oxc-parser` from 0.156.0 to 0.157.0
-
-  Claude-Session: https://claude.ai/code/session_01KFeGtn1VttzYn51vUuV9Rv
 
 - Require node versions patched by the october 2026 security releases ([a4fca4f](https://github.com/LouisMazel/relizy/commit/a4fca4f))
 
