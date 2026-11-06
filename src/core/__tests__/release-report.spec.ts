@@ -140,6 +140,9 @@ describe('Given the renderers of the release report', () => {
       dist_tags: '',
       urls: '',
       install: '',
+      group_main_version: '5.2.1',
+      package_maz_ui_version: '5.2.1',
+      package_maz_ui_eslint_config_version: '5.1.0',
     })
     expect(getReleaseReportOutputs(detailed)).toEqual(expect.objectContaining({
       branch: 'main',
@@ -149,6 +152,16 @@ describe('Given the renderers of the release report', () => {
       install: 'pnpm add relizy@2.0.0',
     }))
     expect(getReleaseReportOutputs(nothing)).toEqual(expect.objectContaining({ released: 'false', status: 'nothing', version: '', tags: '', packages: '' }))
+  })
+
+  it('Then gives the versions of the groups and the packages only when the release happened', () => {
+    // A group without name (no `monorepo.groups`) has no group output
+    expect(Object.keys(getReleaseReportOutputs(detailed)).filter(name => name.startsWith('group_'))).toEqual([])
+    expect(getReleaseReportOutputs(detailed)).toEqual(expect.objectContaining({ package_relizy_version: '2.0.0' }))
+
+    const outputs = getReleaseReportOutputs({ ...released, released: false, dryRun: true })
+    expect(Object.keys(outputs).filter(name => name.startsWith('group_') || name.startsWith('package_'))).toEqual([])
+    expect(outputs.packages).toBe('maz-ui@5.2.1,@maz-ui/eslint-config@5.1.0')
   })
 })
 
@@ -200,7 +213,18 @@ describe('Given writeReleaseReport function', () => {
     writeReleaseReport({ config: { ...config, cwd, release: { ...config.release, report: { json: 'reports/relizy.json', dotenv: 'relizy.env', markdown: 'reports/summary.md' } } }, report: nothing })
 
     expect(JSON.parse(readFileSync(join(cwd, 'reports/relizy.json'), 'utf8'))).toEqual(nothing)
-    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\nRELIZY_INSTALL=\n')
+    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\n')
     expect(readFileSync(join(cwd, 'reports/summary.md'), 'utf8')).toBe(formatReleaseReportMarkdown(nothing))
+  })
+
+  it('Then writes a dotenv file without space, to source it', () => {
+    const config = createMockConfig({ bump: { type: 'release' } })
+
+    writeReleaseReport({ config: { ...config, cwd, release: { ...config.release, report: { dotenv: 'relizy.env' } } }, report: { ...detailed, release: groupsRelease } })
+
+    const dotenv = readFileSync(join(cwd, 'relizy.env'), 'utf8')
+    expect(dotenv).not.toContain('RELIZY_INSTALL')
+    expect(dotenv).not.toContain(' ')
+    expect(dotenv).toContain('RELIZY_GROUP_MAIN_VERSION=5.2.1\nRELIZY_PACKAGE_MAZ_UI_VERSION=5.2.1\nRELIZY_PACKAGE_MAZ_UI_ESLINT_CONFIG_VERSION=5.1.0\n')
   })
 })

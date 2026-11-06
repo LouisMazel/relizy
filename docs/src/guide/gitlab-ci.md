@@ -113,29 +113,19 @@ deploy-docs:
       fi
 ```
 
-In the same job, read the file: its values are not quoted (`RELIZY_INSTALL` has spaces), so do not `source` it. In a monorepo, `RELIZY_PACKAGES` lists the released packages (`@acme/ui@2.1.0,@acme/utils@1.4.3`), to run something for some packages only:
+In a monorepo, `RELIZY_PACKAGE_<NAME>_VERSION` (`@acme/ui` gives `RELIZY_PACKAGE_ACME_UI_VERSION`) and `RELIZY_GROUP_<NAME>_VERSION` are only set for what was released, to run something for one package only:
 
-```bash
-pnpm exec relizy release --yes --report-dotenv relizy.env
-
-report() {
-  sed -n "s/^RELIZY_$1=//p" relizy.env
-}
-
-if [ "$(report RELEASED)" != "true" ]; then
-  echo "Nothing released"
-  exit 0
-fi
-
-IFS=',' read -ra packages <<< "$(report PACKAGES)"
-for entry in "${packages[@]}"; do
-  name="${entry%@*}"
-  version="${entry##*@}"
-
-  case "$name" in
-    @acme/ui) ./scripts/notify-release.sh "$name" "$version" || echo "Notification failed" ;;
-  esac
-done
+```yaml
+notify-ui:
+  stage: deploy
+  needs: [release]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH && $CI_COMMIT_MESSAGE !~ /^chore\(release\): /'
+  script:
+    - |
+      if [ -n "$RELIZY_PACKAGE_ACME_UI_VERSION" ]; then
+        ./scripts/notify.sh "@acme/ui $RELIZY_PACKAGE_ACME_UI_VERSION" || echo "Notification failed"
+      fi
 ```
 
 GitLab CI has no summary of the run: write it to a markdown file and expose it as an artifact of the merge request, or read it in the [MR comment](./pr-comment.md).

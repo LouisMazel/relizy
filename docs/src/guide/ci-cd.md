@@ -54,7 +54,7 @@ In CI (or without a terminal), each step is a line with its duration, its logs i
 
 ## Run Something Only When a Release Happens
 
-`relizy release` exits with code `0` whether it released or there was nothing to release. To run what follows a release (a message to the team, a deployment of the docs), either read the [report](#from-the-report) of the release in a next step of the pipeline, visible in the CI, or use a **hook**, which only runs when a release happens.
+`relizy release` exits with code `0` whether it released or there was nothing to release. To run what follows a release (a message to the team, a deployment of the docs), either read the [report](#from-the-report) of the release, from a Node.js script or a next step of the pipeline, visible in the CI, or use a **hook**, which only runs when a release happens.
 
 ```ts
 export default defineConfig({
@@ -91,7 +91,9 @@ export default defineConfig({
 
 ### From the Report
 
-From the CI, read the [report](./../config/release.md#report) of the release: its outputs (`released`, `version`, `tags`, `packages`, `urls`...) and its summary, written for a release, when there is nothing to release, when it fails, and in dry-run (`released` is then `false`). GitHub Actions gets them as outputs of the step and summary of the run ([example](./github-actions.md#outputs-and-summary)), GitLab CI through a dotenv artifact ([example](./gitlab-ci.md#outputs-and-summary)). In a script, read the JSON report (`--report-json relizy.json`) or the return value of [`release()`](./../api/release.md).
+The [report](./../config/release.md#report) of the release tells what was released: written for a release, when there is nothing to release, when it fails, and in dry-run (`released` is then `false`). Read it in the next steps or jobs: the outputs of the step on GitHub Actions ([example](./github-actions.md#outputs-and-summary)), the dotenv artifact on GitLab CI ([example](./gitlab-ci.md#outputs-and-summary)). In a monorepo, `package_<name>_version` and `group_<name>_version` are only set for what was released, to run something for one package only.
+
+From a Node.js script, [`release()`](./../api/release.md) returns the same report, and `--report-json relizy.json` writes it to a file.
 
 For the announcements, prefer [social posts](./social-media.md) and the [PR comment](./pr-comment.md) to a message written by hand.
 

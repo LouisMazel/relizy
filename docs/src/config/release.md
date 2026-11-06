@@ -49,25 +49,31 @@ Each option is a `boolean`, and a CLI flag disables it for a run (`--no-verify` 
 
 Report of the release, to run something only when a release happens (see [CI/CD](./../guide/ci-cd.md#run-something-only-when-a-release-happens)). Written after a release, when there is nothing to release and when the release fails (not for a refused or cancelled prompt), in dry-run too. The paths are relative to `cwd`.
 
-| Key        | Effect                                                                                                                                          |
-| ---------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| `github`   | On GitHub Actions, write the outputs below to the step, plus `report` (the report as JSON) and `summary` (markdown), and the summary to the run |
-| `json`     | Write the whole report (the value returned by `release()`) to this JSON file                                                                    |
-| `dotenv`   | Write the outputs to this file as `RELIZY_<OUTPUT>=value` (`RELIZY_RELEASED=true`), for the `artifacts:reports:dotenv` of GitLab CI             |
-| `markdown` | Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI                                                       |
+| Key        | Effect                                                                                                                                                                                                                   |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `github`   | On GitHub Actions, write the outputs below to the step, plus `report` (the report as JSON) and `summary` (markdown), and the summary to the run                                                                          |
+| `json`     | Write the whole report (the value returned by `release()`) to this JSON file                                                                                                                                             |
+| `dotenv`   | Write the outputs to this file as `RELIZY_<OUTPUT>=value` (`RELIZY_RELEASED=true`), for the `artifacts:reports:dotenv` of GitLab CI. Without `install`: no value has a space, the file can be sourced (`. ./relizy.env`) |
+| `markdown` | Write the summary of the release to this markdown file, e.g. for an artifact of GitLab CI                                                                                                                                |
 
-| Output      | Value                                                                                                       |
-| ----------- | ----------------------------------------------------------------------------------------------------------- |
-| `released`  | `true` when the release happened, never in dry-run                                                          |
-| `status`    | `released`, `nothing` or `failed`                                                                           |
-| `version`   | The repository version (standalone, `unified` or `selective`), empty otherwise                              |
-| `tags`      | The created tags, comma-separated                                                                           |
-| `packages`  | The released packages, comma-separated `name@version`                                                       |
-| `branch`    | The branch of the release                                                                                   |
-| `commit`    | The short hash of the release commit                                                                        |
-| `dist_tags` | The dist-tags of the published versions, comma-separated (`publish.tag`, not the `tag` of the `registries`) |
-| `urls`      | What the release created (npm pages, provider releases, tweet, pull request), comma-separated               |
-| `install`   | The command installing the published versions (up to 3 packages)                                            |
+| Output                   | Value                                                                                                                                                  |
+| ------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `released`               | `true` when the release happened, never in dry-run                                                                                                     |
+| `status`                 | `released`, `nothing` or `failed`                                                                                                                      |
+| `version`                | The repository version (standalone, `unified` or `selective`; with `monorepo.groups`, the first `unified`/`selective` group released), empty otherwise |
+| `tags`                   | The created tags, comma-separated                                                                                                                      |
+| `packages`               | The released packages, comma-separated `name@version`                                                                                                  |
+| `branch`                 | The branch of the release                                                                                                                              |
+| `commit`                 | The short hash of the release commit                                                                                                                   |
+| `dist_tags`              | The dist-tags of the published versions, comma-separated (`publish.tag`, not the `tag` of the `registries`)                                            |
+| `urls`                   | What the release created (npm pages, provider releases, tweet, pull request), comma-separated                                                          |
+| `install`                | The command installing the published versions (up to 3 packages), not in the dotenv file                                                               |
+| `group_<name>_version`   | The version of a `unified`/`selective` group of `monorepo.groups` released (`group_ecosystem_version`)                                                 |
+| `package_<name>_version` | The new version of a released package (`@acme/ui-kit` gives `package_acme_ui_kit_version`)                                                             |
+
+The `group_*` and `package_*` outputs are only set when the release happened (not in dry-run): a group or a package not released has none.
+
+The JSON report has the same content, with the packages by version group: see [`ReleaseReport`](./../typedoc/interfaces/ReleaseReport.md).
 
 ```yaml
 # GitHub Actions

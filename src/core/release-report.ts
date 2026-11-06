@@ -353,12 +353,27 @@ function getMarkdownFooter(report: ReleaseReport): string {
 }
 
 /**
+ * Name of a group or a package in an output: `@acme/ui-kit` gives `acme_ui_kit`
+ */
+function toOutputName(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '')
+}
+
+/**
  * The outputs of the report: `released`, `status`, `version`, `tags`,
  * `packages` (comma-separated `name@version`), `branch`, `commit`,
- * `dist_tags`, `urls` (what the release created) and `install`
+ * `dist_tags`, `urls` (what the release created) and `install`. When the
+ * release happened, also `group_<name>_version` for each `unified`/`selective`
+ * version group and `package_<name>_version` for each released package
  */
 export function getReleaseReportOutputs(report: ReleaseReport): Record<string, string> {
+  const groups = report.released ? report.release?.groups ?? [] : []
   const packages = (report.release?.groups ?? []).flatMap(group => group.packages)
+
+  const versions = Object.fromEntries([
+    ...groups.flatMap(group => group.name && group.version ? [[`group_${toOutputName(group.name)}_version`, group.version]] : []),
+    ...groups.flatMap(group => group.packages).map(pkg => [`package_${toOutputName(pkg.name)}_version`, pkg.newVersion]),
+  ])
 
   return {
     released: String(report.released),
@@ -371,6 +386,7 @@ export function getReleaseReportOutputs(report: ReleaseReport): Record<string, s
     dist_tags: report.publish?.tags.join(',') ?? '',
     urls: report.steps.flatMap(step => step.links ?? []).map(link => link.url).join(','),
     install: report.publish?.install ?? '',
+    ...versions,
   }
 }
 
@@ -419,7 +435,8 @@ export function writeReleaseReport({ config, report }: { config: ResolvedRelizyC
     }
 
     if (reportConfig.dotenv) {
-      const lines = Object.entries(outputs).map(([name, value]) => `RELIZY_${name.toUpperCase()}=${value}`)
+      // Without `install` (`pnpm add ...`): no value has a space, the file can be sourced
+      const lines = Object.entries(outputs).filter(([name]) => name !== 'install').map(([name, value]) => `RELIZY_${name.toUpperCase()}=${value}`)
       writeFile(resolve(config.cwd, reportConfig.dotenv), `${lines.join('\n')}\n`)
       logger.debug(`Release report written to ${reportConfig.dotenv}`)
     }
