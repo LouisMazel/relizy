@@ -4,23 +4,11 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getChangelogLinter, getChangelogTitle, renderChangelogEntry } from '../commitlint/changelog-entry'
 
 function createCommit(overrides: Partial<GitCommit> = {}): GitCommit {
-  return {
-    message: 'feat(core): add the parser',
-    body: 'Parses the messages.',
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    authors: [],
-    description: 'add the parser',
-    type: 'feat',
-    scope: 'core',
-    references: [],
-    isBreaking: false,
-    ...overrides,
-  }
+  return createMockCommit('feat', 'feat(core): add the parser', { body: 'Parses the messages.', description: 'add the parser', scope: 'core', ...overrides })
 }
 
 const INVALID_TS = '```ts\nai: {\n  global: \'a\',\n  slack: \'b\',\n}\n```'

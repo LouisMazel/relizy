@@ -15,7 +15,7 @@
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
@@ -112,19 +112,7 @@ function makeMockPkg() {
 }
 
 function makeCommit(overrides: Partial<GitCommit>): GitCommit {
-  return {
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    message: 'feat: test',
-    body: '',
-    type: 'feat',
-    scope: '',
-    references: [],
-    description: 'test',
-    isBreaking: false,
-    authors: [],
-    ...overrides,
-  } as GitCommit
+  return createMockCommit('feat', 'feat: test', { description: 'test', ...overrides })
 }
 
 // ─── Tests ────────────────────────────────────────────────────────────────────

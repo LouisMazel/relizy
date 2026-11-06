@@ -25,10 +25,7 @@ const MAIN_GROUP: VersionGroup = { name: 'main', versionMode: 'selective', packa
 const HEADER_GROUP: VersionGroup = { name: 'header', versionMode: 'independent', packages: ['shared/nav', 'shared/login'] }
 
 function createGroupsConfig(groups: VersionGroup[], cwd = '/project'): ResolvedRelizyConfig {
-  const config = createMockConfig({ bump: { type: 'release' } })
-  config.cwd = cwd
-  config.monorepo = { groups }
-  return config
+  return createMockConfig({ cwd, bump: { type: 'release' }, monorepo: { groups } })
 }
 
 function bumpedPackage(name: string, newVersion: string) {

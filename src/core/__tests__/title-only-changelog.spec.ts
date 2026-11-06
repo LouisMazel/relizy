@@ -19,7 +19,7 @@
  */
 import type { GitCommit } from '../../types'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { generateChangelog } from '../changelog'
 import { getPackageCommits } from '../repo'
 
@@ -41,19 +41,13 @@ vi.mock('../utils', async () => {
 })
 
 function makeCommit(overrides: Partial<GitCommit>): GitCommit {
-  return {
-    shortHash: 'abc1234',
+  return createMockCommit('docs', 'docs: update README', {
     author: { name: 'Alice', email: 'alice@example.com' },
-    message: 'docs: update README',
-    body: '',
-    type: 'docs',
-    scope: '',
     references: [{ value: 'abc1234', type: 'hash' }],
     description: 'update README',
-    isBreaking: false,
     authors: [{ name: 'Alice', email: 'alice@example.com' }],
     ...overrides,
-  } as GitCommit
+  })
 }
 
 describe('Given a commit type with a `title` but no `semver`', () => {

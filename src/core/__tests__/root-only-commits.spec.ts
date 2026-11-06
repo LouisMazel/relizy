@@ -15,7 +15,7 @@
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { createMockConfig } from '../../../tests/mocks'
+import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import * as commitsModule from '../commits'
 import { getPackageCommits } from '../repo'
 
@@ -77,19 +77,7 @@ function makeSubPkg() {
 }
 
 function makeCommit(overrides: Partial<GitCommit>): GitCommit {
-  return {
-    shortHash: 'abc1234',
-    author: { name: 'Test', email: 'test@example.com' },
-    message: 'build: test',
-    body: '',
-    type: 'build',
-    scope: '',
-    references: [],
-    description: 'test',
-    isBreaking: false,
-    authors: [],
-    ...overrides,
-  } as GitCommit
+  return createMockCommit('build', 'build: test', { description: 'test', ...overrides })
 }
 
 describe('Given a commit touching only root-level files in a monorepo', () => {

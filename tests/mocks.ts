@@ -5,6 +5,11 @@ import process from 'node:process'
 import { expect } from 'vitest'
 import { getDefaultConfig } from '../src/core/config'
 
+/**
+ * A resolved config: a `selective` monorepo of `packages/*` by default, or the
+ * version groups of `monorepo.groups` (without the version mode nor the
+ * packages they replace)
+ */
 export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMode?: NonNullable<RelizyConfig['monorepo']>['versionMode'] }) {
   const defaultConfig = getDefaultConfig()
   const versionMode = config.versionMode ?? config.monorepo?.versionMode ?? 'selective'
@@ -12,11 +17,13 @@ export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMo
   return {
     ...defaultConfig,
     ...config,
-    monorepo: {
-      versionMode,
-      packages: ['packages/*'],
-      ...config.monorepo,
-    },
+    monorepo: config.monorepo?.groups
+      ? config.monorepo
+      : {
+          versionMode,
+          packages: ['packages/*'],
+          ...config.monorepo,
+        },
     bump: {
       ...defaultConfig.bump,
       ...config.bump,
@@ -24,7 +31,7 @@ export function createMockConfig(config: DeepPartial<RelizyConfig> & { versionMo
   } as ResolvedRelizyConfig
 }
 
-export function createMockCommit(type: string, message: string): GitCommit {
+export function createMockCommit(type: string, message: string, overrides: Partial<GitCommit> = {}): GitCommit {
   return {
     shortHash: 'abc1234',
     author: { name: 'Test', email: 'test@example.com' },
@@ -36,6 +43,7 @@ export function createMockCommit(type: string, message: string): GitCommit {
     description: message,
     isBreaking: false,
     authors: [],
+    ...overrides,
   } as GitCommit
 }
 

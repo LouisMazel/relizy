@@ -41,15 +41,17 @@ const headerGroup: GroupBumpResult = {
 }
 
 function createGroupsConfig(): ResolvedRelizyConfig {
-  const config = createMockConfig({ bump: { type: 'release' } })
-  config.monorepo = {
-    groups: [
-      { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-      { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
-    ],
-  }
+  const config = createMockConfig({
+    bump: { type: 'release' },
+    monorepo: {
+      groups: [
+        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
+        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+      ],
+    },
+    signTags: false,
+  })
   config.templates = { ...config.templates, commitMessage: undefined, commitBody: undefined, tagBody: 'v{{newVersion}}', tagMessage: 'Bump version to {{newVersion}}' }
-  config.signTags = false
   return config
 }
 
