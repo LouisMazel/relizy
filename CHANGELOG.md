@@ -1,5 +1,24 @@
 # Changelog
 
+## v2.0.0-beta.1 (2026-11-06)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0-beta.0...v2.0.0-beta.1)
+
+### 🩹 Fixes
+
+- Title the columns of the release summary table ([fa5f49b](https://github.com/LouisMazel/relizy/commit/fa5f49b))
+- Show the social posts skipped for a prerelease in the release summary ([1e5437c](https://github.com/LouisMazel/relizy/commit/1e5437c))
+
+  A platform that posts nothing, a prerelease with `onlyStable` or no version left to announce, is no longer shown as posted: the summary of the release, the PR comment and the summary of the GitHub Actions run say `skipped (twitter: prerelease)`, and `SocialNetworkResult.skipped` gives why.
+
+### 🧪 Tests
+
+- Keep the release reports of the tests out of the CI summary ([b8552d0](https://github.com/LouisMazel/relizy/commit/b8552d0))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.0-beta.0 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v1.14.4-beta.0...v2.0.0-beta.0)
