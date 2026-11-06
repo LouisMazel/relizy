@@ -62,7 +62,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       privatePackages: 'ignore',
     } as MonorepoConfig,
     publish: {
-      args: [],
+      args: [] as string[],
       token: process.env.RELIZY_NPM_TOKEN || process.env.NPM_TOKEN || process.env.NODE_AUTH_TOKEN,
       // registry is intentionally left undefined: it is resolved later from the
       // user's npm config / .npmrc (see resolveConfig) so a custom registry
