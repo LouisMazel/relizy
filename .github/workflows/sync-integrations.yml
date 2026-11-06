@@ -1,0 +1,160 @@
+name: Sync integrations
+
+# Copies integrations/ to github.com/relizy/action and gitlab.com/relizy/relizy
+# for a stable release of relizy: see plans/ci-integrations.md for the secrets
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version of relizy to sync, e.g. 2.0.0
+        type: string
+        required: true
+      dry-run:
+        description: Print what would be pushed, push nothing
+        type: boolean
+        default: false
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version of relizy to sync, e.g. 2.0.0
+        type: string
+        required: true
+      ref:
+        description: Branch or tag to take integrations/ from, the tag of the version by default (v2.0.0)
+        type: string
+        default: ''
+      dry-run:
+        description: Print what would be pushed, push nothing
+        type: boolean
+        default: true
+
+concurrency: sync-integrations
+
+env:
+  VERSION: ${{ inputs.version }}
+  DRY_RUN: ${{ inputs.dry-run }}
+
+jobs:
+  github-action:
+    name: GitHub Action
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || format('v{0}', inputs.version) }}
+
+      - name: Check the version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::\"$VERSION\" is not a stable version (2.0.0): prereleases are not synced"
+            exit 1
+          fi
+
+      - id: app-token
+        if: vars.ACTION_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.ACTION_APP_ID }}
+          private-key: ${{ secrets.ACTION_APP_PRIVATE_KEY }}
+          owner: relizy
+          repositories: action
+
+      - name: Push to relizy/action
+        env:
+          TOKEN: ${{ steps.app-token.outputs.token || secrets.ACTION_REPO_TOKEN }}
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::No token for relizy/action: set the ACTION_APP_ID variable and the ACTION_APP_PRIVATE_KEY secret, or the ACTION_REPO_TOKEN secret"
+            exit 1
+          fi
+          major="${VERSION%%.*}"
+          git clone "https://x-access-token:$TOKEN@github.com/relizy/action.git" target
+          find target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R integrations/github-action/. target/
+          cp LICENSE target/
+          sed -i "s/RELIZY_ACTION_VERSION: __RELIZY_VERSION__/RELIZY_ACTION_VERSION: '$VERSION'/" target/action.yml
+          grep -q "RELIZY_ACTION_VERSION: '$VERSION'" target/action.yml
+
+          cd target
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B main
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: sync relizy v$VERSION"
+          git tag -f "v$VERSION"
+          git tag -f "v$major"
+          git show --stat HEAD
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: would push main, v$VERSION and v$major to relizy/action"
+            exit 0
+          fi
+          git push origin main
+          git push origin "v$VERSION"
+          git push -f origin "v$major"
+
+      - name: Create the GitHub release
+        if: inputs.dry-run == false
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token || secrets.ACTION_REPO_TOKEN }}
+        run: |
+          if gh release view "v$VERSION" --repo relizy/action > /dev/null 2>&1; then
+            echo "The release v$VERSION of relizy/action already exists"
+            exit 0
+          fi
+          gh release create "v$VERSION" --repo relizy/action --title "v$VERSION" --latest \
+            --notes "relizy $VERSION: https://github.com/LouisMazel/relizy/releases/tag/v$VERSION"
+
+  gitlab-component:
+    name: GitLab component
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || format('v{0}', inputs.version) }}
+
+      - name: Check the version
+        run: |
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::\"$VERSION\" is not a stable version (2.0.0): prereleases are not synced"
+            exit 1
+          fi
+
+      - name: Push to gitlab.com/relizy/relizy
+        env:
+          DEPLOY_KEY: ${{ secrets.GITLAB_DEPLOY_KEY }}
+        run: |
+          if [ -z "$DEPLOY_KEY" ]; then
+            echo "::error::No GITLAB_DEPLOY_KEY secret: the private key of the deploy key of gitlab.com/relizy/relizy, with write access"
+            exit 1
+          fi
+          mkdir -p ~/.ssh
+          printf '%s\n' "$DEPLOY_KEY" > ~/.ssh/relizy_gitlab
+          chmod 600 ~/.ssh/relizy_gitlab
+          ssh-keyscan -t ed25519,rsa gitlab.com >> ~/.ssh/known_hosts 2> /dev/null
+          export GIT_SSH_COMMAND="ssh -i $HOME/.ssh/relizy_gitlab -o IdentitiesOnly=yes"
+
+          git clone git@gitlab.com:relizy/relizy.git target
+          find target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
+          cp -R integrations/gitlab-component/. target/
+          cp LICENSE target/
+          sed -i "s/RELIZY_COMPONENT_VERSION: __RELIZY_VERSION__/RELIZY_COMPONENT_VERSION: '$VERSION'/" target/templates/release.yml
+          grep -q "RELIZY_COMPONENT_VERSION: '$VERSION'" target/templates/release.yml
+
+          cd target
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git checkout -B main
+          git add -A
+          git diff --cached --quiet || git commit -m "chore: sync relizy v$VERSION"
+          # The CI/CD catalog needs semantic versions without v: 2.0.0
+          git tag -f "$VERSION"
+          git show --stat HEAD
+
+          if [ "$DRY_RUN" = "true" ]; then
+            echo "Dry run: would push main and $VERSION to gitlab.com/relizy/relizy"
+            exit 0
+          fi
+          git push origin main
+          git push origin "$VERSION"
