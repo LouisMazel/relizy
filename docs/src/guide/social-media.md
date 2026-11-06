@@ -67,7 +67,7 @@ The tweet is [`social.twitter.template`](./../config/social.md#twitter-template)
 {{changelogUrl}}
 ```
 
-The changelog is the one of the release, without its section headings, its commit references and the bold of the scopes. It fills the space the rest of the template leaves within [`postMaxLength`](./../config/social.md#twitter-postmaxlength) (280 by default), counted as X counts it: a URL counts 23 characters, an emoji or a CJK character counts 2. What does not fit is cut with `...`. A URL not set (no release URL, no `social.changelogUrl`) is removed. An `@` followed by a word (`@scope/pkg`) gets a zero-width space, so that X does not mention an account.
+The changelog is the one of the release, without its section headings, its commit references and the bold of the scopes, one commit per line. It fills the space the rest of the template leaves within [`postMaxLength`](./../config/social.md#twitter-postmaxlength) (280 by default), counted as X counts it: a URL counts 23 characters, an emoji or a CJK character counts 2. What does not fit is cut with `...`. A URL not set (no release URL, no `social.changelogUrl`) is removed. An `@` followed by a word (`@scope/pkg`) gets a zero-width space, so that X does not mention an account.
 
 For a release of `my-lib` 3.0.0 with two features and a fix:
 
@@ -76,7 +76,7 @@ For a release of `my-lib` 3.0.0 with two features and a fix:
 
 - core: Add streaming API support
 - auth: Implement OAuth2 PKCE
-- cache: Fix TTL expiration.
+- cache: Fix TTL expiration
 
 https://github.com/acme/my-lib/releases/tag/v3.0.0
 ```

@@ -22,25 +22,21 @@ export function extractChangelogSummary(changelog: string, { stripBoldMarkers = 
 
   cleaned = cleaned.trim()
 
-  // remove trailing punctuation
-  let cleanedResult = cleaned
-  if (cleanedResult.endsWith('?') || cleanedResult.endsWith('!') || cleanedResult.endsWith('.')) {
-    cleanedResult = cleanedResult.slice(0, -1)
-  }
-
-  // Get first few lines or sentences
-  const sentences = cleanedResult.split(/[.!?]\s+/)
-
+  // The first lines (the commits) that fit, never a part of a line: a commit
+  // ending with a period is not merged with the next one
   let summary = ''
 
-  for (const sentence of sentences) {
-    if ((maxLength && (summary + sentence).length > maxLength) || sentence.trim() === '') {
+  for (const line of cleaned.split('\n')) {
+    const next = summary ? `${summary}\n${line}` : line
+
+    if (maxLength && next.length > maxLength) {
       break
     }
-    summary += `${sentence}. `
+
+    summary = next
   }
 
-  return summary.trim() || cleaned.substring(0, maxLength)
+  return summary || cleaned.substring(0, maxLength)
 }
 
 /**
