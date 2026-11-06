@@ -3,7 +3,7 @@ import { vol } from 'memfs'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockCommit, setInteractiveTerminal } from '../../../tests/mocks'
-import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, readPackages, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
+import { checkGitStatusIfDirty, confirmBump, confirmDirtyGitStatus, determineSemverChange, displayBump, executeHook, fetchGitTags, getBumpedIndependentPackages, getCanaryVersion, getPackageCommits, getPackages, getRootPackage, getShortCommitSha, loadRelizyConfig, readPackageJson, RelizyCancelError, resetReleaseFiles, resolveTags, updateLernaVersion, writeVersion } from '../../core'
 import { bump } from '../bump'
 
 // Mock file system
@@ -235,11 +235,6 @@ describe('Given bump command', () => {
       expect(confirmDirtyGitStatus).not.toHaveBeenCalled()
       expect(resetReleaseFiles).toHaveBeenCalled()
       expect(fetchGitTags).toHaveBeenCalledWith(mockCwd)
-      expect(readPackages).toHaveBeenCalledWith({
-        cwd: mockCwd,
-        ignorePackageNames: undefined,
-        patterns: ['packages/*'],
-      })
       expect(confirmBump).toHaveBeenCalledTimes(1)
       expect(displayBump).toHaveBeenCalledWith(expect.objectContaining({ versionMode: 'unified', currentVersion: '1.0.0', newVersion: '1.1.0' }))
       expect(result.bumped).toBe(true)

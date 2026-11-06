@@ -1000,15 +1000,6 @@ export async function planBumps({
 
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
-  const packages = readPackages({
-    cwd: config.cwd,
-    patterns: config.monorepo?.packages,
-    ignorePackageNames: config.monorepo?.ignorePackageNames,
-    ignored: config.monorepo?.ignored,
-  })
-
-  logger.debug(`Found ${packages.length} package(s)`)
-
   const plan = await planBump({ config, dryRun, force, suffix, canary })
 
   return { result: plan.result, plans: [plan] }
