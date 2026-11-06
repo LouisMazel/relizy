@@ -111,7 +111,7 @@ Renames the scopes of the commits in the changelogs (`{ ui: 'components' }`). It
 
 ## repo
 
-- **Type:** `{ provider?: 'github' | 'gitlab' | 'bitbucket', domain?: string, repo?: string, token?: string }`
+- **Type:** `{ provider?: 'github' | 'gitlab' | 'bitbucket', domain?: string, repo?: string }`
 - **Default:** resolved from the `repository` field of the closest `package.json`, else from the `origin` remote
 
 The repository of the links of the changelogs and of the provider releases. Set it for a self-hosted instance, or when neither the `repository` field nor the remote is usable. When set, it replaces the detected one entirely.
@@ -121,7 +121,6 @@ The repository of the links of the changelogs and of the provider releases. Set 
 | `provider` | `github`, `gitlab` or `bitbucket`, detected from the domain   |
 | `domain`   | Host of the repository (`github.com`, `gitlab.mycompany.com`) |
 | `repo`     | `owner/name`                                                  |
-| `token`    | Fallback of `tokens.github` and `tokens.gitlab`               |
 
 ```ts
 export default defineConfig({
@@ -150,7 +149,7 @@ The credentials of the commands. Each key falls back to the first environment va
 A more specific setting wins over these keys:
 
 - registry: `publish.registries[].token`, then `tokens.registry` (set by `--publish-token`)
-- provider: `tokens.github` or `tokens.gitlab` (both set by `--token`), then `repo.token`
+- provider: `tokens.github` or `tokens.gitlab` (both set by `--token`)
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)
 

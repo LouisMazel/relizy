@@ -49,10 +49,10 @@ export async function providerReleaseSafetyCheck({ config, provider, ai }: {
   let token: string | undefined
 
   if (internalProvider === 'github') {
-    token = config.tokens?.github || config.repo?.token
+    token = config.tokens?.github
   }
   else if (internalProvider === 'gitlab') {
-    token = config.tokens?.gitlab || config.repo?.token
+    token = config.tokens?.gitlab
   }
   else {
     throw new Error(`Unsupported Git provider: ${internalProvider || 'unknown'}`)

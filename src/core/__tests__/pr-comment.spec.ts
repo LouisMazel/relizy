@@ -589,68 +589,6 @@ describe('Given detectPullRequest function', () => {
       expect(fetch).not.toHaveBeenCalled()
     })
   })
-
-  describe('When using token from repo config', () => {
-    it('Then falls back to repo token for GitHub', async () => {
-      const config = createMockConfig({
-        repo: {
-          provider: 'github',
-          domain: 'github.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          github: undefined,
-        },
-      })
-      vi.mocked(execSync).mockReturnValue('main\n')
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([]),
-      } as Response)
-
-      await detectPullRequest({ config })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            Authorization: 'Bearer repo-token',
-          }),
-        }),
-      )
-    })
-
-    it('Then falls back to repo token for GitLab', async () => {
-      const config = createMockConfig({
-        repo: {
-          provider: 'gitlab',
-          domain: 'gitlab.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          gitlab: undefined,
-        },
-      })
-      vi.mocked(execSync).mockReturnValue('main\n')
-      vi.mocked(fetch).mockResolvedValue({
-        ok: true,
-        json: () => Promise.resolve([]),
-      } as Response)
-
-      await detectPullRequest({ config })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'PRIVATE-TOKEN': 'repo-token',
-          }),
-        }),
-      )
-    })
-  })
 })
 
 describe('Given PR_COMMENT_MARKER constant', () => {
@@ -935,7 +873,6 @@ describe('Given postPrComment function', () => {
           provider: 'bitbucket' as any,
           domain: 'bitbucket.org',
           repo: 'user/repo',
-          token: 'test-token',
         },
         prComment: {
           mode: 'append',

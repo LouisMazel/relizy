@@ -42,7 +42,7 @@ Without pull request, the comment is skipped with the warning `No PR/MR detected
 
 ## Tokens
 
-The comment uses the token of the provider releases (`tokens.github` or `tokens.gitlab`, else `repo.token`): see [Tokens](./../config/overview.md#tokens).
+The comment uses the token of the provider releases (`tokens.github` or `tokens.gitlab`): see [Tokens](./../config/overview.md#tokens).
 
 - **GitHub**: the token needs the permission to comment the pull requests. With the `GITHUB_TOKEN` of GitHub Actions, grant `pull-requests: write` to the job (see [GitHub Actions](./github-actions.md)).
 - **GitLab**: the token is sent in the `PRIVATE-TOKEN` header: use a project or personal access token with the `api` scope (see [GitLab CI](./gitlab-ci.md)).

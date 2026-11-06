@@ -213,7 +213,7 @@ export function prepareCiRepository(cwd: string): void {
  * the remote (it cannot push by default)
  */
 function getGitlabPushToken(config: ResolvedRelizyConfig, env: Env): string | undefined {
-  const token = config.tokens.gitlab || config.repo?.token
+  const token = config.tokens.gitlab
   return env.GITLAB_CI === 'true' && token && token !== env.CI_JOB_TOKEN ? token : undefined
 }
 

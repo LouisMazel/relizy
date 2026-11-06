@@ -165,6 +165,17 @@ describe('Given check_migration on a project with the options renamed in relizy 
     expect(text).toContain('**`publish.private` is removed** (`relizy.config.mjs:3`)')
   })
 
+  it('Then points out the removed repo.token', async () => {
+    const cwd = writeProject({
+      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'relizy.config.mjs': `export default {\n  repo: {\n    provider: 'gitlab', domain: 'gitlab.example.com', repo: 'team/app',\n    token: 'glpat_test',\n  },\n}\n`,
+    })
+
+    const text = await checkMigration(createTestContext(cwd), {})
+
+    expect(text).toContain('**`repo.token` is removed** (`relizy.config.mjs:4`)')
+  })
+
   it('Then points out the removed publish.token', async () => {
     const cwd = writeProject({
       'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),

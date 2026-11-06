@@ -131,19 +131,6 @@ describe('Given github function', () => {
       )
     })
 
-    it('Then authenticates with repo.token when there is no GitHub token', async () => {
-      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
-        bump: { type: 'patch' },
-        monorepo: { versionMode: 'unified' },
-        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo', token: 'repo-token' },
-        tokens: { github: undefined },
-      }))
-
-      await github({ force: false })
-
-      expect(createGithubRelease).toHaveBeenCalledWith(expect.objectContaining({ tokens: { github: 'repo-token' } }), expect.any(Object))
-    })
-
     it('Then returns posted releases array', async () => {
       const result = await github({ force: false })
 
@@ -253,22 +240,6 @@ describe('Given github function', () => {
       await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledTimes(2)
-    })
-
-    it('Then authenticates each release with repo.token when there is no GitHub token', async () => {
-      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
-        bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-        repo: { provider: 'github', domain: 'github.com', repo: 'user/repo', token: 'repo-token' },
-        tokens: { github: undefined },
-      }))
-
-      await github({ force: false })
-
-      expect(createGithubRelease).toHaveBeenCalledTimes(2)
-      for (const [apiConfig] of vi.mocked(createGithubRelease).mock.calls) {
-        expect(apiConfig.tokens).toEqual({ github: 'repo-token' })
-      }
     })
 
     it('Then uses independent tags for each package', async () => {
@@ -447,28 +418,6 @@ describe('Given github function', () => {
       await expect(github({ force: false })).rejects.toThrow(
         'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
-    })
-
-    it('Then accepts token from repo config', async () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
-        repo: {
-          provider: 'github',
-          domain: 'github.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-        tokens: {
-          github: undefined,
-          gitlab: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
-          slack: undefined,
-        },
-      })
-      vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-
-      await expect(github({ force: false })).resolves.not.toThrow()
     })
   })
 

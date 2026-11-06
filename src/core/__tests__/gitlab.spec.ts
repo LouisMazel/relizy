@@ -228,48 +228,6 @@ describe('Given createGitlabRelease function', () => {
         expect.anything(),
       )
     })
-
-    it('Then uses token from repo config when tokens.gitlab not set', async () => {
-      const config = createMockConfig({
-        bump: { type: 'patch' },
-        tokens: {
-          gitlab: undefined,
-        },
-        repo: {
-          provider: 'gitlab',
-          domain: 'gitlab.com',
-          repo: 'user/repo',
-          token: 'repo-token',
-        },
-      })
-
-      await createGitlabRelease({
-        config,
-        release: {
-          tag_name: 'v1.0.0',
-          name: 'v1.0.0',
-          description: 'Release notes',
-        },
-      })
-
-      await createGitlabRelease({
-        config,
-        release: {
-          tag_name: 'v1.0.0',
-          name: 'v1.0.0',
-          description: 'Release notes',
-        },
-      })
-
-      expect(fetch).toHaveBeenCalledWith(
-        expect.anything(),
-        expect.objectContaining({
-          headers: expect.objectContaining({
-            'PRIVATE-TOKEN': 'repo-token',
-          }),
-        }),
-      )
-    })
   })
 
   describe('When in dry-run mode', () => {

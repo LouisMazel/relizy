@@ -48,7 +48,7 @@ export async function createGitlabRelease({
   release: GitlabRelease
   dryRun?: boolean
 }): Promise<GitlabReleaseResponse> {
-  const token = config.tokens.gitlab || config.repo?.token
+  const token = config.tokens.gitlab
 
   if (!token && !dryRun) {
     throw new Error(
@@ -134,7 +134,7 @@ async function gitlabIndependentMode({
   suffix: string | undefined
   force: boolean
 }): Promise<PostedRelease[]> {
-  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitLab token: ${config.tokens.gitlab ? '✓ provided' : '✗ missing'}`)
 
   const packages = filterPrivatePackagesUnlessIncluded(await getPackagesOrBumpedPackages({
     config,
@@ -249,7 +249,7 @@ async function gitlabUnified({
   rootPackage: RootPackage
   bumpResult: BumpResultTruthy | undefined
 }) {
-  logger.debug(`GitLab token: ${config.tokens.gitlab || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitLab token: ${config.tokens.gitlab ? '✓ provided' : '✗ missing'}`)
 
   const newVersion = bumpResult?.newVersion || rootPackage.newVersion || rootPackage.version
 

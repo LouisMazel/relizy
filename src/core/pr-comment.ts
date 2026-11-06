@@ -153,14 +153,14 @@ function findPrForProvider(provider: GitProvider, token: string, repo: string, b
 
 function getProviderToken(config: ResolvedRelizyConfig, provider: GitProvider): string | undefined {
   if (provider === 'github') {
-    return config.tokens.github || config.repo?.token
+    return config.tokens.github
   }
 
   if (provider === 'gitlab') {
-    return config.tokens.gitlab || config.repo?.token
+    return config.tokens.gitlab
   }
 
-  return config.repo?.token
+  return undefined
 }
 
 export async function detectPullRequest({
@@ -499,6 +499,11 @@ export async function postPrComment({
   const domain = config.repo?.domain
   const mode = config.prComment.mode
 
+  if (pr.provider !== 'github' && pr.provider !== 'gitlab') {
+    logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
+    return false
+  }
+
   const token = getProviderToken(config, pr.provider)
   if (!token) {
     logger.warn(`No ${pr.provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR commenting`)
@@ -514,13 +519,8 @@ export async function postPrComment({
     if (pr.provider === 'github') {
       return await postGitHubPrComment({ token, repo, pr, body, mode, domain })
     }
-    else if (pr.provider === 'gitlab') {
-      return await postGitLabMrComment({ token, repo, pr, body, mode, domain })
-    }
-    else {
-      logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
-      return false
-    }
+
+    return await postGitLabMrComment({ token, repo, pr, body, mode, domain })
   }
   catch (error) {
     logger.warn(`Failed to post PR comment: ${error}`)

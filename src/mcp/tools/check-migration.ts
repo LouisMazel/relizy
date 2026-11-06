@@ -170,6 +170,16 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
     })
   }
 
+  if ((config.repo as { token?: unknown } | undefined)?.token !== undefined) {
+    findings.push({
+      severity: 'change',
+      title: '`repo.token` is removed',
+      section: 'Repository Token',
+      detail: 'Set the token of the provider releases and of the PR comment in `tokens.github` or `tokens.gitlab` (read from `GITHUB_TOKEN`, `GH_TOKEN`, `GITLAB_TOKEN`... by default): relizy 2 ignores `repo.token`.',
+      locations: configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\btoken\s*:/))),
+    })
+  }
+
   if ((config.publish as { token?: unknown } | undefined)?.token !== undefined) {
     findings.push({
       severity: 'change',

@@ -1536,10 +1536,6 @@ export interface RepoConfig {
    */
   repo?: string
   /**
-   * Git token
-   */
-  token?: string
-  /**
    * Git provider (e.g. `github` or `gitlab`)
    * @default 'github'
    */

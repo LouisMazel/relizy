@@ -69,7 +69,7 @@ async function publishIndependentRelease({
   else {
     logger.debug(`Publishing release ${to} to GitHub...`)
     reportProgress(`Creating the GitHub release ${to}`)
-    await createGithubRelease({ repo: repoConfig, tokens: { github: config.tokens.github || config.repo?.token } }, release)
+    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 
   return {
@@ -99,9 +99,9 @@ async function githubIndependentMode({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github ? '✓ provided' : '✗ missing'}`)
 
-  if (!config.tokens.github && !config.repo?.token) {
+  if (!config.tokens.github) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
@@ -157,9 +157,9 @@ async function githubUnified({
     throw new Error('No repository configuration found. Please check your changelog config.')
   }
 
-  logger.debug(`GitHub token: ${config.tokens.github || config.repo?.token ? '✓ provided' : '✗ missing'}`)
+  logger.debug(`GitHub token: ${config.tokens.github ? '✓ provided' : '✗ missing'}`)
 
-  if (!config.tokens.github && !config.repo?.token) {
+  if (!config.tokens.github) {
     throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
   }
 
@@ -203,7 +203,7 @@ async function githubUnified({
   else {
     logger.debug('Publishing release to GitHub...')
     reportProgress(`Creating the GitHub release ${to}`)
-    await createGithubRelease({ repo: repoConfig, tokens: { github: config.tokens.github || config.repo?.token } }, release)
+    await createGithubRelease({ repo: repoConfig, tokens: config.tokens }, release)
   }
 
   logger.success(`Release ${to} published to GitHub!`)
