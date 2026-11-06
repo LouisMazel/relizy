@@ -8,6 +8,7 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
+import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm'
 import { redactSecrets } from './redact'
@@ -193,8 +194,8 @@ function resolveTemplateDefaults(config: ResolvedConfig): void {
 
   if (templates.commitMessage === undefined) {
     templates.commitMessage = isIndependent
-      ? 'chore(release): bump {{packageCount}} packages'
-      : 'chore(release): bump version to {{newVersion}}'
+      ? DEFAULT_RELEASE_COMMIT_MESSAGES.packages
+      : DEFAULT_RELEASE_COMMIT_MESSAGES.version
 
     if (isIndependent && templates.commitBody === undefined) {
       templates.commitBody = '{{packageList}}'
