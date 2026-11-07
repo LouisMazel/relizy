@@ -25,21 +25,21 @@ describe('Given getOutOfRangePeers function', () => {
   it('Then returns the peer dependencies whose published range rejects the new version', () => {
     writePackage({ components: 'workspace:*' })
 
-    expect(getOutOfRangePeers({ packagePath: cwd, bumped })).toEqual([{ dependency: 'components', range: '6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0' }])
+    expect(getOutOfRangePeers({ packagePath: cwd, bumped })).toEqual([{ dependency: 'components', field: 'peerDependencies', range: '6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0' }])
   })
 
   it('Then follows an alias to the bumped package', () => {
     writePackage({ ui: 'workspace:components@~' })
 
     expect(getOutOfRangePeers({ packagePath: cwd, bumped: new Map([['components', { oldVersion: '6.19.1', newVersion: '7.0.0' }]]) }))
-      .toEqual([{ dependency: 'components', range: '~6.19.1', oldVersion: '6.19.1', newVersion: '7.0.0' }])
+      .toEqual([{ dependency: 'components', field: 'peerDependencies', range: '~6.19.1', oldVersion: '6.19.1', newVersion: '7.0.0' }])
   })
 
   it('Then rejects a prerelease of another version than the one of the range, as npm does', () => {
     writePackage({ components: 'workspace:^' })
 
     expect(getOutOfRangePeers({ packagePath: cwd, bumped: new Map([['components', { oldVersion: '6.19.1', newVersion: '6.20.0-0.canary-abc1234' }]]) }))
-      .toEqual([{ dependency: 'components', range: '^6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0-0.canary-abc1234' }])
+      .toEqual([{ dependency: 'components', field: 'peerDependencies', range: '^6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0-0.canary-abc1234' }])
   })
 
   it('Then accepts a prerelease of the version of the range', () => {

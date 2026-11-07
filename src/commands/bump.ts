@@ -1042,6 +1042,7 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
           dependencyTypes: options.dependencyTypes,
           capZeroMajor: options.capZeroMajor,
           outOfRangePeers: options.outOfRangePeers,
+          dependents: options.dependents,
         },
         monorepo: options.privatePackages !== undefined
           ? { privatePackages: options.privatePackages }

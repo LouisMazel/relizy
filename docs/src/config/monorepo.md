@@ -43,17 +43,17 @@ Glob patterns, relative to `cwd`, of the package directories (`['packages/*']`).
 
 Sets of packages released together in a single run, each with its own version mode. Replaces `versionMode` and `packages`. Every package belongs to one group: a package matched by several groups goes to the group listing its exact path (no glob), any other overlap is an error. At most one group uses the `unified` or `selective` mode: it owns the root version and the repository tags. See [Version Groups](./../guide/version-groups.md) for the behavior and the examples.
 
-| Field         | Type                                                   | Effect                                                                                                                                         |
-| ------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `name`        | `string` (required)                                    | Name in the logs, targeted by `--group <name>`                                                                                                 |
-| `title`       | `string` (default: `name`)                             | Name in the bump confirmation, the social posts, the PR comment and the release summary                                                        |
-| `versionMode` | `'unified' \| 'selective' \| 'independent'` (required) | Version mode of the packages of the group                                                                                                      |
-| `packages`    | `string[]` (required)                                  | Glob patterns of the package directories of the group                                                                                          |
-| `ignored`     | `string[]` (default: `[]`)                             | Package directories to ignore in the group, on top of [`monorepo.ignored`](#ignored)                                                           |
-| `bump`        | `{ capZeroMajor?, dependencyTypes? }`                  | Overrides [`bump.capZeroMajor`](./bump.md#capzeromajor) and [`bump.dependencyTypes`](./bump.md#dependencytypes)                                |
-| `changelog`   | `{ rootChangelog?, includeCommitBody? }`               | Overrides [`changelog.rootChangelog`](./changelog.md#rootchangelog) and [`changelog.includeCommitBody`](./changelog.md#includecommitbody)      |
-| `release`     | `{ providerRelease?, social? }`                        | `providerRelease: false`: no provider release for its packages; `social: false`: left out of the social posts                                  |
-| `ai`          | `{ providerRelease? }`                                 | Overrides [`ai.providerRelease`](./ai.md) (`enabled`, `onlyStable`), e.g. `{ enabled: false }` to limit the AI calls of an `independent` group |
+| Field         | Type                                                   | Effect                                                                                                                                                     |
+| ------------- | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`        | `string` (required)                                    | Name in the logs, targeted by `--group <name>`                                                                                                             |
+| `title`       | `string` (default: `name`)                             | Name in the bump confirmation, the social posts, the PR comment and the release summary                                                                    |
+| `versionMode` | `'unified' \| 'selective' \| 'independent'` (required) | Version mode of the packages of the group                                                                                                                  |
+| `packages`    | `string[]` (required)                                  | Glob patterns of the package directories of the group                                                                                                      |
+| `ignored`     | `string[]` (default: `[]`)                             | Package directories to ignore in the group, on top of [`monorepo.ignored`](#ignored)                                                                       |
+| `bump`        | `{ capZeroMajor?, dependencyTypes?, dependents? }`     | Overrides [`bump.capZeroMajor`](./bump.md#capzeromajor), [`bump.dependencyTypes`](./bump.md#dependencytypes) and [`bump.dependents`](./bump.md#dependents) |
+| `changelog`   | `{ rootChangelog?, includeCommitBody? }`               | Overrides [`changelog.rootChangelog`](./changelog.md#rootchangelog) and [`changelog.includeCommitBody`](./changelog.md#includecommitbody)                  |
+| `release`     | `{ providerRelease?, social? }`                        | `providerRelease: false`: no provider release for its packages; `social: false`: left out of the social posts                                              |
+| `ai`          | `{ providerRelease? }`                                 | Overrides [`ai.providerRelease`](./ai.md) (`enabled`, `onlyStable`), e.g. `{ enabled: false }` to limit the AI calls of an `independent` group             |
 
 ```ts
 export default defineConfig({

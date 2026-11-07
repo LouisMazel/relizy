@@ -263,36 +263,88 @@ export function isBreakingVersionChange({ oldVersion, newVersion }: VersionChang
   return !semver.satisfies(newVersion, `^${oldVersion}`, { includePrerelease: true })
 }
 
+export type DependencyField = NonNullable<BumpConfig['dependencyTypes']>[number]
+
 /**
- * Peer dependency whose published range rejects the new version of the dependency.
+ * Dependency whose published range rejects the new version of the dependency.
  */
-export interface OutOfRangePeer {
+export interface OutOfRangeDependency extends VersionChange {
   /**
    * Name of the workspace package (the target of an alias)
    */
   dependency: string
   /**
-   * Range the package was published with
+   * Field of the `package.json` declaring the dependency
    */
-  range: string
+  field: DependencyField
   /**
-   * Version of the dependency before the bump
+   * Range the package was published with, null when the specifier is not a
+   * semver range (`catalog:`, `link:`, `npm:`...): it cannot be checked
    */
-  oldVersion: string
-  /**
-   * Version of the dependency after the bump
-   */
-  newVersion: string
+  range: string | null
 }
 
 /**
- * The peer dependencies of a package whose published range (computed with the
- * version the dependency had before the bump) does not accept the new version
- * of the dependency.
+ * Peer dependency whose published range rejects the new version of the dependency.
+ */
+export interface OutOfRangePeer extends OutOfRangeDependency {
+  range: string
+}
+
+/**
+ * The dependencies of a package, in the given fields, whose published range
+ * (computed with the version the dependency had before the bump) does not
+ * accept the new version of the dependency.
  *
  * The ranges are checked as npm does, which rejects a prerelease unless the
  * range targets the same version: `^6.19.1` does not accept `6.20.0-beta.0`.
  * pnpm accepts it, but the consumers of the package may use npm.
+ *
+ * A specifier that is not a semver range (`catalog:`, `link:`...) is returned
+ * with a null `range`: it cannot be checked.
+ */
+export function getOutOfRangeDependencies({
+  packagePath,
+  bumped,
+  fields,
+}: {
+  packagePath: string
+  bumped: Map<string, VersionChange>
+  fields: DependencyField[]
+}): OutOfRangeDependency[] {
+  const packageJsonPath = join(packagePath, 'package.json')
+
+  if (bumped.size === 0 || fields.length === 0 || !existsSync(packageJsonPath)) {
+    return []
+  }
+
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as Partial<Record<DependencyField, Record<string, string>>>
+  const outOfRange: OutOfRangeDependency[] = []
+
+  for (const field of fields) {
+    for (const [dependencyName, specifier] of Object.entries(packageJson[field] ?? {})) {
+      const target = parseWorkspaceProtocol(dependencyName, specifier)?.target ?? dependencyName
+      const change = bumped.get(target)
+
+      if (!change) {
+        continue
+      }
+
+      const published = getPublishedRange({ dependencyName, specifier, dependencyVersion: change.oldVersion })
+
+      if (!published || !semver.satisfies(change.newVersion, published.range)) {
+        outOfRange.push({ dependency: target, field, range: published?.range ?? null, ...change })
+      }
+    }
+  }
+
+  return outOfRange
+}
+
+/**
+ * The peer dependencies of a package whose published range rejects the new
+ * version of the dependency (see `getOutOfRangeDependencies`). The specifiers
+ * that are not semver ranges are left out.
  */
 export function getOutOfRangePeers({
   packagePath,
@@ -301,23 +353,6 @@ export function getOutOfRangePeers({
   packagePath: string
   bumped: Map<string, VersionChange>
 }): OutOfRangePeer[] {
-  const packageJsonPath = join(packagePath, 'package.json')
-
-  if (bumped.size === 0 || !existsSync(packageJsonPath)) {
-    return []
-  }
-
-  const { peerDependencies = {} } = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as { peerDependencies?: Record<string, string> }
-  const outOfRange: OutOfRangePeer[] = []
-
-  for (const [dependencyName, specifier] of Object.entries(peerDependencies)) {
-    const change = bumped.get(parseWorkspaceProtocol(dependencyName, specifier)?.target ?? dependencyName)
-    const published = change && getPublishedRange({ dependencyName, specifier, dependencyVersion: change.oldVersion })
-
-    if (change && published && !semver.satisfies(change.newVersion, published.range)) {
-      outOfRange.push({ dependency: published.target, range: published.range, ...change })
-    }
-  }
-
-  return outOfRange
+  return getOutOfRangeDependencies({ packagePath, bumped, fields: ['peerDependencies'] })
+    .filter((peer): peer is OutOfRangePeer => peer.range !== null)
 }

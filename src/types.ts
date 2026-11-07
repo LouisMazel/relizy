@@ -107,10 +107,30 @@ export interface PackageBase extends ReadPackage {
    */
   breakingPeerDependency?: string
   /**
-   * Peer dependency whose new version the published range of this package
-   * rejects: the package is bumped as a dependent for it (`bump.outOfRangePeers: 'bump'`)
+   * Dependency whose new version the published range of this package rejects:
+   * the package is bumped as a dependent for it (a peer dependency with
+   * `bump.outOfRangePeers: 'bump'`, a field of `bump.dependencyTypes` with
+   * `bump.dependents: 'out-of-range'`)
    */
-  outOfRangePeer?: string
+  outOfRangeDependency?: {
+    /**
+     * Name of the dependency
+     */
+    name: string
+    /**
+     * Field of the `package.json` declaring the dependency
+     */
+    field: 'dependencies' | 'devDependencies' | 'peerDependencies'
+    /**
+     * Range the package was published with, null when the specifier is not a
+     * semver range (`catalog:`, `link:`...)
+     */
+    range: string | null
+    /**
+     * New version of the dependency
+     */
+    newVersion: string
+  }
 }
 
 /**
@@ -379,7 +399,7 @@ export interface VersionGroup {
   /**
    * Bump options of this group, overriding the global `bump` ones.
    */
-  bump?: Pick<BumpConfig, 'capZeroMajor' | 'dependencyTypes'>
+  bump?: Pick<BumpConfig, 'capZeroMajor' | 'dependencyTypes' | 'dependents'>
   /**
    * Changelog options of this group, overriding the global `changelog` ones.
    */
@@ -425,14 +445,27 @@ export interface BumpConfig {
    */
   clean?: boolean
   /**
-   * Dependency fields whose internal dependencies bump the package: a package is
-   * bumped (a patch) on **every** bump of the packages it lists in these fields.
+   * Dependency fields whose internal dependencies bump the package (a patch):
+   * when its published range rejects their new version, or on every bump of
+   * them, see `dependents`.
    *
    * `peerDependencies` is not included by default: a package is bumped only when
    * the range of its peer dependency rejects the new version, see `outOfRangePeers`.
    * @default ['dependencies']
    */
   dependencyTypes?: ('dependencies' | 'devDependencies' | 'peerDependencies')[]
+  /**
+   * When a package is bumped because of an internal dependency listed in one of
+   * the `dependencyTypes` fields:
+   * - `out-of-range`: only when the range it was published with rejects the new
+   *   version of the dependency (`workspace:*` on every bump, `workspace:^` on a
+   *   major, a minor in `0.x` or a prerelease). A specifier that is not a semver
+   *   range (`catalog:`, `link:`, `npm:`...) counts as out of range.
+   * - `always`: on every bump of the dependency, e.g. for a package that
+   *   bundles its dependency.
+   * @default 'out-of-range'
+   */
+  dependents?: 'out-of-range' | 'always'
   /**
    * Skip confirmation prompt about bumping packages
    * @default false
@@ -471,7 +504,7 @@ export interface BumpConfig {
    * dependency of another version group gives that bump to the root version.
    *
    * Independent of `dependencyTypes`, which bumps the dependents on every bump
-   * of their dependencies.
+   * of their dependencies (or only out of range, see `dependents`).
    * @default 'bump'
    */
   outOfRangePeers?: 'bump' | 'warn' | 'error'

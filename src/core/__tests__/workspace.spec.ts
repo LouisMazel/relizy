@@ -349,7 +349,7 @@ describe('Given the peer dependencies of the packages not released', () => {
     writePackage('packages/nav', { name: 'nav', version: '1.2.0', peerDependencies: { components: 'workspace:*' } })
 
     expect(findStalePeerDependents({ config, bumpedPackages: [components], publishedPackages: [components] }))
-      .toEqual([{ dependent: 'nav', dependency: 'components', range: '6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0' }])
+      .toEqual([{ dependent: 'nav', dependency: 'components', field: 'peerDependencies', range: '6.19.1', oldVersion: '6.19.1', newVersion: '6.20.0' }])
   })
 
   it('Then accepts a range including the new version', () => {
@@ -363,7 +363,7 @@ describe('Given the peer dependencies of the packages not released', () => {
     const canary = { ...components, newVersion: '6.19.2-0.canary-abc1234' }
 
     expect(findStalePeerDependents({ config, bumpedPackages: [canary], publishedPackages: [canary] }))
-      .toEqual([{ dependent: 'nav', dependency: 'components', range: '^6.19.1', oldVersion: '6.19.1', newVersion: '6.19.2-0.canary-abc1234' }])
+      .toEqual([{ dependent: 'nav', dependency: 'components', field: 'peerDependencies', range: '^6.19.1', oldVersion: '6.19.1', newVersion: '6.19.2-0.canary-abc1234' }])
   })
 
   it('Then accepts a prerelease of the version of the range', () => {
@@ -378,7 +378,7 @@ describe('Given the peer dependencies of the packages not released', () => {
     const major = { ...components, newVersion: '7.0.0' }
 
     expect(findStalePeerDependents({ config, bumpedPackages: [major], publishedPackages: [major] }))
-      .toEqual([{ dependent: 'nav', dependency: 'components', range: '^6.0.0', oldVersion: '6.19.1', newVersion: '7.0.0' }])
+      .toEqual([{ dependent: 'nav', dependency: 'components', field: 'peerDependencies', range: '^6.0.0', oldVersion: '6.19.1', newVersion: '7.0.0' }])
   })
 
   it('Then ignores the dependents released by the run, the private ones and the other dependency fields', () => {

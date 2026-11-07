@@ -956,7 +956,11 @@ function describeReason(pkg: PackageBase & { oldVersion?: string }): string {
   }
 
   if (pkg.reason === 'dependency') {
-    return pkg.outOfRangePeer ? `follows ${pkg.outOfRangePeer} (peer range)` : `follows ${pkg.dependencyChain?.[0] ?? 'a dependency'}`
+    const outOfRange = pkg.outOfRangeDependency
+
+    return outOfRange
+      ? `follows ${outOfRange.name} (${outOfRange.field === 'peerDependencies' ? 'peer range' : 'range'})`
+      : `follows ${pkg.dependencyChain?.[0] ?? 'a dependency'}`
   }
 
   const counts = new Map<string, number>()
