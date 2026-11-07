@@ -67,7 +67,7 @@ describe('Given a release with version groups on a real git repository', () => {
       const { result, plans, groups } = await planBumps({ config, dryRun: true })
       const nav = result.bumped ? result.bumpedPackages.find(pkg => pkg.name === '@scope/nav') : undefined
 
-      expect(nav).toEqual(expect.objectContaining({ newVersion: '1.2.1', reason: 'dependency', dependencyChain: ['@scope/components'], outOfRangePeer: '@scope/components' }))
+      expect(nav).toEqual(expect.objectContaining({ newVersion: '1.2.1', reason: 'dependency', dependencyChain: ['@scope/components'], outOfRangeDependency: { name: '@scope/components', field: 'peerDependencies', range: '6.19.1', newVersion: '6.20.0' } }))
       expect(groups?.map(({ group, result }) => [group.name, result.bumped])).toEqual([['main', true], ['header', true]])
       expect(plans.map(plan => plan.result)).toEqual(groups?.map(group => group.result))
       expect(readVersion('packages/components')).toBe('6.19.1')
@@ -165,6 +165,31 @@ describe('Given a release with version groups on a real git repository', () => {
         await release({ yes: true })
 
         expect(readVersion('packages/components')).toBe('6.20.0')
+        expect(readVersion('shared/nav')).toBe('1.2.1')
+      })
+    })
+
+    describe('When a package depends on a package of another group with bump.dependents: out-of-range', () => {
+      beforeEach(() => {
+        commitChanges('chore: caret dependency', () => {
+          writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', dependencies: { '@scope/components': 'workspace:^' } })
+          writeConfig({ headerOptions: `, bump: { dependents: 'out-of-range' }` })
+        })
+      })
+
+      it('Then does not release the package whose published range accepts the new version', async () => {
+        await release({ yes: true })
+
+        expect(readVersion('packages/components')).toBe('6.20.0')
+        expect(readVersion('shared/nav')).toBe('1.2.0')
+      })
+
+      it('Then releases a patch of the package whose published range rejects a major', async () => {
+        commitFile('packages/components/card.js', 'feat(components)!: new card API')
+
+        await release({ yes: true })
+
+        expect(readVersion('packages/components')).toBe('7.0.0')
         expect(readVersion('shared/nav')).toBe('1.2.1')
       })
     })

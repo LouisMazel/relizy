@@ -626,7 +626,8 @@ describe('Given the packages of a bump', () => {
       pkg({ name: 'graduated', oldVersion: '1.1.0-rc.2', newVersion: '1.1.0' }),
       pkg({ name: 'peer', breakingPeerDependency: 'maz-ui' }),
       pkg({ name: 'dependent', reason: 'dependency', dependencyChain: ['core'] }),
-      pkg({ name: 'ranged', reason: 'dependency', outOfRangePeer: 'core' }),
+      pkg({ name: 'ranged', reason: 'dependency', outOfRangeDependency: { name: 'core', field: 'peerDependencies', range: '1.0.0', newVersion: '1.1.0' } }),
+      pkg({ name: 'range', reason: 'dependency', outOfRangeDependency: { name: 'core', field: 'dependencies', range: '^1.0.0', newVersion: '2.0.0' } }),
       pkg({ name: 'changed', commits: [createMockCommit('feat', 'feat: a'), createMockCommit('feat', 'feat: b'), createMockCommit('fix', 'fix: c'), breaking, createMockCommit('ci', 'ci: d')] }),
       pkg({ name: 'forced' }),
     ])).toEqual([
@@ -635,6 +636,7 @@ describe('Given the packages of a bump', () => {
       'peer            1.0.0  →  1.1.0  maz-ui has a breaking change',
       'dependent       1.0.0  →  1.1.0  follows core',
       'ranged          1.0.0  →  1.1.0  follows core (peer range)',
+      'range           1.0.0  →  1.1.0  follows core (range)',
       'changed         1.0.0  →  1.1.0  2 features, 1 fix, 1 breaking change, 1 ci commit',
       'forced          1.0.0  →  1.1.0  forced',
     ])

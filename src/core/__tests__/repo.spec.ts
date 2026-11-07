@@ -20,7 +20,7 @@ vi.mock('node:fs/promises', async () => {
 
 // Mock dependencies
 vi.mock('../dependencies', () => ({
-  getOutOfRangePeers: vi.fn(() => []),
+  getOutOfRangeDependencies: vi.fn(() => []),
   isBreakingVersionChange: vi.fn(() => false),
   expandPackagesToBumpWithDependents: vi.fn(({ allPackages, packagesWithCommits }) => {
     // Simple mock: return packages that depend on packages with commits
@@ -322,14 +322,14 @@ describe('Given getPackages function', () => {
       expect(packages.length).toBeGreaterThanOrEqual(0)
     })
 
-    it('Then includes dependent packages when dependencies are bumped', async () => {
+    it('Then includes dependent packages when dependencies are bumped with bump.dependents: always', async () => {
       setupMockCommits('default', [
         createMockCommit('feat', 'update pkg-a'),
       ])
 
       const config = createMockConfig({
         cwd: mockCwd,
-        bump: { type: 'release' },
+        bump: { type: 'release', dependents: 'always' },
         monorepo: {
           versionMode: 'independent',
           packages: ['packages/*'],

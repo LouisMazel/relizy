@@ -44,7 +44,7 @@ function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): G
 
   repository.writeJson('.', { name: 'monorepo', version: '2.0.0', private: true })
   repository.writeJson('packages/core', { name: '@scope/core', version: '2.0.0' })
-  repository.writeJson('packages/ui', { name: '@scope/ui', version: '2.0.0', dependencies: { '@scope/core': 'workspace:^' } })
+  repository.writeJson('packages/ui', { name: '@scope/ui', version: '2.0.0', dependencies: { '@scope/core': 'workspace:*' } })
   repository.writeJson('packages/docs', { name: '@scope/docs', version: '2.0.0' })
   repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
   repository.commit('chore: init')
@@ -206,7 +206,7 @@ describe('Given preview_release on a monorepo', () => {
 
       expect(text).toContain('**Version:** 2.0.0 → 2.1.0')
       expect(text).toMatch(/\| `@scope\/core` \(`packages\/core`\) \| 2\.0\.0 → 2\.1\.0 \| 1 commit\(s\): feat\(core\): add the parser/)
-      expect(text).toContain('| `@scope/ui` (`packages/ui`) | 2.0.0 → 2.1.0 | depends on `@scope/core` (`bump.dependencyTypes`) |')
+      expect(text).toContain('| `@scope/ui` (`packages/ui`) | 2.0.0 → 2.1.0 | the published range of its dependency `@scope/core` (`2.0.0`) rejects 2.1.0 (`bump.dependents`) |')
       expect(text).toContain('Not released (no relevant commit nor bumped dependency): `@scope/docs`')
       expect(text).toContain('**Tags:** `v2.1.0`')
     })
@@ -219,7 +219,7 @@ describe('Given preview_release on a monorepo', () => {
       const text = await previewRelease(createTestContext(repository.cwd), {})
 
       expect(text).toContain('| `@scope/core` (`packages/core`) | 2.0.0 → 2.1.0 |')
-      expect(text).toContain('| `@scope/ui` (`packages/ui`) | 2.0.0 → 2.0.1 | depends on `@scope/core`')
+      expect(text).toContain('| `@scope/ui` (`packages/ui`) | 2.0.0 → 2.0.1 | the published range of its dependency `@scope/core` (`2.0.0`) rejects 2.1.0')
       expect(text).toContain('**Tags:** `@scope/core@2.1.0`, `@scope/ui@2.0.1`')
     })
   })
@@ -394,7 +394,7 @@ describe('Given preview_release with version groups', () => {
 
       expect(text).toContain('## Group `main` (selective)')
       expect(text).toContain('## Group `header` (independent)')
-      expect(text).toContain('| `@scope/nav` (`shared/nav`) | 1.2.0 → 1.2.1 | the published range of its peer dependency `@scope/components` rejects the new version of it (`bump.outOfRangePeers`) |')
+      expect(text).toContain('| `@scope/nav` (`shared/nav`) | 1.2.0 → 1.2.1 | the published range of its peer dependency `@scope/components` (`6.19.1`) rejects 6.20.0, bumped by the `main` group (`bump.outOfRangePeers`) |')
       expect(text).toContain('Not released (no relevant commit nor bumped dependency): `@scope/login`')
       expect(text).toContain('**Tags:** `v6.20.0`, `@scope/nav@1.2.1`')
       expect(snapshot(repository)).toEqual(before)
@@ -425,13 +425,13 @@ describe('Given preview_release with a package depending on a package of another
   describe('When the dependency is bumped', () => {
     it('Then the dependent is explained by the other group', async () => {
       const repository = createGroups()
-      repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0', dependencies: { '@scope/components': 'workspace:^' } })
+      repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0', dependencies: { '@scope/components': 'workspace:*' } })
       repository.commit('chore: depend on the components')
       repository.git('tag', '-f', '-a', '@scope/login@2.0.0', '-m', '@scope/login@2.0.0')
 
       const text = await previewRelease(createTestContext(repository.cwd), {})
 
-      expect(text).toContain('| `@scope/login` (`shared/login`) | 2.0.0 → 2.0.1 | depends on `@scope/components`, bumped by the `main` group |')
+      expect(text).toContain('| `@scope/login` (`shared/login`) | 2.0.0 → 2.0.1 | the published range of its dependency `@scope/components` (`6.19.1`) rejects 6.20.0, bumped by the `main` group (`bump.dependents`) |')
     })
   })
 })

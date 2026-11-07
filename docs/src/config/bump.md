@@ -2,7 +2,7 @@
 title: Bump Configuration
 description: Reference of the bump options - release type, prerelease identifier, clean check, confirmation, dependency bumps, out-of-range peer dependencies and the 0.x cap.
 metaDescription: 'Reference of the bump options: release type, prerelease identifier, confirmation, dependency bumps, out-of-range peers and the 0.x cap.'
-keywords: bump config, release type, preid, prerelease, dependencyTypes, outOfRangePeers, peer dependencies, capZeroMajor, clean, yes
+keywords: bump config, release type, preid, prerelease, dependencyTypes, dependents, outOfRangePeers, peer dependencies, capZeroMajor, clean, yes
 category: Configuration
 tags: [config, bump, versioning, semver, dependencies]
 ---
@@ -17,6 +17,7 @@ import { defineConfig } from 'relizy'
 export default defineConfig({
   bump: {
     dependencyTypes: ['dependencies', 'peerDependencies'],
+    dependents: 'out-of-range',
     outOfRangePeers: 'bump',
   },
 })
@@ -59,11 +60,36 @@ Skip the confirmation of the new versions. Required outside of an interactive te
 - **Type:** `('dependencies' | 'devDependencies' | 'peerDependencies')[]`
 - **Default:** `['dependencies']`
 
-Dependency fields whose internal dependencies bump the package: a package is bumped (a patch, or the matching prerelease) on **every** bump of the packages it lists in these fields, and its own dependents follow. The list replaces the default one: list `dependencies` too to keep it. See [Dependency Management](./../guide/dependency-management.md).
+Dependency fields whose internal dependencies bump the package: a package is bumped (a patch, or the matching prerelease) when its published range rejects the new version of a package it lists in these fields, or on every bump of it with [`dependents: 'always'`](#dependents); its own dependents are then checked in turn. The list replaces the default one: list `dependencies` too to keep it. See [Dependency Management](./../guide/dependency-management.md).
 
 `peerDependencies` is not included by default: a package is then bumped only when the published range of its peer dependency rejects the new version, see [`outOfRangePeers`](#outofrangepeers).
 
 This option only decides which dependents are bumped. The publish order always follows `dependencies`, `peerDependencies` and `optionalDependencies`: each package is published after the internal packages it depends on. With [version groups](./../guide/version-groups.md#dependencies-between-groups), each group can set its own `dependencyTypes`, which also decides whether its packages follow the bumps of another group.
+
+## dependents
+
+- **Type:** `'out-of-range' | 'always'`
+- **Default:** `'out-of-range'`
+
+When a package is bumped because of an internal dependency listed in one of the [`dependencyTypes`](#dependencytypes) fields:
+
+- `out-of-range`: only when the range the package was published with rejects the new version of the dependency, as for [`outOfRangePeers`](#outofrangepeers). A package whose range accepts the new version is not released: a fresh install of its current version already resolves the new version of the dependency.
+- `always`: on every bump of the dependency, e.g. for a package that bundles its dependency.
+
+| Dependency                  | Dependency bump           | `out-of-range`               | `always` |
+| --------------------------- | ------------------------- | ---------------------------- | -------- |
+| `workspace:^`               | `5.4.0` to `5.5.0`        | not released                 | a patch  |
+| `workspace:^`               | `5.4.0` to `6.0.0`        | a patch                      | a patch  |
+| `workspace:^`               | `0.4.0` to `0.5.0`        | a patch                      | a patch  |
+| `workspace:^`               | `5.4.0` to `5.5.0-beta.0` | a patch (npm rejects it)     | a patch  |
+| `workspace:~`               | `5.4.0` to `5.4.1`        | not released                 | a patch  |
+| `workspace:*`               | any                       | a patch                      | a patch  |
+| `catalog:`, `link:`, `npm:` | any                       | a patch (not a semver range) | a patch  |
+| `^5.0.0`                    | `5.4.0` to `5.5.0`        | not released                 | a patch  |
+
+The dependents are then checked in turn: with `app` depending on `ui` depending on `core`, `app` is only released when its range rejects the new version of `ui`. A dependent with commits of its own is bumped from its commits, whatever its ranges. With [version groups](./../guide/version-groups.md#dependencies-between-groups), the ranges are checked against the bumps of the other groups, and a `unified` or `selective` group whose packages all accept the new versions is not released.
+
+A dependent released out of range gets a patch, also when its dependency makes a breaking change: a dependency is installed for the package, its consumers do not have to upgrade it. Only a [peer dependency](#breaking-changes) turns it into a major.
 
 ## outOfRangePeers
 

@@ -6,7 +6,7 @@ import { join, relative, sep } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import fastGlob from 'fast-glob'
-import { bumpPeerDependents, computeNewVersions, getExternalDependents, markDependents } from './bump-plan'
+import { planPackages } from './bump-plan'
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { parseCommits } from './commits'
 import { getPackageDependencies } from './dependencies'
@@ -464,23 +464,7 @@ export async function getPackages({
     }
   }
 
-  const packagesArray = Array.from(packages.values())
-  const externalDependents = getExternalDependents(packagesArray, externalBumps)
-
-  markDependents({
-    packages,
-    seeds: [
-      ...packagesArray.filter(p => p.commits.length > 0).map(pkg => ({ pkg })),
-      ...externalDependents.map(pkg => ({ pkg, dependency: pkg.dependencies.find(name => externalBumps!.has(name)) })),
-    ],
-  })
-
-  const versionContext = { config, force, suffix, newVersionOverride }
-
-  computeNewVersions({ packages, ...versionContext })
-
-  // `bump` is the default
-  bumpPeerDependents({ packages, externalBumps, bumpOutOfRange: !['warn', 'error'].includes(config.bump.outOfRangePeers!), ...versionContext })
+  planPackages({ packages, externalBumps, config, force, suffix, newVersionOverride })
 
   const allPackages = Array.from(packages.values())
   const packagesToBump = includeAll ? allPackages : allPackages.filter(p => p.reason || force)

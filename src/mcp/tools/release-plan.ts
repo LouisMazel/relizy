@@ -7,7 +7,7 @@ import type { PackageSet } from './project'
 
 import { z } from 'zod'
 import { planBumps } from '../../commands/bump'
-import { fetchGitTags } from '../../core'
+import { describeOutOfRange, fetchGitTags } from '../../core'
 import { code } from '../markdown'
 import { loadProjectConfig } from '../runtime'
 import { configArgSchema, readPackageSets } from './project'
@@ -105,8 +105,13 @@ export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set
     const dependency = pkg.dependencyChain?.[0]
     const otherGroup = dependency ? plan.sets.find(other => other !== set && other.packages.some(candidate => candidate.name === dependency))?.group : undefined
 
-    if (pkg.outOfRangePeer) {
-      return `the published range of its peer dependency \`${pkg.outOfRangePeer}\` rejects the new version of it (\`bump.outOfRangePeers\`)`
+    if (pkg.outOfRangeDependency) {
+      const { name, ...outOfRange } = pkg.outOfRangeDependency
+      const option = outOfRange.field === 'peerDependencies' ? 'bump.outOfRangePeers' : 'bump.dependents'
+
+      const group = otherGroup ? `, bumped by the \`${otherGroup.name}\` group` : ''
+
+      return `${describeOutOfRange({ dependency: name, ...outOfRange })}${group} (\`${option}\`)`
     }
 
     if (otherGroup) {

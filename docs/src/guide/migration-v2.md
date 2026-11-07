@@ -181,7 +181,7 @@ export default defineConfig({
 
 An array of the config replaces the default one, and the array of the config file when it comes from the CLI, the programmatic API or another layer of the config (the `relizy` key of `package.json`, a config it `extends`), instead of being concatenated with them. In v1, `bump.dependencyTypes: ['peerDependencies']` resolved to `['peerDependencies', 'dependencies']`, `loadRelizyConfig({ overrides: { bump: { dependencyTypes: ['devDependencies'] } } })` could only add to the list of the config file.
 
-If you set the global `bump.dependencyTypes` without `dependencies`, add it to keep bumping the packages on every bump of their `dependencies`, as v1 did:
+If you set the global `bump.dependencyTypes` without `dependencies`, add it to keep bumping the packages for their `dependencies`, as v1 did:
 
 ```ts
 export default defineConfig({
@@ -191,6 +191,10 @@ export default defineConfig({
   },
 })
 ```
+
+### Dependents Only Out of Range
+
+v1 released a dependent on every release of its dependencies. A dependent without commits of its own is now released only when the range it was published with rejects the new version of its dependency ([`bump.dependents`](./../config/bump.md#dependents)): with `workspace:^`, on a major, a minor in `0.x` or a prerelease of the dependency, instead of every release. Set `bump.dependents: 'always'` to keep the behavior of v1, e.g. for a package that bundles its dependency.
 
 ### Changelog Linter of commitlint
 

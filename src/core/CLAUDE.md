@@ -24,7 +24,7 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 
 ## Out-of-Range Peer Dependencies
 
-`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()` (`bumpPeerDependents()`), the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing.
+`bump.outOfRangePeers` (`bump` by default) bumps, in `getPackages()` (`bumpPeerDependents()`), the packages whose published peer dependency range (computed from the `workspace:` specifier and the version before the bump, see `getOutOfRangePeers()` in `dependencies.ts`) rejects the new version of the dependency, until none is out of range. Independent of `bump.dependencyTypes`. `warn`/`error` only report them before publishing. With `bump.dependents: 'out-of-range'` (the default), the same fixpoint (`getOutOfRangeDependencies()`) also bumps the dependents of the `dependencyTypes` fields, nothing is expanded before (`planPackages()`), and a specifier that is not a semver range counts as out of range there; only a peer gives `breakingPeerDependency`.
 
 - The ranges are checked as npm does (no `includePrerelease`): `^6.19.1` rejects `6.20.0-beta.0`, so a prerelease of the dependency also releases the package.
 - Whatever `outOfRangePeers`, a released package whose out-of-range peer makes a breaking change (`isBreakingVersionChange()`: not accepted by `^oldVersion`) gets `breakingPeerDependency`, and `determineReleaseType({ breakingPeer })` bumps it as for a breaking commit (`capZeroMajor` applies). In `unified`/`selective` mode, the packages get the root version: `getBreakingPeerRootVersion()` in `bump.ts` bumps the root as for a breaking commit when a released package has a peer dependency on a package of another group making a breaking change (`hasExternalBreakingPeer()`, the packages of the group are left out as their jumps to the root version are not breaking changes), then plans the packages again. Same for the canary versions (`planCanaryMode`, `planCanaryIndependentMode`).
@@ -32,7 +32,7 @@ Before publishing, `src/core/workspace.ts` sorts the packages (dependencies, pee
 
 ## Dependency Handling
 
-- `expandPackagesToBumpWithDependents()` in `dependencies.ts` detects the workspace dependents; transitive ones are bumped too
+- `expandPackagesToBumpWithDependents()` in `dependencies.ts` detects the workspace dependents; transitive ones are bumped too (`bump.dependents: 'always'`)
 - `dependencyTypes` controls which dependency fields trigger bumps: `dependencies`, `devDependencies`, `peerDependencies`
 - In independent mode, dependent packages get a minimum `patch` bump unless they have their own qualifying commits
 - Catalogs (`src/core/catalogs.ts`): a commit changing an entry of a catalog (`pnpm-workspace.yaml`, `.yarnrc.yml`, bun's root `package.json`) belongs, in `getPackageCommits()`, to the packages referencing this entry with `catalog:` in any dependency field (their `package.json` at the commit), as an edit of their `package.json` would. The catalogs before and after the commits are read at once (`git cat-file --batch`)

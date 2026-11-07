@@ -69,7 +69,7 @@ Each group has a `name`, a `versionMode` and its `packages` (globs of package di
 
 `relizy release` runs [its steps](./../cli/release.md#steps) once, for every group:
 
-1. **Bump**: each group is bumped with its own version mode and options, after a single confirmation for every group. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped too, see [Dependencies Between Groups](#dependencies-between-groups).
+1. **Bump**: each group is bumped with its own version mode and options, after a single confirmation for every group. The packages of the other groups are ignored by a group, so a commit touching only the packages of the `header` group never bumps the root version of the `main` group (a breaking change there no longer bumps the whole repository). The packages depending on packages of another group are bumped when their published range rejects the new version, see [Dependencies Between Groups](#dependencies-between-groups).
 2. **Changelog**: each group generates its changelogs. Set `changelog.rootChangelog: false` on a group to keep it out of the root `CHANGELOG.md`.
 3. **Publish**: the packages of every group are published in a single order, each package after the internal packages it depends on (`dependencies`, `peerDependencies` and `optionalDependencies`), whatever their group.
 4. **Commit and tags**: a single release commit, with the tags of every group.
@@ -128,14 +128,14 @@ chore(release): bump version to 7.1.0
 
 ## Dependencies Between Groups
 
-When a package depends on a package bumped by another group, it is bumped too, so that its published dependency ranges follow (e.g. `workspace:*` is published as the exact new version):
+When the published range of a package rejects the new version of a package bumped by another group (e.g. `workspace:*`, published as the exact version, on any new version), it is bumped too, so that it is published with an up-to-date range:
 
-- in an `independent` group, the dependent gets a patch (or the matching prerelease), and its own dependents in the group follow;
+- in an `independent` group, the dependent gets a patch (or the matching prerelease), and its own dependents in the group are checked in turn;
 - in the `unified`/`selective` group, the dependent is bumped with the root version. Without commits of its own, the group gets a patch of its root version, or a major when a peer dependency makes a breaking change (see below).
 
 Which dependencies count:
 
-- the ones of the [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped on every bump of its dependency;
+- the ones of the [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) of the dependent's group (`dependencies` only by default): the dependent is bumped when its published range rejects the new version (a `unified`/`selective` group whose packages all accept the new versions is not released), or on every bump of its dependency with [`bump.dependents: 'always'`](./../config/bump.md#dependents);
 - the peer dependencies whose published range no longer accepts the new version (see [`bump.outOfRangePeers`](./../config/bump.md#outofrangepeers), `bump` by default): a peer dependency declared as `workspace:*` is published as the exact version, so the dependent is bumped on every bump of its dependency; with `workspace:^`, only on a major or a prerelease (canary, beta).
 
 A dependent whose peer dependency makes a breaking change (`@scope/components` from `6.19.1` to `7.0.0`) gets a major (a minor in `0.x`, unless [`capZeroMajor`](./../config/bump.md#capzeromajor) is `false`), even with commits of its own: once released with `^7.0.0`, it requires its consumers to upgrade `@scope/components` too. In a `unified`/`selective` group, the major goes to the root version, so to every package released by the group.

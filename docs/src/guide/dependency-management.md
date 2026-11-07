@@ -2,7 +2,7 @@
 title: Dependency Management
 description: How Relizy bumps the packages depending on a released package in a monorepo - dependency types, transitive dependents, peer dependency ranges, workspace protocol, catalogs and ignored packages.
 metaDescription: 'How Relizy bumps the dependents of a released package in a monorepo: dependency types, transitive dependents, peer ranges and catalogs.'
-keywords: dependency management, monorepo dependencies, dependents, transitive dependencies, dependencyTypes, workspace protocol, peer dependencies, outOfRangePeers, pnpm catalog, bun catalog, yarn catalog
+keywords: dependency management, monorepo dependencies, dependents, transitive dependencies, dependencyTypes, out-of-range dependents, workspace protocol, peer dependencies, outOfRangePeers, pnpm catalog, bun catalog, yarn catalog
 category: Guide
 tags: [guide, dependencies, monorepo, workspace]
 ---
@@ -13,15 +13,37 @@ tags: [guide, dependencies, monorepo, workspace]
 
 ## Dependents
 
-When a package is released, the packages of the workspace depending on it are released too, so that they are published with its new version. A package is a dependent when it lists the released package in one of the fields of [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) (`['dependencies']` by default), whatever the range it uses.
+A package is a dependent of a released package when it lists it in one of the fields of [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) (`['dependencies']` by default). A dependent without commits of its own is released only when the range it was published with rejects the new version of its dependency ([`bump.dependents`](./../config/bump.md#dependents), `out-of-range` by default). Otherwise its new release would have the same code and the same ranges: a fresh install of its current version already resolves the new version of the dependency.
 
-The dependents are followed transitively:
+| Dependency of the dependent | Published as       | The dependent is released when the dependency gets |
+| --------------------------- | ------------------ | -------------------------------------------------- |
+| `workspace:*`               | `2.0.0`            | any new version                                    |
+| `workspace:~`               | `~2.0.0`           | a minor, a major or a prerelease                   |
+| `workspace:^`               | `^2.0.0`           | a major (a minor in `0.x`) or a prerelease         |
+| `^2.0.0`                    | `^2.0.0`           | a major or a prerelease                            |
+| `catalog:`, `link:`, `npm:` | not a semver range | any new version                                    |
+
+The prereleases are checked as npm does: `^2.0.0` rejects `2.1.0-beta.0`.
+
+The dependents are followed transitively, each released dependent being checked in turn as a dependency:
 
 ```text
-@myorg/app  ──dependencies──▶  @myorg/ui  ──dependencies──▶  @myorg/core
+@myorg/app  ──"workspace:^"──▶  @myorg/ui  ──"workspace:*"──▶  @myorg/core
 ```
 
-A `fix` commit in `packages/core` releases `@myorg/core`, then `@myorg/ui` (depends on core), then `@myorg/app` (depends on ui). A diamond (`app` depending on `ui` and `admin`, both depending on `core`) releases each package once.
+A `fix` commit in `packages/core` releases `@myorg/core` (`2.0.0` to `2.0.1`), then `@myorg/ui`, whose exact range `2.0.0` rejects `2.0.1` (`1.5.0` to `1.5.1`). `@myorg/app` is not released: its range `^1.5.0` accepts `1.5.1`. A diamond (`app` depending on `ui` and `admin`, both depending on `core`) releases each package once.
+
+To release the dependents on every release of their dependencies, whatever their ranges, e.g. for a package that bundles its dependency:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  bump: {
+    dependents: 'always',
+  },
+})
+```
 
 To also follow the peer or dev dependencies, list their fields:
 
@@ -47,12 +69,12 @@ What a dependent gets depends on the [version mode](./version-modes.md):
 | `selective`   | The root version of the release, like the packages with commits (`1.4.2` to `1.6.0`)     |
 | `independent` | A patch of its own version (with `--prerelease`, a `prepatch`, or the next `prerelease`) |
 
-A dependent with commits of its own is bumped from its commits, as any package. In `independent` mode, for the example above with a `feat` commit in `core`:
+A dependent with commits of its own is bumped from its commits, as any package, whatever its ranges. A dependent released for a `dependencies` entry gets a patch, even for a major of the dependency: the dependency is installed for the dependent, its consumers do not have to upgrade it. Only a [peer dependency](#peer-dependencies) making a breaking change gives a major. In `independent` mode, for the example above with a breaking commit in `core`:
 
 ```text
-@myorg/core   2.0.0 → 2.1.0   feat
-@myorg/ui     1.5.0 → 1.5.1   depends on core
-@myorg/app    0.3.2 → 0.3.3   depends on ui
+@myorg/core   2.0.0 → 3.0.0   breaking commit
+@myorg/ui     1.5.0 → 1.5.1   "workspace:*", published as "2.0.0"
+@myorg/app    0.3.2           not released, "^1.5.0" accepts 1.5.1
 ```
 
 Relizy only writes the `version` of the released `package.json` files: it never rewrites the dependency ranges. The ranges published are the ones of the [workspace protocol](#workspace-protocol), replaced by the package manager.
@@ -116,7 +138,7 @@ The dependents of the released packages then follow `dependencyTypes`, as usual.
 
 ## Between Version Groups
 
-With [version groups](./version-groups.md), a package depending on a package bumped by another group is bumped too, following the `dependencyTypes` of its own group and the out-of-range peer dependencies. See [Dependencies Between Groups](./version-groups.md#dependencies-between-groups).
+With [version groups](./version-groups.md), a package depending on a package bumped by another group is bumped too, following the `dependencyTypes` and `dependents` of its own group and the out-of-range peer dependencies. See [Dependencies Between Groups](./version-groups.md#dependencies-between-groups).
 
 ## Circular Dependencies
 

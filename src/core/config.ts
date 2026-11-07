@@ -55,6 +55,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       yes: false,
       capZeroMajor: true,
       outOfRangePeers: 'bump',
+      dependents: 'out-of-range',
     } as Required<Omit<BumpConfig, 'preid'>>,
     changelog: {
       rootChangelog: true,
