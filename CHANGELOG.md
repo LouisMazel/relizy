@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.0.2 (2026-11-07)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.1...v2.0.2)
+
+### 🩹 Fixes
+
+- Only release the dependents whose published range rejects the new version ([607e955](https://github.com/LouisMazel/relizy/commit/607e955))
+
+  A package listed in `bump.dependencyTypes` was released on every bump of its internal dependency, even when its published range already accepted the new version: same code, same ranges, an empty changelog entry.
+
+  A dependent without commits of its own is now released only when the range it was published with rejects the new version of its dependency: with `workspace:^`, on a major, a minor in `0.x` or a prerelease; with `workspace:*`, on every bump. A specifier that is not a semver range (`catalog:`, `link:`) counts as out of range. The dependents are checked in turn, across the version groups too.
+
+  To release the dependents on every bump of their dependencies, as before (e.g. for a package that bundles its dependency):
+
+  ```ts
+  export default defineConfig({
+    bump: {
+      dependents: 'always',
+    },
+  })
+  ```
+
+  The option can also be set per version group (`monorepo.groups[].bump.dependents`).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.1 (2026-11-06)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.0...v2.0.1)
