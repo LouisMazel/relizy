@@ -34,7 +34,7 @@ See [Version Modes](./version-modes.md).
 - [Version modes](./version-modes.md): `unified`, `selective` or `independent`.
 - [Version groups](./version-groups.md): several sets of packages, each with its own version mode, released in one run.
 - [Changelogs](./changelog.md): a `CHANGELOG.md` per package and at the root, grouped by commit type.
-- [Dependency management](./dependency-management.md): the dependents of a bumped package are bumped too, including through pnpm, Yarn and Bun catalogs.
+- [Dependency management](./dependency-management.md): the dependents of a bumped package are bumped when their published range rejects its new version, including through pnpm, Yarn and Bun catalogs.
 - [npm publishing](./../config/publish.md): in dependency order, with the right dist-tag, 2FA and registry checks.
 - GitHub and GitLab releases: [`relizy provider-release`](./../cli/provider-release.md), run by `relizy release`.
 - [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter), [Slack](./social-media.md#slack) and [Microsoft Teams](./social-media.md#microsoft-teams).

@@ -57,6 +57,7 @@ function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         dependencyTypes: options.dependencyTypes,
         capZeroMajor: options.capZeroMajor,
         outOfRangePeers: options.outOfRangePeers,
+        dependents: options.dependents,
       },
       changelog: {
         formatCmd: options.formatCmd,
