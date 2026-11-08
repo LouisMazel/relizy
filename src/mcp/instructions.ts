@@ -12,7 +12,7 @@ Use them whenever you commit, prepare or explain a release, or change the relizy
 3. get_project() for the config files, version mode, groups and packages; get_config_option({ path }) BEFORE writing or changing an option of relizy.config.ts (never invent one); search_docs("<need>") and get_doc({ id }) for the guides (CI, canary, prerelease, private projects...).
 
 Rules:
-- Never run relizy release, bump, publish, changelog, provider-release, social nor pr-comment without the explicit approval of the user: they write, commit, tag, push and publish. Use --dry-run to show what they would do. Most projects release from their CI.
+- Never run relizy release, bump, publish, changelog, provider-release, social, pr-comment nor merge-preview without the explicit approval of the user: they write, commit, tag, push, publish or comment. Use --dry-run to show what they would do. Most projects release from their CI.
 - Never edit the versions of the package.json files, the CHANGELOG.md files nor the release tags by hand: relizy computes them from the commits.
 - One package (or one concern) per commit in a monorepo: the files of a commit decide the packages it bumps.
 - Set up a project with \`relizy init\` (\`--yes\` without questions) and the agents with \`relizy mcp init\`.

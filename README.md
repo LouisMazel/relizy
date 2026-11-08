@@ -43,6 +43,7 @@ Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) an
 - **Private apps**: a project marked `"private": true` is versioned, tagged and released, never published.
 - **CI ready**: the official GitHub Action (`relizy/action@v2`) and GitLab CI component (`gitlab.com/relizy/relizy/release@2`) release in one step, `relizy init` writes them, and relizy handles shallow clones, detached HEADs, the git identity and the push access by itself.
 - **Release summary** in the terminal, the GitHub Actions run, the PR comment and JSON or dotenv reports.
+- **[Merge preview](https://relizy.dev/guide/merge-preview)**: each pull request tells what its merge releases, and its check fails when the release of the merge would fail (`relizy merge-preview`).
 - **Commit linting** with your config (`relizy commitlint`), a commitlint replacement.
 - **MCP server** for AI coding agents (`relizy mcp`): release preview, commit linting, config reference and docs of the installed version.
 

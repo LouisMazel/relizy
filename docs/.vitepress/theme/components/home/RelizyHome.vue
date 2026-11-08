@@ -3,6 +3,7 @@ import { MazArrowRight } from '@maz-ui/icons/raw/MazArrowRight'
 import { MazGithub as MazGithubRaw } from '@maz-ui/icons/raw/MazGithub'
 import { MazBeaker } from '@maz-ui/icons/static/MazBeaker'
 import { MazChatBubbleLeftRight } from '@maz-ui/icons/static/MazChatBubbleLeftRight'
+import { MazCheckBadge } from '@maz-ui/icons/static/MazCheckBadge'
 import { MazCloudArrowUp } from '@maz-ui/icons/static/MazCloudArrowUp'
 import { MazCodeBracket } from '@maz-ui/icons/static/MazCodeBracket'
 import { MazCommandLine } from '@maz-ui/icons/static/MazCommandLine'
@@ -374,6 +375,15 @@ const ciFeatures = [
 
           <HomeFeatureCard :icon="MazCpuChip" title="Ready for AI agents" href="/guide/ai-agents" link="AI agents">
             <code class="text-primary">relizy mcp</code> lets Claude Code, Cursor or Codex preview a release, lint a commit and read the docs, read-only.
+          </HomeFeatureCard>
+
+          <HomeFeatureCard :icon="MazCheckBadge" title="Know what a merge releases" href="/guide/merge-preview" link="Merge preview">
+            Each pull request tells what its merge releases, and its check fails when the release would fail.
+            <template #visual>
+              <p class="flex items-center gap-2 rounded-md bg-surface px-2 py-1 font-mono text-xs">
+                <span class="text-success">✔</span><span class="text-foreground">relizy/merge-preview</span><span class="text-muted">acme@2.5.0</span>
+              </p>
+            </template>
           </HomeFeatureCard>
         </div>
       </div>

@@ -17,7 +17,7 @@ Never invent a config option nor a CLI flag: check it with `get_config_option` o
 ### Releasing
 
 - Preview, never guess: `preview_release` and `preview_changelog`, or `relizy release --dry-run`.
-- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social` or `pr-comment` without the explicit approval of the user: they write versions and changelogs, commit, tag, push and publish. Most projects release from their CI.
+- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `pr-comment` or `merge-preview` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish or comment the pull requests. Most projects release from their CI.
 - Never edit the versions of the `package.json` files, the `CHANGELOG.md` files nor the release tags by hand: relizy computes them from the commits and the tags.
 
 ### Configuration
