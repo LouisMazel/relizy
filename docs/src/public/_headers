@@ -1,3 +1,7 @@
 # The files of /assets have a hash in their name: a new build gives them a new url
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
+
+# The discovery files of the agents (skills, ARD manifest) are read from any origin
+/.well-known/*
+  Access-Control-Allow-Origin: *

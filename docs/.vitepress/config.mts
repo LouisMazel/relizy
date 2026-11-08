@@ -6,6 +6,7 @@ import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
 import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
+import { writeAgentSkills, writeAiCatalog } from './agents'
 
 const SITE_URL = 'https://relizy.dev'
 const CLI_COMMAND_PAGE = /^(?:cli\/(?!commands\.md)[\w-]+|commitlint\/cli)\.md$/
@@ -506,6 +507,9 @@ export default defineConfig({
   },
 
   buildEnd: ({ outDir }) => {
+    writeAgentSkills(outDir, SITE_URL)
+    writeAiCatalog(outDir, SITE_URL)
+
     if (isProduction) {
       return
     }
