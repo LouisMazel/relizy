@@ -3,7 +3,7 @@ import type { AgentDocs, AgentsTool, AgentTarget, SetupAgentsChange, SetupAgents
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
-import { AGENT_TARGETS, compareVersions, detectAgentTargets, logger, readManagedVersion, setupAgents } from '@maz-ui/node'
+import { AGENT_TARGETS, detectAgentTargets, logger, setupAgents } from '@maz-ui/node'
 import { defaultBundleDir } from './knowledge/paths'
 import { readOwnVersion } from './version'
 
@@ -14,7 +14,7 @@ export const RELIZY_AGENTS_TOOL: AgentsTool = {
   mcpBin: 'relizy',
   mcpArgs: ['mcp'],
   generatedBy: '`relizy mcp init`',
-  versionNote: version => `> relizy ${version} is installed: these rules and the docs in \`node_modules/relizy/agent-docs\` match this version.`,
+  versionNote: () => '> These rules and the docs in `node_modules/relizy/agent-docs` match the installed relizy.',
 }
 
 /** Rules of relizy for the agents, shipped in its docs bundle */
@@ -35,22 +35,6 @@ export function readOwnAgentDocs(directory: string = process.env.RELIZY_AGENT_DO
     claudeRule: read('claude-rule.md'),
     agentsMdSection: read('agents-md.md'),
   }
-}
-
-/** Rules generated in a project by an older relizy than the installed one: `relizy mcp init` updates them */
-export function findOutdatedRules(cwd: string, version: string = readOwnVersion()): { file: string, version: string }[] {
-  return ['.claude/rules/relizy.md', 'AGENTS.md'].flatMap((file) => {
-    const path = join(cwd, file)
-    const written = existsSync(path)
-      ? readManagedVersion(readFileSync(path, 'utf8'), RELIZY_AGENTS_TOOL)
-      : undefined
-
-    return written && compareVersions(written, version) < 0
-      ? [
-          { file, version: written },
-        ]
-      : []
-  })
 }
 
 export interface McpInitOptions {
@@ -100,6 +84,22 @@ export function setupRelizyAgents({ cwd = process.cwd(), targets, rules = true, 
   })
 }
 
+/**
+ * Rule files of the project that `relizy mcp init` would rewrite because their content changed (read-only: dry run, rules only).
+ * Only the files already holding rules of relizy count: an `AGENTS.md` without its section is not outdated.
+ * Never throws: an unreadable project has no outdated rules.
+ */
+export function findOutdatedRules(cwd: string): string[] {
+  const marker = RELIZY_AGENTS_TOOL.marker ?? `Managed by ${RELIZY_AGENTS_TOOL.name}`
+
+  try {
+    return setupRelizyAgents({ cwd, mcp: false, dryRun: true }).changes.filter(change => change.action === 'update' && readFileSync(join(cwd, change.file), 'utf8').includes(marker)).map(change => change.file)
+  }
+  catch {
+    return []
+  }
+}
+
 export function formatAgentsChanges(changes: SetupAgentsChange[], dryRun: boolean): string[] {
   const labels: Record<SetupAgentsChange['action'], string> = {
     create: dryRun ? 'would create' : 'created',
@@ -116,6 +116,45 @@ export function formatAgentsChanges(changes: SetupAgentsChange[], dryRun: boolea
 
     return `${labels[change.action].padEnd(13)} ${change.file}${reason}`
   })
+}
+
+export interface McpUpdateOptions {
+  cwd?: string
+  dryRun?: boolean
+}
+
+/** Agent owning each rule file */
+const RULE_FILE_TARGETS: Record<string, AgentTarget> = {
+  '.claude/rules/relizy.md': 'claude',
+  'AGENTS.md': 'agents-md',
+}
+
+/**
+ * `relizy mcp update`: rewrite the rule files of relizy that already exist and whose content changed.
+ * Never creates a file, never touches the MCP config nor a file edited by hand. Silent when everything is up to date.
+ * Never throws: a project without rules has nothing to update.
+ */
+export function mcpUpdate({ cwd = process.cwd(), dryRun = false }: McpUpdateOptions = {}): SetupAgentsChange[] {
+  try {
+    const targets = [
+      ...new Set(findOutdatedRules(cwd).map(file => RULE_FILE_TARGETS[file]).filter((target): target is AgentTarget => !!target)),
+    ]
+
+    if (targets.length === 0) {
+      return []
+    }
+
+    const changes = setupRelizyAgents({ cwd, mcp: false, targets, dryRun }).changes.filter(change => change.action === 'update')
+
+    for (const line of formatAgentsChanges(changes, dryRun)) {
+      logger.log(line)
+    }
+
+    return changes
+  }
+  catch {
+    return []
+  }
 }
 
 /** `relizy mcp init`: configure the agents, then print the changes */

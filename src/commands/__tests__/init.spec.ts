@@ -147,6 +147,35 @@ describe('Given init command', () => {
       expect(readJson('.mcp.json').mcpServers.relizy.args).toContain('mcp')
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('AI agents (claude)'), 'Changes')
       expect(vi.mocked(log.success)).toHaveBeenCalledWith('Set up the AI agents (.claude/rules/relizy.md, .mcp.json)')
+      expect(readJson('package.json').scripts.prepare).toBe('relizy mcp update')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('add the script "prepare": "relizy mcp update"'), 'Changes')
+    })
+
+    it('Then appends the rules to an existing prepare script, and leaves one that already runs relizy mcp update or init', async () => {
+      write('CLAUDE.md', '# mono')
+      write('package.json', JSON.stringify({
+        name: 'mono',
+        private: true,
+        scripts: { prepare: 'husky' },
+      }))
+
+      await init({ cwd, yes: true })
+
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp update')
+
+      await init({ cwd, yes: true, force: true })
+
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp update')
+
+      write('package.json', JSON.stringify({
+        name: 'mono',
+        private: true,
+        scripts: { prepare: 'husky && relizy mcp init --no-mcp' },
+      }))
+
+      await init({ cwd, yes: true, force: true })
+
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp init --no-mcp')
     })
 
     it('Then reports the AI agents already set up, and does not set up a project without agent', async () => {

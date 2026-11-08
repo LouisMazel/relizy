@@ -174,7 +174,7 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).toContain('| Step | Result |\n| --- | --- |')
   })
 
-  it('Then counts the versions in the title beyond two, the tables listing them', () => {
+  it('Then counts the released packages in the title beyond two versions, the tables listing them', () => {
     const navigation = {
       name: '@maz-ui/nav',
       oldVersion: '1.0.0',
@@ -195,7 +195,20 @@ describe('Given the renderers of the release report', () => {
       release: {
         ...groupsRelease!,
         groups: [
-          groupsRelease!.groups[0]!,
+          {
+            ...groupsRelease!.groups[0]!,
+            // the selective group ships several packages with its single version
+            packages: [
+              ...groupsRelease!.groups[0]!.packages,
+              {
+                name: '@maz-ui/utils',
+                oldVersion: '5.2.0',
+                newVersion: '5.2.1',
+                tag: 'v5.2.1',
+                private: false,
+              },
+            ],
+          },
           {
             ...tooling,
             packages: [...tooling.packages, navigation, icons],
@@ -206,8 +219,8 @@ describe('Given the renderers of the release report', () => {
     const markdown = formatReleaseReportMarkdown(many)
 
     expect(getReleaseName(released)).toBe('maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0')
-    expect(getReleaseName(many)).toBe('4 versions of maz-ui')
-    expect(markdown).toContain('## 🚀 Released 4 versions of maz-ui\n')
+    expect(getReleaseName(many)).toBe('5 packages of maz-ui')
+    expect(markdown).toContain('## 🚀 Released 5 packages of maz-ui\n')
     expect(markdown).toContain('| `@maz-ui/nav` | `1.0.0` → `1.1.0` |')
     // In the terminal, a version line per group, titled with it: the packages of a group are counted beyond 2
     expect(getReleaseSummary(many).slice(0, 2)).toEqual([

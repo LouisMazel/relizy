@@ -102,7 +102,23 @@ Without Relizy in the dependencies of the project, use `npx -y relizy@<version> 
 
 ## Keeping the Agents Up to Date
 
-The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. `get_project` tells the agent when the rules of the project are older than the installed Relizy: run `relizy mcp init` to update them. Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.md` section) to get the new ones.
+The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. The rules of the project are files in the repository, so they are updated by [`relizy mcp update`](./../cli/mcp.md#relizy-mcp-update) (or `relizy mcp init`, which also writes the missing files). When their content is older than the installed Relizy, `get_project` and the instructions of the MCP server tell the agent to propose it, and the CLI prints one line outside the CI.
+
+To update them at each install, add a `prepare` script to the root `package.json` (`relizy init` adds it when you accept the agents step):
+
+```json
+{
+  "scripts": {
+    "prepare": "relizy mcp update"
+  }
+}
+```
+
+`relizy mcp update` only rewrites the rule files that already exist: a rule you deleted (or an `AGENTS.md` without the Relizy section) is never recreated, and the MCP config you may have changed is never touched. With an existing `prepare` script, append the command: `"prepare": "husky && relizy mcp update"`. The files are only rewritten when the rules change, so a new release of Relizy that does not change them leaves the repository clean.
+
+`prepare` also runs when you install without the devDependencies (`npm ci --omit=dev`, `pnpm install --prod`), where the `relizy` command is missing: add `--ignore-scripts` to these installs.
+
+Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.md` section) to get the new ones.
 
 ## The Rules
 
