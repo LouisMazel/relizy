@@ -45,9 +45,10 @@ git commit -m "chore(ui): move packages/components to packages/ui"
   they look alike.
 - **A directory reused** by another package (a new `package.json` in the old
   directory) keeps its commits: they belong to this other package.
-- **Ignored packages** (`monorepo.ignored`, the packages of the other
-  [version groups](./version-groups.md)) are followed too, so the commits of
-  their old directories stay out of the root version and changelog.
+- **The root version and changelog** (`unified`, `selective`) follow the moves
+  too: the commits of the old directories of a released package count, the
+  ones of an ignored package or of another
+  [version group](./version-groups.md) do not.
 - **New packages** (without tag) start from the first commit of their old
   directory, found by following their `package.json` (`git log --follow`).
 

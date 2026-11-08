@@ -366,10 +366,10 @@ export interface MonorepoConfig {
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
    *
-   * In `unified`/`selective` mode, commits whose changed files all live inside
-   * ignored packages are also excluded from the root version bump and the root
-   * changelog (a breaking change in an ignored package no longer bumps the
-   * whole repository).
+   * In `unified`/`selective` mode, the root version bump and the root changelog
+   * only count the commits of the released packages: a commit changing only
+   * ignored packages, private packages left out by `privatePackages` or files
+   * outside every package (CI, scripts) does not bump the repository.
    * @default []
    */
   ignored?: string[]

@@ -1,16 +1,8 @@
 /**
- * Regression test: root-only commits must appear in the root package changelog.
- *
- * Bug: `getPackageCommits` previously filtered commits for the root package
- * through `isCommitOfTrackedPackages`, which required the commit body to
- * contain at least one monorepo package path (e.g. `packages/*`).
- * Commits that only touched root-level files (CI config, root `package.json`,
- * lockfile, build scripts…) were therefore excluded from the root changelog,
- * even when their type (`build`, `ci`, …) was explicitly configured.
- *
- * Fix: for the root package, include every commit whose type is allowed.
- * The "does the commit touch any tracked package?" check no longer applies
- * to the root package.
+ * The commits of the root package in a monorepo: the root version and changelog
+ * come from the commits of the released packages, so a commit changing only
+ * root-level files (CI config, scripts, lockfile, an app out of the release)
+ * releases nothing. A project without workspace packages keeps every commit.
  */
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
@@ -97,23 +89,22 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
   })
 
   describe('When generating commits for the root package', () => {
-    it('Then a `build:` commit touching only root files IS included', async () => {
+    it('Then a `fix:` commit touching only root files is excluded', async () => {
       // Mirrors what `getGitDiff` produces with `--name-status`
-      // for a root-only build commit (no `packages/…` path in the body).
-      const rootOnlyBody = '\nM\t.gitlab/ci/release.yml\nM\tpackage.json\nM\tpnpm-lock.yaml\n'
-
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        makeCommit({ type: 'build', description: 'upgrade relizy', body: rootOnlyBody }),
+        makeCommit({ type: 'fix', description: 'fix the linters workflow', body: '\nM\t.github/workflows/linters.yml\n' }),
+        makeCommit({ type: 'build', description: 'upgrade relizy', body: '\nM\tpackage.json\nM\tpnpm-lock.yaml\n' }),
       ])
 
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
         monorepo: {
-          versionMode: 'selective',
+          versionMode: 'unified',
           packages: ['packages/*'],
         },
         types: {
+          fix: { title: '🩹 Fixes', semver: 'patch' },
           build: { title: '🏗️ Build', semver: 'patch' },
         },
       })
@@ -126,15 +117,12 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
         changelog: true,
       })
 
-      expect(commits).toHaveLength(1)
-      expect(commits[0].type).toBe('build')
+      expect(commits).toEqual([])
     })
 
-    it('Then a `ci:` commit touching only root files IS included', async () => {
-      const rootOnlyBody = '\nM\t.gitlab-ci.yml\n'
-
+    it('Then a commit touching a package and root files is included', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        makeCommit({ type: 'ci', description: 'tweak pipeline', body: rootOnlyBody }),
+        makeCommit({ type: 'fix', description: 'fix a bug', body: '\nM\t.github/workflows/linters.yml\nM\tpackages/pkg-a/src/index.ts\n' }),
       ])
 
       const config = createMockConfig({
@@ -143,9 +131,6 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
         monorepo: {
           versionMode: 'selective',
           packages: ['packages/*'],
-        },
-        types: {
-          ci: { title: '🤖 CI' },
         },
       })
 
@@ -157,19 +142,72 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
         changelog: true,
       })
 
-      expect(commits).toHaveLength(1)
-      expect(commits[0].type).toBe('ci')
+      expect(commits.map(commit => commit.description)).toEqual(['fix a bug'])
+    })
+
+    it('Then a commit of a private package is excluded, unless privatePackages is release', async () => {
+      vol.fromJSON({
+        [`${PKG_PATH}/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0', private: true }),
+      }, MOCK_CWD)
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({ type: 'fix', description: 'fix the app', body: '\nM\tpackages/pkg-a/src/index.ts\n' }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+      })
+      const getRootCommits = () => getPackageCommits({
+        pkg: makeRootPkg() as any,
+        from: 'v1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: true,
+      })
+
+      expect(await getRootCommits()).toEqual([])
+
+      config.monorepo!.privatePackages = 'release'
+
+      expect((await getRootCommits()).map(commit => commit.description)).toEqual(['fix the app'])
+    })
+
+    it('Then a commit touching only root files is included in a project without workspace packages', async () => {
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({ type: 'ci', description: 'tweak pipeline', body: '\nM\t.gitlab-ci.yml\n' }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        types: {
+          ci: { title: '🤖 CI' },
+        },
+      })
+      delete config.monorepo!.packages
+
+      const commits = await getPackageCommits({
+        pkg: makeRootPkg() as any,
+        from: 'v1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: true,
+      })
+
+      expect(commits.map(commit => commit.type)).toEqual(['ci'])
     })
 
     it('Then `chore(release)` is still excluded by isAllowedCommit', async () => {
-      const body = '\nM\tpackage.json\n'
-
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
         makeCommit({
           type: 'chore',
           scope: 'release',
           description: 'bump',
-          body,
+          body: '\nM\tpackages/pkg-a/package.json\n',
         }),
       ])
 
