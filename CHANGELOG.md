@@ -1,5 +1,36 @@
 # Changelog
 
+## v2.2.0 (2026-11-08)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.1.0...v2.2.0)
+
+### 🚀 Features
+
+- Keep the agent rules up to date with relizy mcp update ([cfd3654](https://github.com/LouisMazel/relizy/commit/cfd3654))
+
+  `relizy mcp update` rewrites the relizy rules of the AI agents already set up
+  in the project when their content changed: it never creates a rule, never
+  touches the MCP config nor the rules edited by hand. `relizy init` adds it to
+  the `prepare` script of the root package.json when the agents step is accepted.
+
+  The rules are reported as outdated only when their content changed, not at
+  every release: the CLI, the instructions of the MCP server and get_project
+  then propose `relizy mcp update`.
+
+### 🩹 Fixes
+
+- Count the released packages in the title of a release, not the versions ([f229801](https://github.com/LouisMazel/relizy/commit/f229801))
+
+  Beyond two versions, the title of the release (PR comment, summary of the run, terminal) counts the released packages: a version of a selective group can ship several packages, so "Released 5 versions of maz-ui" becomes "Released 11 packages of maz-ui".
+
+### 🧪 Tests
+
+- Hide the GitHub workflow from the CLI specs ([aeba7c0](https://github.com/LouisMazel/relizy/commit/aeba7c0))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.1.0 (2026-11-08)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.2...v2.1.0)
