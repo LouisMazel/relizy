@@ -6,7 +6,7 @@ import { buildInstructions, MAX_INSTRUCTIONS_LENGTH } from '../instructions'
 import { createRelizyMcpServer, runTool, TOOLS } from '../server'
 import { ToolInputError } from '../tools/types'
 import { readOwnVersion } from '../version'
-import { cleanTempDirs, createTempDir, createTestContext, getKnowledge } from './helpers'
+import { cleanTempDirs, createTempDir, createTestContext, getKnowledge, writeOutdatedRules } from './helpers'
 
 vi.mock('@maz-ui/node', importActual => importActual())
 
@@ -208,6 +208,21 @@ describe('Given runTool', () => {
 })
 
 describe('Given buildInstructions', () => {
+  describe('When the rules of the project are outdated', () => {
+    it('Then they propose relizy mcp update, and only then', () => {
+      const cwd = createTempDir()
+
+      expect(buildInstructions(createTestContext(cwd))).not.toContain('outdated')
+
+      writeOutdatedRules(cwd)
+
+      const instructions = buildInstructions(createTestContext(cwd))
+
+      expect(instructions).toContain('outdated (.claude/rules/relizy.md): propose to run `relizy mcp update`')
+      expect(instructions.length).toBeLessThan(MAX_INSTRUCTIONS_LENGTH)
+    })
+  })
+
   describe('When they are built', () => {
     it('Then they fit in the limit of Claude Code and forbid the releases without approval', () => {
       const instructions = buildInstructions(createTestContext())

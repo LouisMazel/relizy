@@ -10,6 +10,7 @@ import {
   getDetectedPublishConfig,
   getInstallCommand,
   getMissingRootFields,
+  getPrepareScript,
   getScriptsToAdd,
   isPublicNpmRegistry,
   renderConfigFile,
@@ -437,6 +438,22 @@ describe('Given the init helpers', () => {
         '',
       ].join('\n'))
       expect(getScriptsToAdd(detectProject({ cwd }))).toEqual({})
+    })
+  })
+
+  describe('When adding the prepare script of the agent rules', () => {
+    it('Then creates it, appends to an existing one, and keeps one that already runs relizy mcp update or init', () => {
+      write('package.json', '{ "name": "lib" }')
+      expect(getPrepareScript(detectProject({ cwd }))).toEqual({ prepare: 'relizy mcp update' })
+
+      write('package.json', '{ "name": "lib", "scripts": { "prepare": "husky" } }')
+      expect(getPrepareScript(detectProject({ cwd }))).toEqual({ prepare: 'husky && relizy mcp update' })
+
+      write('package.json', '{ "name": "lib", "scripts": { "prepare": "husky && relizy mcp init" } }')
+      expect(getPrepareScript(detectProject({ cwd }))).toEqual({})
+
+      write('package.json', '{ "name": "lib", "scripts": { "prepare": "husky && relizy mcp update" } }')
+      expect(getPrepareScript(detectProject({ cwd }))).toEqual({})
     })
   })
 

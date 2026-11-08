@@ -80,14 +80,14 @@ function describeSet(set: PackageSet, cwd: string): string[] {
   ]
 }
 
-function describeAgents(cwd: string, version: string): string[] {
-  const outdated = findOutdatedRules(cwd, version)
+function describeAgents(cwd: string): string[] {
+  const outdated = findOutdatedRules(cwd)
 
   if (outdated.length > 0) {
     return [
       '## Agents',
       '',
-      ...outdated.map(rule => `- ${code(rule.file)} holds the rules of relizy ${rule.version}: ask the user to run \`relizy mcp init\` to update them to ${version}.`),
+      ...outdated.map(file => `- ${code(file)} holds outdated rules of relizy: ask the user to run \`relizy mcp update\` to update them.`),
     ]
   }
 
@@ -104,7 +104,7 @@ export async function getProject(context: ServerContext, { config: configName }:
   const modes = sets.map(set => set.group
     ? `${code(set.group.name)} group in ${set.versionMode} mode`
     : set.versionMode).join(', ')
-  const agents = describeAgents(config.cwd, context.version)
+  const agents = describeAgents(config.cwd)
 
   return [
     `# relizy project (relizy ${context.version})`,

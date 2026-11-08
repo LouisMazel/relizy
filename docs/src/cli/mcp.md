@@ -1,7 +1,7 @@
 ---
 title: mcp
 description: Start the Relizy MCP server for AI coding agents, and set up the agents of a project with its rules and its MCP server.
-keywords: relizy mcp, relizy mcp init, mcp server, model context protocol, ai agents, claude code, cursor, copilot, codex, agents.md
+keywords: relizy mcp, relizy mcp init, relizy mcp update, mcp server, model context protocol, ai agents, claude code, cursor, copilot, codex, agents.md
 category: CLI Reference
 tags: [cli, mcp, ai, agents]
 ---
@@ -17,6 +17,7 @@ What the server gives to your agents: [AI Agents (MCP)](./../guide/ai-agents.md)
 ```bash
 relizy mcp [serve] [--cwd <dir>]   # Start the MCP server on stdio
 relizy mcp init [options]          # Configure the AI agents of the project
+relizy mcp update                  # Update the rules already written, when they changed
 ```
 
 ## relizy mcp
@@ -46,7 +47,7 @@ It configures the agents detected in the project (`.claude/`, `CLAUDE.md`, `.mcp
 
 The MCP entries start the installed Relizy through the package manager of the project (`pnpm exec relizy mcp`, `yarn run relizy mcp`, `bun x --no-install relizy mcp`, `npx --no-install relizy mcp`) when Relizy is a dependency of the project, else `npx -y relizy@<version> mcp`. Codex and Windsurf only read `AGENTS.md`: add the command printed by `relizy mcp init` to their MCP config.
 
-It only writes what it owns: a file it did not generate, rules edited by hand and MCP entries written by hand are left untouched. The rules carry the version of Relizy that wrote them: run `relizy mcp init` again after an upgrade to update them.
+It only writes what it owns: a file it did not generate, rules edited by hand and MCP entries written by hand are left untouched. The rules are only rewritten when their content changes: run `relizy mcp init` again after an upgrade to update them, or add [`relizy mcp update`](#relizy-mcp-update) to the `prepare` script of the root `package.json` to do it at each install (see [Keeping the Agents Up to Date](./../guide/ai-agents.md#keeping-the-agents-up-to-date)).
 
 ### --targets
 
@@ -78,4 +79,31 @@ The global `--dry-run` lists the changes without writing them:
 
 ```bash
 relizy mcp init --dry-run
+```
+
+## relizy mcp update
+
+Rewrites the rules of Relizy that are already in the project (`.claude/rules/relizy.md`, the Relizy section of `AGENTS.md`) when their content changed with a new Relizy. Made for the `prepare` script, so it prints nothing when everything is up to date, else one line per updated file.
+
+```json
+{
+  "scripts": {
+    "prepare": "relizy mcp update"
+  }
+}
+```
+
+With an existing `prepare` script, append the command: `"prepare": "husky && relizy mcp update"`.
+
+What it does not do, unlike `relizy mcp init`:
+
+- It never creates a file: a rule you deleted, or an `AGENTS.md` without the Relizy section, stays as is.
+- It never touches the MCP config of the agents.
+- It never rewrites rules edited by hand.
+- It does not fail on a project without rules.
+
+The global `--dry-run` lists the files it would update without writing them:
+
+```bash
+relizy mcp update --dry-run
 ```

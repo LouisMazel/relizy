@@ -51,8 +51,31 @@ function hasCliFlag(flag: string): boolean {
   return process.argv.includes(flag)
 }
 
-program.hook('preAction', () => {
+/** One line when the agent rules of the project are outdated: local runs only, never in the `mcp`, `init` and `commitlint` commands (run at each commit), never fails */
+async function warnOutdatedAgentRules(command: Command): Promise<void> {
+  try {
+    const names: string[] = []
+    for (let current: Command | null = command; current; current = current.parent) {
+      names.push(current.name())
+    }
+
+    if (isInCI() || ['mcp', 'init', 'commitlint'].some(name => names.includes(name))) {
+      return
+    }
+
+    const { findOutdatedRules } = await import('./mcp/agents')
+    const outdated = findOutdatedRules(process.cwd())
+
+    if (outdated.length > 0) {
+      logger.info(`The relizy rules for your AI agents are outdated (${outdated.join(', ')}): run \`relizy mcp update\` to update them.`)
+    }
+  }
+  catch {}
+}
+
+program.hook('preAction', async (_program, actionCommand) => {
   enableCliUi()
+  await warnOutdatedAgentRules(actionCommand)
   setDryRunOptions({
     preview: !hasCliFlag('--no-preview'),
     ai: hasCliFlag('--ai-preview'),
@@ -456,6 +479,25 @@ mcp
     }
     catch (error) {
       logger.error('Failed to set up the AI agents -', error instanceof Error
+        ? error.message
+        : error)
+      process.exit(1)
+    }
+  })
+
+mcp
+  .command('update')
+  .description('Update the relizy rules of the AI agents already set up in the project, when they changed (used in the prepare script)')
+  .action(async () => {
+    try {
+      const { mcpUpdate } = await import('./mcp')
+
+      mcpUpdate({
+        dryRun: program.opts().dryRun,
+      })
+    }
+    catch (error) {
+      logger.error('Failed to update the AI agent rules -', error instanceof Error
         ? error.message
         : error)
       process.exit(1)

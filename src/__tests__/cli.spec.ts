@@ -1,9 +1,10 @@
 import type { GitRepository } from '../../tests/git-repository'
 import { spawnSync } from 'node:child_process'
-import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { chmodSync, mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { delimiter, join } from 'node:path'
 import process from 'node:process'
 import { createGitRepository } from '../../tests/git-repository'
+import { writeOutdatedRules } from '../mcp/__tests__/helpers'
 
 /** The variables that would give relizy a token, or the output of a CI */
 const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITLAB_CI|GITHUB_BASE_REF|GITHUB_EVENT_PATH|FORCE_COLOR|NO_COLOR)$|^CI_MERGE_REQUEST_|TOKEN|TWITTER|SLACK/
@@ -70,6 +71,36 @@ describe('Given the relizy CLI', () => {
 
       expect(`${result.stdout}${result.stderr}`).toContain('twitter failed')
       expect(result.status).toBe(1)
+    }, 30_000)
+  })
+
+  describe('When the relizy rules of the project are outdated', () => {
+    afterEach(() => {
+      rmSync(join(cwd, '.claude'), { recursive: true, force: true })
+    })
+
+    it('Then a command warns once, and the mcp and commitlint commands do not', () => {
+      writeOutdatedRules(cwd)
+
+      const warned = run('--log-level', 'default', 'provider-release', '--no-safety-check')
+
+      expect(`${warned.stdout}${warned.stderr}`).toContain('rules for your AI agents are outdated (.claude/rules/relizy.md): run `relizy mcp update`')
+
+      const commitlint = run('--log-level', 'default', 'commitlint', '--message', 'feat: add the parser')
+
+      expect(commitlint.status).toBe(0)
+      expect(`${commitlint.stdout}${commitlint.stderr}`).not.toContain('are outdated')
+
+      const mcp = run('--log-level', 'default', 'mcp', 'init', '--dry-run', '--no-mcp')
+
+      expect(`${mcp.stdout}${mcp.stderr}`).not.toContain('are outdated')
+
+      const update = run('--log-level', 'default', 'mcp', 'update', '--dry-run')
+
+      expect(update.status).toBe(0)
+      expect(`${update.stdout}${update.stderr}`).not.toContain('are outdated')
+      expect(`${update.stdout}${update.stderr}`).toContain('would update')
+      expect(`${update.stdout}${update.stderr}`).toContain('.claude/rules/relizy.md')
     }, 30_000)
   })
 

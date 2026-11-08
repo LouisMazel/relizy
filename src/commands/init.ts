@@ -20,6 +20,7 @@ import {
   getInstallCommand,
   getMergePreviewWorkflowFile,
   getMissingRootFields,
+  getPrepareScript,
   getReleasedPackages,
   getRunCommand,
   getScriptsToAdd,
@@ -886,7 +887,7 @@ async function runInit({ options, detection, configFile, interactive }: {
   // Only offered to the projects that already use an AI agent (CLAUDE.md, AGENTS.md, .cursor...)
   const agentTargets = detectAgentTargets(cwd)
   const withAgents = steps.has('agents') && agentTargets.length > 0 && await ask(interactive, true, () => confirm({
-    message: `Give relizy to your AI agents (${agentTargets.join(', ')})? (rules and the relizy MCP server: release preview, commit linting, config reference)`,
+    message: `Add the relizy MCP server and rules to your AI agents (${agentTargets.join(', ')})? (release preview, commit linting, config reference, kept up to date at each install)`,
     initialValue: true,
   }))
 
@@ -952,9 +953,11 @@ async function runInit({ options, detection, configFile, interactive }: {
     rootFields: keep
       ? {}
       : getMissingRootFields(detection, answers),
-    scripts: withScripts
-      ? scriptsToAdd
-      : {},
+    scripts: {
+      ...(withScripts && scriptsToAdd),
+      // keeps the rules of the agents up to date at each install
+      ...(withAgents && getPrepareScript(detection)),
+    },
     hook: withHook,
     agents: withAgents
       ? agentTargets
