@@ -52,10 +52,10 @@ jobs:
           fi
 
       - id: app-token
-        if: vars.ACTION_APP_ID != ''
-        uses: actions/create-github-app-token@v2
+        if: vars.ACTION_APP_CLIENT_ID != ''
+        uses: actions/create-github-app-token@v3
         with:
-          app-id: ${{ vars.ACTION_APP_ID }}
+          client-id: ${{ vars.ACTION_APP_CLIENT_ID }}
           private-key: ${{ secrets.ACTION_APP_PRIVATE_KEY }}
           owner: relizy
           repositories: action
@@ -65,7 +65,7 @@ jobs:
           TOKEN: ${{ steps.app-token.outputs.token || secrets.ACTION_REPO_TOKEN }}
         run: |
           if [ -z "$TOKEN" ]; then
-            echo "::error::No token for relizy/action: set the ACTION_APP_ID variable and the ACTION_APP_PRIVATE_KEY secret, or the ACTION_REPO_TOKEN secret"
+            echo "::error::No token for relizy/action: set the ACTION_APP_CLIENT_ID variable and the ACTION_APP_PRIVATE_KEY secret, or the ACTION_REPO_TOKEN secret"
             exit 1
           fi
           major="${VERSION%%.*}"
