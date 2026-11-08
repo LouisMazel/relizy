@@ -1,5 +1,100 @@
 # Changelog
 
+## v2.1.0 (2026-11-08)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.2...v2.1.0)
+
+### 🚀 Features
+
+- Preview the release of a merge in its pull request ([d2dfd68](https://github.com/LouisMazel/relizy/commit/d2dfd68))
+
+  `relizy merge-preview` runs in the pipeline of a pull request (GitHub) or a merge request (GitLab), with the options of the release job, and computes the release of the merge without writing anything: no version, changelog, commit, tag, push, publish nor hook.
+
+  - it comments the pull request with the versions, the tags and the dist-tag the merge releases, and what the pull request brings, updated at each push and rewritten by the release of the merge;
+  - it sets the commit status `relizy/merge-preview`, failed when the release of the merge would fail: a version or a tag already taken, a squash commit that is not a Conventional Commit, the commitlint of the project;
+  - a squash merge is detected from the provider (`mergePreview.squash`), both outcomes shown when they differ.
+
+  ```yaml
+  - uses: relizy/action@v2
+    with:
+      merge-preview: true
+  ```
+
+  The `merge-preview` component does the same on GitLab, `relizy init` offers it, and `mergePreview()` runs it from code. The comments of the pull requests are now listed by pages of 100.
+
+- Add the merge preview to a project already set up ([e305360](https://github.com/LouisMazel/relizy/commit/e305360))
+
+  `relizy init` offers the merge preview on its own, also when the release workflow is not generated or already exists, and `--only` runs some of its steps only (`config`, `commitlint`, `scripts`, `agents`, `workflow`, `merge-preview`). `relizy merge-preview init` is the shortcut to add the merge preview workflow:
+
+  ```bash
+  npx relizy merge-preview init
+  # The same
+  npx relizy init --only merge-preview
+  ```
+
+  Without the `config` step, the existing config is kept without asking. The result of `init()` tells the merge preview workflow written in `mergePreview`.
+
+- Use the token of the GitHub CLI on a local run ([63275bd](https://github.com/LouisMazel/relizy/commit/63275bd))
+
+  Without `RELIZY_GITHUB_TOKEN`, `GITHUB_TOKEN` nor `GH_TOKEN`, a local run of relizy takes the token of the GitHub CLI when it is logged in (`gh auth token`, for the host of the repository): the GitHub releases and the PR comments need no token to create.
+
+  ```bash
+  gh auth login
+  relizy release
+  ```
+
+  The environment variables still win, and a CI never asks the GitHub CLI.
+
+- Choose between the relizy integration and its CLI in the workflows of relizy init ([5479bcc](https://github.com/LouisMazel/relizy/commit/5479bcc))
+
+  `relizy init` asks how the CI runs relizy, on GitHub and gitlab.com: with the relizy action or component (the default, and with `--yes`), or with the relizy CLI, whose steps are written out in the workflow (the package manager, Node.js, the install, `relizy release`). The choice applies to the release workflow and to the merge preview. A self-managed GitLab always gets the job written out.
+
+### 🩹 Fixes
+
+- Only bump the root version from the commits of the released packages ([03ce66c](https://github.com/LouisMazel/relizy/commit/03ce66c))
+
+  In `unified` and `selective` mode, the root version and the root changelog now only count the commits of the released packages: their directories (and former directories) and the catalog entries they use. A commit changing no package (a CI workflow, a script, a private app left out by `privatePackages`, the packages of another version group) no longer releases every package of a `unified` group.
+
+  A private package still counts with `privatePackages: 'release'`, and the root of a project without workspace packages keeps every commit.
+
+### 📖 Documentation
+
+- Declare the AI usage preferences of the docs in robots.txt ([8dc69a0](https://github.com/LouisMazel/relizy/commit/8dc69a0))
+
+  Content Signals (https://contentsignals.org): the docs can be used to train, to index and to answer in the AI tools.
+
+- Serve the markdown of the pages to the agents that ask for it ([b0da034](https://github.com/LouisMazel/relizy/commit/b0da034))
+
+  A Cloudflare Pages worker answers the requests with `Accept: text/markdown` with the .md version of the page (llms.txt for the homepage), the browsers keep the HTML. The homepage also gets `Link` headers (RFC 8288) to llms.txt and the getting started guide.
+
+- Publish the rules of relizy for the agents as a discoverable skill ([a1c89c1](https://github.com/LouisMazel/relizy/commit/a1c89c1))
+
+  The build writes /.well-known/agent-skills/index.json (Agent Skills Discovery RFC v0.2.0) and the relizy skill: the rules that `relizy mcp init` writes in the projects, with the links to llms.txt, so an agent finds them without installing relizy.
+
+- Publish an ARD manifest of the resources for the agents ([e79a990](https://github.com/LouisMazel/relizy/commit/e79a990))
+
+  /.well-known/ai-catalog.json (Agentic Resource Discovery) lists the relizy skill and llms.txt, the homepage links to it. The MCP server is left out: it runs locally and ARD describes remote resources.
+
+- Expose the docs as WebMCP tools to the agents of the browser ([1890820](https://github.com/LouisMazel/relizy/commit/1890820))
+
+  When the browser supports WebMCP (document.modelContext), the docs register three read-only tools: list_docs (llms.txt), search_docs (the titles and descriptions of the pages) and get_doc (the markdown of a page, the current one by default).
+
+- Present the merge preview on the homepage, the README and the AI agents ([bbc6776](https://github.com/LouisMazel/relizy/commit/bbc6776))
+
+  The AI agents set up by `relizy mcp init` never run `relizy merge-preview` without the approval of the user: it comments the pull request and sets a commit status.
+
+### 🧪 Tests
+
+- Clear the variables of the CI run in the merge preview spec ([46589fe](https://github.com/LouisMazel/relizy/commit/46589fe))
+- Lower the coverage thresholds of the functions and branches ([6a68aa0](https://github.com/LouisMazel/relizy/commit/6a68aa0))
+- Run the GitHub CLI token spec outside a CI, whatever runs it ([5ff255c](https://github.com/LouisMazel/relizy/commit/5ff255c))
+- Check the root commits of a selective group too ([d470d10](https://github.com/LouisMazel/relizy/commit/d470d10))
+- Lower the coverage threshold of the branches ([ee44327](https://github.com/LouisMazel/relizy/commit/ee44327))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.0.2 (2026-11-07)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.0.1...v2.0.2)
