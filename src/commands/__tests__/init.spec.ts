@@ -250,7 +250,7 @@ describe('Given init command', () => {
 
     it('Then keeps the existing config and asks the other steps only', async () => {
       write('relizy.config.ts', 'export default {}')
-      answer(select, ['keep', 'manual'])
+      answer(select, ['keep', 'manual', 'integration'])
       // hook, script, workflow, merge preview, apply
       answer(confirm, [true, true, true, false, true])
 
@@ -481,6 +481,23 @@ describe('Given init command', () => {
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('name: Release'), '.github/workflows/release.yml')
     })
 
+    it('Then writes the steps of the CLI instead of the relizy action when chosen', async () => {
+      write('relizy.config.ts', 'export default {}')
+      answer(select, ['keep', 'manual', 'cli'])
+      // hook, script, workflow, merge preview, apply
+      answer(confirm, [false, false, true, true, true])
+
+      const restoreTerminal = setInteractiveTerminal(true)
+      await init({ cwd }).finally(restoreTerminal)
+
+      for (const file of ['.github/workflows/release.yml', '.github/workflows/merge-preview.yml']) {
+        expect(read(file)).not.toContain('relizy/action')
+        expect(read(file)).toContain('      - run: pnpm install --frozen-lockfile\n')
+      }
+      expect(read('.github/workflows/release.yml')).toContain('          pnpm exec relizy release --yes $flag\n')
+      expect(read('.github/workflows/merge-preview.yml')).toContain('        run: pnpm exec relizy merge-preview\n')
+    })
+
     it('Then puts the GitLab CI job aside an existing .gitlab-ci.yml, released at each push, with the include to add', async () => {
       execFileSync('git', [
         'remote',
@@ -490,7 +507,12 @@ describe('Given init command', () => {
       ], { cwd })
       write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
       write('.nvmrc', 'v24.11.0\n')
-      answer(select, ['publish', 'selective', 'push'])
+      answer(select, [
+        'publish',
+        'selective',
+        'push',
+        'integration',
+      ])
       answer(multiselect, [
         ['packages/*'],
       ])

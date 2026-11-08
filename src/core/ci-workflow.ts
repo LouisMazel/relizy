@@ -42,6 +42,14 @@ export interface WorkflowOptions {
   releaseCommitPrefix: string
   /** The repository is on gitlab.com, which can include the component of the CI/CD catalog */
   gitlabCom?: boolean
+  /**
+   * Run relizy with its integration (the relizy action, the component of the
+   * CI/CD catalog), or with its CLI in the steps of the workflow. A GitLab
+   * instance other than gitlab.com always writes out the job
+   */
+  integration: boolean
+  /** The `packageManager` field of the package.json pins pnpm: pnpm/action-setup reads its version */
+  pnpmPinned: boolean
 }
 
 export interface WorkflowFile {
@@ -100,7 +108,17 @@ function getReleaseCommitPrefix(template: string | undefined): string {
   return (template ?? DEFAULT_RELEASE_COMMIT_PREFIX).split('{{')[0]!
 }
 
-export function getWorkflowOptions({ detection, answers, trigger, commitMessage, mergePreview = false }: {
+/** The `packageManager` field of the package.json names pnpm */
+function isPnpmPinned(cwd: string): boolean {
+  try {
+    return (JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')).packageManager ?? '').startsWith('pnpm@')
+  }
+  catch {
+    return false
+  }
+}
+
+export function getWorkflowOptions({ detection, answers, trigger, commitMessage, mergePreview = false, integration = true }: {
   detection: ProjectDetection
   answers: InitAnswers
   trigger: WorkflowTrigger
@@ -108,6 +126,8 @@ export function getWorkflowOptions({ detection, answers, trigger, commitMessage,
   commitMessage?: string
   /** Add the merge preview job */
   mergePreview?: boolean
+  /** Run relizy with the relizy action or the component, else with its CLI */
+  integration?: boolean
 }): WorkflowOptions {
   const { cwd } = detection
 
@@ -129,6 +149,8 @@ export function getWorkflowOptions({ detection, answers, trigger, commitMessage,
     ai: answers.ai.length > 0,
     releaseCommitPrefix: getReleaseCommitPrefix(commitMessage),
     gitlabCom: (tryGitSync(['remote', 'get-url', 'origin'], { cwd }) ?? '').includes('gitlab.com'),
+    integration,
+    pnpmPinned: isPnpmPinned(cwd),
   }
 }
 
@@ -212,6 +234,93 @@ function secretExpression(secret: string): string {
   return expression(`secrets.${secret}`)
 }
 
+/**
+ * The steps setting up the project, as the relizy action does: the package
+ * manager, Node.js, the install of the dependencies, and the tools of the
+ * release (npm for the trusted publishing, the claude CLI)
+ */
+function getGithubSetupSteps(options: WorkflowOptions, { publish, ai }: { publish: boolean, ai: boolean }): string[] {
+  const cache = options.packageManager === 'pnpm' || options.packageManager === 'npm'
+    ? options.packageManager
+    : undefined
+
+  return [
+    ...(options.packageManager === 'pnpm'
+      ? [
+          '      - uses: pnpm/action-setup@v6',
+          ...(options.pnpmPinned
+            ? []
+            : ['        with:', '          version: latest']),
+        ]
+      : []),
+    ...(options.packageManager === 'bun'
+      ? ['      - uses: oven-sh/setup-bun@v2']
+      : []),
+    '      - uses: actions/setup-node@v7',
+    '        with:',
+    options.nodeVersionFile
+      ? `          node-version-file: ${options.nodeVersionFile}`
+      : '          node-version: lts/*',
+    ...(cache
+      ? [`          cache: ${cache}`]
+      : []),
+    // Node 25+ no longer ships corepack: it pins the version of the `packageManager` field
+    ...(options.packageManager === 'yarn'
+      ? ['      - run: npm install -g corepack && corepack enable']
+      : []),
+    `      - run: ${getInstallDependenciesCommand(options)}`,
+    ...(publish
+      ? [`      # ${TRUSTED_PUBLISHING_COMMENT}`, '      - run: npm install -g npm@latest']
+      : []),
+    ...(ai
+      ? ['      # The claude-code provider of the AI rewrites runs the claude CLI', '      - run: npm install -g @anthropic-ai/claude-code']
+      : []),
+  ]
+}
+
+/**
+ * The step running relizy: the relizy action, or its CLI with the setup of
+ * the project before
+ */
+function getGithubReleaseSteps(options: WorkflowOptions): string[] {
+  const manual = options.trigger === 'manual'
+  if (options.integration) {
+    // The inputs of the action take the name of the variables: RELIZY_NPM_TOKEN is npm-token
+    const inputs = [
+      ...(manual
+        ? [`          release-type: ${expression('inputs.release')}`]
+        : []),
+      ...getSecrets(options).map(([variable, secret]) => `          ${variable.replace(/^RELIZY_/, '').toLowerCase().replaceAll('_', '-')}: ${secretExpression(secret)}`),
+    ]
+    return [
+      '      # Sets up Node.js and the package manager, installs the dependencies and runs relizy release',
+      '      - id: release',
+      `        uses: ${GITHUB_ACTION}`,
+      ...(inputs.length > 0
+        ? ['        with:', ...inputs]
+        : []),
+    ]
+  }
+
+  const relizy = `${getRelizyCommand(options.packageManager)} release --yes`
+  return [
+    ...getGithubSetupSteps(options, { publish: options.publish, ai: options.ai }),
+    '      # Writes the outputs of the release (released, version, tags...) for the next steps',
+    '      - id: release',
+    '        env:',
+    `          GITHUB_TOKEN: ${expression('github.token')}`,
+    ...getSecrets(options).map(([variable, secret]) => `          ${variable}: ${secretExpression(secret)}`),
+    ...(manual
+      ? [
+          `          RELEASE_TYPE: ${expression('inputs.release')}`,
+          '        run: |',
+          '          if [ "$RELEASE_TYPE" != "auto" ]; then flag="--$RELEASE_TYPE"; fi',
+          `          ${relizy} $flag`,
+        ]
+      : [`        run: ${relizy}`]),
+  ]
+}
+
 function renderGithubWorkflow(options: WorkflowOptions): string {
   const on = options.trigger === 'manual'
     ? [
@@ -225,14 +334,6 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
         `        options: [${RELEASE_TYPES.join(', ')}]`,
       ]
     : ['on:', '  push:', `    branches: [${options.branch}]`]
-  // The inputs of the action take the name of the variables: RELIZY_NPM_TOKEN is npm-token
-  const inputs = [
-    ...(options.trigger === 'manual'
-      ? [`          release-type: ${expression('inputs.release')}`]
-      : []),
-    ...getSecrets(options).map(([variable, secret]) => `          ${variable.replace(/^RELIZY_/, '').toLowerCase().replaceAll('_', '-')}: ${secretExpression(secret)}`),
-  ]
-
   return [
     '# Generated by relizy init: https://relizy.dev/guide/github-actions',
     'name: Release',
@@ -259,12 +360,7 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     '        with:',
     '          # The changelogs need the history since the last release',
     '          fetch-depth: 0',
-    '      # Sets up Node.js and the package manager, installs the dependencies and runs relizy release',
-    '      - id: release',
-    `        uses: ${GITHUB_ACTION}`,
-    ...(inputs.length > 0
-      ? ['        with:', ...inputs]
-      : []),
+    ...getGithubReleaseSteps(options),
     '      # The outputs of the release, for the next steps',
     `      - if: steps.release.outputs.released == 'true'`,
     `        run: echo "Released ${expression('steps.release.outputs.version')} (${expression('steps.release.outputs.tags')})"`,
@@ -277,15 +373,34 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
  * branch, what its merge releases (a comment and the commit status
  * `relizy/merge-preview`), with the release type of the release workflow
  */
-function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
-  const inputs = [
-    '          merge-preview: true',
+function getGithubMergePreviewSteps(options: WorkflowOptions): string[] {
+  if (options.integration) {
+    return [
+      '      # Computes the release of the merge, writes nothing, fails when the release would fail',
+      `      - uses: ${GITHUB_ACTION}`,
+      '        with:',
+      '          merge-preview: true',
+      // The registry tells whether a version is already published
+      ...(options.publish
+        ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`]
+        : []),
+    ]
+  }
+
+  return [
+    ...getGithubSetupSteps(options, { publish: false, ai: false }),
+    '      # Computes the release of the merge, writes nothing, fails when the release would fail',
+    '      - env:',
+    `          GITHUB_TOKEN: ${expression('github.token')}`,
     // The registry tells whether a version is already published
     ...(options.publish
-      ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`]
+      ? [`          RELIZY_NPM_TOKEN: ${secretExpression('NPM_TOKEN')}`]
       : []),
+    `        run: ${getRelizyCommand(options.packageManager)} merge-preview`,
   ]
+}
 
+function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
   return [
     '# Generated by relizy init: https://relizy.dev/guide/merge-preview',
     'name: Merge preview',
@@ -317,10 +432,7 @@ function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
     '        with:',
     '          # The versions need the history since the last release',
     '          fetch-depth: 0',
-    '      # Computes the release of the merge, writes nothing, fails when the release would fail',
-    `      - uses: ${GITHUB_ACTION}`,
-    '        with:',
-    ...inputs,
+    ...getGithubMergePreviewSteps(options),
     '',
   ].join('\n')
 }
@@ -521,7 +633,7 @@ export function getWorkflowFile(options: WorkflowOptions, cwd: string): Workflow
     }
   }
 
-  const content = options.gitlabCom
+  const content = options.gitlabCom && options.integration
     ? renderGitlabComponent(options)
     : renderGitlabJob(options)
   if (!existsSync(join(cwd, '.gitlab-ci.yml'))) {

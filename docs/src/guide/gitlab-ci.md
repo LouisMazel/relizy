@@ -73,7 +73,7 @@ include:
 
 ### A Self-Managed GitLab
 
-A self-managed instance cannot include the components of gitlab.com: `init` writes the job itself, with the same steps (mirror the project [`gitlab.com/relizy/relizy`](https://gitlab.com/relizy/relizy) on your instance to include the component instead):
+A self-managed instance cannot include the components of gitlab.com: `init` writes the job itself, with the same steps. On gitlab.com, `init` writes it too when you choose the relizy CLI (`How does the CI run relizy?`) (mirror the project [`gitlab.com/relizy/relizy`](https://gitlab.com/relizy/relizy) on your instance to include the component instead):
 
 ```yaml
 release:

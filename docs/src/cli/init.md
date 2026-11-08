@@ -74,17 +74,19 @@ On GitHub, `init` writes `.github/workflows/release.yml`:
 
 - run on demand from the Actions tab with a release type (`auto` follows the commits, or `patch`, `minor`, `major`), or at each push on the default branch;
 - one release at a time (`concurrency: release`), and the permissions it needs: `contents: write` for the release commit, the tags and the GitHub release, `pull-requests: write` and `issues: write` for the [PR comment](./../guide/pr-comment.md);
-- the [relizy action](./../guide/github-actions.md#the-relizy-action) `relizy/action@v2`, which sets up your package manager and Node version (`.nvmrc` or `.node-version`), installs from the lockfile and runs `relizy release --yes`, with only the secrets your config needs;
+- the [relizy action](./../guide/github-actions.md#the-relizy-action) `relizy/action@v2`, which sets up your package manager and Node version (`.nvmrc` or `.node-version`), installs from the lockfile and runs `relizy release --yes`, with only the secrets your config needs; or, when you choose the relizy CLI, [these steps written out](./../guide/github-actions.md#the-relizy-action) in the workflow;
 - a step reading the [outputs](./../config/release.md#report) of the release.
 
 On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/ci/relizy.yml` when the project already has one (your file is not changed, `init` prints the `include:` to add):
 
-- on gitlab.com, the [relizy component](./../guide/gitlab-ci.md#the-relizy-component) `gitlab.com/relizy/relizy/release@2` of the CI/CD catalog; on a self-managed instance, the same job written out;
+- on gitlab.com, the [relizy component](./../guide/gitlab-ci.md#the-relizy-component) `gitlab.com/relizy/relizy/release@2` of the CI/CD catalog, or the same job written out when you choose the relizy CLI; on a self-managed instance, always the job written out;
 - a manual job on the default branch with a `RELEASE_TYPE` variable, or a job at each push, never run on the release commit it pushes;
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
 
 `init` also offers the [merge preview](./../guide/merge-preview.md) of the pull requests, on its own (yes by default, and with `--yes`), even when the release workflow is not generated or already exists: `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; the `merge-preview` component (or its job written out) in the same file on GitLab. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
+
+`init` asks how the CI runs relizy (on GitHub and gitlab.com): with the relizy action or component (the default, and with `--yes`), or with the relizy CLI, whose steps are written out in the workflow. The choice applies to the release and to the merge preview.
 
 The generated files are explained in [GitHub Actions](./../guide/github-actions.md) and [GitLab CI](./../guide/gitlab-ci.md). An existing workflow file is only replaced once confirmed.
 

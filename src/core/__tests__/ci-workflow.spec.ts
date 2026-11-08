@@ -15,6 +15,8 @@ const options: WorkflowOptions = {
   teams: false,
   ai: false,
   releaseCommitPrefix: 'chore(release): ',
+  integration: true,
+  pnpmPinned: true,
 }
 
 describe('Given the release workflow of GitHub Actions', () => {
@@ -218,5 +220,54 @@ describe('Given the merge preview of the release workflow', () => {
     expect(job).toContain('    - pnpm exec relizy merge-preview\n')
     expect(job).not.toContain('npm install -g npm@latest')
     expect(job).not.toContain('claude-code')
+  })
+})
+
+describe('Given the workflows run with the relizy CLI', () => {
+  const cli = { ...options, integration: false }
+
+  it('When released on demand on GitHub, Then sets up the project and runs relizy release with the chosen release type', () => {
+    const { content } = getWorkflowFile({ ...cli, publish: true, nodeVersionFile: '.nvmrc' }, '/nonexistent')
+
+    expect(content).not.toContain('relizy/action')
+    expect(content).toContain('      - uses: pnpm/action-setup@v6\n      - uses: actions/setup-node@v7\n        with:\n          node-version-file: .nvmrc\n          cache: pnpm\n      - run: pnpm install --frozen-lockfile\n')
+    expect(content).toContain('      - run: npm install -g npm@latest\n')
+    // eslint-disable-next-line no-template-curly-in-string -- expressions of GitHub Actions
+    expect(content).toContain('      - id: release\n        env:\n          GITHUB_TOKEN: ${{ github.token }}\n          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n          RELEASE_TYPE: ${{ inputs.release }}\n        run: |\n')
+    expect(content).toContain('          pnpm exec relizy release --yes $flag\n')
+  })
+
+  it('When released at each push with yarn and an unpinned pnpm, Then sets up the package manager it needs', () => {
+    expect(getWorkflowFile({
+      ...cli,
+      trigger: 'push',
+      packageManager: 'yarn',
+      yarnBerry: true,
+    }, '/nonexistent').content)
+      .toContain('          node-version: lts/*\n      - run: npm install -g corepack && corepack enable\n      - run: yarn install --immutable\n')
+    expect(getWorkflowFile({ ...cli, trigger: 'push', pnpmPinned: false }, '/nonexistent').content)
+      .toContain('      - uses: pnpm/action-setup@v6\n        with:\n          version: latest\n')
+    expect(getWorkflowFile({ ...cli, trigger: 'push' }, '/nonexistent').content)
+      .toContain('        run: pnpm exec relizy release --yes\n')
+  })
+
+  it('When the merge preview is wanted on GitHub, Then runs relizy merge-preview', () => {
+    const file = getMergePreviewWorkflowFile({ ...cli, mergePreview: true })
+
+    expect(file?.content).not.toContain('relizy/action')
+    expect(file?.content).toContain('        run: pnpm exec relizy merge-preview\n')
+  })
+
+  it('When the repository is on gitlab.com, Then writes out the job instead of the component', () => {
+    const { content } = getWorkflowFile({
+      ...cli,
+      provider: 'gitlab',
+      gitlabCom: true,
+      mergePreview: true,
+    }, '/nonexistent')
+
+    expect(content).not.toContain('component:')
+    expect(content).toContain('    - pnpm exec relizy release --yes $RELEASE_FLAG --report-dotenv relizy.env\n')
+    expect(content).toContain('    - pnpm exec relizy merge-preview\n')
   })
 })

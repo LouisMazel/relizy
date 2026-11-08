@@ -89,7 +89,7 @@ jobs:
 
 `relizy/action@v2` follows the latest relizy 2, `relizy/action@v2.3.0` stays on a version. The other variables of the step (`env:`) reach relizy too: `RELIZY_GITHUB_TOKEN`, `RELIZY_SLACK_WEBHOOK_URL`...
 
-Without the action, the same job sets up the project and runs relizy itself:
+Without the action, the same job sets up the project and runs relizy itself. `relizy init` writes it when you choose the relizy CLI (`How does the CI run relizy?`), the merge preview workflow too:
 
 ```yaml
 steps:

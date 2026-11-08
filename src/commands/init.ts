@@ -573,6 +573,33 @@ async function planWorkflowFile({ cwd, file, label, interactive }: {
 }
 
 /**
+ * Run relizy with its integration (the relizy action, the component of the
+ * CI/CD catalog) or with its CLI in the steps of the workflow. A GitLab
+ * instance other than gitlab.com cannot include the component: its job is
+ * always written out
+ */
+async function askIntegration({ provider, gitlabCom, interactive }: { provider: 'github' | 'gitlab', gitlabCom?: boolean, interactive: boolean }): Promise<boolean> {
+  if (provider === 'gitlab' && !gitlabCom) {
+    return false
+  }
+
+  const choice = await ask<'integration' | 'cli'>(interactive, 'integration', () => select<'integration' | 'cli'>({
+    message: 'How does the CI run relizy?',
+    options: provider === 'github'
+      ? [
+          { value: 'integration', label: 'With the relizy action', hint: 'relizy/action@v2: sets up Node.js and the package manager, installs and runs relizy in one step' },
+          { value: 'cli', label: 'With the relizy CLI', hint: 'the steps written out in the workflow: setup, install, relizy release' },
+        ]
+      : [
+          { value: 'integration', label: 'With the relizy component', hint: 'gitlab.com/relizy/relizy: the job of the CI/CD catalog, configured by its inputs' },
+          { value: 'cli', label: 'With the relizy CLI', hint: 'the job written out in .gitlab-ci.yml: setup, install, relizy release' },
+        ],
+    initialValue: 'integration',
+  }))
+  return choice === 'integration'
+}
+
+/**
  * The workflows of the CI, offered when the provider is GitHub or GitLab: the
  * release workflow and the merge preview, each one asked on its own (a
  * project with its release workflow can add the merge preview). An existing
@@ -622,13 +649,17 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
     return undefined
   }
 
-  const options = getWorkflowOptions({
+  const defaults = getWorkflowOptions({
     detection,
     answers,
     trigger,
     commitMessage,
     mergePreview,
   })
+  const options = {
+    ...defaults,
+    integration: await askIntegration({ provider, gitlabCom: defaults.gitlabCom, interactive }),
+  }
 
   const file = await planWorkflowFile({
     cwd: detection.cwd,
