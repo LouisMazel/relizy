@@ -15,11 +15,11 @@ vi.mock('../../core/prompts', () => ({
 }))
 
 /**
- * The root version of a `unified` group only comes from the commits of its
+ * The root version of a `unified` or `selective` group only comes from the commits of its
  * packages: a commit changing the CI, a private app or the packages of another
  * group does not release the group (issue #196).
  */
-describe('Given a unified group next to an independent group and a private app', () => {
+describe.each(['unified', 'selective'] as const)('Given a %s group next to an independent group and a private app', (versionMode) => {
   let repository: GitRepository
   let initialCwd: string
 
@@ -45,7 +45,7 @@ logLevel: 'silent',
 safetyCheck: false,
 monorepo: {
   groups: [
-    { name: 'ecosystem', versionMode: 'unified', packages: ['packages/lib', 'packages/utils'] },
+    { name: 'ecosystem', versionMode: '${versionMode}', packages: ['packages/lib', 'packages/utils'] },
     { name: 'tooling', versionMode: 'independent', packages: ['packages/eslint-config'] },
   ],
 },
@@ -82,11 +82,24 @@ monorepo: {
     })
   })
 
-  describe('When a fix changes a package of the unified group', () => {
-    it('Then every package of the group is released', async () => {
+  describe('When a fix changes a package of the group', () => {
+    it('Then the group is released with a patch', async () => {
       repository.commit('fix(utils): round the numbers', { 'packages/utils/index.js': 'export {}\n' })
 
-      expect(await bumpedPackages()).toEqual(['lib@5.5.1', 'utils@5.5.1'])
+      expect(await bumpedPackages()).toEqual(versionMode === 'unified'
+        ? ['lib@5.5.1', 'utils@5.5.1']
+        : ['utils@5.5.1'])
+    })
+  })
+
+  describe('When a feat only changes a root script and a fix changes a package of the group', () => {
+    it('Then the feat does not count: the group is released with a patch', async () => {
+      repository.commit('feat: add a release script', { 'scripts/release.js': 'export {}\n' })
+      repository.commit('fix(utils): round the numbers', { 'packages/utils/index.js': 'export {}\n' })
+
+      expect(await bumpedPackages()).toEqual(versionMode === 'unified'
+        ? ['lib@5.5.1', 'utils@5.5.1']
+        : ['utils@5.5.1'])
     })
   })
 })
