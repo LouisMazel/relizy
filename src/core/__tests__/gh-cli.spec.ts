@@ -2,11 +2,17 @@ import { chmodSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { delimiter, join } from 'node:path'
 import process from 'node:process'
+import { isInCI } from '../ci-env'
 import { loadRelizyConfig } from '../config'
 import { getGhCliToken } from '../gh-cli'
 
 // The setup file mocks this module: these tests run a fake gh
 vi.unmock('../gh-cli')
+// Outside a CI, whatever runs the tests: a CI never asks gh
+vi.mock('../ci-env', async importOriginal => ({
+  ...await importOriginal<typeof import('../ci-env')>(),
+  isInCI: vi.fn(() => false),
+}))
 
 describe('Given the token of the GitHub CLI', () => {
   let bin: string
@@ -47,15 +53,13 @@ describe('Given the token of the GitHub CLI', () => {
       'RELIZY_GITHUB_TOKEN',
       'GITHUB_TOKEN',
       'GH_TOKEN',
-      'CI',
-      'GITHUB_ACTIONS',
-      'GITLAB_CI',
     ]
 
     beforeEach(() => {
       for (const name of TOKEN_VARIABLES) {
         vi.stubEnv(name, undefined)
       }
+      vi.mocked(isInCI).mockReturnValue(false)
       fakeGh('gho_abc')
     })
 
@@ -80,7 +84,7 @@ describe('Given the token of the GitHub CLI', () => {
       })).tokens.github).toBe('ghp_env')
 
       vi.stubEnv('GITHUB_TOKEN', undefined)
-      vi.stubEnv('CI', 'true')
+      vi.mocked(isInCI).mockReturnValue(true)
       expect((await loadRelizyConfig({
         overrides: {
           cwd: bin,
