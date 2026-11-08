@@ -41,17 +41,31 @@ async function fetchContributors() {
     return await Promise.all(contributors
       .filter(contributor => !ignored.includes(contributor.username))
       .map(async (contributor) => {
-        const role = creators?.includes(contributor.username) ? ROLES.creator : maintainers?.includes(contributor.username) ? ROLES.maintainer : ROLES.contributor
+        const role = creators?.includes(contributor.username)
+          ? ROLES.creator
+          : maintainers?.includes(contributor.username)
+            ? ROLES.maintainer
+            : ROLES.contributor
         const twitterLink = links?.find(link => link.username === contributor.username && link.type === 'twitter')?.link
         const githubLink = links?.find(link => link.username === contributor.username && link.type === 'github')?.link || `https://github.com/${contributor.username}`
         const userResponse = await fetch(`https://ungh.cc/users/find/${contributor.username}`)
-        const avatar = userResponse.ok ? (await userResponse.json() as { user: { avatar: string } }).user.avatar : undefined
+        const avatar = userResponse.ok
+          ? (await userResponse.json() as { user: { avatar: string } }).user.avatar
+          : undefined
 
-        return { ...contributor, role, avatar, twitterLink, githubLink }
+        return {
+          ...contributor,
+          role,
+          avatar,
+          twitterLink,
+          githubLink,
+        }
       }))
   }
   catch (error) {
-    console.error(error instanceof Error ? error.message : String(error))
+    console.error(error instanceof Error
+      ? error.message
+      : String(error))
     return []
   }
 }

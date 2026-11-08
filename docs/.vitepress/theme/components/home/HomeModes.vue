@@ -31,10 +31,28 @@ interface Package {
 }
 
 const packages: Package[] = [
-  { name: '@acme/core', commit: 'feat', from: { unified: '2.3.1', selective: '2.3.1', independent: '1.8.0' }, to: { unified: '2.4.0', selective: '2.4.0', independent: '1.9.0' } },
-  { name: '@acme/ui', commit: 'fix', from: { unified: '2.3.1', selective: '2.3.1', independent: '3.2.4' }, to: { unified: '2.4.0', selective: '2.4.0', independent: '3.2.5' } },
-  { name: '@acme/cli', from: { unified: '2.3.1', selective: '2.3.1', independent: '0.6.1' }, to: { unified: '2.4.0', selective: undefined, independent: undefined } },
-  { name: '@acme/icons', from: { unified: '2.3.1', selective: '2.2.0', independent: '1.1.0' }, to: { unified: '2.4.0', selective: undefined, independent: undefined } },
+  {
+    name: '@acme/core',
+    commit: 'feat',
+    from: { unified: '2.3.1', selective: '2.3.1', independent: '1.8.0' },
+    to: { unified: '2.4.0', selective: '2.4.0', independent: '1.9.0' },
+  },
+  {
+    name: '@acme/ui',
+    commit: 'fix',
+    from: { unified: '2.3.1', selective: '2.3.1', independent: '3.2.4' },
+    to: { unified: '2.4.0', selective: '2.4.0', independent: '3.2.5' },
+  },
+  {
+    name: '@acme/cli',
+    from: { unified: '2.3.1', selective: '2.3.1', independent: '0.6.1' },
+    to: { unified: '2.4.0', selective: undefined, independent: undefined },
+  },
+  {
+    name: '@acme/icons',
+    from: { unified: '2.3.1', selective: '2.2.0', independent: '1.1.0' },
+    to: { unified: '2.4.0', selective: undefined, independent: undefined },
+  },
 ]
 
 const rows = computed(() => packages.map(pkg => ({

@@ -31,7 +31,9 @@ export const relizyPreset = definePreset({
     components: {
       btn: { 'font-weight': '600' },
       // Cards: the page in light mode, a tier above it in dark mode (VitePress bg-soft)
-      container: { bg: { light: 'oklch(1 0 0)', dark: 'oklch(0.249 0.011 278)' } },
+      container: {
+        bg: { light: 'oklch(1 0 0)', dark: 'oklch(0.249 0.011 278)' },
+      },
     },
     colors: {
       light: {
