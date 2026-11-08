@@ -172,6 +172,52 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
   })
 }
 
+/**
+ * The registry refused a restricted publish: a scoped package is `restricted`
+ * by default on npmjs.com, and private packages need a paid plan (E402)
+ */
+function isPaymentRequiredError(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null)
+    return false
+
+  const errorMessage = 'message' in error && typeof error.message === 'string'
+    ? error.message.toLowerCase()
+    : ''
+  const searchText = `${errorMessage} ${String(error).toLowerCase()}`
+
+  return ['e402', '402 payment required', 'sign up for private packages'].some(pattern => searchText.includes(pattern))
+}
+
+/**
+ * The error a failed publish throws: an actionable one when the registry
+ * refused a restricted scoped package, else the original one (logged)
+ */
+function getPublishFailure({
+  error,
+  pkg,
+  registryTarget,
+  packageNameAndVersion,
+  registryLabel,
+}: {
+  error: unknown
+  pkg: PackageBase
+  registryTarget: RegistryTarget
+  packageNameAndVersion: string
+  registryLabel: string
+}): unknown {
+  if (isPaymentRequiredError(error) && pkg.name.startsWith('@') && registryTarget.access !== 'public') {
+    return new Error(
+      `Failed to publish ${packageNameAndVersion}${registryLabel}: the registry requires a paid plan to publish a private package (402 Payment Required). `
+      + 'A scoped package is published as restricted unless told otherwise. '
+      + 'To publish it publicly, set `publish.access: \'public\'` in your relizy config or `"publishConfig": { "access": "public" }` in its package.json.',
+      { cause: error },
+    )
+  }
+
+  logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
+  return error
+}
+
 async function handleOtpError(): Promise<string> {
   if (isInCI()) {
     logger.error('OTP required but running in CI environment. Please provide OTP via config or `--otp` flag')
@@ -404,8 +450,13 @@ async function publishToRegistryTarget({
         )
       }
       else {
-        logger.error(`Failed to publish ${packageNameAndVersion}:`, error)
-        throw error
+        throw getPublishFailure({
+          error,
+          pkg,
+          registryTarget,
+          packageNameAndVersion,
+          registryLabel,
+        })
       }
     }
     finally {

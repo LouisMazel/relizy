@@ -1554,6 +1554,35 @@ describe('Given publishPackage function', () => {
     })
   })
 
+  describe('When the registry requires a paid plan for a scoped package', () => {
+    const paymentRequiredError = new Error('npm error code E402\nnpm error 402 Payment Required - PUT https://registry.npmjs.org/@scope%2fpkg - You must sign up for private packages')
+
+    beforeEach(() => {
+      pkg = { ...pkg, name: '@scope/pkg' }
+      vi.mocked(execPromise).mockRejectedValue(paymentRequiredError)
+    })
+
+    it('Then explains how to publish it publicly', async () => {
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toThrow(/publish\.access: 'public'.*"publishConfig": \{ "access": "public" \}/)
+    })
+
+    it('Then keeps the original error when the access is already public', async () => {
+      config.publish.access = 'public'
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toBe(paymentRequiredError)
+    })
+  })
+
   describe('When the version already exists on the registry', () => {
     // Nexus phrases the immutable-asset conflict as an HTTP 400 with this body.
     const alreadyPublishedError = new Error('(status 400 Bad Request): {"success":false,"error":"Repository does not allow updating assets: npm"}')
