@@ -82,7 +82,9 @@ export async function providerReleaseSafetyCheck({ config, provider, ai, version
   }
 
   if (!token) {
-    throw new Error(`No token provided for ${internalProvider} - The release will not be published - Please refer to the documentation: https://relizy.dev/config/overview#tokens`)
+    throw new Error(`No token provided for ${internalProvider} - The release will not be published - ${internalProvider === 'github'
+      ? 'Log in the GitHub CLI (gh auth login) or set GITHUB_TOKEN, see'
+      : 'Please refer to the documentation:'} https://relizy.dev/config/overview#tokens`)
   }
 
   if (usesAIProviderRelease(config, ai, versions)) {

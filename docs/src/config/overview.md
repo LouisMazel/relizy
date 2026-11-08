@@ -149,6 +149,8 @@ A more specific setting wins over these keys:
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)
 
+On a local run without these variables, `tokens.github` is the token of the [GitHub CLI](https://cli.github.com) when it is logged in (`gh auth login`, for the host of the repository): no token to create. In a GitHub Actions job, the [relizy action](./../guide/github-actions.md#the-relizy-action) passes the `GITHUB_TOKEN` of the job: no secret to create either, unless the job must push to a protected branch or trigger other workflows.
+
 Keep the tokens out of the config file: set the environment variables in the CI (see [CI/CD](./../guide/ci-cd.md)).
 
 ## detectRewrittenTags

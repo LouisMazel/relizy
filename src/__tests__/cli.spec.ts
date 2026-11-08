@@ -1,6 +1,7 @@
 import type { GitRepository } from '../../tests/git-repository'
 import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import process from 'node:process'
 import { createGitRepository } from '../../tests/git-repository'
 
@@ -15,6 +16,9 @@ describe('Given the relizy CLI', () => {
     repository = createGitRepository('relizy-cli-')
     cwd = repository.cwd
 
+    mkdirSync(join(cwd, '.bin'))
+    writeFileSync(join(cwd, '.bin/gh'), '#!/bin/sh\nexit 1\n')
+    chmodSync(join(cwd, '.bin/gh'), 0o755)
     repository.git('remote', 'add', 'origin', 'https://github.com/acme/app.git')
     repository.commit('chore: init', {
       'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
@@ -42,7 +46,12 @@ describe('Given the relizy CLI', () => {
     ], {
       cwd,
       encoding: 'utf8',
-      env: { ...env, NO_COLOR: '1' },
+      // No token of the GitHub CLI of the machine either: a gh that is not logged in
+      env: {
+        ...env,
+        NO_COLOR: '1',
+        PATH: `${join(cwd, '.bin')}${delimiter}${process.env.PATH}`,
+      },
     })
   }
 

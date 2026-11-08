@@ -31,6 +31,11 @@ vi.mock('./src/core/repo-config', async (importOriginal) => {
   }
 })
 
+// The token of the GitHub CLI of the machine: none in the tests, but in gh-cli.spec.ts
+vi.mock('./src/core/gh-cli', () => ({
+  getGhCliToken: vi.fn(() => undefined),
+}))
+
 // The preparation of a CI clone runs git on the repository: none in the tests, but in ci.spec.ts
 vi.mock('./src/core/ci', async (importOriginal) => {
   const actual = await importOriginal<typeof import('./src/core/ci')>()

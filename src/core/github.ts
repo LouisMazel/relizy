@@ -13,7 +13,7 @@ export const githubReleaseProvider: ReleaseProvider = {
     }
 
     if (!config.tokens.github) {
-      throw new Error('No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.')
+      throw new Error('No GitHub token specified. Log in the GitHub CLI (gh auth login), or set GITHUB_TOKEN or GH_TOKEN environment variable.')
     }
   },
   create: ({ config, release }) => createGithubRelease(

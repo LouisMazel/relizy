@@ -8,7 +8,9 @@ import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
+import { isInCI } from './ci-env'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
+import { getGhCliToken } from './gh-cli'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { getEnvNpmToken } from './npm-oidc'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
@@ -284,6 +286,14 @@ async function resolveConfig(
   // fallback of a package none of them covers (see resolveRegistryTargetsForPackage).
   if (config.publish && !config.publish.registry && !config.publish.registries?.length) {
     config.publish.registry = getNpmRegistry(cwd)
+  }
+
+  // A local run without GITHUB_TOKEN: the token of the GitHub CLI, when it is logged in
+  if (config.tokens && !config.tokens.github && config.repo?.provider === 'github' && !isInCI()) {
+    config.tokens.github = getGhCliToken(config.repo.domain)
+    if (config.tokens.github) {
+      logger.debug('GitHub token: the one of the GitHub CLI (gh auth token)')
+    }
   }
 
   return config
