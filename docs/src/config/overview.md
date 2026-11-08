@@ -47,6 +47,7 @@ An array of the config replaces the default one instead of being merged with it:
 | `ai`                                                                                                                                             | [AI](./ai.md)                           |
 | `social`                                                                                                                                         | [Social](./social.md)                   |
 | `prComment`                                                                                                                                      | [PR Comment](./pr-comment.md)           |
+| `mergePreview`                                                                                                                                   | [Merge Preview](./merge-preview.md)     |
 | `hooks`                                                                                                                                          | [Hooks](./hooks.md)                     |
 | `commitlint`                                                                                                                                     | [Commitlint](./../commitlint/config.md) |
 | `projectName`, `cwd`, `from`, `to`, `logLevel`, `safetyCheck`, `signTags`, `scopeMap`, `repo`, `tokens`, `detectRewrittenTags`, `onRewrittenTag` | This page                               |

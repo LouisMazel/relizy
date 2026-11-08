@@ -7,7 +7,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
 import { Command, Option } from 'commander'
-import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, init, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/ci-env'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
@@ -422,6 +422,64 @@ program
     }
     catch (error) {
       exitWithError('Failed to post PR comment -', error)
+    }
+  })
+
+program
+  .command('merge-preview')
+  .description('Preview what the merge of the pull request releases, with the options of the release job, without writing anything: comment and commit status on the pull request, fails when the release of the merge would fail')
+  .option('--major', 'Bump major version')
+  .option('--minor', 'Bump minor version')
+  .option('--patch', 'Bump patch version')
+  .option('--prerelease', 'Bump prerelease version')
+  .option('--premajor', 'Bump premajor version')
+  .option('--preminor', 'Bump preminor version')
+  .option('--prepatch', 'Bump prepatch version')
+  .option('--preid <id>', 'Prerelease identifier (alpha, beta, rc, etc.)')
+  .option('--suffix <suffix>', 'Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)')
+  .option('--from <ref>', 'Start commit reference')
+  .option('--to <ref>', 'End commit reference')
+  .option('--force', 'Bump even if there are no commits')
+  .option('--no-publish', 'The release job does not publish')
+  .option('--no-commit', 'The release job does not commit nor tag')
+  .option('--no-git-tag', 'The release job does not create tags')
+  .option('--registry <url>', 'Custom npm registry URL')
+  .option('--tag <tag>', 'Publish with specific tag (default: latest for stable, next for prerelease)')
+  .option('--token <token>', 'Git token (github or gitlab)')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
+  .addOption(privatePackagesOption())
+  .option('--no-comment', 'Do not comment the pull request')
+  .option('--no-check', 'Do not set the commit status')
+  .option('--report-json <file>', 'Write the report of the preview to this JSON file')
+  .option('--report-markdown <file>', 'Write the preview to this markdown file, e.g. for an artifact of GitLab CI')
+  .action(async (options) => {
+    try {
+      await mergePreview({
+        type: getReleaseType(options),
+        preid: options.preid,
+        suffix: options.suffix,
+        from: options.from,
+        to: options.to,
+        force: options.force,
+        publish: hasCliFlag('--no-publish') ? false : undefined,
+        commit: hasCliFlag('--no-commit') ? false : undefined,
+        gitTag: hasCliFlag('--no-git-tag') ? false : undefined,
+        registry: options.registry,
+        tag: options.tag,
+        token: options.token,
+        publishToken: options.publishToken,
+        privatePackages: options.privatePackages,
+        comment: hasCliFlag('--no-comment') ? false : undefined,
+        check: hasCliFlag('--no-check') ? false : undefined,
+        prNumber: program.opts().prNumber,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        groups: program.opts().group,
+        report: getReportOverride(options),
+      })
+    }
+    catch (error) {
+      exitWithError('Failed to preview the merge -', error)
     }
   })
 

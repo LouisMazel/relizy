@@ -84,6 +84,8 @@ On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/c
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
 
+With the release workflow, `init` offers the [merge preview](./../guide/merge-preview.md) of the pull requests (yes by default, and with `--yes`): `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; the `merge-preview` component (or its job written out) in the same file on GitLab. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
+
 The generated files are explained in [GitHub Actions](./../guide/github-actions.md) and [GitLab CI](./../guide/gitlab-ci.md). An existing workflow file is only replaced once confirmed.
 
 ## Options

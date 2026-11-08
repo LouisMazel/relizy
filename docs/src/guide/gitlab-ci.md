@@ -202,6 +202,16 @@ release:
 
 `args: --dry-run` (or `pnpm exec relizy release --yes --dry-run`) previews the release in any job: nothing is written, committed nor published, and `RELIZY_RELEASED` is `false`.
 
+### Preview the Release on Merge Requests
+
+The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it; see [Merge Preview](./merge-preview.md).
+
+```yaml
+include:
+  - component: gitlab.com/relizy/relizy/release@2
+  - component: gitlab.com/relizy/relizy/merge-preview@2
+```
+
 ### Canary Release on Merge Requests
 
 Publish a test version of each merge request (`1.3.0-0.canary-a3f4b2c` on the `canary` dist-tag), and comment it on the merge request. Nothing is committed nor pushed (see [Canary Releases](./prereleases.md#canary-releases)). The component only releases the default branch: the canary job is written out.

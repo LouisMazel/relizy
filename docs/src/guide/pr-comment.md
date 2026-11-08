@@ -18,6 +18,8 @@ A comment that cannot be posted (no pull request, no token, an API error) is rep
 
 By default, Relizy edits its previous comment on the pull request instead of adding one: see [`prComment.mode`](./../config/pr-comment.md#mode).
 
+Before the merge, [`relizy merge-preview`](./merge-preview.md) posts its own comment, what the merge releases. The release of the merge, which finds the pull request from its commit, rewrites this comment with what it released; the releases of the open pull request (canary, prerelease) keep their own comment.
+
 ## Finding the Pull Request
 
 Relizy looks for the **open** pull request (GitHub) or merge request (GitLab) whose source branch is the current branch, in the repository of the config (`repo`, else the `repository` field of the closest `package.json`, else the `origin` remote). Without one, it looks for the pull request of the commit the release started from (before its release commit), merged or not: a job running on the push to `main` after a merge comments the pull request it merged.

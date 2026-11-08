@@ -17,6 +17,7 @@ import {
   getDefaultConfig,
   getDetectedPublishConfig,
   getInstallCommand,
+  getMergePreviewWorkflowFile,
   getMissingRootFields,
   getReleasedPackages,
   getRunCommand,
@@ -83,6 +84,8 @@ export interface InitResult {
     file: string
     /** The `include:` to add to an existing `.gitlab-ci.yml` */
     include?: string
+    /** The workflow of the merge preview, when in its own file (GitHub) */
+    mergePreviewFile?: string
   }
 }
 
@@ -374,6 +377,8 @@ interface InitPlan {
 
 interface PlannedWorkflow {
   file: WorkflowFile
+  /** The workflow of the merge preview, when in its own file (GitHub) */
+  mergePreviewFile?: WorkflowFile & { replace: boolean }
   /** The CI name: `GitHub Actions` */
   ci: string
   /** Secrets (GitHub) or CI/CD variables (GitLab) to create */
@@ -401,6 +406,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
     const action = plan.workflow.replace ? c.yellow('replace'.padEnd(9)) : c.green('create'.padEnd(9))
     const description = c.dim(plan.workflow.ci)
     rows.push(`${action}${plan.workflow.file.path} ${description}`)
+    const preview = plan.workflow.mergePreviewFile
+    if (preview) {
+      rows.push(`${preview.replace ? c.yellow('replace'.padEnd(9)) : c.green('create'.padEnd(9))}${preview.path} ${c.dim('what the merge of each pull request releases')}`)
+    }
   }
   if (plan.agents.length > 0) {
     rows.push(`${c.cyan('setup')}    AI agents (${plan.agents.join(', ')}) ${c.dim('relizy rules and MCP server, as relizy mcp init')}`)
@@ -474,7 +483,12 @@ async function askWorkflow({ detection, answers, commitMessage, interactive }: {
     initialValue: 'manual',
   }))
 
-  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage })
+  const mergePreview = await ask(interactive, true, () => confirm({
+    message: `Preview the release in each ${provider === 'gitlab' ? 'merge' : 'pull'} request? (a comment and a commit status: what the merge releases, red when its release would fail)`,
+    initialValue: true,
+  }))
+
+  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage, mergePreview })
   const file = getWorkflowFile(options, detection.cwd)
   const exists = existsSync(join(detection.cwd, file.path))
   if (exists && !await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
@@ -482,7 +496,20 @@ async function askWorkflow({ detection, answers, commitMessage, interactive }: {
     return undefined
   }
 
-  return { file, ci, secrets: getWorkflowSecrets(options), replace: exists }
+  const previewFile = getMergePreviewWorkflowFile(options)
+  const previewExists = previewFile ? existsSync(join(detection.cwd, previewFile.path)) : false
+  const keepPreview = previewFile && (!previewExists || await ask(interactive, false, () => confirm({ message: `${previewFile.path} already exists, replace it?`, initialValue: false })))
+  if (previewFile && !keepPreview) {
+    log.warn(`${previewFile.path} already exists: the merge preview workflow is not generated`)
+  }
+
+  return {
+    file,
+    ...(previewFile && keepPreview ? { mergePreviewFile: { ...previewFile, replace: previewExists } } : {}),
+    ci,
+    secrets: getWorkflowSecrets(options),
+    replace: exists,
+  }
 }
 
 function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): string[] {
@@ -608,6 +635,9 @@ async function runInit({ options, detection, configFile, interactive }: {
   if (options.dryRun) {
     if (workflow) {
       note(workflow.file.content.trimEnd(), workflow.file.path)
+      if (workflow.mergePreviewFile) {
+        note(workflow.mergePreviewFile.content.trimEnd(), workflow.mergePreviewFile.path)
+      }
     }
     outro('Dry run, nothing written')
     return { configFile, config: config ?? {}, content, written: false, scripts: [], ...(keep && { kept: true }) }
@@ -659,10 +689,12 @@ async function runInit({ options, detection, configFile, interactive }: {
   const agents = plan.agents.length > 0 ? setUpAgents(cwd, plan.agents) : undefined
 
   if (workflow) {
-    const path = join(cwd, workflow.file.path)
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, workflow.file.content)
-    log.success(`${workflow.replace ? 'Replaced' : 'Created'} ${workflow.file.path}`)
+    for (const file of [{ ...workflow.file, replace: workflow.replace }, ...(workflow.mergePreviewFile ? [workflow.mergePreviewFile] : [])]) {
+      const path = join(cwd, file.path)
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, file.content)
+      log.success(`${file.replace ? 'Replaced' : 'Created'} ${file.path}`)
+    }
   }
 
   showNextSteps(detection, answers, workflow)
@@ -677,7 +709,7 @@ async function runInit({ options, detection, configFile, interactive }: {
     hook,
     scripts,
     ...(agents && { agents }),
-    ...(workflow && { workflow: { file: workflow.file.path, ...(workflow.file.include && { include: workflow.file.include }) } }),
+    ...(workflow && { workflow: { file: workflow.file.path, ...(workflow.file.include && { include: workflow.file.include }), ...(workflow.mergePreviewFile && { mergePreviewFile: workflow.mergePreviewFile.path }) } }),
   }
 }
 

@@ -233,3 +233,29 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
   chmodSync(path, 0o755)
   return { path, status }
 }
+
+/**
+ * True when a `commit-msg` hook runs `relizy commitlint`: husky, the hooks
+ * directory of git, lefthook or simple-git-hooks
+ */
+export function hasRelizyCommitMsgHook(cwd: string): boolean {
+  const root = tryGitSync(['rev-parse', '--show-toplevel'], { cwd }) ?? cwd
+  const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
+  const files = [
+    join(root, '.husky', 'commit-msg'),
+    hooksPath ? join(isAbsolute(hooksPath) ? hooksPath : join(root, hooksPath), 'commit-msg') : getGitPath(join('hooks', 'commit-msg'), cwd),
+    ...['lefthook.yml', 'lefthook.yaml', '.lefthook.yml', '.lefthook.yaml', 'lefthook.json'].map(name => join(root, name)),
+  ]
+
+  if (files.some(file => existsSync(file) && readFileSync(file, 'utf8').includes('relizy commitlint'))) {
+    return true
+  }
+
+  try {
+    const hook = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'))?.['simple-git-hooks']?.['commit-msg']
+    return typeof hook === 'string' && hook.includes('relizy commitlint')
+  }
+  catch {
+    return false
+  }
+}

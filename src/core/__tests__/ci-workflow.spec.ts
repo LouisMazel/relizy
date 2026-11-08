@@ -1,5 +1,5 @@
 import type { WorkflowOptions } from '../ci-workflow'
-import { getInstallDependenciesCommand, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
+import { getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
 
 const options: WorkflowOptions = {
   provider: 'github',
@@ -9,6 +9,7 @@ const options: WorkflowOptions = {
   yarnBerry: false,
   publish: false,
   prComment: false,
+  mergePreview: false,
   twitter: false,
   slack: false,
   teams: false,
@@ -142,5 +143,39 @@ describe('Given the commands of a package manager', () => {
     expect(getInstallDependenciesCommand({ packageManager: 'yarn', yarnBerry: true })).toBe('yarn install --immutable')
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getRelizyCommand(packageManager as WorkflowOptions['packageManager'])))
       .toEqual(['npx relizy', 'pnpm exec relizy', 'yarn relizy', 'bunx relizy'])
+  })
+})
+
+describe('Given the merge preview of the release workflow', () => {
+  it('When it is not wanted, Then there is no merge preview workflow', () => {
+    expect(getMergePreviewWorkflowFile(options)).toBeUndefined()
+    expect(getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true }, '/nonexistent').content).not.toContain('merge-preview')
+  })
+
+  it('When it is wanted on GitHub, Then runs the action with merge-preview on the pull requests into the default branch', () => {
+    const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true })!
+
+    expect(file.path).toBe('.github/workflows/merge-preview.yml')
+    expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n')
+    expect(file.content).toContain('      statuses: write\n')
+    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+    expect(file.content).toContain('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+  })
+
+  it('When it is wanted on gitlab.com, Then includes the merge-preview component', () => {
+    const { content } = getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true, mergePreview: true, nodeVersion: '22' }, '/nonexistent')
+
+    expect(content).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:22\n')
+    expect(getMergePreviewWorkflowFile({ ...options, provider: 'gitlab', mergePreview: true })).toBeUndefined()
+  })
+
+  it('When it is wanted on a GitLab instance, Then writes the merge-preview job on the merge requests into the default branch', () => {
+    const { content } = getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: false, mergePreview: true, publish: true, ai: true }, '/nonexistent')
+    const job = content.slice(content.indexOf('merge-preview:'))
+
+    expect(job).toContain('    - if: \'$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH\'\n')
+    expect(job).toContain('    - pnpm exec relizy merge-preview\n')
+    expect(job).not.toContain('npm install -g npm@latest')
+    expect(job).not.toContain('claude-code')
   })
 })

@@ -220,11 +220,13 @@ describe('Given init command', () => {
     it('Then keeps the existing config and asks the other steps only', async () => {
       write('relizy.config.ts', 'export default {}')
       answer(select, ['keep', 'manual'])
-      answer(confirm, [true, true, true, true])
+      // hook, script, workflow, merge preview, apply
+      answer(confirm, [true, true, true, false, true])
 
       const result = await init({ cwd })
 
       expect(result).toEqual(expect.objectContaining({ kept: true, written: false, workflow: { file: '.github/workflows/release.yml' } }))
+      expect(existsSync(join(cwd, '.github/workflows/merge-preview.yml'))).toBe(false)
       expect(read('relizy.config.ts')).toBe('export default {}')
       expect(notes()).toContainEqual([expect.stringContaining('keep     relizy.config.ts'), 'Changes'])
       expect(readJson('package.json').scripts.release).toBe('relizy release')
@@ -313,7 +315,8 @@ describe('Given init command', () => {
     it('Then writes the GitHub Actions workflow without asking, released on demand, with the secrets of the config', async () => {
       const result = await init({ cwd, yes: true })
 
-      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
+      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml', mergePreviewFile: '.github/workflows/merge-preview.yml' })
+      expect(read('.github/workflows/merge-preview.yml')).toContain('          merge-preview: true\n')
       const workflow = read('.github/workflows/release.yml')
       expect(workflow).toContain('  workflow_dispatch:\n')
       // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
@@ -352,8 +355,8 @@ describe('Given init command', () => {
       write('.nvmrc', 'v24.11.0\n')
       answer(select, ['publish', 'selective', 'push'])
       answer(multiselect, [['packages/*']])
-      // advanced, hook, script, workflow, apply
-      answer(confirm, [false, false, false, true, true])
+      // advanced, hook, script, workflow, merge preview, apply
+      answer(confirm, [false, false, false, true, true, true])
 
       const restoreTerminal = setInteractiveTerminal(true)
       const result = await init({ cwd }).finally(restoreTerminal)
@@ -363,6 +366,7 @@ describe('Given init command', () => {
       const job = read('.gitlab/ci/relizy.yml')
       // On gitlab.com: the component of the CI/CD catalog, at each push, with the Node version of the project
       expect(job).toContain('  - component: gitlab.com/relizy/relizy/release@2\n    inputs:\n      when: on_success\n      image: node:24\n')
+      expect(job).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:24\n')
       expect(job).not.toContain('RELEASE_TYPE')
       expect(notes()).toContainEqual([expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps'])
     })

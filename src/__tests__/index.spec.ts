@@ -5,6 +5,7 @@ describe('Given the public API of relizy', () => {
   describe('When the package entry is imported', () => {
     it('Then only exports the commands, the config, the errors and the commit linter', () => {
       expect(Object.keys(relizy).sort()).toEqual([
+        'MergePreviewError',
         'RelizyCancelError',
         'bump',
         'changelog',
@@ -13,6 +14,7 @@ describe('Given the public API of relizy', () => {
         'isRelizyCancelError',
         'lintCommitMessage',
         'loadRelizyConfig',
+        'mergePreview',
         'prComment',
         'providerRelease',
         'publish',

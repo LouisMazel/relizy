@@ -37,7 +37,8 @@ import { publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
-function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
+/** The config of a release run: the config file, with the options of the run */
+export function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
     configFile: options.configName,
     overrides: {

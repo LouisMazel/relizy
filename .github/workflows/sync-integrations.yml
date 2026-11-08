@@ -139,8 +139,10 @@ jobs:
           find target -mindepth 1 -maxdepth 1 ! -name .git -exec rm -rf {} +
           cp -R integrations/gitlab-component/. target/
           cp LICENSE target/
-          sed -i "s/RELIZY_COMPONENT_VERSION: __RELIZY_VERSION__/RELIZY_COMPONENT_VERSION: '$VERSION'/" target/templates/release.yml
-          grep -q "RELIZY_COMPONENT_VERSION: '$VERSION'" target/templates/release.yml
+          for template in target/templates/*.yml; do
+            sed -i "s/RELIZY_COMPONENT_VERSION: __RELIZY_VERSION__/RELIZY_COMPONENT_VERSION: '$VERSION'/" "$template"
+            grep -q "RELIZY_COMPONENT_VERSION: '$VERSION'" "$template"
+          done
 
           cd target
           git config user.name 'github-actions[bot]'

@@ -1,10 +1,11 @@
 import type { RawGitCommit } from '../types'
 import { cachedGitRead, clearGitCache } from './git-cache'
 import { runGit, runGitSync } from './git-exec'
+import { applySimulatedSquash } from './squash-simulation'
 
 /**
  * Low-level git ref/tag helpers. This module is intentionally a leaf (it only
- * depends on the leaves `git-cache.ts` and `git-exec.ts`) so it can be imported
+ * depends on the leaves `git-cache.ts`, `git-exec.ts` and `squash-simulation.ts`) so it can be imported
  * from anywhere -- including `rewritten-tags.ts` -- without creating an import
  * cycle through `repo.ts`.
  */
@@ -205,7 +206,8 @@ export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string):
   // The same range is read for each package and each step: parsed once, a copy returned to each caller
   const commits = cachedGitRead({ key: ['log', range], cwd, read: () => readGitLog(range, cwd) })
 
-  return commits.map(commit => ({ ...commit, author: { ...commit.author } }))
+  // The merge preview of a pull request squashes its commits, as a squash merge will
+  return applySimulatedSquash(commits.map(commit => ({ ...commit, author: { ...commit.author } })))
 }
 
 function readGitLog(range: string, cwd?: string): RawGitCommit[] {

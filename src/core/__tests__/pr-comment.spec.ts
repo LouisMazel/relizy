@@ -3,7 +3,7 @@ import { logger } from '@maz-ui/node'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig } from '../../../tests/mocks'
 import { runGitSync } from '../git-exec'
-import { detectPullRequest, findGitHubPR, findGitLabMR, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
+import { detectPullRequest, findGitHubPR, findGitLabMR, MERGE_PREVIEW_MARKER, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
 
 vi.mock('../git-exec', async importActual => ({
   ...(await importActual<typeof import('../git-exec')>()),
@@ -357,7 +357,7 @@ describe('Given detectPullRequest function', () => {
       const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
 
       expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
-      expect(result).toEqual({ number: 12, url: 'https://github.com/user/repo/pull/12', provider: 'github' })
+      expect(result).toEqual({ number: 12, url: 'https://github.com/user/repo/pull/12', provider: 'github', ofCommit: true })
     })
 
     it('Then finds the GitLab merge request of the commit, from a detached HEAD too', async () => {
@@ -368,7 +368,7 @@ describe('Given detectPullRequest function', () => {
       const result = await detectPullRequest({ config, sha: 'abc123' })
 
       expect(fetch).toHaveBeenCalledWith('https://gitlab.com/api/v4/projects/user%2Frepo/repository/commits/abc123/merge_requests', expect.anything())
-      expect(result).toEqual({ number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' })
+      expect(result).toEqual({ number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab', ofCommit: true })
     })
 
     it('Then keeps the open pull request of the branch first', async () => {
@@ -750,7 +750,7 @@ describe('Given postPrComment function', () => {
 
       // Should list comments first
       expect(fetch).toHaveBeenCalledWith(
-        'https://api.github.com/repos/user/repo/issues/42/comments',
+        'https://api.github.com/repos/user/repo/issues/42/comments?per_page=100',
         expect.objectContaining({
           method: 'GET',
         }),
@@ -764,6 +764,43 @@ describe('Given postPrComment function', () => {
           body: JSON.stringify({ body: commentBody }),
         }),
       )
+    })
+  })
+
+  describe('When the pull request has a merge preview and a comment of a canary', () => {
+    const comments = [
+      { id: 100, body: `${PR_COMMENT_MARKER}\nCanary` },
+      { id: 200, body: `${MERGE_PREVIEW_MARKER}\nIf you merge` },
+    ]
+
+    function mockComments() {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(comments) } as Response)
+        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) } as Response)
+    }
+
+    it('Then the merge preview updates its own comment, even in append mode', async () => {
+      mockComments()
+
+      await postPrComment({ config: createGitHubConfig('append'), pr: githubPr, body: `${MERGE_PREVIEW_MARKER}\nNew preview`, marker: MERGE_PREVIEW_MARKER })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({ method: 'PATCH' }))
+    })
+
+    it('Then the release of the open pull request (canary) updates the comment of the canary', async () => {
+      mockComments()
+
+      await postPrComment({ config: createGitHubConfig('update'), pr: githubPr, body: commentBody })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/100', expect.objectContaining({ method: 'PATCH' }))
+    })
+
+    it('Then the release of the merge rewrites the merge preview', async () => {
+      mockComments()
+
+      await postPrComment({ config: createGitHubConfig('update'), pr: { ...githubPr, ofCommit: true }, body: commentBody })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ body: commentBody }) }))
     })
   })
 
