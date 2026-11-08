@@ -1,5 +1,5 @@
 import type { WorkflowOptions } from '../ci-workflow'
-import { getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
+import { getGitlabMergePreviewSnippet, getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
 
 const options: WorkflowOptions = {
   provider: 'github',
@@ -17,6 +17,7 @@ const options: WorkflowOptions = {
   releaseCommitPrefix: 'chore(release): ',
   integration: true,
   pnpmPinned: true,
+  registryNeedsToken: false,
 }
 
 describe('Given the release workflow of GitHub Actions', () => {
@@ -188,8 +189,36 @@ describe('Given the merge preview of the release workflow', () => {
     expect(file.path).toBe('.github/workflows/merge-preview.yml')
     expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n    # edited: a new title (the commit of a squash merge) or a new base\n    types: [opened, synchronize, reopened, edited]\n')
     expect(file.content).toContain('      statuses: write\n')
+    // A public package is checked on npmjs.com without token
+    expect(file.content.endsWith('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n')).toBe(true)
+    expect(file.content).not.toContain('NPM_TOKEN')
+  })
+
+  it('When the registry needs a token, Then gives it to the merge preview', () => {
+    const file = getMergePreviewWorkflowFile({
+      ...options,
+      mergePreview: true,
+      publish: true,
+      registryNeedsToken: true,
+    })!
+
     // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-    expect(file.content).toContain('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+    expect(file.content).toContain('          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+  })
+
+  it('When it is added by hand to .gitlab-ci.yml, Then gives the include of the component on gitlab.com, else the job', () => {
+    const gitlab = { ...options, provider: 'gitlab' as const, mergePreview: true }
+
+    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('include:\n  # What the merge')
+    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n')
+    for (const snippet of [
+      getGitlabMergePreviewSnippet(gitlab),
+      getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true, integration: false }),
+    ]) {
+      expect(snippet).not.toContain('component:')
+      expect(snippet).toContain('merge-preview:\n  stage: test\n')
+      expect(snippet).toContain('    - pnpm exec relizy merge-preview\n')
+    }
   })
 
   it('When it is wanted on gitlab.com, Then includes the merge-preview component', () => {

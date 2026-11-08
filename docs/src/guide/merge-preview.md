@@ -140,6 +140,7 @@ The comment and the commit status use the token of the provider releases (`token
 
 - **GitHub**: the `GITHUB_TOKEN` of the job, with `pull-requests: write` and `issues: write` (the comment) and `statuses: write` (the status). The pull requests opened from a fork get a read-only token: the preview is printed in the summary of the job, without comment nor status.
 - **GitLab**: a project or personal access token with the `api` scope, in `GITLAB_TOKEN`.
+- **Registry**: none for public packages on npmjs.com, checked without token. Restricted packages and private registries need the registry token (`NPM_TOKEN`) to tell whether a version is published; `relizy init` adds it then. Without it, the preview only warns.
 
 `--no-comment` and `--no-check` (or [`mergePreview.comment`](./../config/merge-preview.md#comment) and [`mergePreview.check`](./../config/merge-preview.md#check)) turn one of them off.
 

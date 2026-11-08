@@ -50,6 +50,12 @@ export interface WorkflowOptions {
   integration: boolean
   /** The `packageManager` field of the package.json pins pnpm: pnpm/action-setup reads its version */
   pnpmPinned: boolean
+  /**
+   * The registry needs a token to tell whether a version is published: the
+   * packages are restricted, or the registry is not npmjs.com. The merge
+   * preview checks it without token otherwise
+   */
+  registryNeedsToken: boolean
 }
 
 export interface WorkflowFile {
@@ -151,6 +157,7 @@ export function getWorkflowOptions({ detection, answers, trigger, commitMessage,
     gitlabCom: (tryGitSync(['remote', 'get-url', 'origin'], { cwd }) ?? '').includes('gitlab.com'),
     integration,
     pnpmPinned: isPnpmPinned(cwd),
+    registryNeedsToken: answers.goal === 'publish' && (answers.access === 'restricted' || Boolean(answers.registry && !/^https:\/\/registry\.npmjs\.org\/?$/.test(answers.registry))),
   }
 }
 
@@ -380,8 +387,8 @@ function getGithubMergePreviewSteps(options: WorkflowOptions): string[] {
       `      - uses: ${GITHUB_ACTION}`,
       '        with:',
       '          merge-preview: true',
-      // The registry tells whether a version is already published
-      ...(options.publish
+      // A private registry tells whether a version is already published with a token only
+      ...(options.registryNeedsToken
         ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`]
         : []),
     ]
@@ -392,8 +399,8 @@ function getGithubMergePreviewSteps(options: WorkflowOptions): string[] {
     '      # Computes the release of the merge, writes nothing, fails when the release would fail',
     '      - env:',
     `          GITHUB_TOKEN: ${expression('github.token')}`,
-    // The registry tells whether a version is already published
-    ...(options.publish
+    // A private registry tells whether a version is already published with a token only
+    ...(options.registryNeedsToken
       ? [`          RELIZY_NPM_TOKEN: ${secretExpression('NPM_TOKEN')}`]
       : []),
     `        run: ${getRelizyCommand(options.packageManager)} merge-preview`,
@@ -517,14 +524,36 @@ function renderGitlabComponent(options: WorkflowOptions): string {
       ? ['    inputs:', ...inputs]
       : []),
     ...(options.mergePreview
-      ? [
-          '  # What the merge of each merge request releases: a comment and the commit status relizy/merge-preview',
-          `  - component: ${GITLAB_MERGE_PREVIEW_COMPONENT}`,
-          ...(options.nodeVersion
-            ? ['    inputs:', `      image: node:${options.nodeVersion}`]
-            : []),
-        ]
+      ? getGitlabMergePreviewInclude(options)
       : []),
+    '',
+  ].join('\n')
+}
+
+/** The include of the merge preview component */
+function getGitlabMergePreviewInclude(options: WorkflowOptions): string[] {
+  return [
+    '  # What the merge of each merge request releases: a comment and the commit status relizy/merge-preview',
+    `  - component: ${GITLAB_MERGE_PREVIEW_COMPONENT}`,
+    ...(options.nodeVersion
+      ? ['    inputs:', `      image: node:${options.nodeVersion}`]
+      : []),
+  ]
+}
+
+/**
+ * The merge preview to add by hand to an existing `.gitlab-ci.yml`: the
+ * include of its component, or its job written out (a GitLab instance other
+ * than gitlab.com, or the relizy CLI)
+ */
+export function getGitlabMergePreviewSnippet(options: WorkflowOptions): string {
+  return [
+    ...(options.gitlabCom && options.integration
+      ? [
+          'include:',
+          ...getGitlabMergePreviewInclude(options),
+        ]
+      : renderGitlabMergePreviewJob(options)),
     '',
   ].join('\n')
 }

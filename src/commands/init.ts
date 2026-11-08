@@ -16,6 +16,7 @@ import {
   getDefaultAnswers,
   getDefaultConfig,
   getDetectedPublishConfig,
+  getGitlabMergePreviewSnippet,
   getInstallCommand,
   getMergePreviewWorkflowFile,
   getMissingRootFields,
@@ -458,8 +459,8 @@ interface PlannedWorkflow {
   mergePreviewFile?: WorkflowFile & { replace: boolean }
   /** The merge preview is in the release workflow (GitLab) */
   mergePreviewIncluded?: boolean
-  /** The merge preview is wanted on GitLab without generating `.gitlab-ci.yml`: to add by hand */
-  mergePreviewByHand?: boolean
+  /** The merge preview is wanted on GitLab without generating `.gitlab-ci.yml`: the snippet to add by hand */
+  mergePreviewSnippet?: string
   /** The CI name: `GitHub Actions` */
   ci: string
   /** Secrets (GitHub) or CI/CD variables (GitLab) to create */
@@ -687,7 +688,9 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
     ...(mergePreviewFile && { mergePreviewFile }),
     ...(inGitlabFile && (file
       ? { mergePreviewIncluded: true }
-      : { mergePreviewByHand: true })),
+      : {
+          mergePreviewSnippet: getGitlabMergePreviewSnippet(options),
+        })),
     ci,
     // The secrets of the release, the merge preview alone uses the token of the job
     secrets: file
@@ -756,6 +759,9 @@ function getWrittenMergePreview(workflow: PlannedWorkflow): Pick<InitResult, 'me
 }
 
 function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workflow?: PlannedWorkflow) {
+  if (workflow?.mergePreviewSnippet) {
+    note(workflow.mergePreviewSnippet.trimEnd(), 'Add to .gitlab-ci.yml')
+  }
   const tokens = workflow?.secrets ?? getRequiredTokens(detection, answers)
   const secretsLabel = detection.provider === 'gitlab'
     ? 'Add the CI/CD variables'
@@ -768,8 +774,8 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
     ...(workflow?.file?.include
       ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`]
       : []),
-    ...(workflow?.mergePreviewByHand
-      ? [`Add the merge preview ${c.cyan('https://relizy.dev/guide/merge-preview#gitlab-ci')} ${c.dim('its component in .gitlab-ci.yml')}`]
+    ...(workflow?.mergePreviewSnippet
+      ? [`Add the merge preview ${c.dim('the snippet above, in .gitlab-ci.yml')}`]
       : []),
     ...(tokens.length > 0
       ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`]
@@ -910,6 +916,9 @@ async function runInit({ options, detection, configFile, interactive }: {
     if (workflow) {
       if (workflow.file) {
         note(workflow.file.content.trimEnd(), workflow.file.path)
+      }
+      if (workflow.mergePreviewSnippet) {
+        note(workflow.mergePreviewSnippet.trimEnd(), 'Add to .gitlab-ci.yml')
       }
       if (workflow.mergePreviewFile) {
         note(workflow.mergePreviewFile.content.trimEnd(), workflow.mergePreviewFile.path)
