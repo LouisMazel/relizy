@@ -184,7 +184,7 @@ describe('Given the merge preview of the release workflow', () => {
     const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true })!
 
     expect(file.path).toBe('.github/workflows/merge-preview.yml')
-    expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n')
+    expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n    # edited: a new title (the commit of a squash merge) or a new base\n    types: [opened, synchronize, reopened, edited]\n')
     expect(file.content).toContain('      statuses: write\n')
     // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
     expect(file.content).toContain('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')

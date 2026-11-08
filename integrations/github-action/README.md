@@ -55,6 +55,7 @@ name: Merge preview
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened, edited]
 
 jobs:
   merge-preview:

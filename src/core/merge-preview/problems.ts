@@ -101,15 +101,29 @@ async function checkRemoteTags(config: ResolvedRelizyConfig, outcome: MergePrevi
   }
 }
 
+/**
+ * A problem of the squash merge only: it fails the check when the merge
+ * squashes for sure, it is a warning when the merge method is left open (a
+ * merge commit or a rebase does not have it)
+ */
+function reportSquashProblem(plan: MergePreviewPlan, checks: MergePreviewChecks, problem: MergePreviewProblem): void {
+  if (plan.squash.mode === 'squash') {
+    checks.problems.push(problem)
+    return
+  }
+
+  checks.warnings.push(`If you squash merge: ${problem.message}`)
+}
+
 function checkSquashTitle(plan: MergePreviewPlan, context: MergePreviewContext, checks: MergePreviewChecks): void {
   const commit = plan.squash.squash?.commit
   if (!canSquash(plan) || !commit || parseGitCommit(commit, {})) {
     return
   }
 
-  checks.problems.push({
+  reportSquashProblem(plan, checks, {
     kind: 'squash-title',
-    message: `A squash merge creates the commit "${commit.message}", which is not a Conventional Commit: the release would ignore the changes of the ${context.pullRequest.kind}. Write its title as "type(scope): subject"`,
+    message: `the squash commit "${commit.message}" is not a Conventional Commit, the release would ignore the changes of the ${context.pullRequest.kind}. Write its title as "type(scope): subject"`,
   })
 }
 
@@ -143,6 +157,7 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
       ? [
           {
             label: 'the squash commit',
+            squash: true,
             message: squash.commit.message,
             files: [
               ...new Set(commits.flatMap(commit => commit.files)),
@@ -153,6 +168,7 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
       : []),
     ...commits.map(commit => ({
       label: commit.hash.slice(0, 7),
+      squash: false,
       message: commit.message,
       files: commit.files,
       hash: commit.hash,
@@ -169,10 +185,16 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
     })
     const errors = result.problems.filter(problem => problem.severity === 'error')
     if (errors.length > 0) {
-      checks.problems.push({
+      const problem: MergePreviewProblem = {
         kind: 'commitlint',
         message: `${entry.label} "${entry.message.split('\n')[0]}": ${errors.map(problem => problem.message).join('; ')}`,
-      })
+      }
+      if (entry.squash) {
+        reportSquashProblem(plan, checks, problem)
+      }
+      else {
+        checks.problems.push(problem)
+      }
     }
   }
 }

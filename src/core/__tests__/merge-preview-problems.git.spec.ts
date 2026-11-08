@@ -198,29 +198,60 @@ describe('Given the release of the merge of a pull request', () => {
     ])
   })
 
-  it('When a squash merge creates a commit that is not conventional, Then the changes of the pull request would be ignored', async () => {
-    setup()
-    const config = await loadRelizyConfig()
-    const squash = {
-      hashes: context.commits,
-      commit: {
-        message: 'Update the app (#3)',
-        body: '',
-        shortHash: 'abc1234',
-        author: { name: 'Dev', email: 'dev@example.com' },
-      },
+  describe('When a squash merge creates a commit that is not conventional', () => {
+    const message = 'the squash commit "Update the app (#3)" is not a Conventional Commit, the release would ignore the changes of the pull request. Write its title as "type(scope): subject"'
+
+    function squashOf() {
+      return {
+        hashes: context.commits,
+        commit: {
+          message: 'Update the app (#3)',
+          body: '',
+          shortHash: 'abc1234',
+          author: { name: 'Dev', email: 'dev@example.com' },
+        },
+      }
     }
 
-    const { problems } = await checkMergePreview({
-      config,
-      plan: planOf('1.1.0', { mode: 'both', reason: 'test', squash }),
-      context,
-      commitlint: false,
+    it('Then it is a problem when the merge squashes for sure', async () => {
+      setup()
+      const config = await loadRelizyConfig()
+
+      const { problems, warnings } = await checkMergePreview({
+        config,
+        plan: planOf('1.1.0', {
+          mode: 'squash',
+          reason: 'test',
+          squash: squashOf(),
+        }),
+        context,
+        commitlint: false,
+      })
+
+      expect(problems).toEqual([
+        { kind: 'squash-title', message },
+      ])
+      expect(warnings).toEqual([])
     })
 
-    expect(problems).toEqual([
-      { kind: 'squash-title', message: 'A squash merge creates the commit "Update the app (#3)", which is not a Conventional Commit: the release would ignore the changes of the pull request. Write its title as "type(scope): subject"' },
-    ])
+    it('Then it is only a warning when the merge method is left open', async () => {
+      setup()
+      const config = await loadRelizyConfig()
+
+      const { problems, warnings } = await checkMergePreview({
+        config,
+        plan: planOf('1.1.0', {
+          mode: 'both',
+          reason: 'test',
+          squash: squashOf(),
+        }),
+        context,
+        commitlint: false,
+      })
+
+      expect(problems).toEqual([])
+      expect(warnings).toEqual([`If you squash merge: ${message}`])
+    })
   })
 
   it('When the project uses the commitlint of relizy, Then a commit failing it is a problem', async () => {
