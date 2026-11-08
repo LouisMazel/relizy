@@ -260,7 +260,8 @@ describe('Given the docs bundle generated from the sources', () => {
   describe('When a CLI command is added', () => {
     it('Then it has its page in the docs', () => {
       const commands = [
-        ...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^program\n {2}\.command\('([a-z-]+)'/gm),
+        // `program.command('bump')`, and the groups of commands: `const mcp = program.command('mcp')`
+        ...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^(?:const \w+ = )?program\n {2}\.command\('([a-z-]+)'/gm),
       ].map(match => match[1]!)
       const pages = commands.map(command => command === 'commitlint'
         ? 'commitlint/cli'
@@ -330,7 +331,10 @@ function getCliFlags(): Record<string, string[]> {
       ? 'commitlint/cli'
       : name === 'serve' || previous === 'mcp' || previous === 'serve'
         ? 'cli/mcp'
-        : `cli/${name}`
+        // The subcommands of relizy merge-preview: run (the default one) and init
+        : name === 'run' || previous === 'run'
+          ? 'cli/merge-preview'
+          : `cli/${name}`
 
     pages[page] = [
       ...new Set([

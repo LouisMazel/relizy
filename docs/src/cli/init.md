@@ -84,7 +84,7 @@ On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/c
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
 
-With the release workflow, `init` offers the [merge preview](./../guide/merge-preview.md) of the pull requests (yes by default, and with `--yes`): `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; the `merge-preview` component (or its job written out) in the same file on GitLab. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
+`init` also offers the [merge preview](./../guide/merge-preview.md) of the pull requests, on its own (yes by default, and with `--yes`), even when the release workflow is not generated or already exists: `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; the `merge-preview` component (or its job written out) in the same file on GitLab. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
 
 The generated files are explained in [GitHub Actions](./../guide/github-actions.md) and [GitLab CI](./../guide/gitlab-ci.md). An existing workflow file is only replaced once confirmed.
 
@@ -112,10 +112,20 @@ A config file in another format (`relizy.config.js`...) is removed, so it does n
 
 ### --no-workflow
 
-Do not offer the release workflow of the CI:
+Do not offer the workflows of the CI, the release and the merge preview:
 
 ```bash
 npx relizy init --yes --no-workflow
+```
+
+### --only
+
+Only run these steps, comma-separated: `config`, `commitlint` (the commit-msg hook), `scripts` (the `release` script), `agents` (the AI agents), `workflow` (the release workflow) and `merge-preview` (the merge preview workflow). Without `config`, the existing config is kept without asking, and `init` fails when the project has none. To add the merge preview to a project already set up:
+
+```bash
+npx relizy init --only merge-preview
+# The same
+npx relizy merge-preview init
 ```
 
 ### --dry-run

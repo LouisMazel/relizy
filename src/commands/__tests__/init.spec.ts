@@ -321,12 +321,13 @@ describe('Given init command', () => {
         ['slack'],
         ['providerRelease'],
       ])
-      // advanced, capZeroMajor, rootChangelog, hook, script, workflow, apply
+      // advanced, capZeroMajor, rootChangelog, hook, script, workflow, merge preview, apply
       answer(confirm, [
         true,
         false,
         false,
         true,
+        false,
         false,
         false,
         true,
@@ -377,8 +378,16 @@ describe('Given init command', () => {
       answer(multiselect, [
         ['packages/*', 'tools/*'],
       ])
-      // advanced, hook, script, workflow, apply, replace the hook
-      answer(confirm, [false, true, true, false, true, true])
+      // advanced, hook, script, workflow, merge preview, apply, replace the hook
+      answer(confirm, [
+        false,
+        true,
+        true,
+        false,
+        false,
+        true,
+        true,
+      ])
 
       const result = await init({ cwd })
 
@@ -399,7 +408,8 @@ describe('Given init command', () => {
     it('Then writes the GitHub Actions workflow without asking, released on demand, with the secrets of the config', async () => {
       const result = await init({ cwd, yes: true })
 
-      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml', mergePreviewFile: '.github/workflows/merge-preview.yml' })
+      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
+      expect(result.mergePreview).toEqual({ file: '.github/workflows/merge-preview.yml' })
       expect(read('.github/workflows/merge-preview.yml')).toContain('          merge-preview: true\n')
       const workflow = read('.github/workflows/release.yml')
       expect(workflow).toContain('  workflow_dispatch:\n')
@@ -415,14 +425,49 @@ describe('Given init command', () => {
       ])
     })
 
-    it('Then keeps an existing workflow without asking', async () => {
+    it('Then keeps an existing workflow without asking, and still adds the merge preview', async () => {
       write('.github/workflows/release.yml', 'name: Mine\n')
 
       const result = await init({ cwd, yes: true })
 
       expect(result.workflow).toBeUndefined()
+      expect(result.mergePreview).toEqual({ file: '.github/workflows/merge-preview.yml' })
       expect(read('.github/workflows/release.yml')).toBe('name: Mine\n')
       expect(vi.mocked(log.warn)).toHaveBeenCalledWith('.github/workflows/release.yml already exists: the release workflow is not generated')
+    })
+
+    it('Then adds only the merge preview to a project already set up with --only merge-preview', async () => {
+      write('relizy.config.ts', 'export default {}')
+      write('.github/workflows/release.yml', 'name: Mine\n')
+
+      const result = await init({
+        cwd,
+        yes: true,
+        only: ['merge-preview'],
+      })
+
+      expect(result).toEqual(expect.objectContaining({
+        kept: true,
+        written: false,
+        scripts: [],
+        mergePreview: { file: '.github/workflows/merge-preview.yml' },
+      }))
+      expect(result.hook).toBeUndefined()
+      expect(result.workflow).toBeUndefined()
+      expect(read('.github/workflows/merge-preview.yml')).toContain('          merge-preview: true\n')
+      expect(read('.github/workflows/release.yml')).toBe('name: Mine\n')
+      expect(read('relizy.config.ts')).toBe('export default {}')
+      expect(readJson('package.json').scripts?.release).toBeUndefined()
+      expect(existsSync(join(cwd, '.git/hooks/commit-msg'))).toBe(false)
+    })
+
+    it('Then refuses --only without the config step when the project has no config', async () => {
+      await expect(init({
+        cwd,
+        yes: true,
+        only: ['merge-preview'],
+      })).rejects.toThrow('No relizy config in')
+      expect(existsSync(join(cwd, '.github/workflows/merge-preview.yml'))).toBe(false)
     })
 
     it('Then writes nothing with --no-workflow, nor in dry run where it shows it', async () => {

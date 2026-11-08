@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
+import type { InitOptions, InitStep } from './commands'
 import type { BumpOptions } from './types'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
-import { Command, Option } from 'commander'
-import { bump, changelog, commitlint, init, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
+import { Command, InvalidArgumentError, Option } from 'commander'
+import { bump, changelog, commitlint, init, INIT_STEPS, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/ci-env'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
@@ -77,6 +78,33 @@ function getReleaseType(options: any) {
     type = 'prepatch'
 
   return type
+}
+
+function parseInitSteps(value: string): InitStep[] {
+  const steps = value.split(',').map(step => step.trim()).filter(Boolean)
+  const unknown = steps.filter(step => !INIT_STEPS.includes(step as InitStep))
+  if (unknown.length > 0) {
+    throw new InvalidArgumentError(`Unknown step ${unknown.join(', ')}: ${INIT_STEPS.join(', ')}`)
+  }
+  return steps as InitStep[]
+}
+
+/** `relizy init`, and its shortcuts (`relizy merge-preview init`) */
+async function runInitCommand(options: Pick<InitOptions, 'yes' | 'force' | 'workflow' | 'only'>): Promise<void> {
+  try {
+    await init({
+      ...options,
+      dryRun: program.opts().dryRun,
+      configName: program.opts().config,
+      logLevel: program.opts().logLevel,
+    })
+  }
+  catch (error) {
+    logger.error('Failed to init relizy -', error instanceof Error
+      ? error.message
+      : error)
+    process.exit(1)
+  }
 }
 
 function parseGroupNames(value: string): string[] {
@@ -369,24 +397,15 @@ program
   .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
   .option('--yes', 'Accept the detected values without asking')
   .option('--force', 'Replace an existing config file (kept by default, the other steps still run)')
-  .option('--no-workflow', 'Do not offer the release workflow of the CI (GitHub Actions, GitLab CI)')
+  .option('--no-workflow', 'Do not offer the workflows of the CI (GitHub Actions, GitLab CI): the release and the merge preview')
+  .option('--only <steps>', `Only run these steps (comma-separated): ${INIT_STEPS.join(', ')}`, parseInitSteps)
   .action(async (options) => {
-    try {
-      await init({
-        yes: options.yes,
-        force: options.force,
-        workflow: options.workflow,
-        dryRun: program.opts().dryRun,
-        configName: program.opts().config,
-        logLevel: program.opts().logLevel,
-      })
-    }
-    catch (error) {
-      logger.error('Failed to init relizy -', error instanceof Error
-        ? error.message
-        : error)
-      process.exit(1)
-    }
+    await runInitCommand({
+      yes: options.yes,
+      force: options.force,
+      workflow: options.workflow,
+      only: options.only,
+    })
   })
 
 const mcp = program
@@ -460,9 +479,13 @@ program
     }
   })
 
-program
+const mergePreviewCommand = program
   .command('merge-preview')
-  .description('Preview what the merge of the pull request releases, with the options of the release job, without writing anything: comment and commit status on the pull request, fails when the release of the merge would fail')
+  .description('Preview what the merge of the pull request releases: comment and commit status on the pull request (relizy merge-preview init adds its workflow)')
+
+mergePreviewCommand
+  .command('run', { isDefault: true })
+  .description('Preview what the merge of the pull request releases, with the options of the release job, without writing anything: comment and commit status on the pull request, fails when the release of the merge would fail (default command of relizy merge-preview)')
   .option('--major', 'Bump major version')
   .option('--minor', 'Bump minor version')
   .option('--patch', 'Bump patch version')
@@ -526,6 +549,17 @@ program
     catch (error) {
       exitWithError('Failed to preview the merge -', error)
     }
+  })
+
+mergePreviewCommand
+  .command('init')
+  .description('Add the merge preview workflow to the CI of the project (GitHub Actions, GitLab CI), as relizy init --only merge-preview')
+  .option('--yes', 'Accept the detected values without asking')
+  .action(async (options) => {
+    await runInitCommand({
+      yes: options.yes,
+      only: ['merge-preview'],
+    })
   })
 
 program

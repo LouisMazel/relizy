@@ -14,6 +14,7 @@ tags: [cli, merge-preview, pull-request, merge-request, github, gitlab, ci]
 
 ```bash
 relizy merge-preview [options]
+relizy merge-preview init [--yes]
 ```
 
 It computes the release of the merge as `relizy release` will run it on the target branch, and writes nothing: no version, changelog, commit, tag, push, publish nor hook. In the pipeline of a pull request, it:
@@ -23,6 +24,8 @@ It computes the release of the merge as `relizy release` will run it on the targ
 - exits with an error when the release of the merge would fail.
 
 Outside a pull request pipeline, it previews the next release of the current branch in the terminal. See [Merge Preview](./../guide/merge-preview.md).
+
+`relizy merge-preview init` adds the merge preview workflow to the CI of the project, as [`relizy init --only merge-preview`](./init.md#only): `.github/workflows/merge-preview.yml` on GitHub, the link to its component on GitLab, where it goes in `.gitlab-ci.yml`. `--yes` accepts the detected values without asking.
 
 Give it the options of the release job that change the release: the preview of `relizy release --minor --tag next --config web --yes` is `relizy merge-preview --minor --tag next --config web`.
 

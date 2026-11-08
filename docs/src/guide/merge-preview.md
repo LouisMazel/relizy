@@ -25,7 +25,7 @@ Relizy does not guess which pipeline releases: the CI says it, by running the pr
 
 ## Set It Up
 
-`relizy init` offers the merge preview with the release workflow of the CI (yes by default, and with `--yes`).
+`relizy init` offers the merge preview (yes by default, and with `--yes`). In a project already set up, `relizy merge-preview init` only adds its workflow.
 
 ### GitHub Actions
 

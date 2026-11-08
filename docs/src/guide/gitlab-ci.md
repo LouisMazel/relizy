@@ -204,7 +204,7 @@ release:
 
 ### Preview the Release on Merge Requests
 
-The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it; see [Merge Preview](./merge-preview.md).
+The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
 
 ```yaml
 include:

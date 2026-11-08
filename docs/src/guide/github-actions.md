@@ -220,7 +220,7 @@ on:
 
 ### Preview the Release on Pull Requests
 
-A second workflow, on the pull requests, runs the action with `merge-preview: true` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it; see [Merge Preview](./merge-preview.md).
+A second workflow, on the pull requests, runs the action with `merge-preview: true` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
 
 ```yaml
 - uses: relizy/action@v2
