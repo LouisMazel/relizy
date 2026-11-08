@@ -20,5 +20,7 @@ export default defineConfig({
   files: ['**/*.md/**'],
   rules: {
     'sonarjs/no-commented-code': 'off',
+    // The examples of the docs and the changelogs stay on one line, as written
+    'antfu/reasonable-newline': 'off',
   },
 })
