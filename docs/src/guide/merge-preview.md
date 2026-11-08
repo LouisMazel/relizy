@@ -18,7 +18,7 @@ It then:
 
 - comments the pull request with what the merge releases, updated at each push (see [The Comment](#the-comment));
 - sets the commit status `relizy/merge-preview` on the last commit of the pull request: green with the versions, red when the release of the merge would fail (see [What Fails the Check](#what-fails-the-check));
-- prints the same preview in the terminal and in the summary of the CI job;
+- writes the comment in the summary of the CI job, and prints the preview in the terminal: a box per version group with its packages, the problems and the warnings;
 - exits with an error when the release of the merge would fail.
 
 Relizy does not guess which pipeline releases: the CI says it, by running the preview with the release type and the options of its release job. A preview of the release job `relizy release --minor --config web --yes` is `relizy merge-preview --minor --config web`.
@@ -90,7 +90,7 @@ relizy merge-preview
 
 ## How the Merge Is Computed
 
-The preview is the real release of the merge: the commits of the target branch not released yet, plus the ones of the pull request. Each released package tells what the pull request brings to it (⭐) and what comes from the target branch.
+The preview is the real release of the merge: the commits of the target branch not released yet, plus the ones of the pull request. Each released package tells what the pull request brings to it (`this PR: 1 feature`) and what comes from the target branch (`main: 1 fix`).
 
 A **squash merge** turns the commits of the pull request into one commit, whose message decides the bump: a pull request of `fix:` commits titled `feat!: new API` releases a major. [`mergePreview.squash`](./../config/merge-preview.md#squash) tells whether the merge squashes. By default (`auto`), Relizy asks the provider:
 
@@ -124,10 +124,10 @@ relizy releases **2 packages** from `main`, published with the dist-tag `latest`
 
 **maz-ui** `5.2.0` → `5.3.0` (tag `v5.3.0`)
 
-| Package     | Version           | Why               |
-| ----------- | ----------------- | ----------------- |
-| maz-ui      | `5.2.0` → `5.3.0` | feat (this PR) ⭐ |
-| @maz-ui/mcp | `5.2.0` → `5.3.0` | fix (on `main`)   |
+| Package     | Version           | Why                |
+| ----------- | ----------------- | ------------------ |
+| maz-ui      | `5.2.0` → `5.3.0` | this PR: 1 feature |
+| @maz-ui/mcp | `5.2.0` → `5.3.0` | `main`: 1 fix      |
 
 <sub>Computed on `main@abc1234` + this pull request `@def5678` · commits kept: the repository does not allow squash merges · by relizy</sub>
 ```

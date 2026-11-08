@@ -1,9 +1,11 @@
 import type { ReleaseOverviewGroup } from '../release-overview'
+import type { CommandNote, CommandOutcome } from '../release-ui'
 import type { MergePreviewContext } from './context'
 import type { MergePreviewCommit, MergePreviewOutcome, MergePreviewPackage, MergePreviewPlan } from './plan'
 import type { MergePreviewChecks } from './problems'
 import type { MergePreviewSquashMode } from './squash'
 import { MERGE_PREVIEW_MARKER } from '../pr-comment'
+import { describeCommitCounts, formatPackageRows } from '../release-ui'
 
 /** What the merge preview found, to render */
 export interface MergePreviewResult {
@@ -28,10 +30,29 @@ function code(value: string): string {
   return `\`${value}\``
 }
 
-function describeCommitTypes(commits: MergePreviewCommit[]): string {
+/**
+ * The commits of a package by type, and in a pull request where they come
+ * from: `this PR: 1 feature · main: 1 fix`
+ */
+function describeCommits({ commits, result, branch }: { commits: MergePreviewCommit[], result: MergePreviewResult, branch: string }): string {
+  if (!result.context) {
+    return describeCommitCounts(commits)
+  }
+
+  const kind = result.context.pullRequest.kind === 'merge request'
+    ? 'MR'
+    : 'PR'
+  const fromPullRequest = commits.filter(commit => commit.fromPullRequest)
+  const fromTarget = commits.filter(commit => !commit.fromPullRequest)
+
   return [
-    ...new Set(commits.map(commit => `${commit.type}${commit.isBreaking ? '!' : ''}`)),
-  ].join(', ')
+    fromPullRequest.length > 0
+      ? `this ${kind}: ${describeCommitCounts(fromPullRequest)}`
+      : '',
+    fromTarget.length > 0
+      ? `${branch}: ${describeCommitCounts(fromTarget)}`
+      : '',
+  ].filter(Boolean).join(' · ')
 }
 
 /** Why a package is released: its commits (from the pull request or the target branch), a dependency, a graduation */
@@ -49,24 +70,12 @@ function describeReason({ pkg, group, result }: { pkg: MergePreviewPackage, grou
       ? 'follows the unified version'
       : 'forced'
   }
-  if (!result.context) {
-    return describeCommitTypes(pkg.commits)
-  }
 
-  const kind = result.context.pullRequest.kind === 'merge request'
-    ? 'MR'
-    : 'PR'
-  const fromPullRequest = pkg.commits.filter(commit => commit.fromPullRequest)
-  const fromTarget = pkg.commits.filter(commit => !commit.fromPullRequest)
-
-  return [
-    fromPullRequest.length > 0
-      ? `${describeCommitTypes(fromPullRequest)} (this ${kind}) ⭐`
-      : '',
-    fromTarget.length > 0
-      ? `${describeCommitTypes(fromTarget)} (on ${code(result.branch)})`
-      : '',
-  ].filter(Boolean).join(', ')
+  return describeCommits({
+    commits: pkg.commits,
+    result,
+    branch: code(result.branch),
+  })
 }
 
 function formatGroupTable(group: ReleaseOverviewGroup, outcome: MergePreviewOutcome, result: MergePreviewResult): string[] {
@@ -177,15 +186,147 @@ export function formatMergePreviewMarkdown(result: MergePreviewResult): string {
   return lines.join('\n')
 }
 
-/**
- * The merge preview in plain text: the output of the terminal
- */
-export function formatMergePreviewText(result: MergePreviewResult): string {
-  return formatMergePreviewMarkdown(result)
-    .replace(`${MERGE_PREVIEW_MARKER}\n`, '')
+const FOLLOWS_UNIFIED_VERSION = 'follows the unified version'
+
+/** Why a package is released, in plain words: the output of the terminal */
+function describeTerminalReason({ pkg, group, result }: { pkg: MergePreviewPackage, group: ReleaseOverviewGroup, result: MergePreviewResult }): string {
+  if (pkg.reason === 'dependency') {
+    return `follows ${pkg.dependency ?? 'a dependency'}`
+  }
+  if (pkg.reason === 'graduation') {
+    return 'stable release of the prerelease'
+  }
+  if (pkg.commits.length === 0) {
+    return group.versionMode === 'unified'
+      ? FOLLOWS_UNIFIED_VERSION
+      : 'forced'
+  }
+
+  return describeCommits({ commits: pkg.commits, result, branch: result.branch })
+}
+
+/** The packages of a group, aligned; in a unified group, the ones only following the version on one line */
+function getGroupLines({ group, outcome, result }: { group: ReleaseOverviewGroup, outcome: MergePreviewOutcome, result: MergePreviewResult }): string[] {
+  const rows = group.packages.map((overviewPackage) => {
+    const pkg = outcome.packages.find(candidate => candidate.name === overviewPackage.name)
+
+    return {
+      name: overviewPackage.private
+        ? `${overviewPackage.name} (private)`
+        : overviewPackage.name,
+      oldVersion: overviewPackage.oldVersion,
+      newVersion: overviewPackage.newVersion,
+      reason: pkg
+        ? describeTerminalReason({ pkg, group, result })
+        : '',
+    }
+  })
+  const followers = rows.filter(row => row.reason === FOLLOWS_UNIFIED_VERSION)
+  const others = rows.filter(row => row.reason !== FOLLOWS_UNIFIED_VERSION)
+
+  if (followers.length < 2 || others.length === 0) {
+    return formatPackageRows(rows)
+  }
+
+  return [
+    ...formatPackageRows(others),
+    `+ ${followers.length} packages on the unified version: ${followers.map(row => row.name).join(', ')}`,
+  ]
+}
+
+/** The versions a group releases, to compare two outcomes */
+function getGroupVersions(group: ReleaseOverviewGroup): string {
+  return group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(',')
+}
+
+/** One box per version group of a release (only the groups not in `same`, released the same way by another outcome) */
+function getOutcomeNotes({ outcome, result, label, same }: { outcome: MergePreviewOutcome, result: MergePreviewResult, label: string, same?: MergePreviewOutcome }): CommandNote[] {
+  const sameVersions = new Set((same?.overview?.groups ?? []).map(group => getGroupVersions(group)))
+  const groups = (outcome.overview?.groups ?? []).filter(group => !sameVersions.has(getGroupVersions(group)))
+  const publish = result.publish.enabled
+    ? `Published with the dist-tag ${result.publish.distTag}`
+    : 'Not published'
+
+  return groups.map(group => ({
+    title: [
+      label,
+      group.title,
+      group.tag
+        ? `tag ${group.tag}`
+        : '',
+    ].filter(Boolean).join(' · '),
+    lines: getGroupLines({ group, outcome, result }),
+    footer: hasPublishedPackages(group)
+      ? [publish]
+      : [],
+  }))
+}
+
+/** A group of private packages only is never published: no dist-tag to tell */
+function hasPublishedPackages(group: ReleaseOverviewGroup): boolean {
+  return group.packages.some(pkg => !pkg.private)
+}
+
+/** Where the preview was computed, in plain text */
+function getTerminalFooter(result: MergePreviewResult): string {
+  return formatFooter(result)
     .replace(/<\/?sub>/g, '')
-    .replace(/\*\*/g, '')
-    .replace(/^#+ /gm, '')
+    .replaceAll('`', '')
+    .replace(/ (?:· )?by relizy$/, '')
+}
+
+/**
+ * The merge preview in the terminal: a box per version group (and per merge
+ * method when it changes the release), the problems, the warnings, and where it
+ * was computed. The markdown is for the pull request and the CI job summary.
+ */
+export function getMergePreviewTerminalOutput(result: MergePreviewResult): Required<Pick<CommandOutcome, 'notes' | 'warnings' | 'details'>> {
+  const { plan, checks } = result
+  const notes: CommandNote[] = []
+
+  if (plan) {
+    notes.push(...getOutcomeNotes({
+      outcome: plan.outcome,
+      result,
+      label: plan.squashOutcome ? 'With a merge commit or a rebase' : 'Release plan',
+    }))
+
+    if (plan.squashOutcome) {
+      // Only the groups a squash merge releases otherwise
+      const squashNotes = getOutcomeNotes({
+        outcome: plan.squashOutcome,
+        result,
+        label: 'With a squash merge',
+        same: plan.outcome,
+      })
+      notes.push(...(squashNotes.length > 0
+        ? squashNotes
+        : [
+            {
+              title: 'With a squash merge',
+              lines: ['Nothing is released'],
+            },
+          ]))
+    }
+  }
+
+  if (checks.problems.length > 0) {
+    notes.push({
+      title: result.context
+        ? 'The release of the merge would fail'
+        : 'The next release would fail',
+      lines: checks.problems.map(problem => `✖ ${problem.message}`),
+      failed: true,
+    })
+  }
+
+  return {
+    notes,
+    warnings: checks.warnings,
+    details: [
+      getTerminalFooter(result),
+    ],
+  }
 }
 
 /** A text cut to `max` characters, with an ellipsis */

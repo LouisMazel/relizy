@@ -370,6 +370,41 @@ describe('Given the CI output', () => {
     ])
   })
 
+  it('Then ends a command with its notes, then its warnings', async () => {
+    const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
+
+    ui.createCommandUi({ title: 'relizy merge-preview', dryRun: false, cwd }).complete({
+      message: 'The release would fail',
+      failed: true,
+      notes: [
+        {
+          title: 'Release plan · relizy · tag v2.1.0',
+          lines: ['relizy  2.0.2  →  2.1.0  1 feature'],
+          footer: ['Published with the dist-tag latest'],
+        },
+        {
+          title: 'The next release would fail',
+          lines: ['✖ relizy@2.1.0 is already published'],
+          failed: true,
+        },
+      ],
+      warnings: ['A commit does not follow the Conventional Commits'],
+      details: ['Computed on main'],
+    })
+
+    expect(lines()).toEqual([
+      'relizy merge-preview · github',
+      'Release plan · relizy · tag v2.1.0',
+      '  relizy  2.0.2  →  2.1.0  1 feature',
+      '  Published with the dist-tag latest',
+      'The next release would fail',
+      '  ✖ relizy@2.1.0 is already published',
+      '::warning title=relizy::A commit does not follow the Conventional Commits',
+      '  Computed on main',
+      expect.stringMatching(/^▲ The release would fail {2}\d+ms$/),
+    ])
+  })
+
   it('Then ends a command whose every action failed as failed', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 

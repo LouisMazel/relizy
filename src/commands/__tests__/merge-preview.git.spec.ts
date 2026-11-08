@@ -149,7 +149,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
 
     const [comment] = calls(fetch, 'POST', '/issues/7/comments')
     expect(comment.body).toContain(MERGE_PREVIEW_MARKER)
-    expect(comment.body).toContain('| app | `1.0.0` → `1.1.0` | feat (this PR) ⭐ |')
+    expect(comment.body).toContain('| app | `1.0.0` → `1.1.0` | this PR: 1 feature |')
 
     expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
       { state: 'success', context: 'relizy/merge-preview', description: 'Releases app@1.1.0' },

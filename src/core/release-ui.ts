@@ -223,6 +223,18 @@ export interface ReleaseStep<T> {
   run: () => Promise<T>
 }
 
+/**
+ * A box of the end of a command: a title and its lines (`note()` of clack)
+ */
+export interface CommandNote {
+  title: string
+  lines: string[]
+  /** Lines shown dimmed, after the others */
+  footer?: string[]
+  /** The title in red: what fails */
+  failed?: boolean
+}
+
 export interface CommandOutcome {
   /**
    * What the command did: `Bumped relizy 1.14.4-beta.0 → 2.0.0`
@@ -236,6 +248,14 @@ export interface CommandOutcome {
    * Nothing was done because it failed (every post failed)
    */
   failed?: boolean
+  /**
+   * Boxes shown before the end, before the details
+   */
+  notes?: CommandNote[]
+  /**
+   * Shown before the end, after the notes
+   */
+  warnings?: string[]
   /**
    * Lines shown before the end
    */
@@ -718,7 +738,26 @@ class PrettyUi extends StepUi {
     }
   }
 
-  complete({ message, nothing, failed, details = [], links = [] }: CommandOutcome): void {
+  complete({ message, nothing, failed, notes = [], warnings = [], details = [], links = [] }: CommandOutcome): void {
+    for (const { title, lines, footer = [], failed: noteFailed } of notes) {
+      const footerLines = footer.length > 0
+        ? [
+            '',
+            ...footer.map(line => dim(line)),
+          ]
+        : []
+      note([
+        ...lines,
+        ...footerLines,
+      ].join('\n'), noteFailed
+        ? paint(['red', 'bold'], title)
+        : bold(title))
+    }
+
+    for (const warning of warnings) {
+      log.warn(warning)
+    }
+
     if (details.length > 0) {
       log.message(details.join('\n'))
     }
@@ -944,7 +983,25 @@ class CiUi extends StepUi {
     return run()
   }
 
-  complete({ message, nothing, failed, details = [], links = [] }: CommandOutcome): void {
+  complete({ message, nothing, failed, notes = [], warnings = [], details = [], links = [] }: CommandOutcome): void {
+    for (const { title, lines, footer = [], failed: noteFailed } of notes) {
+      this.write(noteFailed
+        ? paint(['red', 'bold'], title)
+        : bold(title))
+      for (const line of lines) {
+        this.write(`  ${line}`)
+      }
+      for (const line of footer) {
+        this.write(`  ${dim(line)}`)
+      }
+    }
+
+    for (const warning of warnings) {
+      this.write(this.provider === 'github'
+        ? `::warning title=relizy::${warning}`
+        : paint('yellow', `▲ ${warning}`))
+    }
+
     for (const line of details) {
       this.write(`  ${line}`)
     }
@@ -1082,8 +1139,15 @@ function describeReason(pkg: PackageBase & { oldVersion?: string }): string {
       : `follows ${pkg.dependencyChain?.[0] ?? 'a dependency'}`
   }
 
+  return describeCommitCounts(pkg.commits ?? []) || 'forced'
+}
+
+/**
+ * The commits of a package in plain words, by type: `1 feature, 2 fixes`
+ */
+export function describeCommitCounts(commits: { type: string, isBreaking: boolean }[]): string {
   const counts = new Map<string, number>()
-  for (const commit of pkg.commits ?? []) {
+  for (const commit of commits) {
     const type = commit.isBreaking ? 'breaking' : commit.type
     counts.set(type, (counts.get(type) ?? 0) + 1)
   }
@@ -1093,24 +1157,45 @@ function describeReason(pkg: PackageBase & { oldVersion?: string }): string {
     return `${count} ${count === 1
       ? one
       : many}`
-  }).join(', ') || 'forced'
+  }).join(', ')
+}
+
+/** A package of a release, as shown in the terminal */
+export interface PackageRow {
+  name: string
+  oldVersion: string
+  newVersion: string
+  /** Why it is released, in plain words */
+  reason: string
+}
+
+/**
+ * Packages of a release, one per line with aligned columns: name, versions and why
+ */
+export function formatPackageRows(rows: PackageRow[]): string[] {
+  const nameWidth = Math.min(32, Math.max(...rows.map(row => row.name.length)))
+  const oldWidth = Math.max(...rows.map(row => row.oldVersion.length))
+  const newWidth = Math.max(...rows.map(row => row.newVersion.length))
+
+  return rows.map(row => [
+    bold(row.name.padEnd(nameWidth)),
+    dim(row.oldVersion.padStart(oldWidth)),
+    dim('→'),
+    paint(['green', 'bold'], row.newVersion.padEnd(newWidth)),
+    dim(row.reason),
+  ].join('  '))
 }
 
 /**
  * The packages of a bump, one per line: name, versions and why
  */
 export function describeBumpedPackages(packages: (PackageBase & { oldVersion?: string })[]): string[] {
-  const nameWidth = Math.min(32, Math.max(...packages.map(pkg => pkg.name.length)))
-  const oldWidth = Math.max(...packages.map(pkg => (pkg.oldVersion ?? pkg.version).length))
-  const newWidth = Math.max(...packages.map(pkg => (pkg.newVersion ?? pkg.version).length))
-
-  return packages.map(pkg => [
-    bold(pkg.name.padEnd(nameWidth)),
-    dim((pkg.oldVersion ?? pkg.version).padStart(oldWidth)),
-    dim('→'),
-    paint(['green', 'bold'], (pkg.newVersion ?? pkg.version).padEnd(newWidth)),
-    dim(describeReason(pkg)),
-  ].join('  '))
+  return formatPackageRows(packages.map(pkg => ({
+    name: pkg.name,
+    oldVersion: pkg.oldVersion ?? pkg.version,
+    newVersion: pkg.newVersion ?? pkg.version,
+    reason: describeReason(pkg),
+  })))
 }
 
 /**

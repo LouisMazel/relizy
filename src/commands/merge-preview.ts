@@ -7,10 +7,10 @@ import {
   detectPullRequest,
   fetchGitTags,
   formatMergePreviewMarkdown,
-  formatMergePreviewText,
   getCurrentGitBranch,
   getMergePreviewPullRequest,
   getMergePreviewStatusDescription,
+  getMergePreviewTerminalOutput,
   getPublishTag,
   markErrorReported,
   MERGE_PREVIEW_MARKER,
@@ -371,7 +371,7 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
     message: getOutcomeMessage(result),
     nothing: !failed && !outcome?.packages.length,
     failed,
-    details: formatMergePreviewText(result).split('\n'),
+    ...getMergePreviewTerminalOutput(result),
   })
 
   if (failed) {
