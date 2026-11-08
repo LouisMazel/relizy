@@ -218,6 +218,16 @@ on:
     args: ${{ inputs.dry-run && '--dry-run' || '' }}
 ```
 
+### Preview the Release on Pull Requests
+
+A second workflow, on the pull requests, runs the action with `merge-preview: true` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it; see [Merge Preview](./merge-preview.md).
+
+```yaml
+- uses: relizy/action@v2
+  with:
+    merge-preview: true
+```
+
 ### Canary Release on Pull Requests
 
 Publish a test version of each pull request (`1.3.0-0.canary-a3f4b2c` on the `canary` dist-tag), and comment it on the pull request. Nothing is committed nor pushed (see [Canary Releases](./prereleases.md#canary-releases)).

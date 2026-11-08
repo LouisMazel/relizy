@@ -13,9 +13,13 @@ inputs:
     required: false
     default: auto
   args:
-    description: 'More arguments for relizy release, e.g. "--tag beta --preid beta" or "--config standalone"'
+    description: 'More arguments for relizy release (relizy merge-preview with merge-preview: true), e.g. "--tag beta --preid beta" or "--config standalone"'
     required: false
     default: ''
+  merge-preview:
+    description: 'true on a pull_request event: previews what the merge releases (comment and commit status relizy/merge-preview on the pull request), writes nothing, fails when the release of the merge would fail. Runs relizy merge-preview instead of relizy release: give it the release-type of the release job and, in args, its options that change the release (--preid, --tag, --no-publish...)'
+    required: false
+    default: 'false'
   github-token:
     description: Token of the GitHub releases, the push and the PR comment
     required: false
@@ -215,6 +219,7 @@ runs:
       env:
         RELEASE_TYPE: ${{ inputs.release-type }}
         RELEASE_ARGS: ${{ inputs.args }}
+        MERGE_PREVIEW: ${{ inputs.merge-preview }}
         PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
         RELIZY_VERSION: ${{ inputs.relizy-version }}
         # Replaced by the version of relizy when synced to github.com/relizy/action
@@ -251,4 +256,8 @@ runs:
           relizy="npx --yes relizy@latest"
         fi
         # shellcheck disable=SC2086
-        $relizy release --yes $flag $RELEASE_ARGS
+        if [ "$MERGE_PREVIEW" = "true" ]; then
+          $relizy merge-preview $flag $RELEASE_ARGS
+        else
+          $relizy release --yes $flag $RELEASE_ARGS
+        fi

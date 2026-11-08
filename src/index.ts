@@ -3,6 +3,8 @@ export {
   bump,
   changelog,
   commitlint,
+  mergePreview,
+  MergePreviewError,
   prComment,
   providerRelease,
   publish,
@@ -10,6 +12,7 @@ export {
   social,
 } from './commands'
 export type { CommitlintOptions, CommitlintRunResult } from './commands/commitlint'
+export type { MergePreviewOptions } from './commands/merge-preview'
 export type { PrCommentOptions } from './commands/pr-comment'
 
 export type {
@@ -27,11 +30,13 @@ export { lintCommitMessage } from './core/commitlint'
 export type { LoadRelizyConfigOptions, RelizyConfigOverrides, ResolvedConfig, ResolvedRelizyConfig } from './core/config'
 export { defineConfig, loadRelizyConfig } from './core/config'
 export { isRelizyCancelError, RelizyCancelError } from './core/errors'
+export type { MergePreviewProblem, MergePreviewSquashMode } from './core/merge-preview'
 export type { ReleaseLine, ReleaseOverview, ReleaseOverviewGroup, ReleaseOverviewPackage } from './core/release-overview'
 export type {
   ReleaseAI,
   ReleaseContent,
   ReleaseGit,
+  ReleaseMergePreview,
   ReleasePublish,
   ReleaseReport,
   ReleaseStepName,

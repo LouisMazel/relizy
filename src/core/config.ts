@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
@@ -164,6 +164,12 @@ export function getDefaultConfig(cwd = process.cwd()) {
     prComment: {
       mode: 'update',
     } as Required<PrCommentConfig>,
+    mergePreview: {
+      comment: true,
+      check: true,
+      commitlint: 'auto',
+      squash: 'auto',
+    } as Required<MergePreviewConfig>,
     ai: {
       provider: 'claude-code',
       language: 'en',
@@ -359,6 +365,17 @@ function copyPlainObjects<T>(value: T): T {
   return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyPlainObjects(entry)])) as T
 }
 
+/** The top-level options the config files set, before the defaults: by resolved config */
+const userConfigKeys = new WeakMap<ResolvedRelizyConfig, Set<string>>()
+
+/**
+ * True when a config file sets the top-level option `key` (`commitlint`), the
+ * defaults left out: every option has a value once the config is resolved
+ */
+export function isSetInUserConfig(config: ResolvedRelizyConfig, key: keyof RelizyConfig): boolean {
+  return userConfigKeys.get(config)?.has(key) ?? false
+}
+
 /**
  * A base config is already resolved: the overrides are applied to it without
  * loading the config file and the `.env` file again (a command run by
@@ -369,6 +386,10 @@ function copyPlainObjects<T>(value: T): T {
 function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
   const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
   setupLogger(overrides?.logLevel || config.logLevel)
+  const userKeys = userConfigKeys.get(baseConfig)
+  if (userKeys) {
+    userConfigKeys.set(config, userKeys)
+  }
 
   const groupName = getVersionGroupName(baseConfig)
 
@@ -429,6 +450,8 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   const resolvedConfig = await resolveConfig(results.config, cwd)
 
   logger.debug('Resolved config:', formatJson(redactSecrets(resolvedConfig)))
+
+  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set((results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {}))))
 
   return resolvedConfig as ResolvedRelizyConfig
 }

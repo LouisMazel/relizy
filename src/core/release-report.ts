@@ -1,5 +1,6 @@
 import type { ReleaseReportConfig } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import type { MergePreviewProblem, MergePreviewSquashMode } from './merge-preview'
 import type { ReleaseOverview } from './release-overview'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -115,7 +116,31 @@ export interface ReleaseReport {
   git?: ReleaseGit
   publish?: ReleasePublish
   ai?: ReleaseAI
+  /**
+   * The merge preview of `relizy merge-preview`: what the merge of the pull request releases
+   */
+  mergePreview?: ReleaseMergePreview
   error?: string
+}
+
+export interface ReleaseMergePreview {
+  /**
+   * Number of the pull/merge request, none outside a pull request pipeline
+   */
+  pullRequest?: number
+  /**
+   * How the merge was computed: `squash`, `commits`, or `both` when the merge method is unknown
+   */
+  squash?: MergePreviewSquashMode
+  /**
+   * What would make the release of the merge fail
+   */
+  problems: MergePreviewProblem[]
+  warnings: string[]
+  /**
+   * The comment of the pull request and the summary of the CI job
+   */
+  markdown: string
 }
 
 const STEP_LABELS: Record<ReleaseStepName, string> = {
@@ -363,6 +388,10 @@ function getMarkdownPackages(report: ReleaseReport): string[] {
  * a GitHub Actions run, the comment of the pull request, and `release.report.markdown`
  */
 export function formatReleaseReportMarkdown(report: ReleaseReport): string {
+  if (report.mergePreview) {
+    return `${report.mergePreview.markdown}\n`
+  }
+
   const packages = getMarkdownPackages(report)
   // The tables of the packages give the versions and the tags: the summary tells what the release did
   const rows = getReleaseSummary(report, { versions: packages.length === 0 }).map(({ label, value, code, status, links = [] }) => {

@@ -23,6 +23,8 @@ import {
   isRelizyCancelError,
   lintCommitMessage,
   loadRelizyConfig,
+  mergePreview,
+  MergePreviewError,
   prComment,
   providerRelease,
   publish,
@@ -41,11 +43,13 @@ import {
 | [`providerRelease()`](./provider-release.md)               | `Promise<ProviderReleaseResult>`        | [`relizy provider-release`](./../cli/provider-release.md) |
 | [`social()`](./social.md)                                  | `Promise<SocialResult>`                 | [`relizy social`](./../cli/social.md)                     |
 | [`prComment()`](./pr-comment.md)                           | `Promise<boolean>`                      | [`relizy pr-comment`](./../cli/pr-comment.md)             |
+| [`mergePreview()`](./merge-preview.md)                     | `Promise<ReleaseReport>`                | [`relizy merge-preview`](./../cli/merge-preview.md)       |
 | [`commitlint()`](./commitlint.md)                          | `Promise<CommitlintRunResult>`          | [`relizy commitlint`](./../commitlint/cli.md)             |
 | [`lintCommitMessage()`](./commitlint.md#lintcommitmessage) | `Promise<CommitlintResult>`             | -                                                         |
 | [`loadRelizyConfig()`](./load-relizy-config.md)            | `Promise<ResolvedRelizyConfig>`         | -                                                         |
 | `defineConfig()`                                           | Its argument, typed as `RelizyConfig`   | [Configuration](./../config/overview.md)                  |
 | `RelizyCancelError`, `isRelizyCancelError()`               | See [Errors](#errors)                   | -                                                         |
+| `MergePreviewError`                                        | See [Errors](#errors)                   | -                                                         |
 
 The [typedoc](./../typedoc/index.md) lists every export and type.
 
@@ -110,6 +114,8 @@ catch (error) {
   }
 }
 ```
+
+`mergePreview()` throws a `MergePreviewError` when the release of the merge would fail, its message lists the problems.
 
 `providerRelease()` and `social()` do not throw when the provider or a platform fails: the error is in their result (`error`, `hasErrors`). `providerRelease()` still throws on an error of the config.
 
