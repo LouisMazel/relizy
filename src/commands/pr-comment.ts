@@ -92,7 +92,13 @@ function buildPackageTableLines(
     return []
   }
 
-  const lines = ['', '### Packages', '', '| Package | Version |', '| --- | --- |']
+  const lines = [
+    '',
+    '### Packages',
+    '',
+    '| Package | Version |',
+    '| --- | --- |',
+  ]
   for (const entry of entries) {
     lines.push(entry.hasTransition
       ? `| \`${entry.name}\` | \`${entry.oldVersion}\` → \`${entry.newVersion}\` |`
@@ -108,8 +114,16 @@ function buildPackageTableLines(
  */
 function buildGroupTableLines(overview: ReleaseOverview): string[] {
   return overview.groups.flatMap((group) => {
-    const version = group.version ? ` \`${group.version}\`` : ''
-    const lines = ['', `### ${group.title}${version} (${group.versionMode})`, '', '| Package | Version |', '| --- | --- |']
+    const version = group.version
+      ? ` \`${group.version}\``
+      : ''
+    const lines = [
+      '',
+      `### ${group.title}${version} (${group.versionMode})`,
+      '',
+      '| Package | Version |',
+      '| --- | --- |',
+    ]
 
     for (const pkg of group.packages) {
       lines.push(pkg.oldVersion !== pkg.newVersion
@@ -117,7 +131,9 @@ function buildGroupTableLines(overview: ReleaseOverview): string[] {
         : `| \`${pkg.name}\` | \`${pkg.newVersion}\` |`)
     }
 
-    return group.packages.length > 0 ? lines : lines.slice(0, 2)
+    return group.packages.length > 0
+      ? lines
+      : lines.slice(0, 2)
   })
 }
 
@@ -132,7 +148,9 @@ function getGroupsOverview(config: ResolvedRelizyConfig, bumpResult?: BumpResult
 
   const overview = getReleaseOverview({ config, bumpResult })
 
-  return config.monorepo?.privatePackages === 'release' ? overview : withoutPrivatePackages(overview)
+  return config.monorepo?.privatePackages === 'release'
+    ? overview
+    : withoutPrivatePackages(overview)
 }
 
 function resolvePackageNames(
@@ -244,10 +262,20 @@ function buildPublishedInstallLines({
   const rootPackageName = hasNoPackages ? config.projectName : undefined
 
   const installCmd = getInstallCommand(config.publish?.packageManager)
-  const installPkgs = buildInstallPackages({ bumpedPackages: publishedBumpedPackages, packages: publishedPackages, version, rootPackageName })
+  const installPkgs = buildInstallPackages({
+    bumpedPackages: publishedBumpedPackages,
+    packages: publishedPackages,
+    version,
+    rootPackageName,
+  })
   const pkgNames = resolvePackageNames(publishedBumpedPackages, publishedPackages, rootPackageName)
 
-  return buildInstallLines({ installCmd, installPkgs, distTag, pkgNames })
+  return buildInstallLines({
+    installCmd,
+    installPkgs,
+    distTag,
+    pkgNames,
+  })
 }
 
 function buildSuccessComment({
@@ -266,12 +294,19 @@ function buildSuccessComment({
   // Independent mode has no global version: each package has its own,
   // listed in the packages table below. Same with version groups when the
   // unified/selective group is not released.
-  const version = hasRepositoryVersion(config, bumpResult) ? (bumpResult?.newVersion ?? rootVersion) : undefined
+  const version = hasRepositoryVersion(config, bumpResult)
+    ? (bumpResult?.newVersion ?? rootVersion)
+    : undefined
   const tags = releaseContext?.tags ?? []
   const isPublishing = config.release.publish !== false
   const distTag = isPublishing ? config.publish?.tag : undefined
 
-  const lines: string[] = [PR_COMMENT_MARKER, '', '## 🚀 Release published', '']
+  const lines: string[] = [
+    PR_COMMENT_MARKER,
+    '',
+    '## 🚀 Release published',
+    '',
+  ]
 
   // Prefer the previous *released* version (from the resolved `fromTag`) over
   // the raw package.json version so a graduation shows `6.15.0 → 6.16.0` rather
@@ -289,10 +324,18 @@ function buildSuccessComment({
   }))
 
   const groupsOverview = getGroupsOverview(config, bumpResult)
-  lines.push(...(groupsOverview ? buildGroupTableLines(groupsOverview) : buildPackageTableLines(bumpedPackages, listedPackages)))
+  lines.push(...(groupsOverview
+    ? buildGroupTableLines(groupsOverview)
+    : buildPackageTableLines(bumpedPackages, listedPackages)))
 
   if (isPublishing) {
-    lines.push(...buildPublishedInstallLines({ config, bumpedPackages: allBumpedPackages, packages, version, distTag }))
+    lines.push(...buildPublishedInstallLines({
+      config,
+      bumpedPackages: allBumpedPackages,
+      packages,
+      version,
+      distTag,
+    }))
   }
 
   return lines.join('\n')
@@ -370,13 +413,25 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
     run: async ({ config, dryRun, ui }) => {
       const { posted, pr } = await ui.step({
         running: 'Commenting the pull request',
-        done: ({ posted, pr }) => posted ? `Pull request${formatPrNumber(pr)} commented` : 'No pull request to comment',
+        done: ({ posted, pr }) => posted
+          ? `Pull request${formatPrNumber(pr)} commented`
+          : 'No pull request to comment',
         run: () => commentPullRequest({ config, options, dryRun }),
       })
 
       const number = formatPrNumber(pr)
       ui.complete(posted
-        ? { message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`, links: pr ? [{ label: number.trim(), url: pr.url }] : [] }
+        ? {
+            message: `${dryRun ? 'Simulated comment on' : 'Commented'} the pull request${number}`,
+            links: pr
+              ? [
+                  {
+                    label: number.trim(),
+                    url: pr.url,
+                  },
+                ]
+              : [],
+          }
         : { message: 'No pull request to comment', nothing: true })
 
       return posted
@@ -385,7 +440,9 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
 }
 
 function formatPrNumber(pr: { number: number } | undefined): string {
-  return pr ? ` #${pr.number}` : ''
+  return pr
+    ? ` #${pr.number}`
+    : ''
 }
 
 /**
@@ -440,10 +497,21 @@ async function commentPullRequest({ config, options, dryRun }: {
 
   if (dryRun) {
     const mode: PrCommentMode = config.prComment.mode
-    const prDisplay = pr ? `#${pr.number} (${pr.url})` : 'Not detected'
+    const prDisplay = pr
+      ? `#${pr.number} (${pr.url})`
+      : 'Not detected'
     const statusDisplay = options.releaseContext?.status ?? 'success'
-    showPreview({ title: 'PR comment', meta: [`PR: ${prDisplay}`, `Mode: ${mode}`, `Status: ${statusDisplay}`], content: body })
-    return { posted: Boolean(pr), ...(pr ? { pr } : {}) }
+    showPreview({
+      title: 'PR comment',
+      meta: [`PR: ${prDisplay}`, `Mode: ${mode}`, `Status: ${statusDisplay}`],
+      content: body,
+    })
+    return {
+      posted: Boolean(pr),
+      ...(pr
+        ? { pr }
+        : {}),
+    }
   }
 
   if (!pr) {

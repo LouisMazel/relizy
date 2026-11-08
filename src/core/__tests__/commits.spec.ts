@@ -34,7 +34,9 @@ describe('Given parseCommits', () => {
           description: 'add emoji support',
           type: 'feat',
           scope: '',
-          references: [{ value: '0000000', type: 'hash' }],
+          references: [
+            { value: '0000000', type: 'hash' },
+          ],
           isBreaking: false,
         },
         {
@@ -43,7 +45,9 @@ describe('Given parseCommits', () => {
           description: 'this is a text emoji',
           type: 'fix',
           scope: '',
-          references: [{ value: '0000001', type: 'hash' }],
+          references: [
+            { value: '0000001', type: 'hash' },
+          ],
           isBreaking: false,
         },
         {
@@ -52,7 +56,9 @@ describe('Given parseCommits', () => {
           description: 'this is a text emoji with scope',
           type: 'fix',
           scope: 'scope',
-          references: [{ value: '0000001', type: 'hash' }],
+          references: [
+            { value: '0000001', type: 'hash' },
+          ],
           isBreaking: false,
         },
       ])
@@ -100,7 +106,9 @@ describe('Given parseCommits', () => {
           description: 'v0.3.5',
           isBreaking: false,
           message: 'chore(release): v0.3.5',
-          references: [{ type: 'hash', value: '3828bda' }],
+          references: [
+            { type: 'hash', value: '3828bda' },
+          ],
           scope: 'release',
           shortHash: '3828bda',
           type: 'chore',
@@ -134,7 +142,9 @@ describe('Given parseCommits', () => {
           description: 'consider docs and refactor as semver patch for bump',
           isBreaking: false,
           message: 'fix: consider docs and refactor as semver patch for bump',
-          references: [{ type: 'hash', value: '648ccf1' }],
+          references: [
+            { type: 'hash', value: '648ccf1' },
+          ],
           scope: '',
           shortHash: '648ccf1',
           type: 'fix',
@@ -143,7 +153,9 @@ describe('Given parseCommits', () => {
           description: 'expose `determineSemverChange` and `bumpVersion`',
           isBreaking: false,
           message: 'feat: expose `determineSemverChange` and `bumpVersion`',
-          references: [{ type: 'hash', value: '5451f18' }],
+          references: [
+            { type: 'hash', value: '5451f18' },
+          ],
           scope: '',
           shortHash: '5451f18',
           type: 'feat',
@@ -166,7 +178,10 @@ describe('Given parseCommits', () => {
 
   describe('When a commit does not follow the conventional commits', () => {
     it('Then it is left out', () => {
-      expect(parseCommits([raw('Merge branch develop', 'aaaaaaa'), raw('fix: bug', 'bbbbbbb')], config).map(commit => commit.shortHash)).toEqual(['bbbbbbb'])
+      expect(parseCommits([
+        raw('Merge branch develop', 'aaaaaaa'),
+        raw('fix: bug', 'bbbbbbb'),
+      ], config).map(commit => commit.shortHash)).toEqual(['bbbbbbb'])
     })
   })
 })
@@ -174,7 +189,9 @@ describe('Given parseCommits', () => {
 describe('Given parseGitCommit', () => {
   describe('When the scope is in the scopeMap', () => {
     it('Then the scope is renamed', () => {
-      expect(parseGitCommit(raw('feat(ui): button', 'aaaaaaa'), { scopeMap: { ui: 'components' } })?.scope).toBe('components')
+      expect(parseGitCommit(raw('feat(ui): button', 'aaaaaaa'), {
+        scopeMap: { ui: 'components' },
+      })?.scope).toBe('components')
     })
   })
 

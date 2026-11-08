@@ -145,7 +145,10 @@ describe('Given Windows-style path separators from path.relative()', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
@@ -176,7 +179,10 @@ describe('Given Windows-style path separators from path.relative()', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
@@ -201,7 +207,10 @@ describe('Given Windows-style path separators from path.relative()', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
@@ -224,7 +233,10 @@ describe('Given Windows-style path separators from path.relative()', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({

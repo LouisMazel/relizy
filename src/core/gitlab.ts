@@ -123,7 +123,12 @@ export const gitlabReleaseProvider: ReleaseProvider = {
   check: () => {},
   create: ({ config, release, dryRun }) => createGitlabRelease({
     config,
-    release: { tag_name: release.tag, name: release.tag, description: release.notes, ref: getCurrentGitBranch(config.cwd) },
+    release: {
+      tag_name: release.tag,
+      name: release.tag,
+      description: release.notes,
+      ref: getCurrentGitBranch(config.cwd),
+    },
     dryRun,
   }),
 }

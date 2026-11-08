@@ -5,18 +5,41 @@ import { createMockConfig } from '../../../tests/mocks'
 import { getAnnouncementVariables } from '../announcements'
 import { buildTeamsMessage, checkTeamsWebhookUrl, fitTeamsChangelog, getTeamsWebhookUrl, postReleaseToTeams, resolveTeamsAnnouncements, TEAMS_MAX_PAYLOAD_BYTES, toTeamsMarkdown } from '../teams'
 
-vi.mock('node:timers/promises', () => ({ setTimeout: vi.fn().mockResolvedValue(undefined) }))
+vi.mock('node:timers/promises', () => ({
+  setTimeout: vi.fn().mockResolvedValue(undefined),
+}))
 
 const WEBHOOK_URL = 'https://example.logic.azure.com/workflows/1/triggers/manual/paths/invoke?sig=secret'
 
-const mainGroup = { name: 'main', title: 'Maz UI', versionMode: 'selective' as const, version: '7.0.0', tag: 'v7.0.0', packages: [] }
-const sharedGroup = { name: 'shared', title: 'Shared', versionMode: 'independent' as const, packages: [] }
-
-function version(line: Omit<ReleaseLine, 'tag'> & { tag?: string }): TeamsVersion {
-  return { line: { tag: `${line.name}@${line.version}`, ...line }, name: line.name, changelog: '' }
+const mainGroup = {
+  name: 'main',
+  title: 'Maz UI',
+  versionMode: 'selective' as const,
+  version: '7.0.0',
+  tag: 'v7.0.0',
+  packages: [],
+}
+const sharedGroup = {
+  name: 'shared',
+  title: 'Shared',
+  versionMode: 'independent' as const,
+  packages: [],
 }
 
-const rootVersion = version({ name: 'Maz UI', version: '7.0.0', tag: 'v7.0.0', group: mainGroup })
+function version(line: Omit<ReleaseLine, 'tag'> & { tag?: string }): TeamsVersion {
+  return {
+    line: { tag: `${line.name}@${line.version}`, ...line },
+    name: line.name,
+    changelog: '',
+  }
+}
+
+const rootVersion = version({
+  name: 'Maz UI',
+  version: '7.0.0',
+  tag: 'v7.0.0',
+  group: mainGroup,
+})
 const navVersion = version({ name: '@scope/nav', version: '1.3.0', group: sharedGroup })
 const menuVersion = version({ name: '@scope/menu', version: '2.0.0', group: sharedGroup })
 
@@ -25,16 +48,27 @@ const section: TeamsCardSection = {
   message: 'A new version of **Maz UI** is available.',
   version: '7.0.0',
   changelog: '',
-  links: [{ title: '📖 Release notes', url: 'https://github.com/owner/repo/releases/tag/v7.0.0' }],
+  links: [
+    { title: '📖 Release notes', url: 'https://github.com/owner/repo/releases/tag/v7.0.0' },
+  ],
   prerelease: false,
 }
 
 describe('Given the Teams cards', () => {
   describe('When the URL of the workflow is read', () => {
     it('Then takes the config first, then the environment, then its base64', () => {
-      expect(getTeamsWebhookUrl({ socialWebhookUrl: WEBHOOK_URL, env: { RELIZY_TEAMS_WEBHOOK_URL: 'https://other' } })).toBe(WEBHOOK_URL)
-      expect(getTeamsWebhookUrl({ env: { TEAMS_WEBHOOK_URL: WEBHOOK_URL } })).toBe(WEBHOOK_URL)
-      expect(getTeamsWebhookUrl({ env: { TEAMS_WEBHOOK_URL_B64: Buffer.from(`${WEBHOOK_URL}\n`).toString('base64') } })).toBe(WEBHOOK_URL)
+      expect(getTeamsWebhookUrl({
+        socialWebhookUrl: WEBHOOK_URL,
+        env: { RELIZY_TEAMS_WEBHOOK_URL: 'https://other' },
+      })).toBe(WEBHOOK_URL)
+      expect(getTeamsWebhookUrl({
+        env: { TEAMS_WEBHOOK_URL: WEBHOOK_URL },
+      })).toBe(WEBHOOK_URL)
+      expect(getTeamsWebhookUrl({
+        env: {
+          TEAMS_WEBHOOK_URL_B64: Buffer.from(`${WEBHOOK_URL}\n`).toString('base64'),
+        },
+      })).toBe(WEBHOOK_URL)
       expect(getTeamsWebhookUrl({ env: {} })).toBeUndefined()
     })
 
@@ -49,37 +83,83 @@ describe('Given the Teams cards', () => {
   describe('When the announcements are resolved', () => {
     it('Then announces every version without announcements', () => {
       expect(resolveTeamsAnnouncements({ title: '{{name}}' }, [rootVersion, navVersion])).toEqual([
-        { version: rootVersion, content: { title: '{{name}}' } },
-        { version: navVersion, content: { title: '{{name}}' } },
+        {
+          version: rootVersion,
+          content: { title: '{{name}}' },
+        },
+        {
+          version: navVersion,
+          content: { title: '{{name}}' },
+        },
       ])
     })
 
     it('Then announces the matching versions only, a package entry over its group entry over the defaults', () => {
       const announced = resolveTeamsAnnouncements({
         message: 'Default message',
-        links: [{ title: 'Docs', url: 'https://docs' }],
+        links: [
+          { title: 'Docs', url: 'https://docs' },
+        ],
         announcements: [
-          { group: 'shared', title: 'Shared {{name}}', links: [{ title: 'Storybook', url: 'https://{{shortName}}.example.com' }] },
+          {
+            group: 'shared',
+            title: 'Shared {{name}}',
+            links: [
+              { title: 'Storybook', url: 'https://{{shortName}}.example.com' },
+            ],
+          },
           { package: '@scope/n*', title: 'Navigation' },
         ],
       }, [rootVersion, navVersion, menuVersion])
 
       expect(announced).toEqual([
-        { version: navVersion, content: { message: 'Default message', title: 'Navigation', links: [{ title: 'Storybook', url: 'https://{{shortName}}.example.com' }] } },
-        { version: menuVersion, content: { message: 'Default message', title: 'Shared {{name}}', links: [{ title: 'Storybook', url: 'https://{{shortName}}.example.com' }] } },
+        {
+          version: navVersion,
+          content: {
+            message: 'Default message',
+            title: 'Navigation',
+            links: [
+              { title: 'Storybook', url: 'https://{{shortName}}.example.com' },
+            ],
+          },
+        },
+        {
+          version: menuVersion,
+          content: {
+            message: 'Default message',
+            title: 'Shared {{name}}',
+            links: [
+              { title: 'Storybook', url: 'https://{{shortName}}.example.com' },
+            ],
+          },
+        },
       ])
     })
 
     it('Then never announces the excluded groups and packages', () => {
-      expect(resolveTeamsAnnouncements({ exclude: { groups: ['main'], packages: ['@scope/menu'] } }, [rootVersion, navVersion, menuVersion]).map(({ version }) => version)).toEqual([navVersion])
+      expect(resolveTeamsAnnouncements({
+        exclude: {
+          groups: ['main'],
+          packages: ['@scope/menu'],
+        },
+      }, [rootVersion, navVersion, menuVersion]).map(({ version }) => version)).toEqual([navVersion])
     })
   })
 
   describe('When the variables of a version are built', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' },
+    })
 
     it('Then links the CHANGELOG.md of the version at its tag', () => {
-      const variables = getAnnouncementVariables({ config, version: { ...navVersion, changelogDir: 'shared/nav' }, content: {}, projectName: 'maz-ui', releaseUrl: undefined })
+      const variables = getAnnouncementVariables({
+        config,
+        version: { ...navVersion, changelogDir: 'shared/nav' },
+        content: {},
+        projectName: 'maz-ui',
+        releaseUrl: undefined,
+      })
 
       expect(variables).toEqual({
         name: '@scope/nav',
@@ -95,7 +175,16 @@ describe('Given the Teams cards', () => {
 
     it('Then takes the changelog URL of the announcement, then social.changelogUrl, and none with false', () => {
       const withChangelog = { ...rootVersion, changelogDir: '' }
-      const getUrl = (content: { changelogUrl?: string | false }, changelogUrl?: string) => getAnnouncementVariables({ config: { ...config, social: { ...config.social, changelogUrl } }, version: withChangelog, content, projectName: 'maz-ui', releaseUrl: undefined }).changelogUrl
+      const getUrl = (content: { changelogUrl?: string | false }, changelogUrl?: string) => getAnnouncementVariables({
+        config: {
+          ...config,
+          social: { ...config.social, changelogUrl },
+        },
+        version: withChangelog,
+        content,
+        projectName: 'maz-ui',
+        releaseUrl: undefined,
+      }).changelogUrl
 
       expect(getUrl({ changelogUrl: 'https://docs/{{shortName}}/changelog' })).toBe('https://docs/Maz UI/changelog')
       expect(getUrl({}, 'https://maz-ui.com/changelog')).toBe('https://maz-ui.com/changelog')
@@ -127,23 +216,61 @@ describe('Given the Teams cards', () => {
     const date = new Date('2026-11-06T12:00:00Z')
 
     it('Then announces a version with its badge, its facts and its buttons', () => {
-      const message = buildTeamsMessage({ sections: [section], locale: 'fr-FR', date }) as any
+      const message = buildTeamsMessage({
+        sections: [section],
+        locale: 'fr-FR',
+        date,
+      }) as any
       const card = message.attachments[0].content
 
       expect(message.attachments[0].contentType).toBe('application/vnd.microsoft.card.adaptive')
-      expect(card).toMatchObject({ type: 'AdaptiveCard', version: '1.5', msteams: { width: 'Full' } })
-      expect(card.body[0]).toMatchObject({ type: 'Badge', text: 'New release', style: 'Good', fallback: { type: 'TextBlock', text: '**New release**' } })
+      expect(card).toMatchObject({
+        type: 'AdaptiveCard',
+        version: '1.5',
+        msteams: { width: 'Full' },
+      })
+      expect(card.body[0]).toMatchObject({
+        type: 'Badge',
+        text: 'New release',
+        style: 'Good',
+        fallback: { type: 'TextBlock', text: '**New release**' },
+      })
       expect(card.body[1].items).toEqual([
         expect.objectContaining({ type: 'TextBlock', text: 'Maz UI 7.0.0', size: 'ExtraLarge' }),
         expect.objectContaining({ type: 'TextBlock', text: 'A new version of **Maz UI** is available.' }),
-        { type: 'FactSet', facts: [{ title: 'Version', value: '7.0.0' }, { title: 'Date', value: '6 novembre 2026' }] },
-        { type: 'ActionSet', actions: [{ type: 'Action.OpenUrl', title: '📖 Release notes', url: 'https://github.com/owner/repo/releases/tag/v7.0.0', style: 'positive' }] },
+        {
+          type: 'FactSet',
+          facts: [
+            { title: 'Version', value: '7.0.0' },
+            { title: 'Date', value: '6 novembre 2026' },
+          ],
+        },
+        {
+          type: 'ActionSet',
+          actions: [
+            {
+              type: 'Action.OpenUrl',
+              title: '📖 Release notes',
+              url: 'https://github.com/owner/repo/releases/tag/v7.0.0',
+              style: 'positive',
+            },
+          ],
+        },
       ])
     })
 
     it('Then shows a prerelease badge, or no badge with false', () => {
-      const prerelease = buildTeamsMessage({ sections: [{ ...section, prerelease: true }], date }) as any
-      const noBadge = buildTeamsMessage({ sections: [section], badge: false, date }) as any
+      const prerelease = buildTeamsMessage({
+        sections: [
+          { ...section, prerelease: true },
+        ],
+        date,
+      }) as any
+      const noBadge = buildTeamsMessage({
+        sections: [section],
+        badge: false,
+        date,
+      }) as any
 
       expect(prerelease.attachments[0].content.body[0]).toMatchObject({ type: 'Badge', text: 'Prerelease', style: 'Warning' })
       expect(noBadge.attachments[0].content.body[0].type).toBe('Container')
@@ -151,12 +278,25 @@ describe('Given the Teams cards', () => {
 
     it('Then announces the release with a section per version under the title of its group', () => {
       const card = (buildTeamsMessage({
-        sections: [{ ...section, groupTitle: 'Maz UI' }, { ...section, title: '@scope/nav 1.3.0', groupTitle: 'Shared' }, { ...section, title: '@scope/menu 2.0.0', groupTitle: 'Shared' }],
+        sections: [
+          { ...section, groupTitle: 'Maz UI' },
+          { ...section, title: '@scope/nav 1.3.0', groupTitle: 'Shared' },
+          { ...section, title: '@scope/menu 2.0.0', groupTitle: 'Shared' },
+        ],
         title: 'New releases of maz-ui',
         date,
       }) as any).attachments[0].content
 
-      expect(card.body.map((element: any) => element.text ?? element.items?.[0].text)).toEqual(['New release', 'New releases of maz-ui', 'November 6, 2026', 'Maz UI', 'Maz UI 7.0.0', 'Shared', '@scope/nav 1.3.0', '@scope/menu 2.0.0'])
+      expect(card.body.map((element: any) => element.text ?? element.items?.[0].text)).toEqual([
+        'New release',
+        'New releases of maz-ui',
+        'November 6, 2026',
+        'Maz UI',
+        'Maz UI 7.0.0',
+        'Shared',
+        '@scope/nav 1.3.0',
+        '@scope/menu 2.0.0',
+      ])
     })
   })
 
@@ -175,19 +315,47 @@ describe('Given the Teams cards', () => {
     it('Then posts each card to the workflow', async () => {
       fetchMock.mockResolvedValue(new Response('', { status: 202 }))
 
-      await expect(postReleaseToTeams({ cards: [{ sections: [section] }, { sections: [section] }], webhookUrl: WEBHOOK_URL })).resolves.toEqual({ posted: 2 })
+      await expect(postReleaseToTeams({
+        cards: [
+          {
+            sections: [section],
+          },
+          {
+            sections: [section],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+      })).resolves.toEqual({ posted: 2 })
 
       expect(fetchMock).toHaveBeenCalledTimes(2)
-      expect(fetchMock).toHaveBeenCalledWith(WEBHOOK_URL, expect.objectContaining({ method: 'POST', headers: { 'Content-Type': 'application/json' } }))
-      expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({ type: 'message', attachments: [{ contentType: 'application/vnd.microsoft.card.adaptive' }] })
+      expect(fetchMock).toHaveBeenCalledWith(WEBHOOK_URL, expect.objectContaining({
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      }))
+      expect(JSON.parse(fetchMock.mock.calls[0]![1].body)).toMatchObject({
+        type: 'message',
+        attachments: [
+          { contentType: 'application/vnd.microsoft.card.adaptive' },
+        ],
+      })
     })
 
     it('Then tries again when the workflow is throttled', async () => {
       fetchMock
-        .mockResolvedValueOnce(new Response('', { status: 429, headers: { 'Retry-After': '1' } }))
+        .mockResolvedValueOnce(new Response('', {
+          status: 429,
+          headers: { 'Retry-After': '1' },
+        }))
         .mockResolvedValueOnce(new Response('', { status: 202 }))
 
-      await postReleaseToTeams({ cards: [{ sections: [section] }], webhookUrl: WEBHOOK_URL })
+      await postReleaseToTeams({
+        cards: [
+          {
+            sections: [section],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+      })
 
       expect(fetchMock).toHaveBeenCalledTimes(2)
     })
@@ -195,7 +363,14 @@ describe('Given the Teams cards', () => {
     it('Then throws with the fix when the workflow refuses the card', async () => {
       fetchMock.mockResolvedValue(new Response('flow not found', { status: 404, statusText: 'Not Found' }))
 
-      await expect(postReleaseToTeams({ cards: [{ sections: [section] }], webhookUrl: WEBHOOK_URL })).rejects.toThrow(/404 Not Found - flow not found[\s\S]*add co-owners/)
+      await expect(postReleaseToTeams({
+        cards: [
+          {
+            sections: [section],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+      })).rejects.toThrow(/404 Not Found - flow not found[\s\S]*add co-owners/)
     })
 
     it('Then cuts the changelogs between two changes to fit in 28 KB', async () => {
@@ -204,7 +379,17 @@ describe('Given the Teams cards', () => {
       const changes = Array.from({ length: 300 }, (_, index) => `- Change ${index}\n\n  ${changeBody}`)
       const changelog = ['**🚀 Features**', '', ...changes].join('\n')
 
-      await postReleaseToTeams({ cards: [{ sections: [{ ...section, changelog }, { ...section, changelog }] }], webhookUrl: WEBHOOK_URL })
+      await postReleaseToTeams({
+        cards: [
+          {
+            sections: [
+              { ...section, changelog },
+              { ...section, changelog },
+            ],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+      })
 
       const body = fetchMock.mock.calls[0]![1].body as string
       expect(Buffer.byteLength(body)).toBeLessThanOrEqual(TEAMS_MAX_PAYLOAD_BYTES)
@@ -213,13 +398,33 @@ describe('Given the Teams cards', () => {
     })
 
     it('Then throws before posting a card over 28 KB without its changelogs', async () => {
-      await expect(postReleaseToTeams({ cards: [{ sections: [{ ...section, message: 'x'.repeat(30_000) }] }], webhookUrl: WEBHOOK_URL })).rejects.toThrow(/over the 28 KB/)
+      await expect(postReleaseToTeams({
+        cards: [
+          {
+            sections: [
+              {
+                ...section,
+                message: 'x'.repeat(30_000),
+              },
+            ],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+      })).rejects.toThrow(/over the 28 KB/)
 
       expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it('Then only shows the cards in dry-run', async () => {
-      await postReleaseToTeams({ cards: [{ sections: [section] }], webhookUrl: WEBHOOK_URL, dryRun: true })
+      await postReleaseToTeams({
+        cards: [
+          {
+            sections: [section],
+          },
+        ],
+        webhookUrl: WEBHOOK_URL,
+        dryRun: true,
+      })
 
       expect(fetchMock).not.toHaveBeenCalled()
     })

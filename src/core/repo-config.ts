@@ -65,7 +65,9 @@ export function formatCompareChanges(
   v: string | undefined,
   config: { repo: RepoConfig, from: string, to: string },
 ): string {
-  const part = config.repo.provider === 'bitbucket' ? 'branches/compare' : 'compare'
+  const part = config.repo.provider === 'bitbucket'
+    ? 'branches/compare'
+    : 'compare'
   const changes = config.repo.provider === 'bitbucket'
     ? `${v || config.to}%0D${config.from}`
     : `${config.from}...${v || config.to}`
@@ -99,7 +101,12 @@ function readClosestPackageJson(cwd: string): { repository?: string | { url?: st
 
 function getGitRemoteURL(cwd: string, remote = 'origin'): string {
   // A repository without remote is expected: the stderr of git (`error: No such remote`) is not shown
-  return runGitSync([`--work-tree=${cwd}`, 'remote', 'get-url', remote], { cwd })
+  return runGitSync([
+    `--work-tree=${cwd}`,
+    'remote',
+    'get-url',
+    remote,
+  ], { cwd })
 }
 
 /**
@@ -117,7 +124,9 @@ export async function resolveRepoConfig(cwd: string): Promise<RepoConfig | undef
   }
 
   if (pkg && pkg.repository) {
-    const url = typeof pkg.repository === 'string' ? pkg.repository : pkg.repository.url
+    const url = typeof pkg.repository === 'string'
+      ? pkg.repository
+      : pkg.repository.url
     return getRepoConfig(url)
   }
 
@@ -156,7 +165,9 @@ export function getRepoConfig(repoUrl = ''): RepoConfig {
     repo = m.repo
     // A prefix (`github:`) or a host (`git@gitlab.example.com:`)
     const isPrefix = Object.hasOwn(providerToDomain, m.provider)
-    provider = isPrefix ? m.provider as GitProvider : domainToProvider[m.provider] ?? getHostProvider(m.provider)
+    provider = isPrefix
+      ? m.provider as GitProvider
+      : domainToProvider[m.provider] ?? getHostProvider(m.provider)
     domain = isPrefix ? providerToDomain[m.provider as GitProvider] : m.provider
   }
   else if (url) {

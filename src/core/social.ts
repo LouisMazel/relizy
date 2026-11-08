@@ -5,7 +5,9 @@ import type { ResolvedRelizyConfig } from './config'
  * The changelog of a post, `false` being `none`
  */
 export function getSocialChangelog(changelog: SocialChangelog | undefined, defaultChangelog: Exclude<SocialChangelog, false>): Exclude<SocialChangelog, false> {
-  return changelog === false ? 'none' : changelog ?? defaultChangelog
+  return changelog === false
+    ? 'none'
+    : changelog ?? defaultChangelog
 }
 
 /**
@@ -35,7 +37,9 @@ export function extractChangelogSummary(changelog: string, { stripBoldMarkers = 
   let summary = ''
 
   for (const line of cleaned.split('\n')) {
-    const next = summary ? `${summary}\n${line}` : line
+    const next = summary
+      ? `${summary}\n${line}`
+      : line
 
     if (maxLength && next.length > maxLength) {
       break
@@ -86,7 +90,12 @@ export function extractChangelogHighlights(changelog: string): string[] {
     .map(line => line.slice(2).replace(/\*\*([^*]+):\*\*/g, '$1:').replace(/\s{2,}/g, ' ').trim())
     .filter(Boolean)
 
-  const unique = [...new Set(highlights)]
+  const unique = [
+    ...new Set(highlights),
+  ]
 
-  return [...unique.filter(highlight => highlight.includes('⚠️')), ...unique.filter(highlight => !highlight.includes('⚠️'))]
+  return [
+    ...unique.filter(highlight => highlight.includes('⚠️')),
+    ...unique.filter(highlight => !highlight.includes('⚠️')),
+  ]
 }

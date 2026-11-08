@@ -53,7 +53,14 @@ vi.mock('../../core/repo', async (importActual) => {
     getPrivatePackagesMode: (await importActual<typeof import('../../core/repo')>()).getPrivatePackagesMode,
     readPackageJson: vi.fn(),
     // A publishable package, so that the safety check authenticates to the registry
-    readPackages: vi.fn(() => [{ name: 'pkg', version: '1.0.0', private: false, path: '/project' }]),
+    readPackages: vi.fn(() => [
+      {
+        name: 'pkg',
+        version: '1.0.0',
+        private: false,
+        path: '/project',
+      },
+    ]),
   }
 })
 
@@ -71,7 +78,12 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When package manager is not pnpm or npm', () => {
     it('Then skips auth check', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: undefined as any }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: true, args: [], packageManager: undefined as any },
+        safetyCheck: true,
+        release: { publish: true },
+      })
 
       await publishSafetyCheck({ config })
 
@@ -81,7 +93,12 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When auth check fails', () => {
     it('Then exits with code 1', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: true, args: [], packageManager: 'npm' },
+        safetyCheck: true,
+        release: { publish: true },
+      })
       vi.mocked(execPromise).mockRejectedValue(new Error('Auth failed'))
 
       await expect(() => publishSafetyCheck({ config })).rejects.toThrow()
@@ -90,7 +107,17 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When the auth check times out', () => {
     it('Then throws a clear timeout error mentioning --no-safety-check', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 30000 }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'npm',
+          safetyCheckTimeout: 30000,
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
       // execPromise kills the command on timeout: error.killed is then true.
       vi.mocked(execPromise).mockRejectedValue(Object.assign(new Error('killed'), { killed: true }))
 
@@ -99,7 +126,17 @@ describe('Given publishSafetyCheck function', () => {
     })
 
     it('Then passes the configured timeout to execPromise', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 12345 }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'npm',
+          safetyCheckTimeout: 12345,
+        },
+        safetyCheck: true,
+        release: { publish: true },
+      })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -115,7 +152,17 @@ describe('Given publishSafetyCheck function', () => {
     it('Then logs a patience message before the timeout', async () => {
       vi.useFakeTimers()
       try {
-        const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', safetyCheckTimeout: 15000 }, safetyCheck: true, release: { publish: true } })
+        const config = createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager: 'npm',
+            safetyCheckTimeout: 15000,
+          },
+          safetyCheck: true,
+          release: { publish: true },
+        })
         let resolveExec: (value: { stdout: string, stderr: string }) => void = () => {}
         vi.mocked(execPromise).mockReturnValue(new Promise((resolve) => {
           resolveExec = resolve
@@ -136,7 +183,18 @@ describe('Given publishSafetyCheck function', () => {
   })
 
   describe('When the job publishes to npm with trusted publishing (OIDC)', () => {
-    const npmConfig = () => createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', registry: 'https://registry.npmjs.org/' }, tokens: { registry: undefined }, safetyCheck: true, release: { publish: true } })
+    const npmConfig = () => createMockConfig({
+      bump: { type: 'patch' },
+      publish: {
+        safetyCheck: true,
+        args: [],
+        packageManager: 'npm',
+        registry: 'https://registry.npmjs.org/',
+      },
+      tokens: { registry: undefined },
+      safetyCheck: true,
+      release: { publish: true },
+    })
     const fetchSpy = vi.spyOn(globalThis, 'fetch')
 
     beforeEach(() => {
@@ -151,7 +209,9 @@ describe('Given publishSafetyCheck function', () => {
     })
 
     it('Then checks the npm of the job instead of authenticating with a token', async () => {
-      await publishSafetyCheck({ config: npmConfig() })
+      await publishSafetyCheck({
+        config: npmConfig(),
+      })
 
       expect(assertTrustedPublishingNpm).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'npm', provider: 'GitHub Actions' }))
       expect(execPromise).not.toHaveBeenCalledWith(expect.stringContaining('whoami'), expect.anything())
@@ -161,14 +221,27 @@ describe('Given publishSafetyCheck function', () => {
     it('Then warns about a package that is not on npm yet', async () => {
       fetchSpy.mockResolvedValue(new Response('{}', { status: 404 }))
 
-      await publishSafetyCheck({ config: npmConfig() })
+      await publishSafetyCheck({
+        config: npmConfig(),
+      })
 
       expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
     })
 
     it('Then authenticates as usual with a token, the fallback of npm', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm', registry: 'https://registry.npmjs.org/' }, tokens: { registry: 'npm_token' }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+        },
+        tokens: { registry: 'npm_token' },
+        safetyCheck: true,
+        release: { publish: true },
+      })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -181,13 +254,20 @@ describe('Given publishSafetyCheck function', () => {
       vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', '')
       vi.mocked(execPromise).mockRejectedValue(new Error('ENEEDAUTH'))
 
-      await expect(publishSafetyCheck({ config: npmConfig() })).rejects.toThrow(/no npm token found\. Set NPM_TOKEN, or publish with trusted publishing/)
+      await expect(publishSafetyCheck({
+        config: npmConfig(),
+      })).rejects.toThrow(/no npm token found\. Set NPM_TOKEN, or publish with trusted publishing/)
     })
   })
 
   describe('When auth check succeeds', () => {
     it('Then does not exit', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: true, args: [], packageManager: 'npm' },
+        safetyCheck: true,
+        release: { publish: true },
+      })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -198,8 +278,20 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When every package is private (a private app)', () => {
     it('Then does not authenticate to the registry, nothing can be published', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: true } })
-      vi.mocked(readPackages).mockReturnValueOnce([{ name: 'app', version: '1.0.0', private: true, path: '/project' }])
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: true, args: [], packageManager: 'npm' },
+        safetyCheck: true,
+        release: { publish: true },
+      })
+      vi.mocked(readPackages).mockReturnValueOnce([
+        {
+          name: 'app',
+          version: '1.0.0',
+          private: true,
+          path: '/project',
+        },
+      ])
 
       await publishSafetyCheck({ config })
 
@@ -209,7 +301,12 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When safety check is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: false, args: [] }, safetyCheck: true, release: { publish: true } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: false, args: [] },
+        safetyCheck: true,
+        release: { publish: true },
+      })
 
       await publishSafetyCheck({ config })
 
@@ -219,7 +316,12 @@ describe('Given publishSafetyCheck function', () => {
 
   describe('When release.publish is false, for relizy publish run alone', () => {
     it('Then it still checks the access to the registry', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { safetyCheck: true, args: [], packageManager: 'npm' }, safetyCheck: true, release: { publish: false } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { safetyCheck: true, args: [], packageManager: 'npm' },
+        safetyCheck: true,
+        release: { publish: false },
+      })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       await publishSafetyCheck({ config })
@@ -239,7 +341,11 @@ describe('Given publishSafetyCheck function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
           ],
         },
         safetyCheck: true,
@@ -247,8 +353,18 @@ describe('Given publishSafetyCheck function', () => {
       })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
       vi.mocked(readPackages).mockReturnValueOnce([
-        { name: 'pkg', version: '1.0.0', private: false, path: '/project/pkg' },
-        { name: '@scope/foo', version: '1.0.0', private: false, path: '/project/foo' },
+        {
+          name: 'pkg',
+          version: '1.0.0',
+          private: false,
+          path: '/project/pkg',
+        },
+        {
+          name: '@scope/foo',
+          version: '1.0.0',
+          private: false,
+          path: '/project/foo',
+        },
       ])
 
       await publishSafetyCheck({ config })
@@ -267,7 +383,13 @@ describe('Given publishSafetyCheck function', () => {
           args: [],
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+          registries: [
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
         },
         safetyCheck: true,
       })
@@ -286,14 +408,30 @@ describe('Given publishSafetyCheck function', () => {
           safetyCheck: true,
           args: [],
           packageManager: 'npm',
-          registries: [{ name: 'github', registry: 'https://npm.pkg.github.com/', packageFilter: ['@acme/*'] }],
+          registries: [
+            {
+              name: 'github',
+              registry: 'https://npm.pkg.github.com/',
+              packageFilter: ['@acme/*'],
+            },
+          ],
         },
         safetyCheck: true,
       })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
       vi.mocked(readPackages).mockReturnValueOnce([
-        { name: '@acme/core', version: '1.0.0', private: false, path: '/project/core' },
-        { name: 'foo', version: '1.0.0', private: false, path: '/project/foo' },
+        {
+          name: '@acme/core',
+          version: '1.0.0',
+          private: false,
+          path: '/project/core',
+        },
+        {
+          name: 'foo',
+          version: '1.0.0',
+          private: false,
+          path: '/project/foo',
+        },
       ])
 
       await publishSafetyCheck({ config })
@@ -358,7 +496,11 @@ describe('Given publishSafetyCheck function', () => {
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@internal/*'] },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@internal/*'],
+            },
           ],
         },
         safetyCheck: true,
@@ -367,7 +509,9 @@ describe('Given publishSafetyCheck function', () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
       // None of the packages being published this release match '@internal/*'.
-      const packages = [createMockPackageInfo({ name: 'public-pkg' })]
+      const packages = [
+        createMockPackageInfo({ name: 'public-pkg' }),
+      ]
 
       await publishSafetyCheck({ config, packages })
 
@@ -384,7 +528,11 @@ describe('Given publishSafetyCheck function', () => {
           packageManager: 'npm',
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@internal/*'] },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@internal/*'],
+            },
           ],
         },
         safetyCheck: true,
@@ -392,7 +540,9 @@ describe('Given publishSafetyCheck function', () => {
       })
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
-      const packages = [createMockPackageInfo({ name: '@internal/foo' })]
+      const packages = [
+        createMockPackageInfo({ name: '@internal/foo' }),
+      ]
 
       await publishSafetyCheck({ config, packages })
 
@@ -405,12 +555,20 @@ describe('Given publishSafetyCheck function', () => {
 describe('Given publish command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'npm' } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      publish: { packageManager: 'npm' },
+    }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(publishPackage).mockResolvedValue(undefined)
     vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
   })
 
   describe('When a registry token is given', () => {
@@ -418,18 +576,28 @@ describe('Given publish command', () => {
       await publish({ token: 'npm_given' })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
-        overrides: expect.objectContaining({ tokens: { registry: 'npm_given' } }),
+        overrides: expect.objectContaining({
+          tokens: { registry: 'npm_given' },
+        }),
       }))
     })
   })
 
   describe('When the publish options of the config are given', () => {
     it('Then forwards args, packageManager and safetyCheckTimeout to the config', async () => {
-      await publish({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000 })
+      await publish({
+        args: ['--provenance'],
+        packageManager: 'pnpm',
+        safetyCheckTimeout: 5000,
+      })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
         overrides: expect.objectContaining({
-          publish: expect.objectContaining({ args: ['--provenance'], packageManager: 'pnpm', safetyCheckTimeout: 5000 }),
+          publish: expect.objectContaining({
+            args: ['--provenance'],
+            packageManager: 'pnpm',
+            safetyCheckTimeout: 5000,
+          }),
         }),
       }))
     })
@@ -445,8 +613,20 @@ describe('Given publish command', () => {
 
     it('Then executes success hook', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
-        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
+        createMockPackageInfo({
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          dependencies: [],
+        }),
+        createMockPackageInfo({
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          dependencies: ['pkg-a'],
+        }),
       ])
 
       await publish({})
@@ -458,8 +638,20 @@ describe('Given publish command', () => {
   describe('When publishing packages', () => {
     it('Then publishes in topological order', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], dependencies: [] }),
-        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], dependencies: ['pkg-a'] }),
+        createMockPackageInfo({
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          dependencies: [],
+        }),
+        createMockPackageInfo({
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          dependencies: ['pkg-a'],
+        }),
       ])
 
       await publish({})
@@ -469,9 +661,18 @@ describe('Given publish command', () => {
     })
 
     it('Then passes package manager to publish', async () => {
-      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm' } }))
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+        publish: { packageManager: 'pnpm' },
+      }))
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
+        createMockPackageInfo({
+          name: 'pkg',
+          version: '1.0.0',
+          path: '/pkg',
+          commits: [],
+          dependencies: [],
+        }),
       ])
 
       await publish({})
@@ -487,7 +688,13 @@ describe('Given publish command', () => {
   describe('When in dry-run mode', () => {
     it('Then passes dryRun to hooks and publish', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
+        createMockPackageInfo({
+          name: 'pkg',
+          version: '1.0.0',
+          path: '/pkg',
+          commits: [],
+          dependencies: [],
+        }),
       ])
 
       await publish({ dryRun: true })
@@ -504,11 +711,29 @@ describe('Given publish command', () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
         bump: { type: 'patch' },
         publish: { packageManager: 'npm' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
       }))
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: '@scope/public', version: '1.0.0', path: '/pub', private: false, commits: [], dependencies: [] }),
-        createMockPackageInfo({ name: '@scope/private', version: '1.0.0', path: '/priv', private: true, commits: [], dependencies: [] }),
+        createMockPackageInfo({
+          name: '@scope/public',
+          version: '1.0.0',
+          path: '/pub',
+          private: false,
+          commits: [],
+          dependencies: [],
+        }),
+        createMockPackageInfo({
+          name: '@scope/private',
+          version: '1.0.0',
+          path: '/priv',
+          private: true,
+          commits: [],
+          dependencies: [],
+        }),
       ])
 
       await publish({})
@@ -526,7 +751,13 @@ describe('Given publish command', () => {
     it('Then executes error hook', async () => {
       vi.mocked(publishPackage).mockRejectedValue(new Error('Publish failed'))
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg', version: '1.0.0', path: '/pkg', commits: [], dependencies: [] }),
+        createMockPackageInfo({
+          name: 'pkg',
+          version: '1.0.0',
+          path: '/pkg',
+          commits: [],
+          dependencies: [],
+        }),
       ])
 
       await expect(publish({})).rejects.toThrow('Publish failed')
@@ -537,26 +768,55 @@ describe('Given publish command', () => {
 })
 
 describe('Given publish command and the workspace dependencies', () => {
-  const pkgA = createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', newVersion: '1.1.0', path: '/pkg-a', commits: [], dependencies: [] })
+  const pkgA = createMockPackageInfo({
+    name: 'pkg-a',
+    version: '1.0.0',
+    newVersion: '1.1.0',
+    path: '/pkg-a',
+    commits: [],
+    dependencies: [],
+  })
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' },
+    }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(publishPackage).mockResolvedValue(undefined)
     vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
   })
 
   it('Then checks them with the versions planned by the bump', async () => {
-    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...pkgA, oldVersion: '1.0.0' }, { ...createMockPackageInfo({ name: 'private-pkg', newVersion: '0.2.0', private: true }), oldVersion: '0.1.0' }] }
+    const bumpResult = {
+      bumped: true as const,
+      bumpedPackages: [
+        { ...pkgA, oldVersion: '1.0.0' },
+        {
+          ...createMockPackageInfo({ name: 'private-pkg', newVersion: '0.2.0', private: true }),
+          oldVersion: '0.1.0',
+        },
+      ],
+    }
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(bumpResult.bumpedPackages)
 
     await publish({ bumpResult })
 
     expect(checkWorkspaceDependencies).toHaveBeenCalledWith(expect.objectContaining({
-      packages: [expect.objectContaining({ name: 'pkg-a' })],
-      plannedVersions: new Map([['pkg-a', '1.1.0'], ['private-pkg', '0.2.0']]),
+      packages: [
+        expect.objectContaining({ name: 'pkg-a' }),
+      ],
+      plannedVersions: new Map([
+        ['pkg-a', '1.1.0'],
+        ['private-pkg', '0.2.0'],
+      ]),
     }))
   })
 
@@ -574,7 +834,9 @@ describe('Given publish command and the workspace dependencies', () => {
   it('Then fails when targeting version groups on a config without groups', async () => {
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([pkgA])
 
-    await expect(publish({ groups: ['header'] })).rejects.toThrow('the config has no monorepo.groups')
+    await expect(publish({
+      groups: ['header'],
+    })).rejects.toThrow('the config has no monorepo.groups')
 
     expect(publishPackage).not.toHaveBeenCalled()
   })
@@ -582,18 +844,41 @@ describe('Given publish command and the workspace dependencies', () => {
 
 describe('Given the output of publish in CI', () => {
   const packages = [
-    createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', newVersion: '1.1.0', path: '/pkg-a', commits: [], dependencies: [] }),
-    createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', newVersion: '2.1.0', path: '/pkg-b', commits: [], dependencies: [] }),
+    createMockPackageInfo({
+      name: 'pkg-a',
+      version: '1.0.0',
+      newVersion: '1.1.0',
+      path: '/pkg-a',
+      commits: [],
+      dependencies: [],
+    }),
+    createMockPackageInfo({
+      name: 'pkg-b',
+      version: '2.0.0',
+      newVersion: '2.1.0',
+      path: '/pkg-b',
+      commits: [],
+      dependencies: [],
+    }),
   ]
   let output: ReturnType<typeof captureCliOutput>
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' }, safetyCheck: false }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' },
+      safetyCheck: false,
+    }))
     vi.mocked(publishPackage).mockResolvedValue(undefined)
     vi.mocked(topologicalSort).mockImplementation(pkgs => pkgs)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(packages)
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
     output = captureCliOutput()
   })
 

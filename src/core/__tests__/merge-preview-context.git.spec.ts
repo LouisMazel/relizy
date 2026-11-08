@@ -9,7 +9,16 @@ import { withGitCache } from '../git-cache'
 import { getMergePreviewPullRequest, prepareMergePreviewContext } from '../merge-preview/context'
 
 /** The variables telling relizy it runs in a CI, cleared so the tests run the same locally and in CI */
-const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'BUILD_ID', 'JENKINS_URL', 'JENKINS_HOME']
+const CI_VARIABLES = [
+  'CI',
+  'CONTINUOUS_INTEGRATION',
+  'GITHUB_ACTIONS',
+  'GITHUB_WORKFLOW',
+  'GITLAB_CI',
+  'BUILD_ID',
+  'JENKINS_URL',
+  'JENKINS_HOME',
+]
 
 const cleanups: (() => void)[] = []
 
@@ -27,8 +36,23 @@ function setup(): { origin: GitRepository, cwd: string, git: (...args: string[])
   origin.git('tag', 'v1.0.0')
 
   const cwd = join(tempDir(), 'clone')
-  execFileSync('git', ['clone', '--quiet', `file://${origin.cwd}`, cwd])
-  const git = (...args: string[]) => execFileSync('git', ['-c', 'user.name=Dev', '-c', 'user.email=dev@example.com', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  execFileSync('git', [
+    'clone',
+    '--quiet',
+    `file://${origin.cwd}`,
+    cwd,
+  ])
+  const git = (...args: string[]) => execFileSync('git', [
+    '-c',
+    'user.name=Dev',
+    '-c',
+    'user.email=dev@example.com',
+    ...args,
+  ], {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
 
   git('checkout', '--quiet', '-b', 'feature')
   writeFileSync(join(cwd, 'feature.txt'), 'feature')
@@ -38,7 +62,12 @@ function setup(): { origin: GitRepository, cwd: string, git: (...args: string[])
   return { origin, cwd, git }
 }
 
-const pullRequest: MergePreviewPullRequest = { provider: 'github', kind: 'pull request', number: 12, targetBranch: 'main' }
+const pullRequest: MergePreviewPullRequest = {
+  provider: 'github',
+  kind: 'pull request',
+  number: 12,
+  targetBranch: 'main',
+}
 
 beforeEach(() => {
   for (const name of CI_VARIABLES) {
@@ -59,7 +88,14 @@ afterAll(() => {
 describe('Given the environment of a CI job', () => {
   it('When it runs for a GitHub pull request, Then reads the pull request from the event', () => {
     const eventPath = join(tempDir(), 'event.json')
-    writeFileSync(eventPath, JSON.stringify({ pull_request: { number: 42, title: 'feat: add it', body: 'The why', head: { sha: 'abc123' } } }))
+    writeFileSync(eventPath, JSON.stringify({
+      pull_request: {
+        number: 42,
+        title: 'feat: add it',
+        body: 'The why',
+        head: { sha: 'abc123' },
+      },
+    }))
 
     expect(getMergePreviewPullRequest({ GITHUB_ACTIONS: 'true', GITHUB_BASE_REF: 'main', GITHUB_EVENT_PATH: eventPath })).toEqual({
       provider: 'github',
@@ -129,7 +165,9 @@ describe('Given the merge of a pull request to preview', () => {
       pullRequest,
       targetSha: origin.git('rev-parse', 'HEAD'),
       headSha: git('rev-parse', 'HEAD'),
-      commits: [git('rev-parse', 'HEAD')],
+      commits: [
+        git('rev-parse', 'HEAD'),
+      ],
       merged: true,
     })
   })
@@ -139,7 +177,11 @@ describe('Given the merge of a pull request to preview', () => {
     origin.commit('fix: on main', { 'package.json': '{ "version": "1.0.1" }\n', 'main.txt': 'main' })
     const head = git('rev-parse', 'HEAD')
 
-    const context = await withGitCache(() => prepareMergePreviewContext({ pullRequest, cwd, env: { CI: 'true' } }))
+    const context = await withGitCache(() => prepareMergePreviewContext({
+      pullRequest,
+      cwd,
+      env: { CI: 'true' },
+    }))
 
     expect(context.merged).toBe(true)
     expect(context.warning).toBeUndefined()
@@ -167,7 +209,11 @@ describe('Given the merge of a pull request to preview', () => {
     origin.commit('fix: on main', { 'feature.txt': 'main' })
     const head = git('rev-parse', 'HEAD')
 
-    const context = await withGitCache(() => prepareMergePreviewContext({ pullRequest, cwd, env: { CI: 'true' } }))
+    const context = await withGitCache(() => prepareMergePreviewContext({
+      pullRequest,
+      cwd,
+      env: { CI: 'true' },
+    }))
 
     expect(context.merged).toBe(false)
     expect(context.warning).toBe('The pull request conflicts with main: the preview is computed without its last commits')
@@ -181,7 +227,11 @@ describe('Given the merge of a pull request to preview', () => {
     // The merge commit of refs/pull/<number>/merge, with a commit the pull request does not have
     git('commit', '--quiet', '--allow-empty', '-m', 'chore: not in the pull request')
 
-    const context = await withGitCache(() => prepareMergePreviewContext({ pullRequest: { ...pullRequest, headSha: head }, cwd, env: {} }))
+    const context = await withGitCache(() => prepareMergePreviewContext({
+      pullRequest: { ...pullRequest, headSha: head },
+      cwd,
+      env: {},
+    }))
 
     expect(context.headSha).toBe(head)
     expect(context.commits).toEqual([head])
@@ -190,7 +240,11 @@ describe('Given the merge of a pull request to preview', () => {
   it('When the target branch does not exist, Then throws how to fetch it', async () => {
     const { cwd } = setup()
 
-    await expect(withGitCache(() => prepareMergePreviewContext({ pullRequest: { ...pullRequest, targetBranch: 'nope' }, cwd, env: {} })))
+    await expect(withGitCache(() => prepareMergePreviewContext({
+      pullRequest: { ...pullRequest, targetBranch: 'nope' },
+      cwd,
+      env: {},
+    })))
       .rejects
       .toThrow('Cannot find the target branch "nope" of the pull request: fetch it before the preview (git fetch origin nope)')
   })

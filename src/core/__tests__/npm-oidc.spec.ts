@@ -1,7 +1,9 @@
 import { execSync } from 'node:child_process'
 import { assertTrustedPublishingNpm, getEnvNpmToken, getPublishingNpmVersion, getTrustedPublishing, getTrustedPublishingProvider, isNpmjsRegistry } from '../npm-oidc'
 
-vi.mock('node:child_process', () => ({ execSync: vi.fn() }))
+vi.mock('node:child_process', () => ({
+  execSync: vi.fn(),
+}))
 
 const GITHUB_OIDC = { GITHUB_ACTIONS: 'true', ACTIONS_ID_TOKEN_REQUEST_URL: 'https://token.actions.githubusercontent.com', ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'request-token' }
 

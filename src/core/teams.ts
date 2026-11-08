@@ -35,7 +35,9 @@ const PRERELEASE_BADGE = 'Prerelease'
 const CONNECTOR_URL = /^https:\/\/[^/]*(?:webhook\.office\.com|outlook\.office(?:365)?\.com\/webhook)/i
 
 function decodeBase64(value: string | undefined): string | undefined {
-  return value ? Buffer.from(value.trim(), 'base64').toString('utf8').trim() : undefined
+  return value
+    ? Buffer.from(value.trim(), 'base64').toString('utf8').trim()
+    : undefined
 }
 
 /**
@@ -97,7 +99,11 @@ export function resolveTeamsAnnouncements(teams: TeamsSocialConfig, versions: Te
   return versions.flatMap((version) => {
     const content = resolveAnnouncement(version.line, teams, teams)
 
-    return content ? [{ version, content }] : []
+    return content
+      ? [
+          { version, content },
+        ]
+      : []
   })
 }
 
@@ -148,7 +154,9 @@ export function toTeamsMarkdown(markdown: string): string {
       const text = line.replaceAll(/<\/?[a-z][^<>]*>/gi, '').trimEnd()
       const heading = /^#{1,6} /.exec(text)
 
-      return heading ? `**${text.slice(heading[0].length).trim()}**` : text
+      return heading
+        ? `**${text.slice(heading[0].length).trim()}**`
+        : text
     })
     .join('\n')
     .replace(/\n{3,}/g, '\n\n')
@@ -186,10 +194,15 @@ export function fitTeamsChangelog(changelog: string, maxSize: number): string {
   const kept: string[] = []
 
   for (const entry of entries) {
-    const omitted = total - kept.filter(isChange).length - (isChange(entry) ? 1 : 0)
+    const omitted = total - kept.filter(isChange).length - (isChange(entry)
+      ? 1
+      : 0)
     const candidate = [...kept, entry].join('\n').trim()
 
-    if (getJsonSize([candidate, getOmittedLine(omitted)].join('\n\n')) > maxSize) {
+    if (getJsonSize([
+      candidate,
+      getOmittedLine(omitted),
+    ].join('\n\n')) > maxSize) {
       break
     }
     kept.push(entry)
@@ -202,7 +215,12 @@ export function fitTeamsChangelog(changelog: string, maxSize: number): string {
 
   const omitted = total - kept.filter(isChange).length
 
-  return [kept.join('\n').trim(), omitted > 0 ? getOmittedLine(omitted) : ''].filter(Boolean).join('\n\n')
+  return [
+    kept.join('\n').trim(),
+    omitted > 0
+      ? getOmittedLine(omitted)
+      : '',
+  ].filter(Boolean).join('\n\n')
 }
 
 type CardElement = Record<string, unknown>
@@ -221,21 +239,63 @@ function getBadge(badge: TeamsSocialConfig['badge'], prerelease: boolean): CardE
     style,
     icon: 'Code',
     // The clients without the Badge element (older mobile apps) show a text
-    fallback: { type: 'TextBlock', text: `**${text}**`, color: style === 'Good' ? 'Good' : 'Warning', size: 'Small', wrap: true },
+    fallback: {
+      type: 'TextBlock',
+      text: `**${text}**`,
+      color: style === 'Good'
+        ? 'Good'
+        : 'Warning',
+      size: 'Small',
+      wrap: true,
+    },
   }
 }
 
 function getSectionBody(section: TeamsCardSection, { titleSize, facts }: { titleSize: string, facts: { title: string, value: string }[] }): CardElement[] {
   return [
-    { type: 'TextBlock', text: section.title, size: titleSize, weight: 'Bolder', color: 'Accent', wrap: true, style: 'heading' },
-    ...(section.message ? [{ type: 'TextBlock', text: section.message, wrap: true, spacing: 'Small' }] : []),
-    { type: 'FactSet', facts: [{ title: 'Version', value: section.version }, ...facts] },
-    ...(section.changelog ? [{ type: 'TextBlock', text: section.changelog, wrap: true }] : []),
+    {
+      type: 'TextBlock',
+      text: section.title,
+      size: titleSize,
+      weight: 'Bolder',
+      color: 'Accent',
+      wrap: true,
+      style: 'heading',
+    },
+    ...(section.message
+      ? [
+          {
+            type: 'TextBlock',
+            text: section.message,
+            wrap: true,
+            spacing: 'Small',
+          },
+        ]
+      : []),
+    {
+      type: 'FactSet',
+      facts: [
+        { title: 'Version', value: section.version },
+        ...facts,
+      ],
+    },
+    ...(section.changelog
+      ? [
+          { type: 'TextBlock', text: section.changelog, wrap: true },
+        ]
+      : []),
     ...(section.links.length > 0
-      ? [{
-          type: 'ActionSet',
-          actions: section.links.map((link, index) => ({ type: 'Action.OpenUrl', title: link.title, url: link.url, ...(index === 0 && { style: 'positive' }) })),
-        }]
+      ? [
+          {
+            type: 'ActionSet',
+            actions: section.links.map((link, index) => ({
+              type: 'Action.OpenUrl',
+              title: link.title,
+              url: link.url,
+              ...(index === 0 && { style: 'positive' }),
+            })),
+          },
+        ]
       : []),
   ]
 }
@@ -264,43 +324,83 @@ export function buildTeamsMessage({ sections, title, badge, locale, date = new D
   date?: Date
 }): Record<string, unknown> {
   const prerelease = sections.every(section => section.prerelease)
-  const dateFact = { title: 'Date', value: formatTeamsDate(date, locale) }
+  const dateFact = {
+    title: 'Date',
+    value: formatTeamsDate(date, locale),
+  }
   const badgeElement = getBadge(badge, prerelease)
-  const body: CardElement[] = badgeElement ? [badgeElement] : []
+  const body: CardElement[] = badgeElement
+    ? [badgeElement]
+    : []
 
   if (sections.length === 1) {
-    body.push({ type: 'Container', items: getSectionBody(sections[0]!, { titleSize: 'ExtraLarge', facts: [dateFact] }) })
+    body.push({
+      type: 'Container',
+      items: getSectionBody(sections[0]!, {
+        titleSize: 'ExtraLarge',
+        facts: [dateFact],
+      }),
+    })
   }
   else {
     body.push(
-      { type: 'TextBlock', text: title ?? 'New releases', size: 'ExtraLarge', weight: 'Bolder', color: 'Accent', wrap: true, style: 'heading' },
-      { type: 'TextBlock', text: dateFact.value, isSubtle: true, spacing: 'Small', wrap: true },
+      {
+        type: 'TextBlock',
+        text: title ?? 'New releases',
+        size: 'ExtraLarge',
+        weight: 'Bolder',
+        color: 'Accent',
+        wrap: true,
+        style: 'heading',
+      },
+      {
+        type: 'TextBlock',
+        text: dateFact.value,
+        isSubtle: true,
+        spacing: 'Small',
+        wrap: true,
+      },
     )
 
     sections.forEach((section, index) => {
       const showGroup = section.groupTitle && section.groupTitle !== sections[index - 1]?.groupTitle
 
       if (showGroup) {
-        body.push({ type: 'TextBlock', text: section.groupTitle, size: 'Large', weight: 'Bolder', separator: true, spacing: 'Large', wrap: true })
+        body.push({
+          type: 'TextBlock',
+          text: section.groupTitle,
+          size: 'Large',
+          weight: 'Bolder',
+          separator: true,
+          spacing: 'Large',
+          wrap: true,
+        })
       }
 
-      body.push({ type: 'Container', separator: !showGroup, spacing: 'Medium', items: getSectionBody(section, { titleSize: 'Medium', facts: [] }) })
+      body.push({
+        type: 'Container',
+        separator: !showGroup,
+        spacing: 'Medium',
+        items: getSectionBody(section, { titleSize: 'Medium', facts: [] }),
+      })
     })
   }
 
   return {
     type: 'message',
-    attachments: [{
-      contentType: 'application/vnd.microsoft.card.adaptive',
-      contentUrl: null,
-      content: {
-        $schema: 'https://adaptivecards.io/schemas/adaptive-card.json',
-        type: 'AdaptiveCard',
-        version: '1.5',
-        msteams: { width: 'Full' },
-        body,
+    attachments: [
+      {
+        contentType: 'application/vnd.microsoft.card.adaptive',
+        contentUrl: null,
+        content: {
+          $schema: 'https://adaptivecards.io/schemas/adaptive-card.json',
+          type: 'AdaptiveCard',
+          version: '1.5',
+          msteams: { width: 'Full' },
+          body,
+        },
       },
-    }],
+    ],
   }
 }
 
@@ -318,7 +418,10 @@ export function renderTeamsMessagePreview({ sections, title }: { sections: Teams
     return renderSection(sections[0]!)
   }
 
-  return [title ?? 'New releases', ...sections.map(renderSection)].join('\n\n')
+  return [
+    title ?? 'New releases',
+    ...sections.map(renderSection),
+  ].join('\n\n')
 }
 
 /** The hint of an HTTP error of a workflow */
@@ -338,7 +441,9 @@ function getTeamsErrorHint(status: number): string | undefined {
 function getRetryDelay(response: Response): number {
   const seconds = Number(response.headers.get('retry-after'))
 
-  return Number.isFinite(seconds) && seconds > 0 ? Math.min(seconds * 1000, TEAMS_MAX_RETRY_DELAY) : 2000
+  return Number.isFinite(seconds) && seconds > 0
+    ? Math.min(seconds * 1000, TEAMS_MAX_RETRY_DELAY)
+    : 2000
 }
 
 async function postTeamsMessage(url: string, body: string): Promise<void> {
@@ -386,7 +491,11 @@ export interface TeamsCard {
  * what the rest of the card leaves, each one cut between two changes
  */
 export function fitTeamsCard(card: TeamsCard, options: { badge?: TeamsSocialConfig['badge'], locale?: string, date?: Date }): TeamsCard {
-  const getSize = (sections: TeamsCardSection[]) => Buffer.byteLength(JSON.stringify(buildTeamsMessage({ ...card, ...options, sections })))
+  const getSize = (sections: TeamsCardSection[]) => Buffer.byteLength(JSON.stringify(buildTeamsMessage({
+    ...card,
+    ...options,
+    sections,
+  })))
 
   if (getSize(card.sections) <= TEAMS_MAX_PAYLOAD_BYTES) {
     return card
@@ -397,7 +506,13 @@ export function fitTeamsCard(card: TeamsCard, options: { badge?: TeamsSocialConf
   const budget = TEAMS_MAX_PAYLOAD_BYTES - getSize(card.sections.map(section => ({ ...section, changelog: '' }))) - blockSize * card.sections.length
   const shares = shareBudget(budget, card.sections.map(section => getJsonSize(section.changelog)))
 
-  return { ...card, sections: card.sections.map((section, index) => ({ ...section, changelog: fitTeamsChangelog(section.changelog, shares[index]!) })) }
+  return {
+    ...card,
+    sections: card.sections.map((section, index) => ({
+      ...section,
+      changelog: fitTeamsChangelog(section.changelog, shares[index]!),
+    })),
+  }
 }
 
 export async function postReleaseToTeams({ cards, webhookUrl, badge, locale, date, dryRun = false }: {
@@ -410,7 +525,10 @@ export async function postReleaseToTeams({ cards, webhookUrl, badge, locale, dat
 }): Promise<{ posted: number }> {
   const messages = cards
     .map(card => fitTeamsCard(card, { badge, locale, date }))
-    .map(card => ({ card, body: JSON.stringify(buildTeamsMessage({ ...card, badge, locale, date })) }))
+    .map(card => ({
+      card,
+      body: JSON.stringify(buildTeamsMessage({ ...card, badge, locale, date })),
+    }))
 
   for (const [index, { card, body }] of messages.entries()) {
     const size = Buffer.byteLength(body)
@@ -422,7 +540,13 @@ export async function postReleaseToTeams({ cards, webhookUrl, badge, locale, dat
     logger.verbose(`Teams card ${index + 1}/${messages.length}:`, body)
 
     if (dryRun) {
-      showPreview({ title: 'Teams card', meta: messages.length > 1 ? [`${index + 1} of ${messages.length}`] : [], content: renderTeamsMessagePreview(card) })
+      showPreview({
+        title: 'Teams card',
+        meta: messages.length > 1
+          ? [`${index + 1} of ${messages.length}`]
+          : [],
+        content: renderTeamsMessagePreview(card),
+      })
       continue
     }
 

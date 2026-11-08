@@ -346,36 +346,76 @@ describe('Given detectPullRequest function', () => {
   })
 
   describe('When the branch has no open pull request, after a merge', () => {
-    const githubConfig = () => createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' } })
+    const githubConfig = () => createMockConfig({
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      tokens: { github: 'test-token' },
+    })
 
     it('Then finds the GitHub pull request of the commit', async () => {
       vi.mocked(runGitSync).mockReturnValue('main')
       vi.mocked(fetch)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([]) } as Response)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 12, html_url: 'https://github.com/user/repo/pull/12' }]) } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([]),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { number: 12, html_url: 'https://github.com/user/repo/pull/12' },
+          ]),
+        } as Response)
 
-      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+      const result = await detectPullRequest({
+        config: githubConfig(),
+        sha: 'abc123',
+      })
 
       expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
-      expect(result).toEqual({ number: 12, url: 'https://github.com/user/repo/pull/12', provider: 'github', ofCommit: true })
+      expect(result).toEqual({
+        number: 12,
+        url: 'https://github.com/user/repo/pull/12',
+        provider: 'github',
+        ofCommit: true,
+      })
     })
 
     it('Then finds the GitLab merge request of the commit, from a detached HEAD too', async () => {
       vi.mocked(runGitSync).mockReturnValue('HEAD')
-      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ iid: 7, web_url: 'https://gitlab.com/user/repo/-/merge_requests/7' }]) } as Response)
-      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'glpat-token' } })
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { iid: 7, web_url: 'https://gitlab.com/user/repo/-/merge_requests/7' },
+        ]),
+      } as Response)
+      const config = createMockConfig({
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'glpat-token' },
+      })
 
       const result = await detectPullRequest({ config, sha: 'abc123' })
 
       expect(fetch).toHaveBeenCalledWith('https://gitlab.com/api/v4/projects/user%2Frepo/repository/commits/abc123/merge_requests', expect.anything())
-      expect(result).toEqual({ number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab', ofCommit: true })
+      expect(result).toEqual({
+        number: 7,
+        url: 'https://gitlab.com/user/repo/-/merge_requests/7',
+        provider: 'gitlab',
+        ofCommit: true,
+      })
     })
 
     it('Then keeps the open pull request of the branch first', async () => {
       vi.mocked(runGitSync).mockReturnValue('feat/parser')
-      vi.mocked(fetch).mockResolvedValueOnce({ ok: true, json: () => Promise.resolve([{ number: 3, html_url: 'https://github.com/user/repo/pull/3' }]) } as Response)
+      vi.mocked(fetch).mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve([
+          { number: 3, html_url: 'https://github.com/user/repo/pull/3' },
+        ]),
+      } as Response)
 
-      const result = await detectPullRequest({ config: githubConfig(), sha: 'abc123' })
+      const result = await detectPullRequest({
+        config: githubConfig(),
+        sha: 'abc123',
+      })
 
       expect(fetch).toHaveBeenCalledTimes(1)
       expect(result?.number).toBe(3)
@@ -670,11 +710,18 @@ describe('Given postPrComment function', () => {
   describe('When the GitLab token is the job token of the CI job', () => {
     it('Then it does not comment, and tells which token to set', async () => {
       vi.stubEnv('CI_JOB_TOKEN', 'job-token')
-      const config = createMockConfig({ repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }, tokens: { gitlab: 'job-token' } })
+      const config = createMockConfig({
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'job-token' },
+      })
       const warnSpy = vi.spyOn(logger, 'warn')
 
       try {
-        const posted = await postPrComment({ config, pr: { number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' }, body: commentBody })
+        const posted = await postPrComment({
+          config,
+          pr: { number: 7, url: 'https://gitlab.com/user/repo/-/merge_requests/7', provider: 'gitlab' },
+          body: commentBody,
+        })
 
         expect(posted).toBe(false)
       }
@@ -775,14 +822,25 @@ describe('Given postPrComment function', () => {
 
     function mockComments() {
       vi.mocked(fetch)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve(comments) } as Response)
-        .mockResolvedValueOnce({ ok: true, json: () => Promise.resolve({}) } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve(comments),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({}),
+        } as Response)
     }
 
     it('Then the merge preview updates its own comment, even in append mode', async () => {
       mockComments()
 
-      await postPrComment({ config: createGitHubConfig('append'), pr: githubPr, body: `${MERGE_PREVIEW_MARKER}\nNew preview`, marker: MERGE_PREVIEW_MARKER })
+      await postPrComment({
+        config: createGitHubConfig('append'),
+        pr: githubPr,
+        body: `${MERGE_PREVIEW_MARKER}\nNew preview`,
+        marker: MERGE_PREVIEW_MARKER,
+      })
 
       expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({ method: 'PATCH' }))
     })
@@ -790,7 +848,11 @@ describe('Given postPrComment function', () => {
     it('Then the release of the open pull request (canary) updates the comment of the canary', async () => {
       mockComments()
 
-      await postPrComment({ config: createGitHubConfig('update'), pr: githubPr, body: commentBody })
+      await postPrComment({
+        config: createGitHubConfig('update'),
+        pr: githubPr,
+        body: commentBody,
+      })
 
       expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/100', expect.objectContaining({ method: 'PATCH' }))
     })
@@ -798,9 +860,16 @@ describe('Given postPrComment function', () => {
     it('Then the release of the merge rewrites the merge preview', async () => {
       mockComments()
 
-      await postPrComment({ config: createGitHubConfig('update'), pr: { ...githubPr, ofCommit: true }, body: commentBody })
+      await postPrComment({
+        config: createGitHubConfig('update'),
+        pr: { ...githubPr, ofCommit: true },
+        body: commentBody,
+      })
 
-      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ body: commentBody }) }))
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({
+        method: 'PATCH',
+        body: JSON.stringify({ body: commentBody }),
+      }))
     })
   })
 

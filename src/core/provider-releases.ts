@@ -55,7 +55,9 @@ async function postRelease({
     logger.info(`[dry-run] Publish ${provider.name} release for ${release.tag}`)
     showPreview({
       title: `${provider.name} release ${release.tag}`,
-      meta: provider.flagsPrereleases && release.prerelease ? ['Prerelease'] : [],
+      meta: provider.flagsPrereleases && release.prerelease
+        ? ['Prerelease']
+        : [],
       content: release.notes,
     })
     return
@@ -117,7 +119,12 @@ async function postPackageRelease({
     config,
     dryRun,
     newVersion,
-    include: { title: false, compareLink: false, body: true, contributors: false },
+    include: {
+      title: false,
+      compareLink: false,
+      body: true,
+      contributors: false,
+    },
   })
 
   if (!bodyOnly.trim()) {
@@ -131,16 +138,36 @@ async function postPackageRelease({
     config,
     dryRun,
     newVersion,
-    include: { title: false, compareLink: true, body: true, contributors: true },
+    include: {
+      title: false,
+      compareLink: true,
+      body: true,
+      contributors: true,
+    },
     transformBody: usesAIForVersion(config, newVersion)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: pkg.name, version: newVersion, previousVersion: extractVersionFromTag(from, pkg.name) || undefined }, dryRun })
+      ? body => generateAIProviderReleaseBody({
+        config,
+        rawBody: body,
+        label: to,
+        context: { project: pkg.name, version: newVersion, previousVersion: extractVersionFromTag(from, pkg.name) || undefined },
+        dryRun,
+      })
       : undefined,
   })
 
-  const release = { tag: to, notes, prerelease: isPrerelease(newVersion) }
+  const release = {
+    tag: to,
+    notes,
+    prerelease: isPrerelease(newVersion),
+  }
   await postRelease({ provider, config, release, dryRun })
 
-  return { name: pkg.name, tag: to, version: newVersion, prerelease: release.prerelease }
+  return {
+    name: pkg.name,
+    tag: to,
+    version: newVersion,
+    prerelease: release.prerelease,
+  }
 }
 
 async function postIndependentReleases({
@@ -210,18 +237,40 @@ async function postRootRelease({
     config,
     dryRun,
     newVersion,
-    include: { title: false, compareLink: true, body: true, contributors: true },
+    include: {
+      title: false,
+      compareLink: true,
+      body: true,
+      contributors: true,
+    },
     transformBody: usesAIForVersion(config, newVersion)
-      ? body => generateAIProviderReleaseBody({ config, rawBody: body, label: to, context: { project: config.projectName || rootPackage.name, version: newVersion, previousVersion: extractVersionFromTag(from) || bumpResult?.oldVersion }, dryRun })
+      ? body => generateAIProviderReleaseBody({
+        config,
+        rawBody: body,
+        label: to,
+        context: { project: config.projectName || rootPackage.name, version: newVersion, previousVersion: extractVersionFromTag(from) || bumpResult?.oldVersion },
+        dryRun,
+      })
       : undefined,
   })
 
-  const release = { tag: to, notes, prerelease: isPrerelease(newVersion) }
+  const release = {
+    tag: to,
+    notes,
+    prerelease: isPrerelease(newVersion),
+  }
   await postRelease({ provider, config, release, dryRun })
 
   logger.success(`Release ${to} published to ${provider.name}!`)
 
-  return [{ name: to, tag: to, version: to, prerelease: release.prerelease }]
+  return [
+    {
+      name: to,
+      tag: to,
+      version: to,
+      prerelease: release.prerelease,
+    },
+  ]
 }
 
 /**
@@ -252,7 +301,14 @@ export async function postProviderReleases(provider: ReleaseProvider, options: P
     const force = options.force ?? false
 
     if (config.monorepo?.versionMode === 'independent') {
-      return await postIndependentReleases({ provider, config, dryRun, bumpResult: options.bumpResult, force, suffix: options.suffix })
+      return await postIndependentReleases({
+        provider,
+        config,
+        dryRun,
+        bumpResult: options.bumpResult,
+        force,
+        suffix: options.suffix,
+      })
     }
 
     const rootPackageBase = readPackageJson(config.cwd)
@@ -280,7 +336,13 @@ export async function postProviderReleases(provider: ReleaseProvider, options: P
       dryRun,
     })
 
-    return await postRootRelease({ provider, config, dryRun, rootPackage, bumpResult: options.bumpResult })
+    return await postRootRelease({
+      provider,
+      config,
+      dryRun,
+      rootPackage,
+      bumpResult: options.bumpResult,
+    })
   }
   catch (error) {
     logger.error(`Error publishing ${provider.name} release:`, error)

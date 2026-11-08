@@ -25,7 +25,9 @@ type Env = NodeJS.ProcessEnv
 
 function getHost(url: string | undefined, fallback: string): string {
   try {
-    return url ? new URL(url).host : fallback
+    return url
+      ? new URL(url).host
+      : fallback
   }
   catch {
     return fallback
@@ -77,14 +79,18 @@ export function getCiBranch(env: Env = process.env): string | undefined {
       return env.GITHUB_HEAD_REF
     }
 
-    return env.GITHUB_REF_TYPE === 'branch' ? env.GITHUB_REF_NAME : undefined
+    return env.GITHUB_REF_TYPE === 'branch'
+      ? env.GITHUB_REF_NAME
+      : undefined
   }
   if (env.GITLAB_CI === 'true') {
     // A merge request pipeline has no CI_COMMIT_BRANCH; a merged results one checks out its merge commit
     return env.CI_COMMIT_BRANCH || env.CI_MERGE_REQUEST_SOURCE_BRANCH_NAME || undefined
   }
   if (env.TRAVIS === 'true') {
-    return env.TRAVIS_PULL_REQUEST === 'false' ? env.TRAVIS_BRANCH : undefined
+    return env.TRAVIS_PULL_REQUEST === 'false'
+      ? env.TRAVIS_BRANCH
+      : undefined
   }
   if (env.TF_BUILD === 'True' && env.BUILD_SOURCEBRANCH?.startsWith('refs/heads/')) {
     return env.BUILD_SOURCEBRANCH.slice('refs/heads/'.length)
@@ -116,7 +122,12 @@ export function ensureFullHistory(cwd: string): void {
   }
 
   try {
-    runGitSync(['fetch', '--unshallow', '--tags', '--quiet'], { cwd })
+    runGitSync([
+      'fetch',
+      '--unshallow',
+      '--tags',
+      '--quiet',
+    ], { cwd })
     clearGitCache()
     logger.info('Fetched the full git history of the shallow clone')
   }
@@ -148,7 +159,12 @@ export function attachCiBranch(cwd: string, env: Env = process.env): void {
   runGitSync(['checkout', '-B', branch], { cwd })
   clearGitCache()
 
-  const tracked = tryGitSync(['fetch', '--quiet', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd }) !== undefined
+  const tracked = tryGitSync([
+    'fetch',
+    '--quiet',
+    'origin',
+    `+refs/heads/${branch}:refs/remotes/origin/${branch}`,
+  ], { cwd }) !== undefined
   if (tracked) {
     runGitSync(['branch', `--set-upstream-to=origin/${branch}`], { cwd })
   }
@@ -186,16 +202,21 @@ export function applyCiGitIdentity(cwd: string, env: Env = process.env): GitIden
 /**
  * Prepare the repository of a CI job for a command reading the history or
  * committing: once per repository and run, a no-op outside a CI (except the
- * shallow clone warning).
+ * shallow clone warning). `commit: false` for a command that only reads it:
+ * no git identity of the release commit.
  */
-export function prepareCiRepository(cwd: string): void {
+export function prepareCiRepository(cwd: string, { commit = true }: { commit?: boolean } = {}): void {
   oncePerRun({
-    key: 'prepare-ci-repository',
+    key: commit
+      ? 'prepare-ci-repository'
+      : 'prepare-ci-repository-read',
     cwd,
     run: () => {
       ensureFullHistory(cwd)
       attachCiBranch(cwd)
-      applyCiGitIdentity(cwd)
+      if (commit) {
+        applyCiGitIdentity(cwd)
+      }
     },
   })
 }
@@ -206,7 +227,9 @@ export function prepareCiRepository(cwd: string): void {
  */
 function getGitlabPushToken(config: ResolvedRelizyConfig, env: Env): string | undefined {
   const token = config.tokens.gitlab
-  return env.GITLAB_CI === 'true' && token && token !== env.CI_JOB_TOKEN ? token : undefined
+  return env.GITLAB_CI === 'true' && token && token !== env.CI_JOB_TOKEN
+    ? token
+    : undefined
 }
 
 /**
@@ -233,7 +256,11 @@ export function isPushRejectedAsBehind(error: unknown): boolean {
   }
 
   const { message, stderr } = error as { message?: unknown, stderr?: unknown }
-  const output = `${typeof message === 'string' ? message : ''}\n${typeof stderr === 'string' ? stderr : ''}`
+  const output = `${typeof message === 'string'
+    ? message
+    : ''}\n${typeof stderr === 'string'
+    ? stderr
+    : ''}`
 
   return output.includes('(non-fast-forward)') || output.includes('(fetch first)')
 }
@@ -249,10 +276,14 @@ function withoutCredentials(text: string): string {
  */
 function getPushRefusal(error: unknown): string | undefined {
   const { stderr } = (error ?? {}) as { stderr?: unknown }
-  const lines = (typeof stderr === 'string' ? stderr : '').split('\n').map(line => line.trim())
+  const lines = (typeof stderr === 'string'
+    ? stderr
+    : '').split('\n').map(line => line.trim())
   const reasons = lines.filter(line => /^(?:fatal|error|remote):/.test(line) || line.includes('[rejected]') || line.includes('[remote rejected]'))
 
-  return reasons.length > 0 ? withoutCredentials(reasons.slice(0, 3).join('\n')) : undefined
+  return reasons.length > 0
+    ? withoutCredentials(reasons.slice(0, 3).join('\n'))
+    : undefined
 }
 
 /**
@@ -262,11 +293,20 @@ function getPushRefusal(error: unknown): string | undefined {
  */
 function getPushProblem({ remote, branch, cwd, env }: { remote: string, branch: string, cwd: string, env: Env }): string | undefined {
   try {
-    runGitSync(['push', '--dry-run', '--no-verify', '--quiet', remote, `HEAD:refs/heads/${branch}`], { cwd, env })
+    runGitSync([
+      'push',
+      '--dry-run',
+      '--no-verify',
+      '--quiet',
+      remote,
+      `HEAD:refs/heads/${branch}`,
+    ], { cwd, env })
     return undefined
   }
   catch (error) {
-    return isPushRejectedAsBehind(error) ? undefined : getPushRefusal(error) ?? ''
+    return isPushRejectedAsBehind(error)
+      ? undefined
+      : getPushRefusal(error) ?? ''
   }
 }
 
@@ -275,8 +315,12 @@ function getPushProblem({ remote, branch, cwd, env }: { remote: string, branch: 
  * fix for where it runs
  */
 function getPushError({ remote, remoteUrl, env, refusal }: { remote: string, remoteUrl?: string, env: Env, refusal?: string }): string {
-  const refusalLines = refusal ? refusal.split('\n').map(line => `  ${line}`).join('\n') : ''
-  const gitSaid = refusal ? `Git refused it with:\n${refusalLines}\n` : ''
+  const refusalLines = refusal
+    ? refusal.split('\n').map(line => `  ${line}`).join('\n')
+    : ''
+  const gitSaid = refusal
+    ? `Git refused it with:\n${refusalLines}\n`
+    : ''
 
   if (env.GITLAB_CI === 'true') {
     return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n${gitSaid}`
@@ -293,11 +337,15 @@ function getPushError({ remote, remoteUrl, env, refusal }: { remote: string, rem
 
   const ci = getCIName()
   if (ci) {
-    return `relizy cannot push the release commit and tags to "${remote}" from ${ci === 'Unknown CI' ? 'the CI' : ci}: the credentials of the job cannot push.\n${gitSaid}`
+    return `relizy cannot push the release commit and tags to "${remote}" from ${ci === 'Unknown CI'
+      ? 'the CI'
+      : ci}: the credentials of the job cannot push.\n${gitSaid}`
       + 'Fix: give the release job credentials allowed to push to this repository (a deploy key or a token with write access).'
   }
 
-  const url = remoteUrl ? ` (${withoutCredentials(remoteUrl)})` : ''
+  const url = remoteUrl
+    ? ` (${withoutCredentials(remoteUrl)})`
+    : ''
   return `relizy cannot push the release commit and tags to "${remote}"${url}: git push --dry-run was refused.\n${gitSaid}`
     + 'Fix: check that your git credentials can push to this repository (SSH key, or a token allowed to write), '
     + 'or release without pushing with --no-push.'
@@ -331,7 +379,9 @@ export function getPullRequestPushWarning(env: Env = process.env): string {
  * commits after the run started: their own run previews the release
  */
 export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = process.env }: { upstream: string, missingCommits: number, env?: Env }): string {
-  const request = env.GITLAB_CI === 'true' ? 'merge request' : 'pull request'
+  const request = env.GITLAB_CI === 'true'
+    ? 'merge request'
+    : 'pull request'
 
   return `This run is outdated: ${missingCommits} new commit(s) were pushed to the ${request} ("${upstream}") after it started.\n`
     + 'Nothing to fix: the run of the latest commit previews the release with them, and the release checks the branch again.'
@@ -348,36 +398,44 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
 export function ensurePushAccess({ config, env = process.env }: { config: ResolvedRelizyConfig, env?: Env }): Promise<void> {
   const cwd = config.cwd
 
-  return oncePerRun({ key: 'push-access', cwd, run: () => Promise.resolve().then(() => {
-    const branch = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
-    if (!branch || branch === 'HEAD') {
-      logger.debug('Detached HEAD: the push access is not checked')
-      return
-    }
-
-    const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
-    let refusal = getPushProblem({ remote, branch, cwd, env })
-    if (refusal === undefined) {
-      logger.debug(`The release can be pushed to "${remote}"`)
-      return
-    }
-
-    const token = getGitlabPushToken(config, env)
-    const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd })
-    if (token && remoteUrl?.startsWith('http') && env.CI_SERVER_URL && env.CI_PROJECT_PATH) {
-      const url = new URL(env.CI_SERVER_URL)
-      url.username = 'oauth2'
-      url.password = token
-      url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
-      pushThrough({ url: url.toString(), remoteUrl, env })
-
-      refusal = getPushProblem({ remote, branch, cwd, env })
-      if (refusal === undefined) {
-        logger.info('The release is pushed with the GitLab token (the job token cannot push)')
+  return oncePerRun({
+    key: 'push-access',
+    cwd,
+    run: () => Promise.resolve().then(() => {
+      const branch = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
+      if (!branch || branch === 'HEAD') {
+        logger.debug('Detached HEAD: the push access is not checked')
         return
       }
-    }
 
-    throw new Error(getPushError({ remote, remoteUrl, env, refusal }))
-  }) })
+      const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
+      let refusal = getPushProblem({ remote, branch, cwd, env })
+      if (refusal === undefined) {
+        logger.debug(`The release can be pushed to "${remote}"`)
+        return
+      }
+
+      const token = getGitlabPushToken(config, env)
+      const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd })
+      if (token && remoteUrl?.startsWith('http') && env.CI_SERVER_URL && env.CI_PROJECT_PATH) {
+        const url = new URL(env.CI_SERVER_URL)
+        url.username = 'oauth2'
+        url.password = token
+        url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
+        pushThrough({
+          url: url.toString(),
+          remoteUrl,
+          env,
+        })
+
+        refusal = getPushProblem({ remote, branch, cwd, env })
+        if (refusal === undefined) {
+          logger.info('The release is pushed with the GitLab token (the job token cannot push)')
+          return
+        }
+      }
+
+      throw new Error(getPushError({ remote, remoteUrl, env, refusal }))
+    }),
+  })
 }

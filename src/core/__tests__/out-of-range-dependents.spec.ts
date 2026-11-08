@@ -26,9 +26,18 @@ function writePackage(name: string, content: Record<string, unknown>): string {
 
 describe('Given getOutOfRangeDependencies function', () => {
   function check(specifier: string, change: VersionChange) {
-    const packagePath = writePackage('upgrade', { version: '5.3.1', dependencies: { node: specifier } })
+    const packagePath = writePackage('upgrade', {
+      version: '5.3.1',
+      dependencies: { node: specifier },
+    })
 
-    return getOutOfRangeDependencies({ packagePath, bumped: new Map([['node', change]]), fields: ['dependencies'] })
+    return getOutOfRangeDependencies({
+      packagePath,
+      bumped: new Map([
+        ['node', change],
+      ]),
+      fields: ['dependencies'],
+    })
   }
 
   it.each([
@@ -36,31 +45,70 @@ describe('Given getOutOfRangeDependencies function', () => {
     ['workspace:^', '5.4.0', '6.0.0', true],
     ['workspace:^', '0.4.0', '0.5.0', true],
     // npm rejects a prerelease of another version than the one of the range
-    ['workspace:^', '5.4.0', '5.5.0-beta.0', true],
+    [
+      'workspace:^',
+      '5.4.0',
+      '5.5.0-beta.0',
+      true,
+    ],
     ['workspace:*', '5.4.0', '5.4.1', true],
     ['workspace:~', '5.4.0', '5.4.1', false],
     ['workspace:~', '5.4.0', '5.5.0', true],
     ['^5.0.0', '5.4.0', '5.5.0', false],
-    ['workspace:^5.0.0', '5.4.0', '6.0.0', true],
+    [
+      'workspace:^5.0.0',
+      '5.4.0',
+      '6.0.0',
+      true,
+    ],
   ])('Then checks %s from %s to %s against the published range (out of range: %s)', (specifier, oldVersion, newVersion, outOfRange) => {
     expect(check(specifier, { oldVersion, newVersion }).length > 0).toBe(outOfRange)
   })
 
   it('Then returns the field and the published range of each dependency', () => {
     expect(check('workspace:^', { oldVersion: '5.4.0', newVersion: '6.0.0' }))
-      .toEqual([{ dependency: 'node', field: 'dependencies', range: '^5.4.0', oldVersion: '5.4.0', newVersion: '6.0.0' }])
+      .toEqual([
+        {
+          dependency: 'node',
+          field: 'dependencies',
+          range: '^5.4.0',
+          oldVersion: '5.4.0',
+          newVersion: '6.0.0',
+        },
+      ])
   })
 
   it('Then counts a specifier that is not a semver range as out of range, without range', () => {
-    expect(check('catalog:', { oldVersion: '5.4.0', newVersion: '5.4.1' })).toEqual([expect.objectContaining({ range: null })])
-    expect(check('link:../node', { oldVersion: '5.4.0', newVersion: '5.4.1' })).toEqual([expect.objectContaining({ range: null })])
+    expect(check('catalog:', { oldVersion: '5.4.0', newVersion: '5.4.1' })).toEqual([
+      expect.objectContaining({ range: null }),
+    ])
+    expect(check('link:../node', { oldVersion: '5.4.0', newVersion: '5.4.1' })).toEqual([
+      expect.objectContaining({ range: null }),
+    ])
   })
 
   it('Then only reads the given fields', () => {
-    const packagePath = writePackage('upgrade', { version: '5.3.1', dependencies: { node: 'workspace:*' }, peerDependencies: { core: 'workspace:*' } })
-    const bumped = new Map([['node', { oldVersion: '1.0.0', newVersion: '1.0.1' }], ['core', { oldVersion: '1.0.0', newVersion: '1.0.1' }]])
+    const packagePath = writePackage('upgrade', {
+      version: '5.3.1',
+      dependencies: { node: 'workspace:*' },
+      peerDependencies: { core: 'workspace:*' },
+    })
+    const bumped = new Map([
+      [
+        'node',
+        { oldVersion: '1.0.0', newVersion: '1.0.1' },
+      ],
+      [
+        'core',
+        { oldVersion: '1.0.0', newVersion: '1.0.1' },
+      ],
+    ])
 
-    expect(getOutOfRangeDependencies({ packagePath, bumped, fields: ['peerDependencies'] }).map(({ dependency }) => dependency)).toEqual(['core'])
+    expect(getOutOfRangeDependencies({
+      packagePath,
+      bumped,
+      fields: ['peerDependencies'],
+    }).map(({ dependency }) => dependency)).toEqual(['core'])
     expect(getOutOfRangeDependencies({ packagePath, bumped, fields: [] })).toEqual([])
   })
 })
@@ -75,7 +123,9 @@ describe('Given planPackages function', () => {
       fromTag: `${name}@${version}`,
       dependencies: Object.keys(dependencies),
       commits: Array.from({ length: commits }, () => createMockCommit('feat', 'feat: a feature', { isBreaking: breaking })),
-      reason: commits > 0 ? 'commits' : undefined,
+      reason: commits > 0
+        ? 'commits'
+        : undefined,
     }
   }
 
@@ -84,17 +134,32 @@ describe('Given planPackages function', () => {
     { dependents, externalBumps, versionMode = 'independent', newVersionOverride }: { dependents: 'out-of-range' | 'always', externalBumps?: Map<string, VersionChange>, versionMode?: 'independent' | 'selective', newVersionOverride?: string },
   ) {
     const map = new Map(packages.map(pkg => [pkg.name, pkg]))
-    const config = createMockConfig({ versionMode, bump: { dependents } })
+    const config = createMockConfig({
+      versionMode,
+      bump: { dependents },
+    })
 
-    planPackages({ packages: map, externalBumps, config, force: false, suffix: undefined, newVersionOverride })
+    planPackages({
+      packages: map,
+      externalBumps,
+      config,
+      force: false,
+      suffix: undefined,
+      newVersionOverride,
+    })
 
-    return Object.fromEntries([...map.values()].filter(pkg => pkg.reason).map(pkg => [pkg.name, pkg.newVersion]))
+    return Object.fromEntries([
+      ...map.values(),
+    ].filter(pkg => pkg.reason).map(pkg => [pkg.name, pkg.newVersion]))
   }
 
   describe('When a dependency makes a minor that the range of its dependent accepts', () => {
     const packages = () => [
       createPackage('core', { version: '5.4.0', commits: 1 }),
-      createPackage('upgrade', { version: '5.3.1', dependencies: { core: 'workspace:^' } }),
+      createPackage('upgrade', {
+        version: '5.3.1',
+        dependencies: { core: 'workspace:^' },
+      }),
     ]
 
     it('Then does not release the dependent with out-of-range', () => {
@@ -109,17 +174,33 @@ describe('Given planPackages function', () => {
   it('Then releases a patch of a dependent whose range rejects a breaking change of its dependency', () => {
     const map = new Map([
       createPackage('core', { version: '5.4.0', commits: 1, breaking: true }),
-      createPackage('upgrade', { version: '5.3.1', dependencies: { core: 'workspace:^' } }),
+      createPackage('upgrade', {
+        version: '5.3.1',
+        dependencies: { core: 'workspace:^' },
+      }),
     ].map(pkg => [pkg.name, pkg]))
 
-    planPackages({ packages: map, config: createMockConfig({ versionMode: 'independent', bump: { dependents: 'out-of-range' } }), force: false, suffix: undefined })
+    planPackages({
+      packages: map,
+      config: createMockConfig({
+        versionMode: 'independent',
+        bump: { dependents: 'out-of-range' },
+      }),
+      force: false,
+      suffix: undefined,
+    })
 
     expect(map.get('core')!.newVersion).toBe('6.0.0')
     // A dependency is installed for the dependent: its breaking change does not reach the consumers of the dependent
     expect(map.get('upgrade')).toEqual(expect.objectContaining({
       newVersion: '5.3.2',
       reason: 'dependency',
-      outOfRangeDependency: { name: 'core', field: 'dependencies', range: '^5.4.0', newVersion: '6.0.0' },
+      outOfRangeDependency: {
+        name: 'core',
+        field: 'dependencies',
+        range: '^5.4.0',
+        newVersion: '6.0.0',
+      },
     }))
     expect(map.get('upgrade')!.breakingPeerDependency).toBeUndefined()
   })
@@ -127,50 +208,109 @@ describe('Given planPackages function', () => {
   it('Then releases the dependents with a workspace:* or catalog: specifier', () => {
     expect(plan([
       createPackage('core', { commits: 1 }),
-      createPackage('exact', { dependencies: { core: 'workspace:*' } }),
-      createPackage('catalog', { dependencies: { core: 'catalog:' } }),
+      createPackage('exact', {
+        dependencies: { core: 'workspace:*' },
+      }),
+      createPackage('catalog', {
+        dependencies: { core: 'catalog:' },
+      }),
     ], { dependents: 'out-of-range' })).toEqual({ core: '1.1.0', exact: '1.0.1', catalog: '1.0.1' })
   })
 
   it('Then checks a transitive dependent against the new version of its own dependency', () => {
     expect(plan([
       createPackage('core', { commits: 1 }),
-      createPackage('ui', { dependencies: { core: 'workspace:*' } }),
-      createPackage('app', { dependencies: { ui: 'workspace:^' } }),
-      createPackage('admin', { dependencies: { ui: 'workspace:*' } }),
+      createPackage('ui', {
+        dependencies: { core: 'workspace:*' },
+      }),
+      createPackage('app', {
+        dependencies: { ui: 'workspace:^' },
+      }),
+      createPackage('admin', {
+        dependencies: { ui: 'workspace:*' },
+      }),
     ], { dependents: 'out-of-range' })).toEqual({ core: '1.1.0', ui: '1.0.1', admin: '1.0.1' })
   })
 
   it('Then checks the dependents of a package of another version group', () => {
-    const externalBumps = new Map([['@maz-ui/node', { oldVersion: '5.4.0', newVersion: '5.5.0' }]])
-    const upgrade = () => createPackage('@maz-ui/upgrade', { version: '5.3.1', dependencies: { '@maz-ui/node': 'workspace:^' } })
+    const externalBumps = new Map([
+      [
+        '@maz-ui/node',
+        { oldVersion: '5.4.0', newVersion: '5.5.0' },
+      ],
+    ])
+    const upgrade = () => createPackage('@maz-ui/upgrade', {
+      version: '5.3.1',
+      dependencies: { '@maz-ui/node': 'workspace:^' },
+    })
 
-    expect(plan([upgrade()], { dependents: 'out-of-range', externalBumps })).toEqual({})
-    expect(plan([upgrade()], { dependents: 'out-of-range', externalBumps: new Map([['@maz-ui/node', { oldVersion: '5.4.0', newVersion: '6.0.0' }]]) }))
+    expect(plan([
+      upgrade(),
+    ], { dependents: 'out-of-range', externalBumps })).toEqual({})
+    expect(plan([
+      upgrade(),
+    ], {
+      dependents: 'out-of-range',
+      externalBumps: new Map([
+        [
+          '@maz-ui/node',
+          { oldVersion: '5.4.0', newVersion: '6.0.0' },
+        ],
+      ]),
+    }))
       .toEqual({ '@maz-ui/upgrade': '5.3.2' })
-    expect(plan([upgrade()], { dependents: 'always', externalBumps })).toEqual({ '@maz-ui/upgrade': '5.3.2' })
+    expect(plan([
+      upgrade(),
+    ], { dependents: 'always', externalBumps })).toEqual({ '@maz-ui/upgrade': '5.3.2' })
   })
 
   it('Then bumps a dependent with commits of its own from its commits, whatever the range', () => {
     expect(plan([
       createPackage('core', { commits: 1 }),
-      createPackage('ui', { dependencies: { core: 'workspace:^' }, commits: 1 }),
+      createPackage('ui', {
+        dependencies: { core: 'workspace:^' },
+        commits: 1,
+      }),
     ], { dependents: 'out-of-range' })).toEqual({ core: '1.1.0', ui: '1.1.0' })
   })
 
   it('Then does not release a package of a selective group whose range accepts the new version of a dependency of another group', () => {
-    const externalBumps = new Map([['node', { oldVersion: '5.4.0', newVersion: '5.5.0' }]])
-    const packages = () => [createPackage('kit', { version: '6.19.1', dependencies: { node: 'workspace:^' } })]
+    const externalBumps = new Map([
+      [
+        'node',
+        { oldVersion: '5.4.0', newVersion: '5.5.0' },
+      ],
+    ])
+    const packages = () => [
+      createPackage('kit', {
+        version: '6.19.1',
+        dependencies: { node: 'workspace:^' },
+      }),
+    ]
 
-    expect(plan(packages(), { dependents: 'out-of-range', externalBumps, versionMode: 'selective', newVersionOverride: '6.19.2' })).toEqual({})
-    expect(plan(packages(), { dependents: 'always', externalBumps, versionMode: 'selective', newVersionOverride: '6.19.2' })).toEqual({ kit: '6.19.2' })
+    expect(plan(packages(), {
+      dependents: 'out-of-range',
+      externalBumps,
+      versionMode: 'selective',
+      newVersionOverride: '6.19.2',
+    })).toEqual({})
+    expect(plan(packages(), {
+      dependents: 'always',
+      externalBumps,
+      versionMode: 'selective',
+      newVersionOverride: '6.19.2',
+    })).toEqual({ kit: '6.19.2' })
   })
 
   it('Then still releases the out-of-range peer dependents, without following their dependents', () => {
     expect(plan([
       createPackage('core', { commits: 1 }),
-      createPackage('nav', { peerDependencies: { core: 'workspace:*' } }),
-      createPackage('app', { dependencies: { nav: 'workspace:^' } }),
+      createPackage('nav', {
+        peerDependencies: { core: 'workspace:*' },
+      }),
+      createPackage('app', {
+        dependencies: { nav: 'workspace:^' },
+      }),
     ], { dependents: 'out-of-range' })).toEqual({ core: '1.1.0', nav: '1.0.1' })
   })
 })

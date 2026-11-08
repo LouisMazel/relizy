@@ -12,7 +12,16 @@ import { code } from '../markdown'
 import { loadProjectConfig } from '../runtime'
 import { configArgSchema, readPackageSets } from './project'
 
-const RELEASE_TYPES = ['release', 'major', 'minor', 'patch', 'prerelease', 'premajor', 'preminor', 'prepatch'] as const satisfies readonly ReleaseType[]
+const RELEASE_TYPES = [
+  'release',
+  'major',
+  'minor',
+  'patch',
+  'prerelease',
+  'premajor',
+  'preminor',
+  'prepatch',
+] as const satisfies readonly ReleaseType[]
 
 export const releasePlanSchema = {
   config: configArgSchema,
@@ -63,7 +72,13 @@ export async function planRelease(context: ServerContext, args: ReleasePlanArgs)
     await fetchGitTags(config.cwd)
   }
 
-  const planned = await planBumps({ config, dryRun: true, force: args.force, canary: args.canary, groups: args.groups })
+  const planned = await planBumps({
+    config,
+    dryRun: true,
+    force: args.force,
+    canary: args.canary,
+    groups: args.groups,
+  })
   const sets = readPackageSets(config).filter(set => !set.group || !args.groups?.length || args.groups.includes(set.group.name))
   const results = sets.map(set => ({
     set,
@@ -76,14 +91,18 @@ export async function planRelease(context: ServerContext, args: ReleasePlanArgs)
 }
 
 function formatCommit(commit: GitCommit): string {
-  const scope = commit.scope ? `(${commit.scope})` : ''
+  const scope = commit.scope
+    ? `(${commit.scope})`
+    : ''
 
   return `${commit.type}${scope}${commit.isBreaking ? '!' : ''}: ${commit.description} (${commit.shortHash})`
 }
 
 /** The first commits of a list (all of them without `max`), on one line */
 export function formatCommits(commits: GitCommit[], max = Infinity): string {
-  const more = commits.length > max ? `; and ${commits.length - max} more (\`full: true\` lists them all)` : ''
+  const more = commits.length > max
+    ? `; and ${commits.length - max} more (\`full: true\` lists them all)`
+    : ''
 
   return `${commits.slice(0, max).map(formatCommit).join('; ')}${more}`
 }
@@ -91,10 +110,14 @@ export function formatCommits(commits: GitCommit[], max = Infinity): string {
 /** Why a package is released, in words */
 export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set: PackageSet, plan: ReleasePlan, full?: boolean }): string {
   const commits = pkg.commits ?? []
-  const commitsText = commits.length > 0 ? `${commits.length} commit(s): ${formatCommits(commits, full ? undefined : 5)}` : ''
+  const commitsText = commits.length > 0
+    ? `${commits.length} commit(s): ${formatCommits(commits, full ? undefined : 5)}`
+    : ''
 
   if (set.versionMode === 'unified') {
-    return commitsText ? `follows the unified version, ${commitsText}` : 'follows the unified version'
+    return commitsText
+      ? `follows the unified version, ${commitsText}`
+      : 'follows the unified version'
   }
 
   if (pkg.reason === 'graduation') {
@@ -103,13 +126,19 @@ export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set
 
   if (pkg.reason === 'dependency') {
     const dependency = pkg.dependencyChain?.[0]
-    const otherGroup = dependency ? plan.sets.find(other => other !== set && other.packages.some(candidate => candidate.name === dependency))?.group : undefined
+    const otherGroup = dependency
+      ? plan.sets.find(other => other !== set && other.packages.some(candidate => candidate.name === dependency))?.group
+      : undefined
 
     if (pkg.outOfRangeDependency) {
       const { name, ...outOfRange } = pkg.outOfRangeDependency
-      const option = outOfRange.field === 'peerDependencies' ? 'bump.outOfRangePeers' : 'bump.dependents'
+      const option = outOfRange.field === 'peerDependencies'
+        ? 'bump.outOfRangePeers'
+        : 'bump.dependents'
 
-      const group = otherGroup ? `, bumped by the \`${otherGroup.name}\` group` : ''
+      const group = otherGroup
+        ? `, bumped by the \`${otherGroup.name}\` group`
+        : ''
 
       return `${describeOutOfRange({ dependency: name, ...outOfRange })}${group} (\`${option}\`)`
     }

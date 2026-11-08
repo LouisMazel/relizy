@@ -392,7 +392,12 @@ describe('Given formatSlackMessage function', () => {
     it('Then adds both buttons', () => {
       const blocks = formatSlackMessage({
         changelog: 'Updates',
-        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0', changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md' }),
+        variables: socialVariables({
+          projectName: 'pkg',
+          newVersion: '1.0.0',
+          releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
+          changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
+        }),
       })
 
       const actions = blocks.find(b => b.type === 'actions')
@@ -423,7 +428,12 @@ describe('Given formatSlackMessage function', () => {
       const blocks = formatSlackMessage({
         template: '{{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
         changelog: 'Bug fixes',
-        variables: socialVariables({ projectName: 'pkg', newVersion: '1.0.0', releaseUrl: 'https://example.com/release', changelogUrl: 'https://example.com/changelog' }),
+        variables: socialVariables({
+          projectName: 'pkg',
+          newVersion: '1.0.0',
+          releaseUrl: 'https://example.com/release',
+          changelogUrl: 'https://example.com/changelog',
+        }),
       })
 
       const message = blocks[0].text.text
@@ -881,7 +891,11 @@ describe('Given formatSlackMessage with the full changelog format', () => {
 
   describe('When using the default blocks layout', () => {
     it('Then renders one rich_text block per changelog section, bodies included', () => {
-      const blocks = formatSlackMessage({ changelog: richChangelog, changelogFormat: 'full', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog: richChangelog,
+        changelogFormat: 'full',
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       const richTextBlocks = blocks.filter((b: any) => b.type === 'rich_text')
       expect(richTextBlocks).toHaveLength(2)
@@ -889,7 +903,9 @@ describe('Given formatSlackMessage with the full changelog format', () => {
       expect(JSON.stringify(richTextBlocks[0])).toContain('Commit bodies are now rendered.')
       expect(richTextBlocks[0].elements).toContainEqual({
         type: 'rich_text_quote',
-        elements: [{ type: 'text', text: 'Commit bodies are now rendered.' }],
+        elements: [
+          { type: 'text', text: 'Commit bodies are now rendered.' },
+        ],
       })
     })
 
@@ -898,17 +914,31 @@ describe('Given formatSlackMessage with the full changelog format', () => {
         changelog: richChangelog,
         changelogFormat: 'full',
         contributors: ['Alice'],
-        packages: [{ name: 'a', version: '1.0.0', hasTransition: false } as any],
+        packages: [
+          { name: 'a', version: '1.0.0', hasTransition: false } as any,
+        ],
         variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/release' }),
       })
 
-      expect(blocks.map((b: any) => b.type)).toEqual(['header', 'rich_text', 'rich_text', 'section', 'section', 'divider', 'actions'])
+      expect(blocks.map((b: any) => b.type)).toEqual([
+        'header',
+        'rich_text',
+        'rich_text',
+        'section',
+        'section',
+        'divider',
+        'actions',
+      ])
     })
 
     it('Then stays within the 50 blocks of a Slack message', () => {
       const changelog = Array.from({ length: 80 }, (_, i) => sectionWithOneChange(i)).join('\n\n')
 
-      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/release' }) })
+      const blocks = formatSlackMessage({
+        changelog,
+        changelogFormat: 'full',
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/release' }),
+      })
 
       expect(blocks.length).toBeLessThanOrEqual(50)
       expect(JSON.stringify(blocks.at(-3))).toContain('more changes')
@@ -917,7 +947,12 @@ describe('Given formatSlackMessage with the full changelog format', () => {
     it('Then truncates by commits when postMaxLength is set', () => {
       const changelog = `### Features\n\n${bulletList(20, 'Feature number')}`
 
-      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', postMaxLength: 100, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog,
+        changelogFormat: 'full',
+        postMaxLength: 100,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       const serialized = JSON.stringify(blocks)
       expect(serialized).toContain('Feature number 0')
@@ -951,7 +986,12 @@ describe('Given formatSlackMessage with the full changelog format', () => {
       const changelog = `### Features\n\n${bulletList(300, 'Feature number')}`
       const template = `${'x'.repeat(1000)}\n{{changelog}}`
 
-      const blocks = formatSlackMessage({ changelog, changelogFormat: 'full', template, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog,
+        changelogFormat: 'full',
+        template,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       expect(blocks[0].text.text.length).toBeLessThanOrEqual(3000)
       expect(blocks[0].text.text).toMatch(/more changes_$/)
@@ -1036,7 +1076,12 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
 
   describe('When webhookUrl is provided and request succeeds', () => {
     it('Then posts via fetch with blocks payload and returns webhook result', async () => {
-      fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('ok'),
+      })
 
       const result = await postReleaseToSlack({
         changelog: 'feat: add X',
@@ -1058,7 +1103,12 @@ describe('Given postReleaseToSlack with webhookUrl', () => {
 
   describe('When both webhookUrl and token are provided', () => {
     it('Then uses webhook and skips WebClient', async () => {
-      fetchMock.mockResolvedValue({ ok: true, status: 200, statusText: 'OK', text: () => Promise.resolve('ok') })
+      fetchMock.mockResolvedValue({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: () => Promise.resolve('ok'),
+      })
 
       await postReleaseToSlack({
         changelog: 'feat: add X',
@@ -1222,8 +1272,20 @@ describe('Given formatPackagesForSlack function', () => {
   describe('When packages have transitions', () => {
     it('Then renders bullet list with old → new versions', () => {
       const text = formatPackagesForSlack([
-        { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
-        { name: '@acme/b', oldVersion: '2.0.0', newVersion: '2.0.1', version: '2.0.1', hasTransition: true },
+        {
+          name: '@acme/a',
+          oldVersion: '1.0.0',
+          newVersion: '1.1.0',
+          version: '1.1.0',
+          hasTransition: true,
+        },
+        {
+          name: '@acme/b',
+          oldVersion: '2.0.0',
+          newVersion: '2.0.1',
+          version: '2.0.1',
+          hasTransition: true,
+        },
       ])
       expect(text).toBe('• *@acme/a* : `1.0.0` → `1.1.0`\n• *@acme/b* : `2.0.0` → `2.0.1`')
     })
@@ -1251,7 +1313,13 @@ describe('Given formatSlackMessage with packages', () => {
       const blocks = formatSlackMessage({
         changelog: 'feat: add X',
         packages: [
-          { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
+          {
+            name: '@acme/a',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+            version: '1.1.0',
+            hasTransition: true,
+          },
         ],
         contributors: ['Alice'],
         variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
@@ -1301,7 +1369,13 @@ describe('Given formatSlackMessage with packages', () => {
         template: '{{projectName}} {{newVersion}}\n\n{{packages}}',
         changelog: 'feat: add X',
         packages: [
-          { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
+          {
+            name: '@acme/a',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+            version: '1.1.0',
+            hasTransition: true,
+          },
         ],
         variables: socialVariables({ projectName: 'proj', newVersion: '1.0.0' }),
       })
@@ -1335,12 +1409,30 @@ describe('Given shareBudget function', () => {
 describe('Given formatSlackMessage with the sections of several versions', () => {
   const sections: SlackReleaseSection[] = [
     { title: 'Maz UI 7.0.0', changelog: '### 🚀 Features\n\n- **menu:** Add a menu' },
-    { title: 'Tooling', packages: [
-      { name: '@maz-ui/eslint-config', oldVersion: '5.0.0', newVersion: '5.1.0', changelog: '### 🚀 Features\n\n- Stop enforcing the catalog' },
-      { name: '@maz-ui/upgrade', oldVersion: '5.2.1', newVersion: '5.2.1', changelog: '' },
-    ] },
+    {
+      title: 'Tooling',
+      packages: [
+        {
+          name: '@maz-ui/eslint-config',
+          oldVersion: '5.0.0',
+          newVersion: '5.1.0',
+          changelog: '### 🚀 Features\n\n- Stop enforcing the catalog',
+        },
+        {
+          name: '@maz-ui/upgrade',
+          oldVersion: '5.2.1',
+          newVersion: '5.2.1',
+          changelog: '',
+        },
+      ],
+    },
   ]
-  const variables = socialVariables({ projectName: 'maz-ui', newVersion: '', releaseTitle: 'New releases of maz-ui', releaseUrl: 'https://example.com/v7.0.0' })
+  const variables = socialVariables({
+    projectName: 'maz-ui',
+    newVersion: '',
+    releaseTitle: 'New releases of maz-ui',
+    releaseUrl: 'https://example.com/v7.0.0',
+  })
 
   it('Then renders a header and one section per group in summary format', () => {
     const blocks = formatSlackMessage({ variables, changelog: sections })
@@ -1352,8 +1444,20 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
 
   it('Then lists in the packages block only the packages the sections do not list', () => {
     const packages = [
-      { name: '@maz-ui/lib', oldVersion: '6.0.0', newVersion: '7.0.0', version: '7.0.0', hasTransition: true },
-      { name: '@maz-ui/eslint-config', oldVersion: '5.0.0', newVersion: '5.1.0', version: '5.1.0', hasTransition: true },
+      {
+        name: '@maz-ui/lib',
+        oldVersion: '6.0.0',
+        newVersion: '7.0.0',
+        version: '7.0.0',
+        hasTransition: true,
+      },
+      {
+        name: '@maz-ui/eslint-config',
+        oldVersion: '5.0.0',
+        newVersion: '5.1.0',
+        version: '5.1.0',
+        hasTransition: true,
+      },
     ]
 
     const blocks = formatSlackMessage({ variables, changelog: sections, packages })
@@ -1366,7 +1470,9 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
   it('Then renders the title of each group before its rich text in full format', () => {
     const blocks = formatSlackMessage({ variables, changelog: sections, changelogFormat: 'full' })
 
-    const titleIndexes = blocks.flatMap((block: any, index: number) => block.type === 'section' ? [index] : [])
+    const titleIndexes = blocks.flatMap((block: any, index: number) => block.type === 'section'
+      ? [index]
+      : [])
     expect(blocks.filter((block: any) => block.type === 'section').map((block: any) => block.text.text)).toEqual(['*Maz UI 7.0.0*', '*Tooling*'])
     expect(richTextToPlainText(blocks[titleIndexes[0] + 1])).toContain('menu: Add a menu')
     expect(blocks.slice(titleIndexes[1] + 1).filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n')).toContain('@maz-ui/eslint-config 5.0.0 → 5.1.0')
@@ -1377,10 +1483,15 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
     const longChangelog = Array.from({ length: 80 }, (_, index) => `- Change ${index}\n\n  ${'A long body. '.repeat(30)}`).join('\n')
     const blocks = formatSlackMessage({
       variables,
-      changelog: [{ title: 'Tooling', packages: [
-        { name: '@maz-ui/eslint-config', newVersion: '5.1.0', changelog: `### 🚀 Features\n\n${longChangelog}` },
-        { name: '@maz-ui/upgrade', newVersion: '5.2.1', changelog: '### 🩹 Fixes\n\n- Fix the upgrade' },
-      ] }],
+      changelog: [
+        {
+          title: 'Tooling',
+          packages: [
+            { name: '@maz-ui/eslint-config', newVersion: '5.1.0', changelog: `### 🚀 Features\n\n${longChangelog}` },
+            { name: '@maz-ui/upgrade', newVersion: '5.2.1', changelog: '### 🩹 Fixes\n\n- Fix the upgrade' },
+          ],
+        },
+      ],
       changelogFormat: 'full',
     })
     const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n')
@@ -1416,8 +1527,23 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
   describe('When the versions have an announcement', () => {
     const storybook = { title: '🎨 Storybook', url: 'https://storybook.example.com/' }
     const announced: SlackReleaseSection[] = [
-      { ...sections[0]!, title: 'Maz UI library 7.0.0', message: 'Version **7.0.0** is out', links: [storybook] },
-      { title: 'Tooling', packages: [{ ...sections[1]!.packages![0]!, title: 'ESLint config', message: 'Lint it', links: [storybook] }] },
+      {
+        ...sections[0]!,
+        title: 'Maz UI library 7.0.0',
+        message: 'Version **7.0.0** is out',
+        links: [storybook],
+      },
+      {
+        title: 'Tooling',
+        packages: [
+          {
+            ...sections[1]!.packages![0]!,
+            title: 'ESLint config',
+            message: 'Lint it',
+            links: [storybook],
+          },
+        ],
+      },
     ]
 
     it('Then shows the message and the links under the title in summary format, the title replacing the package name', () => {
@@ -1439,12 +1565,25 @@ describe('Given formatSlackMessage with the sections of several versions', () =>
       const blocks = formatSlackMessage({
         variables: { ...variables, changelogUrl: 'https://example.com/changelog' },
         changelog: '### 🚀 Features\n\n- **menu:** Add a menu',
-        announcement: { message: 'Version **7.0.0** is out', links: [storybook] },
+        announcement: {
+          message: 'Version **7.0.0** is out',
+          links: [storybook],
+        },
       })
 
       expect(blocks[1].text.text).toBe('Version *7.0.0* is out')
       expect(blocks[2].text.text).toContain('Add a menu')
-      expect(blocks.at(-1)).toEqual({ type: 'actions', elements: [{ type: 'button', text: { type: 'plain_text', text: '🎨 Storybook', emoji: true }, url: 'https://storybook.example.com/', action_id: 'announcement_link_0' }] })
+      expect(blocks.at(-1)).toEqual({
+        type: 'actions',
+        elements: [
+          {
+            type: 'button',
+            text: { type: 'plain_text', text: '🎨 Storybook', emoji: true },
+            url: 'https://storybook.example.com/',
+            action_id: 'announcement_link_0',
+          },
+        ],
+      })
     })
   })
 })

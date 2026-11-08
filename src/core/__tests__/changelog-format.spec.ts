@@ -10,7 +10,9 @@ let cwd: string
 function createConfig({ formatCmd, devDependencies = {} }: { formatCmd?: string | false, devDependencies?: Record<string, string> } = {}) {
   writeFileSync(join(cwd, 'package.json'), JSON.stringify({ name: 'root', devDependencies }))
 
-  const config = createMockConfig({ bump: { type: 'patch' } })
+  const config = createMockConfig({
+    bump: { type: 'patch' },
+  })
   config.cwd = cwd
   config.publish = { ...config.publish, packageManager: 'pnpm' }
   config.changelog = { rootChangelog: true, includeCommitBody: false, formatCmd: formatCmd as string }
@@ -44,32 +46,56 @@ describe('Given findChangelogFormatter function', () => {
 describe('Given resolveFormatCommand function', () => {
   describe('When changelog.formatCmd is not set', () => {
     it('Then runs the formatter of the root package.json on the changelogs written', () => {
-      const config = createConfig({ devDependencies: { eslint: '^9.0.0' } })
+      const config = createConfig({
+        devDependencies: { eslint: '^9.0.0' },
+      })
 
-      expect(resolveFormatCommand({ config, files: changelogs('CHANGELOG.md', 'packages/a/CHANGELOG.md') })).toEqual({
+      expect(resolveFormatCommand({
+        config,
+        files: changelogs('CHANGELOG.md', 'packages/a/CHANGELOG.md'),
+      })).toEqual({
         command: 'pnpm exec eslint --fix --no-warn-ignored "CHANGELOG.md" "packages/a/CHANGELOG.md"',
         formatter: 'eslint',
       })
     })
 
     it('Then runs the binary with the package manager of the project', () => {
-      const config = createConfig({ devDependencies: { prettier: '^3.0.0' } })
+      const config = createConfig({
+        devDependencies: { prettier: '^3.0.0' },
+      })
       config.publish.packageManager = 'npm'
 
-      expect(resolveFormatCommand({ config, files: changelogs('CHANGELOG.md') })?.command).toBe('npx prettier --write --ignore-unknown --no-error-on-unmatched-pattern "CHANGELOG.md"')
+      expect(resolveFormatCommand({
+        config,
+        files: changelogs('CHANGELOG.md'),
+      })?.command).toBe('npx prettier --write --ignore-unknown --no-error-on-unmatched-pattern "CHANGELOG.md"')
     })
 
     it('Then formats nothing without formatter or without changelog written', () => {
-      expect(resolveFormatCommand({ config: createConfig(), files: changelogs('CHANGELOG.md') })).toBeUndefined()
-      expect(resolveFormatCommand({ config: createConfig({ devDependencies: { eslint: '^9.0.0' } }), files: [] })).toBeUndefined()
+      expect(resolveFormatCommand({
+        config: createConfig(),
+        files: changelogs('CHANGELOG.md'),
+      })).toBeUndefined()
+      expect(resolveFormatCommand({
+        config: createConfig({
+          devDependencies: { eslint: '^9.0.0' },
+        }),
+        files: [],
+      })).toBeUndefined()
     })
   })
 
   describe('When changelog.formatCmd is set', () => {
     it('Then replaces {{files}} by the changelogs written', () => {
-      const config = createConfig({ formatCmd: 'eslint --fix {{files}}', devDependencies: { prettier: '^3.0.0' } })
+      const config = createConfig({
+        formatCmd: 'eslint --fix {{files}}',
+        devDependencies: { prettier: '^3.0.0' },
+      })
 
-      expect(resolveFormatCommand({ config, files: changelogs('CHANGELOG.md', 'packages/a/CHANGELOG.md') })).toEqual({
+      expect(resolveFormatCommand({
+        config,
+        files: changelogs('CHANGELOG.md', 'packages/a/CHANGELOG.md'),
+      })).toEqual({
         command: 'eslint --fix "CHANGELOG.md" "packages/a/CHANGELOG.md"',
       })
       expect(resolveFormatCommand({ config, files: [] })).toBeUndefined()
@@ -82,9 +108,15 @@ describe('Given resolveFormatCommand function', () => {
     })
 
     it('Then formats nothing with false', () => {
-      const config = createConfig({ formatCmd: false, devDependencies: { eslint: '^9.0.0' } })
+      const config = createConfig({
+        formatCmd: false,
+        devDependencies: { eslint: '^9.0.0' },
+      })
 
-      expect(resolveFormatCommand({ config, files: changelogs('CHANGELOG.md') })).toBeUndefined()
+      expect(resolveFormatCommand({
+        config,
+        files: changelogs('CHANGELOG.md'),
+      })).toBeUndefined()
     })
   })
 })
@@ -94,7 +126,11 @@ describe('Given executeFormatCmd function', () => {
     vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' } as never)
     const config = createConfig({ formatCmd: 'prettier --write {{files}}' })
 
-    await executeFormatCmd({ config, dryRun: false, files: changelogs('CHANGELOG.md') })
+    await executeFormatCmd({
+      config,
+      dryRun: false,
+      files: changelogs('CHANGELOG.md'),
+    })
 
     expect(execPromise).toHaveBeenCalledWith('prettier --write "CHANGELOG.md"', {
       noStderr: true,
@@ -105,9 +141,15 @@ describe('Given executeFormatCmd function', () => {
   })
 
   it('Then only logs the command in dry run', async () => {
-    const config = createConfig({ devDependencies: { eslint: '^9.0.0' } })
+    const config = createConfig({
+      devDependencies: { eslint: '^9.0.0' },
+    })
 
-    await executeFormatCmd({ config, dryRun: true, files: changelogs('CHANGELOG.md') })
+    await executeFormatCmd({
+      config,
+      dryRun: true,
+      files: changelogs('CHANGELOG.md'),
+    })
 
     expect(logger.log).toHaveBeenCalledWith('[dry-run] exec format command: ', 'pnpm exec eslint --fix --no-warn-ignored "CHANGELOG.md"')
     expect(execPromise).not.toHaveBeenCalled()
@@ -122,15 +164,25 @@ describe('Given executeFormatCmd function', () => {
 
   it('Then only warns when the detected formatter fails', async () => {
     vi.mocked(execPromise).mockRejectedValue(new Error('1 problem'))
-    const config = createConfig({ devDependencies: { eslint: '^9.0.0' } })
+    const config = createConfig({
+      devDependencies: { eslint: '^9.0.0' },
+    })
 
-    await executeFormatCmd({ config, dryRun: false, files: changelogs('CHANGELOG.md') })
+    await executeFormatCmd({
+      config,
+      dryRun: false,
+      files: changelogs('CHANGELOG.md'),
+    })
 
     expect(logger.warn).toHaveBeenCalledWith(expect.stringMatching(/^The changelogs were not formatted, eslint failed: set changelog\.formatCmd .+\n1 problem$/))
   })
 
   it('Then runs nothing without command', async () => {
-    await executeFormatCmd({ config: createConfig(), dryRun: false, files: changelogs('CHANGELOG.md') })
+    await executeFormatCmd({
+      config: createConfig(),
+      dryRun: false,
+      files: changelogs('CHANGELOG.md'),
+    })
 
     expect(execPromise).not.toHaveBeenCalled()
   })

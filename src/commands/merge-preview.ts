@@ -56,15 +56,21 @@ function describeProblems(checks: MergePreviewChecks): string {
 
 /** `Pull request` or `Merge request` */
 function getPullRequestLabel(context: MergePreviewContext): string {
-  return context.pullRequest.kind === 'merge request' ? 'Merge request' : 'Pull request'
+  return context.pullRequest.kind === 'merge request'
+    ? 'Merge request'
+    : 'Pull request'
 }
 
 /** The settings of the run: `mergePreview` of the config, with the flags of the CLI */
 function getSettings(config: ResolvedRelizyConfig, options: MergePreviewOptions): MergePreviewConfig {
   return {
     ...config.mergePreview,
-    ...(options.comment === undefined ? {} : { comment: options.comment }),
-    ...(options.check === undefined ? {} : { check: options.check }),
+    ...(options.comment === undefined
+      ? {}
+      : { comment: options.comment }),
+    ...(options.check === undefined
+      ? {}
+      : { check: options.check }),
   }
 }
 
@@ -84,17 +90,21 @@ async function computePreview({ config, options, settings, ui }: {
   settings: MergePreviewConfig
   ui: ReleaseUi
 }): Promise<ComputedPreview> {
-  const computed: ComputedPreview = { checks: { problems: [], warnings: [] } }
+  const computed: ComputedPreview = {
+    checks: { problems: [], warnings: [] },
+  }
 
   try {
     // The CI clone: full history, branch
-    prepareCiRepository(config.cwd)
+    prepareCiRepository(config.cwd, { commit: false })
 
     const pullRequest = getMergePreviewPullRequest()
     if (pullRequest) {
       computed.context = await ui.step({
         running: `Merging ${pullRequest.targetBranch}, as the merge will`,
-        done: result => result.merged ? `Computed on ${pullRequest.targetBranch} + this ${pullRequest.kind}` : `Computed without the last commits of ${pullRequest.targetBranch}`,
+        done: result => result.merged
+          ? `Computed on ${pullRequest.targetBranch} + this ${pullRequest.kind}`
+          : `Computed without the last commits of ${pullRequest.targetBranch}`,
         run: () => prepareMergePreviewContext({ pullRequest, cwd: config.cwd }),
       })
     }
@@ -104,7 +114,12 @@ async function computePreview({ config, options, settings, ui }: {
 
     const { context } = computed
     const squash: MergePreviewSquash = context
-      ? await resolveMergePreviewSquash({ config, context, option: settings.squash ?? 'auto', cwd: config.cwd })
+      ? await resolveMergePreviewSquash({
+          config,
+          context,
+          option: settings.squash ?? 'auto',
+          cwd: config.cwd,
+        })
       : { mode: 'commits', reason: 'not a pull request' }
 
     await fetchGitTags(config.cwd)
@@ -112,25 +127,45 @@ async function computePreview({ config, options, settings, ui }: {
     const subject = context ? 'The merge' : 'The next release'
     const plan = await ui.step({
       running: context ? 'Computing the release of the merge' : 'Computing the next release',
-      done: result => result.outcome.packages.length > 0 ? `${subject} releases ${plural(result.outcome.packages.length, 'package')}` : `${subject} releases nothing`,
+      done: result => result.outcome.packages.length > 0
+        ? `${subject} releases ${plural(result.outcome.packages.length, 'package')}`
+        : `${subject} releases nothing`,
       run: () => planMergePreview({
         config,
         context,
         squash,
-        planBump: async () => (await planBumps({ config, dryRun: true, force: options.force, suffix: options.suffix, groups: options.groups })).result,
+        planBump: async () => (await planBumps({
+          config,
+          dryRun: true,
+          force: options.force,
+          suffix: options.suffix,
+          groups: options.groups,
+        })).result,
       }),
     })
     computed.plan = plan
 
     computed.checks = await ui.step({
       running: 'Checking what would make the release fail',
-      done: result => result.problems.length > 0 ? `${plural(result.problems.length, 'problem')} would make the release fail` : 'Nothing blocks the release',
+      done: result => result.problems.length > 0
+        ? `${plural(result.problems.length, 'problem')} would make the release fail`
+        : 'Nothing blocks the release',
       failed: result => result.problems.length > 0,
-      run: () => checkMergePreview({ config, plan, context, commitlint: settings.commitlint ?? 'auto' }),
+      run: () => checkMergePreview({
+        config,
+        plan,
+        context,
+        commitlint: settings.commitlint ?? 'auto',
+      }),
     })
   }
   catch (error) {
-    computed.checks.problems.push({ kind: 'error', message: error instanceof Error ? error.message : String(error) })
+    computed.checks.problems.push({
+      kind: 'error',
+      message: error instanceof Error
+        ? error.message
+        : String(error),
+    })
   }
 
   return computed
@@ -144,7 +179,12 @@ async function commentPullRequest({ config, context, markdown, prNumber }: { con
     return false
   }
 
-  return postPrComment({ config, pr, body: markdown, marker: MERGE_PREVIEW_MARKER })
+  return postPrComment({
+    config,
+    pr,
+    body: markdown,
+    marker: MERGE_PREVIEW_MARKER,
+  })
 }
 
 /** The comment and the commit status of the pull request, as the settings ask */
@@ -162,18 +202,32 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
     const label = getPullRequestLabel(context)
     await ui.step({
       running: `Commenting the ${context.pullRequest.kind}`,
-      done: posted => posted ? `${label} commented` : `${label} not commented`,
+      done: posted => posted
+        ? `${label} commented`
+        : `${label} not commented`,
       failed: posted => !posted,
-      run: () => commentPullRequest({ config, context, markdown: formatMergePreviewMarkdown(result), prNumber }),
+      run: () => commentPullRequest({
+        config,
+        context,
+        markdown: formatMergePreviewMarkdown(result),
+        prNumber,
+      }),
     })
   }
 
   if (settings.check) {
     await ui.step({
       running: 'Setting the commit status',
-      done: set => set ? `Commit status ${failed ? 'failed' : 'success'}` : 'Commit status not set',
+      done: set => set
+        ? `Commit status ${failed ? 'failed' : 'success'}`
+        : 'Commit status not set',
       failed: set => !set,
-      run: () => setMergePreviewStatus({ config, context, failed, description: getMergePreviewStatusDescription(result) }),
+      run: () => setMergePreviewStatus({
+        config,
+        context,
+        failed,
+        description: getMergePreviewStatusDescription(result),
+      }),
     })
   }
 }
@@ -206,7 +260,11 @@ function getReport(result: MergePreviewResult): ReleaseReport {
       warnings: checks.warnings,
       markdown: formatMergePreviewMarkdown(result),
     },
-    ...(checks.problems.length > 0 ? { error: describeProblems(checks) } : {}),
+    ...(checks.problems.length > 0
+      ? {
+          error: describeProblems(checks),
+        }
+      : {}),
   }
 }
 
@@ -237,21 +295,39 @@ export function mergePreview(options: MergePreviewOptions = {}): Promise<Release
 async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseReport> {
   const config = await getReleaseConfig(options)
   const settings = getSettings(config, options)
-  const ui = createCommandUi({ title: 'relizy merge-preview', dryRun: true, logLevel: config.logLevel, cwd: config.cwd })
+  const ui = createCommandUi({
+    title: 'relizy merge-preview',
+    // Not a dry run: nothing is written in the repository, but the comment and the commit status are posted
+    dryRun: false,
+    logLevel: config.logLevel,
+    cwd: config.cwd,
+  })
   const { context, plan, checks } = await computePreview({ config, options, settings, ui })
 
   const outcome = plan?.outcome
-  const version = outcome?.bumpResult.bumped ? outcome.bumpResult.newVersion ?? outcome.packages[0]?.newVersion ?? '' : ''
+  const version = outcome?.bumpResult.bumped
+    ? outcome.bumpResult.newVersion ?? outcome.packages[0]?.newVersion ?? ''
+    : ''
   const result: MergePreviewResult = {
     context,
     plan,
     checks,
-    publish: { enabled: Boolean(config.release.publish), distTag: getPublishTag(version, config.publish.tag) },
+    publish: {
+      enabled: Boolean(config.release.publish),
+      distTag: getPublishTag(version, config.publish.tag),
+    },
     branch: context?.pullRequest.targetBranch ?? getCurrentGitBranch(config.cwd),
   }
 
   if (context) {
-    await postOnPullRequest({ config, context, result, settings, prNumber: options.prNumber, ui })
+    await postOnPullRequest({
+      config,
+      context,
+      result,
+      settings,
+      prNumber: options.prNumber,
+      ui,
+    })
   }
 
   const report = getReport(result)

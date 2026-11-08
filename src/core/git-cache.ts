@@ -19,7 +19,12 @@ const storage = new AsyncLocalStorage<{ reads: Map<string, unknown>, once: Map<s
  * `release`) shares the cache of the outer one.
  */
 export function withGitCache<T>(run: () => T): T {
-  return storage.getStore() ? run() : storage.run({ reads: new Map(), once: new Map() }, run)
+  return storage.getStore()
+    ? run()
+    : storage.run({
+        reads: new Map(),
+        once: new Map(),
+      }, run)
 }
 
 /**
@@ -34,7 +39,10 @@ export function cachedGitRead<T>({ key, cwd, read }: { key: string[], cwd?: stri
     return read()
   }
 
-  const id = JSON.stringify([resolve(cwd ?? process.cwd()), ...key])
+  const id = JSON.stringify([
+    resolve(cwd ?? process.cwd()),
+    ...key,
+  ])
 
   if (cache.has(id)) {
     return cache.get(id) as T
@@ -75,7 +83,10 @@ export function oncePerRun<T>({ key, cwd, run }: { key: string, cwd: string, run
     return run()
   }
 
-  const id = JSON.stringify([resolve(cwd), key])
+  const id = JSON.stringify([
+    resolve(cwd),
+    key,
+  ])
 
   if (!once.has(id)) {
     once.set(id, run())

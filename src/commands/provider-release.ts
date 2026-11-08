@@ -27,7 +27,13 @@ function usesAIProviderRelease(config: ResolvedRelizyConfig, ai?: boolean, versi
 
   // The groups that create their releases, with their own AI options
   const groups = config.monorepo!.groups!.filter(group => group.release?.providerRelease !== false)
-  return groups.some(group => usesAI({ ...config, ai: { ...config.ai, ...group.ai } }))
+  return groups.some(group => usesAI({
+    ...config,
+    ai: {
+      ...config.ai,
+      ...group.ai,
+    },
+  }))
 }
 
 export async function providerReleaseSafetyCheck({ config, provider, ai, versions }: {
@@ -144,7 +150,9 @@ async function postReleases({
     bumpResult: options.bumpResult,
     only: options.groups,
     nothing: 'no release to publish',
-    leftOut: groupConfig => groupConfig.release.providerRelease === false ? 'left out of the provider releases (release.providerRelease: false)' : undefined,
+    leftOut: groupConfig => groupConfig.release.providerRelease === false
+      ? 'left out of the provider releases (release.providerRelease: false)'
+      : undefined,
   })
 
   for (const target of targets) {
@@ -207,7 +215,9 @@ function runProviderRelease(
     recover: error => ({
       detectedProvider: detectedProvider || 'github',
       postedReleases: [],
-      error: error instanceof Error ? error.message : String(error),
+      error: error instanceof Error
+        ? error.message
+        : String(error),
     }),
     run: async ({ config, dryRun, ui, hookContext }) => {
       logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
@@ -219,7 +229,12 @@ function runProviderRelease(
         run: async (): Promise<ProviderReleaseResult> => {
           detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
           reportProgress('Checking the release')
-          await providerReleaseSafetyCheck({ config, provider: detectedProvider, ai: options.ai, versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }) })
+          await providerReleaseSafetyCheck({
+            config,
+            provider: detectedProvider,
+            ai: options.ai,
+            versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }),
+          })
 
           await executeHook('before:provider-release', config, dryRun, hookContext)
 
@@ -231,7 +246,9 @@ function runProviderRelease(
           }
           else {
             logger.info(
-              options.provider || config.repo?.provider ? `Using Git provider: ${detectedProvider}` : `Detected Git provider: ${detectedProvider}`,
+              options.provider || config.repo?.provider
+                ? `Using Git provider: ${detectedProvider}`
+                : `Detected Git provider: ${detectedProvider}`,
             )
           }
 
@@ -251,7 +268,12 @@ function runProviderRelease(
             }
           }
 
-          const postedReleases = await postReleases({ provider: detectedProvider, config, options, dryRun })
+          const postedReleases = await postReleases({
+            provider: detectedProvider,
+            config,
+            options,
+            dryRun,
+          })
 
           await executeHook('success:provider-release', config, dryRun, hookContext)
 
@@ -264,7 +286,10 @@ function runProviderRelease(
 
       const created = result.postedReleases.length
       ui.complete(created === 0
-        ? { message: describeProviderReleaseResult(result), nothing: true }
+        ? {
+            message: describeProviderReleaseResult(result),
+            nothing: true,
+          }
         : {
             message: `${dryRun ? 'Previewed' : 'Created'} ${describeReleaseCount(result)}`,
             links: getProviderReleaseLinks({ config, postedReleases: result.postedReleases }),
@@ -276,8 +301,12 @@ function runProviderRelease(
 }
 
 function describeReleaseCount({ detectedProvider, postedReleases }: ProviderReleaseResult): string {
-  const host = detectedProvider === 'gitlab' ? 'GitLab' : 'GitHub'
-  return `${postedReleases.length} ${host} ${postedReleases.length === 1 ? 'release' : 'releases'}`
+  const host = detectedProvider === 'gitlab'
+    ? 'GitLab'
+    : 'GitHub'
+  return `${postedReleases.length} ${host} ${postedReleases.length === 1
+    ? 'release'
+    : 'releases'}`
 }
 
 /**
@@ -285,12 +314,16 @@ function describeReleaseCount({ detectedProvider, postedReleases }: ProviderRele
  */
 export function describeProviderReleaseResult(result: ProviderReleaseResult): string {
   if (result.error) {
-    return `${result.detectedProvider === 'gitlab' ? 'GitLab' : 'GitHub'} release failed: ${result.error}`
+    return `${result.detectedProvider === 'gitlab'
+      ? 'GitLab'
+      : 'GitHub'} release failed: ${result.error}`
   }
 
   if (result.detectedProvider === 'bitbucket') {
     return 'No release on Bitbucket, only the tags'
   }
 
-  return result.postedReleases.length === 0 ? 'No release to create' : `${describeReleaseCount(result)} created`
+  return result.postedReleases.length === 0
+    ? 'No release to create'
+    : `${describeReleaseCount(result)} created`
 }

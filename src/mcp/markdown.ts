@@ -21,7 +21,12 @@ export function listSections(markdown: string): MarkdownSection[] {
     const match = !inFence && /^(#{2,4})\s+(\S.*)$/.exec(line)
 
     if (match) {
-      sections.push({ title: match[2].trim(), level: match[1].length, start: index, end: lines.length })
+      sections.push({
+        title: match[2].trim(),
+        level: match[1].length,
+        start: index,
+        end: lines.length,
+      })
     }
   }
 
@@ -55,12 +60,16 @@ export function sectionContent(markdown: string, section: MarkdownSection): stri
 export function outline(markdown: string): string {
   return listSections(markdown)
     .filter(section => section.level <= 3)
-    .map(section => `${section.level === 3 ? '  ' : ''}- ${section.title}`)
+    .map(section => `${section.level === 3
+      ? '  '
+      : ''}- ${section.title}`)
     .join('\n')
 }
 
 export function truncateText(value: string, max: number): string {
-  return value.length <= max ? value : `${value.slice(0, max - 3).trimEnd()}...`
+  return value.length <= max
+    ? value
+    : `${value.slice(0, max - 3).trimEnd()}...`
 }
 
 /** Lines of a text joined on a single line */
@@ -73,7 +82,9 @@ export function firstParagraph(value: string): string {
   const lines = value.trim().split('\n')
   const end = lines.findIndex(line => line.trim() === '')
 
-  return singleLine((end === -1 ? lines : lines.slice(0, end)).join('\n'))
+  return singleLine((end === -1
+    ? lines
+    : lines.slice(0, end)).join('\n'))
 }
 
 /** Escapes the characters that break a markdown table cell */

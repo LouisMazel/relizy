@@ -14,7 +14,11 @@ import {
 } from '../progress'
 
 describe('Given the progress of a step', () => {
-  const handlers = { progress: vi.fn(), note: vi.fn(), preview: vi.fn() }
+  const handlers = {
+    progress: vi.fn(),
+    note: vi.fn(),
+    preview: vi.fn(),
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -31,7 +35,11 @@ describe('Given the progress of a step', () => {
 
       reportProgress('Publishing')
       reportStepNote('Done')
-      showPreview({ title: 'Twitter post', meta: ['Length: 10/280 chars'], content: 'Hello' })
+      showPreview({
+        title: 'Twitter post',
+        meta: ['Length: 10/280 chars'],
+        content: 'Hello',
+      })
 
       expect(box).toHaveBeenCalledWith('[dry-run] Twitter post\n\nLength: 10/280 chars\n\nHello')
     })
@@ -86,8 +94,12 @@ describe('Given the facts of a release', () => {
     recordAIRewrite({ subject: 'the notes of v2.0.0', provider: 'claude-code', simulated: true })
 
     expect(takeReleaseFacts()).toEqual({
-      links: [{ step: 'social', label: 'Tweet', url: 'https://x.com/i/web/status/1' }],
-      aiRewrites: [{ subject: 'the notes of v2.0.0', provider: 'claude-code', simulated: true }],
+      links: [
+        { step: 'social', label: 'Tweet', url: 'https://x.com/i/web/status/1' },
+      ],
+      aiRewrites: [
+        { subject: 'the notes of v2.0.0', provider: 'claude-code', simulated: true },
+      ],
     })
     expect(takeReleaseFacts()).toEqual({ links: [], aiRewrites: [] })
   })

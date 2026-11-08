@@ -29,14 +29,22 @@ describe('claudeCodeProvider', () => {
   describe('safetyCheck', () => {
     it('passes when apiKey is set in provider config', async () => {
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { apiKey: 'sk-test' } } },
+        ai: {
+          providers: {
+            'claude-code': { apiKey: 'sk-test' },
+          },
+        },
       })
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
 
     it('passes when apiKey is set in tokens config', async () => {
       const config = createMockConfig({
-        tokens: { ai: { 'claude-code': { apiKey: 'sk-test' } } },
+        tokens: {
+          ai: {
+            'claude-code': { apiKey: 'sk-test' },
+          },
+        },
       })
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
@@ -53,7 +61,11 @@ describe('claudeCodeProvider', () => {
 
     it('passes when oauthToken is set in provider config', async () => {
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { oauthToken: 'oauth-test' } } },
+        ai: {
+          providers: {
+            'claude-code': { oauthToken: 'oauth-test' },
+          },
+        },
       })
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
@@ -90,8 +102,16 @@ describe('claudeCodeProvider', () => {
     it('resolves auth in priority order: provider config > tokens > env', async () => {
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-env')
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { apiKey: 'sk-provider' } } },
-        tokens: { ai: { 'claude-code': { apiKey: 'sk-tokens' } } },
+        ai: {
+          providers: {
+            'claude-code': { apiKey: 'sk-provider' },
+          },
+        },
+        tokens: {
+          ai: {
+            'claude-code': { apiKey: 'sk-tokens' },
+          },
+        },
       })
       await expect(claudeCodeProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
@@ -125,7 +145,10 @@ describe('claudeCodeProvider', () => {
       mockClaudeRun.mockResolvedValue({ output: 'Result text' })
 
       const config = createMockConfig({})
-      await claudeCodeProvider.generate(config, { ...request, context: { project: 'relizy', version: '2.0.0' } })
+      await claudeCodeProvider.generate(config, {
+        ...request,
+        context: { project: 'relizy', version: '2.0.0' },
+      })
 
       const [options] = mockClaudeRun.mock.calls[0]
       expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
@@ -136,7 +159,11 @@ describe('claudeCodeProvider', () => {
       mockClaudeRun.mockResolvedValue({ output: 'result' })
 
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { model: 'sonnet' } } },
+        ai: {
+          providers: {
+            'claude-code': { model: 'sonnet' },
+          },
+        },
       })
       await claudeCodeProvider.generate(config, request)
 
@@ -160,7 +187,11 @@ describe('claudeCodeProvider', () => {
       mockClaudeRun.mockResolvedValue({ output: 'result' })
 
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { apiKey: 'sk-provider' } } },
+        ai: {
+          providers: {
+            'claude-code': { apiKey: 'sk-provider' },
+          },
+        },
       })
       await claudeCodeProvider.generate(config, request)
 
@@ -182,7 +213,11 @@ describe('claudeCodeProvider', () => {
       mockClaudeRun.mockResolvedValue({ output: 'result' })
 
       const config = createMockConfig({
-        tokens: { ai: { 'claude-code': { apiKey: 'sk-from-tokens' } } },
+        tokens: {
+          ai: {
+            'claude-code': { apiKey: 'sk-from-tokens' },
+          },
+        },
       })
       await claudeCodeProvider.generate(config, request)
 
@@ -194,7 +229,11 @@ describe('claudeCodeProvider', () => {
       mockClaudeRun.mockResolvedValue({ output: 'result' })
 
       const config = createMockConfig({
-        tokens: { ai: { 'claude-code': { oauthToken: 'oauth-from-tokens' } } },
+        tokens: {
+          ai: {
+            'claude-code': { oauthToken: 'oauth-from-tokens' },
+          },
+        },
       })
       await claudeCodeProvider.generate(config, request)
 
@@ -228,7 +267,11 @@ describe('claudeCodeProvider', () => {
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
       mockClaudeRun.mockResolvedValue({
         output: 'done',
-        events: [{ type: 'thinking' }, { type: 'output' }, { type: 'result' }],
+        events: [
+          { type: 'thinking' },
+          { type: 'output' },
+          { type: 'result' },
+        ],
       })
 
       const config = createMockConfig({})
@@ -244,7 +287,15 @@ describe('claudeCodeProvider', () => {
         costUsd: 0.0042,
         events: [
           { type: 'output' },
-          { type: 'result', usage: { input_tokens: 12, cache_creation_input_tokens: 3000, cache_read_input_tokens: 1500, output_tokens: 420 } },
+          {
+            type: 'result',
+            usage: {
+              input_tokens: 12,
+              cache_creation_input_tokens: 3000,
+              cache_read_input_tokens: 1500,
+              output_tokens: 420,
+            },
+          },
         ],
       })
 
@@ -264,7 +315,11 @@ describe('claudeCodeProvider', () => {
       const { claudeCodeProvider: providerFresh } = await import('../ai/providers/claude-code')
       vi.stubEnv('ANTHROPIC_API_KEY', 'sk-test')
       const config = createMockConfig({
-        ai: { providers: { 'claude-code': { apiKey: 'sk-test' } } },
+        ai: {
+          providers: {
+            'claude-code': { apiKey: 'sk-test' },
+          },
+        },
       })
 
       await expect(providerFresh.safetyCheck(config)).rejects.toThrow(

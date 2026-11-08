@@ -75,7 +75,11 @@ export function getTrustedPublishing({ registry, token, env = process.env }: { r
 
 function readVersion(command: string, cwd: string): string | undefined {
   try {
-    return semver.valid(execSync(`${command} --version`, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim()) ?? undefined
+    return semver.valid(execSync(`${command} --version`, {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim()) ?? undefined
   }
   catch {
     return undefined

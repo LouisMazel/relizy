@@ -52,7 +52,10 @@ function readRootDependencies(cwd: string): Record<string, unknown> {
 
   try {
     const json = JSON.parse(readFileSync(path, 'utf8'))
-    return { ...json.dependencies, ...json.devDependencies }
+    return {
+      ...json.dependencies,
+      ...json.devDependencies,
+    }
   }
   catch {
     return {}
@@ -86,7 +89,9 @@ export function resolveFormatCommand({ config, files }: { config: ResolvedRelizy
     }
 
     return files.length > 0
-      ? { command: formatCmd.replaceAll(FORMAT_FILES_PLACEHOLDER, quoteFiles(config.cwd, files)) }
+      ? {
+          command: formatCmd.replaceAll(FORMAT_FILES_PLACEHOLDER, quoteFiles(config.cwd, files)),
+        }
       : undefined
   }
 
@@ -135,7 +140,9 @@ export async function executeFormatCmd({
     return
   }
 
-  reportProgress(format.formatter ? `Formatting the changelogs with ${format.formatter}` : 'Formatting the changelogs')
+  reportProgress(format.formatter
+    ? `Formatting the changelogs with ${format.formatter}`
+    : 'Formatting the changelogs')
   logger.info('Running format command')
   logger.debug(`Running format command: ${format.command}`)
 

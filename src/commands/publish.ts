@@ -174,7 +174,13 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     const provider = getTrustedPublishing({ registry, token: registryTarget.token })
 
     if (provider) {
-      await checkTrustedPublishing({ config, registry, registryLabel, provider, packages: packagesToCheck })
+      await checkTrustedPublishing({
+        config,
+        registry,
+        registryLabel,
+        provider,
+        packages: packagesToCheck,
+      })
       continue
     }
 
@@ -243,7 +249,12 @@ async function getGroupsPackagesToPublish({
 }): Promise<PackagesToPublish> {
   const publishedPackages: PackageBase[] = []
 
-  for (const { group, config: groupConfig, bumpResult } of getReleaseTargets({ config, bumpResult: options.bumpResult, only: options.groups, nothing: 'nothing to publish' })) {
+  for (const { group, config: groupConfig, bumpResult } of getReleaseTargets({
+    config,
+    bumpResult: options.bumpResult,
+    only: options.groups,
+    nothing: 'nothing to publish',
+  })) {
     const { publishedPackages: groupPackages } = await getPackagesToPublish({
       config: groupConfig,
       bumpResult,
@@ -257,7 +268,10 @@ async function getGroupsPackagesToPublish({
     publishedPackages.push(...groupPackages)
   }
 
-  return { sortedPackages: sortPackagesForPublish(publishedPackages), publishedPackages }
+  return {
+    sortedPackages: sortPackagesForPublish(publishedPackages),
+    publishedPackages,
+  }
 }
 
 /**
@@ -318,7 +332,9 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
 
       const { toPublish, publishedPackages } = await ui.step({
         running: 'Checking the packages to publish',
-        done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0 ? 'No package to publish' : `${describePackages(toPublish)} to publish`,
+        done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0
+          ? 'No package to publish'
+          : `${describePackages(toPublish)} to publish`,
         run: () => getCheckedPackagesToPublish({ config, options, dryRun }),
       })
 
@@ -336,14 +352,18 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
         })
       }
 
-      const distTag = config.publish.tag ? ` (${config.publish.tag})` : ''
+      const distTag = config.publish.tag
+        ? ` (${config.publish.tag})`
+        : ''
       await ui.step({
         running: 'Publishing the packages',
         done: () => `Published ${describePackages(toPublish)}${distTag}`,
         run: async () => {
           for await (const [index, pkg] of toPublish.entries()) {
             const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
-            const position = toPublish.length > 1 ? ` (${index + 1}/${toPublish.length})` : ''
+            const position = toPublish.length > 1
+              ? ` (${index + 1}/${toPublish.length})`
+              : ''
             logger.debug(`Publishing ${tag}...`)
             reportProgress(`Publishing ${tag}${position}`)
             await publishPackage({

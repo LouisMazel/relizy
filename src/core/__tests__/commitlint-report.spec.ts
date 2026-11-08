@@ -54,7 +54,13 @@ const SCOPE_FILES: CommitlintProblem = {
 }
 
 function commitEntry(hash: string, overrides: Parameters<typeof createResult>[0] = {}): ReportEntry {
-  return { result: createResult({ ...overrides, commit: { hash: `${hash}${'0'.repeat(33)}`, ...overrides.commit } }), label: hash }
+  return {
+    result: createResult({
+      ...overrides,
+      commit: { hash: `${hash}${'0'.repeat(33)}`, ...overrides.commit },
+    }),
+    label: hash,
+  }
 }
 
 describe('Given formatReleaseEffect function', () => {
@@ -63,7 +69,10 @@ describe('Given formatReleaseEffect function', () => {
   })
 
   it('Then describes a commit without bump nor changelog entry', () => {
-    expect(formatReleaseEffect(createResult({ changelogTitle: undefined, commit: { bump: undefined } }))).toBe('no bump, not in the changelog')
+    expect(formatReleaseEffect(createResult({
+      changelogTitle: undefined,
+      commit: { bump: undefined },
+    }))).toBe('no bump, not in the changelog')
   })
 })
 
@@ -73,7 +82,9 @@ describe('Given formatCommitResult function', () => {
   })
 
   it('Then marks the breaking commits and prints the label', () => {
-    const result = createResult({ commit: { isBreaking: true, scope: '', bump: 'major' } })
+    const result = createResult({
+      commit: { isBreaking: true, scope: '', bump: 'major' },
+    })
 
     expect(formatCommitResult(result, { label: '0123456' })).toEqual(['✔ 0123456 feat! → major bump, 🚀 Features'])
   })
@@ -81,7 +92,15 @@ describe('Given formatCommitResult function', () => {
   it('Then prints the header, each problem with how to fix it, and the suggested header', () => {
     const result = createResult({
       commit: { header: 'feat(core): Add a thing.' },
-      problems: [SUBJECT_CASE, { rule: 'subject-full-stop', severity: 'error', message: 'The subject ends with a period', fix: 'remove the final period' }],
+      problems: [
+        SUBJECT_CASE,
+        {
+          rule: 'subject-full-stop',
+          severity: 'error',
+          message: 'The subject ends with a period',
+          fix: 'remove the final period',
+        },
+      ],
       suggestion: { header: 'feat(core): add a thing', remainingRules: [] },
     })
 
@@ -99,7 +118,13 @@ describe('Given formatCommitResult function', () => {
   })
 
   it('Then lists the rules a suggested header does not fix', () => {
-    const result = createResult({ problems: [SUBJECT_CASE], suggestion: { header: 'fix(core): typo', remainingRules: ['subject-meaningful'] } })
+    const result = createResult({
+      problems: [SUBJECT_CASE],
+      suggestion: {
+        header: 'fix(core): typo',
+        remainingRules: ['subject-meaningful'],
+      },
+    })
 
     expect(formatCommitResult(result).slice(-3)).toEqual([
       '  Suggested header: fix(core): typo',
@@ -109,7 +134,9 @@ describe('Given formatCommitResult function', () => {
   })
 
   it('Then prints the warnings of a valid commit under its line', () => {
-    expect(formatCommitResult(createResult({ problems: [SCOPE_FILES] }))).toEqual([
+    expect(formatCommitResult(createResult({
+      problems: [SCOPE_FILES],
+    }))).toEqual([
       '✔ feat(core) → minor bump, 🚀 Features',
       '',
       '  ⚠ scope-matches-files  The scope "core" designates packages/core, but it touches nuxt',
@@ -119,13 +146,30 @@ describe('Given formatCommitResult function', () => {
   })
 
   it('Then prints a problem without fix, like a custom rule', () => {
-    const result = createResult({ problems: [{ rule: 'ticket', severity: 'error', message: 'Mention the ticket' }] })
+    const result = createResult({
+      problems: [
+        { rule: 'ticket', severity: 'error', message: 'Mention the ticket' },
+      ],
+    })
 
-    expect(formatCommitResult(result)).toEqual(['✖ feat(core): add a thing', '', '  ✖ ticket  Mention the ticket', ''])
+    expect(formatCommitResult(result)).toEqual([
+      '✖ feat(core): add a thing',
+      '',
+      '  ✖ ticket  Mention the ticket',
+      '',
+    ])
   })
 
   it('Then wraps the long messages under their column', () => {
-    const result = createResult({ problems: [{ rule: 'rule', severity: 'error', message: Array.from({ length: 40 }).fill('word').join(' ') }] })
+    const result = createResult({
+      problems: [
+        {
+          rule: 'rule',
+          severity: 'error',
+          message: Array.from({ length: 40 }).fill('word').join(' '),
+        },
+      ],
+    })
     const lines = formatCommitResult(result)
 
     expect(lines.filter(line => line.includes('word')).length).toBeGreaterThan(1)
@@ -134,16 +178,23 @@ describe('Given formatCommitResult function', () => {
   })
 
   it('Then prints the header of a non conventional commit', () => {
-    expect(formatCommitResult(createResult({ commit: { type: '', header: 'wip' } }))[0]).toBe('✔ wip → minor bump, 🚀 Features')
+    expect(formatCommitResult(createResult({
+      commit: { type: '', header: 'wip' },
+    }))[0]).toBe('✔ wip → minor bump, 🚀 Features')
   })
 
   it('Then marks the ignored commits', () => {
-    expect(formatCommitResult(createResult({ ignored: true, commit: { header: 'Merge branch \'main\'' } }), { label: '0123456' }))
+    expect(formatCommitResult(createResult({
+      ignored: true,
+      commit: { header: 'Merge branch \'main\'' },
+    }), { label: '0123456' }))
       .toEqual(['○ 0123456 Merge branch \'main\' (ignored)'])
   })
 
   it('Then colors the output on demand', () => {
-    const [first, , problem] = formatCommitResult(createResult({ problems: [SUBJECT_CASE] }), { colors: true })
+    const [first, , problem] = formatCommitResult(createResult({
+      problems: [SUBJECT_CASE],
+    }), { colors: true })
 
     expect(first).toBe('\x1B[31m✖\x1B[0m \x1B[1mfeat(core): add a thing\x1B[0m')
     expect(problem).toContain('\x1B[36msubject-case  \x1B[0m')
@@ -154,13 +205,26 @@ describe('Given formatTextReport function', () => {
   const SEPARATOR = '─'.repeat(72)
 
   it('Then prints only the line of a valid message', () => {
-    expect(formatTextReport({ mode: 'edit', entries: [{ result: createResult() }] })).toEqual(['✔ feat(core) → minor bump, 🚀 Features'])
+    expect(formatTextReport({
+      mode: 'edit',
+      entries: [
+        {
+          result: createResult(),
+        },
+      ],
+    })).toEqual(['✔ feat(core) → minor bump, 🚀 Features'])
   })
 
   it('Then summarizes an invalid message being created, with the rule docs and how to commit again', () => {
     const report: CommitlintReport = {
       mode: 'edit',
-      entries: [{ result: createResult({ problems: [SUBJECT_CASE, SCOPE_FILES] }) }],
+      entries: [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE, SCOPE_FILES],
+          }),
+        },
+      ],
       messageFile: '.git/COMMIT_EDITMSG',
       helpUrl: 'https://example.com/guidelines',
     }
@@ -178,13 +242,33 @@ describe('Given formatTextReport function', () => {
 
   it('Then never wraps a command, to copy and paste it', () => {
     const file = `/tmp/${'a'.repeat(150)}/COMMIT_EDITMSG`
-    const report: CommitlintReport = { mode: 'edit', entries: [{ result: createResult({ problems: [SUBJECT_CASE] }) }], messageFile: file }
+    const report: CommitlintReport = {
+      mode: 'edit',
+      entries: [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+          }),
+        },
+      ],
+      messageFile: file,
+    }
 
     expect(formatTextReport(report).at(-1)).toBe(`           $ git commit --edit --file ${file}`)
   })
 
   it('Then summarizes a valid message with warnings, without help nor fix', () => {
-    const report: CommitlintReport = { mode: 'message', entries: [{ result: createResult({ problems: [SCOPE_FILES] }) }], helpUrl: 'https://example.com' }
+    const report: CommitlintReport = {
+      mode: 'message',
+      entries: [
+        {
+          result: createResult({
+            problems: [SCOPE_FILES],
+          }),
+        },
+      ],
+      helpUrl: 'https://example.com',
+    }
 
     expect(formatTextReport(report).slice(-3)).toEqual([
       SEPARATOR,
@@ -196,7 +280,13 @@ describe('Given formatTextReport function', () => {
   it('Then confirms a valid range, with the ignored commits', () => {
     const report: CommitlintReport = {
       mode: 'range',
-      entries: [commitEntry('aaaaaaa'), commitEntry('bbbbbbb', { ignored: true, commit: { header: 'Merge branch \'main\'' } })],
+      entries: [
+        commitEntry('aaaaaaa'),
+        commitEntry('bbbbbbb', {
+          ignored: true,
+          commit: { header: 'Merge branch \'main\'' },
+        }),
+      ],
     }
 
     expect(formatTextReport(report)).toEqual([
@@ -211,30 +301,108 @@ describe('Given formatTextReport function', () => {
   })
 
   it('Then summarizes a range with warnings only', () => {
-    const report: CommitlintReport = { mode: 'range', entries: [commitEntry('aaaaaaa', { problems: [SCOPE_FILES] })] }
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa', {
+          problems: [SCOPE_FILES],
+        }),
+      ],
+    }
 
     expect(formatTextReport(report)).toContain('⚠ 1 commit checked, all valid, with 1 warning')
   })
 
   it.each([
-    ['one invalid commit', [commitEntry('aaaaaaa', { problems: [SUBJECT_CASE] }), commitEntry('bbbbbbb')], '✖ 1 of 2 commits is invalid: 1 error, 0 warnings'],
-    ['two invalid commits', [commitEntry('aaaaaaa', { problems: [SUBJECT_CASE] }), commitEntry('bbbbbbb', { problems: [SUBJECT_CASE] })], '✖ 2 of 2 commits are invalid: 2 errors, 0 warnings'],
-    ['an invalid title', [{ result: createResult({ problems: [SUBJECT_CASE] }), label: 'MR title' }, commitEntry('aaaaaaa')], '✖ the merge request title is invalid: 1 error, 0 warnings'],
-    ['an invalid title and commit', [{ result: createResult({ problems: [SUBJECT_CASE] }), label: 'MR title' }, commitEntry('aaaaaaa', { problems: [SUBJECT_CASE] })], '✖ 1 of 1 commit and the merge request title are invalid: 2 errors, 0 warnings'],
+    [
+      'one invalid commit',
+      [
+        commitEntry('aaaaaaa', {
+          problems: [SUBJECT_CASE],
+        }),
+        commitEntry('bbbbbbb'),
+      ],
+      '✖ 1 of 2 commits is invalid: 1 error, 0 warnings',
+    ],
+    [
+      'two invalid commits',
+      [
+        commitEntry('aaaaaaa', {
+          problems: [SUBJECT_CASE],
+        }),
+        commitEntry('bbbbbbb', {
+          problems: [SUBJECT_CASE],
+        }),
+      ],
+      '✖ 2 of 2 commits are invalid: 2 errors, 0 warnings',
+    ],
+    [
+      'an invalid title',
+      [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+          }),
+          label: 'MR title',
+        },
+        commitEntry('aaaaaaa'),
+      ],
+      '✖ the merge request title is invalid: 1 error, 0 warnings',
+    ],
+    [
+      'an invalid title and commit',
+      [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+          }),
+          label: 'MR title',
+        },
+        commitEntry('aaaaaaa', {
+          problems: [SUBJECT_CASE],
+        }),
+      ],
+      '✖ 1 of 1 commit and the merge request title are invalid: 2 errors, 0 warnings',
+    ],
   ])('Then gives the verdict of %s', (_, entries, verdict) => {
-    const report: CommitlintReport = { mode: 'range', entries, from: 'v1.0.0', titleKind: 'merge request' }
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries,
+      from: 'v1.0.0',
+      titleKind: 'merge request',
+    }
 
     expect(formatTextReport(report)).toContain(verdict)
   })
 
   it('Then lists each failing rule once', () => {
-    const report: CommitlintReport = { mode: 'range', entries: [commitEntry('aaaaaaa', { problems: [SUBJECT_CASE] }), commitEntry('bbbbbbb', { problems: [SUBJECT_CASE] })], from: 'v1.0.0' }
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa', {
+          problems: [SUBJECT_CASE],
+        }),
+        commitEntry('bbbbbbb', {
+          problems: [SUBJECT_CASE],
+        }),
+      ],
+      from: 'v1.0.0',
+    }
 
     expect(formatTextReport(report).filter(line => line.includes('rules#subject-case'))).toHaveLength(1)
   })
 
   it('Then only prints the commits with problems in quiet mode', () => {
-    const report: CommitlintReport = { mode: 'range', entries: [commitEntry('aaaaaaa'), commitEntry('bbbbbbb', { problems: [SUBJECT_CASE] })], from: 'v1.0.0' }
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa'),
+        commitEntry('bbbbbbb', {
+          problems: [SUBJECT_CASE],
+        }),
+      ],
+      from: 'v1.0.0',
+    }
     const lines = formatTextReport(report, { quiet: true })
 
     expect(lines[0]).toBe('✖ bbbbbbb feat(core): add a thing')
@@ -242,7 +410,15 @@ describe('Given formatTextReport function', () => {
   })
 
   it('Then prints the changelog entry of the previewed commits', () => {
-    const report: CommitlintReport = { mode: 'message', entries: [{ result: createResult(), preview: '### 🚀 Features\n\n- **core:** Add a thing' }] }
+    const report: CommitlintReport = {
+      mode: 'message',
+      entries: [
+        {
+          result: createResult(),
+          preview: '### 🚀 Features\n\n- **core:** Add a thing',
+        },
+      ],
+    }
 
     expect(formatTextReport(report)).toEqual([
       '✔ feat(core) → minor bump, 🚀 Features',
@@ -257,32 +433,77 @@ describe('Given formatTextReport function', () => {
 
 describe('Given formatHowToFix function', () => {
   it('Then has nothing to fix for valid commits or a given message', () => {
-    expect(formatHowToFix({ mode: 'range', entries: [commitEntry('aaaaaaa')] })).toEqual([])
-    expect(formatHowToFix({ mode: 'message', entries: [{ result: createResult({ problems: [SUBJECT_CASE] }) }] })).toEqual([])
+    expect(formatHowToFix({
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa'),
+      ],
+    })).toEqual([])
+    expect(formatHowToFix({
+      mode: 'message',
+      entries: [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+          }),
+        },
+      ],
+    })).toEqual([])
   })
 
   it('Then rewords the commits from a shortened hash, a ref or the root', () => {
-    const entries = [commitEntry('aaaaaaa', { problems: [SUBJECT_CASE] }), commitEntry('bbbbbbb', { problems: [SUBJECT_CASE] })]
+    const entries = [
+      commitEntry('aaaaaaa', {
+        problems: [SUBJECT_CASE],
+      }),
+      commitEntry('bbbbbbb', {
+        problems: [SUBJECT_CASE],
+      }),
+    ]
 
-    expect(formatHowToFix({ mode: 'range', entries, from: 'c'.repeat(40) })).toEqual([
+    expect(formatHowToFix({
+      mode: 'range',
+      entries,
+      from: 'c'.repeat(40),
+    })).toEqual([
       'reword aaaaaaa, bbbbbbb: mark them as "reword" in the rebase, then force-push:',
       '$ git rebase -i ccccccc',
       '$ git push --force-with-lease',
     ])
-    expect(formatHowToFix({ mode: 'range', entries: entries.slice(0, 1), from: 'origin/main' }).slice(0, 2))
+    expect(formatHowToFix({
+      mode: 'range',
+      entries: entries.slice(0, 1),
+      from: 'origin/main',
+    }).slice(0, 2))
       .toEqual(['reword aaaaaaa: mark it as "reword" in the rebase, then force-push:', '$ git rebase -i origin/main'])
     expect(formatHowToFix({ mode: 'range', entries })[1]).toBe('$ git rebase -i --root')
   })
 
   it('Then explains how to update the title', () => {
-    const entries = [{ result: createResult({ problems: [SUBJECT_CASE] }), label: 'PR title' }]
+    const entries = [
+      {
+        result: createResult({
+          problems: [SUBJECT_CASE],
+        }),
+        label: 'PR title',
+      },
+    ]
 
     expect(formatHowToFix({ mode: 'range', entries, titleKind: 'pull request' }))
       .toEqual(['edit the pull request title, then run a new pipeline (a retry keeps the old title)'])
   })
 
   it('Then defaults the message file of the commit being created', () => {
-    expect(formatHowToFix({ mode: 'edit', entries: [{ result: createResult({ problems: [SUBJECT_CASE] }) }] }))
+    expect(formatHowToFix({
+      mode: 'edit',
+      entries: [
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+          }),
+        },
+      ],
+    }))
       .toEqual(['edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:', '$ git commit --edit --file .git/COMMIT_EDITMSG'])
   })
 })
@@ -292,8 +513,18 @@ describe('Given formatJsonReport function', () => {
     const report: CommitlintReport = {
       mode: 'range',
       entries: [
-        { result: createResult({ problems: [SUBJECT_CASE], suggestion: { header: 'feat(core): add a thing', remainingRules: [] } }), label: 'PR title', preview: '### 🚀 Features' },
-        commitEntry('aaaaaaa', { changelogTitle: undefined, commit: { type: '', scope: '', bump: undefined } }),
+        {
+          result: createResult({
+            problems: [SUBJECT_CASE],
+            suggestion: { header: 'feat(core): add a thing', remainingRules: [] },
+          }),
+          label: 'PR title',
+          preview: '### 🚀 Features',
+        },
+        commitEntry('aaaaaaa', {
+          changelogTitle: undefined,
+          commit: { type: '', scope: '', bump: undefined },
+        }),
       ],
       from: 'v1.0.0',
       titleKind: 'pull request',
@@ -337,7 +568,14 @@ describe('Given formatJsonReport function', () => {
   })
 
   it('Then describes a single message', () => {
-    expect(JSON.parse(formatJsonReport({ mode: 'message', entries: [{ result: createResult() }] })).entries[0].kind).toBe('message')
+    expect(JSON.parse(formatJsonReport({
+      mode: 'message',
+      entries: [
+        {
+          result: createResult(),
+        },
+      ],
+    })).entries[0].kind).toBe('message')
   })
 })
 
@@ -345,7 +583,14 @@ describe('Given formatGithubAnnotations function', () => {
   it('Then emits an escaped annotation per problem', () => {
     const report: CommitlintReport = {
       mode: 'range',
-      entries: [commitEntry('aaaaaaa', { problems: [SUBJECT_CASE, { ...SCOPE_FILES, message: '100% wrong: really, yes' }] })],
+      entries: [
+        commitEntry('aaaaaaa', {
+          problems: [
+            SUBJECT_CASE,
+            { ...SCOPE_FILES, message: '100% wrong: really, yes' },
+          ],
+        }),
+      ],
     }
 
     expect(formatGithubAnnotations(report)).toEqual([
@@ -355,7 +600,18 @@ describe('Given formatGithubAnnotations function', () => {
   })
 
   it('Then escapes the title and omits a missing fix', () => {
-    const report: CommitlintReport = { mode: 'message', entries: [{ result: createResult({ problems: [{ rule: 'a:b,c', severity: 'error', message: 'Problem' }] }) }] }
+    const report: CommitlintReport = {
+      mode: 'message',
+      entries: [
+        {
+          result: createResult({
+            problems: [
+              { rule: 'a:b,c', severity: 'error', message: 'Problem' },
+            ],
+          }),
+        },
+      ],
+    }
 
     expect(formatGithubAnnotations(report)).toEqual(['::error title=Commit (a%3Ab%2Cc)::feat(core): add a thing%0AProblem'])
   })
@@ -363,13 +619,25 @@ describe('Given formatGithubAnnotations function', () => {
 
 describe('Given summarizeResults function', () => {
   it('Then counts the errors and warnings', () => {
-    expect(summarizeResults([createResult({ problems: [SUBJECT_CASE, SCOPE_FILES] }), createResult({ problems: [SUBJECT_CASE] })]))
+    expect(summarizeResults([
+      createResult({
+        problems: [SUBJECT_CASE, SCOPE_FILES],
+      }),
+      createResult({
+        problems: [SUBJECT_CASE],
+      }),
+    ]))
       .toEqual({ errorCount: 2, warningCount: 1 })
   })
 })
 
 describe('Given shouldUseColors function', () => {
-  const NAMES = ['NO_COLOR', 'FORCE_COLOR', 'GITHUB_ACTIONS', 'GITLAB_CI']
+  const NAMES = [
+    'NO_COLOR',
+    'FORCE_COLOR',
+    'GITHUB_ACTIONS',
+    'GITLAB_CI',
+  ]
   let saved: Record<string, string | undefined>
 
   beforeEach(() => {
@@ -390,13 +658,48 @@ describe('Given shouldUseColors function', () => {
 
   it.each([
     ['a terminal', {}, true, true],
-    ['a program reading the output, like an AI agent', {}, false, false],
-    ['GitHub Actions', { GITHUB_ACTIONS: 'true' }, false, true],
-    ['GitLab CI', { GITLAB_CI: 'true' }, false, true],
-    ['NO_COLOR in a terminal', { NO_COLOR: '1' }, true, false],
-    ['FORCE_COLOR without terminal', { FORCE_COLOR: '1' }, false, true],
-    ['FORCE_COLOR=0 in a terminal', { FORCE_COLOR: '0' }, true, false],
-    ['an empty FORCE_COLOR without terminal', { FORCE_COLOR: '' }, false, false],
+    [
+      'a program reading the output, like an AI agent',
+      {},
+      false,
+      false,
+    ],
+    [
+      'GitHub Actions',
+      { GITHUB_ACTIONS: 'true' },
+      false,
+      true,
+    ],
+    [
+      'GitLab CI',
+      { GITLAB_CI: 'true' },
+      false,
+      true,
+    ],
+    [
+      'NO_COLOR in a terminal',
+      { NO_COLOR: '1' },
+      true,
+      false,
+    ],
+    [
+      'FORCE_COLOR without terminal',
+      { FORCE_COLOR: '1' },
+      false,
+      true,
+    ],
+    [
+      'FORCE_COLOR=0 in a terminal',
+      { FORCE_COLOR: '0' },
+      true,
+      false,
+    ],
+    [
+      'an empty FORCE_COLOR without terminal',
+      { FORCE_COLOR: '' },
+      false,
+      false,
+    ],
   ])('Then decides for %s', (_, env, isTTY, expected) => {
     Object.assign(process.env, env)
 

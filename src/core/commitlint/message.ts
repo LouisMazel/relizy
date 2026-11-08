@@ -25,7 +25,9 @@ export function stripGitComments(message: string, commentChar = '#'): string {
   const lines = message.replaceAll('\r\n', '\n').split('\n')
   const scissors = lines.findIndex(line => line.startsWith(commentChar) && line.includes(SCISSORS_LINE))
   return lines
-    .slice(0, scissors === -1 ? lines.length : scissors)
+    .slice(0, scissors === -1
+      ? lines.length
+      : scissors)
     .filter(line => !line.startsWith(commentChar))
     .join('\n')
 }
@@ -57,7 +59,9 @@ export function splitCommitMessage(message: string): CommitMessageParts {
   return {
     raw: lines.join('\n'),
     header,
-    body: (hasFooter ? paragraphs.slice(0, -1) : paragraphs).join('\n\n').trim(),
+    body: (hasFooter
+      ? paragraphs.slice(0, -1)
+      : paragraphs).join('\n\n').trim(),
     footer: hasFooter ? last : '',
     hasLeadingBlank,
   }
@@ -76,7 +80,9 @@ function getReleaseCommitPatterns(config: ResolvedRelizyConfig): RegExp[] {
   const template = config.templates?.commitMessage
   const templates = template
     ? [template]
-    : config.monorepo?.groups ? Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES) : []
+    : config.monorepo?.groups
+      ? Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES)
+      : []
 
   return templates.map((title) => {
     const pattern = title
@@ -100,11 +106,16 @@ export function isIgnoredCommitMessage(message: string, config: ResolvedRelizyCo
   const { header } = splitCommitMessage(message)
   const commitlint = config.commitlint ?? {}
 
-  if (commitlint.defaultIgnores !== false && [...DEFAULT_IGNORES, ...getReleaseCommitPatterns(config)].some(pattern => pattern.test(header))) {
+  if (commitlint.defaultIgnores !== false && [
+    ...DEFAULT_IGNORES,
+    ...getReleaseCommitPatterns(config),
+  ].some(pattern => pattern.test(header))) {
     return true
   }
 
   return (commitlint.ignores ?? []).some(ignore =>
-    typeof ignore === 'function' ? ignore(message) : ignore.test(header),
+    typeof ignore === 'function'
+      ? ignore(message)
+      : ignore.test(header),
   )
 }

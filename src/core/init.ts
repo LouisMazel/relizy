@@ -104,13 +104,28 @@ export interface InitAnswers {
   aiLanguage: string
 }
 
-const CONFIG_EXTENSIONS = ['ts', 'mts', 'cts', 'js', 'mjs', 'cjs', 'json', 'jsonc', 'json5', 'yaml', 'yml', 'toml']
+const CONFIG_EXTENSIONS = [
+  'ts',
+  'mts',
+  'cts',
+  'js',
+  'mjs',
+  'cjs',
+  'json',
+  'jsonc',
+  'json5',
+  'yaml',
+  'yml',
+  'toml',
+]
 const PUBLIC_NPM_REGISTRY = 'https://registry.npmjs.org'
 
 function readJson(path: string): Record<string, any> | undefined {
   try {
     const parsed = JSON.parse(readFileSync(path, 'utf8'))
-    return parsed && typeof parsed === 'object' ? parsed : undefined
+    return parsed && typeof parsed === 'object'
+      ? parsed
+      : undefined
   }
   catch {
     return undefined
@@ -119,12 +134,16 @@ function readJson(path: string): Record<string, any> | undefined {
 
 function getAccess(json: Record<string, any>): 'public' | 'restricted' | undefined {
   const access = json.publishConfig?.access
-  return access === 'public' || access === 'restricted' ? access : undefined
+  return access === 'public' || access === 'restricted'
+    ? access
+    : undefined
 }
 
 function getRegistry(json: Record<string, any>): string | undefined {
   const registry = json.publishConfig?.registry
-  return typeof registry === 'string' && registry ? registry : undefined
+  return typeof registry === 'string' && registry
+    ? registry
+    : undefined
 }
 
 function readInitPackage(cwd: string, path: string): InitPackage | undefined {
@@ -136,7 +155,9 @@ function readInitPackage(cwd: string, path: string): InitPackage | undefined {
   return {
     name: json.name,
     path,
-    version: typeof json.version === 'string' && json.version ? json.version : undefined,
+    version: typeof json.version === 'string' && json.version
+      ? json.version
+      : undefined,
     private: json.private === true,
     access: getAccess(json),
     registry: getRegistry(json),
@@ -151,7 +172,14 @@ function detectWorkspaces(cwd: string): InitWorkspace[] {
   return globs
     .filter(pattern => !pattern.startsWith('!'))
     .map((pattern) => {
-      const directories = fastGlob.sync(pattern, { cwd, onlyDirectories: true, ignore: [...GLOB_IGNORE, ...negated] })
+      const directories = fastGlob.sync(pattern, {
+        cwd,
+        onlyDirectories: true,
+        ignore: [
+          ...GLOB_IGNORE,
+          ...negated,
+        ],
+      })
       const packages = directories
         .map(directory => directory.replace(/\/$/, ''))
         .filter(directory => directory !== '' && directory !== '.' && !seen.has(directory))
@@ -174,7 +202,9 @@ function findExistingConfigFile(cwd: string, configName: string, rootJson: Recor
   if (file) {
     return file
   }
-  return configName === 'relizy' && rootJson.relizy ? 'package.json' : undefined
+  return configName === 'relizy' && rootJson.relizy
+    ? 'package.json'
+    : undefined
 }
 
 /**
@@ -187,15 +217,24 @@ export function detectProject({ cwd, configName = 'relizy' }: { cwd: string, con
     throw new Error(`No package.json found in ${cwd}, run relizy init at the root of the project`)
   }
 
-  const dependencies = { ...rootJson.dependencies, ...rootJson.devDependencies }
+  const dependencies = {
+    ...rootJson.dependencies,
+    ...rootJson.devDependencies,
+  }
 
   return {
     cwd,
     root: {
-      name: typeof rootJson.name === 'string' && rootJson.name ? rootJson.name : undefined,
-      version: typeof rootJson.version === 'string' && rootJson.version ? rootJson.version : undefined,
+      name: typeof rootJson.name === 'string' && rootJson.name
+        ? rootJson.name
+        : undefined,
+      version: typeof rootJson.version === 'string' && rootJson.version
+        ? rootJson.version
+        : undefined,
       private: rootJson.private === true,
-      scripts: rootJson.scripts && typeof rootJson.scripts === 'object' ? rootJson.scripts : {},
+      scripts: rootJson.scripts && typeof rootJson.scripts === 'object'
+        ? rootJson.scripts
+        : {},
       hasRelizy: 'relizy' in dependencies,
       formatter: findChangelogFormatter(dependencies),
       access: getAccess(rootJson),
@@ -229,7 +268,9 @@ export function suggestGoal(detection: ProjectDetection): InitGoal {
   if (!isMonorepoProject(detection)) {
     return detection.root.private ? 'version' : 'publish'
   }
-  return detection.workspaces.some(workspace => workspace.packages.some(pkg => isReleasablePackage(pkg, 'publish'))) ? 'publish' : 'version'
+  return detection.workspaces.some(workspace => workspace.packages.some(pkg => isReleasablePackage(pkg, 'publish')))
+    ? 'publish'
+    : 'version'
 }
 
 /** Globs containing at least one package released for this goal */
@@ -238,7 +279,9 @@ export function suggestPatterns(detection: ProjectDetection, goal: InitGoal): st
     .filter(workspace => workspace.packages.some(pkg => isReleasablePackage(pkg, goal)))
     .map(workspace => workspace.pattern)
   // Only private packages while publishing: still version them
-  return patterns.length > 0 ? patterns : getCandidateWorkspaces(detection).map(workspace => workspace.pattern)
+  return patterns.length > 0
+    ? patterns
+    : getCandidateWorkspaces(detection).map(workspace => workspace.pattern)
 }
 
 /** Packages matched by the globs */
@@ -253,17 +296,25 @@ function getPackagesOfPatterns(detection: ProjectDetection, patterns: string[]):
 export function getReleasedPackages(detection: ProjectDetection, goal: InitGoal, patterns: string[]): InitPackage[] {
   const packages = getPackagesOfPatterns(detection, patterns)
   const released = packages.filter(pkg => isReleasablePackage(pkg, goal))
-  return released.length > 0 ? released : packages.filter(pkg => isReleasablePackage(pkg, 'version'))
+  return released.length > 0
+    ? released
+    : packages.filter(pkg => isReleasablePackage(pkg, 'version'))
 }
 
 /** Packages already on different versions are versioned independently */
 export function suggestVersionMode(packages: InitPackage[]): VersionMode {
-  return new Set(packages.map(pkg => pkg.version)).size > 1 ? 'independent' : 'selective'
+  return new Set(packages.map(pkg => pkg.version)).size > 1
+    ? 'independent'
+    : 'selective'
 }
 
 function getCommonValue<T>(values: (T | undefined)[]): T | undefined {
-  const defined = [...new Set(values.filter((value): value is T => value !== undefined))]
-  return defined.length === 1 ? defined[0] : undefined
+  const defined = [
+    ...new Set(values.filter((value): value is T => value !== undefined)),
+  ]
+  return defined.length === 1
+    ? defined[0]
+    : undefined
 }
 
 /** Run a script of the root package.json with the package manager */
@@ -276,8 +327,12 @@ export function getRunCommand(packageManager: PackageManager, script: string): s
  * packages: npm already applies them, they are only the defaults of the questions.
  */
 export function getDetectedPublishConfig(detection: ProjectDetection, { goal, patterns }: { goal: InitGoal, patterns: string[] }): { access?: 'public' | 'restricted', registry?: string } {
-  const released = isMonorepoProject(detection) ? getReleasedPackages(detection, goal, patterns) : []
-  const sources = released.length > 0 ? released : [detection.root]
+  const released = isMonorepoProject(detection)
+    ? getReleasedPackages(detection, goal, patterns)
+    : []
+  const sources = released.length > 0
+    ? released
+    : [detection.root]
   return {
     access: getCommonValue(sources.map(pkg => pkg.access)),
     registry: getCommonValue(sources.map(pkg => pkg.registry)),
@@ -293,12 +348,16 @@ export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns 
   return {
     goal,
     patterns,
-    versionMode: isMonorepoProject(detection) ? suggestVersionMode(getReleasedPackages(detection, goal, patterns)) : undefined,
+    versionMode: isMonorepoProject(detection)
+      ? suggestVersionMode(getReleasedPackages(detection, goal, patterns))
+      : undefined,
     dependencyTypes: [...defaults.bump.dependencyTypes],
     capZeroMajor: defaults.bump.capZeroMajor,
     rootChangelog: defaults.changelog.rootChangelog,
     hiddenTypes: [],
-    buildCmd: detection.root.scripts.build ? getRunCommand(detection.packageManager, 'build') : undefined,
+    buildCmd: detection.root.scripts.build
+      ? getRunCommand(detection.packageManager, 'build')
+      : undefined,
     twitter: false,
     slack: false,
     teams: false,
@@ -313,7 +372,9 @@ export function getDefaultAnswers(detection: ProjectDetection, { goal, patterns 
  * the config (the secrets of the release workflow) follow what it releases
  */
 export function getAnswersFromConfig(detection: ProjectDetection, config: ResolvedRelizyConfig): InitAnswers {
-  const goal: InitGoal = config.release?.publish === false ? 'version' : 'publish'
+  const goal: InitGoal = config.release?.publish === false
+    ? 'version'
+    : 'publish'
   const socials = ['twitter', 'slack', 'teams'] as const
 
   return {
@@ -322,7 +383,9 @@ export function getAnswersFromConfig(detection: ProjectDetection, config: Resolv
     slack: Boolean(config.social?.slack?.enabled),
     teams: Boolean(config.social?.teams?.enabled),
     ai: [
-      ...(config.ai?.providerRelease?.enabled ? ['providerRelease' as const] : []),
+      ...(config.ai?.providerRelease?.enabled
+        ? ['providerRelease' as const]
+        : []),
       ...socials.filter(target => config.ai?.social?.[target]?.enabled),
     ],
   }
@@ -334,7 +397,9 @@ export function getAnswersFromConfig(detection: ProjectDetection, config: Resolv
  */
 export function getCustomCommitMessage(config: ResolvedRelizyConfig): string | undefined {
   const message = config.templates?.commitMessage
-  return message && !Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES).includes(message as never) ? message : undefined
+  return message && !Object.values(DEFAULT_RELEASE_COMMIT_MESSAGES).includes(message as never)
+    ? message
+    : undefined
 }
 
 export function isPublicNpmRegistry(registry: string): boolean {
@@ -412,10 +477,22 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
 
   if (answers.twitter || answers.slack || answers.teams) {
     config.social = {
-      ...(answers.twitter && { twitter: { enabled: true } }),
-      ...(answers.slack && { slack: { enabled: true, ...(answers.slackChannel && { channel: answers.slackChannel }) } }),
+      ...(answers.twitter && {
+        twitter: { enabled: true },
+      }),
+      ...(answers.slack && {
+        slack: {
+          enabled: true,
+          ...(answers.slackChannel && { channel: answers.slackChannel }),
+        },
+      }),
       // The AI rewrites the changelog of the cards: they show it
-      ...(answers.teams && { teams: { enabled: true, ...(answers.ai.includes('teams') && { changelog: 'summary' as const }) } }),
+      ...(answers.teams && {
+        teams: {
+          enabled: true,
+          ...(answers.ai.includes('teams') && { changelog: 'summary' as const }),
+        },
+      }),
       ...(answers.changelogUrl && { changelogUrl: answers.changelogUrl }),
     }
   }
@@ -426,13 +503,21 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
 
   if (answers.ai.length > 0) {
     const social = {
-      ...(answers.ai.includes('twitter') && { twitter: { enabled: true } }),
-      ...(answers.ai.includes('slack') && { slack: { enabled: true } }),
-      ...(answers.ai.includes('teams') && { teams: { enabled: true } }),
+      ...(answers.ai.includes('twitter') && {
+        twitter: { enabled: true },
+      }),
+      ...(answers.ai.includes('slack') && {
+        slack: { enabled: true },
+      }),
+      ...(answers.ai.includes('teams') && {
+        teams: { enabled: true },
+      }),
     }
     config.ai = {
       ...(answers.aiLanguage && answers.aiLanguage !== defaults.ai.language && { language: answers.aiLanguage }),
-      ...(answers.ai.includes('providerRelease') && { providerRelease: { enabled: true } }),
+      ...(answers.ai.includes('providerRelease') && {
+        providerRelease: { enabled: true },
+      }),
       ...(Object.keys(social).length > 0 && { social }),
     }
   }
@@ -453,7 +538,9 @@ export function getMissingRootFields(detection: ProjectDetection, answers: InitA
 
   if (!detection.root.version) {
     const versions = answers.versionMode && answers.versionMode !== 'independent'
-      ? getReleasedPackages(detection, answers.goal, answers.patterns).flatMap(pkg => pkg.version && semver.valid(pkg.version) ? [pkg.version] : [])
+      ? getReleasedPackages(detection, answers.goal, answers.patterns).flatMap(pkg => pkg.version && semver.valid(pkg.version)
+          ? [pkg.version]
+          : [])
       : []
     fields.version = versions.sort(semver.rcompare)[0] ?? '0.0.0'
   }
@@ -463,7 +550,9 @@ export function getMissingRootFields(detection: ProjectDetection, answers: InitA
 
 /** Scripts to add to the root package.json, the existing ones are kept */
 export function getScriptsToAdd(detection: ProjectDetection): Record<string, string> {
-  return detection.root.scripts.release ? {} : { release: 'relizy release' }
+  return detection.root.scripts.release
+    ? {}
+    : { release: 'relizy release' }
 }
 
 /**
@@ -486,7 +575,10 @@ export function updateRootPackageJson({ cwd, fields = {}, scripts = {} }: {
     ...json,
   }
   if (Object.keys(scripts).length > 0) {
-    updated.scripts = { ...json.scripts, ...scripts }
+    updated.scripts = {
+      ...json.scripts,
+      ...scripts,
+    }
   }
 
   writeFileSync(path, `${JSON.stringify(updated, null, indent)}\n`)
@@ -496,7 +588,9 @@ export function updateRootPackageJson({ cwd, fields = {}, scripts = {} }: {
 export function getInstallCommand(detection: ProjectDetection): string {
   switch (detection.packageManager) {
     case 'pnpm':
-      return existsSync(join(detection.cwd, 'pnpm-workspace.yaml')) ? 'pnpm add -D -w relizy' : 'pnpm add -D relizy'
+      return existsSync(join(detection.cwd, 'pnpm-workspace.yaml'))
+        ? 'pnpm add -D -w relizy'
+        : 'pnpm add -D relizy'
     case 'yarn':
       return 'yarn add -D relizy'
     case 'bun':
@@ -532,7 +626,9 @@ function serialize(value: unknown, depth: number): string {
       return '{}'
     }
     const padding = '  '.repeat(depth + 1)
-    const lines = entries.map(([key, item]) => `${padding}${/^[a-z_$][\w$]*$/i.test(key) ? key : quote(key)}: ${serialize(item, depth + 1)},`)
+    const lines = entries.map(([key, item]) => `${padding}${/^[a-z_$][\w$]*$/i.test(key)
+      ? key
+      : quote(key)}: ${serialize(item, depth + 1)},`)
     return `{\n${lines.join('\n')}\n${'  '.repeat(depth)}}`
   }
 

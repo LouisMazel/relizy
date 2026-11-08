@@ -95,8 +95,12 @@ interface RenderedUnit<T> {
 
 function parseMarkdown(markdown: string): Root {
   return fromMarkdown(markdown, {
-    extensions: [gfm()],
-    mdastExtensions: [gfmFromMarkdown()],
+    extensions: [
+      gfm(),
+    ],
+    mdastExtensions: [
+      gfmFromMarkdown(),
+    ],
   })
 }
 
@@ -107,7 +111,12 @@ function splitIntoUnits(root: Root): ChangelogUnit[] {
       units.push({ type: 'heading', node })
     }
     else if (node.type === 'list') {
-      node.children.forEach((item, index) => units.push({ type: 'item', node: item, list: node, index }))
+      node.children.forEach((item, index) => units.push({
+        type: 'item',
+        node: item,
+        list: node,
+        index,
+      }))
     }
     else {
       units.push({ type: 'block', node })
@@ -119,18 +128,26 @@ function splitIntoUnits(root: Root): ChangelogUnit[] {
 /** Count the changes left out by a truncation: commits first, other blocks otherwise. */
 function countOmittedChanges(units: ChangelogUnit[]): number {
   const items = units.filter(unit => unit.type === 'item').length
-  return items > 0 ? items : units.filter(unit => unit.type !== 'heading').length
+  return items > 0
+    ? items
+    : units.filter(unit => unit.type !== 'heading').length
 }
 
 function formatOmittedChanges(count: number): string {
-  return count > 0 ? `… and ${count} more change${count > 1 ? 's' : ''}` : ''
+  return count > 0
+    ? `… and ${count} more change${count > 1
+      ? 's'
+      : ''}`
+    : ''
 }
 
 /** Cut a text without splitting a UTF-16 surrogate pair (emoji), which Slack would render broken. */
 export function sliceSlackText(text: string, length: number): string {
   const end = Math.max(0, length)
   const lastCode = text.charCodeAt(end - 1)
-  return text.slice(0, lastCode >= 0xD800 && lastCode <= 0xDBFF ? end - 1 : end)
+  return text.slice(0, lastCode >= 0xD800 && lastCode <= 0xDBFF
+    ? end - 1
+    : end)
 }
 
 /** A truncated changelog must not end on a heading whose content was dropped. */
@@ -198,8 +215,12 @@ function collapseSoftBreaks(text: string): string {
   const lines = text.split('\n')
   return lines
     .map((line, index) => {
-      const withoutLeading = index > 0 ? line.trimStart() : line
-      return index < lines.length - 1 ? withoutLeading.trimEnd() : withoutLeading
+      const withoutLeading = index > 0
+        ? line.trimStart()
+        : line
+      return index < lines.length - 1
+        ? withoutLeading.trimEnd()
+        : withoutLeading
     })
     .join(' ')
 }
@@ -234,7 +255,9 @@ function formatMrkdwnLink(url: string, label: string): string {
     return escapeMrkdwn(label)
   }
   const safeUrl = escapeMrkdwnUrl(url)
-  return label && label !== url ? `<${safeUrl}|${escapeMrkdwn(label)}>` : `<${safeUrl}>`
+  return label && label !== url
+    ? `<${safeUrl}|${escapeMrkdwn(label)}>`
+    : `<${safeUrl}>`
 }
 
 /**
@@ -296,11 +319,17 @@ function quoteMrkdwn(text: string): string {
 
 function renderListItemMrkdwn(item: ListItem, list: List, index: number, depth: number): string {
   const indent = '    '.repeat(depth)
-  const bullet = depth === 0 ? '•' : '◦'
-  const marker = list.ordered ? `${getListItemNumber(list, index)}.` : bullet
+  const bullet = depth === 0
+    ? '•'
+    : '◦'
+  const marker = list.ordered
+    ? `${getListItemNumber(list, index)}.`
+    : bullet
   const { head, body } = getListItemParts(item)
 
-  const lines = [`${indent}${marker} ${getCheckboxPrefix(item)}${renderInlineMrkdwn(head)}`.trimEnd()]
+  const lines = [
+    `${indent}${marker} ${getCheckboxPrefix(item)}${renderInlineMrkdwn(head)}`.trimEnd(),
+  ]
   for (const child of body) {
     if (child.type === 'list') {
       child.children.forEach((subItem, subIndex) => lines.push(renderListItemMrkdwn(subItem, child, subIndex, depth + 1)))
@@ -319,7 +348,9 @@ function renderBlockMrkdwn(node: RootContent | BlockContent | DefinitionContent)
   switch (node.type) {
     case 'heading': {
       const text = renderInlineMrkdwn(node.children, new Set(['*'])).trim()
-      return text ? `*${text}*` : ''
+      return text
+        ? `*${text}*`
+        : ''
     }
     case 'paragraph':
       return renderInlineMrkdwn(node.children)
@@ -351,7 +382,9 @@ function getMrkdwnSeparator(previous: RenderedUnit<string> | undefined, current:
     return ''
   }
   const sameList = previous.unit.type === 'item' && current.unit.type === 'item' && previous.unit.list === current.unit.list
-  return previous.unit.type === 'heading' || sameList ? '\n' : '\n\n'
+  return previous.unit.type === 'heading' || sameList
+    ? '\n'
+    : '\n\n'
 }
 
 function joinMrkdwnUnits(rendered: RenderedUnit<string>[]): string {
@@ -381,12 +414,18 @@ function indexMrkdwnUnits(rendered: RenderedUnit<string>[]) {
   const changesFrom = Array.from<number>({ length: rendered.length + 1 }).fill(0)
   for (let index = rendered.length - 1; index >= 0; index--) {
     const type = rendered[index]!.unit.type
-    itemsFrom[index] = itemsFrom[index + 1]! + (type === 'item' ? 1 : 0)
-    changesFrom[index] = changesFrom[index + 1]! + (type === 'heading' ? 0 : 1)
+    itemsFrom[index] = itemsFrom[index + 1]! + (type === 'item'
+      ? 1
+      : 0)
+    changesFrom[index] = changesFrom[index + 1]! + (type === 'heading'
+      ? 0
+      : 1)
   }
 
   // Commits first, other blocks otherwise
-  const omittedNote = (index: number) => formatOmittedChanges(itemsFrom[index]! > 0 ? itemsFrom[index]! : changesFrom[index]!)
+  const omittedNote = (index: number) => formatOmittedChanges(itemsFrom[index]! > 0
+    ? itemsFrom[index]!
+    : changesFrom[index]!)
   return { separators, prefixLengths, omittedNote }
 }
 
@@ -406,7 +445,11 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength, cutCommits 
   }
 
   const rendered = splitIntoUnits(parseMarkdown(markdown))
-    .map(unit => ({ unit, output: renderUnitMrkdwn(unit), length: 0 }))
+    .map(unit => ({
+      unit,
+      output: renderUnitMrkdwn(unit),
+      length: 0,
+    }))
     .filter(({ output }) => output !== '')
 
   const full = joinMrkdwnUnits(rendered)
@@ -420,7 +463,9 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength, cutCommits 
     const next = rendered[count]!
     if (cutCommits && next.unit.type !== 'heading') {
       const note = omittedNote(count + 1)
-      const suffix = note ? `\n\n_${note}_` : ''
+      const suffix = note
+        ? `\n\n_${note}_`
+        : ''
       // The units kept whole, followed by the separator of the cut one
       const prefixLength = prefixLengths[count]! + separators[count]!.length
       const cut = cutMrkdwn(next.output, maxLength - prefixLength - suffix.length - ELLIPSIS.length)
@@ -434,7 +479,9 @@ export function markdownToSlackMrkdwn(markdown: string, { maxLength, cutCommits 
       continue
     }
     const note = omittedNote(kept)
-    const suffix = note ? `\n\n_${note}_` : ''
+    const suffix = note
+      ? `\n\n_${note}_`
+      : ''
     if (prefixLengths[kept]! + suffix.length <= maxLength) {
       return `${joinMrkdwnUnits(rendered.slice(0, kept))}${suffix}`
     }
@@ -462,7 +509,9 @@ function cutMrkdwn(text: string, budget: number): string {
   }
   cut = cut.trimEnd()
   // A bare bullet or quote marker is not worth showing
-  return /[^\s•◦>]/.test(cut) ? cut : ''
+  return /[^\s•◦>]/.test(cut)
+    ? cut
+    : ''
 }
 
 // ---------------------------------------------------------------------------
@@ -482,7 +531,13 @@ function pushText(elements: SlackRichTextInline[], text: string, style: SlackRic
     previous.text += text
     return
   }
-  elements.push(hasStyle(style) ? { type: 'text', text, style: { ...style } } : { type: 'text', text })
+  elements.push(hasStyle(style)
+    ? {
+        type: 'text',
+        text,
+        style: { ...style },
+      }
+    : { type: 'text', text })
 }
 
 function pushLink(elements: SlackRichTextInline[], url: string, text: string, style: SlackRichTextStyle): void {
@@ -550,7 +605,11 @@ function renderInlineRichText(nodes: PhrasingContent[], style: SlackRichTextStyl
 
 /** Slack rejects empty rich text containers. */
 function ensureNotEmpty(elements: SlackRichTextInline[]): SlackRichTextInline[] {
-  return elements.length > 0 ? elements : [{ type: 'text', text: ' ' }]
+  return elements.length > 0
+    ? elements
+    : [
+        { type: 'text', text: ' ' },
+      ]
 }
 
 /**
@@ -558,11 +617,24 @@ function ensureNotEmpty(elements: SlackRichTextInline[]): SlackRichTextInline[] 
  * and an unknown one could get the whole message rejected.
  */
 function preformatted(value: string): SlackRichTextPreformatted[] {
-  return value ? [{ type: 'rich_text_preformatted', elements: [{ type: 'text', text: value }] }] : []
+  return value
+    ? [
+        {
+          type: 'rich_text_preformatted',
+          elements: [
+            { type: 'text', text: value },
+          ],
+        },
+      ]
+    : []
 }
 
 function quote(elements: SlackRichTextInline[]): SlackRichTextQuote[] {
-  return elements.length > 0 ? [{ type: 'rich_text_quote', elements }] : []
+  return elements.length > 0
+    ? [
+        { type: 'rich_text_quote', elements },
+      ]
+    : []
 }
 
 function blockquoteInline(nodes: (BlockContent | DefinitionContent)[]): SlackRichTextInline[] {
@@ -572,7 +644,9 @@ function blockquoteInline(nodes: (BlockContent | DefinitionContent)[]): SlackRic
       pushText(elements, '\n', {})
     }
     if (node.type === 'paragraph' || node.type === 'heading') {
-      node.children.forEach(child => appendInlineRichText(elements, child, node.type === 'heading' ? { bold: true } : {}))
+      node.children.forEach(child => appendInlineRichText(elements, child, node.type === 'heading'
+        ? { bold: true }
+        : {}))
     }
     else {
       pushText(elements, toPlainText(node), {})
@@ -587,7 +661,12 @@ function renderBodyBlockRichText(node: BlockContent | DefinitionContent): SlackR
     case 'paragraph':
       return quote(renderInlineRichText(node.children))
     case 'heading':
-      return [{ type: 'rich_text_section', elements: ensureNotEmpty(renderInlineRichText(node.children, { bold: true })) }]
+      return [
+        {
+          type: 'rich_text_section',
+          elements: ensureNotEmpty(renderInlineRichText(node.children, { bold: true })),
+        },
+      ]
     case 'blockquote':
       return quote(blockquoteInline(node.children))
     case 'code':
@@ -606,12 +685,19 @@ function renderListItemRichText(item: ListItem, list: List, index: number, inden
   const listElement: SlackRichTextList = {
     type: 'rich_text_list',
     style: list.ordered ? 'ordered' : 'bullet',
-    elements: [{ type: 'rich_text_section', elements: ensureNotEmpty(renderInlineRichText(head, {}, getCheckboxPrefix(item))) }],
+    elements: [
+      {
+        type: 'rich_text_section',
+        elements: ensureNotEmpty(renderInlineRichText(head, {}, getCheckboxPrefix(item))),
+      },
+    ],
   }
   if (indent > 0) {
     listElement.indent = Math.min(indent, SLACK_MAX_LIST_INDENT)
   }
-  const offset = list.ordered ? getListItemNumber(list, index) - 1 : 0
+  const offset = list.ordered
+    ? getListItemNumber(list, index) - 1
+    : 0
   if (offset > 0) {
     listElement.offset = offset
   }
@@ -631,7 +717,11 @@ function renderListItemRichText(item: ListItem, list: List, index: number, inden
 function renderUnitRichText(unit: ChangelogUnit): SlackRichTextElement[] {
   if (unit.type === 'heading') {
     const elements = renderInlineRichText(unit.node.children, { bold: true })
-    return elements.length > 0 ? [{ type: 'rich_text_section', elements }] : []
+    return elements.length > 0
+      ? [
+          { type: 'rich_text_section', elements },
+        ]
+      : []
   }
   if (unit.type === 'item') {
     return renderListItemRichText(unit.node, unit.list, unit.index, 0)
@@ -640,13 +730,23 @@ function renderUnitRichText(unit: ChangelogUnit): SlackRichTextElement[] {
   const node = unit.node
   switch (node.type) {
     case 'paragraph':
-      return [{ type: 'rich_text_section', elements: ensureNotEmpty(renderInlineRichText(node.children)) }]
+      return [
+        {
+          type: 'rich_text_section',
+          elements: ensureNotEmpty(renderInlineRichText(node.children)),
+        },
+      ]
     case 'blockquote':
       return quote(blockquoteInline(node.children))
     case 'code':
       return preformatted(node.value)
     case 'html':
-      return [{ type: 'rich_text_section', elements: ensureNotEmpty(renderInlineRichText([], {}, node.value)) }]
+      return [
+        {
+          type: 'rich_text_section',
+          elements: ensureNotEmpty(renderInlineRichText([], {}, node.value)),
+        },
+      ]
     case 'table':
       return preformatted(tableToPlainText(node))
     default:
@@ -655,12 +755,17 @@ function renderUnitRichText(unit: ChangelogUnit): SlackRichTextElement[] {
 }
 
 function inlineLength(elements: SlackRichTextInline[]): number {
-  return elements.reduce((total, element) => total + (element.type === 'text' ? element.text.length : (element.text ?? element.url).length), 0)
+  return elements.reduce((total, element) => total + (element.type === 'text'
+    ? element.text.length
+    : (element.text ?? element.url).length), 0)
 }
 
 /** Length of an element in the plain-text preview (bullets and quote markers included), plus its line break. */
 function elementLength(element: SlackRichTextElement): number {
-  return richTextToPlainText({ type: 'rich_text', elements: [element] }).length + 1
+  return richTextToPlainText({
+    type: 'rich_text',
+    elements: [element],
+  }).length + 1
 }
 
 /** Length of blocks as shown by the plain-text preview, which `maxLength` bounds. */
@@ -692,8 +797,12 @@ function appendElement(elements: SlackRichTextElement[], element: SlackRichTextE
   if (isSameInlineContainer(previous, element) && element.type !== 'rich_text_list') {
     // The separator takes the style of the text it follows, so same-styled texts merge.
     const last = previous.elements.at(-1)
-    const separatorStyle = last?.type === 'text' ? last.style ?? {} : {}
-    pushText(previous.elements, element.type === 'rich_text_quote' ? '\n\n' : '\n', separatorStyle)
+    const separatorStyle = last?.type === 'text'
+      ? last.style ?? {}
+      : {}
+    pushText(previous.elements, element.type === 'rich_text_quote'
+      ? '\n\n'
+      : '\n', separatorStyle)
     for (const inline of structuredClone(element.elements)) {
       if (inline.type === 'text') {
         pushText(previous.elements, inline.text, inline.style ?? {})
@@ -756,20 +865,29 @@ function takeInlineCharacters(elements: SlackRichTextInline[], count: number): S
 /** Keep the first `count` characters of the text of an element. */
 function takeElementCharacters(element: SlackRichTextElement, count: number): SlackRichTextElement | undefined {
   // A rendered list item holds a single section
-  const inlines = element.type === 'rich_text_list' ? element.elements[0]!.elements : element.elements
+  const inlines = element.type === 'rich_text_list'
+    ? element.elements[0]!.elements
+    : element.elements
   const elements = takeInlineCharacters(inlines, count)
   if (elements.length === 0) {
     return undefined
   }
   return element.type === 'rich_text_list'
-    ? { ...element, elements: [{ type: 'rich_text_section', elements }] }
+    ? {
+        ...element,
+        elements: [
+          { type: 'rich_text_section', elements },
+        ],
+      }
     : { ...element, elements }
 }
 
 /** End an element with an ellipsis, right after its last visible character. */
 function withEllipsis(element: SlackRichTextElement): SlackRichTextElement {
   const result = structuredClone(element)
-  const inlines = result.type === 'rich_text_list' ? result.elements.at(-1)!.elements : result.elements
+  const inlines = result.type === 'rich_text_list'
+    ? result.elements.at(-1)!.elements
+    : result.elements
   const last = inlines.at(-1)
   if (last?.type === 'text') {
     last.text = last.text.trimEnd()
@@ -828,7 +946,12 @@ function cutRichTextElements(elements: SlackRichTextElement[], budget: number): 
   }
 
   const last = kept.pop()
-  return last ? [...kept, withEllipsis(last)] : []
+  return last
+    ? [
+        ...kept,
+        withEllipsis(last),
+      ]
+    : []
 }
 
 /**
@@ -861,7 +984,11 @@ export function markdownToSlackRichText(markdown: string, {
   const rendered = splitIntoUnits(parseMarkdown(markdown))
     .map((unit) => {
       const output = renderUnitRichText(unit)
-      return { unit, output, length: output.reduce((total, element) => total + elementLength(element), 0) }
+      return {
+        unit,
+        output,
+        length: output.reduce((total, element) => total + elementLength(element), 0),
+      }
     })
     .filter(({ output }) => output.length > 0)
 
@@ -887,21 +1014,44 @@ export function markdownToSlackRichText(markdown: string, {
     }
 
     const next = rendered[index]
-    const cut = next && next.unit.type !== 'heading' ? cutRichTextElements(next.output, remaining) : []
+    const cut = next && next.unit.type !== 'heading'
+      ? cutRichTextElements(next.output, remaining)
+      : []
     const visible = cut.length > 0
-      ? [...kept, { unit: next!.unit, output: cut, length: cut.reduce((total, element) => total + elementLength(element), 0) }]
+      ? [
+          ...kept,
+          {
+            unit: next!.unit,
+            output: cut,
+            length: cut.reduce((total, element) => total + elementLength(element), 0),
+          },
+        ]
       : dropTrailingHeadings(kept)
-    const note = formatOmittedChanges(countOmittedChanges(rendered.slice(cut.length > 0 ? index + 1 : visible.length).map(({ unit }) => unit)))
+    const note = formatOmittedChanges(countOmittedChanges(rendered.slice(cut.length > 0
+      ? index + 1
+      : visible.length).map(({ unit }) => unit)))
 
     const truncated = assembleRichTextBlocks(visible, blockMaxLength)
     if (note) {
-      const noteSection: SlackRichTextSection = { type: 'rich_text_section', elements: [{ type: 'text', text: note, style: { italic: true } }] }
+      const noteSection: SlackRichTextSection = {
+        type: 'rich_text_section',
+        elements: [
+          {
+            type: 'text',
+            text: note,
+            style: { italic: true },
+          },
+        ],
+      }
       const last = truncated.at(-1)
       if (last) {
         last.elements.push(noteSection)
       }
       else {
-        truncated.push({ type: 'rich_text', elements: [noteSection] })
+        truncated.push({
+          type: 'rich_text',
+          elements: [noteSection],
+        })
       }
     }
     return truncated
@@ -929,7 +1079,9 @@ export function markdownToSlackRichText(markdown: string, {
 }
 
 function inlineToPlainText(elements: SlackRichTextInline[]): string {
-  return elements.map(element => element.type === 'text' ? element.text : (element.text ?? element.url)).join('')
+  return elements.map(element => element.type === 'text'
+    ? element.text
+    : (element.text ?? element.url)).join('')
 }
 
 /** Plain-text rendering of a rich_text block, used for dry-run previews. */
@@ -941,7 +1093,9 @@ export function richTextToPlainText(block: SlackRichTextBlock): string {
           return element.elements
             .map((section, index) => {
               const indent = '    '.repeat(element.indent ?? 0)
-              const marker = element.style === 'ordered' ? `${(element.offset ?? 0) + index + 1}.` : '•'
+              const marker = element.style === 'ordered'
+                ? `${(element.offset ?? 0) + index + 1}.`
+                : '•'
               return `${indent}${marker} ${inlineToPlainText(section.elements)}`
             })
             .join('\n')

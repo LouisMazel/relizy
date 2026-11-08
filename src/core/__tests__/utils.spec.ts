@@ -17,7 +17,9 @@ describe('Given executeHook function', () => {
 
   describe('When hook is not found', () => {
     it('Then returns undefined and logs debug message', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
 
       const result = await executeHook('before:bump', config, false)
 
@@ -29,7 +31,9 @@ describe('Given executeHook function', () => {
   describe('When hook is a function', () => {
     it('Then executes function hook and returns result', async () => {
       const hookFn = vi.fn().mockResolvedValue('hook-result')
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'before:bump': hookFn }
 
       const result = await executeHook('before:bump', config, false)
@@ -43,7 +47,9 @@ describe('Given executeHook function', () => {
 
     it('Then executes function hook with params', async () => {
       const hookFn = vi.fn().mockResolvedValue(null)
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'success:bump': hookFn }
       const params = { version: '1.0.1' }
 
@@ -54,7 +60,9 @@ describe('Given executeHook function', () => {
 
     it('Then does not log debug when hook returns falsy value', async () => {
       const hookFn = vi.fn().mockResolvedValue(null)
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'before:changelog': hookFn }
 
       await executeHook('before:changelog', config, false)
@@ -66,7 +74,9 @@ describe('Given executeHook function', () => {
   describe('When hook is a string command', () => {
     it('Then executes string command and returns result', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: 'command-output', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'before:publish': 'echo "test"' }
 
       const result = await executeHook('before:publish', config, false)
@@ -85,7 +95,9 @@ describe('Given executeHook function', () => {
 
     it('Then executes string command in dry run mode', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'success:release': 'npm run deploy' }
 
       await executeHook('success:release', config, false)
@@ -95,7 +107,9 @@ describe('Given executeHook function', () => {
 
     it('Then logs debug when command returns empty string', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hooks = { 'before:changelog': 'ls' }
 
       await executeHook('before:changelog', config, false)
@@ -113,7 +127,10 @@ describe('Given executeBuildCmd function', () => {
   describe('When buildCmd is configured', () => {
     it('Then executes build command successfully', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', args: [], safetyCheck: false } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { buildCmd: 'npm run build', args: [], safetyCheck: false },
+      })
 
       await executeBuildCmd({ config, dryRun: false })
 
@@ -129,7 +146,10 @@ describe('Given executeBuildCmd function', () => {
     })
 
     it('Then skips execution in dry run mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'pnpm build', args: [], safetyCheck: false } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { buildCmd: 'pnpm build', args: [], safetyCheck: false },
+      })
 
       await executeBuildCmd({ config, dryRun: true })
 
@@ -139,7 +159,10 @@ describe('Given executeBuildCmd function', () => {
 
     it('Then throws error when build command fails', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('Build failed'))
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: 'npm run build', args: [], safetyCheck: false } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { buildCmd: 'npm run build', args: [], safetyCheck: false },
+      })
 
       await expect(executeBuildCmd({ config, dryRun: false })).rejects.toThrow()
     })
@@ -147,7 +170,10 @@ describe('Given executeBuildCmd function', () => {
 
   describe('When buildCmd is not configured', () => {
     it('Then logs debug message and returns', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, publish: { buildCmd: '', args: [], safetyCheck: false } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        publish: { buildCmd: '', args: [], safetyCheck: false },
+      })
 
       await executeBuildCmd({ config, dryRun: false })
 
@@ -160,13 +186,19 @@ describe('Given executeBuildCmd function', () => {
 describe('Given isBumpedPackage function', () => {
   describe('When package has oldVersion property', () => {
     it('Then returns true for package with oldVersion', () => {
-      const pkg = { ...createMockPackageInfo(), oldVersion: '1.0.0' }
+      const pkg = {
+        ...createMockPackageInfo(),
+        oldVersion: '1.0.0',
+      }
 
       expect(isBumpedPackage(pkg)).toBe(true)
     })
 
     it('Then returns true for package with empty string oldVersion', () => {
-      const pkg = { ...createMockPackageInfo(), oldVersion: '' }
+      const pkg = {
+        ...createMockPackageInfo(),
+        oldVersion: '',
+      }
 
       expect(isBumpedPackage(pkg)).toBe(false)
     })
@@ -189,10 +221,18 @@ describe('Given getPackagesOrBumpedPackages function', () => {
 
   describe('When bumpResult has bumpedPackages', () => {
     it('Then returns bumped packages from bumpResult', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const bumpedPackages = [
-        { ...createMockPackageInfo({ name: 'pkg-a', newVersion: '1.0.1' }), oldVersion: '1.0.0' },
-        { ...createMockPackageInfo({ name: 'pkg-b', newVersion: '2.0.1' }), oldVersion: '2.0.0' },
+        {
+          ...createMockPackageInfo({ name: 'pkg-a', newVersion: '1.0.1' }),
+          oldVersion: '1.0.0',
+        },
+        {
+          ...createMockPackageInfo({ name: 'pkg-b', newVersion: '2.0.1' }),
+          oldVersion: '2.0.0',
+        },
       ]
       const bumpResult = {
         bumpedPackages,
@@ -214,8 +254,15 @@ describe('Given getPackagesOrBumpedPackages function', () => {
 
     it('Then does not call getPackages when bumpResult has packages', async () => {
       const { getPackages } = await import('../repo')
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      const bumpedPackages = [{ ...createMockPackageInfo(), oldVersion: '1.0.0' }]
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      const bumpedPackages = [
+        {
+          ...createMockPackageInfo(),
+          oldVersion: '1.0.0',
+        },
+      ]
       const bumpResult = {
         bumpedPackages,
         detectedReleaseType: 'patch' as const,
@@ -238,7 +285,9 @@ describe('Given getPackagesOrBumpedPackages function', () => {
   describe('When bumpResult is undefined', () => {
     it('Then calls getPackages and returns all packages', async () => {
       const { getPackages } = await import('../repo')
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
 
       const result = await getPackagesOrBumpedPackages({
         config,
@@ -261,7 +310,9 @@ describe('Given getPackagesOrBumpedPackages function', () => {
 
     it('Then calls getPackages with suffix parameter', async () => {
       const { getPackages } = await import('../repo')
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
 
       await getPackagesOrBumpedPackages({
         config,
@@ -282,7 +333,9 @@ describe('Given getPackagesOrBumpedPackages function', () => {
   describe('When bumpResult has empty bumpedPackages array', () => {
     it('Then calls getPackages instead', async () => {
       const { getPackages } = await import('../repo')
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const bumpResult = {
         bumpedPackages: [],
         detectedReleaseType: 'patch' as const,
@@ -360,24 +413,44 @@ describe('Given filterPrivatePackagesUnlessIncluded function', () => {
 
   describe('When privatePackages is ignore or not set', () => {
     it('Then removes private packages', () => {
-      expect(filterPrivatePackagesUnlessIncluded(packages, 'ignore')).toEqual([{ name: 'a', private: false }])
-      expect(filterPrivatePackagesUnlessIncluded(packages, undefined)).toEqual([{ name: 'a', private: false }])
+      expect(filterPrivatePackagesUnlessIncluded(packages, 'ignore')).toEqual([
+        { name: 'a', private: false },
+      ])
+      expect(filterPrivatePackagesUnlessIncluded(packages, undefined)).toEqual([
+        { name: 'a', private: false },
+      ])
     })
   })
 })
 
 describe('Given getHookContext function', () => {
   it('Then is undefined without bump result', () => {
-    expect(getHookContext(createMockConfig({ bump: { type: 'release' } }), undefined)).toBeUndefined()
+    expect(getHookContext(createMockConfig({
+      bump: { type: 'release' },
+    }), undefined)).toBeUndefined()
   })
 
   it('Then gives the bump result and the overview of the release', () => {
-    const config = createMockConfig({ bump: { type: 'release' }, projectName: 'my-lib', monorepo: { versionMode: 'unified' } })
-    const bumpResult = { bumped: true as const, newVersion: '2.0.0', oldVersion: '1.0.0', bumpedPackages: [] }
+    const config = createMockConfig({
+      bump: { type: 'release' },
+      projectName: 'my-lib',
+      monorepo: { versionMode: 'unified' },
+    })
+    const bumpResult = {
+      bumped: true as const,
+      newVersion: '2.0.0',
+      oldVersion: '1.0.0',
+      bumpedPackages: [],
+    }
 
     expect(getHookContext(config, bumpResult)).toEqual({
       bumpResult,
-      release: { projectName: 'my-lib', groups: [expect.objectContaining({ versionMode: 'unified', version: '2.0.0', tag: 'v2.0.0' })] },
+      release: {
+        projectName: 'my-lib',
+        groups: [
+          expect.objectContaining({ versionMode: 'unified', version: '2.0.0', tag: 'v2.0.0' }),
+        ],
+      },
     })
   })
 })

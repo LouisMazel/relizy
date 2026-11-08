@@ -21,11 +21,19 @@ function resolveDoc(context: ServerContext, query: string): DocEntry | undefined
 }
 
 function notFoundMessage(context: ServerContext, query: string): string {
-  const suggestions = context.search.search(query, { limit: 8 }).flatMap(hit => hit.kind === 'doc' ? [hit.doc] : []).slice(0, 5)
+  const suggestions = context.search.search(query, { limit: 8 }).flatMap(hit => hit.kind === 'doc'
+    ? [hit.doc]
+    : []).slice(0, 5)
 
   return [
     `No relizy doc matches "${query}".`,
-    ...(suggestions.length > 0 ? ['', 'Closest docs:', ...suggestions.map(doc => formatDocLine(doc))] : []),
+    ...(suggestions.length > 0
+      ? [
+          '',
+          'Closest docs:',
+          ...suggestions.map(doc => formatDocLine(doc)),
+        ]
+      : []),
     '',
     'Pass an id from `search_docs` (e.g. "guide/version-groups", "config/bump", "cli/release").',
   ].join('\n')
@@ -48,7 +56,10 @@ export function getDoc(context: ServerContext, { id, sections, full = false }: G
   const source = `\n\nSource: ${doc.url}`
 
   if (sections?.length) {
-    const found = sections.map(title => ({ title, section: findSection(markdown, title) }))
+    const found = sections.map(title => ({
+      title,
+      section: findSection(markdown, title),
+    }))
     const missing = found.filter(entry => !entry.section).map(entry => entry.title)
 
     if (missing.length === found.length) {
@@ -57,8 +68,14 @@ export function getDoc(context: ServerContext, { id, sections, full = false }: G
 
     return [
       `# ${doc.title} (\`${doc.id}\`)`,
-      ...found.flatMap(entry => entry.section ? [sectionContent(markdown, entry.section)] : []),
-      ...(missing.length > 0 ? [`Sections not found: ${missing.join(', ')}.`] : []),
+      ...found.flatMap(entry => entry.section
+        ? [
+            sectionContent(markdown, entry.section),
+          ]
+        : []),
+      ...(missing.length > 0
+        ? [`Sections not found: ${missing.join(', ')}.`]
+        : []),
     ].join('\n\n')
   }
 
@@ -67,7 +84,9 @@ export function getDoc(context: ServerContext, { id, sections, full = false }: G
   }
 
   const firstSection = listSections(markdown)[0]
-  const introLength = firstSection ? markdown.split('\n').slice(0, firstSection.start).join('\n').length : PREVIEW_CHARS
+  const introLength = firstSection
+    ? markdown.split('\n').slice(0, firstSection.start).join('\n').length
+    : PREVIEW_CHARS
 
   return [
     markdown.slice(0, Math.min(introLength, PREVIEW_CHARS)).trim(),

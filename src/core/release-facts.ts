@@ -22,7 +22,11 @@ const INSTALL_MAX_PACKAGES = 3
  */
 export function getReleaseContent({ bumpResult, config }: { bumpResult: BumpResultTruthy, config: ResolvedRelizyConfig }): ReleaseContent {
   const commits = new Map<string, GitCommit>()
-  const sources = [bumpResult.rootPackage, ...(bumpResult.groups ?? []).map(group => group.rootPackage), ...bumpResult.bumpedPackages]
+  const sources = [
+    bumpResult.rootPackage,
+    ...(bumpResult.groups ?? []).map(group => group.rootPackage),
+    ...bumpResult.bumpedPackages,
+  ]
 
   for (const source of sources) {
     for (const commit of source?.commits ?? []) {
@@ -30,7 +34,9 @@ export function getReleaseContent({ bumpResult, config }: { bumpResult: BumpResu
     }
   }
 
-  const list = [...commits.values()]
+  const list = [
+    ...commits.values(),
+  ]
 
   return {
     commits: list.length,
@@ -52,7 +58,15 @@ export async function getReleaseGit({ config, committed, dryRun }: { config: Res
       : undefined
     const upstream = await getGitUpstream(config.cwd)
 
-    return { branch, ...(commit ? { commit } : {}), ...(upstream ? { remote: upstream.name } : {}) }
+    return {
+      branch,
+      ...(commit
+        ? { commit }
+        : {}),
+      ...(upstream
+        ? { remote: upstream.name }
+        : {}),
+    }
   }
   catch {
     return undefined
@@ -91,12 +105,20 @@ export function getReleasePublish({ config, packages }: { config: ResolvedRelizy
   let install: string | undefined
   if (packages.length <= INSTALL_MAX_PACKAGES) {
     const packageManager = config.publish.packageManager ?? detectPackageManager(config.cwd)
-    const command = packageManager === 'npm' ? 'npm install' : `${packageManager} add`
+    const command = packageManager === 'npm'
+      ? 'npm install'
+      : `${packageManager} add`
     const versions = packages.map(pkg => `${pkg.name}@${getVersion(pkg)}`)
     install = `${command} ${versions.join(' ')}`
   }
 
-  return { tags: [...tags], registries: [...registries], ...(install ? { install } : {}) }
+  return {
+    tags: [...tags],
+    registries: [...registries],
+    ...(install
+      ? { install }
+      : {}),
+  }
 }
 
 /**
@@ -116,7 +138,11 @@ export function getNpmLinks({ config, packages }: { config: ResolvedRelizyConfig
 export function getProviderReleaseLinks({ config, postedReleases }: { config: ResolvedRelizyConfig, postedReleases: PostedRelease[] }): ReleaseLink[] {
   return postedReleases.flatMap((release) => {
     const url = getReleaseUrl(config, release.tag)
-    return url ? [{ step: 'providerRelease' as const, label: release.tag, url }] : []
+    return url
+      ? [
+          { step: 'providerRelease' as const, label: release.tag, url },
+        ]
+      : []
   })
 }
 
@@ -131,7 +157,11 @@ export function getReleaseAI(rewrites: AIRewrite[]): ReleaseAI | undefined {
   // The sum of the calls giving the value, none when no call gives it
   const sum = (key: 'inputTokens' | 'outputTokens' | 'costUsd') => {
     const values = rewrites.map(rewrite => rewrite[key]).filter(value => value !== undefined)
-    return values.length > 0 ? { [key]: values.reduce((total, value) => total + value, 0) } : {}
+    return values.length > 0
+      ? {
+          [key]: values.reduce((total, value) => total + value, 0),
+        }
+      : {}
   }
 
   return {

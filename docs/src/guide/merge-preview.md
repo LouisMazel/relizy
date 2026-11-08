@@ -37,6 +37,8 @@ name: Merge preview
 on:
   pull_request:
     branches: [main]
+    # edited: a new title (the commit of a squash merge) or a new base
+    types: [opened, synchronize, reopened, edited]
 
 concurrency:
   group: merge-preview-${{ github.event.pull_request.number }}
@@ -106,6 +108,8 @@ The check fails, and the job exits with an error, only when the release of the m
 - **A squash commit that is not a Conventional Commit**: the release would ignore the changes of the pull request. Write its title as `type(scope): subject`.
 - **The commitlint of the project**: the commits of the pull request (and the squash commit) are linted with [`relizy commitlint`](./../commitlint/index.md) when [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint) is `true`, or `auto` and the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint` (husky, lefthook, simple-git-hooks, the hooks of git).
 - **An error**: an invalid config, or a bump that cannot be computed.
+
+The problems of the squash commit (its title, its commitlint) fail the check only when the merge squashes for sure: the repository only allows squash merges, or the auto-merge squashes. When the merge method is left open, they are warnings of the comment: a merge commit or a rebase does not have them. A project that never squashes sets [`mergePreview.squash`](./../config/merge-preview.md#squash) to `false`, or turns the squash merges off in the settings of the repository.
 
 To block the merge of a pull request whose release would fail, require the status `relizy/merge-preview` in the protection of the branch (GitHub: Settings > Branches, GitLab: Settings > Merge requests > Status checks).
 

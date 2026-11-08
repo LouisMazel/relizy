@@ -31,19 +31,36 @@ interface MigrationFinding {
 }
 
 const SOURCE_PATTERNS = ['**/*.{ts,mts,cts,tsx,js,mjs,cjs,jsx,vue}']
-const SOURCE_IGNORE = [...GLOB_IGNORE, '**/build/**', '**/coverage/**', '**/agent-docs/**', '**/.nuxt/**', '**/.output/**', '**/.next/**']
+const SOURCE_IGNORE = [
+  ...GLOB_IGNORE,
+  '**/build/**',
+  '**/coverage/**',
+  '**/agent-docs/**',
+  '**/.nuxt/**',
+  '**/.output/**',
+  '**/.next/**',
+]
 const MAX_SOURCE_FILES = 5000
 const MAX_SOURCE_SIZE = 512 * 1024
 
 const RELIZY_IMPORTS = [/\bfrom\s+['"]relizy[/'"]/, /\brequire\(\s*['"]relizy[/'"]/, /\bimport\(\s*['"]relizy['"]/]
 const NAMED_IMPORTS = /import\s+(?:type\s+)?\{([^}]*)\}\s+from\s+['"]relizy['"]/g
-const COMMANDS = ['release', 'bump', 'changelog', 'publish', 'providerRelease', 'social']
+const COMMANDS = [
+  'release',
+  'bump',
+  'changelog',
+  'publish',
+  'providerRelease',
+  'social',
+]
 const SOCIAL_HOOK = /['"](?:before|success|error):(?:social|twitter|slack)['"]/
 const COMMIT_TEMPLATE_KEY = /\b(?:commitMessage|commitBody|tagMessage|tagBody|changelogTitle)\b/
 
 /** The lines (1-based) of a text matching a pattern */
 function findLines(text: string, pattern: RegExp): number[] {
-  return text.split('\n').flatMap((line, index) => pattern.test(line) ? [index + 1] : [])
+  return text.split('\n').flatMap((line, index) => pattern.test(line)
+    ? [index + 1]
+    : [])
 }
 
 /**
@@ -65,10 +82,14 @@ function findBlockKeyLines(text: string, block: string, key: string): number[] {
     const blockIndent = indentOf(line)
     const children = lines.slice(index + 1)
     const end = children.findIndex(child => child.trim() && indentOf(child) <= blockIndent)
-    const body = end === -1 ? children : children.slice(0, end)
+    const body = end === -1
+      ? children
+      : children.slice(0, end)
     const childIndent = Math.min(...body.filter(child => child.trim()).map(indentOf))
 
-    return body.flatMap((child, offset) => indentOf(child) === childIndent && keyLine.test(child.trim()) ? [index + offset + 2] : [])
+    return body.flatMap((child, offset) => indentOf(child) === childIndent && keyLine.test(child.trim())
+      ? [index + offset + 2]
+      : [])
   })
 }
 
@@ -82,7 +103,10 @@ function readConfigFiles(cwd: string, configName = 'relizy'): { file: string, te
 
   return readdirSync(cwd)
     .filter(file => pattern.test(file))
-    .map(file => ({ file, text: readFileSync(join(cwd, file), 'utf8') }))
+    .map(file => ({
+      file,
+      text: readFileSync(join(cwd, file), 'utf8'),
+    }))
 }
 
 /** The social templates of the resolved config */
@@ -128,12 +152,16 @@ function checkTemplates(config: ResolvedRelizyConfig, configFiles: { file: strin
   }
 
   // The changelog title and the tag body replace every occurrence too
-  const repeated = [...templates, config.templates?.changelogTitle, config.templates?.tagBody].filter((template): template is string => Boolean(template)).flatMap(template => [...new Set((template.match(/\{\{\w+\}\}/g) ?? []).filter((variable, index, all) => all.indexOf(variable) !== index))])
+  const repeated = [...templates, config.templates?.changelogTitle, config.templates?.tagBody].filter((template): template is string => Boolean(template)).flatMap(template => [
+    ...new Set((template.match(/\{\{\w+\}\}/g) ?? []).filter((variable, index, all) => all.indexOf(variable) !== index)),
+  ])
 
   if (repeated.length > 0) {
     findings.push({
       severity: 'review',
-      title: `A template repeats ${[...new Set(repeated)].map(variable => code(variable)).join(', ')}`,
+      title: `A template repeats ${[
+        ...new Set(repeated),
+      ].map(variable => code(variable)).join(', ')}`,
       section: 'Every Occurrence Is Replaced',
       detail: 'Every occurrence of a variable is replaced, not only the first one.',
     })
@@ -152,13 +180,15 @@ function checkDependencyTypes(config: ResolvedRelizyConfig, configFiles: { file:
   const locations = configFiles.flatMap(({ file, text }) => locate(file, findLines(text, /\bdependencyTypes\b/).filter(line => !/['"]dependencies['"]/.test(text.split('\n')[line - 1]!))))
 
   return withoutDependencies
-    ? [{
-        severity: 'change',
-        title: '`bump.dependencyTypes` without `dependencies`',
-        section: 'Arrays Replace the Defaults',
-        detail: 'relizy 1 added the default `dependencies` to the list: add it to keep bumping the packages on every bump of their `dependencies`, or leave it out on purpose.',
-        locations,
-      }]
+    ? [
+        {
+          severity: 'change',
+          title: '`bump.dependencyTypes` without `dependencies`',
+          section: 'Arrays Replace the Defaults',
+          detail: 'relizy 1 added the default `dependencies` to the list: add it to keep bumping the packages on every bump of their `dependencies`, or leave it out on purpose.',
+          locations,
+        },
+      ]
     : []
 }
 
@@ -211,8 +241,16 @@ function checkRenamedOptions(config: ResolvedRelizyConfig, configFiles: { file: 
   }
 
   const neverRead = [
-    ...((config as { newVersion?: unknown }).newVersion === undefined ? [] : [{ option: 'newVersion', pattern: /\bnewVersion\s*:/ }]),
-    ...((config.publish as { packages?: unknown } | undefined)?.packages === undefined ? [] : [{ option: 'publish.packages', pattern: /\bpackages\s*:/ }]),
+    ...((config as { newVersion?: unknown }).newVersion === undefined
+      ? []
+      : [
+          { option: 'newVersion', pattern: /\bnewVersion\s*:/ },
+        ]),
+    ...((config.publish as { packages?: unknown } | undefined)?.packages === undefined
+      ? []
+      : [
+          { option: 'publish.packages', pattern: /\bpackages\s*:/ },
+        ]),
   ]
 
   for (const { option, pattern } of neverRead) {
@@ -254,12 +292,14 @@ function checkVersionGroups(config: ResolvedRelizyConfig, configFiles: { file: s
   }
 
   const groups = config.monorepo!.groups!
-  const findings: MigrationFinding[] = [{
-    severity: 'review',
-    title: 'The version groups are released as one release',
-    section: 'Version Groups',
-    detail: 'One bump confirmation, one social post per platform (one AI call per platform) with a section per group, one PR comment with a table per group. Check the next posts with `relizy social --dry-run` or `relizy release --dry-run`.',
-  }]
+  const findings: MigrationFinding[] = [
+    {
+      severity: 'review',
+      title: 'The version groups are released as one release',
+      section: 'Version Groups',
+      detail: 'One bump confirmation, one social post per platform (one AI call per platform) with a section per group, one PR comment with a table per group. Check the next posts with `relizy social --dry-run` or `relizy release --dry-run`.',
+    },
+  ]
 
   const untitled = groups.filter(group => !group.title)
   if (untitled.length > 0) {
@@ -299,7 +339,10 @@ function readSourceFiles(cwd: string): { file: string, text: string }[] {
   return fastGlob.sync(SOURCE_PATTERNS, { cwd, ignore: SOURCE_IGNORE, onlyFiles: true })
     .slice(0, MAX_SOURCE_FILES)
     .filter(file => statSync(join(cwd, file)).size <= MAX_SOURCE_SIZE)
-    .map(file => ({ file, text: readFileSync(join(cwd, file), 'utf8') }))
+    .map(file => ({
+      file,
+      text: readFileSync(join(cwd, file), 'utf8'),
+    }))
     .filter(({ text }) => RELIZY_IMPORTS.some(pattern => pattern.test(text)))
 }
 
@@ -307,26 +350,60 @@ function readSourceFiles(cwd: string): { file: string, text: string }[] {
  * The names imported from relizy, with their local name (`release as runRelease`)
  */
 function getImportedNames(text: string): Map<string, string> {
-  return new Map([...text.matchAll(NAMED_IMPORTS)].flatMap(([, names]) => names!
+  return new Map([
+    ...text.matchAll(NAMED_IMPORTS),
+  ].flatMap(([, names]) => names!
     .split(',')
     .map(name => name.replaceAll(/\s+/g, ' ').trim().replace(/^type /, ''))
     .filter(Boolean)
     .map((name) => {
       const [imported, local = imported] = name.split(' as ')
-      return [imported!.trim(), local!.trim()] as const
+      return [
+        imported!.trim(),
+        local!.trim(),
+      ] as const
     })))
 }
 
 /** What replaces a function that `relizy` no longer exports */
 const REMOVED_EXPORTS: [names: string[], instead: string][] = [
-  [['createCommitAndTags', 'pushCommitAndTags'], '`release()` with its `commit`, `gitTag` and `push` options'],
-  [['planBumps', 'confirmBump', 'getPackages'], '`bump()`, with `dryRun` to preview it'],
-  [['formatTweetMessage', 'postReleaseToTwitter', 'formatSlackMessage', 'postReleaseToSlack'], '`social()`, or the `release` parameter of a hook'],
-  [['buildReleaseSummary'], 'the report returned by `release()`'],
-  [['generateChangelog', 'generateMarkDown'], '`changelog()`'],
-  [['getDefaultConfig', 'mergeTypes'], '`loadRelizyConfig()`, which returns the config with its defaults'],
-  [['isPrerelease'], '`prerelease()` of semver'],
-  [['init'], '`relizy init`'],
+  [
+    ['createCommitAndTags', 'pushCommitAndTags'],
+    '`release()` with its `commit`, `gitTag` and `push` options',
+  ],
+  [
+    ['planBumps', 'confirmBump', 'getPackages'],
+    '`bump()`, with `dryRun` to preview it',
+  ],
+  [
+    [
+      'formatTweetMessage',
+      'postReleaseToTwitter',
+      'formatSlackMessage',
+      'postReleaseToSlack',
+    ],
+    '`social()`, or the `release` parameter of a hook',
+  ],
+  [
+    ['buildReleaseSummary'],
+    'the report returned by `release()`',
+  ],
+  [
+    ['generateChangelog', 'generateMarkDown'],
+    '`changelog()`',
+  ],
+  [
+    ['getDefaultConfig', 'mergeTypes'],
+    '`loadRelizyConfig()`, which returns the config with its defaults',
+  ],
+  [
+    ['isPrerelease'],
+    '`prerelease()` of semver',
+  ],
+  [
+    ['init'],
+    '`relizy init`',
+  ],
 ]
 
 const PUBLIC_EXPORTS = new Set(Object.keys(publicApi))
@@ -337,7 +414,9 @@ const PUBLIC_EXPORTS = new Set(Object.keys(publicApi))
  */
 function checkRemovedExports(files: { file: string, text: string }[]): MigrationFinding & { locations: string[] } {
   const removed = new Set<string>()
-  const locations = files.flatMap(({ file, text }) => [...text.matchAll(NAMED_IMPORTS)].flatMap((match) => {
+  const locations = files.flatMap(({ file, text }) => [
+    ...text.matchAll(NAMED_IMPORTS),
+  ].flatMap((match) => {
     if (/^import\s+type\b/.test(match[0])) {
       return []
     }
@@ -351,15 +430,28 @@ function checkRemovedExports(files: { file: string, text: string }[]): Migration
       removed.add(name)
     }
 
-    return names.length > 0 ? locate(file, [text.slice(0, match.index).split('\n').length]) : []
+    return names.length > 0
+      ? locate(file, [text.slice(0, match.index).split('\n').length])
+      : []
   }))
 
   const replacements = REMOVED_EXPORTS
-    .map(([names, instead]) => [names.filter(name => removed.has(name)), instead] as const)
+    .map(([names, instead]) => [
+      names.filter(name => removed.has(name)),
+      instead,
+    ] as const)
     .filter(([names]) => names.length > 0)
-    .map(([names, instead]) => [codeList(names.map(name => `${name}()`)), instead].join(': '))
+    .map(([names, instead]) => [
+      codeList(names.map(name => `${name}()`)),
+      instead,
+    ].join(': '))
   const others = [...removed].filter(name => !REMOVED_EXPORTS.some(([names]) => names.includes(name)))
-  const instead = [...replacements, ...(others.length > 0 ? [`${codeList(others)}: internal, use the commands or the CLI`] : [])]
+  const instead = [
+    ...replacements,
+    ...(others.length > 0
+      ? [`${codeList(others)}: internal, use the commands or the CLI`]
+      : []),
+  ]
 
   return {
     severity: 'change',
@@ -372,12 +464,14 @@ function checkRemovedExports(files: { file: string, text: string }[]): Migration
 
 function checkReleaseSummary(config: ResolvedRelizyConfig): MigrationFinding[] {
   return config.release.prComment && !isOnRelizy2(config.cwd)
-    ? [{
-        severity: 'review',
-        title: 'The PR comment of a release is its summary',
-        section: 'Release Summary',
-        detail: 'With `relizy release`, the comment is the summary of the release (steps, links, AI, install command, package table), as the summary of the GitHub Actions run. Check it with `relizy release --dry-run` if a tool reads the comment.',
-      }]
+    ? [
+        {
+          severity: 'review',
+          title: 'The PR comment of a release is its summary',
+          section: 'Release Summary',
+          detail: 'With `relizy release`, the comment is the summary of the release (steps, links, AI, install command, package table), as the summary of the GitHub Actions run. Check it with `relizy release --dry-run` if a tool reads the comment.',
+        },
+      ]
     : []
 }
 
@@ -386,12 +480,14 @@ function checkAIDryRun(config: ResolvedRelizyConfig): MigrationFinding[] {
   const enabled = ai?.providerRelease?.enabled || ai?.social?.twitter?.enabled || ai?.social?.slack?.enabled
 
   return enabled && !isOnRelizy2(config.cwd)
-    ? [{
-        severity: 'review',
-        title: '`--dry-run` no longer calls the AI',
-        section: 'No AI Call in Dry Run',
-        detail: 'A dry run simulates the AI rewrites of the release notes and the social posts (each call costs): add `--ai-preview` to call the AI and see its output, e.g. in a CI job previewing the release.',
-      }]
+    ? [
+        {
+          severity: 'review',
+          title: '`--dry-run` no longer calls the AI',
+          section: 'No AI Call in Dry Run',
+          detail: 'A dry run simulates the AI rewrites of the release notes and the social posts (each call costs): add `--ai-preview` to call the AI and see its output, e.g. in a CI job previewing the release.',
+        },
+      ]
     : []
 }
 
@@ -400,32 +496,50 @@ function checkAIPrereleases(config: ResolvedRelizyConfig): MigrationFinding[] {
   const enabled = ai?.providerRelease?.enabled || ai?.social?.twitter?.enabled || ai?.social?.slack?.enabled || ai?.social?.teams?.enabled
 
   return enabled && !isOnRelizy2(config.cwd)
-    ? [{
-        severity: 'review',
-        title: 'The AI no longer rewrites the prereleases',
-        section: 'AI on Prereleases',
-        detail: 'With `ai.onlyStable` (the default), the provider release notes and the posts of a prerelease keep their raw changelog, without an AI call. Set `ai.onlyStable: false` (or the `onlyStable` of a target) to rewrite them as in v1.',
-      }]
+    ? [
+        {
+          severity: 'review',
+          title: 'The AI no longer rewrites the prereleases',
+          section: 'AI on Prereleases',
+          detail: 'With `ai.onlyStable` (the default), the provider release notes and the posts of a prerelease keep their raw changelog, without an AI call. Set `ai.onlyStable: false` (or the `onlyStable` of a target) to rewrite them as in v1.',
+        },
+      ]
     : []
 }
 
 function checkChangelogFormatting(config: ResolvedRelizyConfig): MigrationFinding[] {
-  const formatter = config.changelog?.formatCmd ? undefined : resolveFormatCommand({ config, files: [join(config.cwd, 'CHANGELOG.md')] })?.formatter
+  const formatter = config.changelog?.formatCmd
+    ? undefined
+    : resolveFormatCommand({
+      config,
+      files: [
+        join(config.cwd, 'CHANGELOG.md'),
+      ],
+    })?.formatter
 
   return formatter && !isOnRelizy2(config.cwd)
-    ? [{
-        severity: 'review',
-        title: `The changelogs are formatted with ${formatter}`,
-        section: 'Changelog Formatting',
-        detail: `Without \`changelog.formatCmd\`, the formatter of the root \`package.json\` formats the changelogs written. Set \`changelog.formatCmd\` to choose the command (\`{{files}}\` is replaced by the changelogs), or \`false\` to keep them as written.`,
-      }]
+    ? [
+        {
+          severity: 'review',
+          title: `The changelogs are formatted with ${formatter}`,
+          section: 'Changelog Formatting',
+          detail: `Without \`changelog.formatCmd\`, the formatter of the root \`package.json\` formats the changelogs written. Set \`changelog.formatCmd\` to choose the command (\`{{files}}\` is replaced by the changelogs), or \`false\` to keep them as written.`,
+        },
+      ]
     : []
 }
 
 /**
  * The hooks of the project running `relizy commitlint`
  */
-const COMMIT_HOOK_FILES = ['.husky/commit-msg', '.git/hooks/commit-msg', 'lefthook.yml', 'lefthook.yaml', '.lefthook.yml', 'package.json']
+const COMMIT_HOOK_FILES = [
+  '.husky/commit-msg',
+  '.git/hooks/commit-msg',
+  'lefthook.yml',
+  'lefthook.yaml',
+  '.lefthook.yml',
+  'package.json',
+]
 
 function usesRelizyCommitlint(cwd: string): boolean {
   return COMMIT_HOOK_FILES.some((file) => {
@@ -436,12 +550,14 @@ function usesRelizyCommitlint(cwd: string): boolean {
 
 function checkAIAttribution(config: ResolvedRelizyConfig): MigrationFinding[] {
   return config.commitlint?.rules?.['no-ai-attribution'] === undefined && !isOnRelizy2(config.cwd) && usesRelizyCommitlint(config.cwd)
-    ? [{
-        severity: 'review',
-        title: '`relizy commitlint` rejects the commits crediting an AI tool',
-        section: 'AI Attribution in Commits',
-        detail: 'The new rule `no-ai-attribution` (`error`) reports the AI co-authors (`Co-authored-by: Claude <noreply@anthropic.com>`), the `Claude-Session:` trailers and the "Generated with" lines: turn off the attribution of your AI tools, or the rule with `commitlint.rules: { \'no-ai-attribution\': \'off\' }`.',
-      }]
+    ? [
+        {
+          severity: 'review',
+          title: '`relizy commitlint` rejects the commits crediting an AI tool',
+          section: 'AI Attribution in Commits',
+          detail: 'The new rule `no-ai-attribution` (`error`) reports the AI co-authors (`Co-authored-by: Claude <noreply@anthropic.com>`), the `Claude-Session:` trailers and the "Generated with" lines: turn off the attribution of your AI tools, or the rule with `commitlint.rules: { \'no-ai-attribution\': \'off\' }`.',
+        },
+      ]
     : []
 }
 
@@ -489,7 +605,9 @@ function checkSourceFiles(cwd: string): MigrationFinding[] {
       locations: files.flatMap(({ file, text }) => {
         const imported = getImportedNames(text)
         const commands = COMMANDS.flatMap(name => imported.get(name) ?? [])
-        return commands.length > 0 ? locate(file, findLines(text, new RegExp(`\\b(?:${commands.join('|')})\\s*\\(`))) : []
+        return commands.length > 0
+          ? locate(file, findLines(text, new RegExp(`\\b(?:${commands.join('|')})\\s*\\(`)))
+          : []
       }),
     },
   ]
@@ -507,7 +625,10 @@ const CI_FILE = /^\.git(?:hub|lab)/
  */
 function checkCliCalls(cwd: string): MigrationFinding[] {
   const files = fastGlob.sync(CLI_FILES, { cwd, dot: true, onlyFiles: true })
-    .map(file => ({ file, text: readFileSync(join(cwd, file), 'utf8') }))
+    .map(file => ({
+      file,
+      text: readFileSync(join(cwd, file), 'utf8'),
+    }))
   const findings: MigrationFinding[] = []
 
   const includePrivate = files.flatMap(({ file, text }) => locate(file, findLines(text, /--include-private\b/)))
@@ -538,7 +659,12 @@ function checkCliCalls(cwd: string): MigrationFinding[] {
 }
 
 /** The scripts and the CI files that can post to Teams or Slack */
-const NOTIFICATION_FILES = ['**/*.{ts,mts,cts,js,mjs,cjs,sh}', '.gitlab-ci.yml', '.gitlab/**/*.{yml,yaml}', '.github/workflows/*.{yml,yaml}']
+const NOTIFICATION_FILES = [
+  '**/*.{ts,mts,cts,js,mjs,cjs,sh}',
+  '.gitlab-ci.yml',
+  '.gitlab/**/*.{yml,yaml}',
+  '.github/workflows/*.{yml,yaml}',
+]
 /** The URLs of the retired Office 365 connectors */
 const TEAMS_CONNECTOR = /webhook\.office\.com|outlook\.office(?:365)?\.com\/webhook/i
 /** A Teams workflow, or an Adaptive Card, posted by hand */
@@ -562,11 +688,19 @@ interface NotificationFile {
 function readNotificationFiles(config: ResolvedRelizyConfig, configFiles: NotificationFile[]): NotificationFile[] {
   return [
     ...configFiles,
-    ...fastGlob.sync(NOTIFICATION_FILES, { cwd: config.cwd, ignore: SOURCE_IGNORE, dot: true, onlyFiles: true })
+    ...fastGlob.sync(NOTIFICATION_FILES, {
+      cwd: config.cwd,
+      ignore: SOURCE_IGNORE,
+      dot: true,
+      onlyFiles: true,
+    })
       .filter(file => !configFiles.some(configFile => configFile.file === file))
       .slice(0, MAX_SOURCE_FILES)
       .filter(file => statSync(join(config.cwd, file)).size <= MAX_SOURCE_SIZE)
-      .map(file => ({ file, text: readFileSync(join(config.cwd, file), 'utf8') })),
+      .map(file => ({
+        file,
+        text: readFileSync(join(config.cwd, file), 'utf8'),
+      })),
   ]
 }
 
@@ -579,9 +713,16 @@ function findNotificationScripts(files: NotificationFile[], configFiles: Notific
   return files.flatMap(({ file, text }) => {
     const isScript = !/\.ya?ml$/.test(file) && !configFiles.some(configFile => configFile.file === file)
     const lines = findLines(text, post)
-    const variables = isScript ? findLines(text, variable).filter(line => !relizyVariable.test(text.split('\n')[line - 1]!)) : []
+    const variables = isScript
+      ? findLines(text, variable).filter(line => !relizyVariable.test(text.split('\n')[line - 1]!))
+      : []
 
-    return locate(file, [...new Set([...lines, ...variables])].sort((a, b) => a - b))
+    return locate(file, [
+      ...new Set([
+        ...lines,
+        ...variables,
+      ]),
+    ].sort((a, b) => a - b))
   })
 }
 
@@ -599,15 +740,17 @@ function checkSlackNotifications(config: ResolvedRelizyConfig, files: Notificati
 
   const enabled = Boolean(config.social?.slack?.enabled)
 
-  return [{
-    severity: 'review',
-    title: enabled ? 'A script posts to Slack while `social.slack` is enabled' : 'A script posts to Slack',
-    section: 'Slack and Twitter Announcements',
-    detail: enabled
-      ? 'If it announces the releases, each one is announced twice: choose the versions relizy announces with `social.slack.announcements` and `exclude`, with their title, message and links, then remove the script and its job or hook, after asking the user.'
-      : 'If it announces the releases (some versions only, or with their own texts), `social.slack` does it: `announcements` and `exclude` choose the versions, with the title, message and links of each group or package (see `get_config_option({ path: "social.slack.announcements" })`). Then remove the script and its job or hook, after asking the user.',
-    locations: scripts,
-  }]
+  return [
+    {
+      severity: 'review',
+      title: enabled ? 'A script posts to Slack while `social.slack` is enabled' : 'A script posts to Slack',
+      section: 'Slack and Twitter Announcements',
+      detail: enabled
+        ? 'If it announces the releases, each one is announced twice: choose the versions relizy announces with `social.slack.announcements` and `exclude`, with their title, message and links, then remove the script and its job or hook, after asking the user.'
+        : 'If it announces the releases (some versions only, or with their own texts), `social.slack` does it: `announcements` and `exclude` choose the versions, with the title, message and links of each group or package (see `get_config_option({ path: "social.slack.announcements" })`). Then remove the script and its job or hook, after asking the user.',
+      locations: scripts,
+    },
+  ]
 }
 
 /**
@@ -670,7 +813,14 @@ function checkDependency(cwd: string): MigrationFinding[] {
   const range = getRelizyRange(cwd)
 
   return range && /^[~^]?1\./.test(range)
-    ? [{ severity: 'change', title: `\`relizy\` is required as ${code(range)} in \`package.json\``, section: 'Upgrade', detail: 'Install relizy 2: `pnpm add -D relizy@^2` (or the command of your package manager).' }]
+    ? [
+        {
+          severity: 'change',
+          title: `\`relizy\` is required as ${code(range)} in \`package.json\``,
+          section: 'Upgrade',
+          detail: 'Install relizy 2: `pnpm add -D relizy@^2` (or the command of your package manager).',
+        },
+      ]
     : []
 }
 
@@ -679,7 +829,9 @@ function renderLocations(locations: string[] = []): string {
     return ''
   }
 
-  const more = locations.length > 10 ? `, and ${locations.length - 10} more` : ''
+  const more = locations.length > 10
+    ? `, and ${locations.length - 10} more`
+    : ''
 
   return ` (${locations.slice(0, 10).map(location => code(location)).join(', ')}${more})`
 }
@@ -737,7 +889,9 @@ export async function checkMigration(context: ServerContext, { config: configNam
     config = await loadProjectConfig({ config: configName, cwd: context.cwd })
   }
   catch (error) {
-    const option = error instanceof ConfigOptionError ? BLOCKING_OPTIONS[error.option] : undefined
+    const option = error instanceof ConfigOptionError
+      ? BLOCKING_OPTIONS[error.option]
+      : undefined
 
     if (option) {
       return renderBlockingOption(context, configName, option)
@@ -767,7 +921,9 @@ export async function checkMigration(context: ServerContext, { config: configNam
   ]
   const changes = findings.filter(finding => finding.severity === 'change')
   const reviews = findings.filter(finding => finding.severity === 'review')
-  const scanned = configFiles.length > 0 ? configFiles.map(({ file }) => code(file)).join(', ') : 'no config file (the defaults apply)'
+  const scanned = configFiles.length > 0
+    ? configFiles.map(({ file }) => code(file)).join(', ')
+    : 'no config file (the defaults apply)'
 
   return [
     `# Migration from relizy 1 to relizy 2 (relizy ${context.version})`,
@@ -777,11 +933,15 @@ export async function checkMigration(context: ServerContext, { config: configNam
     '',
     `## To change (${changes.length})`,
     '',
-    ...(changes.length > 0 ? changes.flatMap(renderFinding) : ['Nothing to change.']),
+    ...(changes.length > 0
+      ? changes.flatMap(renderFinding)
+      : ['Nothing to change.']),
     '',
     `## To review (${reviews.length})`,
     '',
-    ...(reviews.length > 0 ? reviews.flatMap(renderFinding) : ['Nothing to review.']),
+    ...(reviews.length > 0
+      ? reviews.flatMap(renderFinding)
+      : ['Nothing to review.']),
     '',
     'Next: propose the changes to the user and apply them once approved, then check the next release with `preview_release()` and `relizy release --dry-run` (the social posts and the PR comment are shown in dry-run).',
   ].join('\n')

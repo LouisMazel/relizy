@@ -12,7 +12,9 @@ vi.mock('../social', () => ({
 function commit(index: number, body = ''): string {
   const line = `- **scope-${index % 7}:** ⚠️  Change number ${index} with \`code\` and a link ([#${index}](https://github.com/org/repo/pull/${index}))`
   const indentedBody = body.split('\n').map(bodyLine => `  ${bodyLine}`).join('\n')
-  return body ? `${line}\n\n${indentedBody}\n` : line
+  return body
+    ? `${line}\n\n${indentedBody}\n`
+    : line
 }
 
 const NASTY_BODY = [
@@ -62,7 +64,9 @@ const NASTY_BODY = [
 
 function hugeChangelog({ sections = 6, commitsPerSection = 80, body = NASTY_BODY }: { sections?: number, commitsPerSection?: number, body?: string } = {}): string {
   return Array.from({ length: sections }, (_, section) => {
-    const commits = Array.from({ length: commitsPerSection }, (_, index) => commit(section * commitsPerSection + index, index % 3 === 0 ? body : ''))
+    const commits = Array.from({ length: commitsPerSection }, (_, index) => commit(section * commitsPerSection + index, index % 3 === 0
+      ? body
+      : ''))
     return `### 🚀 Section ${section}\n\n${commits.join('\n')}`
   }).join('\n\n')
 }
@@ -82,20 +86,122 @@ const manyPackages: PackageBumpEntry[] = Array.from({ length: 400 }, (_, index) 
 const manyContributors = Array.from({ length: 300 }, (_, index) => `Contributor With A Long Name ${index}`)
 
 const SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessage>[0] & { changelog: string } }> = [
-  { name: 'a huge changelog with nasty bodies', input: { changelog: hugeChangelog(), variables: socialVariables({ projectName: 'big-project', newVersion: '12.0.0' }) } },
-  { name: 'an independent release of 60 packages', input: { changelog: independentChangelog(60), variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }) } },
-  { name: 'hundreds of packages and contributors', input: { changelog: hugeChangelog({ sections: 2 }), packages: manyPackages, contributors: manyContributors, variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }) } },
-  { name: 'a single 50k chars commit body', input: { changelog: commit(1, 'word '.repeat(10000)), variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'a 20k chars code block', input: { changelog: commit(1, `\`\`\`\n${'x = 1\n'.repeat(4000)}\`\`\``), variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'only headings', input: { changelog: '### Features\n\n### Fixes', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'an empty changelog', input: { changelog: '', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'an emoji project name cut at the header limit', input: { changelog: hugeChangelog({ sections: 1, commitsPerSection: 3 }), variables: socialVariables({ projectName: `x${'🚀'.repeat(200)}`, newVersion: '1.0.0' }) } },
-  { name: 'a single emoji-only body cut at the section limit', input: { changelog: `- ${'🎉'.repeat(5000)}`, template: '{{changelog}}', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'a long project name', input: { changelog: hugeChangelog({ sections: 1, commitsPerSection: 3 }), variables: socialVariables({ projectName: 'x'.repeat(300), newVersion: '1.0.0' }) } },
-  { name: 'a large postMaxLength', input: { changelog: hugeChangelog(), postMaxLength: 100000, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'a tiny postMaxLength', input: { changelog: hugeChangelog(), postMaxLength: 10, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) } },
-  { name: 'every surrounding block', input: { changelog: hugeChangelog(), packages: manyPackages.slice(0, 20), contributors: manyContributors.slice(0, 20), variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/r', changelogUrl: 'https://example.com/c' }) } },
-  { name: 'a template', input: { changelog: hugeChangelog(), template: '*{{projectName}} {{newVersion}}*\n{{changelog}}\n{{packages}}\n{{contributors}}\n{{releaseUrl}}', packages: manyPackages, contributors: manyContributors, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/r' }) } },
+  {
+    name: 'a huge changelog with nasty bodies',
+    input: {
+      changelog: hugeChangelog(),
+      variables: socialVariables({ projectName: 'big-project', newVersion: '12.0.0' }),
+    },
+  },
+  {
+    name: 'an independent release of 60 packages',
+    input: {
+      changelog: independentChangelog(60),
+      variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }),
+    },
+  },
+  {
+    name: 'hundreds of packages and contributors',
+    input: {
+      changelog: hugeChangelog({ sections: 2 }),
+      packages: manyPackages,
+      contributors: manyContributors,
+      variables: socialVariables({ projectName: 'monorepo', newVersion: '', releaseTitle: 'New releases of monorepo' }),
+    },
+  },
+  {
+    name: 'a single 50k chars commit body',
+    input: {
+      changelog: commit(1, 'word '.repeat(10000)),
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'a 20k chars code block',
+    input: {
+      changelog: commit(1, `\`\`\`\n${'x = 1\n'.repeat(4000)}\`\`\``),
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'only headings',
+    input: {
+      changelog: '### Features\n\n### Fixes',
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'an empty changelog',
+    input: {
+      changelog: '',
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'an emoji project name cut at the header limit',
+    input: {
+      changelog: hugeChangelog({ sections: 1, commitsPerSection: 3 }),
+      variables: socialVariables({ projectName: `x${'🚀'.repeat(200)}`, newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'a single emoji-only body cut at the section limit',
+    input: {
+      changelog: `- ${'🎉'.repeat(5000)}`,
+      template: '{{changelog}}',
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'a long project name',
+    input: {
+      changelog: hugeChangelog({ sections: 1, commitsPerSection: 3 }),
+      variables: socialVariables({
+        projectName: 'x'.repeat(300),
+        newVersion: '1.0.0',
+      }),
+    },
+  },
+  {
+    name: 'a large postMaxLength',
+    input: {
+      changelog: hugeChangelog(),
+      postMaxLength: 100000,
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'a tiny postMaxLength',
+    input: {
+      changelog: hugeChangelog(),
+      postMaxLength: 10,
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+    },
+  },
+  {
+    name: 'every surrounding block',
+    input: {
+      changelog: hugeChangelog(),
+      packages: manyPackages.slice(0, 20),
+      contributors: manyContributors.slice(0, 20),
+      variables: socialVariables({
+        projectName: 'p',
+        newVersion: '1.0.0',
+        releaseUrl: 'https://example.com/r',
+        changelogUrl: 'https://example.com/c',
+      }),
+    },
+  },
+  {
+    name: 'a template',
+    input: {
+      changelog: hugeChangelog(),
+      template: '*{{projectName}} {{newVersion}}*\n{{changelog}}\n{{packages}}\n{{contributors}}\n{{releaseUrl}}',
+      packages: manyPackages,
+      contributors: manyContributors,
+      variables: socialVariables({ projectName: 'p', newVersion: '1.0.0', releaseUrl: 'https://example.com/r' }),
+    },
+  },
 ]
 
 const formatted = new Map<object, Partial<Record<'summary' | 'full', ReturnType<typeof formatSlackMessage>>>>()
@@ -114,15 +220,54 @@ function formatOnce(input: Parameters<typeof formatSlackMessage>[0], changelogFo
 describe('Given the Block Kit validator', () => {
   it('Then reports the payloads Slack rejects', () => {
     const errors = validateSlackBlocks([
-      { type: 'header', text: { type: 'plain_text', text: 'x'.repeat(151) } },
-      { type: 'section', text: { type: 'mrkdwn', text: 'x'.repeat(3001) } },
+      {
+        type: 'header',
+        text: {
+          type: 'plain_text',
+          text: 'x'.repeat(151),
+        },
+      },
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: 'x'.repeat(3001),
+        },
+      },
       {
         type: 'rich_text',
         elements: [
-          { type: 'rich_text_section', elements: [{ type: 'text', text: '' }] },
-          { type: 'rich_text_list', style: 'bullet', indent: 9, elements: [{ type: 'rich_text_list', elements: [] }] },
-          { type: 'rich_text_quote', elements: [{ type: 'link', url: './README.md' }] },
-          { type: 'rich_text_preformatted', language: 'ts', elements: [{ type: 'text', text: 'x', style: { color: true } }] },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: '' },
+            ],
+          },
+          {
+            type: 'rich_text_list',
+            style: 'bullet',
+            indent: 9,
+            elements: [
+              { type: 'rich_text_list', elements: [] },
+            ],
+          },
+          {
+            type: 'rich_text_quote',
+            elements: [
+              { type: 'link', url: './README.md' },
+            ],
+          },
+          {
+            type: 'rich_text_preformatted',
+            language: 'ts',
+            elements: [
+              {
+                type: 'text',
+                text: 'x',
+                style: { color: true },
+              },
+            ],
+          },
         ],
       },
     ])
@@ -146,16 +291,79 @@ const SEVERAL_VERSIONS = socialVariables({ projectName: 'monorepo', newVersion: 
 function independentSection(packageCount: number, body = commit(1, NASTY_BODY)): SlackReleaseSection {
   return {
     title: 'Tooling',
-    packages: Array.from({ length: packageCount }, (_, index) => ({ name: `@scope/package-${index}`, oldVersion: '1.0.0', newVersion: `1.${index + 1}.0`, changelog: `### 🩹 Fixes\n\n${body}` })),
+    packages: Array.from({ length: packageCount }, (_, index) => ({
+      name: `@scope/package-${index}`,
+      oldVersion: '1.0.0',
+      newVersion: `1.${index + 1}.0`,
+      changelog: `### 🩹 Fixes\n\n${body}`,
+    })),
   }
 }
 
 const SECTION_SCENARIOS: Array<{ name: string, input: Parameters<typeof formatSlackMessage>[0] & { changelog: SlackReleaseSection[] } }> = [
-  { name: 'a huge root changelog and a small group', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(2)], variables: SEVERAL_VERSIONS } },
-  { name: 'an independent group of 80 packages', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 1 }) }, independentSection(80)], variables: SEVERAL_VERSIONS } },
-  { name: 'many groups', input: { changelog: Array.from({ length: 30 }, () => independentSection(3)), variables: SEVERAL_VERSIONS, packages: manyPackages, contributors: manyContributors } },
-  { name: 'a tiny postMaxLength', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(5)], postMaxLength: 50, variables: SEVERAL_VERSIONS } },
-  { name: 'a template', input: { changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(5)], template: '*{{releaseTitle}}*\n{{changelog}}', variables: SEVERAL_VERSIONS } },
+  {
+    name: 'a huge root changelog and a small group',
+    input: {
+      changelog: [
+        {
+          title: 'Maz UI 7.0.0',
+          changelog: hugeChangelog({ sections: 2 }),
+        },
+        independentSection(2),
+      ],
+      variables: SEVERAL_VERSIONS,
+    },
+  },
+  {
+    name: 'an independent group of 80 packages',
+    input: {
+      changelog: [
+        {
+          title: 'Maz UI 7.0.0',
+          changelog: hugeChangelog({ sections: 1 }),
+        },
+        independentSection(80),
+      ],
+      variables: SEVERAL_VERSIONS,
+    },
+  },
+  {
+    name: 'many groups',
+    input: {
+      changelog: Array.from({ length: 30 }, () => independentSection(3)),
+      variables: SEVERAL_VERSIONS,
+      packages: manyPackages,
+      contributors: manyContributors,
+    },
+  },
+  {
+    name: 'a tiny postMaxLength',
+    input: {
+      changelog: [
+        {
+          title: 'Maz UI 7.0.0',
+          changelog: hugeChangelog({ sections: 2 }),
+        },
+        independentSection(5),
+      ],
+      postMaxLength: 50,
+      variables: SEVERAL_VERSIONS,
+    },
+  },
+  {
+    name: 'a template',
+    input: {
+      changelog: [
+        {
+          title: 'Maz UI 7.0.0',
+          changelog: hugeChangelog({ sections: 2 }),
+        },
+        independentSection(5),
+      ],
+      template: '*{{releaseTitle}}*\n{{changelog}}',
+      variables: SEVERAL_VERSIONS,
+    },
+  },
 ]
 
 describe('Given formatSlackMessage against the Slack limits', () => {
@@ -167,9 +375,21 @@ describe('Given formatSlackMessage against the Slack limits', () => {
     })
 
     it('Then keeps the title of every section and the version of every package, whatever the size of the others', () => {
-      const blocks = formatSlackMessage({ changelog: [{ title: 'Maz UI 7.0.0', changelog: hugeChangelog({ sections: 2 }) }, independentSection(3)], changelogFormat, variables: SEVERAL_VERSIONS })
+      const blocks = formatSlackMessage({
+        changelog: [
+          {
+            title: 'Maz UI 7.0.0',
+            changelog: hugeChangelog({ sections: 2 }),
+          },
+          independentSection(3),
+        ],
+        changelogFormat,
+        variables: SEVERAL_VERSIONS,
+      })
 
-      const text = blocks.map((block: any) => block.type === 'rich_text' ? richTextToPlainText(block) : block.text?.text ?? '').join('\n')
+      const text = blocks.map((block: any) => block.type === 'rich_text'
+        ? richTextToPlainText(block)
+        : block.text?.text ?? '').join('\n')
       expect(text).toContain('Maz UI 7.0.0')
       expect(text).toContain('Tooling')
       if (changelogFormat === 'summary') {
@@ -191,7 +411,11 @@ describe('Given formatSlackMessage against the Slack limits', () => {
       const blocks = formatOnce(input, changelogFormat)
 
       const changelogText = blocks
-        .map((block: any) => block.type === 'rich_text' ? richTextToPlainText(block) : block.type === 'section' ? block.text.text : '')
+        .map((block: any) => block.type === 'rich_text'
+          ? richTextToPlainText(block)
+          : block.type === 'section'
+            ? block.text.text
+            : '')
         .join('\n')
       // Never a message reduced to the omitted changes note
       expect(changelogText.replace(/_?… and \d+ more changes?_?/g, '').trim().length).toBeGreaterThan(20)
@@ -200,7 +424,12 @@ describe('Given formatSlackMessage against the Slack limits', () => {
 
   describe('When a realistic postMaxLength bounds the full changelog', () => {
     it.each([1000, 2000])('Then fills the changelog up to %i characters, commit bodies included', (postMaxLength) => {
-      const blocks = formatSlackMessage({ changelog: hugeChangelog(), changelogFormat: 'full', postMaxLength, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog: hugeChangelog(),
+        changelogFormat: 'full',
+        postMaxLength,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n\n')
       expect(text.length).toBeLessThanOrEqual(postMaxLength)
@@ -210,7 +439,12 @@ describe('Given formatSlackMessage against the Slack limits', () => {
     })
 
     it('Then fills the message up to the Slack payload limit when it is reached first', () => {
-      const blocks = formatSlackMessage({ changelog: hugeChangelog(), changelogFormat: 'full', postMaxLength: 5000, variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog: hugeChangelog(),
+        changelogFormat: 'full',
+        postMaxLength: 5000,
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       const text = blocks.filter((block: any) => block.type === 'rich_text').map(richTextToPlainText).join('\n\n')
       expect(text.length).toBeLessThan(5000)
@@ -221,7 +455,13 @@ describe('Given formatSlackMessage against the Slack limits', () => {
 
   describe('When a single list line exceeds the section limit', () => {
     it('Then replaces it with the omitted count', () => {
-      const blocks = formatSlackMessage({ changelog: '- a', contributors: ['x'.repeat(4000)], variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog: '- a',
+        contributors: [
+          'x'.repeat(4000),
+        ],
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       expect(blocks.find((block: any) => block.text?.text?.startsWith('*❤️ Contributors*')).text.text).toBe('*❤️ Contributors*\n\n_… and 1 more contributors_')
     })
@@ -229,7 +469,11 @@ describe('Given formatSlackMessage against the Slack limits', () => {
 
   describe('When the full changelog is truncated', () => {
     it('Then announces the omitted changes', () => {
-      const blocks = formatSlackMessage({ changelog: hugeChangelog(), changelogFormat: 'full', variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }) })
+      const blocks = formatSlackMessage({
+        changelog: hugeChangelog(),
+        changelogFormat: 'full',
+        variables: socialVariables({ projectName: 'p', newVersion: '1.0.0' }),
+      })
 
       expect(JSON.stringify(blocks)).toMatch(/… and \d+ more changes/)
     })
@@ -244,7 +488,12 @@ describe('Given formatSlackMessage against the Slack limits', () => {
       })
 
       expect(blocks[0].type).toBe('header')
-      expect(blocks.slice(-4).map((block: any) => block.type)).toEqual(['section', 'section', 'divider', 'actions'])
+      expect(blocks.slice(-4).map((block: any) => block.type)).toEqual([
+        'section',
+        'section',
+        'divider',
+        'actions',
+      ])
       expect(blocks.at(-4).text.text).toMatch(/_… and \d+ more packages_$/)
       expect(blocks.at(-3).text.text).toMatch(/_… and \d+ more contributors_$/)
     })

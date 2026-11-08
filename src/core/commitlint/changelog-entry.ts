@@ -16,7 +16,9 @@ import { buildChangelogBody } from '../markdown'
  */
 export function getChangelogTitle(type: string, config: ResolvedRelizyConfig): string | undefined {
   const typeConfig = config.types?.[type]
-  return typeConfig && typeof typeConfig === 'object' && typeConfig.title ? typeConfig.title : undefined
+  return typeConfig && typeof typeConfig === 'object' && typeConfig.title
+    ? typeConfig.title
+    : undefined
 }
 
 /**
@@ -30,7 +32,12 @@ export function renderChangelogEntry(commit: GitCommit, config: ResolvedRelizyCo
   }
   return buildChangelogBody({
     commits: [commit],
-    config: { ...config, types: { [commit.type]: { title } } } as ResolvedRelizyConfig,
+    config: {
+      ...config,
+      types: {
+        [commit.type]: { title },
+      },
+    } as ResolvedRelizyConfig,
   })
 }
 
@@ -70,7 +77,9 @@ async function loadProjectEslint(cwd: string, required = false): Promise<Changel
     if (required) {
       throw new Error(`commitlint: changelogLinter is "eslint" but ${reason}`)
     }
-    logger.debug(`commitlint: ${reason}, using the built-in parser`, ...(error ? [error] : []))
+    logger.debug(`commitlint: ${reason}, using the built-in parser`, ...(error
+      ? [error]
+      : []))
     return undefined
   }
 
@@ -105,7 +114,9 @@ async function loadProjectEslint(cwd: string, required = false): Promise<Changel
       return (result?.messages ?? [])
         .filter(message => message.severity === 2)
         .map((message) => {
-          const rule = message.ruleId ? ` (${message.ruleId})` : ''
+          const rule = message.ruleId
+            ? ` (${message.ruleId})`
+            : ''
           return `${message.message.replace(/\.$/, '')}${rule}, on "${getLine(output, message.line)}"`
         })
     },
@@ -127,7 +138,14 @@ const CODE_BLOCK_EXTENSIONS: Record<string, string> = {
 }
 
 function getCodeBlocks(markdown: string): Code[] {
-  const root = fromMarkdown(markdown, { extensions: [gfm()], mdastExtensions: [gfmFromMarkdown()] })
+  const root = fromMarkdown(markdown, {
+    extensions: [
+      gfm(),
+    ],
+    mdastExtensions: [
+      gfmFromMarkdown(),
+    ],
+  })
   const blocks: Code[] = []
   const visit = (node: { type: string, children?: unknown[] }) => {
     if (node.type === 'code') {

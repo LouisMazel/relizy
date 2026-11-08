@@ -83,7 +83,9 @@ async function detectGitLabSquash(api: ProviderApi, iid: number): Promise<Squash
   ])
 
   if (project.squash_option === 'always' || project.squash_option === 'never') {
-    return { squash: project.squash_option === 'always', reason: `the project ${project.squash_option === 'always' ? 'always' : 'never'} squashes the commits` }
+    return { squash: project.squash_option === 'always', reason: `the project ${project.squash_option === 'always'
+      ? 'always'
+      : 'never'} squashes the commits` }
   }
 
   const squash = mergeRequest.squash_on_merge ?? mergeRequest.squash
@@ -107,7 +109,9 @@ async function detectSquash({ config, context }: { config: ResolvedRelizyConfig,
       : await detectGitLabSquash(api, pullRequest.number)
   }
   catch (error) {
-    logger.debug(`Merge preview: cannot read the merge method: ${error instanceof Error ? error.message : String(error)}`)
+    logger.debug(`Merge preview: cannot read the merge method: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return { reason: `the ${pullRequest.kind} could not be read from the API` }
   }
 }
@@ -123,9 +127,13 @@ export function getSquashCommit({ context, settings = {}, cwd }: { context: Merg
   const github = pullRequest.provider === 'github'
   const titleSetting = settings.title ?? 'COMMIT_OR_PR_TITLE'
   const bodySetting = settings.body ?? 'COMMIT_MESSAGES'
-  const onlyCommit = commits.length === 1 && github && titleSetting === 'COMMIT_OR_PR_TITLE' ? commits[0] : undefined
+  const onlyCommit = commits.length === 1 && github && titleSetting === 'COMMIT_OR_PR_TITLE'
+    ? commits[0]
+    : undefined
 
-  let title = onlyCommit ? runGitSync(['log', '-1', '--format=%s', onlyCommit], { cwd }) : pullRequest.title
+  let title = onlyCommit
+    ? runGitSync(['log', '-1', '--format=%s', onlyCommit], { cwd })
+    : pullRequest.title
   if (!title) {
     return undefined
   }
@@ -145,14 +153,28 @@ export function getSquashCommit({ context, settings = {}, cwd }: { context: Merg
   }
 
   const mergeBase = runGitSync(['merge-base', targetSha, headSha], { cwd })
-  const files = runGitSync(['diff', '--name-status', '-M', mergeBase, headSha], { cwd })
-  const [name = '', email = ''] = runGitSync(['log', '-1', '--format=%an%x1F%ae', headSha], { cwd }).split('\x1F')
+  const files = runGitSync([
+    'diff',
+    '--name-status',
+    '-M',
+    mergeBase,
+    headSha,
+  ], { cwd })
+  const [name = '', email = ''] = runGitSync([
+    'log',
+    '-1',
+    '--format=%an%x1F%ae',
+    headSha,
+  ], { cwd }).split('\x1F')
 
   return {
     hashes: commits,
     commit: {
       message: title,
-      body: [body.trim(), files].filter(Boolean).join('\n\n'),
+      body: [
+        body.trim(),
+        files,
+      ].filter(Boolean).join('\n\n'),
       shortHash: headSha.slice(0, 7),
       author: { name, email },
     },
@@ -191,5 +213,9 @@ export async function resolveMergePreviewSquash({ config, context, option, cwd }
     return { mode: 'commits', reason: `the title of the ${context.pullRequest.kind} is unknown` }
   }
 
-  return { mode: detection.squash ? 'squash' : 'both', reason: detection.reason, squash }
+  return {
+    mode: detection.squash ? 'squash' : 'both',
+    reason: detection.reason,
+    squash,
+  }
 }

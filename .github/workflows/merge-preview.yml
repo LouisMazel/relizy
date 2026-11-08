@@ -6,6 +6,8 @@ on:
   pull_request:
     branches:
       - main
+    # edited: a new title (the commit of a squash merge) or a new base
+    types: [opened, synchronize, reopened, edited]
 
 concurrency:
   group: merge-preview-${{ github.event.pull_request.number }}

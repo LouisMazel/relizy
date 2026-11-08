@@ -32,14 +32,20 @@ function short(sha: string): string {
 function extractVersionFromRef(ref: string): string {
   // Independent tags are `name@version`; unified tags are `v{{version}}`.
   const atIndex = ref.lastIndexOf('@')
-  const candidate = atIndex >= 0 ? ref.slice(atIndex + 1) : ref
-  return candidate.startsWith('v') ? candidate.slice(1) : candidate
+  const candidate = atIndex >= 0
+    ? ref.slice(atIndex + 1)
+    : ref
+  return candidate.startsWith('v')
+    ? candidate.slice(1)
+    : candidate
 }
 
 function resolveStrategy(config: ResolvedRelizyConfig): OnRewrittenTag {
   const isTTY = Boolean(process.stdout?.isTTY)
   const strategy = config.onRewrittenTag
-    ?? (!config.bump?.yes && isTTY ? 'prompt' : 'ephemeral')
+    ?? (!config.bump?.yes && isTTY
+      ? 'prompt'
+      : 'ephemeral')
 
   // Never attempt an interactive prompt without a TTY: it would hang or crash
   // in CI. Fall back to the safe, non-destructive ephemeral correction.
@@ -67,7 +73,9 @@ function buildExplanation({
     `Generating a changelog from it would span the whole divergent range (often the entire history since the last stable release, with duplicated commits) instead of the real changes.`,
   ]
   if (twin) {
-    const subjectSuffix = subject ? ` ("${subject}")` : ''
+    const subjectSuffix = subject
+      ? ` ("${subject}")`
+      : ''
     lines.push(`Equivalent commit found on "${to}": ${short(twin)}${subjectSuffix}.`)
   }
   else {
@@ -165,7 +173,13 @@ async function promptOrphan({
       logger.info(`Using equivalent commit ${short(twin!)} as the changelog base for this run.`)
       return twin!
     case 'rebind-local':
-      return rebind({ from, twin: twin!, config, dryRun, push: false })
+      return rebind({
+        from,
+        twin: twin!,
+        config,
+        dryRun,
+        push: false,
+      })
     case 'rebind-push': {
       const confirmed = await askConfirm({
         message: `Force-push tag "${from}" to origin? This rewrites the already-published tag.`,
@@ -174,9 +188,21 @@ async function promptOrphan({
 
       if (!confirmed) {
         logger.info('Skipping force-push; re-binding the tag locally only.')
-        return rebind({ from, twin: twin!, config, dryRun, push: false })
+        return rebind({
+          from,
+          twin: twin!,
+          config,
+          dryRun,
+          push: false,
+        })
       }
-      return rebind({ from, twin: twin!, config, dryRun, push: true })
+      return rebind({
+        from,
+        twin: twin!,
+        config,
+        dryRun,
+        push: true,
+      })
     }
     case 'keep':
       logger.warn(`Keeping orphaned tag "${from}"; the changelog range may be incorrect.`)
@@ -241,7 +267,9 @@ export async function reconcileFromTag({
 
   // Orphaned tag detected.
   const subject = await getCommitSubject(from, cwd)
-  const twin = subject ? await findReachableCommitBySubject(subject, to, cwd) : null
+  const twin = subject
+    ? await findReachableCommitBySubject(subject, to, cwd)
+    : null
   const explanation = buildExplanation({ from, to, twin, subject })
 
   const strategy = resolveStrategy(config)
@@ -253,7 +281,13 @@ export async function reconcileFromTag({
     throw new Error(`Tag "${from}" was rewritten (rebased) and is no longer reachable from "${to}". Re-bind the tag or fix your history.`)
   }
   else if (strategy === 'prompt') {
-    result = await promptOrphan({ from, twin, config, dryRun, explanation })
+    result = await promptOrphan({
+      from,
+      twin,
+      config,
+      dryRun,
+      explanation,
+    })
   }
   else if (!twin) {
     // Non-interactive but no safe correction available.
@@ -263,7 +297,13 @@ export async function reconcileFromTag({
   }
   else if (strategy === 'rebind') {
     logger.warn(explanation)
-    result = await rebind({ from, twin, config, dryRun, push: false })
+    result = await rebind({
+      from,
+      twin,
+      config,
+      dryRun,
+      push: false,
+    })
   }
   else {
     // ephemeral (default non-interactive)

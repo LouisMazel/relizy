@@ -26,9 +26,15 @@ export function getPackageDependencies({
 
   // Only check dependencies and peerDependencies (not devDependencies per industry best practices)
   const allDeps = {
-    ...(dependencyTypes?.includes('dependencies') ? packageJson.dependencies : {}),
-    ...(dependencyTypes?.includes('peerDependencies') ? packageJson.peerDependencies : {}),
-    ...(dependencyTypes?.includes('devDependencies') ? packageJson.devDependencies : {}),
+    ...(dependencyTypes?.includes('dependencies')
+      ? packageJson.dependencies
+      : {}),
+    ...(dependencyTypes?.includes('peerDependencies')
+      ? packageJson.peerDependencies
+      : {}),
+    ...(dependencyTypes?.includes('devDependencies')
+      ? packageJson.devDependencies
+      : {}),
   }
 
   for (const depName of Object.keys(allDeps)) {
@@ -83,7 +89,9 @@ export function expandPackagesToBumpWithDependents({
     result.set(pkg.name, packageToBump)
   }
 
-  const toProcess = [...packagesWithCommits.map(p => p.name)]
+  const toProcess = [
+    ...packagesWithCommits.map(p => p.name),
+  ]
   const processed = new Set<string>()
 
   while (toProcess.length > 0) {
@@ -200,7 +208,9 @@ export function parseWorkspaceProtocol(dependencyName: string, specifier: string
   const range = specifier.slice('workspace:'.length)
   const alias = /^(@[^/@]+\/[^@]+|[^@]+)@(.*)$/.exec(range)
 
-  return alias ? { target: alias[1]!, range: alias[2]! } : { target: dependencyName, range }
+  return alias
+    ? { target: alias[1]!, range: alias[2]! }
+    : { target: dependencyName, range }
 }
 
 /**
@@ -212,7 +222,9 @@ export function parseWorkspaceProtocol(dependencyName: string, specifier: string
 export function parseWorkspaceSpecifier(dependencyName: string, specifier: string): { target: string } | null {
   const workspaceProtocol = parseWorkspaceProtocol(dependencyName, specifier)
 
-  return workspaceProtocol && LOCAL_VERSION_RANGES.has(workspaceProtocol.range) ? { target: workspaceProtocol.target } : null
+  return workspaceProtocol && LOCAL_VERSION_RANGES.has(workspaceProtocol.range)
+    ? { target: workspaceProtocol.target }
+    : null
 }
 
 /**
@@ -242,7 +254,9 @@ export function getPublishedRange({
     return { target, range: `${range}${dependencyVersion}` }
   }
 
-  return semver.validRange(range) ? { target, range } : null
+  return semver.validRange(range)
+    ? { target, range }
+    : null
 }
 
 /**
@@ -333,7 +347,12 @@ export function getOutOfRangeDependencies({
       const published = getPublishedRange({ dependencyName, specifier, dependencyVersion: change.oldVersion })
 
       if (!published || !semver.satisfies(change.newVersion, published.range)) {
-        outOfRange.push({ dependency: target, field, range: published?.range ?? null, ...change })
+        outOfRange.push({
+          dependency: target,
+          field,
+          range: published?.range ?? null,
+          ...change,
+        })
       }
     }
   }
@@ -353,6 +372,10 @@ export function getOutOfRangePeers({
   packagePath: string
   bumped: Map<string, VersionChange>
 }): OutOfRangePeer[] {
-  return getOutOfRangeDependencies({ packagePath, bumped, fields: ['peerDependencies'] })
+  return getOutOfRangeDependencies({
+    packagePath,
+    bumped,
+    fields: ['peerDependencies'],
+  })
     .filter((peer): peer is OutOfRangePeer => peer.range !== null)
 }

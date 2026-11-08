@@ -22,7 +22,11 @@ const BASE_CONFIG = `logLevel: 'silent', safetyCheck: false, noAuthors: true,
   hooks: { 'before:bump': 'touch hooked', 'generate:changelog': () => { throw new Error('hook ran') } },`
 
 function snapshot(repository: GitRepository) {
-  return { status: repository.git('status', '--porcelain'), tags: repository.git('tag'), head: repository.git('rev-parse', 'HEAD') }
+  return {
+    status: repository.git('status', '--porcelain'),
+    tags: repository.git('tag'),
+    head: repository.git('rev-parse', 'HEAD'),
+  }
 }
 
 function createStandalone(): GitRepository {
@@ -44,7 +48,11 @@ function createMonorepo(versionMode: 'selective' | 'independent' | 'unified'): G
 
   repository.writeJson('.', { name: 'monorepo', version: '2.0.0', private: true })
   repository.writeJson('packages/core', { name: '@scope/core', version: '2.0.0' })
-  repository.writeJson('packages/ui', { name: '@scope/ui', version: '2.0.0', dependencies: { '@scope/core': 'workspace:*' } })
+  repository.writeJson('packages/ui', {
+    name: '@scope/ui',
+    version: '2.0.0',
+    dependencies: { '@scope/core': 'workspace:*' },
+  })
   repository.writeJson('packages/docs', { name: '@scope/docs', version: '2.0.0' })
   repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG} types: { chore: false }, monorepo: { versionMode: '${versionMode}', packages: ['packages/*'] } }\n`)
   repository.commit('chore: init')
@@ -64,7 +72,11 @@ function createGroups(): GitRepository {
 
   repository.writeJson('.', { name: 'monorepo', version: '6.19.1', private: true })
   repository.writeJson('packages/components', { name: '@scope/components', version: '6.19.1' })
-  repository.writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:*' } })
+  repository.writeJson('shared/nav', {
+    name: '@scope/nav',
+    version: '1.2.0',
+    peerDependencies: { '@scope/components': 'workspace:*' },
+  })
   repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0' })
   repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG}
   monorepo: { groups: [
@@ -352,7 +364,16 @@ describe('Given preview_release on a monorepo whose package moved', () => {
         name: '@scope/components',
         version: '1.0.0',
         description: 'The components of the design system, with their styles, their stories and their tests',
-        keywords: ['components', 'design-system', 'vue', 'buttons', 'links', 'inputs', 'modals', 'tooltips'],
+        keywords: [
+          'components',
+          'design-system',
+          'vue',
+          'buttons',
+          'links',
+          'inputs',
+          'modals',
+          'tooltips',
+        ],
         exports: { '.': './dist/index.js', './button': './dist/button.js', './style': './dist/style.css' },
         files: ['dist', 'README.md', 'CHANGELOG.md'],
       })
@@ -369,7 +390,9 @@ describe('Given preview_release on a monorepo whose package moved', () => {
     })
 
     it('Then monorepo.movedPackages gives them back to the package', async () => {
-      const repository = createMovedPackage({ movedPackages: { 'packages/components': 'packages/ui' } })
+      const repository = createMovedPackage({
+        movedPackages: { 'packages/components': 'packages/ui' },
+      })
       rewriteAndMove(repository)
 
       const text = await previewRelease(createTestContext(repository.cwd), {})
@@ -403,7 +426,9 @@ describe('Given preview_release with version groups', () => {
 
   describe('When only one group is previewed', () => {
     it('Then the other groups are left out', async () => {
-      const text = await previewRelease(createTestContext(repository.cwd), { groups: ['main'] })
+      const text = await previewRelease(createTestContext(repository.cwd), {
+        groups: ['main'],
+      })
 
       expect(text).toContain('## Group `main` (selective)')
       expect(text).not.toContain('## Group `header`')
@@ -425,7 +450,11 @@ describe('Given preview_release with a package depending on a package of another
   describe('When the dependency is bumped', () => {
     it('Then the dependent is explained by the other group', async () => {
       const repository = createGroups()
-      repository.writeJson('shared/login', { name: '@scope/login', version: '2.0.0', dependencies: { '@scope/components': 'workspace:*' } })
+      repository.writeJson('shared/login', {
+        name: '@scope/login',
+        version: '2.0.0',
+        dependencies: { '@scope/components': 'workspace:*' },
+      })
       repository.commit('chore: depend on the components')
       repository.git('tag', '-f', '-a', '@scope/login@2.0.0', '-m', '@scope/login@2.0.0')
 
@@ -445,7 +474,10 @@ describe('Given lint_commit', () => {
 
   describe('When a valid message is linted', () => {
     it('Then it returns its bump, its packages and its changelog entry', async () => {
-      const text = await lintCommit(createTestContext(repository.cwd), { message: 'feat(core): add the lexer\n\nThe lexer reads the tokens.', files: ['packages/core/lexer.js'] })
+      const text = await lintCommit(createTestContext(repository.cwd), {
+        message: 'feat(core): add the lexer\n\nThe lexer reads the tokens.',
+        files: ['packages/core/lexer.js'],
+      })
 
       expect(text).toContain('# Commitlint (relizy')
       expect(text).toContain('): passed')
@@ -545,19 +577,35 @@ describe('Given the knowledge tools', () => {
       expect(getDoc(context, { id: 'config/bump' })).toContain('Source: https://relizy.dev/config/bump')
       expect(getDoc(context, { id: 'version-groups' })).toContain('# Version Groups')
       expect(getDoc(context, { id: '/guide/version-modes.md#selective' })).toContain('Source: https://relizy.dev/guide/version-modes')
-      expect(getDoc(context, { id: 'config/bump', sections: ['yes', 'nothing'] })).toContain('Sections not found: nothing.')
+      expect(getDoc(context, {
+        id: 'config/bump',
+        sections: ['yes', 'nothing'],
+      })).toContain('Sections not found: nothing.')
     })
 
     it('Then a long page returns its outline unless full is set', () => {
       const directory = createTempDir()
       const page = `# Long\n\nIntro.\n\n## First\n\n${'text '.repeat(6000)}\n\n### Nested\n\n## Second\n`
-      const manifest = { ...context.knowledge.manifest, docs: [{ ...context.knowledge.docs[0]!, id: 'guide/long', file: 'pages/guide/long.md', chars: page.length }] }
+      const manifest = {
+        ...context.knowledge.manifest,
+        docs: [
+          {
+            ...context.knowledge.docs[0]!,
+            id: 'guide/long',
+            file: 'pages/guide/long.md',
+            chars: page.length,
+          },
+        ],
+      }
 
       writeFileSync(join(directory, 'manifest.json'), JSON.stringify(manifest))
       mkdirSync(join(directory, 'pages/guide'), { recursive: true })
       writeFileSync(join(directory, 'pages/guide/long.md'), page)
 
-      const longContext = createContext({ cwd: directory, knowledge: loadKnowledge(directory) })
+      const longContext = createContext({
+        cwd: directory,
+        knowledge: loadKnowledge(directory),
+      })
       const outline = getDoc(longContext, { id: 'guide/long' })
 
       expect(outline).toContain('This page is long')
@@ -568,7 +616,10 @@ describe('Given the knowledge tools', () => {
 
     it('Then an unknown page or section is reported with suggestions', () => {
       expect(() => getDoc(context, { id: 'canary' })).toThrow('No relizy doc matches "canary"')
-      expect(() => getDoc(context, { id: 'config/bump', sections: ['nothing'] })).toThrow('No section "nothing" in `config/bump`')
+      expect(() => getDoc(context, {
+        id: 'config/bump',
+        sections: ['nothing'],
+      })).toThrow('No section "nothing" in `config/bump`')
     })
   })
 
@@ -591,7 +642,11 @@ describe('Given the knowledge tools', () => {
 
     it('Then a deprecated option tells it', () => {
       const { knowledge } = context
-      const deprecated = { ...knowledge.configByPath.get('monorepo.ignored')!, path: 'monorepo.legacy', deprecated: 'Use `ignored`' }
+      const deprecated = {
+        ...knowledge.configByPath.get('monorepo.ignored')!,
+        path: 'monorepo.legacy',
+        deprecated: 'Use `ignored`',
+      }
       knowledge.configByPath.set(deprecated.path, deprecated)
 
       try {

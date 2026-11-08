@@ -24,7 +24,14 @@ function setup(): { repo: GitRepository, context: (overrides?: Partial<MergePrev
   return {
     repo,
     context: overrides => ({
-      pullRequest: { provider: 'github', kind: 'pull request', number: 12, title: 'feat: the feature', targetBranch: 'main', ...overrides },
+      pullRequest: {
+        provider: 'github',
+        kind: 'pull request',
+        number: 12,
+        title: 'feat: the feature',
+        targetBranch: 'main',
+        ...overrides,
+      },
       targetSha,
       headSha,
       commits,
@@ -54,10 +61,18 @@ afterAll(() => {
 })
 
 describe('Given a simulated squash merge', () => {
-  const commit = (message: string, shortHash: string) => ({ message, shortHash, body: '', author: { name: 'Dev', email: 'dev@example.com' } })
+  const commit = (message: string, shortHash: string) => ({
+    message,
+    shortHash,
+    body: '',
+    author: { name: 'Dev', email: 'dev@example.com' },
+  })
 
   it('When the commits of a range are read, Then the ones of the pull request become the squash commit, at the place of the newest', () => {
-    const squash = { hashes: ['bbbbbbb1234', 'ddddddd1234'], commit: commit('feat: squashed (#1)', 'ddddddd') }
+    const squash = {
+      hashes: ['bbbbbbb1234', 'ddddddd1234'],
+      commit: commit('feat: squashed (#1)', 'ddddddd'),
+    }
 
     const commits = withSimulatedSquash(squash, () => applySimulatedSquash([
       commit('fix: on main', 'aaaaaaa'),
@@ -70,21 +85,32 @@ describe('Given a simulated squash merge', () => {
   })
 
   it('When the range has no commit of the pull request, Then is left as is', () => {
-    const squash = { hashes: ['bbbbbbb1234'], commit: commit('feat: squashed', 'bbbbbbb') }
-    const range = [commit('fix: on main', 'aaaaaaa')]
+    const squash = {
+      hashes: ['bbbbbbb1234'],
+      commit: commit('feat: squashed', 'bbbbbbb'),
+    }
+    const range = [
+      commit('fix: on main', 'aaaaaaa'),
+    ]
 
     expect(withSimulatedSquash(squash, () => applySimulatedSquash(range))).toEqual(range)
   })
 
   it('When no squash is simulated, Then the commits are left as is', () => {
-    const range = [commit('feat: b', 'bbbbbbb')]
+    const range = [
+      commit('feat: b', 'bbbbbbb'),
+    ]
 
     expect(applySimulatedSquash(range)).toBe(range)
   })
 
   it('When getGitDiff reads the range, Then sees the squash commit with the files of the pull request', () => {
     const { repo, context } = setup()
-    const squash = getSquashCommit({ context: context(), settings: { title: 'PR_TITLE', body: 'BLANK' }, cwd: repo.cwd })!
+    const squash = getSquashCommit({
+      context: context(),
+      settings: { title: 'PR_TITLE', body: 'BLANK' },
+      cwd: repo.cwd,
+    })!
 
     const commits = withSimulatedSquash(squash, () => getGitDiff(context().targetSha, 'HEAD', repo.cwd))
 
@@ -98,7 +124,10 @@ describe('Given the commit of a squash merge', () => {
   it('When GitHub writes the commit messages in the body (its default), Then a breaking change of a commit is in the squash', () => {
     const { repo, context } = setup()
 
-    const squash = getSquashCommit({ context: context(), cwd: repo.cwd })!
+    const squash = getSquashCommit({
+      context: context(),
+      cwd: repo.cwd,
+    })!
 
     expect(squash.commit.message).toBe('feat: the feature (#12)')
     expect(squash.commit.body).toBe('* feat: add a\n\n* fix: rename\n\nBREAKING CHANGE: old.txt is gone\n\nA\ta.txt\nR100\told.txt\trenamed.txt')
@@ -109,7 +138,11 @@ describe('Given the commit of a squash merge', () => {
   it('When GitHub writes the description in the body, Then the body is the description', () => {
     const { repo, context } = setup()
 
-    const squash = getSquashCommit({ context: context({ body: 'Closes #3' }), settings: { body: 'PR_BODY' }, cwd: repo.cwd })!
+    const squash = getSquashCommit({
+      context: context({ body: 'Closes #3' }),
+      settings: { body: 'PR_BODY' },
+      cwd: repo.cwd,
+    })!
 
     expect(squash.commit.body).toBe('Closes #3\n\nA\ta.txt\nR100\told.txt\trenamed.txt')
   })
@@ -117,7 +150,11 @@ describe('Given the commit of a squash merge', () => {
   it('When the pull request has one commit, Then GitHub takes its message (COMMIT_OR_PR_TITLE)', () => {
     const { repo, context } = setup()
     const base = context()
-    const only = { ...base, commits: [base.commits[1]!], headSha: base.commits[1]! }
+    const only = {
+      ...base,
+      commits: [base.commits[1]!],
+      headSha: base.commits[1]!,
+    }
 
     const squash = getSquashCommit({ context: only, cwd: repo.cwd })!
 
@@ -127,7 +164,10 @@ describe('Given the commit of a squash merge', () => {
   it('When it is a GitLab merge request, Then the commit is its title, without body', () => {
     const { repo, context } = setup()
 
-    const squash = getSquashCommit({ context: context({ provider: 'gitlab', kind: 'merge request' }), cwd: repo.cwd })!
+    const squash = getSquashCommit({
+      context: context({ provider: 'gitlab', kind: 'merge request' }),
+      cwd: repo.cwd,
+    })!
 
     expect(squash.commit.message).toBe('feat: the feature')
     expect(squash.commit.body).toBe('A\ta.txt\nR100\told.txt\trenamed.txt')
@@ -136,18 +176,31 @@ describe('Given the commit of a squash merge', () => {
   it('When the title is unknown, Then there is no squash commit', () => {
     const { repo, context } = setup()
 
-    expect(getSquashCommit({ context: context({ title: undefined }), settings: { title: 'PR_TITLE' }, cwd: repo.cwd })).toBeUndefined()
+    expect(getSquashCommit({
+      context: context({ title: undefined }),
+      settings: { title: 'PR_TITLE' },
+      cwd: repo.cwd,
+    })).toBeUndefined()
   })
 })
 
 describe('Given the merge method of the pull request', () => {
-  const config = createMockConfig({ bump: { type: 'release' }, repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' }, tokens: { github: 'gh-token', gitlab: 'gl-token' } })
+  const config = createMockConfig({
+    bump: { type: 'release' },
+    repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' },
+    tokens: { github: 'gh-token', gitlab: 'gl-token' },
+  })
 
   it('When mergePreview.squash is false, Then computes the commits without the API', async () => {
     const { repo, context } = setup()
     const fetch = mockFetch({})
 
-    expect(await resolveMergePreviewSquash({ config, context: context(), option: false, cwd: repo.cwd })).toEqual({ mode: 'commits', reason: 'mergePreview.squash is false' })
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: false,
+      cwd: repo.cwd,
+    })).toEqual({ mode: 'commits', reason: 'mergePreview.squash is false' })
     expect(fetch).not.toHaveBeenCalled()
   })
 
@@ -155,7 +208,12 @@ describe('Given the merge method of the pull request', () => {
     const { repo, context } = setup()
     const fetch = mockFetch({})
 
-    const result = await resolveMergePreviewSquash({ config, context: context(), option: true, cwd: repo.cwd })
+    const result = await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: true,
+      cwd: repo.cwd,
+    })
 
     expect(result.mode).toBe('squash')
     expect(result.squash?.commit.message).toBe('feat: the feature (#12)')
@@ -164,9 +222,19 @@ describe('Given the merge method of the pull request', () => {
 
   it('When the auto-merge of GitHub squashes, Then squashes', async () => {
     const { repo, context } = setup()
-    mockFetch({ '/repos/test/repo': { allow_squash_merge: true, allow_merge_commit: true }, '/pulls/12': { auto_merge: { merge_method: 'squash' } } })
+    mockFetch({
+      '/repos/test/repo': { allow_squash_merge: true, allow_merge_commit: true },
+      '/pulls/12': {
+        auto_merge: { merge_method: 'squash' },
+      },
+    })
 
-    const result = await resolveMergePreviewSquash({ config, context: context(), option: 'auto', cwd: repo.cwd })
+    const result = await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: 'auto',
+      cwd: repo.cwd,
+    })
 
     expect(result).toMatchObject({ mode: 'squash', reason: 'auto-merge is enabled with the squash method' })
   })
@@ -174,11 +242,22 @@ describe('Given the merge method of the pull request', () => {
   it('When the repository only allows squash merges, Then squashes with its message settings', async () => {
     const { repo, context } = setup()
     mockFetch({
-      '/repos/test/repo': { allow_squash_merge: true, allow_merge_commit: false, allow_rebase_merge: false, squash_merge_commit_title: 'PR_TITLE', squash_merge_commit_message: 'BLANK' },
+      '/repos/test/repo': {
+        allow_squash_merge: true,
+        allow_merge_commit: false,
+        allow_rebase_merge: false,
+        squash_merge_commit_title: 'PR_TITLE',
+        squash_merge_commit_message: 'BLANK',
+      },
       '/pulls/12': { auto_merge: null },
     })
 
-    const result = await resolveMergePreviewSquash({ config, context: context(), option: 'auto', cwd: repo.cwd })
+    const result = await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: 'auto',
+      cwd: repo.cwd,
+    })
 
     expect(result).toMatchObject({ mode: 'squash', reason: 'the repository only allows squash merges' })
     expect(result.squash?.commit.body).toBe('A\ta.txt\nR100\told.txt\trenamed.txt')
@@ -186,17 +265,33 @@ describe('Given the merge method of the pull request', () => {
 
   it('When the repository does not allow squash merges, Then computes the commits', async () => {
     const { repo, context } = setup()
-    mockFetch({ '/repos/test/repo': { allow_squash_merge: false }, '/pulls/12': {} })
+    mockFetch({
+      '/repos/test/repo': { allow_squash_merge: false },
+      '/pulls/12': {},
+    })
 
-    expect(await resolveMergePreviewSquash({ config, context: context(), option: 'auto', cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: 'auto',
+      cwd: repo.cwd,
+    }))
       .toEqual({ mode: 'commits', reason: 'the repository does not allow squash merges' })
   })
 
   it('When the repository allows several methods, Then computes both', async () => {
     const { repo, context } = setup()
-    mockFetch({ '/repos/test/repo': { allow_squash_merge: true, allow_merge_commit: true }, '/pulls/12': {} })
+    mockFetch({
+      '/repos/test/repo': { allow_squash_merge: true, allow_merge_commit: true },
+      '/pulls/12': {},
+    })
 
-    expect(await resolveMergePreviewSquash({ config, context: context(), option: 'auto', cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: 'auto',
+      cwd: repo.cwd,
+    }))
       .toMatchObject({ mode: 'both', reason: 'the repository allows several merge methods' })
   })
 
@@ -204,30 +299,59 @@ describe('Given the merge method of the pull request', () => {
     const { repo, context } = setup()
     mockFetch({})
 
-    expect(await resolveMergePreviewSquash({ config, context: context(), option: 'auto', cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context(),
+      option: 'auto',
+      cwd: repo.cwd,
+    }))
       .toMatchObject({ mode: 'both', reason: 'the pull request could not be read from the API' })
   })
 
   it('When the GitLab project always squashes, Then squashes', async () => {
     const { repo, context } = setup()
-    mockFetch({ '/projects/test%2Frepo': { squash_option: 'always' }, '/merge_requests/12': { squash: false } })
+    mockFetch({
+      '/projects/test%2Frepo': { squash_option: 'always' },
+      '/merge_requests/12': { squash: false },
+    })
 
-    expect(await resolveMergePreviewSquash({ config, context: context({ provider: 'gitlab', kind: 'merge request' }), option: 'auto', cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context({ provider: 'gitlab', kind: 'merge request' }),
+      option: 'auto',
+      cwd: repo.cwd,
+    }))
       .toMatchObject({ mode: 'squash', reason: 'the project always squashes the commits' })
   })
 
   it('When the GitLab merge request does not squash, Then computes the commits', async () => {
     const { repo, context } = setup()
-    mockFetch({ '/projects/test%2Frepo': { squash_option: 'default_on' }, '/merge_requests/12': { squash: true, squash_on_merge: false } })
+    mockFetch({
+      '/projects/test%2Frepo': { squash_option: 'default_on' },
+      '/merge_requests/12': { squash: true, squash_on_merge: false },
+    })
 
-    expect(await resolveMergePreviewSquash({ config, context: context({ provider: 'gitlab', kind: 'merge request' }), option: 'auto', cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: context({ provider: 'gitlab', kind: 'merge request' }),
+      option: 'auto',
+      cwd: repo.cwd,
+    }))
       .toEqual({ mode: 'commits', reason: 'the merge request does not squash its commits' })
   })
 
   it('When the pull request has no commit, Then computes the commits', async () => {
     const { repo, context } = setup()
 
-    expect(await resolveMergePreviewSquash({ config, context: { ...context(), commits: [] }, option: true, cwd: repo.cwd }))
+    expect(await resolveMergePreviewSquash({
+      config,
+      context: {
+        ...context(),
+        commits: [],
+      },
+      option: true,
+      cwd: repo.cwd,
+    }))
       .toEqual({ mode: 'commits', reason: 'the pull request has no commit' })
   })
 })

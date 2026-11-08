@@ -54,7 +54,9 @@ describe('Given generateChangelog function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
+    config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.templates = {
       commitMessage: 'chore(release): {{newVersion}}',
       commitBody: undefined,
@@ -66,7 +68,9 @@ describe('Given generateChangelog function', () => {
       changelogTitle: '{{oldVersion}}...{{newVersion}}',
     }
     vi.mocked(getFirstCommit).mockReturnValue('abc123')
-    vi.mocked(getPackageCommits).mockResolvedValue([createMockCommit('feat', 'feature')])
+    vi.mocked(getPackageCommits).mockResolvedValue([
+      createMockCommit('feat', 'feature'),
+    ])
     vi.mocked(buildChangelogBody).mockReturnValue('- feat: feature')
     vi.mocked(buildCompareLink).mockReturnValue('[compare](url)')
     vi.mocked(buildContributors).mockResolvedValue('### ❤️ Contributors\n\n- Alice')
@@ -186,7 +190,10 @@ describe('Given generateChangelog function', () => {
 
   describe('When generating for independent mode', () => {
     it('Then uses independent tag for toTag', async () => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@1.1.0')
       const pkg = { name: 'pkg-a', path: '/p/pkg-a' }
 
@@ -204,7 +211,10 @@ describe('Given generateChangelog function', () => {
     })
 
     it('Then uses independent tag for first commit', async () => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       vi.mocked(getFirstCommit).mockReturnValue('initial')
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@0.0.0')
       const pkg = { name: 'pkg-a', path: '/p/pkg-a' }
@@ -225,7 +235,10 @@ describe('Given generateChangelog function', () => {
 
   describe('When generating for a new package (no previous tag)', () => {
     beforeEach(() => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       vi.mocked(getIndependentTag).mockImplementation(({ version, name }) => `${name}@${version}`)
     })
 
@@ -318,7 +331,12 @@ describe('Given generateChangelog function', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: true, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: true,
+          body: true,
+          contributors: false,
+        },
       })
 
       expect(result).not.toContain('## v1.0.0...v1.1.0')
@@ -335,7 +353,12 @@ describe('Given generateChangelog function', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: false, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: false,
+          body: true,
+          contributors: false,
+        },
       })
 
       expect(result).toBe('- feat: feature')
@@ -351,7 +374,12 @@ describe('Given generateChangelog function', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: false, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: false,
+          body: true,
+          contributors: false,
+        },
         transformBody: body => `AI(${body})`,
       })
 
@@ -407,7 +435,12 @@ describe('Given generateChangelog function', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: false, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: false,
+          body: true,
+          contributors: false,
+        },
       })
 
       expect(executeHook).not.toHaveBeenCalled()

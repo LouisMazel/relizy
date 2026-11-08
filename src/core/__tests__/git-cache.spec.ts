@@ -24,8 +24,16 @@ describe('Given cachedGitRead', () => {
     it('Then it reads git each time', () => {
       const read = vi.fn(() => 'main')
 
-      cachedGitRead({ key: ['branch'], cwd: '/repo', read })
-      cachedGitRead({ key: ['branch'], cwd: '/repo', read })
+      cachedGitRead({
+        key: ['branch'],
+        cwd: '/repo',
+        read,
+      })
+      cachedGitRead({
+        key: ['branch'],
+        cwd: '/repo',
+        read,
+      })
 
       expect(read).toHaveBeenCalledTimes(2)
     })
@@ -36,8 +44,16 @@ describe('Given cachedGitRead', () => {
       const read = vi.fn(() => 'main')
 
       const values = withGitCache(() => [
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read }),
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read }),
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        }),
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        }),
       ])
 
       expect(values).toEqual(['main', 'main'])
@@ -48,9 +64,21 @@ describe('Given cachedGitRead', () => {
       const read = vi.fn(() => 'value')
 
       withGitCache(() => {
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read })
-        cachedGitRead({ key: ['first-commit'], cwd: '/repo', read })
-        cachedGitRead({ key: ['branch'], cwd: '/other', read })
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })
+        cachedGitRead({
+          key: ['first-commit'],
+          cwd: '/repo',
+          read,
+        })
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/other',
+          read,
+        })
       })
 
       expect(read).toHaveBeenCalledTimes(3)
@@ -64,8 +92,16 @@ describe('Given cachedGitRead', () => {
         .mockImplementationOnce(() => 'main')
 
       withGitCache(() => {
-        expect(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read })).toThrow('not a git repository')
-        expect(cachedGitRead({ key: ['branch'], cwd: '/repo', read })).toBe('main')
+        expect(() => cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })).toThrow('not a git repository')
+        expect(cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })).toBe('main')
       })
     })
 
@@ -75,8 +111,16 @@ describe('Given cachedGitRead', () => {
         .mockResolvedValueOnce(['v1.0.0'])
 
       await withGitCache(async () => {
-        await expect(cachedGitRead({ key: ['tags'], cwd: '/repo', read })).rejects.toThrow('failed')
-        await expect(cachedGitRead({ key: ['tags'], cwd: '/repo', read })).resolves.toEqual(['v1.0.0'])
+        await expect(cachedGitRead({
+          key: ['tags'],
+          cwd: '/repo',
+          read,
+        })).rejects.toThrow('failed')
+        await expect(cachedGitRead({
+          key: ['tags'],
+          cwd: '/repo',
+          read,
+        })).resolves.toEqual(['v1.0.0'])
       })
 
       expect(read).toHaveBeenCalledTimes(2)
@@ -86,9 +130,17 @@ describe('Given cachedGitRead', () => {
       const read = vi.fn(() => 'main')
 
       withGitCache(() => {
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read })
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })
         clearGitCache()
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read })
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })
       })
 
       expect(read).toHaveBeenCalledTimes(2)
@@ -100,8 +152,16 @@ describe('Given cachedGitRead', () => {
       const read = vi.fn(() => 'main')
 
       withGitCache(() => {
-        cachedGitRead({ key: ['branch'], cwd: '/repo', read })
-        withGitCache(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read }))
+        cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })
+        withGitCache(() => cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        }))
       })
 
       expect(read).toHaveBeenCalledTimes(1)
@@ -113,8 +173,16 @@ describe('Given cachedGitRead', () => {
       const read = vi.fn(() => Promise.resolve('main'))
 
       await Promise.all([
-        withGitCache(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read })),
-        withGitCache(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read })),
+        withGitCache(() => cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })),
+        withGitCache(() => cachedGitRead({
+          key: ['branch'],
+          cwd: '/repo',
+          read,
+        })),
       ])
 
       expect(read).toHaveBeenCalledTimes(2)
@@ -125,8 +193,16 @@ describe('Given cachedGitRead', () => {
     it('Then the next run reads git again', () => {
       const read = vi.fn(() => 'main')
 
-      withGitCache(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read }))
-      withGitCache(() => cachedGitRead({ key: ['branch'], cwd: '/repo', read }))
+      withGitCache(() => cachedGitRead({
+        key: ['branch'],
+        cwd: '/repo',
+        read,
+      }))
+      withGitCache(() => cachedGitRead({
+        key: ['branch'],
+        cwd: '/repo',
+        read,
+      }))
 
       expect(read).toHaveBeenCalledTimes(2)
     })
@@ -203,7 +279,12 @@ describe('Given the git reads of a run', () => {
         tags.push('v2.0.0')
 
         expect(getGitDiff('v1.0.0', 'HEAD', '/repo')).toEqual([
-          { message: 'feat: add', shortHash: 'abc1234', author: { name: 'Jane', email: 'jane@example.com' }, body: '' },
+          {
+            message: 'feat: add',
+            shortHash: 'abc1234',
+            author: { name: 'Jane', email: 'jane@example.com' },
+            body: '',
+          },
         ])
         expect(await listTags({ cwd: '/repo' })).toEqual(['v1.0.0'])
       })
@@ -219,7 +300,12 @@ describe('Given the git reads of a run', () => {
 
       await withGitCache(async () => {
         await listTags({ cwd: '/repo' })
-        await retagAnnotatedLocal({ tag: 'v1.0.0', commit: 'abc1234', message: 'v1.0.0', cwd: '/repo' })
+        await retagAnnotatedLocal({
+          tag: 'v1.0.0',
+          commit: 'abc1234',
+          message: 'v1.0.0',
+          cwd: '/repo',
+        })
         await listTags({ cwd: '/repo' })
       })
 

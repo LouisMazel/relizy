@@ -4,7 +4,9 @@ export function getEditDistance(a: string, b: string): number {
   for (let i = 1; i <= a.length; i++) {
     const current = [i]
     for (let j = 1; j <= b.length; j++) {
-      const substitution = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1] ? 0 : 1)
+      const substitution = (previous[j - 1] ?? 0) + (a[i - 1] === b[j - 1]
+        ? 0
+        : 1)
       current.push(Math.min((previous[j] ?? 0) + 1, (current[j - 1] ?? 0) + 1, substitution))
     }
     previous = current
@@ -68,7 +70,9 @@ function suggestSubject(subject: string, lowercase: boolean): string {
     suggested = suggested.slice(0, -1)
   }
   // An uppercase first letter followed by a lowercase one: acronyms are kept
-  return lowercase && /^[A-Z][^A-Z]/.test(suggested) ? `${suggested[0]!.toLowerCase()}${suggested.slice(1)}` : suggested
+  return lowercase && /^[A-Z][^A-Z]/.test(suggested)
+    ? `${suggested[0]!.toLowerCase()}${suggested.slice(1)}`
+    : suggested
 }
 
 /**
@@ -82,7 +86,9 @@ export function suggestHeader(header: string, { types, allowedScopes, lowercaseS
 
   const revert = /^Revert "(?<reverted>.+)"$/.exec(trimmed)?.groups?.reverted
   if (revert) {
-    return types.includes('revert') ? `revert: ${revert}` : undefined
+    return types.includes('revert')
+      ? `revert: ${revert}`
+      : undefined
   }
 
   const groups = LOOSE_HEADER_PATTERN.exec(trimmed)?.groups
@@ -91,7 +97,11 @@ export function suggestHeader(header: string, { types, allowedScopes, lowercaseS
   }
 
   const type = suggestType(groups.type!, types)
-  const scope = groups.scope === undefined || groups.scope.trim() === '' ? '' : `(${suggestScope(groups.scope, allowedScopes)})`
+  const scope = groups.scope === undefined || groups.scope.trim() === ''
+    ? ''
+    : `(${suggestScope(groups.scope, allowedScopes)})`
   const suggested = `${type}${scope}${groups.breaking ?? ''}: ${suggestSubject(groups.subject!, lowercaseSubject)}`
-  return suggested === header ? undefined : suggested
+  return suggested === header
+    ? undefined
+    : suggested
 }

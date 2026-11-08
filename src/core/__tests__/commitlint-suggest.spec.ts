@@ -1,6 +1,13 @@
 import { findClosest, getEditDistance, suggestHeader } from '../commitlint/suggest'
 
-const TYPES = ['feat', 'fix', 'docs', 'test', 'perf', 'chore']
+const TYPES = [
+  'feat',
+  'fix',
+  'docs',
+  'test',
+  'perf',
+  'chore',
+]
 
 describe('Given getEditDistance function', () => {
   it.each([
@@ -43,7 +50,11 @@ describe('Given suggestHeader function', () => {
     ['feat: API of the parser', undefined],
     ['feat: wait...', undefined],
   ])('Then fixes "%s" as "%s"', (header, expected) => {
-    expect(suggestHeader(header, { types: TYPES, allowedScopes: ['nuxt', 'core', 'my-scope'], lowercaseSubject: true })).toBe(expected)
+    expect(suggestHeader(header, {
+      types: TYPES,
+      allowedScopes: ['nuxt', 'core', 'my-scope'],
+      lowercaseSubject: true,
+    })).toBe(expected)
   })
 
   it('Then keeps the case of the subject without lowercaseSubject, e.g. a component name', () => {
@@ -59,7 +70,9 @@ describe('Given suggestHeader function', () => {
   })
 
   it('Then rewrites the default revert message when a revert type exists', () => {
-    expect(suggestHeader('Revert "feat: add the parser"', { types: [...TYPES, 'revert'] })).toBe('revert: feat: add the parser')
+    expect(suggestHeader('Revert "feat: add the parser"', {
+      types: [...TYPES, 'revert'],
+    })).toBe('revert: feat: add the parser')
     expect(suggestHeader('Revert "feat: add the parser"', { types: TYPES })).toBeUndefined()
   })
 

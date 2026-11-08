@@ -18,7 +18,10 @@ describe('Given redactSecrets function', () => {
 
     it('Then reveals no character of a secret without known prefix but its last 4', () => {
       const result = redactSecrets({
-        tokens: { twitter: { apiKey: 'Xq81bZr0aT5mKe9LwYv3', accessToken: '1234567890-AbCdEfGhIjKlMnOp' }, slack: 'sk-ant-oat01-abcdefghij1234' },
+        tokens: {
+          twitter: { apiKey: 'Xq81bZr0aT5mKe9LwYv3', accessToken: '1234567890-AbCdEfGhIjKlMnOp' },
+          slack: 'sk-ant-oat01-abcdefghij1234',
+        },
       })
 
       expect(result.tokens.twitter.apiKey).toBe('***wYv3')
@@ -28,7 +31,9 @@ describe('Given redactSecrets function', () => {
 
     it('Then fully masks short secrets (no extract revealed)', () => {
       const result = redactSecrets({
-        tokens: { twitter: { apiKey: 'tw-key', apiKeySecret: 'short-secret' } },
+        tokens: {
+          twitter: { apiKey: 'tw-key', apiKeySecret: 'short-secret' },
+        },
       })
 
       expect(result.tokens.twitter.apiKey).toBe('***')
@@ -41,8 +46,17 @@ describe('Given redactSecrets function', () => {
       const result = redactSecrets({
         publish: { token: 'npm_FAKE000ZJLIEE5NB9oDZIqNr', registry: 'https://registry.npmjs.org/' },
         repo: { token: 'short', repo: 'owner/name' },
-        social: { slack: { credentials: { token: 'xoxb-secret' }, webhookUrl: 'https://hooks.slack.com/services/AAAA/BBBB/CCCC' } },
-        ai: { providers: { 'claude-code': { oauthToken: 'sk-ant-oat01-abcdefghij', apiKey: 'ai-key' } } },
+        social: {
+          slack: {
+            credentials: { token: 'xoxb-secret' },
+            webhookUrl: 'https://hooks.slack.com/services/AAAA/BBBB/CCCC',
+          },
+        },
+        ai: {
+          providers: {
+            'claude-code': { oauthToken: 'sk-ant-oat01-abcdefghij', apiKey: 'ai-key' },
+          },
+        },
       })
 
       expect(result.publish.token).not.toContain('FAKE000ZJLIEE5NB9oDZIqNr')
@@ -62,7 +76,11 @@ describe('Given redactSecrets function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-secret-token-abcdefgh' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
           ],
         },
       })
@@ -91,7 +109,9 @@ describe('Given redactSecrets function', () => {
 
   describe('When given an object', () => {
     it('Then does not mutate the original', () => {
-      const original = { tokens: { github: 'github_pat_secret' } }
+      const original = {
+        tokens: { github: 'github_pat_secret' },
+      }
 
       redactSecrets(original)
 
@@ -102,10 +122,19 @@ describe('Given redactSecrets function', () => {
   describe('When an object references one of its ancestors', () => {
     it('Then replaces the reference instead of recursing forever, and the result is serializable', () => {
       // e.g. a model instance of ai.providers['ai-sdk'] whose client points back to it
-      const model: Record<string, any> = { modelId: 'gpt-5-mini', config: { provider: 'openai', apiKey: 'sk-1234567890abcdef' } }
+      const model: Record<string, any> = {
+        modelId: 'gpt-5-mini',
+        config: { provider: 'openai', apiKey: 'sk-1234567890abcdef' },
+      }
       model.config.client = model
 
-      const result = redactSecrets({ ai: { providers: { 'ai-sdk': { model } } } }) as any
+      const result = redactSecrets({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      }) as any
 
       expect(result.ai.providers['ai-sdk'].model.config.client).toBe('[Circular]')
       expect(result.ai.providers['ai-sdk'].model.config.apiKey).toBe('sk-***cdef')
@@ -115,7 +144,13 @@ describe('Given redactSecrets function', () => {
     it('Then keeps an object referenced twice without a cycle', () => {
       const shared = { url: 'https://example.com' }
 
-      expect(redactSecrets({ a: shared, b: [shared] })).toEqual({ a: shared, b: [shared] })
+      expect(redactSecrets({
+        a: shared,
+        b: [shared],
+      })).toEqual({
+        a: shared,
+        b: [shared],
+      })
     })
   })
 

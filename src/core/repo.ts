@@ -27,12 +27,24 @@ import { determineReleaseType, getPackageNewVersion } from './version'
 function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackages?: Record<string, string>): string | null {
   const relativePath = relative(cwd, packagePath).split(sep).join('/')
   const previousPaths = relativePath
-    ? getPreviousPackagePaths({ packagePath: relativePath, commits: getPackageJsonHistory(relativePath, cwd), movedPackages, cwd })
+    ? getPreviousPackagePaths({
+        packagePath: relativePath,
+        commits: getPackageJsonHistory(relativePath, cwd),
+        movedPackages,
+        cwd,
+      })
     : []
 
   try {
     // Get the oldest commit that touched this package directory
-    const hash = runGitSync(['log', '--reverse', '--format=%H', '--', relativePath, ...previousPaths], { cwd }).split('\n')[0]?.trim()
+    const hash = runGitSync([
+      'log',
+      '--reverse',
+      '--format=%H',
+      '--',
+      relativePath,
+      ...previousPaths,
+    ], { cwd }).split('\n')[0]?.trim()
 
     if (hash) {
       logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)
@@ -52,7 +64,12 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
  */
 function getCommitParentHash(hash: string, cwd: string): string | null {
   try {
-    const parent = runGitSync(['rev-parse', '--verify', '--quiet', `${hash}^`], { cwd })
+    const parent = runGitSync([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${hash}^`,
+    ], { cwd })
 
     return parent || null
   }
@@ -289,7 +306,9 @@ export async function getRootPackage({
 export function getPrivatePackagesMode(config: { monorepo?: MonorepoConfig }): PrivatePackages {
   const isStandalone = !config.monorepo?.packages?.length && !config.monorepo?.groups?.length
 
-  return isStandalone ? 'release' : config.monorepo?.privatePackages ?? 'ignore'
+  return isStandalone
+    ? 'release'
+    : config.monorepo?.privatePackages ?? 'ignore'
 }
 
 export function readPackages({
@@ -447,7 +466,10 @@ export async function getPackages({
 
       const dependencies = getPackageDependencies({
         packagePath: matchPath,
-        allPackageNames: new Set([...readedPackages.map(p => p.name), ...(externalBumps?.keys() ?? [])]),
+        allPackageNames: new Set([
+          ...readedPackages.map(p => p.name),
+          ...(externalBumps?.keys() ?? []),
+        ]),
         dependencyTypes: config.bump?.dependencyTypes,
       })
 
@@ -457,17 +479,28 @@ export async function getPackages({
         fromTag: from,
         dependencies,
         commits,
-        reason: commits.length > 0 ? 'commits' : undefined,
+        reason: commits.length > 0
+          ? 'commits'
+          : undefined,
         dependencyChain: undefined,
         newVersion: undefined,
       })
     }
   }
 
-  planPackages({ packages, externalBumps, config, force, suffix, newVersionOverride })
+  planPackages({
+    packages,
+    externalBumps,
+    config,
+    force,
+    suffix,
+    newVersionOverride,
+  })
 
   const allPackages = Array.from(packages.values())
-  const packagesToBump = includeAll ? allPackages : allPackages.filter(p => p.reason || force)
+  const packagesToBump = includeAll
+    ? allPackages
+    : allPackages.filter(p => p.reason || force)
 
   if (packagesToBump.length === 0) {
     logger.debug('No packages to bump')
@@ -567,16 +600,26 @@ export async function getPackageCommits({
   const isRootPackage = pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name
 
   const movedPackages = changelogConfig.monorepo?.movedPackages
-  const getPreviousPaths = (packagePath: string) => getPreviousPackagePaths({ packagePath, commits: rawCommits, movedPackages, cwd: changelogConfig.cwd })
+  const getPreviousPaths = (packagePath: string) => getPreviousPackagePaths({
+    packagePath,
+    commits: rawCommits,
+    movedPackages,
+    cwd: changelogConfig.cwd,
+  })
 
   // Paths of ignored packages (and their former directories), resolved once for the root filter below.
   const ignoredPackagePaths = isRootPackage
-    ? resolveIgnoredPackagePaths(changelogConfig).flatMap(path => [path, ...getPreviousPaths(path)])
+    ? resolveIgnoredPackagePaths(changelogConfig).flatMap(path => [
+        path,
+        ...getPreviousPaths(path),
+      ])
     : []
 
   const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
   // The commits of the former directories of a moved package belong to it
-  const previousPaths = isRootPackage ? [] : getPreviousPaths(packageRelativePath)
+  const previousPaths = isRootPackage
+    ? []
+    : getPreviousPaths(packageRelativePath)
 
   if (previousPaths.length > 0) {
     logger.debug(`${pkg.name} was moved from ${previousPaths.join(', ')}: their commits belong to it`)
@@ -584,7 +627,13 @@ export async function getPackageCommits({
 
   if (!isRootPackage) {
     // The catalogs changed by the commits, read at once
-    prefetchCatalogChanges({ commits: allCommits.map(commit => ({ hash: commit.shortHash, files: getCommitChangedFiles(commit) })), cwd: changelogConfig.cwd })
+    prefetchCatalogChanges({
+      commits: allCommits.map(commit => ({
+        hash: commit.shortHash,
+        files: getCommitChangedFiles(commit),
+      })),
+      cwd: changelogConfig.cwd,
+    })
   }
 
   const commits = allCommits.filter((commit) => {
@@ -612,9 +661,18 @@ export async function getPackageCommits({
     }
 
     // A commit changing an entry of a catalog (`catalog:` dependencies) changes the packages using it
-    const catalogChanges = getCommitCatalogChanges({ hash: commit.shortHash, files: getCommitChangedFiles(commit), cwd: changelogConfig.cwd })
+    const catalogChanges = getCommitCatalogChanges({
+      hash: commit.shortHash,
+      files: getCommitChangedFiles(commit),
+      cwd: changelogConfig.cwd,
+    })
 
-    return referencesCatalogEntries({ hash: commit.shortHash, packageRelativePath, entries: catalogChanges, cwd: changelogConfig.cwd })
+    return referencesCatalogEntries({
+      hash: commit.shortHash,
+      packageRelativePath,
+      entries: catalogChanges,
+      cwd: changelogConfig.cwd,
+    })
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)

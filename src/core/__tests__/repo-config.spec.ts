@@ -22,10 +22,22 @@ const bitbucket: RepoConfig = { provider: 'bitbucket', repo: 'unjs/changelogen',
 describe('Given getRepoConfig', () => {
   describe('When the URL has a provider prefix (`provider:owner/name` or `user@host:owner/name`)', () => {
     it.each([
-      { input: 'github:donaldsh/test', output: { domain: 'github.com', provider: 'github', repo: 'donaldsh/test' } },
-      { input: 'gitlab:donaldsh/test.git', output: { domain: 'gitlab.com', provider: 'gitlab', repo: 'donaldsh/test' } },
-      { input: 'git@bitbucket.org:donaldsh/test.git', output: { domain: 'bitbucket.org', provider: 'bitbucket', repo: 'donaldsh/test' } },
-      { input: 'a@x:b/c', output: { domain: 'x', provider: undefined, repo: 'b/c' } },
+      {
+        input: 'github:donaldsh/test',
+        output: { domain: 'github.com', provider: 'github', repo: 'donaldsh/test' },
+      },
+      {
+        input: 'gitlab:donaldsh/test.git',
+        output: { domain: 'gitlab.com', provider: 'gitlab', repo: 'donaldsh/test' },
+      },
+      {
+        input: 'git@bitbucket.org:donaldsh/test.git',
+        output: { domain: 'bitbucket.org', provider: 'bitbucket', repo: 'donaldsh/test' },
+      },
+      {
+        input: 'a@x:b/c',
+        output: { domain: 'x', provider: undefined, repo: 'b/c' },
+      },
       { input: 'github:unjs/changelogen', output: github },
       { input: 'git@github.com:unjs/changelogen.git', output: github },
       { input: 'gitlab:unjs/changelogen', output: gitlab },
@@ -41,8 +53,14 @@ describe('Given getRepoConfig', () => {
     it.each([
       { input: 'https://github.com/unjs/changelogen.git', output: github },
       { input: 'https://github.com/unjs/changelogen', output: github },
-      { input: 'https://github.com/myproject.git', output: { domain: 'github.com', provider: 'github', repo: 'myproject' } },
-      { input: 'https://github.com/account/project/sub1/sub2/myproject.git', output: { domain: 'github.com', provider: 'github', repo: 'account/project/sub1/sub2/myproject' } },
+      {
+        input: 'https://github.com/myproject.git',
+        output: { domain: 'github.com', provider: 'github', repo: 'myproject' },
+      },
+      {
+        input: 'https://github.com/account/project/sub1/sub2/myproject.git',
+        output: { domain: 'github.com', provider: 'github', repo: 'account/project/sub1/sub2/myproject' },
+      },
       { input: 'https://gitlab.com/unjs/changelogen', output: gitlab },
       { input: 'https://gitlab.com/unjs/changelogen.git', output: gitlab },
       { input: 'https://bitbucket.org/unjs/changelogen', output: bitbucket },
@@ -55,7 +73,10 @@ describe('Given getRepoConfig', () => {
 
   describe('When the URL is only `owner/name`', () => {
     it.each([
-      { input: 'donaldsh/test.git', output: { domain: 'github.com', provider: 'github', repo: 'donaldsh/test' } },
+      {
+        input: 'donaldsh/test.git',
+        output: { domain: 'github.com', provider: 'github', repo: 'donaldsh/test' },
+      },
       { input: 'unjs/changelogen', output: github },
     ])('Then $input is a GitHub repository', ({ input, output }) => {
       expect(getRepoConfig(input)).toStrictEqual(output)
@@ -76,10 +97,22 @@ describe('Given getRepoConfig', () => {
 
   describe('When the host of a self-hosted repository names its provider', () => {
     it.each([
-      { input: 'git@gitlab.example.com:team/app.git', output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' } },
-      { input: 'https://gitlab.example.com/team/app.git', output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' } },
-      { input: 'https://github.mycompany.com/team/app', output: { domain: 'github.mycompany.com', provider: 'github', repo: 'team/app' } },
-      { input: 'git@bitbucket.mycompany.com:team/app.git', output: { domain: 'bitbucket.mycompany.com', provider: 'bitbucket', repo: 'team/app' } },
+      {
+        input: 'git@gitlab.example.com:team/app.git',
+        output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' },
+      },
+      {
+        input: 'https://gitlab.example.com/team/app.git',
+        output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'team/app' },
+      },
+      {
+        input: 'https://github.mycompany.com/team/app',
+        output: { domain: 'github.mycompany.com', provider: 'github', repo: 'team/app' },
+      },
+      {
+        input: 'git@bitbucket.mycompany.com:team/app.git',
+        output: { domain: 'bitbucket.mycompany.com', provider: 'bitbucket', repo: 'team/app' },
+      },
     ])('Then $input keeps its host and gets the provider', ({ input, output }) => {
       expect(getRepoConfig(input)).toStrictEqual(output)
     })
@@ -113,9 +146,24 @@ describe('Given formatReference', () => {
 
   describe('When the provider is known', () => {
     it.each([
-      { repo: github, hash: 'https://github.com/unjs/changelogen/commit/3828bda', pr: 'https://github.com/unjs/changelogen/pull/123', issue: 'https://github.com/unjs/changelogen/issues/14' },
-      { repo: gitlab, hash: 'https://gitlab.com/unjs/changelogen/commit/3828bda', pr: 'https://gitlab.com/unjs/changelogen/merge_requests/123', issue: 'https://gitlab.com/unjs/changelogen/issues/14' },
-      { repo: bitbucket, hash: 'https://bitbucket.org/unjs/changelogen/commit/3828bda', pr: 'https://bitbucket.org/unjs/changelogen/pull-requests/123', issue: 'https://bitbucket.org/unjs/changelogen/issues/14' },
+      {
+        repo: github,
+        hash: 'https://github.com/unjs/changelogen/commit/3828bda',
+        pr: 'https://github.com/unjs/changelogen/pull/123',
+        issue: 'https://github.com/unjs/changelogen/issues/14',
+      },
+      {
+        repo: gitlab,
+        hash: 'https://gitlab.com/unjs/changelogen/commit/3828bda',
+        pr: 'https://gitlab.com/unjs/changelogen/merge_requests/123',
+        issue: 'https://gitlab.com/unjs/changelogen/issues/14',
+      },
+      {
+        repo: bitbucket,
+        hash: 'https://bitbucket.org/unjs/changelogen/commit/3828bda',
+        pr: 'https://bitbucket.org/unjs/changelogen/pull-requests/123',
+        issue: 'https://bitbucket.org/unjs/changelogen/issues/14',
+      },
     ])('Then it links the references of $repo.provider', ({ repo, hash, pr, issue }) => {
       expect(formatReference({ type: 'hash', value: '3828bda' }, repo)).toBe(`[3828bda](${hash})`)
       expect(formatReference({ type: 'pull-request', value: '#123' }, repo)).toBe(`[#123](${pr})`)
@@ -152,7 +200,9 @@ describe('Given resolveRepoConfig', () => {
 
   describe('When the closest package.json has a repository', () => {
     it('Then it reads the repository string or object, from a parent directory too', async () => {
-      writeFileSync(join(root, 'package.json'), JSON.stringify({ repository: { type: 'git', url: 'git+https://github.com/unjs/changelogen.git' } }))
+      writeFileSync(join(root, 'package.json'), JSON.stringify({
+        repository: { type: 'git', url: 'git+https://github.com/unjs/changelogen.git' },
+      }))
       mkdirSync(join(root, 'packages', 'a'), { recursive: true })
       writeFileSync(join(root, 'packages', 'package.json'), JSON.stringify({ repository: 'gitlab:unjs/changelogen' }))
 

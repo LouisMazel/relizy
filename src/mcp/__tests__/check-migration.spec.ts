@@ -57,7 +57,12 @@ describe('Given check_migration on a relizy 1 project', () => {
 
   beforeAll(async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'monorepo', version: '1.0.0', private: true, devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'monorepo',
+        version: '1.0.0',
+        private: true,
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': V1_CONFIG,
       'scripts/release.ts': V1_SCRIPT,
       'node_modules/other/index.js': `import { confirmBump } from 'relizy'\nconfirmBump()`,
@@ -121,7 +126,11 @@ await fetch(url, {
 })
 `
   const files = {
-    'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+    'package.json': JSON.stringify({
+      name: 'lib',
+      version: '1.0.0',
+      devDependencies: { relizy: '^2.0.0' },
+    }),
     '.gitlab-ci.yml': 'release:\n  variables:\n    TEAMS_WEBHOOK_URL_B64: $TEAMS_WEBHOOK_URL_B64\n  script:\n    - node .gitlab/scripts/notify-teams.ts\n',
     '.gitlab/scripts/notify-teams.ts': NOTIFY_SCRIPT,
   }
@@ -144,7 +153,11 @@ await fetch(url, {
 
   it('Then asks to replace a retired Office 365 connector', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^2.0.0' },
+      }),
       'relizy.config.mjs': `export default {\n  hooks: { 'success:release': 'curl -X POST https://acme.webhook.office.com/webhookb2/abc' },\n}\n`,
     })
 
@@ -158,7 +171,11 @@ await fetch(url, {
 describe('Given check_migration on a project with the Slack changelogFormat', () => {
   it('Then asks to rename it changelog', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^2.0.0' },
+      }),
       'relizy.config.mjs': `export default {\n  social: { slack: { enabled: true, changelogFormat: 'full' } },\n}\n`,
     })
 
@@ -171,7 +188,11 @@ describe('Given check_migration on a project with the Slack changelogFormat', ()
 
 describe('Given check_migration on a project posting its releases to Slack', () => {
   const files = {
-    'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+    'package.json': JSON.stringify({
+      name: 'lib',
+      version: '1.0.0',
+      devDependencies: { relizy: '^2.0.0' },
+    }),
     '.github/workflows/release.yml': 'env:\n  SLACK_WEBHOOK_URL: $SLACK_WEBHOOK_URL\n',
     'scripts/notify-slack.ts': `const url = process.env.SLACK_WEBHOOK_URL!\nconst token = process.env.RELIZY_SLACK_TOKEN\nawait fetch(url, { method: 'POST', body: JSON.stringify({ text }) })\n`,
   }
@@ -196,7 +217,11 @@ describe('Given check_migration on a project posting its releases to Slack', () 
 describe('Given check_migration on a project already on relizy 2', () => {
   it('Then finds nothing to change', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^2.0.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^2.0.0' },
+      }),
       'relizy.config.mjs': `export default { social: { twitter: { enabled: true } } }\n`,
     })
 
@@ -210,7 +235,11 @@ describe('Given check_migration on a project already on relizy 2', () => {
 describe('Given check_migration on a relizy 1 project linting its commits', () => {
   it('Then points out the commits crediting an AI tool, unless the rule is configured', async () => {
     const files = {
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       '.husky/commit-msg': 'pnpm exec relizy commitlint --edit "$1"\n',
     }
 
@@ -224,7 +253,11 @@ describe('Given check_migration on a relizy 1 project linting its commits', () =
 describe('Given check_migration on a relizy 1 project with a formatter', () => {
   it('Then points out the changelogs formatted by it, unless changelog.formatCmd is set', async () => {
     const files = {
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0', eslint: '^9.0.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0', eslint: '^9.0.0' },
+      }),
     }
 
     expect(await checkMigration(createTestContext(writeProject(files)), {})).toContain('The changelogs are formatted with eslint')
@@ -237,7 +270,11 @@ describe('Given check_migration on a relizy 1 project with a formatter', () => {
 describe('Given check_migration on a project with the options renamed in relizy 2', () => {
   it('Then points out commitlint.codeBlocksLinter and the CommitlintCodeBlocksLinter type', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  commitlint: {\n    codeBlocksLinter: 'oxc',\n  },\n}\n`,
       'scripts/lint.ts': `import type { CommitlintCodeBlocksLinter } from 'relizy'\n\nexport const linter: CommitlintCodeBlocksLinter = 'oxc'\n`,
     })
@@ -250,7 +287,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out the removed publish.private', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  publish: {\n    private: false,\n  },\n}\n`,
     })
 
@@ -261,7 +302,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out the imports of the removed relizy/types entry', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'scripts/release.ts': `import type { RelizyConfig } from 'relizy/types'\n\nexport const config: RelizyConfig = {}\n`,
     })
 
@@ -272,7 +317,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out the options relizy never read: newVersion and publish.packages', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  newVersion: '2.0.0',\n  publish: {\n    packages: ['packages/*'],\n  },\n}\n`,
     })
 
@@ -284,7 +333,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out the removed repo.token', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  repo: {\n    provider: 'gitlab', domain: 'gitlab.example.com', repo: 'team/app',\n    token: 'glpat_test',\n  },\n}\n`,
     })
 
@@ -295,7 +348,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then only points out repo.token, not the token of a registry nor of Slack', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  repo: {\n    provider: 'github', repo: 'org/app',\n    token: 'ghp_test',\n  },\n  publish: {\n    registries: [{ url: 'https://npm.example.com', token: 'npm_test' }],\n  },\n  social: {\n    slack: {\n      token: 'xoxb_test',\n    },\n  },\n}\n`,
     })
 
@@ -307,7 +364,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out no line rather than a wrong one when the block is written on one line', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  repo: { provider: 'github', repo: 'org/app', token: 'ghp_test' },\n  social: {\n    slack: {\n      token: 'xoxb_test',\n    },\n  },\n}\n`,
     })
 
@@ -318,7 +379,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out the removed publish.token', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  publish: {\n    token: process.env.MY_NPM_TOKEN,\n  },\n}\n`,
     })
     process.env.MY_NPM_TOKEN = 'npm_test'
@@ -335,7 +400,12 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out monorepo.ignorePackageNames first, as the config cannot load with it', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'monorepo', version: '1.0.0', private: true, devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'monorepo',
+        version: '1.0.0',
+        private: true,
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  monorepo: {\n    versionMode: 'selective',\n    packages: ['packages/*'],\n    ignorePackageNames: ['@scope/legacy'],\n  },\n}\n`,
     })
 
@@ -348,7 +418,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out templates.tagBody first when it repeats {{newVersion}}, as the config cannot load with it', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  templates: {\n    tagBody: 'v{{newVersion}}-{{newVersion}}',\n  },\n}\n`,
     })
 
@@ -360,7 +434,11 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out monorepo.includePrivates, renamed privatePackages', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {\n  monorepo: {\n    includePrivates: true,\n  },\n}\n`,
     })
 
@@ -371,7 +449,12 @@ describe('Given check_migration on a project with the options renamed in relizy 
 
   it('Then points out includePrivates in the code, --include-private in the scripts and the CI calls without --yes', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'lib', version: '1.0.0', scripts: { release: 'relizy release --include-private' }, devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'lib',
+        version: '1.0.0',
+        scripts: { release: 'relizy release --include-private' },
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'scripts/release.ts': `import { bump } from 'relizy'
 
 await bump({ includePrivates: true, yes: true })
@@ -388,7 +471,12 @@ await bump({ includePrivates: true, yes: true })
 
   it('Then leaves the dependency types of a version group alone, used as they are by relizy 1', async () => {
     const cwd = writeProject({
-      'package.json': JSON.stringify({ name: 'monorepo', version: '1.0.0', private: true, devDependencies: { relizy: '^1.14.0' } }),
+      'package.json': JSON.stringify({
+        name: 'monorepo',
+        version: '1.0.0',
+        private: true,
+        devDependencies: { relizy: '^1.14.0' },
+      }),
       'relizy.config.mjs': `export default {
   monorepo: {
     groups: [{ name: 'main', title: 'Main', versionMode: 'selective', packages: ['packages/*'], bump: { dependencyTypes: ['peerDependencies'] } }],

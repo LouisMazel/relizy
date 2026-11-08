@@ -45,7 +45,12 @@ describe('Given resolveTags function', () => {
 
   describe('When user provides tags', () => {
     it('Then returns user provided tags', async () => {
-      const config = createMockConfig({ bump: { type: 'release' }, from: 'v1.0.0', to: 'v2.0.0', monorepo: { versionMode: 'selective' } })
+      const config = createMockConfig({
+        bump: { type: 'release' },
+        from: 'v1.0.0',
+        to: 'v2.0.0',
+        monorepo: { versionMode: 'selective' },
+      })
       const result = await resolveTags<'bump'>({
         config,
         step: 'bump',
@@ -60,7 +65,10 @@ describe('Given resolveTags function', () => {
   describe('When version mode is independent', () => {
     describe('And step is bump', () => {
       it('Then resolves tags with NEW_PACKAGE_MARKER when no tag exists', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -73,7 +81,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for changelog step with NEW_PACKAGE_MARKER when no tag exists', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -87,7 +98,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for publish step with newVersion and NEW_PACKAGE_MARKER when no tag exists', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'publish'>({
           config,
           step: 'publish',
@@ -101,7 +115,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for provider-release step with NEW_PACKAGE_MARKER when no tag exists', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'provider-release'>({
           config,
           step: 'provider-release',
@@ -121,7 +138,10 @@ describe('Given resolveTags function', () => {
         // as __NEW_PACKAGE__ even though its tag history is intact.
         vi.mocked(runGit).mockResolvedValueOnce('pkg-a@0.1.0-beta.6\npkg-a@0.1.0-beta.5\npkg-a@0.1.0-beta.4')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -137,7 +157,10 @@ describe('Given resolveTags function', () => {
         // Sanity check: the fallback should NOT kick in when a stable tag is available.
         vi.mocked(runGit).mockResolvedValueOnce('pkg-a@0.1.0-beta.6\npkg-a@0.1.0\npkg-a@0.1.0-beta.5')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -155,7 +178,10 @@ describe('Given resolveTags function', () => {
         // we treat the package as new rather than rewinding to an incompatible major.
         vi.mocked(runGit).mockResolvedValueOnce('pkg-a@2.0.0-beta.0\npkg-a@2.0.0-beta.1')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -169,7 +195,10 @@ describe('Given resolveTags function', () => {
       it('Then picks the highest version of the package, not the most recent tag', async () => {
         vi.mocked(runGit).mockResolvedValueOnce('pkg-a@1.0.1\npkg-a@1.1.0\npkg-a@1.0.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -178,13 +207,21 @@ describe('Given resolveTags function', () => {
         })
 
         expect(result.from).toBe('pkg-a@1.1.0')
-        expect(runGit).toHaveBeenCalledWith(['tag', '--list', 'pkg-a@*', '--sort=-creatordate'], expect.anything())
+        expect(runGit).toHaveBeenCalledWith([
+          'tag',
+          '--list',
+          'pkg-a@*',
+          '--sort=-creatordate',
+        ], expect.anything())
       })
 
       it('Then ignores the tags of another package starting with the same name', async () => {
         vi.mocked(runGit).mockResolvedValueOnce('pkg-a@utils@2.0.0\npkg-a@1.1.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'independent' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'independent' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -200,7 +237,10 @@ describe('Given resolveTags function', () => {
   describe('When version mode is unified', () => {
     describe('And step is bump', () => {
       it('Then resolves tags using repo-wide tag', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -212,7 +252,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for changelog step', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -246,7 +289,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then returns NEW_PACKAGE_MARKER for a new sub-package when all repo tags are major-incompatible', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
 
         // Reproduces the maz-ui case: repo only has tags at major >= 3, while
         // the new sub-package starts at 0.0.0 → all tags get filtered out by
@@ -272,7 +318,10 @@ describe('Given resolveTags function', () => {
         // tag instead of treating the package as new and skipping its history entirely.
         vi.mocked(runGit).mockResolvedValueOnce('v0.1.0-beta.6\nv0.1.0-beta.5\nv0.1.0-beta.4')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -288,7 +337,10 @@ describe('Given resolveTags function', () => {
         // `vue-utils@0.5.0` is listed by `git tag --list 'v*'` but does not follow `v{{newVersion}}`
         vi.mocked(runGit).mockResolvedValueOnce('vue-utils@0.5.0\nv1.0.0-beta.1\nv1.0.0-beta.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -300,7 +352,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then falls back to first commit for the root package when no compatible tag exists (fresh repo)', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'unified' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'unified' },
+        })
 
         // Root package on a fresh repo with no tags at all: legitimate fallback
         // to the first commit (small history, no ENOBUFS risk).
@@ -321,7 +376,10 @@ describe('Given resolveTags function', () => {
   describe('When version mode is selective', () => {
     describe('And step is bump', () => {
       it('Then resolves tags for stable to stable', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -333,7 +391,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for prerelease to stable', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -347,7 +408,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for prerelease to prerelease', async () => {
-        const config = createMockConfig({ bump: { type: 'prerelease' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'prerelease' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -359,7 +423,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then resolves tags for changelog step', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'changelog'>({
           config,
           step: 'changelog',
@@ -393,7 +460,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then filters prerelease tags when bumping stable to stable', async () => {
-        const config = createMockConfig({ bump: { type: 'patch' }, versionMode: 'selective' })
+        const config = createMockConfig({
+          bump: { type: 'patch' },
+          versionMode: 'selective',
+        })
 
         // Stable version bumping to another stable version should filter out newer major prerelease tags
         const result = await resolveTags<'bump'>({
@@ -408,7 +478,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then does not filter prerelease tags when on prerelease version', async () => {
-        const config = createMockConfig({ bump: { type: 'prerelease' }, versionMode: 'selective' })
+        const config = createMockConfig({
+          bump: { type: 'prerelease' },
+          versionMode: 'selective',
+        })
 
         // Prerelease version bumping to another prerelease should not filter
         const result = await resolveTags<'bump'>({
@@ -436,7 +509,10 @@ describe('Given resolveTags function', () => {
         // of the repository range, otherwise the commits since `v6.18.0` are lost.
         vi.mocked(runGit).mockResolvedValueOnce('vue-utils@1.0.0\nv6.18.0\nv6.17.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -450,7 +526,10 @@ describe('Given resolveTags function', () => {
       it('Then lists the tags of a custom template', async () => {
         vi.mocked(runGit).mockResolvedValueOnce('release/6.18.0-final\nrelease/6.17.0-final')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         config.templates = { ...config.templates, tagBody: 'release/{{newVersion}}-final' }
 
         const result = await resolveTags<'bump'>({
@@ -466,7 +545,10 @@ describe('Given resolveTags function', () => {
       it('Then still recognizes the v1.2.3 tags when the template was changed', async () => {
         vi.mocked(runGit).mockResolvedValueOnce('@scope/pkg@1.0.0\nv6.18.0\nv6.17.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         config.templates = { ...config.templates, tagBody: 'release-{{newVersion}}' }
 
         const result = await resolveTags<'bump'>({
@@ -483,7 +565,10 @@ describe('Given resolveTags function', () => {
         // v6.17.1 is a hotfix of an older version, tagged after v6.18.0 on a maintenance branch
         vi.mocked(runGit).mockResolvedValueOnce('v6.17.1\nv6.18.0\nv6.17.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -498,7 +583,10 @@ describe('Given resolveTags function', () => {
         // v6.19.0 was released from another branch that is not merged yet
         vi.mocked(runGit).mockResolvedValueOnce('v6.19.0\nv6.18.0')
 
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
         const result = await resolveTags<'bump'>({
           config,
           step: 'bump',
@@ -510,7 +598,10 @@ describe('Given resolveTags function', () => {
       })
 
       it('Then returns NEW_PACKAGE_MARKER for a new sub-package at 0.0.0 in selective mode', async () => {
-        const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode: 'selective' } })
+        const config = createMockConfig({
+          bump: { type: 'release' },
+          monorepo: { versionMode: 'selective' },
+        })
 
         // Reproduces the maz-ui case: a new sub-package at 0.0.0 is added to a
         // monorepo whose tags are at higher majors. Without the marker, the

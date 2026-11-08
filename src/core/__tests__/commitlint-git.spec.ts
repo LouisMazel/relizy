@@ -50,7 +50,18 @@ describe('Given the commitlint git helpers on a real repository', () => {
   function cloneShallow(branch = 'main') {
     const shallow = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-shallow-')))
     shallowClones.push(shallow)
-    execFileSync('git', ['clone', '--quiet', '--depth', '1', '--no-tags', '--single-branch', '--branch', branch, `file://${cwd}`, shallow])
+    execFileSync('git', [
+      'clone',
+      '--quiet',
+      '--depth',
+      '1',
+      '--no-tags',
+      '--single-branch',
+      '--branch',
+      branch,
+      `file://${cwd}`,
+      shallow,
+    ])
     return shallow
   }
 
@@ -59,7 +70,14 @@ describe('Given the commitlint git helpers on a real repository', () => {
     repository = createGitRepository('relizy-commitlint-git-')
     cwd = repository.cwd
     // The CI running these tests may itself be a pull request
-    for (const name of ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA']) {
+    for (const name of [
+      'GITHUB_BASE_REF',
+      'GITHUB_EVENT_PATH',
+      'GITHUB_ACTIONS',
+      'GITLAB_CI',
+      'CI_MERGE_REQUEST_TITLE',
+      'CI_MERGE_REQUEST_DIFF_BASE_SHA',
+    ]) {
       vi.stubEnv(name, '')
     }
   })
@@ -116,8 +134,16 @@ describe('Given the commitlint git helpers on a real repository', () => {
       commitFiles('fix: correct the parser', { 'packages/core/index.ts': 'c' })
 
       expect(getCommitsInRange({ from: first, cwd })).toEqual([
-        { hash: expect.stringMatching(/^[0-9a-f]{40}$/), message: 'feat(core): add the parser\n\nWith a body | containing ---- separators.\n\nCloses #12', files: ['packages/core/index.ts', 'packages/core/util.ts'] },
-        { hash: expect.stringMatching(/^[0-9a-f]{40}$/), message: 'fix: correct the parser', files: ['packages/core/index.ts'] },
+        {
+          hash: expect.stringMatching(/^[0-9a-f]{40}$/),
+          message: 'feat(core): add the parser\n\nWith a body | containing ---- separators.\n\nCloses #12',
+          files: ['packages/core/index.ts', 'packages/core/util.ts'],
+        },
+        {
+          hash: expect.stringMatching(/^[0-9a-f]{40}$/),
+          message: 'fix: correct the parser',
+          files: ['packages/core/index.ts'],
+        },
       ])
     })
 
@@ -211,8 +237,14 @@ describe('Given the commitlint git helpers on a real repository', () => {
     })
 
     it.each([
-      [{ GITLAB_CI: 'true' }, 'set "GIT_DEPTH: 0" on the job'],
-      [{ GITHUB_ACTIONS: 'true' }, 'set "fetch-depth: 0" on actions/checkout'],
+      [
+        { GITLAB_CI: 'true' },
+        'set "GIT_DEPTH: 0" on the job',
+      ],
+      [
+        { GITHUB_ACTIONS: 'true' },
+        'set "fetch-depth: 0" on actions/checkout',
+      ],
       [{}, 'run "git fetch --unshallow"'],
     ])('Then explains how to fetch the history of a shallow clone it cannot fetch (%j)', (env, hint) => {
       commitFiles('chore: init the repository', { 'README.md': 'readme' })
@@ -240,7 +272,9 @@ describe('Given the commitlint git helpers on a real repository', () => {
     })
 
     it('Then reads the title from the GitHub event of a pull request', () => {
-      writeFileSync(join(cwd, 'event.json'), JSON.stringify({ pull_request: { title: 'feat: add the parser' } }))
+      writeFileSync(join(cwd, 'event.json'), JSON.stringify({
+        pull_request: { title: 'feat: add the parser' },
+      }))
       vi.stubEnv('GITHUB_BASE_REF', 'main')
       vi.stubEnv('GITHUB_EVENT_PATH', join(cwd, 'event.json'))
 
@@ -248,7 +282,10 @@ describe('Given the commitlint git helpers on a real repository', () => {
     })
 
     it.each([
-      ['an event without pull request', JSON.stringify({ push: {} })],
+      [
+        'an event without pull request',
+        JSON.stringify({ push: {} }),
+      ],
       ['an invalid event', '{ not json'],
     ])('Then returns nothing for %s', (_, content) => {
       writeFileSync(join(cwd, 'event.json'), content)
@@ -259,7 +296,9 @@ describe('Given the commitlint git helpers on a real repository', () => {
     })
 
     it('Then returns nothing outside a pull request', () => {
-      writeFileSync(join(cwd, 'event.json'), JSON.stringify({ pull_request: { title: 'feat: add the parser' } }))
+      writeFileSync(join(cwd, 'event.json'), JSON.stringify({
+        pull_request: { title: 'feat: add the parser' },
+      }))
       vi.stubEnv('GITHUB_EVENT_PATH', join(cwd, 'event.json'))
 
       expect(getPullRequestTitle()).toBeUndefined()
@@ -270,7 +309,10 @@ describe('Given the commitlint git helpers on a real repository', () => {
     it('Then writes an executable hook in the git hooks directory', () => {
       const hook = installCommitMsgHook({ cwd })
 
-      expect(hook).toEqual({ path: join(cwd, '.git/hooks/commit-msg'), status: 'created' })
+      expect(hook).toEqual({
+        path: join(cwd, '.git/hooks/commit-msg'),
+        status: 'created',
+      })
       expect(readFileSync(hook.path, 'utf8')).toBe('#!/bin/sh\nnpx --no -- relizy commitlint --edit "$1"\n')
       expect(statSync(hook.path).mode & 0o111).toBeTruthy()
     })

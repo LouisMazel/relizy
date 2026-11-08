@@ -32,7 +32,9 @@ export function checkGitStatusIfDirty(cwd: string) {
     const names = changes.map(({ path, change }) => `${path} (${change})`)
     // Every file in the log, the first ones in the error
     logger.debug(`Uncommitted changes: ${names.join(', ')}`)
-    const files = names.slice(0, 3).join(', ') + (names.length > 3 ? `, and ${names.length - 3} more` : '')
+    const files = names.slice(0, 3).join(', ') + (names.length > 3
+      ? `, and ${names.length - 3} more`
+      : '')
 
     throw new Error(`Uncommitted changes: ${files}\nCommit or stash them first, or keep them with --no-clean.`)
   }
@@ -195,7 +197,9 @@ function getModifiedReleaseFilePatterns({ config }: { config: ResolvedRelizyConf
  */
 function stageReleaseFiles({ config, dryRun }: { config: ResolvedRelizyConfig, dryRun?: boolean }): void {
   const releaseFiles = getReleaseFiles(config.cwd)
-  const filePatternsToAdd = releaseFiles.length > 0 ? releaseFiles : getModifiedReleaseFilePatterns({ config })
+  const filePatternsToAdd = releaseFiles.length > 0
+    ? releaseFiles
+    : getModifiedReleaseFilePatterns({ config })
 
   logger.start('Start commit and tag')
 
@@ -275,7 +279,9 @@ function getReleaseCommitMessage({
 
   return {
     message: applyPlaceholders(titleTemplate),
-    body: bodyTemplate ? applyPlaceholders(bodyTemplate) : undefined,
+    body: bodyTemplate
+      ? applyPlaceholders(bodyTemplate)
+      : undefined,
   }
 }
 
@@ -297,7 +303,16 @@ async function createReleaseTags({ config, releaseTags, dryRun }: {
       ?.replaceAll('{{newVersion}}', version)
       || tagName
 
-    const tagArgs = ['tag', ...(config.signTags ? ['-s'] : []), '-a', tagName, '-m', tagMessage]
+    const tagArgs = [
+      'tag',
+      ...(config.signTags
+        ? ['-s']
+        : []),
+      '-a',
+      tagName,
+      '-m',
+      tagMessage,
+    ]
 
     if (dryRun) {
       logger.info(`[dry-run] ${formatGitCommand(tagArgs)}`)
@@ -346,7 +361,12 @@ export async function createCommitAndTags({
   dryRun?: boolean
 }): Promise<string[]> {
   const internalConfig = config || await loadRelizyConfig()
-  const hookContext = getHookContext(internalConfig, { bumped: true, bumpedPackages, newVersion, groups })
+  const hookContext = getHookContext(internalConfig, {
+    bumped: true,
+    bumpedPackages,
+    newVersion,
+    groups,
+  })
 
   try {
     await executeHook('before:commit-and-tag', internalConfig, dryRun ?? false, hookContext)
@@ -361,11 +381,27 @@ export async function createCommitAndTags({
 
     newVersion = newVersion || rootPackage.version
 
-    const { message: commitMessage, body: commitBody } = getReleaseCommitMessage({ config: internalConfig, bumpedPackages, newVersion, rootVersion: rootPackage.version, groups })
+    const { message: commitMessage, body: commitBody } = getReleaseCommitMessage({
+      config: internalConfig,
+      bumpedPackages,
+      newVersion,
+      rootVersion: rootPackage.version,
+      groups,
+    })
 
     logger.debug(`No verify: ${noVerify}`)
 
-    const commitArgs = ['commit', ...(noVerify ? ['--no-verify'] : []), '-m', commitMessage, ...(commitBody ? ['-m', commitBody] : [])]
+    const commitArgs = [
+      'commit',
+      ...(noVerify
+        ? ['--no-verify']
+        : []),
+      '-m',
+      commitMessage,
+      ...(commitBody
+        ? ['-m', commitBody]
+        : []),
+    ]
 
     if (dryRun) {
       logger.info(`[dry-run] ${formatGitCommand(commitArgs)}`)
@@ -380,7 +416,12 @@ export async function createCommitAndTags({
 
     const createdTags = await createReleaseTags({
       config: internalConfig,
-      releaseTags: getReleaseTags({ config: internalConfig, bumpedPackages, newVersion, groups }),
+      releaseTags: getReleaseTags({
+        config: internalConfig,
+        bumpedPackages,
+        newVersion,
+        groups,
+      }),
       dryRun,
     })
 
@@ -535,14 +576,25 @@ async function recoverRejectedPush({
 
   try {
     await fetchUpstream(upstream, cwd)
-    await runGit(['merge', '--no-edit', ...(config.release.noVerify ? ['--no-verify'] : []), upstream.name], { cwd })
+    await runGit([
+      'merge',
+      '--no-edit',
+      ...(config.release.noVerify
+        ? ['--no-verify']
+        : []),
+      upstream.name,
+    ], { cwd })
     clearGitCache()
   }
   catch (mergeError) {
     await tryGit(['merge', '--abort'], { cwd })
 
     if (tags.length > 0) {
-      await tryGit(['push', upstream.remote, ...tags.map(tag => `refs/tags/${tag}`)], { cwd })
+      await tryGit([
+        'push',
+        upstream.remote,
+        ...tags.map(tag => `refs/tags/${tag}`),
+      ], { cwd })
     }
 
     const recoverRef = tags[0] ?? 'HEAD'
@@ -573,7 +625,9 @@ export async function pushCommitAndTags({
 }) {
   logger.start('Start push changes and tags')
 
-  const pushArgs = config.release.gitTag ? ['push', '--follow-tags'] : ['push']
+  const pushArgs = config.release.gitTag
+    ? ['push', '--follow-tags']
+    : ['push']
   const command = formatGitCommand(pushArgs)
 
   if (dryRun) {
@@ -594,7 +648,13 @@ export async function pushCommitAndTags({
         throw error
       }
 
-      await recoverRejectedPush({ config, pushArgs, tags, pushError: error, cwd })
+      await recoverRejectedPush({
+        config,
+        pushArgs,
+        tags,
+        pushError: error,
+        cwd,
+      })
     }
   }
 
@@ -635,15 +695,24 @@ function getCommitTemplates({
 }
 
 function getRepoTag({ config, version }: { config: ResolvedRelizyConfig, version?: string }): ReleaseTag[] {
-  const tagName = version ? formatRepoTag(config.templates.tagBody, version) : undefined
+  const tagName = version
+    ? formatRepoTag(config.templates.tagBody, version)
+    : undefined
 
-  return tagName && version ? [{ name: tagName, version }] : []
+  return tagName && version
+    ? [
+        { name: tagName, version },
+      ]
+    : []
 }
 
 function getPackageTags(bumpedPackages?: BumpResultTruthy['bumpedPackages']): ReleaseTag[] {
   return (bumpedPackages ?? [])
     .filter(pkg => pkg.newVersion)
-    .map(pkg => ({ name: getIndependentTag({ name: pkg.name, version: pkg.newVersion! }), version: pkg.newVersion! }))
+    .map(pkg => ({
+      name: getIndependentTag({ name: pkg.name, version: pkg.newVersion! }),
+      version: pkg.newVersion!,
+    }))
 }
 
 export interface ReleaseTag {

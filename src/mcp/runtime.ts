@@ -22,7 +22,13 @@ export interface CapturedLog {
 }
 
 /** Types of the logs returned to the agent with the result of a tool */
-const REPORTED_LOG_TYPES = new Set(['info', 'warn', 'error', 'fail', 'fatal'])
+const REPORTED_LOG_TYPES = new Set([
+  'info',
+  'warn',
+  'error',
+  'fail',
+  'fatal',
+])
 
 const storage = new AsyncLocalStorage<CapturedLog[]>()
 let capturing = false
@@ -69,9 +75,13 @@ export async function withCapturedLogs<T>(run: () => Promise<T>): Promise<{ valu
 
 /** The logs worth showing to the agent: warnings, errors and information, without the dry-run traces */
 export function formatNotes(logs: CapturedLog[], max = 20): string {
-  const notes = [...new Set(logs
-    .filter(log => REPORTED_LOG_TYPES.has(log.type) && log.message && !log.message.startsWith('[dry-run]'))
-    .map(log => `- ${log.type === 'info' ? '' : log.type.concat(': ')}${log.message.split('\n')[0]}`))]
+  const notes = [
+    ...new Set(logs
+      .filter(log => REPORTED_LOG_TYPES.has(log.type) && log.message && !log.message.startsWith('[dry-run]'))
+      .map(log => `- ${log.type === 'info'
+        ? ''
+        : log.type.concat(': ')}${log.message.split('\n')[0]}`)),
+  ]
 
   if (notes.length === 0) {
     return ''
@@ -79,14 +89,23 @@ export function formatNotes(logs: CapturedLog[], max = 20): string {
 
   const shown = notes.slice(0, max)
 
-  return ['## Notes', '', ...shown, ...(notes.length > max ? [`- ... and ${notes.length - max} more`] : [])].join('\n')
+  return [
+    '## Notes',
+    '',
+    ...shown,
+    ...(notes.length > max
+      ? [`- ... and ${notes.length - max} more`]
+      : []),
+  ].join('\n')
 }
 
 const CONFIG_FILE = /^(relizy(?:\.[\w-]+)?)\.config\.(?:[cm]?[jt]s|json|ya?ml|toml)$/
 
 /** Names of the relizy configs of a project (`relizy`, `relizy.standalone`...), for `--config` */
 export function listConfigNames(cwd: string): string[] {
-  return [...new Set(readdirSync(cwd).flatMap(file => CONFIG_FILE.exec(file)?.[1] ?? []))].sort()
+  return [
+    ...new Set(readdirSync(cwd).flatMap(file => CONFIG_FILE.exec(file)?.[1] ?? [])),
+  ].sort()
 }
 
 /**
@@ -102,7 +121,9 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
   if (config && !listConfigNames(cwd).includes(config)) {
     const names = listConfigNames(cwd)
 
-    const available = names.length > 0 ? `Available configs: ${names.join(', ')}.` : 'This project has no relizy config file: relizy uses its defaults.'
+    const available = names.length > 0
+      ? `Available configs: ${names.join(', ')}.`
+      : 'This project has no relizy config file: relizy uses its defaults.'
 
     throw new ToolInputError(`No config "${config}" in ${cwd}. ${available}`)
   }
@@ -110,7 +131,12 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
   const resolved = await loadRelizyConfig({
     configFile: config,
     // The logs are captured for the agent whatever the log level of the project (the debug ones are left out)
-    overrides: mergeConfig(overrides, { cwd, logLevel: 'default', bump: { yes: true }, onRewrittenTag: 'ephemeral' } satisfies DeepPartial<RelizyConfig>),
+    overrides: mergeConfig(overrides, {
+      cwd,
+      logLevel: 'default',
+      bump: { yes: true },
+      onRewrittenTag: 'ephemeral',
+    } satisfies DeepPartial<RelizyConfig>),
   })
 
   resolved.hooks = {}

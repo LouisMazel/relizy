@@ -11,7 +11,9 @@ import { defineTool } from './types'
 const WEAK_MATCH_SCORE = 60
 
 export function formatDocLine(doc: DocEntry, index?: number): string {
-  const prefix = index === undefined ? '-' : `${index + 1}.`
+  const prefix = index === undefined
+    ? '-'
+    : `${index + 1}.`
 
   return [
     `${prefix} **${doc.title}** (${doc.category}, \`${doc.id}\`): ${truncateText(doc.description, 220)}`,
@@ -38,7 +40,9 @@ export interface SearchDocsArgs {
 
 export function searchDocs(context: ServerContext, { query, category, limit = 8 }: SearchDocsArgs): string {
   const hits = context.search.search(query, { category, limit })
-  const filter = category ? ` (category: ${category})` : ''
+  const filter = category
+    ? ` (category: ${category})`
+    : ''
   const header = `# relizy ${context.version} results for "${query}"${filter}`
 
   if (hits.length === 0) {
@@ -49,7 +53,11 @@ export function searchDocs(context: ServerContext, { query, category, limit = 8 
     ].join('\n')
   }
 
-  const lines = [header, '', ...hits.map(formatHit)]
+  const lines = [
+    header,
+    '',
+    ...hits.map(formatHit),
+  ]
 
   if (hits[0]!.score < WEAK_MATCH_SCORE) {
     lines.push('', 'These results are weak matches: relizy probably has no dedicated feature for this. Check the config reference with `get_config_option()` before assuming an option exists.')

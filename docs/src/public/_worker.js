@@ -14,7 +14,9 @@ const HOME_LINKS = [
 function getMarkdownPath(pathname) {
   const path = pathname.replace(/\/$/, '')
 
-  return path === '' ? '/llms.txt' : `${path}.md`
+  return path === ''
+    ? '/llms.txt'
+    : `${path}.md`
 }
 
 function wantsMarkdown(request) {
@@ -50,7 +52,10 @@ export default {
     const response = await env.ASSETS.fetch(request)
 
     return withHeaders(response, url.pathname === '/'
-      ? { Vary: 'Accept', Link: HOME_LINKS.join(', ') }
+      ? {
+          Vary: 'Accept',
+          Link: HOME_LINKS.join(', '),
+        }
       : { Vary: 'Accept' })
   },
 }

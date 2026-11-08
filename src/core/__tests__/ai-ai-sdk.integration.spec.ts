@@ -17,10 +17,17 @@ const RAW_BODY = '### 🚀 Enhancements\n\n- Add the a feature ([bce8ce9](https:
 
 function generateResult(text: string) {
   return {
-    content: [{ type: 'text' as const, text }],
+    content: [
+      { type: 'text' as const, text },
+    ],
     finishReason: { unified: 'stop' as const, raw: 'stop' },
     usage: {
-      inputTokens: { total: 10, noCache: 10, cacheRead: 0, cacheWrite: 0 },
+      inputTokens: {
+        total: 10,
+        noCache: 10,
+        cacheRead: 0,
+        cacheWrite: 0,
+      },
       outputTokens: { total: 5, text: 5, reasoning: 0 },
     },
     warnings: [],
@@ -29,7 +36,9 @@ function generateResult(text: string) {
 
 function createModel(output: string | Error = '  AI rewritten notes  ') {
   return new MockLanguageModelV4({
-    doGenerate: () => output instanceof Error ? Promise.reject(output) : Promise.resolve(generateResult(output)),
+    doGenerate: () => output instanceof Error
+      ? Promise.reject(output)
+      : Promise.resolve(generateResult(output)),
   })
 }
 
@@ -39,7 +48,9 @@ function createConfig(model: unknown, ai: Record<string, unknown> = {}): Resolve
     ...config.ai,
     provider: 'ai-sdk',
     ...ai,
-    providers: { 'ai-sdk': { model, ...(ai.providers as object) } },
+    providers: {
+      'ai-sdk': { model, ...(ai.providers as object) },
+    },
   } as ResolvedRelizyConfig['ai']
 
   return config
@@ -75,7 +86,10 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
       expect(user).toContain(`<changelog>\n${RAW_BODY}\n</changelog>`)
       expect(user).toContain('Output ONLY the rewritten content')
       // The tokens of the mock model
-      expect(result).toEqual({ text: 'AI rewritten notes', usage: { inputTokens: 10, outputTokens: 5 } })
+      expect(result).toEqual({
+        text: 'AI rewritten notes',
+        usage: { inputTokens: 10, outputTokens: 5 },
+      })
     })
 
     it('Then sends no tool and lets the provider default reasoning apply', async () => {
@@ -90,13 +104,17 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then sends the configured reasoning effort', async () => {
       const model = createModel()
-      await aiSdkProvider.generate(createConfig(model, { providers: { reasoning: 'low' } }), { systemPrompt: 'Rewrite.', prompt: RAW_BODY })
+      await aiSdkProvider.generate(createConfig(model, {
+        providers: { reasoning: 'low' },
+      }), { systemPrompt: 'Rewrite.', prompt: RAW_BODY })
 
       expect(lastMessages(model).reasoning).toBe('low')
     })
 
     it('Then works with a model of the previous specification (provider packages of the previous major)', async () => {
-      const model = new MockLanguageModelV3({ doGenerate: () => Promise.resolve(generateResult('v3 notes') as any) })
+      const model = new MockLanguageModelV3({
+        doGenerate: () => Promise.resolve(generateResult('v3 notes') as any),
+      })
       const result = await aiSdkProvider.generate(createConfig(model), { systemPrompt: 'Rewrite.', prompt: RAW_BODY })
 
       expect(result.text).toBe('v3 notes')
@@ -112,11 +130,15 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
   describe('When running the safety check', () => {
     it('Then passes with a configured model', async () => {
-      await expect(aiSafetyCheck({ config: createConfig(createModel()) })).resolves.toBeUndefined()
+      await expect(aiSafetyCheck({
+        config: createConfig(createModel()),
+      })).resolves.toBeUndefined()
     })
 
     it('Then fails without a model', async () => {
-      await expect(aiSafetyCheck({ config: createConfig(undefined) })).rejects.toThrow('No model configured for the ai-sdk provider')
+      await expect(aiSafetyCheck({
+        config: createConfig(undefined),
+      })).rejects.toThrow('No model configured for the ai-sdk provider')
     })
   })
 
@@ -124,7 +146,11 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
     it('Then returns the output of the model, generated with the release notes rules and the configured language', async () => {
       const model = createModel()
       const context = { project: 'relizy', version: '2.0.0', previousVersion: '1.14.3' }
-      const result = await generateAIProviderReleaseBody({ config: createConfig(model, { language: 'fr' }), rawBody: RAW_BODY, context })
+      const result = await generateAIProviderReleaseBody({
+        config: createConfig(model, { language: 'fr' }),
+        rawBody: RAW_BODY,
+        context,
+      })
 
       const { system, user } = lastMessages(model)
       expect(result).toBe('AI rewritten notes')
@@ -137,12 +163,18 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then uses the extra guidelines and the system prompt overrides', async () => {
       const withGuidelines = createModel()
-      await generateAIProviderReleaseBody({ config: createConfig(withGuidelines, { extraGuidelines: 'Mention the ticket ids.' }), rawBody: RAW_BODY })
+      await generateAIProviderReleaseBody({
+        config: createConfig(withGuidelines, { extraGuidelines: 'Mention the ticket ids.' }),
+        rawBody: RAW_BODY,
+      })
       expect(lastMessages(withGuidelines).system).toContain('Mention the ticket ids.')
 
       const withOverride = createModel()
       await generateAIProviderReleaseBody({
-        config: createConfig(withOverride, { language: 'de', systemPromptOverrides: { providerRelease: 'Custom prompt in {{language}}.' } }),
+        config: createConfig(withOverride, {
+          language: 'de',
+          systemPromptOverrides: { providerRelease: 'Custom prompt in {{language}}.' },
+        }),
         rawBody: RAW_BODY,
       })
       expect(lastMessages(withOverride).system).toBe('Custom prompt in de.')
@@ -150,7 +182,10 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then does not call the model for an empty changelog', async () => {
       const model = createModel()
-      const result = await generateAIProviderReleaseBody({ config: createConfig(model), rawBody: '  \n' })
+      const result = await generateAIProviderReleaseBody({
+        config: createConfig(model),
+        rawBody: '  \n',
+      })
 
       expect(result).toBe('  \n')
       expect(model.doGenerateCalls).toHaveLength(0)
@@ -158,7 +193,10 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then falls back to the raw changelog when the model fails (fallback: raw)', async () => {
       const model = createModel(new Error('quota exceeded'))
-      const result = await generateAIProviderReleaseBody({ config: createConfig(model, { fallback: 'raw' }), rawBody: RAW_BODY })
+      const result = await generateAIProviderReleaseBody({
+        config: createConfig(model, { fallback: 'raw' }),
+        rawBody: RAW_BODY,
+      })
 
       expect(result).toBe(RAW_BODY)
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('quota exceeded'))
@@ -167,11 +205,17 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
     it('Then fails when the model fails (fallback: fail)', async () => {
       const model = createModel(new Error('quota exceeded'))
 
-      await expect(generateAIProviderReleaseBody({ config: createConfig(model, { fallback: 'fail' }), rawBody: RAW_BODY })).rejects.toThrow('AI generation failed: quota exceeded')
+      await expect(generateAIProviderReleaseBody({
+        config: createConfig(model, { fallback: 'fail' }),
+        rawBody: RAW_BODY,
+      })).rejects.toThrow('AI generation failed: quota exceeded')
     })
 
     it('Then falls back to the raw changelog without a model when the safety check is skipped', async () => {
-      const result = await generateAIProviderReleaseBody({ config: createConfig(undefined, { fallback: 'raw' }), rawBody: RAW_BODY })
+      const result = await generateAIProviderReleaseBody({
+        config: createConfig(undefined, { fallback: 'raw' }),
+        rawBody: RAW_BODY,
+      })
 
       expect(result).toBe(RAW_BODY)
       expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('No model configured for the ai-sdk provider'))
@@ -181,7 +225,12 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
   describe('When rewriting the social posts', () => {
     it('Then generates the Twitter post with its rules and its max length', async () => {
       const model = createModel('🚀 New release')
-      const result = await generateAISocialChangelog({ config: createConfig(model), rawBody: RAW_BODY, platform: 'twitter', maxLength: 180 })
+      const result = await generateAISocialChangelog({
+        config: createConfig(model),
+        rawBody: RAW_BODY,
+        platform: 'twitter',
+        maxLength: 180,
+      })
 
       const { system, user } = lastMessages(model)
       expect(result).toBe('🚀 New release')
@@ -192,7 +241,12 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then generates the Slack post with its rules', async () => {
       const model = createModel('**New release**')
-      const result = await generateAISocialChangelog({ config: createConfig(model), rawBody: RAW_BODY, platform: 'slack', maxLength: 2500 })
+      const result = await generateAISocialChangelog({
+        config: createConfig(model),
+        rawBody: RAW_BODY,
+        platform: 'slack',
+        maxLength: 2500,
+      })
 
       const { system } = lastMessages(model)
       expect(result).toBe('**New release**')
@@ -202,7 +256,13 @@ describe('Given the ai-sdk provider with the mock models of the AI SDK', () => {
 
     it('Then returns the fallback body when the model fails', async () => {
       const model = createModel(new Error('timeout'))
-      const result = await generateAISocialChangelog({ config: createConfig(model), rawBody: RAW_BODY, fallbackBody: 'minified body', platform: 'twitter', maxLength: 280 })
+      const result = await generateAISocialChangelog({
+        config: createConfig(model),
+        rawBody: RAW_BODY,
+        fallbackBody: 'minified body',
+        platform: 'twitter',
+        maxLength: 280,
+      })
 
       expect(result).toBe('minified body')
     })
@@ -248,7 +308,9 @@ export default {
 }
 `)
 
-      const config = await loadRelizyConfig({ overrides: { cwd } })
+      const config = await loadRelizyConfig({
+        overrides: { cwd },
+      })
       const model = config.ai.providers?.['ai-sdk']?.model
 
       expect(model).toBeInstanceOf(MockLanguageModelV4)
@@ -272,7 +334,9 @@ export default {
 }
 `)
 
-      const config = await loadRelizyConfig({ overrides: { cwd } })
+      const config = await loadRelizyConfig({
+        overrides: { cwd },
+      })
       const dump = vi.mocked(logger.debug).mock.calls.find(([label]) => label === 'Resolved config:')?.[1] as string
 
       expect((config.ai.providers?.['ai-sdk']?.model as MockLanguageModelV4).modelId).toBe('circular')

@@ -25,8 +25,12 @@ export interface PullRequestInfo {
 }
 
 export function getGitHubApiBase(domain?: string): string {
-  const apiDomain = domain === 'github.com' || !domain ? 'api.github.com' : domain
-  return apiDomain === 'api.github.com' ? `https://${apiDomain}` : `https://${apiDomain}/api/v3`
+  const apiDomain = domain === 'github.com' || !domain
+    ? 'api.github.com'
+    : domain
+  return apiDomain === 'api.github.com'
+    ? `https://${apiDomain}`
+    : `https://${apiDomain}/api/v3`
 }
 
 export async function findGitHubPR({
@@ -124,7 +128,9 @@ export async function findGitLabMR({
 
 function buildPrOverrideInfo(provider: GitProvider, prNumber: number, repo: string, domain?: string): PullRequestInfo | null {
   if (provider === 'github') {
-    const githubDomain = domain === 'github.com' || !domain ? 'github.com' : domain
+    const githubDomain = domain === 'github.com' || !domain
+      ? 'github.com'
+      : domain
     return {
       number: prNumber,
       url: `https://${githubDomain}/${repo}/pull/${prNumber}`,
@@ -167,7 +173,14 @@ async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: strin
 
   const [pr] = await response.json() as Array<{ number: number, html_url: string }>
 
-  return pr ? { number: pr.number, url: pr.html_url, provider: 'github', ofCommit: true } : null
+  return pr
+    ? {
+        number: pr.number,
+        url: pr.html_url,
+        provider: 'github',
+        ofCommit: true,
+      }
+    : null
 }
 
 /**
@@ -191,7 +204,14 @@ async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: strin
 
   const [mr] = await response.json() as Array<{ iid: number, web_url: string }>
 
-  return mr ? { number: mr.iid, url: mr.web_url, provider: 'gitlab', ofCommit: true } : null
+  return mr
+    ? {
+        number: mr.iid,
+        url: mr.web_url,
+        provider: 'gitlab',
+        ofCommit: true,
+      }
+    : null
 }
 
 function findPrOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<PullRequestInfo | null> {
@@ -272,7 +292,9 @@ export async function detectPullRequest({
 
   const token = getProviderToken(config, provider)
   if (!token) {
-    logger.warn(`No ${provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR detection`)
+    logger.warn(`No ${provider === 'github'
+      ? 'GitHub'
+      : 'GitLab'} token available for PR detection`)
     return null
   }
 
@@ -537,10 +559,23 @@ async function postGitLabMrComment({
   markers: string[]
 }): Promise<boolean> {
   if (mode === 'update') {
-    const existingNoteId = await findExistingGitLabComment({ token, repo, mrNumber: pr.number, domain, markers })
+    const existingNoteId = await findExistingGitLabComment({
+      token,
+      repo,
+      mrNumber: pr.number,
+      domain,
+      markers,
+    })
 
     if (existingNoteId) {
-      const updated = await updateGitLabComment({ token, repo, mrNumber: pr.number, noteId: existingNoteId, body, domain })
+      const updated = await updateGitLabComment({
+        token,
+        repo,
+        mrNumber: pr.number,
+        noteId: existingNoteId,
+        body,
+        domain,
+      })
       if (updated) {
         logger.success(`Updated comment on MR !${pr.number}`)
       }
@@ -548,7 +583,13 @@ async function postGitLabMrComment({
     }
   }
 
-  const created = await createGitLabComment({ token, repo, mrNumber: pr.number, body, domain })
+  const created = await createGitLabComment({
+    token,
+    repo,
+    mrNumber: pr.number,
+    body,
+    domain,
+  })
   if (created) {
     logger.success(`Posted comment on MR !${pr.number}`)
   }
@@ -573,10 +614,22 @@ async function postGitHubPrComment({
   markers: string[]
 }): Promise<boolean> {
   if (mode === 'update') {
-    const existingCommentId = await findExistingGitHubComment({ token, repo, prNumber: pr.number, domain, markers })
+    const existingCommentId = await findExistingGitHubComment({
+      token,
+      repo,
+      prNumber: pr.number,
+      domain,
+      markers,
+    })
 
     if (existingCommentId) {
-      const updated = await updateGitHubComment({ token, repo, commentId: existingCommentId, body, domain })
+      const updated = await updateGitHubComment({
+        token,
+        repo,
+        commentId: existingCommentId,
+        body,
+        domain,
+      })
       if (updated) {
         logger.success(`Updated comment on PR #${pr.number}`)
       }
@@ -584,7 +637,13 @@ async function postGitHubPrComment({
     }
   }
 
-  const created = await createGitHubComment({ token, repo, prNumber: pr.number, body, domain })
+  const created = await createGitHubComment({
+    token,
+    repo,
+    prNumber: pr.number,
+    body,
+    domain,
+  })
   if (created) {
     logger.success(`Posted comment on PR #${pr.number}`)
   }
@@ -615,7 +674,9 @@ export async function postPrComment({
   const isMergePreview = marker === MERGE_PREVIEW_MARKER
   // The merge preview is always updated in place: it is recomputed at each push
   const mode = isMergePreview ? 'update' : config.prComment.mode
-  const markers = !isMergePreview && pr.ofCommit ? [MERGE_PREVIEW_MARKER, marker] : [marker]
+  const markers = !isMergePreview && pr.ofCommit
+    ? [MERGE_PREVIEW_MARKER, marker]
+    : [marker]
 
   if (pr.provider !== 'github' && pr.provider !== 'gitlab') {
     logger.warn(`PR commenting not supported for provider: ${pr.provider}`)
@@ -624,7 +685,9 @@ export async function postPrComment({
 
   const token = getProviderToken(config, pr.provider)
   if (!token) {
-    logger.warn(`No ${pr.provider === 'github' ? 'GitHub' : 'GitLab'} token available for PR commenting`)
+    logger.warn(`No ${pr.provider === 'github'
+      ? 'GitHub'
+      : 'GitLab'} token available for PR commenting`)
     return false
   }
 
@@ -640,10 +703,26 @@ export async function postPrComment({
 
   try {
     if (pr.provider === 'github') {
-      return await postGitHubPrComment({ token, repo, pr, body, mode, domain, markers })
+      return await postGitHubPrComment({
+        token,
+        repo,
+        pr,
+        body,
+        mode,
+        domain,
+        markers,
+      })
     }
 
-    return await postGitLabMrComment({ token, repo, pr, body, mode, domain, markers })
+    return await postGitLabMrComment({
+      token,
+      repo,
+      pr,
+      body,
+      mode,
+      domain,
+      markers,
+    })
   }
   catch (error) {
     logger.warn(`Failed to post PR comment: ${error}`)

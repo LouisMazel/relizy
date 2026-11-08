@@ -48,7 +48,10 @@ describe('Given startStdioServer', () => {
     it('Then it connects the server to a stdio transport', async () => {
       // eslint-disable-next-line no-console -- restored after the test
       const original = { log: console.log, info: console.info, debug: console.debug }
-      const server = await startStdioServer({ cwd: createTempDir(), docsDir: getBundleDir() })
+      const server = await startStdioServer({
+        cwd: createTempDir(),
+        docsDir: getBundleDir(),
+      })
 
       expect(transports.created).toBe(1)
       expect(server.isConnected()).toBe(true)
@@ -61,7 +64,9 @@ describe('Given startStdioServer', () => {
 describe('Given createContext', () => {
   describe('When no knowledge is given', () => {
     it('Then the bundle of docsDir is loaded on first use', () => {
-      const context = createContext({ docsDir: getBundleDir() })
+      const context = createContext({
+        docsDir: getBundleDir(),
+      })
 
       expect(context.knowledge.directory).toBe(getBundleDir())
       expect(context.version).toBe(readOwnVersion())
@@ -213,7 +218,11 @@ describe('Given the knowledge tools on edge cases', () => {
 
   describe('When a config value holds functions and regular expressions', () => {
     it('Then they are serialized as text', () => {
-      expect(stringifyConfigValue({ run: () => {}, match: /^v\d/, value: 1 })).toBe('{"run":"[function]","match":"/^v\\\\d/","value":1}')
+      expect(stringifyConfigValue({
+        run: () => {},
+        match: /^v\d/,
+        value: 1,
+      })).toBe('{"run":"[function]","match":"/^v\\\\d/","value":1}')
       expect(stringifyConfigValue(undefined)).toBeUndefined()
     })
   })
@@ -226,7 +235,17 @@ describe('Given a docs bundle where an option has a long default', () => {
       const { manifest } = createTestContext().knowledge
 
       mkdirSync(directory, { recursive: true })
-      writeFileSync(join(directory, 'manifest.json'), JSON.stringify({ ...manifest, config: [{ path: 'types', type: 'Record<string, object>', description: 'Types', docId: 'config/changelog' }] }))
+      writeFileSync(join(directory, 'manifest.json'), JSON.stringify({
+        ...manifest,
+        config: [
+          {
+            path: 'types',
+            type: 'Record<string, object>',
+            description: 'Types',
+            docId: 'config/changelog',
+          },
+        ],
+      }))
 
       expect(getConfigOption(createContext({ docsDir: directory }), { path: 'types' })).not.toContain('**Default:**')
     })

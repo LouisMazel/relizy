@@ -22,7 +22,12 @@ export function isAncestor(ancestor: string, descendant: string, cwd?: string): 
     cwd,
     read: async () => {
       try {
-        await runGit(['merge-base', '--is-ancestor', ancestor, descendant], { cwd })
+        await runGit([
+          'merge-base',
+          '--is-ancestor',
+          ancestor,
+          descendant,
+        ], { cwd })
         return true
       }
       catch {
@@ -51,7 +56,15 @@ export async function getCommitSubject(ref: string, cwd?: string): Promise<strin
  */
 export async function findReachableCommitBySubject(subject: string, to: string, cwd?: string): Promise<string | null> {
   try {
-    const stdout = await runGit(['log', to, `--grep=${subject}`, '--fixed-strings', '--format=%H', '-n', '1'], { cwd })
+    const stdout = await runGit([
+      'log',
+      to,
+      `--grep=${subject}`,
+      '--fixed-strings',
+      '--format=%H',
+      '-n',
+      '1',
+    ], { cwd })
     return stdout.split('\n')[0]?.trim() || null
   }
   catch {
@@ -68,7 +81,12 @@ export function tagExists(tag: string, cwd?: string): Promise<boolean> {
     cwd,
     read: async () => {
       try {
-        await runGit(['rev-parse', '--verify', '--quiet', `refs/tags/${tag}`], { cwd })
+        await runGit([
+          'rev-parse',
+          '--verify',
+          '--quiet',
+          `refs/tags/${tag}`,
+        ], { cwd })
         return true
       }
       catch {
@@ -95,7 +113,13 @@ export async function listTags({
     cwd,
     read: async () => {
       try {
-        const stdout = await runGit(['tag', ...(pattern ? ['--list', pattern] : []), '--sort=-creatordate'], { cwd })
+        const stdout = await runGit([
+          'tag',
+          ...(pattern
+            ? ['--list', pattern]
+            : []),
+          '--sort=-creatordate',
+        ], { cwd })
         return stdout.split('\n').filter(tag => tag.length > 0)
       }
       catch {
@@ -124,7 +148,18 @@ export async function retagAnnotatedLocal({
   signed?: boolean
   cwd?: string
 }): Promise<void> {
-  await runGit(['tag', '-f', ...(signed ? ['-s'] : []), '-a', tag, commit, '-m', message], { cwd })
+  await runGit([
+    'tag',
+    '-f',
+    ...(signed
+      ? ['-s']
+      : []),
+    '-a',
+    tag,
+    commit,
+    '-m',
+    message,
+  ], { cwd })
   clearGitCache()
 }
 
@@ -148,7 +183,9 @@ export const NAME_STATUS_LINE = /^[A-Z]\d*\t/
  * see `core.quotePath`): drop the quotes so the directory part can be compared.
  */
 function unquoteGitPath(path: string): string {
-  return path.length > 1 && path.startsWith('"') && path.endsWith('"') ? path.slice(1, -1) : path
+  return path.length > 1 && path.startsWith('"') && path.endsWith('"')
+    ? path.slice(1, -1)
+    : path
 }
 
 /** A file line of the `--name-status` list: its status (`M`, `A`, `R100`...) and its paths (old then new for renames and copies) */
@@ -168,7 +205,10 @@ export function parseNameStatus(body: string): NameStatusEntry[] {
     .map((line) => {
       const [status = '', ...paths] = line.split('\t')
 
-      return { status, paths: paths.map(path => unquoteGitPath(path.trim())).filter(Boolean) }
+      return {
+        status,
+        paths: paths.map(path => unquoteGitPath(path.trim())).filter(Boolean),
+      }
     })
     .filter(entry => entry.paths.length > 0)
 }
@@ -202,17 +242,32 @@ const FIELD_SEPARATOR = '\x1F'
  * `--name-status` file list, and a subject containing `|` is truncated.
  */
 export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string): RawGitCommit[] {
-  const range = from ? `${from}...${to}` : to
+  const range = from
+    ? `${from}...${to}`
+    : to
   // The same range is read for each package and each step: parsed once, a copy returned to each caller
-  const commits = cachedGitRead({ key: ['log', range], cwd, read: () => readGitLog(range, cwd) })
+  const commits = cachedGitRead({
+    key: ['log', range],
+    cwd,
+    read: () => readGitLog(range, cwd),
+  })
 
   // The merge preview of a pull request squashes its commits, as a squash merge will
-  return applySimulatedSquash(commits.map(commit => ({ ...commit, author: { ...commit.author } })))
+  return applySimulatedSquash(commits.map(commit => ({
+    ...commit,
+    author: { ...commit.author },
+  })))
 }
 
 function readGitLog(range: string, cwd?: string): RawGitCommit[] {
   // The default buffer of `runGitSync` (1 GB) holds the whole history of a new package in a large repository
-  const output = runGitSync(['--no-pager', 'log', range, '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b', '--name-status'], { cwd })
+  const output = runGitSync([
+    '--no-pager',
+    'log',
+    range,
+    '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b',
+    '--name-status',
+  ], { cwd })
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
     const [firstLine = '', ...body] = record.split('\n')

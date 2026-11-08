@@ -5,7 +5,9 @@ import { applyAIOverride, isAIRewritingVersion, isAIRunInRelease } from '../ai'
 describe('Given applyAIOverride function', () => {
   describe('When ai is undefined', () => {
     it('Then config remains unchanged', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const originalAI = config.ai
 
       applyAIOverride(config, undefined)
@@ -16,19 +18,28 @@ describe('Given applyAIOverride function', () => {
     it('Then existing AI config is preserved', () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        ai: { providerRelease: { enabled: true }, social: { twitter: { enabled: true } } },
+        ai: {
+          providerRelease: { enabled: true },
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
 
       applyAIOverride(config, undefined)
 
       expect(config.ai?.providerRelease).toEqual({ enabled: true })
-      expect(config.ai?.social).toEqual({ twitter: { enabled: true } })
+      expect(config.ai?.social).toEqual({
+        twitter: { enabled: true },
+      })
     })
   })
 
   describe('When ai is true', () => {
     it('Then force-enables AI on all targets', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
 
       applyAIOverride(config, true)
 
@@ -45,7 +56,10 @@ describe('Given applyAIOverride function', () => {
         bump: { type: 'patch' },
         ai: {
           providerRelease: { enabled: false },
-          social: { twitter: { enabled: false }, slack: { enabled: false } },
+          social: {
+            twitter: { enabled: false },
+            slack: { enabled: false },
+          },
         },
       })
 
@@ -60,7 +74,9 @@ describe('Given applyAIOverride function', () => {
     })
 
     it('Then creates ai config when absent', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       ;(config as any).ai = undefined
 
       applyAIOverride(config, true)
@@ -95,7 +111,10 @@ describe('Given applyAIOverride function', () => {
         bump: { type: 'patch' },
         ai: {
           providerRelease: { enabled: true },
-          social: { twitter: { enabled: true }, slack: { enabled: true } },
+          social: {
+            twitter: { enabled: true },
+            slack: { enabled: true },
+          },
         },
       })
 
@@ -110,7 +129,9 @@ describe('Given applyAIOverride function', () => {
     })
 
     it('Then creates ai config when absent', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       ;(config as any).ai = undefined
 
       applyAIOverride(config, false)
@@ -128,7 +149,9 @@ describe('Given applyAIOverride function', () => {
 
 describe('Given isAIRewritingVersion function', () => {
   it('Then leaves the prereleases raw by default, the stable versions rewritten', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
 
     expect(isAIRewritingVersion(config, 'providerRelease', '2.0.0')).toBe(true)
     expect(isAIRewritingVersion(config, 'slack', '2.0.0-beta.0')).toBe(false)
@@ -137,7 +160,13 @@ describe('Given isAIRewritingVersion function', () => {
   it('Then lets the onlyStable of a target override ai.onlyStable', () => {
     const config = createMockConfig({
       bump: { type: 'patch' },
-      ai: { onlyStable: false, providerRelease: { enabled: true }, social: { twitter: { enabled: true, onlyStable: true } } },
+      ai: {
+        onlyStable: false,
+        providerRelease: { enabled: true },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+        },
+      },
     })
 
     expect(isAIRewritingVersion(config, 'providerRelease', '2.0.0-beta.0')).toBe(true)
@@ -145,7 +174,12 @@ describe('Given isAIRewritingVersion function', () => {
   })
 
   it('Then keeps the onlyStable of the targets with --ai', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, ai: { providerRelease: { enabled: false, onlyStable: false } } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      ai: {
+        providerRelease: { enabled: false, onlyStable: false },
+      },
+    })
 
     applyAIOverride(config, true)
 
@@ -155,13 +189,26 @@ describe('Given isAIRewritingVersion function', () => {
 
 describe('Given isAIRunInRelease function', () => {
   it('Then never runs the AI of a prerelease bump with onlyStable', () => {
-    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'prerelease' } }), 'providerRelease')).toBe(false)
-    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'premajor' } }), 'slack')).toBe(false)
+    expect(isAIRunInRelease(createMockConfig({
+      bump: { type: 'prerelease' },
+    }), 'providerRelease')).toBe(false)
+    expect(isAIRunInRelease(createMockConfig({
+      bump: { type: 'premajor' },
+    }), 'slack')).toBe(false)
   })
 
   it('Then may run it for any other bump, or without onlyStable', () => {
     // A stable bump, or an automatic one, can release a stable version
-    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'release' } }), 'providerRelease')).toBe(true)
-    expect(isAIRunInRelease(createMockConfig({ bump: { type: 'prerelease' }, ai: { social: { twitter: { onlyStable: false } } } }), 'twitter')).toBe(true)
+    expect(isAIRunInRelease(createMockConfig({
+      bump: { type: 'release' },
+    }), 'providerRelease')).toBe(true)
+    expect(isAIRunInRelease(createMockConfig({
+      bump: { type: 'prerelease' },
+      ai: {
+        social: {
+          twitter: { onlyStable: false },
+        },
+      },
+    }), 'twitter')).toBe(true)
   })
 })

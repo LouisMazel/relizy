@@ -9,13 +9,17 @@ import { getLastTag } from '../tags'
 /** Absolute path of a file of the git directory (`COMMIT_EDITMSG`, `hooks`...) */
 function getGitPath(path: string, cwd: string): string {
   const gitPath = runGitSync(['rev-parse', '--git-path', path], { cwd })
-  return isAbsolute(gitPath) ? gitPath : join(cwd, gitPath)
+  return isAbsolute(gitPath)
+    ? gitPath
+    : join(cwd, gitPath)
 }
 
 /** Character git uses for the comment lines of the edited messages */
 export function getCommentChar(cwd: string): string {
   const commentChar = tryGitSync(['config', 'core.commentChar'], { cwd })
-  return commentChar && commentChar !== 'auto' ? commentChar : '#'
+  return commentChar && commentChar !== 'auto'
+    ? commentChar
+    : '#'
 }
 
 /**
@@ -23,7 +27,11 @@ export function getCommentChar(cwd: string): string {
  * `commit-msg` hook, `.git/COMMIT_EDITMSG` by default.
  */
 export function getCommitMessageFile(file: string | undefined, cwd: string): string {
-  return file ? (isAbsolute(file) ? file : join(cwd, file)) : getGitPath('COMMIT_EDITMSG', cwd)
+  return file
+    ? (isAbsolute(file)
+        ? file
+        : join(cwd, file))
+    : getGitPath('COMMIT_EDITMSG', cwd)
 }
 
 /** The message of the commit being created */
@@ -34,7 +42,9 @@ export function readCommitMessageFile(file: string | undefined, cwd: string): st
 /** Files staged for the commit being created, relative to the repository root */
 export function getStagedFiles(cwd: string): string[] {
   const output = tryGitSync(['diff', '--cached', '--name-only'], { cwd })
-  return output ? output.split('\n').filter(Boolean) : []
+  return output
+    ? output.split('\n').filter(Boolean)
+    : []
 }
 
 export interface RangeCommit {
@@ -58,7 +68,9 @@ export function getCommitsInRange({ from, to = 'HEAD', cwd }: { from?: string, t
     '--reverse',
     `--format=${COMMIT_SEPARATOR}%H${FIELD_SEPARATOR}%B${FILES_SEPARATOR}`,
     '--name-only',
-    from ? `${from}..${to}` : to,
+    from
+      ? `${from}..${to}`
+      : to,
   ], { cwd })
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
@@ -97,7 +109,18 @@ function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?:
   if (!shallow && refspecs.length === 0 && !tags) {
     return false
   }
-  const args = ['fetch', '--quiet', ...(tags ? ['--tags'] : ['--no-tags']), ...(shallow ? ['--unshallow'] : []), 'origin', ...refspecs]
+  const args = [
+    'fetch',
+    '--quiet',
+    ...(tags
+      ? ['--tags']
+      : ['--no-tags']),
+    ...(shallow
+      ? ['--unshallow']
+      : []),
+    'origin',
+    ...refspecs,
+  ]
   logger.debug(`commitlint: git ${args.join(' ')}`)
   try {
     runGitSync(args, { cwd })
@@ -105,13 +128,20 @@ function fetchHistory(cwd: string, { refspecs = [], tags = false }: { refspecs?:
     return true
   }
   catch (error) {
-    logger.debug(`commitlint: the fetch failed: ${error instanceof Error ? error.message : String(error)}`)
+    logger.debug(`commitlint: the fetch failed: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return false
   }
 }
 
 function isRefAvailable(ref: string, cwd: string): boolean {
-  return Boolean(tryGitSync(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`], { cwd }))
+  return Boolean(tryGitSync([
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `${ref}^{commit}`,
+  ], { cwd }))
 }
 
 /**
@@ -142,14 +172,19 @@ export interface PullRequestTitle {
 export function getPullRequestTitle(): PullRequestTitle | undefined {
   const gitlabTitle = process.env.CI_MERGE_REQUEST_TITLE
   if (gitlabTitle) {
-    return { title: gitlabTitle.replace(/^(?:draft:|\[draft\]|\(draft\))\s*/i, ''), kind: 'merge request' }
+    return {
+      title: gitlabTitle.replace(/^(?:draft:|\[draft\]|\(draft\))\s*/i, ''),
+      kind: 'merge request',
+    }
   }
 
   const eventPath = process.env.GITHUB_EVENT_PATH
   if (process.env.GITHUB_BASE_REF && eventPath && existsSync(eventPath)) {
     try {
       const title = JSON.parse(readFileSync(eventPath, 'utf8'))?.pull_request?.title
-      return typeof title === 'string' && title ? { title, kind: 'pull request' } : undefined
+      return typeof title === 'string' && title
+        ? { title, kind: 'pull request' }
+        : undefined
     }
     catch {
       return undefined
@@ -176,7 +211,11 @@ export async function resolveDefaultRangeStart({ cwd }: { cwd: string }): Promis
     const getMergeBase = () => tryGitSync(['merge-base', `origin/${githubBase}`, 'HEAD'], { cwd })
     // The default checkout of a pull request has neither the base branch nor the history
     const mergeBase = getMergeBase()
-      ?? (fetchHistory(cwd, { refspecs: [`+refs/heads/${githubBase}:refs/remotes/origin/${githubBase}`] }) ? getMergeBase() : undefined)
+      ?? (fetchHistory(cwd, {
+        refspecs: [`+refs/heads/${githubBase}:refs/remotes/origin/${githubBase}`],
+      })
+        ? getMergeBase()
+        : undefined)
     if (!mergeBase) {
       throw new Error(`Cannot find the merge-base of HEAD and origin/${githubBase}: fetch the history of the base branch (${getFetchHistoryHint()}), or pass --from`)
     }
@@ -212,9 +251,17 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
   const root = runGitSync(['rev-parse', '--show-toplevel'], { cwd })
   const husky = join(root, '.husky')
   const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
-  const hooksDirectory = hooksPath ? (isAbsolute(hooksPath) ? hooksPath : join(root, hooksPath)) : getGitPath('hooks', cwd)
-  const path = join(existsSync(husky) ? husky : hooksDirectory, 'commit-msg')
-  const content = path.startsWith(husky) ? `${HOOK_COMMAND}\n` : `#!/bin/sh\n${HOOK_COMMAND}\n`
+  const hooksDirectory = hooksPath
+    ? (isAbsolute(hooksPath)
+        ? hooksPath
+        : join(root, hooksPath))
+    : getGitPath('hooks', cwd)
+  const path = join(existsSync(husky)
+    ? husky
+    : hooksDirectory, 'commit-msg')
+  const content = path.startsWith(husky)
+    ? `${HOOK_COMMAND}\n`
+    : `#!/bin/sh\n${HOOK_COMMAND}\n`
 
   let status: InstalledHook['status'] = 'created'
   if (existsSync(path)) {
@@ -243,8 +290,18 @@ export function hasRelizyCommitMsgHook(cwd: string): boolean {
   const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
   const files = [
     join(root, '.husky', 'commit-msg'),
-    hooksPath ? join(isAbsolute(hooksPath) ? hooksPath : join(root, hooksPath), 'commit-msg') : getGitPath(join('hooks', 'commit-msg'), cwd),
-    ...['lefthook.yml', 'lefthook.yaml', '.lefthook.yml', '.lefthook.yaml', 'lefthook.json'].map(name => join(root, name)),
+    hooksPath
+      ? join(isAbsolute(hooksPath)
+          ? hooksPath
+          : join(root, hooksPath), 'commit-msg')
+      : getGitPath(join('hooks', 'commit-msg'), cwd),
+    ...[
+      'lefthook.yml',
+      'lefthook.yaml',
+      '.lefthook.yml',
+      '.lefthook.yaml',
+      'lefthook.json',
+    ].map(name => join(root, name)),
   ]
 
   if (files.some(file => existsSync(file) && readFileSync(file, 'utf8').includes('relizy commitlint'))) {

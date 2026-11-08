@@ -532,7 +532,14 @@ describe('Given loadRelizyConfig function', () => {
   describe('When the config sets the removed monorepo.ignorePackageNames', () => {
     it('Then fails with the option to use instead, rather than releasing the packages it left out', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', monorepo: { versionMode: 'selective', packages: ['packages/*'], ignorePackageNames: ['@scope/legacy'] } },
+        config: {
+          cwd: '/project',
+          monorepo: {
+            versionMode: 'selective',
+            packages: ['packages/*'],
+            ignorePackageNames: ['@scope/legacy'],
+          },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
 
@@ -543,7 +550,10 @@ describe('Given loadRelizyConfig function', () => {
   describe('When templates.tagBody repeats {{newVersion}}', () => {
     it('Then fails, as the version could not be read back from the tags', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', templates: { tagBody: 'v{{newVersion}}-{{newVersion}}' } },
+        config: {
+          cwd: '/project',
+          templates: { tagBody: 'v{{newVersion}}-{{newVersion}}' },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
 
@@ -729,7 +739,9 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ overrides: { logLevel: 'debug' } })
+      await loadRelizyConfig({
+        overrides: { logLevel: 'debug' },
+      })
 
       expect(logger.setLevel).toHaveBeenCalledWith('debug')
     })
@@ -831,7 +843,10 @@ describe('Given loadRelizyConfig function', () => {
   describe('When using overrides', () => {
     it('Then merges overrides with config', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/custom', bump: { type: 'patch' } },
+        config: {
+          cwd: '/custom',
+          bump: { type: 'patch' },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({
@@ -840,7 +855,9 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ overrides: { cwd: '/custom' } })
+      await loadRelizyConfig({
+        overrides: { cwd: '/custom' },
+      })
 
       expect(loadConfig).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -862,7 +879,9 @@ describe('Given loadRelizyConfig function', () => {
         repo: 'user/repo',
       })
 
-      await loadRelizyConfig({ overrides: { cwd: '/override' } })
+      await loadRelizyConfig({
+        overrides: { cwd: '/override' },
+      })
 
       expect(setupDotenv).toHaveBeenCalledWith({ cwd: '/override' })
     })
@@ -870,9 +889,21 @@ describe('Given loadRelizyConfig function', () => {
 
   describe('When using baseConfig', () => {
     it('Then merges the overrides over it, without loading the config file nor the .env file again', async () => {
-      const baseConfig = { ...getDefaultConfig(), bump: { ...getDefaultConfig().bump, type: 'minor' as const } } as any
+      const baseConfig = {
+        ...getDefaultConfig(),
+        bump: {
+          ...getDefaultConfig().bump,
+          type: 'minor' as const,
+        },
+      } as any
 
-      const config = await loadRelizyConfig({ baseConfig, overrides: { bump: { yes: true }, logLevel: 'debug' } })
+      const config = await loadRelizyConfig({
+        baseConfig,
+        overrides: {
+          bump: { yes: true },
+          logLevel: 'debug',
+        },
+      })
 
       expect(loadConfig).not.toHaveBeenCalled()
       expect(setupDotenv).not.toHaveBeenCalled()
@@ -884,7 +915,10 @@ describe('Given loadRelizyConfig function', () => {
     it('Then leaves the base config untouched, a command can change its own', async () => {
       const baseConfig = getDefaultConfig() as any
 
-      const config = await loadRelizyConfig({ baseConfig, overrides: { from: 'v1.0.0' } })
+      const config = await loadRelizyConfig({
+        baseConfig,
+        overrides: { from: 'v1.0.0' },
+      })
       config.social.slack = { ...config.social.slack, changelog: 'minified' } as any
 
       expect(baseConfig.from).toBeUndefined()
@@ -895,7 +929,10 @@ describe('Given loadRelizyConfig function', () => {
   describe('When logging config', () => {
     it('Then logs user config in verbose mode', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', changelog: { rootChangelog: true } },
+        config: {
+          cwd: '/project',
+          changelog: { rootChangelog: true },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({
@@ -947,7 +984,14 @@ describe('Given loadRelizyConfig function', () => {
     it('Then leaves publish.registry unset when only registries are declared', async () => {
       vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', publish: { registries: [{ name: 'github', registry: 'https://npm.pkg.github.com/' }] } },
+        config: {
+          cwd: '/project',
+          publish: {
+            registries: [
+              { name: 'github', registry: 'https://npm.pkg.github.com/' },
+            ],
+          },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
@@ -960,7 +1004,10 @@ describe('Given loadRelizyConfig function', () => {
     it('Then keeps an explicitly configured registry over the npm config one', async () => {
       vi.mocked(getNpmRegistry).mockReturnValue('https://my-proxy.example/')
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', publish: { registry: 'https://custom-registry/' } },
+        config: {
+          cwd: '/project',
+          publish: { registry: 'https://custom-registry/' },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({ provider: 'github', domain: 'github.com', repo: 'user/repo' })
@@ -1002,7 +1049,10 @@ describe('Given loadRelizyConfig function', () => {
 
     it('Then formats config objects with formatJson', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', changelog: { rootChangelog: true } },
+        config: {
+          cwd: '/project',
+          changelog: { rootChangelog: true },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
       vi.mocked(resolveRepoConfig).mockResolvedValue({
@@ -1040,7 +1090,10 @@ describe('Given loadRelizyConfig function', () => {
         config: {
           cwd: '/project',
           templates: {},
-          monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+          monorepo: {
+            versionMode: 'independent',
+            packages: ['packages/*'],
+          },
         },
         _configFile: 'relizy.config.ts',
       } as any)
@@ -1061,7 +1114,10 @@ describe('Given loadRelizyConfig function', () => {
         config: {
           cwd: '/project',
           templates: { commitMessage: 'release: {{newVersion}}', commitBody: 'custom body' },
-          monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+          monorepo: {
+            versionMode: 'independent',
+            packages: ['packages/*'],
+          },
         },
         _configFile: 'relizy.config.ts',
       } as any)
@@ -1248,7 +1304,9 @@ describe('Given defineConfig function', () => {
         changelog: { rootChangelog: true },
         publish: { tag: 'next' },
         release: { commit: true },
-        social: { twitter: { enabled: true } },
+        social: {
+          twitter: { enabled: true },
+        },
       }
 
       const result = defineConfig(config)
@@ -1260,8 +1318,16 @@ describe('Given defineConfig function', () => {
 
 describe('Given loadRelizyConfig with version groups', () => {
   const groups = [
-    { name: 'main', versionMode: 'selective' as const, packages: ['packages/*'] },
-    { name: 'header', versionMode: 'independent' as const, packages: ['shared/*'] },
+    {
+      name: 'main',
+      versionMode: 'selective' as const,
+      packages: ['packages/*'],
+    },
+    {
+      name: 'header',
+      versionMode: 'independent' as const,
+      packages: ['shared/*'],
+    },
   ]
 
   beforeEach(() => {
@@ -1274,13 +1340,25 @@ describe('Given loadRelizyConfig with version groups', () => {
 
   describe('When the base config is derived for a version group', () => {
     it('Then applies the overrides without loading the config file again', async () => {
-      const baseConfig = markVersionGroupConfig({ ...getDefaultConfig(), monorepo: { versionMode: 'independent', packages: ['shared/*'] } } as any, 'header')
+      const baseConfig = markVersionGroupConfig({
+        ...getDefaultConfig(),
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['shared/*'],
+        },
+      } as any, 'header')
 
-      const config = await loadRelizyConfig({ baseConfig, overrides: { logLevel: 'debug' } })
+      const config = await loadRelizyConfig({
+        baseConfig,
+        overrides: { logLevel: 'debug' },
+      })
 
       expect(loadConfig).not.toHaveBeenCalled()
       expect(config.logLevel).toBe('debug')
-      expect(config.monorepo).toEqual({ versionMode: 'independent', packages: ['shared/*'] })
+      expect(config.monorepo).toEqual({
+        versionMode: 'independent',
+        packages: ['shared/*'],
+      })
       expect(getVersionGroupName(config)).toBe('header')
       expect(logger.setLevel).toHaveBeenCalledWith('debug')
     })
@@ -1288,7 +1366,10 @@ describe('Given loadRelizyConfig with version groups', () => {
 
   describe('When the base config has version groups', () => {
     it('Then keeps its groups, and the config is not one of a group', async () => {
-      const baseConfig = { ...getDefaultConfig(), monorepo: { groups } } as any
+      const baseConfig = {
+        ...getDefaultConfig(),
+        monorepo: { groups },
+      } as any
 
       const config = await loadRelizyConfig({ baseConfig })
 
@@ -1300,7 +1381,11 @@ describe('Given loadRelizyConfig with version groups', () => {
   describe('When the config file has version groups', () => {
     it('Then leaves the commit templates unset, they depend on the groups that bump', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', templates: {}, monorepo: { groups } },
+        config: {
+          cwd: '/project',
+          templates: {},
+          monorepo: { groups },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
 
@@ -1312,7 +1397,10 @@ describe('Given loadRelizyConfig with version groups', () => {
 
     it('Then rejects invalid groups', async () => {
       vi.mocked(loadConfig).mockResolvedValue({
-        config: { cwd: '/project', monorepo: { versionMode: 'selective', groups } },
+        config: {
+          cwd: '/project',
+          monorepo: { versionMode: 'selective', groups },
+        },
         _configFile: 'relizy.config.ts',
       } as any)
 
@@ -1324,18 +1412,43 @@ describe('Given loadRelizyConfig with version groups', () => {
 describe('Given mergeConfig function', () => {
   it('Then gives the priority to the first configs and merges the objects deeply', () => {
     expect(mergeConfig<Record<string, unknown>>(
-      { bump: { type: 'minor' }, logLevel: undefined },
-      { bump: { type: 'patch', yes: true }, logLevel: 'debug' },
+      {
+        bump: { type: 'minor' },
+        logLevel: undefined,
+      },
+      {
+        bump: { type: 'patch', yes: true },
+        logLevel: 'debug',
+      },
       undefined,
       null,
-    )).toEqual({ bump: { type: 'minor', yes: true }, logLevel: 'debug' })
+    )).toEqual({
+      bump: { type: 'minor', yes: true },
+      logLevel: 'debug',
+    })
   })
 
   it('Then replaces the arrays of the next configs instead of concatenating them', () => {
     const merged = mergeConfig<Record<string, any>>(
-      { bump: { dependencyTypes: ['devDependencies'] } },
-      { bump: { dependencyTypes: ['dependencies', 'peerDependencies'] }, publish: { args: ['--provenance'] } },
-      { bump: { dependencyTypes: ['dependencies'] }, publish: { args: [] } },
+      {
+        bump: {
+          dependencyTypes: ['devDependencies'],
+        },
+      },
+      {
+        bump: {
+          dependencyTypes: ['dependencies', 'peerDependencies'],
+        },
+        publish: {
+          args: ['--provenance'],
+        },
+      },
+      {
+        bump: {
+          dependencyTypes: ['dependencies'],
+        },
+        publish: { args: [] },
+      },
     )
 
     expect(merged.bump.dependencyTypes).toEqual(['devDependencies'])
@@ -1343,7 +1456,12 @@ describe('Given mergeConfig function', () => {
   })
 
   it('Then does not duplicate the arrays of a config merged with itself', () => {
-    const config = { publish: { args: ['--provenance'] }, excludeAuthors: ['bot'] }
+    const config = {
+      publish: {
+        args: ['--provenance'],
+      },
+      excludeAuthors: ['bot'],
+    }
 
     expect(mergeConfig(config, config)).toEqual(config)
   })

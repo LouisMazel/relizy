@@ -43,9 +43,13 @@ vi.mock('../utils', async () => {
 function makeCommit(overrides: Partial<GitCommit>): GitCommit {
   return createMockCommit('docs', 'docs: update README', {
     author: { name: 'Alice', email: 'alice@example.com' },
-    references: [{ value: 'abc1234', type: 'hash' }],
+    references: [
+      { value: 'abc1234', type: 'hash' },
+    ],
     description: 'update README',
-    authors: [{ name: 'Alice', email: 'alice@example.com' }],
+    authors: [
+      { name: 'Alice', email: 'alice@example.com' },
+    ],
     ...overrides,
   })
 }
@@ -64,7 +68,10 @@ describe('Given a commit type with a `title` but no `semver`', () => {
       const config = createMockConfig({
         cwd: '/repo',
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
         types: {
           docs: { title: '📖 Documentation' },
         },
@@ -89,7 +96,10 @@ describe('Given a commit type with a `title` but no `semver`', () => {
       const config = createMockConfig({
         cwd: '/repo',
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
         types: {
           docs: false,
         } as any,
@@ -111,8 +121,13 @@ describe('Given a commit type with a `title` but no `semver`', () => {
       const config = createMockConfig({
         cwd: '/repo',
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
-        types: { docs: { title: '📖 Documentation' } },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        types: {
+          docs: { title: '📖 Documentation' },
+        },
       })
 
       await generateChangelog({
@@ -137,8 +152,13 @@ describe('Given a commit type with a `title` but no `semver`', () => {
       const config = createMockConfig({
         cwd: '/repo',
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
-        types: { docs: { title: '📖 Documentation' } },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        types: {
+          docs: { title: '📖 Documentation' },
+        },
       })
 
       const body = await generateChangelog({
@@ -146,7 +166,12 @@ describe('Given a commit type with a `title` but no `semver`', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: false, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: false,
+          body: true,
+          contributors: false,
+        },
       })
 
       expect(body).toContain('📖 Documentation')
@@ -162,8 +187,13 @@ describe('Given a commit type with a `title` but no `semver`', () => {
       const config = createMockConfig({
         cwd: '/repo',
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
-        types: { docs: { title: '📖 Documentation' } },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        types: {
+          docs: { title: '📖 Documentation' },
+        },
       })
 
       const seen: string[] = []
@@ -173,7 +203,12 @@ describe('Given a commit type with a `title` but no `semver`', () => {
         config,
         dryRun: false,
         newVersion: '1.1.0',
-        include: { title: false, compareLink: false, body: true, contributors: false },
+        include: {
+          title: false,
+          compareLink: false,
+          body: true,
+          contributors: false,
+        },
         transformBody: (body) => {
           seen.push(body)
           return `AI(${body})`

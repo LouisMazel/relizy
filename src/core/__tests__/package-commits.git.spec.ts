@@ -29,7 +29,10 @@ describe('Given getPackageCommits on a real git repository', () => {
   function createConfig(): ResolvedRelizyConfig {
     const config = createMockConfig({
       bump: { type: 'release' },
-      monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+      monorepo: {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      },
     })
     config.cwd = cwd
     config.logLevel = 'silent'
@@ -39,7 +42,12 @@ describe('Given getPackageCommits on a real git repository', () => {
 
   async function descriptionsOf(directory: string, from = base) {
     const commits = await getPackageCommits({
-      pkg: { name: directory, version: '1.0.0', path: join(cwd, directory), private: false },
+      pkg: {
+        name: directory,
+        version: '1.0.0',
+        path: join(cwd, directory),
+        private: false,
+      },
       from,
       to: 'HEAD',
       config: createConfig(),
@@ -121,7 +129,12 @@ describe('Given getPackageCommits on a real git repository', () => {
       commit('feat: add the size option\n\nA new option sets the size.\nM is the default size.')
 
       const commits = await getPackageCommits({
-        pkg: { name: 'components', version: '1.0.0', path: join(cwd, 'packages/components'), private: false },
+        pkg: {
+          name: 'components',
+          version: '1.0.0',
+          path: join(cwd, 'packages/components'),
+          private: false,
+        },
         from: base,
         to: 'HEAD',
         config: createConfig(),
