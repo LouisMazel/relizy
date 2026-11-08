@@ -47,3 +47,42 @@ export function writeAgentSkills(outDir: string, siteUrl: string) {
     }],
   }, null, 2)}\n`)
 }
+
+/**
+ * ARD manifest (https://agenticresourcediscovery.org): the skill and the docs. The MCP server of relizy runs
+ * locally (`relizy mcp`, stdio) and ARD only describes remote resources
+ */
+export function writeAiCatalog(outDir: string, siteUrl: string) {
+  const domain = new URL(siteUrl).host
+
+  write(outDir, '.well-known/ai-catalog.json', `${JSON.stringify({
+    specVersion: '1.0',
+    host: { displayName: 'Relizy', identifier: `did:web:${domain}` },
+    entries: [
+      {
+        identifier: `urn:air:${domain}:skill:${SKILL.name}`,
+        displayName: 'relizy skill',
+        description: SKILL.description,
+        type: 'application/agent-skills+md',
+        url: `${siteUrl}/.well-known/agent-skills/${SKILL.name}/SKILL.md`,
+        representativeQueries: [
+          'how do I write a commit message for a project released with relizy',
+          'preview the next release of a monorepo before bumping',
+          'which version mode should a monorepo use with relizy',
+        ],
+      },
+      {
+        identifier: `urn:air:${domain}:docs:llms-txt`,
+        displayName: 'Relizy documentation',
+        description: 'Index of the docs of relizy in markdown: guides, configuration, CLI, commit linting and programmatic API.',
+        type: 'text/markdown',
+        url: `${siteUrl}/llms.txt`,
+        representativeQueries: [
+          'configure relizy to release a pnpm monorepo',
+          'publish to npm and create GitHub releases from CI with relizy',
+          'generate a changelog from Conventional Commits',
+        ],
+      },
+    ],
+  }, null, 2)}\n`)
+}
