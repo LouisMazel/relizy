@@ -12,7 +12,7 @@ import { mergePreview, MergePreviewError } from '../merge-preview'
 vi.mock('../../core/npm-versions', async importOriginal => ({ ...await importOriginal<typeof import('../../core/npm-versions')>(), isVersionPublished: vi.fn() }))
 
 /** The variables telling relizy it runs in a CI, cleared so the tests run the same locally and in CI */
-const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'BUILD_ID', 'JENKINS_URL', 'JENKINS_HOME', 'GITHUB_BASE_REF', 'GITHUB_HEAD_REF', 'GITHUB_EVENT_PATH', 'GITHUB_EVENT_NAME', 'CI_MERGE_REQUEST_TARGET_BRANCH_NAME']
+const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'BUILD_ID', 'JENKINS_URL', 'JENKINS_HOME', 'GITHUB_BASE_REF', 'GITHUB_HEAD_REF', 'GITHUB_EVENT_PATH', 'GITHUB_EVENT_NAME', 'CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'GITHUB_SERVER_URL', 'GITHUB_REPOSITORY', 'GITHUB_RUN_ID', 'CI_JOB_URL']
 
 describe('Given the merge preview of a GitHub pull request', () => {
   let origin: GitRepository
@@ -130,5 +130,16 @@ describe('Given the merge preview of a GitHub pull request', () => {
     const report = await mergePreview({ type: 'major', comment: false, check: false })
 
     expect(report).toMatchObject({ status: 'released', version: '2.0.0' })
+  })
+
+  it('When it runs in GitHub Actions, Then the status links to the run', async () => {
+    const fetch = mockApi()
+    vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
+    vi.stubEnv('GITHUB_REPOSITORY', 'test/repo')
+    vi.stubEnv('GITHUB_RUN_ID', '42')
+
+    await mergePreview({ comment: false })
+
+    expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([expect.objectContaining({ target_url: 'https://github.com/test/repo/actions/runs/42' })])
   })
 })
