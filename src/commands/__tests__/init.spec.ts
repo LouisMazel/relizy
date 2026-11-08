@@ -299,6 +299,30 @@ describe('Given init command', () => {
       expect(readJson('package.json').scripts.release).toBe('relizy release')
     })
 
+    it('Then asks before adding the prepare script of the agent rules', async () => {
+      write('relizy.config.ts', 'export default {}')
+      write('CLAUDE.md', '# mono')
+      answer(select, ['keep', 'manual', 'integration'])
+      // hook, agents, prepare script, script, workflow, merge preview, apply
+      answer(confirm, [
+        true,
+        true,
+        false,
+        true,
+        true,
+        false,
+        true,
+      ])
+
+      await init({ cwd })
+
+      expect(vi.mocked(confirm)).toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('Keep the agent rules up to date at each install?'),
+      }))
+      expect(read('.claude/rules/relizy.md')).toContain('Managed by relizy')
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
+    })
+
     it('Then cancels from the existing config, nothing written', async () => {
       write('relizy.config.ts', 'export default {}')
       answer(select, ['cancel'])

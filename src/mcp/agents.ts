@@ -1,6 +1,6 @@
 import type { AgentDocs, AgentsTool, AgentTarget, SetupAgentsChange, SetupAgentsResult } from '@maz-ui/node'
 
-import { existsSync, readFileSync } from 'node:fs'
+import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { AGENT_TARGETS, detectAgentTargets, logger, setupAgents } from '@maz-ui/node'
@@ -45,6 +45,8 @@ export interface McpInitOptions {
   rules?: boolean
   /** Register the MCP server, default `true` */
   mcp?: boolean
+  /** Add `relizy mcp update` to the `prepare` script of the root package.json (with the rules only), default `true` */
+  prepare?: boolean
   dryRun?: boolean
   /** Remove what `relizy mcp init` added */
   remove?: boolean
@@ -157,10 +159,108 @@ export function mcpUpdate({ cwd = process.cwd(), dryRun = false }: McpUpdateOpti
   }
 }
 
-/** `relizy mcp init`: configure the agents, then print the changes */
+/** Command of the `prepare` script keeping the agent rules up to date at each install */
+export const AGENT_RULES_COMMAND = 'relizy mcp update'
+
+/**
+ * The `prepare` script running `relizy mcp update`: an existing script is extended.
+ * `undefined` when it already runs `relizy mcp update` or `relizy mcp init`.
+ */
+export function addAgentRulesCommand(prepare: string | undefined): string | undefined {
+  if (!prepare) {
+    return AGENT_RULES_COMMAND
+  }
+
+  return prepare.includes(AGENT_RULES_COMMAND) || prepare.includes('relizy mcp init')
+    ? undefined
+    : `${prepare} && ${AGENT_RULES_COMMAND}`
+}
+
+/** The `prepare` script without `relizy mcp update`: `undefined` when nothing else is left */
+function removeAgentRulesCommand(prepare: string): string | undefined {
+  const kept = prepare.split('&&').map(part => part.trim()).filter(part => part !== AGENT_RULES_COMMAND)
+
+  return kept.length > 0
+    ? kept.join(' && ')
+    : undefined
+}
+
+/** Write the `prepare` script of the package.json, keeping its indentation: `undefined` removes it, with the `scripts` left empty */
+function writePrepareScript(path: string, content: string, prepare: string | undefined): void {
+  const json = JSON.parse(content)
+  const indent = /^([ \t]+)"/m.exec(content)?.[1] ?? '  '
+
+  json.scripts = { ...json.scripts, prepare }
+
+  if (Object.values(json.scripts).every(script => script === undefined)) {
+    delete json.scripts
+  }
+
+  writeFileSync(path, `${JSON.stringify(json, null, indent)}\n`)
+}
+
+/**
+ * Add `relizy mcp update` to the `prepare` script of the root package.json (or remove it).
+ * No change without a package.json, nor when the script is already as expected.
+ */
+export function setupPrepareScript({ cwd = process.cwd(), dryRun = false, remove = false }: { cwd?: string, dryRun?: boolean, remove?: boolean } = {}): SetupAgentsChange | undefined {
+  const path = join(cwd, 'package.json')
+
+  if (!existsSync(path)) {
+    return undefined
+  }
+
+  const content = readFileSync(path, 'utf8')
+  let prepare: string | undefined
+
+  try {
+    prepare = JSON.parse(content).scripts?.prepare
+  }
+  catch {
+    return { file: 'package.json', action: 'skip', reason: 'invalid JSON, prepare script not changed' }
+  }
+
+  if (remove) {
+    const next = prepare && removeAgentRulesCommand(prepare)
+
+    if (!prepare?.includes(AGENT_RULES_COMMAND) || next === prepare) {
+      return undefined
+    }
+
+    if (!dryRun) {
+      writePrepareScript(path, content, next)
+    }
+
+    return { file: 'package.json', action: 'update', reason: `${AGENT_RULES_COMMAND} removed from the prepare script` }
+  }
+
+  const next = addAgentRulesCommand(prepare)
+
+  if (next === undefined) {
+    return { file: 'package.json', action: 'unchanged', reason: 'prepare script' }
+  }
+
+  if (!dryRun) {
+    writePrepareScript(path, content, next)
+  }
+
+  return { file: 'package.json', action: 'update', reason: `prepare script: ${next}` }
+}
+
+/** `relizy mcp init`: configure the agents and the `prepare` script of the rules, then print the changes */
 export function mcpInit(options: McpInitOptions = {}): SetupAgentsResult {
   const dryRun = options.dryRun ?? false
   const result = setupRelizyAgents(options)
+
+  // keeps the rules of the agents up to date at each install
+  if (options.rules !== false && options.prepare !== false) {
+    const prepare = setupPrepareScript({ cwd: options.cwd, dryRun, remove: options.remove })
+
+    if (prepare) {
+      result.changes.push(prepare)
+    }
+  }
+
   const command = [result.mcpServer.command, ...result.mcpServer.args].join(' ')
 
   logger.info(`relizy ${readOwnVersion()} agents setup (${result.targets.join(', ')})${dryRun ? ' - dry run' : ''}`)

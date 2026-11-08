@@ -5,6 +5,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import fastGlob from 'fast-glob'
 import * as semver from 'semver'
+import { addAgentRulesCommand } from '../mcp/agents'
 import { findChangelogFormatter } from './changelog-format'
 import { getPackageManagerWorkspaces, getPackageManagerWorkspaceSources } from './commitlint'
 import { getDefaultConfig } from './config'
@@ -555,22 +556,16 @@ export function getScriptsToAdd(detection: ProjectDetection): Record<string, str
     : { release: 'relizy release' }
 }
 
-export const AGENT_RULES_COMMAND = 'relizy mcp update'
-
 /**
  * The `prepare` script keeping the agent rules up to date at each install (existing rules only: nothing is created, and the MCP config of the user is never touched).
  * An existing `prepare` script is extended, or left as is when it already runs `relizy mcp update` or `relizy mcp init`.
  */
 export function getPrepareScript(detection: ProjectDetection): Record<string, string> {
-  const existing = detection.root.scripts.prepare
+  const prepare = addAgentRulesCommand(detection.root.scripts.prepare)
 
-  if (!existing) {
-    return { prepare: AGENT_RULES_COMMAND }
-  }
-
-  return existing.includes('relizy mcp update') || existing.includes('relizy mcp init')
-    ? {}
-    : { prepare: `${existing} && ${AGENT_RULES_COMMAND}` }
+  return prepare
+    ? { prepare }
+    : {}
 }
 
 /**

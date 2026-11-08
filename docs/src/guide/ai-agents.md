@@ -104,7 +104,7 @@ Without Relizy in the dependencies of the project, use `npx -y relizy@<version> 
 
 The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. The rules of the project are files in the repository, so they are updated by [`relizy mcp update`](./../cli/mcp.md#relizy-mcp-update) (or `relizy mcp init`, which also writes the missing files). When their content is older than the installed Relizy, `get_project` and the instructions of the MCP server tell the agent to propose it, and the CLI prints one line outside the CI.
 
-To update them at each install, add a `prepare` script to the root `package.json` (`relizy init` adds it when you accept the agents step):
+To update them at each install, the root `package.json` runs `relizy mcp update` in its `prepare` script: `relizy mcp init` adds it (except with `--no-prepare`), and `relizy init` asks before adding it. To add it by hand:
 
 ```json
 {

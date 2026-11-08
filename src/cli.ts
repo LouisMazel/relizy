@@ -464,6 +464,7 @@ mcp
   .option('--targets <agents>', 'Comma-separated agents: claude, agents-md, cursor, vscode (default: the detected ones, else claude,agents-md)', parseGroupNames)
   .option('--no-rules', 'Only register the MCP server, without the rules')
   .option('--no-mcp', 'Only write the rules, without the MCP server')
+  .option('--no-prepare', 'Do not add relizy mcp update to the prepare script of the package.json')
   .option('--remove', 'Remove what relizy mcp init added')
   .action(async (options) => {
     try {
@@ -473,6 +474,7 @@ mcp
         targets: options.targets,
         rules: options.rules,
         mcp: options.mcp,
+        prepare: options.prepare,
         remove: options.remove,
         dryRun: program.opts().dryRun,
       })

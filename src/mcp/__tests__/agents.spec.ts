@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { findOutdatedRules, formatAgentsChanges, getDefaultAgentTargets, mcpInit, mcpUpdate, readOwnAgentDocs, RELIZY_AGENTS_TOOL, setupRelizyAgents } from '../agents'
+import { addAgentRulesCommand, findOutdatedRules, formatAgentsChanges, getDefaultAgentTargets, mcpInit, mcpUpdate, readOwnAgentDocs, RELIZY_AGENTS_TOOL, setupPrepareScript, setupRelizyAgents } from '../agents'
 import { readOwnVersion } from '../version'
 import { cleanTempDirs, createTempDir, getBundleDir, writeOutdatedRules } from './helpers'
 
@@ -277,6 +277,27 @@ describe('Given mcpInit', () => {
     })
   })
 
+  describe('When the project has a package.json', () => {
+    it('Then it adds the prepare script with the rules, removes it with them, and keeps it with --no-rules or --no-prepare', () => {
+      writeFileSync(join(cwd, 'package.json'), '{ "name": "lib" }')
+
+      const result = mcpInit({
+        cwd,
+        docsDir: getBundleDir(),
+      })
+
+      expect(result.changes).toContainEqual({ file: 'package.json', action: 'update', reason: 'prepare script: relizy mcp update' })
+      expect(JSON.parse(read('package.json')).scripts).toEqual({ prepare: 'relizy mcp update' })
+
+      mcpInit({ cwd, remove: true, rules: false })
+      mcpInit({ cwd, remove: true, prepare: false })
+      expect(JSON.parse(read('package.json')).scripts).toEqual({ prepare: 'relizy mcp update' })
+
+      mcpInit({ cwd, remove: true })
+      expect(JSON.parse(read('package.json'))).toEqual({ name: 'lib' })
+    })
+  })
+
   describe('When it removes the setup or only registers the server', () => {
     it('Then the hints are not printed', () => {
       vi.mocked(logger.info).mockClear()
@@ -291,6 +312,62 @@ describe('Given mcpInit', () => {
 
       expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('devDependencies'))
       expect(logger.info).not.toHaveBeenCalledWith(expect.stringContaining('Codex'))
+    })
+  })
+})
+
+describe('Given addAgentRulesCommand', () => {
+  describe('When the prepare script is missing, another command or already set up', () => {
+    it('Then it creates it, appends to it, or keeps it', () => {
+      expect(addAgentRulesCommand(undefined)).toBe('relizy mcp update')
+      expect(addAgentRulesCommand('husky')).toBe('husky && relizy mcp update')
+      expect(addAgentRulesCommand('husky && relizy mcp update')).toBeUndefined()
+      expect(addAgentRulesCommand('relizy mcp init')).toBeUndefined()
+    })
+  })
+})
+
+describe('Given setupPrepareScript', () => {
+  describe('When the root package.json has no prepare script', () => {
+    it('Then it adds it, keeping the indentation, and is up to date the second time', () => {
+      writeFileSync(join(cwd, 'package.json'), '{\n    "name": "lib"\n}\n')
+
+      expect(setupPrepareScript({ cwd })).toEqual({ file: 'package.json', action: 'update', reason: 'prepare script: relizy mcp update' })
+      expect(read('package.json')).toBe('{\n    "name": "lib",\n    "scripts": {\n        "prepare": "relizy mcp update"\n    }\n}\n')
+      expect(setupPrepareScript({ cwd })).toEqual({ file: 'package.json', action: 'unchanged', reason: 'prepare script' })
+    })
+  })
+
+  describe('When it removes the command', () => {
+    it('Then it keeps the other commands, and drops the script and the empty scripts', () => {
+      writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+        name: 'lib',
+        scripts: { prepare: 'husky && relizy mcp update', build: 'tsc' },
+      }))
+      expect(setupPrepareScript({ cwd, remove: true })?.action).toBe('update')
+      expect(JSON.parse(read('package.json')).scripts).toEqual({ prepare: 'husky', build: 'tsc' })
+      expect(setupPrepareScript({ cwd, remove: true })).toBeUndefined()
+
+      writeFileSync(join(cwd, 'package.json'), JSON.stringify({
+        name: 'lib',
+        scripts: { prepare: 'relizy mcp update' },
+      }))
+      setupPrepareScript({ cwd, remove: true })
+      expect(JSON.parse(read('package.json'))).toEqual({ name: 'lib' })
+    })
+  })
+
+  describe('When it runs in dry run, without package.json or with an invalid one', () => {
+    it('Then it writes nothing', () => {
+      expect(setupPrepareScript({ cwd })).toBeUndefined()
+
+      writeFileSync(join(cwd, 'package.json'), '{ "name": "lib" }')
+      expect(setupPrepareScript({ cwd, dryRun: true })?.action).toBe('update')
+      expect(read('package.json')).toBe('{ "name": "lib" }')
+
+      writeFileSync(join(cwd, 'package.json'), '{ invalid')
+      expect(setupPrepareScript({ cwd })?.action).toBe('skip')
+      expect(read('package.json')).toBe('{ invalid')
     })
   })
 })

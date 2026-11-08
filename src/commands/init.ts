@@ -887,7 +887,15 @@ async function runInit({ options, detection, configFile, interactive }: {
   // Only offered to the projects that already use an AI agent (CLAUDE.md, AGENTS.md, .cursor...)
   const agentTargets = detectAgentTargets(cwd)
   const withAgents = steps.has('agents') && agentTargets.length > 0 && await ask(interactive, true, () => confirm({
-    message: `Add the relizy MCP server and rules to your AI agents (${agentTargets.join(', ')})? (release preview, commit linting, config reference, kept up to date at each install)`,
+    message: `Add the relizy MCP server and rules to your AI agents (${agentTargets.join(', ')})? (release preview, commit linting, config reference)`,
+    initialValue: true,
+  }))
+
+  const prepareScript = withAgents
+    ? getPrepareScript(detection)
+    : {}
+  const withPrepare = Object.keys(prepareScript).length > 0 && await ask(interactive, true, () => confirm({
+    message: `Keep the agent rules up to date at each install? (adds "relizy mcp update" to the prepare script of the package.json)`,
     initialValue: true,
   }))
 
@@ -956,7 +964,7 @@ async function runInit({ options, detection, configFile, interactive }: {
     scripts: {
       ...(withScripts && scriptsToAdd),
       // keeps the rules of the agents up to date at each install
-      ...(withAgents && getPrepareScript(detection)),
+      ...(withPrepare && prepareScript),
     },
     hook: withHook,
     agents: withAgents
