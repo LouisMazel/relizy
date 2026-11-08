@@ -51,4 +51,4 @@ Lint the commits of the pull request, and the commit of its squash merge, with [
 - **Type:** `'auto' | boolean`
 - **Default:** `'auto'`
 
-Whether the merge squashes the commits of the pull request into one commit, whose message decides the bump. `auto` asks GitHub (auto-merge, merge methods of the repository) or GitLab (squash option of the project and of the merge request), and computes both when only the merge will tell. `true` always squashes, `false` never.
+Whether the merge squashes the commits of the pull request into one commit, whose message decides the bump. `auto` asks GitHub (auto-merge, merge methods of the repository) or GitLab (squash option of the project and of the merge request), and computes both when only the merge will tell. `true` always squashes, `false` never. The problems of the squash commit fail the check only when the merge squashes for sure (`true`, or detected), they are warnings when the merge method is left open.

@@ -294,6 +294,8 @@ function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
     'on:',
     '  pull_request:',
     `    branches: [${options.branch}]`,
+    '    # edited: a new title (the commit of a squash merge) or a new base',
+    '    types: [opened, synchronize, reopened, edited]',
     '',
     '# The last push of the pull request wins',
     'concurrency:',
