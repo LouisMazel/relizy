@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "include": ["/*"],
+  "exclude": [
+    "/assets/*",
+    "/.well-known/*",
+    "/llms.txt",
+    "/llms-full.txt",
+    "/robots.txt",
+    "/sitemap.xml",
+    "/logo.svg",
+    "/relizy-illustration.jpeg",
+    "/social.jpg"
+  ]
+}
