@@ -55,7 +55,7 @@
     "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
   },
   "scripts": {
-    "prepare": "npx husky",
+    "prepare": "npx husky && pnpm relizy mcp update",
     "build": "pnpm generate:agent-docs && unbuild",
     "generate:agent-docs": "tsx scripts/generate-agent-docs.ts",
     "ai:eval": "tsx scripts/ai-eval/run.ts",
