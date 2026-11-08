@@ -52,7 +52,9 @@ vi.mock('../../core', async () => ({
   getSocialChangelog: (await vi.importActual<typeof import('../../core/social')>('../../core/social')).getSocialChangelog,
   ...await vi.importActual<typeof import('../../core/teams')>('../../core/teams'),
   postReleaseToTeams: vi.fn(),
-  resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full' ? undefined : 2500)),
+  resolveSlackPostMaxLength: vi.fn(({ changelogFormat, postMaxLength }: { changelogFormat?: string, postMaxLength?: number }) => postMaxLength ?? (changelogFormat === 'full'
+    ? undefined
+    : 2500)),
   readPackageJson: vi.fn().mockReturnValue({ name: 'test-package' }),
   getReleaseUrl: vi.fn().mockReturnValue('https://example.com/release'),
   extractChangelogSummary: vi.fn().mockReturnValue('Summary of changes'),
@@ -122,8 +124,17 @@ describe('Given socialSafetyCheck function', () => {
       const config = createMockConfig({
         bump: { type: 'prerelease' },
         // Slack and Teams leave out the prereleases by default
-        social: { twitter: { enabled: true, onlyStable: true }, slack: { enabled: true }, teams: { enabled: true } },
-        ai: { onlyStable: false, social: { slack: { enabled: true } } },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: true },
+          teams: { enabled: true },
+        },
+        ai: {
+          onlyStable: false,
+          social: {
+            slack: { enabled: true },
+          },
+        },
       })
 
       await expect(socialSafetyCheck({ config })).resolves.toBeUndefined()
@@ -132,14 +143,30 @@ describe('Given socialSafetyCheck function', () => {
     })
 
     it('Then knows them from the versions announced, in a command run alone', async () => {
-      const config = createMockConfig({ bump: { type: 'release' }, social: { slack: { enabled: true } } })
+      const config = createMockConfig({
+        bump: { type: 'release' },
+        social: {
+          slack: { enabled: true },
+        },
+      })
 
-      await expect(socialSafetyCheck({ config, versions: ['2.0.0-beta.0', '1.3.0-beta.1'] })).resolves.toBeUndefined()
-      await expect(socialSafetyCheck({ config, versions: ['2.0.0-beta.0', '1.3.0'] })).rejects.toThrow('Slack credentials not found')
+      await expect(socialSafetyCheck({
+        config,
+        versions: ['2.0.0-beta.0', '1.3.0-beta.1'],
+      })).resolves.toBeUndefined()
+      await expect(socialSafetyCheck({
+        config,
+        versions: ['2.0.0-beta.0', '1.3.0'],
+      })).rejects.toThrow('Slack credentials not found')
     })
 
     it('Then still checks a platform that announces the prereleases', async () => {
-      const config = createMockConfig({ bump: { type: 'prerelease' }, social: { twitter: { enabled: true, onlyStable: false } } })
+      const config = createMockConfig({
+        bump: { type: 'prerelease' },
+        social: {
+          twitter: { enabled: true, onlyStable: false },
+        },
+      })
 
       await expect(socialSafetyCheck({ config })).rejects.toThrow('Twitter credentials not found')
     })
@@ -149,11 +176,26 @@ describe('Given socialSafetyCheck function', () => {
     it('Then checks nothing', async () => {
       vi.mocked(getSlackToken).mockReturnValue(null)
       vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
-      const config = createMockConfig({ bump: { type: 'patch' }, social: { slack: { enabled: true } } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          slack: { enabled: true },
+        },
+      })
       config.monorepo = {
         groups: [
-          { name: 'main', versionMode: 'selective', packages: ['packages/*'], release: { social: false } },
-          { name: 'tooling', versionMode: 'independent', packages: ['tooling/*'], release: { social: false } },
+          {
+            name: 'main',
+            versionMode: 'selective',
+            packages: ['packages/*'],
+            release: { social: false },
+          },
+          {
+            name: 'tooling',
+            versionMode: 'independent',
+            packages: ['tooling/*'],
+            release: { social: false },
+          },
         ],
       }
 
@@ -185,7 +227,12 @@ describe('Given socialSafetyCheck function', () => {
         bump: { type: 'patch' },
         social: {
           twitter: { enabled: false, onlyStable: true },
-          slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/a/b/c', channel: '#releases' },
+          slack: {
+            enabled: true,
+            onlyStable: true,
+            webhookUrl: 'https://hooks.slack.com/a/b/c',
+            channel: '#releases',
+          },
         },
       })
       vi.mocked(getSlackToken).mockReturnValue(null)
@@ -261,24 +308,44 @@ describe('Given socialSafetyCheck function', () => {
   })
 
   describe('When Teams is enabled', () => {
-    const teamsConfig = (webhookUrl?: string) => createMockConfig({ bump: { type: 'patch' }, social: { twitter: { enabled: false }, slack: { enabled: false }, teams: { enabled: true, webhookUrl } } })
+    const teamsConfig = (webhookUrl?: string) => createMockConfig({
+      bump: { type: 'patch' },
+      social: {
+        twitter: { enabled: false },
+        slack: { enabled: false },
+        teams: { enabled: true, webhookUrl },
+      },
+    })
 
     it('Then throws without the URL of its workflow', async () => {
-      await expect(socialSafetyCheck({ config: teamsConfig() })).rejects.toThrow('Teams webhook URL not found')
+      await expect(socialSafetyCheck({
+        config: teamsConfig(),
+      })).rejects.toThrow('Teams webhook URL not found')
     })
 
     it('Then throws with the URL of a retired Office 365 connector', async () => {
-      await expect(socialSafetyCheck({ config: teamsConfig('https://contoso.webhook.office.com/webhookb2/abc') })).rejects.toThrow(/Office 365 connector/)
+      await expect(socialSafetyCheck({
+        config: teamsConfig('https://contoso.webhook.office.com/webhookb2/abc'),
+      })).rejects.toThrow(/Office 365 connector/)
     })
 
     it('Then passes with the URL of a workflow', async () => {
-      await expect(socialSafetyCheck({ config: teamsConfig('https://example.logic.azure.com/workflows/1?sig=secret') })).resolves.toBeUndefined()
+      await expect(socialSafetyCheck({
+        config: teamsConfig('https://example.logic.azure.com/workflows/1?sig=secret'),
+      })).resolves.toBeUndefined()
     })
   })
 
   describe('When safety check is disabled', () => {
     it('Then returns early without checking', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false, social: { twitter: { enabled: true }, slack: { enabled: true } } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: false,
+        social: {
+          twitter: { enabled: true },
+          slack: { enabled: true },
+        },
+      })
 
       await socialSafetyCheck({ config })
 
@@ -290,7 +357,12 @@ describe('Given socialSafetyCheck function', () => {
 describe('Given social command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' }, social: { twitter: { enabled: false, onlyStable: true } } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      social: {
+        twitter: { enabled: false, onlyStable: true },
+      },
+    })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(postReleaseToTwitter).mockResolvedValue(undefined)
@@ -352,9 +424,14 @@ describe('Given social command', () => {
     })
 
     it('Then applies the safetyCheck option to the config', async () => {
-      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+      }))
 
-      await social({ safetyCheck: false, bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        safetyCheck: false,
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
         overrides: expect.objectContaining({ safetyCheck: false }),
@@ -364,12 +441,15 @@ describe('Given social command', () => {
     it('Then posts to Twitter', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        tokens: { github: 'test-token', twitter: {
-          apiKey: 'key',
-          apiKeySecret: 'secret',
-          accessToken: 'token',
-          accessTokenSecret: 'secret',
-        } },
+        tokens: {
+          github: 'test-token',
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
+        },
         social: {
           twitter: { enabled: true, onlyStable: true },
           slack: { enabled: false, onlyStable: true },
@@ -399,7 +479,12 @@ describe('Given social command', () => {
         tokens: {
           gitlab: undefined,
           github: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: {
+            apiKey: undefined,
+            apiKeySecret: undefined,
+            accessToken: undefined,
+            accessTokenSecret: undefined,
+          },
           slack: 'slack-token',
         },
       })
@@ -446,7 +531,12 @@ describe('Given social command', () => {
 
       expect(postReleaseToTwitter).not.toHaveBeenCalled()
       // Nothing posted: the summary of the release says why
-      expect(result).toEqual({ results: [{ platform: 'twitter', success: true, skipped: 'prerelease' }], hasErrors: false })
+      expect(result).toEqual({
+        results: [
+          { platform: 'twitter', success: true, skipped: 'prerelease' },
+        ],
+        hasErrors: false,
+      })
     })
   })
 
@@ -456,7 +546,10 @@ describe('Given social command', () => {
         release: { social: true },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      await social({ dryRun: true, bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        dryRun: true,
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(executeHook).toHaveBeenCalledWith('before:social', expect.any(Object), true, anyHookContext)
     })
@@ -504,12 +597,25 @@ describe('Given social command', () => {
     })
 
     it('Then runs the error:social hook on an unexpected error, and reports it in the result', async () => {
-      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ release: { social: true }, social: { twitter: { enabled: true }, slack: { enabled: false } } }))
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        release: { social: true },
+        social: {
+          twitter: { enabled: true },
+          slack: { enabled: false },
+        },
+      }))
       vi.mocked(getRootPackage).mockRejectedValue(new Error('Cannot read the root package'))
 
-      const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      const result = await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
-      expect(result).toEqual({ results: [{ platform: 'unknown', success: false, error: 'Cannot read the root package' }], hasErrors: true })
+      expect(result).toEqual({
+        results: [
+          { platform: 'unknown', success: false, error: 'Cannot read the root package' },
+        ],
+        hasErrors: true,
+      })
       expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
     })
 
@@ -519,7 +625,12 @@ describe('Given social command', () => {
         tokens: {
           gitlab: undefined,
           github: undefined,
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
           slack: undefined,
         },
         social: {
@@ -528,12 +639,22 @@ describe('Given social command', () => {
         },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
-      vi.mocked(executeHook).mockImplementation(hook => hook === 'before:twitter' ? Promise.reject(new Error('hook failed')) : Promise.resolve(undefined))
+      vi.mocked(executeHook).mockImplementation(hook => hook === 'before:twitter'
+        ? Promise.reject(new Error('hook failed'))
+        : Promise.resolve(undefined))
 
-      const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      const result = await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(postReleaseToTwitter).not.toHaveBeenCalled()
-      expect(result.results).toEqual([expect.objectContaining({ platform: 'twitter', success: false, error: expect.stringContaining('hook failed') })])
+      expect(result.results).toEqual([
+        expect.objectContaining({
+          platform: 'twitter',
+          success: false,
+          error: expect.stringContaining('hook failed'),
+        }),
+      ])
       expect(executeHook).toHaveBeenCalledWith('error:twitter', expect.any(Object), false, anyHookContext)
     })
   })
@@ -541,7 +662,10 @@ describe('Given social command', () => {
   describe('When in independent mode', () => {
     const independentConfig = () => createMockConfig({
       bump: { type: 'patch' },
-      monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+      monorepo: {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      },
       social: {
         twitter: { enabled: true, onlyStable: true },
         slack: { enabled: true, onlyStable: true, channel: '#releases' },
@@ -572,11 +696,25 @@ describe('Given social command', () => {
     it('Then aggregates a single post covering all packages without touching the root', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
-        makePkg({ name: 'pkg-b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.0.1', fromTag: 'pkg-b@2.0.0' }),
+        makePkg({
+          name: 'pkg-a',
+          version: '1.0.0',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
+        makePkg({
+          name: 'pkg-b',
+          version: '2.0.0',
+          oldVersion: '2.0.0',
+          newVersion: '2.0.1',
+          fromTag: 'pkg-b@2.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       // The root package must never be used to resolve tags/changelog here.
       expect(getRootPackage).not.toHaveBeenCalled()
@@ -593,10 +731,18 @@ describe('Given social command', () => {
     it('Then uses the package tag and release URL for a single-package release', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({
+          name: 'pkg-a',
+          version: '1.0.0',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       expect(getReleaseUrl).toHaveBeenCalledWith(expect.anything(), 'pkg-a@1.0.1')
       expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
@@ -607,11 +753,23 @@ describe('Given social command', () => {
     it('Then announces several packages under the project name, without version nor release URL', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.1.0', fromTag: 'pkg-b@2.0.0' }),
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({
+          name: 'pkg-b',
+          oldVersion: '2.0.0',
+          newVersion: '2.1.0',
+          fromTag: 'pkg-b@2.0.0',
+        }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       expect(getReleaseUrl).not.toHaveBeenCalled()
       expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
@@ -631,11 +789,23 @@ describe('Given social command', () => {
       vi.mocked(isPrerelease).mockReturnValue(true)
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1-beta.0', fromTag: 'pkg-a@1.0.0' }),
-        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1-beta.0', fromTag: 'pkg-b@2.0.0' }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1-beta.0',
+          fromTag: 'pkg-a@1.0.0',
+        }),
+        makePkg({
+          name: 'pkg-b',
+          oldVersion: '2.0.0',
+          newVersion: '2.0.1-beta.0',
+          fromTag: 'pkg-b@2.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       expect(postReleaseToTwitter).not.toHaveBeenCalled()
       expect(postReleaseToSlack).not.toHaveBeenCalled()
@@ -645,11 +815,23 @@ describe('Given social command', () => {
       vi.mocked(isPrerelease).mockImplementation((v?: string) => (v ?? '').includes('-'))
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
-        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1-beta.0', fromTag: 'pkg-b@2.0.0' }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
+        makePkg({
+          name: 'pkg-b',
+          oldVersion: '2.0.0',
+          newVersion: '2.0.1-beta.0',
+          fromTag: 'pkg-b@2.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
       expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
@@ -659,11 +841,23 @@ describe('Given social command', () => {
       const warnSpy = vi.spyOn(logger, 'warn')
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
-        makePkg({ name: 'pkg-b', oldVersion: '2.0.0', newVersion: '2.0.1', fromTag: undefined }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
+        makePkg({
+          name: 'pkg-b',
+          oldVersion: '2.0.0',
+          newVersion: '2.0.1',
+          fromTag: undefined,
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining('pkg-b'))
       // Only the resolvable package yields changelog sections (2 passes) and commits.
@@ -675,10 +869,17 @@ describe('Given social command', () => {
       vi.mocked(generateChangelog).mockResolvedValue('   ')
       vi.mocked(loadRelizyConfig).mockResolvedValue(independentConfig())
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: 'pkg-a@1.0.0' }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: 'pkg-a@1.0.0',
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       // Whitespace-only sections are dropped, leaving an empty aggregated body.
       expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: '' }))
@@ -692,10 +893,17 @@ describe('Given social command', () => {
         { message: 'feat: no hash commit' } as any,
       ])
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        makePkg({ name: 'pkg-a', oldVersion: '1.0.0', newVersion: '1.0.1', fromTag: undefined }),
+        makePkg({
+          name: 'pkg-a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          fromTag: undefined,
+        }),
       ] as any)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] as any } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] as any },
+      })
 
       // config.from resolves the range even though the package has no fromTag.
       expect(getPackageCommits).toHaveBeenCalledWith(expect.objectContaining({ from: 'custom-base' }))
@@ -708,7 +916,12 @@ describe('Given social command', () => {
       bump: { type: 'patch' },
       social: {
         twitter: { enabled: false, onlyStable: true },
-        slack: { enabled: true, onlyStable: true, channel: '#releases', changelog: changelogFormat },
+        slack: {
+          enabled: true,
+          onlyStable: true,
+          channel: '#releases',
+          changelog: changelogFormat,
+        },
       },
       tokens: { slack: 'slack-token' },
     })
@@ -721,7 +934,9 @@ describe('Given social command', () => {
     it('Then posts the minified changelog in summary format (default)', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig())
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
         changelog: '- Feature A',
@@ -733,7 +948,9 @@ describe('Given social command', () => {
     it('Then posts the rich changelog in full format', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig('full'))
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
         changelog: '- Feature A ([#1](https://x/1))\n\n  Body',
@@ -744,7 +961,9 @@ describe('Given social command', () => {
     it.each(['none', false] as const)('Then posts no changelog with %s', async (changelog) => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig(changelog))
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({ changelog: '', changelogFormat: 'summary' }))
     })
@@ -752,7 +971,10 @@ describe('Given social command', () => {
     it('Then lets the slackFormat option override the config', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(slackConfig('summary'))
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] }, slackFormat: 'full' })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+        slackFormat: 'full',
+      })
 
       expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
         changelog: '- Feature A ([#1](https://x/1))\n\n  Body',
@@ -770,15 +992,26 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A\n- Feature B')
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten tweet')
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(generateAISocialChangelog).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -805,13 +1038,19 @@ describe('Given social command', () => {
           slack: { enabled: true, onlyStable: true, channel: '#releases' },
         },
         tokens: { slack: 'slack-token' },
-        ai: { social: { slack: { enabled: true } } },
+        ai: {
+          social: {
+            slack: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten slack message')
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(generateAISocialChangelog).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -830,16 +1069,27 @@ describe('Given social command', () => {
         bump: { type: 'patch' },
         social: {
           twitter: { enabled: false, onlyStable: true },
-          slack: { enabled: true, onlyStable: true, channel: '#releases', changelog: 'full' },
+          slack: {
+            enabled: true,
+            onlyStable: true,
+            channel: '#releases',
+            changelog: 'full',
+          },
         },
         tokens: { slack: 'slack-token' },
-        ai: { social: { slack: { enabled: true } } },
+        ai: {
+          social: {
+            slack: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockImplementation(({ minify }) => Promise.resolve(minify ? '- Feature A' : '- Feature A ([#1](https://x/1))\n\n  Body'))
       vi.mocked(generateAISocialChangelog).mockResolvedValue('AI rewritten slack message')
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(generateAISocialChangelog).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -861,10 +1111,20 @@ describe('Given social command', () => {
           slack: { enabled: true, onlyStable: true, channel: '#releases' },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
           slack: 'slack-token',
         },
-        ai: { social: { twitter: { enabled: true }, slack: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+            slack: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature')
@@ -872,7 +1132,9 @@ describe('Given social command', () => {
         .mockResolvedValueOnce('AI tweet')
         .mockResolvedValueOnce('AI slack')
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(generateAISocialChangelog).toHaveBeenCalledTimes(2)
       expect(generateAISocialChangelog).toHaveBeenCalledWith(
@@ -893,14 +1155,25 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('')
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+      })
 
       expect(generateAISocialChangelog).not.toHaveBeenCalled()
     })
@@ -915,9 +1188,18 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
@@ -942,7 +1224,11 @@ describe('Given social command', () => {
           slack: { enabled: true, channel: '#releases' },
         },
         tokens: { slack: 'slack-token' },
-        ai: { social: { slack: { enabled: true } } },
+        ai: {
+          social: {
+            slack: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
@@ -967,15 +1253,26 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
       vi.mocked(isPrerelease).mockReturnValue(true)
 
-      await social({ bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0-beta.1' } })
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0-beta.1' },
+      })
 
       expect(generateAISocialChangelog).not.toHaveBeenCalled()
       expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: '- Feature A' }))
@@ -989,9 +1286,18 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true, onlyStable: false } } },
+        ai: {
+          social: {
+            twitter: { enabled: true, onlyStable: false },
+          },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(generateChangelog).mockResolvedValue('- Feature A')
@@ -1021,9 +1327,18 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
-        ai: { social: { twitter: { enabled: true } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       vi.mocked(getTwitterCredentials).mockReturnValue({
         apiKey: 'key',
@@ -1040,11 +1355,29 @@ describe('Given social command', () => {
     it('Then does not check the AI provider for a prerelease bump with onlyStable', async () => {
       const config = createMockConfig({
         bump: { type: 'prerelease' },
-        social: { twitter: { enabled: true, onlyStable: true } },
-        tokens: { twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' } },
-        ai: { social: { twitter: { enabled: true } } },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+        },
+        tokens: {
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
+        },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
-      vi.mocked(getTwitterCredentials).mockReturnValue({ apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' })
+      vi.mocked(getTwitterCredentials).mockReturnValue({
+        apiKey: 'key',
+        apiKeySecret: 'secret',
+        accessToken: 'token',
+        accessTokenSecret: 'secret',
+      })
 
       await socialSafetyCheck({ config })
 
@@ -1061,7 +1394,12 @@ describe('Given social command', () => {
           slack: { enabled: false, onlyStable: true },
         },
         tokens: {
-          twitter: { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' },
+          twitter: {
+            apiKey: 'key',
+            apiKeySecret: 'secret',
+            accessToken: 'token',
+            accessTokenSecret: 'secret',
+          },
         },
       })
       vi.mocked(getTwitterCredentials).mockReturnValue({
@@ -1085,7 +1423,12 @@ describe('Given social command', () => {
           twitter: { enabled: false, onlyStable: true },
           slack: { enabled: true, onlyStable: true, webhookUrl: 'https://hooks.slack.com/services/xxx' },
         },
-        ai: { social: { twitter: { enabled: true }, slack: { enabled: false } } },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+            slack: { enabled: false },
+          },
+        },
       })
       vi.mocked(getSlackWebhookUrl).mockReturnValue('https://hooks.slack.com/services/xxx')
 
@@ -1097,9 +1440,33 @@ describe('Given social command', () => {
 })
 
 describe('Given social command with version groups', () => {
-  const mainGroup: GroupBumpResult = { name: 'main', title: 'Maz UI', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
-  const headerGroup: GroupBumpResult = { name: 'header', title: 'Header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
-  const nav = { name: '@scope/nav', version: '1.2.0', oldVersion: '1.2.0', newVersion: '1.3.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
+  const mainGroup: GroupBumpResult = {
+    name: 'main',
+    title: 'Maz UI',
+    versionMode: 'selective',
+    bumped: true,
+    newVersion: '7.0.0',
+    fromTag: 'v6.19.1',
+    bumpedPackages: [],
+  }
+  const headerGroup: GroupBumpResult = {
+    name: 'header',
+    title: 'Header',
+    versionMode: 'independent',
+    bumped: true,
+    bumpedPackages: [],
+  }
+  const nav = {
+    name: '@scope/nav',
+    version: '1.2.0',
+    oldVersion: '1.2.0',
+    newVersion: '1.3.0',
+    path: '/nav',
+    private: false,
+    fromTag: '@scope/nav@1.2.0',
+    commits: [],
+    dependencies: [],
+  }
   let config: ReturnType<typeof createMockConfig>
 
   beforeEach(() => {
@@ -1113,19 +1480,43 @@ describe('Given social command with version groups', () => {
     })
     config.monorepo = {
       groups: [
-        { name: 'main', title: 'Maz UI', versionMode: 'selective', packages: ['packages/*'] },
-        { name: 'header', title: 'Header', versionMode: 'independent', packages: ['shared/*'] },
+        {
+          name: 'main',
+          title: 'Maz UI',
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        {
+          name: 'header',
+          title: 'Header',
+          versionMode: 'independent',
+          packages: ['shared/*'],
+        },
       ],
     }
     vi.mocked(loadRelizyConfig).mockImplementation(options => Promise.resolve(options?.baseConfig ?? config))
     vi.mocked(executeHook).mockResolvedValue(undefined)
-    vi.mocked(getTwitterCredentials).mockReturnValue({ apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' })
+    vi.mocked(getTwitterCredentials).mockReturnValue({
+      apiKey: 'key',
+      apiKeySecret: 'secret',
+      accessToken: 'token',
+      accessTokenSecret: 'secret',
+    })
     vi.mocked(getSlackToken).mockReturnValue('slack-token')
     vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
     // The packages of the independent group
-    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [nav] : []) as any)
+    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent'
+      ? [nav]
+      : []) as any)
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v6.19.1', to: 'v7.0.0' })
-    vi.mocked(getRootPackage).mockResolvedValue({ name: 'root', version: '7.0.0', path: '/root', private: false, fromTag: 'v6.19.1', commits: [] })
+    vi.mocked(getRootPackage).mockResolvedValue({
+      name: 'root',
+      version: '7.0.0',
+      path: '/root',
+      private: false,
+      fromTag: 'v6.19.1',
+      commits: [],
+    })
     vi.mocked(generateChangelog).mockResolvedValue('### 🚀 Features\n\n- **menu:** Add a menu')
     vi.mocked(isPrerelease).mockImplementation((version?: string) => (version ?? '').includes('-'))
     vi.mocked(postReleaseToTwitter).mockResolvedValue(undefined)
@@ -1133,15 +1524,37 @@ describe('Given social command with version groups', () => {
   })
 
   it('Then posts once per platform, with a section per group, and runs the hooks once', async () => {
-    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [headerGroup, mainGroup] } })
+    const result = await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [nav],
+        groups: [headerGroup, mainGroup],
+      },
+    })
 
-    const variables = expect.objectContaining({ releaseTitle: 'New releases of test-package', newVersion: '', packageList: '@scope/nav@1.3.0', releaseUrl: 'https://example.com/release' })
+    const variables = expect.objectContaining({
+      releaseTitle: 'New releases of test-package',
+      newVersion: '',
+      packageList: '@scope/nav@1.3.0',
+      releaseUrl: 'https://example.com/release',
+    })
     expect(postReleaseToTwitter).toHaveBeenCalledTimes(1)
     expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
       variables,
       changelog: [
-        { title: 'Maz UI 7.0.0', highlights: ['menu: Add a menu'] },
-        { title: 'Header', packages: [{ label: '@scope/nav 1.3.0', highlights: ['menu: Add a menu'] }] },
+        {
+          title: 'Maz UI 7.0.0',
+          highlights: ['menu: Add a menu'],
+        },
+        {
+          title: 'Header',
+          packages: [
+            {
+              label: '@scope/nav 1.3.0',
+              highlights: ['menu: Add a menu'],
+            },
+          ],
+        },
       ],
     }))
     expect(postReleaseToSlack).toHaveBeenCalledTimes(1)
@@ -1149,25 +1562,67 @@ describe('Given social command with version groups', () => {
       variables,
       changelog: [
         { title: 'Maz UI 7.0.0', changelog: '### 🚀 Features\n\n- **menu:** Add a menu' },
-        { title: 'Header', packages: [{ name: '@scope/nav', oldVersion: '1.2.0', newVersion: '1.3.0', changelog: '### 🚀 Features\n\n- **menu:** Add a menu' }] },
+        {
+          title: 'Header',
+          packages: [
+            {
+              name: '@scope/nav',
+              oldVersion: '1.2.0',
+              newVersion: '1.3.0',
+              changelog: '### 🚀 Features\n\n- **menu:** Add a menu',
+            },
+          ],
+        },
       ],
-      packages: [{ name: '@scope/nav', oldVersion: '1.2.0', newVersion: '1.3.0', version: '1.3.0', hasTransition: true }],
+      packages: [
+        {
+          name: '@scope/nav',
+          oldVersion: '1.2.0',
+          newVersion: '1.3.0',
+          version: '1.3.0',
+          hasTransition: true,
+        },
+      ],
     }))
     // The release URL links to the release of the unified/selective group
     expect(getReleaseUrl).toHaveBeenCalledWith(expect.anything(), 'v7.0.0')
     // The hooks of a platform get what it posts
     expect(executeHook).toHaveBeenCalledWith('before:twitter', expect.any(Object), false, {
-      bumpResult: expect.objectContaining({ groups: [headerGroup, mainGroup] }),
-      release: expect.objectContaining({ groups: [expect.objectContaining({ title: 'Maz UI' }), expect.objectContaining({ title: 'Header' })] }),
+      bumpResult: expect.objectContaining({
+        groups: [headerGroup, mainGroup],
+      }),
+      release: expect.objectContaining({
+        groups: [
+          expect.objectContaining({ title: 'Maz UI' }),
+          expect.objectContaining({ title: 'Header' }),
+        ],
+      }),
     })
-    for (const hook of ['before:social', 'before:twitter', 'before:slack', 'success:social']) {
+    for (const hook of [
+      'before:social',
+      'before:twitter',
+      'before:slack',
+      'success:social',
+    ]) {
       expect(vi.mocked(executeHook).mock.calls.filter(([name]) => name === hook)).toHaveLength(1)
     }
-    expect(result).toEqual({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true }], hasErrors: false })
+    expect(result).toEqual({
+      results: [
+        { platform: 'twitter', success: true },
+        { platform: 'slack', success: true },
+      ],
+      hasErrors: false,
+    })
   })
 
   it('Then announces a single group as a single version', async () => {
-    await social({ bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup] } })
+    await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [],
+        groups: [mainGroup],
+      },
+    })
 
     expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
       variables: expect.objectContaining({ releaseTitle: 'test-package 7.0.0 is out!', newVersion: '7.0.0' }),
@@ -1176,9 +1631,18 @@ describe('Given social command with version groups', () => {
   })
 
   it('Then leaves out the groups with release.social disabled', async () => {
-    config.monorepo!.groups![1] = { ...config.monorepo!.groups![1]!, release: { social: false } }
+    config.monorepo!.groups![1] = {
+      ...config.monorepo!.groups![1]!,
+      release: { social: false },
+    }
 
-    await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [mainGroup, headerGroup] } })
+    await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [nav],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(getPackagesOrBumpedPackages).not.toHaveBeenCalled()
     expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
@@ -1187,9 +1651,18 @@ describe('Given social command with version groups', () => {
   })
 
   it('Then posts nothing when every group is left out', async () => {
-    config.monorepo!.groups = config.monorepo!.groups!.map(group => ({ ...group, release: { social: false } }))
+    config.monorepo!.groups = config.monorepo!.groups!.map(group => ({
+      ...group,
+      release: { social: false },
+    }))
 
-    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [mainGroup, headerGroup] } })
+    const result = await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [nav],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(postReleaseToTwitter).not.toHaveBeenCalled()
     expect(postReleaseToSlack).not.toHaveBeenCalled()
@@ -1198,9 +1671,17 @@ describe('Given social command with version groups', () => {
 
   it('Then leaves the prereleases out of the posts with onlyStable', async () => {
     const beta = { ...nav, newVersion: '1.3.0-beta.0' }
-    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [beta] : []) as any)
+    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent'
+      ? [beta]
+      : []) as any)
 
-    await social({ bumpResult: { bumped: true, bumpedPackages: [beta], groups: [mainGroup, headerGroup] } })
+    await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [beta],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
       variables: expect.objectContaining({ releaseTitle: 'test-package 7.0.0 is out!', packageList: '' }),
@@ -1209,29 +1690,70 @@ describe('Given social command with version groups', () => {
   })
 
   it('Then rewrites the changelogs of every group in one AI call per platform', async () => {
-    config.ai = { ...config.ai, social: { twitter: { enabled: true }, slack: { enabled: true } } }
-    vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([['1', 'A brand new menu'], ['2', 'Menus everywhere']]))
+    config.ai = {
+      ...config.ai,
+      social: {
+        twitter: { enabled: true },
+        slack: { enabled: true },
+      },
+    }
+    vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([
+      ['1', 'A brand new menu'],
+      ['2', 'Menus everywhere'],
+    ]))
 
-    await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [mainGroup, headerGroup] } })
+    await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [nav],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(generateAISocialReleases).toHaveBeenCalledTimes(2)
     expect(generateAISocialReleases).toHaveBeenCalledWith(expect.objectContaining({
       platform: 'twitter',
       releases: [
-        { id: '1', title: 'Maz UI 7.0.0', body: '### 🚀 Features\n\n- **menu:** Add a menu', highlights: 3 },
-        { id: '2', title: '@scope/nav 1.3.0', body: '### 🚀 Features\n\n- **menu:** Add a menu', highlights: 1 },
+        {
+          id: '1',
+          title: 'Maz UI 7.0.0',
+          body: '### 🚀 Features\n\n- **menu:** Add a menu',
+          highlights: 3,
+        },
+        {
+          id: '2',
+          title: '@scope/nav 1.3.0',
+          body: '### 🚀 Features\n\n- **menu:** Add a menu',
+          highlights: 1,
+        },
       ],
     }))
     expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
       changelog: [
-        { title: 'Maz UI 7.0.0', highlights: ['A brand new menu'] },
-        { title: 'Header', packages: [{ label: '@scope/nav 1.3.0', highlights: ['Menus everywhere'] }] },
+        {
+          title: 'Maz UI 7.0.0',
+          highlights: ['A brand new menu'],
+        },
+        {
+          title: 'Header',
+          packages: [
+            {
+              label: '@scope/nav 1.3.0',
+              highlights: ['Menus everywhere'],
+            },
+          ],
+        },
       ],
     }))
     expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
       changelog: [
         { title: 'Maz UI 7.0.0', changelog: 'A brand new menu' },
-        { title: 'Header', packages: [expect.objectContaining({ changelog: 'Menus everywhere' })] },
+        {
+          title: 'Header',
+          packages: [
+            expect.objectContaining({ changelog: 'Menus everywhere' }),
+          ],
+        },
       ],
     }))
     expect(generateAISocialChangelog).not.toHaveBeenCalled()
@@ -1239,22 +1761,46 @@ describe('Given social command with version groups', () => {
 
   it('Then sends only the stable versions of a post to the AI, the prereleases keep their raw changelog', async () => {
     const beta = { ...nav, newVersion: '1.3.0-beta.0' }
-    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [beta] : []) as any)
+    vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent'
+      ? [beta]
+      : []) as any)
     config.social.twitter.enabled = false
     config.social.slack.onlyStable = false
-    config.ai = { ...config.ai, social: { slack: { enabled: true } } }
-    vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([['1', 'A brand new menu']]))
+    config.ai = {
+      ...config.ai,
+      social: {
+        slack: { enabled: true },
+      },
+    }
+    vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([
+      ['1', 'A brand new menu'],
+    ]))
 
-    await social({ bumpResult: { bumped: true, bumpedPackages: [beta], groups: [mainGroup, headerGroup] } })
+    await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [beta],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(generateAISocialReleases).toHaveBeenCalledWith(expect.objectContaining({
       platform: 'slack',
-      releases: [{ id: '1', title: 'Maz UI 7.0.0', body: '### 🚀 Features\n\n- **menu:** Add a menu' }],
+      releases: [
+        { id: '1', title: 'Maz UI 7.0.0', body: '### 🚀 Features\n\n- **menu:** Add a menu' },
+      ],
     }))
     expect(postReleaseToSlack).toHaveBeenCalledWith(expect.objectContaining({
       changelog: [
         { title: 'Maz UI 7.0.0', changelog: 'A brand new menu' },
-        { title: 'Header', packages: [expect.objectContaining({ changelog: expect.stringContaining('Add a menu') })] },
+        {
+          title: 'Header',
+          packages: [
+            expect.objectContaining({
+              changelog: expect.stringContaining('Add a menu'),
+            }),
+          ],
+        },
       ],
     }))
   })
@@ -1262,7 +1808,13 @@ describe('Given social command with version groups', () => {
   it('Then reports the errors of a platform', async () => {
     vi.mocked(postReleaseToSlack).mockRejectedValueOnce(new Error('Slack is down'))
 
-    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [nav], groups: [mainGroup, headerGroup] } })
+    const result = await social({
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [nav],
+        groups: [mainGroup, headerGroup],
+      },
+    })
 
     expect(result.hasErrors).toBe(true)
     expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
@@ -1272,7 +1824,13 @@ describe('Given social command with version groups', () => {
     const releaseNotes = { title: '📖 Release notes', url: 'https://example.com/release' }
     const rootChangelog = { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/v7.0.0/CHANGELOG.md' }
     const navChangelog = { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/%40scope/nav%401.3.0/shared/nav/CHANGELOG.md' }
-    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...nav, path: '/repo/shared/nav' }], groups: [mainGroup, headerGroup] }
+    const bumpResult = {
+      bumped: true as const,
+      bumpedPackages: [
+        { ...nav, path: '/repo/shared/nav' },
+      ],
+      groups: [mainGroup, headerGroup],
+    }
 
     beforeEach(() => {
       config.cwd = '/repo'
@@ -1280,9 +1838,19 @@ describe('Given social command with version groups', () => {
       config.social = {
         twitter: { enabled: false },
         slack: { enabled: false },
-        teams: { enabled: true, webhookUrl: 'https://example.logic.azure.com/workflows/1?sig=secret', onlyStable: true, cards: 'version', changelog: 'none' },
+        teams: {
+          enabled: true,
+          webhookUrl: 'https://example.logic.azure.com/workflows/1?sig=secret',
+          onlyStable: true,
+          cards: 'version',
+          changelog: 'none',
+        },
       } as unknown as typeof config.social
-      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [{ ...nav, path: '/repo/shared/nav' }] : []) as any)
+      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent'
+        ? [
+            { ...nav, path: '/repo/shared/nav' },
+          ]
+        : []) as any)
       vi.mocked(postReleaseToTeams).mockResolvedValue({ posted: 1 })
     })
 
@@ -1292,14 +1860,43 @@ describe('Given social command with version groups', () => {
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
         webhookUrl: 'https://example.logic.azure.com/workflows/1?sig=secret',
         cards: [
-          { sections: [{ title: 'Maz UI 7.0.0', message: 'A new version of **Maz UI** is available.', version: '7.0.0', changelog: '', links: [releaseNotes, rootChangelog], groupTitle: 'Maz UI', prerelease: false }] },
-          { sections: [{ title: '@scope/nav 1.3.0', message: 'A new version of **@scope/nav** is available.', version: '1.3.0', changelog: '', links: [releaseNotes, navChangelog], groupTitle: 'Header', prerelease: false }] },
+          {
+            sections: [
+              {
+                title: 'Maz UI 7.0.0',
+                message: 'A new version of **Maz UI** is available.',
+                version: '7.0.0',
+                changelog: '',
+                links: [releaseNotes, rootChangelog],
+                groupTitle: 'Maz UI',
+                prerelease: false,
+              },
+            ],
+          },
+          {
+            sections: [
+              {
+                title: '@scope/nav 1.3.0',
+                message: 'A new version of **@scope/nav** is available.',
+                version: '1.3.0',
+                changelog: '',
+                links: [releaseNotes, navChangelog],
+                groupTitle: 'Header',
+                prerelease: false,
+              },
+            ],
+          },
         ],
       }))
       for (const hook of ['before:teams', 'success:teams']) {
         expect(vi.mocked(executeHook).mock.calls.filter(([name]) => name === hook)).toHaveLength(1)
       }
-      expect(result).toEqual({ results: [{ platform: 'teams', success: true }], hasErrors: false })
+      expect(result).toEqual({
+        results: [
+          { platform: 'teams', success: true },
+        ],
+        hasErrors: false,
+      })
     })
 
     it('Then announces only the versions of the announcements, a package entry over its group entry', async () => {
@@ -1307,7 +1904,13 @@ describe('Given social command with version groups', () => {
         ...config.social.teams,
         title: '{{name}} v{{newVersion}}',
         announcements: [
-          { group: 'header', message: 'Shared component of {{groupTitle}}', links: [{ title: '🎨 Storybook', url: 'https://{{shortName}}.example.com/' }] },
+          {
+            group: 'header',
+            message: 'Shared component of {{groupTitle}}',
+            links: [
+              { title: '🎨 Storybook', url: 'https://{{shortName}}.example.com/' },
+            ],
+          },
           { package: '@scope/nav', title: '🧭 Navigation {{newVersion}}', changelogUrl: false },
         ],
       }
@@ -1315,21 +1918,41 @@ describe('Given social command with version groups', () => {
       await social({ bumpResult })
 
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
-        cards: [{ sections: [expect.objectContaining({
-          title: '🧭 Navigation 1.3.0',
-          message: 'Shared component of Header',
-          links: [releaseNotes, { title: '🎨 Storybook', url: 'https://nav.example.com/' }],
-        })] }],
+        cards: [
+          {
+            sections: [
+              expect.objectContaining({
+                title: '🧭 Navigation 1.3.0',
+                message: 'Shared component of Header',
+                links: [
+                  releaseNotes,
+                  { title: '🎨 Storybook', url: 'https://nav.example.com/' },
+                ],
+              }),
+            ],
+          },
+        ],
       }))
     })
 
     it('Then never announces the excluded versions, and posts nothing when none is left', async () => {
-      config.social.teams = { ...config.social.teams, exclude: { groups: ['main'], packages: ['@scope/*'] } }
+      config.social.teams = {
+        ...config.social.teams,
+        exclude: {
+          groups: ['main'],
+          packages: ['@scope/*'],
+        },
+      }
 
       const result = await social({ bumpResult })
 
       expect(postReleaseToTeams).not.toHaveBeenCalled()
-      expect(result).toEqual({ results: [{ platform: 'teams', success: true, skipped: 'nothing to announce' }], hasErrors: false })
+      expect(result).toEqual({
+        results: [
+          { platform: 'teams', success: true, skipped: 'nothing to announce' },
+        ],
+        hasErrors: false,
+      })
     })
 
     it('Then posts one card for the release with cards: release, with the summary of each changelog', async () => {
@@ -1338,13 +1961,15 @@ describe('Given social command with version groups', () => {
       await social({ bumpResult })
 
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
-        cards: [{
-          title: 'New releases of test-package',
-          sections: [
-            expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
-            expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
-          ],
-        }],
+        cards: [
+          {
+            title: 'New releases of test-package',
+            sections: [
+              expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
+              expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- **menu:** Add a menu' }),
+            ],
+          },
+        ],
       }))
     })
 
@@ -1356,24 +1981,48 @@ describe('Given social command with version groups', () => {
 
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
         cards: [
-          { sections: [expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' })] },
-          { sections: [expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' })] },
+          {
+            sections: [
+              expect.objectContaining({ title: 'Maz UI 7.0.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' }),
+            ],
+          },
+          {
+            sections: [
+              expect.objectContaining({ title: '@scope/nav 1.3.0', changelog: '**🚀 Features**\n\n- Add a menu\n\n  With its body' }),
+            ],
+          },
         ],
       }))
     })
 
     it('Then rewrites the changelogs with the AI in a single call', async () => {
       config.social.teams = { ...config.social.teams, changelog: 'summary' }
-      config.ai = { ...config.ai, social: { teams: { enabled: true } } }
-      vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([['1', '- A brand new menu'], ['2', '- Menus everywhere']]))
+      config.ai = {
+        ...config.ai,
+        social: {
+          teams: { enabled: true },
+        },
+      }
+      vi.mocked(generateAISocialReleases).mockResolvedValue(new Map([
+        ['1', '- A brand new menu'],
+        ['2', '- Menus everywhere'],
+      ]))
 
       await social({ bumpResult })
 
       expect(generateAISocialReleases).toHaveBeenCalledWith(expect.objectContaining({ platform: 'teams' }))
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
         cards: [
-          { sections: [expect.objectContaining({ changelog: '- A brand new menu' })] },
-          { sections: [expect.objectContaining({ changelog: '- Menus everywhere' })] },
+          {
+            sections: [
+              expect.objectContaining({ changelog: '- A brand new menu' }),
+            ],
+          },
+          {
+            sections: [
+              expect.objectContaining({ changelog: '- Menus everywhere' }),
+            ],
+          },
         ],
       }))
     })
@@ -1383,35 +2032,72 @@ describe('Given social command with version groups', () => {
 
       const result = await social({ bumpResult })
 
-      expect(result).toEqual({ results: [{ platform: 'teams', success: false, error: 'Error posting to Teams: Teams workflow failed: 404 Not Found' }], hasErrors: true })
+      expect(result).toEqual({
+        results: [
+          { platform: 'teams', success: false, error: 'Error posting to Teams: Teams workflow failed: 404 Not Found' },
+        ],
+        hasErrors: true,
+      })
       expect(executeHook).toHaveBeenCalledWith('error:teams', expect.any(Object), false, anyHookContext)
       expect(executeHook).toHaveBeenCalledWith('error:social', expect.any(Object), false, anyHookContext)
     })
 
     it('Then leaves out the prereleases with onlyStable', async () => {
-      await social({ bumpResult: { ...bumpResult, groups: [{ ...mainGroup, newVersion: '7.0.0-beta.0' }, headerGroup] } })
+      await social({
+        bumpResult: {
+          ...bumpResult,
+          groups: [
+            { ...mainGroup, newVersion: '7.0.0-beta.0' },
+            headerGroup,
+          ],
+        },
+      })
 
       expect(postReleaseToTeams).toHaveBeenCalledWith(expect.objectContaining({
-        cards: [{ sections: [expect.objectContaining({ title: '@scope/nav 1.3.0' })] }],
+        cards: [
+          {
+            sections: [
+              expect.objectContaining({ title: '@scope/nav 1.3.0' }),
+            ],
+          },
+        ],
       }))
     })
   })
 
   describe('When Slack and Twitter choose the versions they announce', () => {
-    const bumpResult = { bumped: true as const, bumpedPackages: [{ ...nav, path: '/repo/shared/nav' }], groups: [mainGroup, headerGroup] }
+    const bumpResult = {
+      bumped: true as const,
+      bumpedPackages: [
+        { ...nav, path: '/repo/shared/nav' },
+      ],
+      groups: [mainGroup, headerGroup],
+    }
     const changelog = '### 🚀 Features\n\n- **menu:** Add a menu'
 
     beforeEach(() => {
       config.cwd = '/repo'
       config.repo = { provider: 'github', domain: 'github.com', repo: 'owner/repo' }
-      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent' ? [{ ...nav, path: '/repo/shared/nav' }] : []) as any)
+      vi.mocked(getPackagesOrBumpedPackages).mockImplementation(({ config: groupConfig }) => Promise.resolve(groupConfig.monorepo?.versionMode === 'independent'
+        ? [
+            { ...nav, path: '/repo/shared/nav' },
+          ]
+        : []) as any)
     })
 
     it('Then posts on Slack the versions of the announcements, with their title, message and links', async () => {
       config.social.slack = {
         ...config.social.slack,
         announcements: [
-          { group: 'main', title: 'Maz UI library', message: 'Version **{{newVersion}}** of {{name}}', changelogUrl: false, links: [{ title: '🎨 Storybook', url: 'https://storybook.example.com/' }] },
+          {
+            group: 'main',
+            title: 'Maz UI library',
+            message: 'Version **{{newVersion}}** of {{name}}',
+            changelogUrl: false,
+            links: [
+              { title: '🎨 Storybook', url: 'https://storybook.example.com/' },
+            ],
+          },
           { package: '@scope/nav', title: 'Navigation' },
         ],
       }
@@ -1423,27 +2109,45 @@ describe('Given social command with version groups', () => {
           {
             title: 'Maz UI library 7.0.0',
             message: 'Version **7.0.0** of Maz UI',
-            links: [{ title: '📖 Release notes', url: 'https://example.com/release' }, { title: '🎨 Storybook', url: 'https://storybook.example.com/' }],
+            links: [
+              { title: '📖 Release notes', url: 'https://example.com/release' },
+              { title: '🎨 Storybook', url: 'https://storybook.example.com/' },
+            ],
             changelog,
           },
           {
             title: 'Header',
-            packages: [{
-              name: '@scope/nav',
-              title: 'Navigation',
-              message: undefined,
-              links: [{ title: '📖 Release notes', url: 'https://example.com/release' }, { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/%40scope/nav%401.3.0/shared/nav/CHANGELOG.md' }],
-              oldVersion: '1.2.0',
-              newVersion: '1.3.0',
-              changelog,
-            }],
+            packages: [
+              {
+                name: '@scope/nav',
+                title: 'Navigation',
+                message: undefined,
+                links: [
+                  { title: '📖 Release notes', url: 'https://example.com/release' },
+                  { title: '📝 Changelog', url: 'https://github.com/owner/repo/blob/%40scope/nav%401.3.0/shared/nav/CHANGELOG.md' },
+                ],
+                oldVersion: '1.2.0',
+                newVersion: '1.3.0',
+                changelog,
+              },
+            ],
           },
         ],
       }))
     })
 
     it('Then announces a single version on Slack with its title in the header, its message and its links', async () => {
-      config.social.slack = { ...config.social.slack, announcements: [{ group: 'main', title: 'Maz UI library', message: 'Out now', changelogUrl: false }] }
+      config.social.slack = {
+        ...config.social.slack,
+        announcements: [
+          {
+            group: 'main',
+            title: 'Maz UI library',
+            message: 'Out now',
+            changelogUrl: false,
+          },
+        ],
+      }
 
       await social({ bumpResult })
 
@@ -1451,15 +2155,33 @@ describe('Given social command with version groups', () => {
         variables: expect.objectContaining({ releaseTitle: 'Maz UI library 7.0.0 is out!', newVersion: '7.0.0' }),
         changelog,
         packages: [],
-        announcement: { message: 'Out now', links: [{ title: '📖 Release notes', url: 'https://example.com/release' }] },
+        announcement: {
+          message: 'Out now',
+          links: [
+            { title: '📖 Release notes', url: 'https://example.com/release' },
+          ],
+        },
       }))
       // Twitter announces every version
-      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({ changelog: expect.any(Array) }))
+      expect(postReleaseToTwitter).toHaveBeenCalledWith(expect.objectContaining({
+        changelog: expect.any(Array),
+      }))
     })
 
     it('Then leaves out the versions of exclude on Slack and Twitter, and skips a platform with none left', async () => {
-      config.social.slack = { ...config.social.slack, exclude: { groups: ['main'], packages: ['@scope/*'] } }
-      config.social.twitter = { ...config.social.twitter, exclude: { packages: ['@scope/nav'] } }
+      config.social.slack = {
+        ...config.social.slack,
+        exclude: {
+          groups: ['main'],
+          packages: ['@scope/*'],
+        },
+      }
+      config.social.twitter = {
+        ...config.social.twitter,
+        exclude: {
+          packages: ['@scope/nav'],
+        },
+      }
 
       const result = await social({ bumpResult })
 
@@ -1468,13 +2190,24 @@ describe('Given social command with version groups', () => {
         variables: expect.objectContaining({ releaseTitle: 'test-package 7.0.0 is out!', packageList: '' }),
         changelog,
       }))
-      expect(result).toEqual({ results: [{ platform: 'twitter', success: true }, { platform: 'slack', success: true, skipped: 'nothing to announce' }], hasErrors: false })
+      expect(result).toEqual({
+        results: [
+          { platform: 'twitter', success: true },
+          { platform: 'slack', success: true, skipped: 'nothing to announce' },
+        ],
+        hasErrors: false,
+      })
     })
   })
 })
 
 describe('Given the output of social in CI', () => {
-  const twitter = { apiKey: 'key', apiKeySecret: 'secret', accessToken: 'token', accessTokenSecret: 'secret' }
+  const twitter = {
+    apiKey: 'key',
+    apiKeySecret: 'secret',
+    accessToken: 'token',
+    accessTokenSecret: 'secret',
+  }
   let output: ReturnType<typeof captureCliOutput>
 
   beforeEach(() => {
@@ -1483,10 +2216,20 @@ describe('Given the output of social in CI', () => {
       bump: { type: 'patch' },
       safetyCheck: false,
       tokens: { twitter, slack: 'slack-token' },
-      social: { twitter: { enabled: true, onlyStable: true }, slack: { enabled: true, onlyStable: true, channel: '#releases' } },
+      social: {
+        twitter: { enabled: true, onlyStable: true },
+        slack: { enabled: true, onlyStable: true, channel: '#releases' },
+      },
     }))
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
-    vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', path: '/root', private: false, fromTag: 'v0.9.0', commits: [] })
+    vi.mocked(getRootPackage).mockResolvedValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+      fromTag: 'v0.9.0',
+      commits: [],
+    })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(generateChangelog).mockResolvedValue('- Feature')
     vi.mocked(isPrerelease).mockReturnValue(false)
@@ -1494,7 +2237,9 @@ describe('Given the output of social in CI', () => {
     vi.mocked(getSlackToken).mockReturnValue('slack-token')
     vi.mocked(getSlackWebhookUrl).mockReturnValue(null)
     vi.mocked(collectContributorNames).mockReturnValue([])
-    vi.mocked(postReleaseToTwitter).mockResolvedValue({ data: { id: '123', text: 'tweet' } } as never)
+    vi.mocked(postReleaseToTwitter).mockResolvedValue({
+      data: { id: '123', text: 'tweet' },
+    } as never)
     vi.mocked(postReleaseToSlack).mockResolvedValue(undefined)
     output = captureCliOutput()
   })
@@ -1504,7 +2249,9 @@ describe('Given the output of social in CI', () => {
   })
 
   it('Then tells the platforms it posted on, with the link of the tweet', async () => {
-    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+    const result = await social({
+      bumpResult: { bumped: true, bumpedPackages: [] },
+    })
 
     expect(result.results).toEqual([
       { platform: 'twitter', success: true, url: 'https://x.com/i/web/status/123' },
@@ -1521,7 +2268,9 @@ describe('Given the output of social in CI', () => {
   it('Then marks a failed post without failing the command', async () => {
     vi.mocked(postReleaseToSlack).mockRejectedValue(new Error('channel_not_found'))
 
-    const result = await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+    const result = await social({
+      bumpResult: { bumped: true, bumpedPackages: [] },
+    })
 
     expect(result.hasErrors).toBe(true)
     expect(output.lines()).toEqual(expect.arrayContaining([
@@ -1534,7 +2283,9 @@ describe('Given the output of social in CI', () => {
     vi.mocked(postReleaseToTwitter).mockRejectedValue(new Error('down'))
     vi.mocked(postReleaseToSlack).mockRejectedValue(new Error('down'))
 
-    await social({ bumpResult: { bumped: true, bumpedPackages: [] } })
+    await social({
+      bumpResult: { bumped: true, bumpedPackages: [] },
+    })
 
     expect(output.lines().at(-1)).toMatch(/^▲ twitter, slack failed {2}\d+ms$/)
   })

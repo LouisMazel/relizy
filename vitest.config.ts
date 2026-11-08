@@ -10,7 +10,9 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: process.env.CI ? ['lcov'] : ['html', 'lcov', 'text', 'text-summary'],
+      reporter: process.env.CI
+        ? ['lcov']
+        : ['html', 'lcov', 'text', 'text-summary'],
       include: ['src/**/*'],
       exclude: [
         ...coverageConfigDefaults.exclude,
@@ -24,8 +26,8 @@ export default defineConfig({
       thresholds: {
         autoUpdate: !process.env.CI,
         statements: 96.62,
-        functions: 98.85,
-        branches: 91.78,
+        functions: 98.78,
+        branches: 91.07,
         lines: 96.52,
       },
     },

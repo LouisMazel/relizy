@@ -67,7 +67,10 @@ function makePackage(name: string, directory: string) {
 
 function makeCommit(description: string, nameStatus: string[], text = ''): GitCommit {
   return createMockCommit('feat', `feat: ${description}`, {
-    body: `\n${[text, nameStatus.join('\n')].filter(Boolean).join('\n\n')}\n`,
+    body: `\n${[
+      text,
+      nameStatus.join('\n'),
+    ].filter(Boolean).join('\n\n')}\n`,
     description,
   })
 }
@@ -76,7 +79,10 @@ async function commitsOf(pkg: ReturnType<typeof makePackage>) {
   const config = createMockConfig({
     cwd: MOCK_CWD,
     bump: { type: 'release' },
-    monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+    monorepo: {
+      versionMode: 'independent',
+      packages: ['packages/*'],
+    },
   })
 
   const commits = await getPackageCommits({

@@ -27,12 +27,24 @@ import { determineReleaseType, getPackageNewVersion } from './version'
 function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackages?: Record<string, string>): string | null {
   const relativePath = relative(cwd, packagePath).split(sep).join('/')
   const previousPaths = relativePath
-    ? getPreviousPackagePaths({ packagePath: relativePath, commits: getPackageJsonHistory(relativePath, cwd), movedPackages, cwd })
+    ? getPreviousPackagePaths({
+        packagePath: relativePath,
+        commits: getPackageJsonHistory(relativePath, cwd),
+        movedPackages,
+        cwd,
+      })
     : []
 
   try {
     // Get the oldest commit that touched this package directory
-    const hash = runGitSync(['log', '--reverse', '--format=%H', '--', relativePath, ...previousPaths], { cwd }).split('\n')[0]?.trim()
+    const hash = runGitSync([
+      'log',
+      '--reverse',
+      '--format=%H',
+      '--',
+      relativePath,
+      ...previousPaths,
+    ], { cwd }).split('\n')[0]?.trim()
 
     if (hash) {
       logger.debug(`First commit for package at ${relativePath}: ${hash.slice(0, 8)}`)
@@ -52,7 +64,12 @@ function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackag
  */
 function getCommitParentHash(hash: string, cwd: string): string | null {
   try {
-    const parent = runGitSync(['rev-parse', '--verify', '--quiet', `${hash}^`], { cwd })
+    const parent = runGitSync([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      `${hash}^`,
+    ], { cwd })
 
     return parent || null
   }
@@ -131,17 +148,22 @@ function globDirsAbsolute(cwd: string, globs?: string[]): Set<string> {
 }
 
 /**
- * Relative POSIX paths of every package ignored by config (`monorepo.ignored`)
+ * Relative POSIX paths of the packages released by a monorepo config: those of
+ * `monorepo.packages` with a version, except the `monorepo.ignored` ones and the
+ * private ones left out by `monorepo.privatePackages`. The root is not one of them.
  */
-export function resolveIgnoredPackagePaths(config: ResolvedRelizyConfig): string[] {
-  const cwd = config.cwd
-  const paths = new Set<string>()
+export function resolveReleasedPackagePaths(config: ResolvedRelizyConfig): string[] {
+  const packages = readPackages({
+    cwd: config.cwd,
+    patterns: config.monorepo?.packages,
+    ignored: config.monorepo?.ignored,
+    privatePackages: getPrivatePackagesMode(config),
+  })
 
-  for (const absolutePath of globDirsAbsolute(cwd, config.monorepo?.ignored)) {
-    paths.add(relative(cwd, absolutePath).split(sep).join('/'))
-  }
-
-  return [...paths].filter(Boolean)
+  return packages
+    .filter(pkg => pkg.version)
+    .map(pkg => relative(config.cwd, pkg.path).split(sep).join('/'))
+    .filter(Boolean)
 }
 
 /**
@@ -165,10 +187,6 @@ function isUnderPath(file: string, directory: string): boolean {
   return file === directory || file.startsWith(`${directory}/`)
 }
 
-function isUnderIgnoredPath(file: string, ignoredPaths: string[]): boolean {
-  return ignoredPaths.some(ignored => isUnderPath(file, ignored))
-}
-
 /**
  * True when the commit changes a file of the package directory (POSIX, relative
  * to the repository). Both paths of a rename or a copy count, so a file moved
@@ -181,25 +199,6 @@ export function isCommitInPackage(commit: GitCommit, packageRelativePath: string
   const directories = [packageRelativePath, ...previousPaths]
 
   return getNameStatusPaths(commit).some(paths => paths.some(file => directories.some(directory => isUnderPath(file, directory))))
-}
-
-/**
- * True when EVERY changed file of the commit lives inside an ignored package.
- * Such commits are excluded from the root (unified/selective) version bump and
- * changelog so a breaking change scoped to an ignored package never bumps the
- * whole repository. Commits with no detectable files are kept (fail-open).
- */
-export function isCommitOnlyInIgnoredPackages(commit: GitCommit, ignoredPaths: string[]): boolean {
-  if (ignoredPaths.length === 0) {
-    return false
-  }
-
-  const files = getCommitChangedFiles(commit)
-  if (files.length === 0) {
-    return false
-  }
-
-  return files.every(file => isUnderIgnoredPath(file, ignoredPaths))
 }
 
 export interface RootPackage extends ReadPackage {
@@ -289,7 +288,9 @@ export async function getRootPackage({
 export function getPrivatePackagesMode(config: { monorepo?: MonorepoConfig }): PrivatePackages {
   const isStandalone = !config.monorepo?.packages?.length && !config.monorepo?.groups?.length
 
-  return isStandalone ? 'release' : config.monorepo?.privatePackages ?? 'ignore'
+  return isStandalone
+    ? 'release'
+    : config.monorepo?.privatePackages ?? 'ignore'
 }
 
 export function readPackages({
@@ -447,7 +448,10 @@ export async function getPackages({
 
       const dependencies = getPackageDependencies({
         packagePath: matchPath,
-        allPackageNames: new Set([...readedPackages.map(p => p.name), ...(externalBumps?.keys() ?? [])]),
+        allPackageNames: new Set([
+          ...readedPackages.map(p => p.name),
+          ...(externalBumps?.keys() ?? []),
+        ]),
         dependencyTypes: config.bump?.dependencyTypes,
       })
 
@@ -457,17 +461,28 @@ export async function getPackages({
         fromTag: from,
         dependencies,
         commits,
-        reason: commits.length > 0 ? 'commits' : undefined,
+        reason: commits.length > 0
+          ? 'commits'
+          : undefined,
         dependencyChain: undefined,
         newVersion: undefined,
       })
     }
   }
 
-  planPackages({ packages, externalBumps, config, force, suffix, newVersionOverride })
+  planPackages({
+    packages,
+    externalBumps,
+    config,
+    force,
+    suffix,
+    newVersionOverride,
+  })
 
   const allPackages = Array.from(packages.values())
-  const packagesToBump = includeAll ? allPackages : allPackages.filter(p => p.reason || force)
+  const packagesToBump = includeAll
+    ? allPackages
+    : allPackages.filter(p => p.reason || force)
 
   if (packagesToBump.length === 0) {
     logger.debug('No packages to bump')
@@ -567,24 +582,49 @@ export async function getPackageCommits({
   const isRootPackage = pkg.path === changelogConfig.cwd || pkg.name === rootPackage.name
 
   const movedPackages = changelogConfig.monorepo?.movedPackages
-  const getPreviousPaths = (packagePath: string) => getPreviousPackagePaths({ packagePath, commits: rawCommits, movedPackages, cwd: changelogConfig.cwd })
-
-  // Paths of ignored packages (and their former directories), resolved once for the root filter below.
-  const ignoredPackagePaths = isRootPackage
-    ? resolveIgnoredPackagePaths(changelogConfig).flatMap(path => [path, ...getPreviousPaths(path)])
-    : []
+  const getPreviousPaths = (packagePath: string) => getPreviousPackagePaths({
+    packagePath,
+    commits: rawCommits,
+    movedPackages,
+    cwd: changelogConfig.cwd,
+  })
 
   const packageRelativePath = relative(changelogConfig.cwd, pkg.path).split(sep).join('/')
-  // The commits of the former directories of a moved package belong to it
-  const previousPaths = isRootPackage ? [] : getPreviousPaths(packageRelativePath)
 
-  if (previousPaths.length > 0) {
-    logger.debug(`${pkg.name} was moved from ${previousPaths.join(', ')}: their commits belong to it`)
+  // The root of a monorepo gets the commits of its released packages only: a
+  // commit changing no package (CI, scripts, an ignored or private app) releases
+  // nothing. The root of a single package project gets every commit.
+  const isMonorepoRoot = isRootPackage && !!changelogConfig.monorepo?.packages?.length
+  const directories = isRootPackage
+    ? isMonorepoRoot
+      ? resolveReleasedPackagePaths(changelogConfig).map(path => ({
+          path,
+          previousPaths: getPreviousPaths(path),
+        }))
+      : []
+    : [
+        {
+          path: packageRelativePath,
+          // The commits of the former directories of a moved package belong to it
+          previousPaths: getPreviousPaths(packageRelativePath),
+        },
+      ]
+
+  for (const { path, previousPaths } of directories) {
+    if (previousPaths.length > 0) {
+      logger.debug(`${path} was moved from ${previousPaths.join(', ')}: their commits belong to it`)
+    }
   }
 
-  if (!isRootPackage) {
+  if (directories.length > 0) {
     // The catalogs changed by the commits, read at once
-    prefetchCatalogChanges({ commits: allCommits.map(commit => ({ hash: commit.shortHash, files: getCommitChangedFiles(commit) })), cwd: changelogConfig.cwd })
+    prefetchCatalogChanges({
+      commits: allCommits.map(commit => ({
+        hash: commit.shortHash,
+        files: getCommitChangedFiles(commit),
+      })),
+      cwd: changelogConfig.cwd,
+    })
   }
 
   const commits = allCommits.filter((commit) => {
@@ -594,27 +634,33 @@ export async function getPackageCommits({
       return false
     }
 
-    // The root package represents the whole repository: it must include every
-    // allowed commit, including those that only touch root-level files
-    // (CI config, lockfile, build scripts…) and do not match any sub-package path.
-    if (isRootPackage) {
-      // …except commits whose changes live entirely inside an ignored package:
-      // those are released on their own and must not bump/changelog the root.
-      if (isCommitOnlyInIgnoredPackages(commit, ignoredPackagePaths)) {
-        logger.debug(`Commit "${commit.message}" only touches ignored packages, excluded from root`)
-        return false
-      }
+    if (isRootPackage && !isMonorepoRoot) {
       return true
     }
 
-    if (isCommitInPackage(commit, packageRelativePath, previousPaths)) {
+    if (directories.some(({ path, previousPaths }) => isCommitInPackage(commit, path, previousPaths))) {
       return true
     }
 
     // A commit changing an entry of a catalog (`catalog:` dependencies) changes the packages using it
-    const catalogChanges = getCommitCatalogChanges({ hash: commit.shortHash, files: getCommitChangedFiles(commit), cwd: changelogConfig.cwd })
+    const catalogChanges = getCommitCatalogChanges({
+      hash: commit.shortHash,
+      files: getCommitChangedFiles(commit),
+      cwd: changelogConfig.cwd,
+    })
 
-    return referencesCatalogEntries({ hash: commit.shortHash, packageRelativePath, entries: catalogChanges, cwd: changelogConfig.cwd })
+    const isInPackages = directories.some(({ path }) => referencesCatalogEntries({
+      hash: commit.shortHash,
+      packageRelativePath: path,
+      entries: catalogChanges,
+      cwd: changelogConfig.cwd,
+    }))
+
+    if (!isInPackages && isRootPackage) {
+      logger.debug(`Commit "${commit.message}" changes no released package, excluded from root`)
+    }
+
+    return isInPackages
   })
 
   logger.debug(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)

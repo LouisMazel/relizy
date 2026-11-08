@@ -75,7 +75,7 @@ The section lists the authors of the commits and their co-authors (`Co-authored-
 | Mode                    | Package changelogs                        | Root `CHANGELOG.md`                                                                   |
 | ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- |
 | Standalone              | -                                         | The changelog of the package                                                          |
-| `unified` / `selective` | One per released package, its own commits | Every commit of the release, except the ones only in ignored packages                 |
+| `unified` / `selective` | One per released package, its own commits | The commits of the released packages                                                  |
 | `independent`           | One per released package, its own commits | The sections of the released packages, under `**Multiple Packages Updated** - <date>` |
 
 [`changelog.rootChangelog: false`](./../config/changelog.md#rootchangelog) (or `--no-root-changelog`) skips the root `CHANGELOG.md` of a monorepo. With [version groups](./version-groups.md), each group writes its changelogs, and `changelog.rootChangelog: false` on a group keeps it out of the root one.

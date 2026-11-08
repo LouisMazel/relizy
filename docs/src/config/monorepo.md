@@ -75,7 +75,7 @@ The options without a group field (`privatePackages`, `movedPackages`) apply to 
 
 Glob patterns of package directories to leave out, matched as [`packages`](#packages). An ignored package is not bumped, has no changelog, is not published, gets no provider release and is not listed in the PR comment.
 
-In `unified` and `selective` mode, a commit whose changed files are all inside ignored packages does not count for the root version nor the root changelog: keep the changes of an ignored package in their own commits, so a breaking change there does not bump the whole repository.
+In `unified` and `selective` mode, the root version and the root changelog come from the commits of the released packages: a commit changing only ignored packages, private packages left out by [`privatePackages`](#privatepackages) or files outside every package (CI, scripts) does not count. Keep the changes of an ignored package in their own commits: a commit also changing a released package counts, a breaking change included.
 
 ## privatePackages
 

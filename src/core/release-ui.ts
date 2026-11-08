@@ -42,7 +42,14 @@ interface CapturedLog {
 interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
 
 const VERBOSE_LEVELS = new Set(['verbose', 'debug', 'trace'])
-const INFO_TYPES = new Set(['info', 'start', 'log', 'success', 'ready', 'box'])
+const INFO_TYPES = new Set([
+  'info',
+  'start',
+  'log',
+  'success',
+  'ready',
+  'box',
+])
 const ERROR_TYPES = new Set(['error', 'fail', 'fatal'])
 
 /**
@@ -54,7 +61,9 @@ function paint(format: Parameters<typeof styleText>[0], text: string): string {
     return styleText(format, text)
   }
 
-  return process.env.NO_COLOR ? text : styleText(format, text, { validateStream: false })
+  return process.env.NO_COLOR
+    ? text
+    : styleText(format, text, { validateStream: false })
 }
 
 const dim = (text: string) => paint('dim', text)
@@ -63,11 +72,19 @@ const dim = (text: string) => paint('dim', text)
  * The icon and the styled text of an entry of the summary of a release
  */
 function formatSummaryEntry({ value, status }: ReleaseSummaryEntry): { icon: string, text: string } {
-  const icons = { done: paint('green', '✔'), skipped: dim('○'), failed: paint('yellow', '▲') }
+  const icons = {
+    done: paint('green', '✔'),
+    skipped: dim('○'),
+    failed: paint('yellow', '▲'),
+  }
 
   return {
     icon: status ? icons[status] : ' ',
-    text: status === 'skipped' ? dim(value) : status === 'failed' ? paint('yellow', value) : value,
+    text: status === 'skipped'
+      ? dim(value)
+      : status === 'failed'
+        ? paint('yellow', value)
+        : value,
   }
 }
 const bold = (text: string) => paint('bold', text)
@@ -92,7 +109,9 @@ const SUMMARY_MAX_LINKS = 3
 
 function formatLinks(links: { url: string }[] = []): string[] {
   const urls = links.slice(0, SUMMARY_MAX_LINKS).map(({ url }) => url)
-  return links.length > SUMMARY_MAX_LINKS ? [...urls, `and ${links.length - SUMMARY_MAX_LINKS} more`] : urls
+  return links.length > SUMMARY_MAX_LINKS
+    ? [...urls, `and ${links.length - SUMMARY_MAX_LINKS} more`]
+    : urls
 }
 
 /**
@@ -129,7 +148,11 @@ function shimmer(text: string, frame: number): string {
 
   return chars.map((char, index) => {
     const distance = Math.abs(index - center)
-    return paint(distance <= 1 ? ['whiteBright', 'bold'] : distance <= 3 ? 'magentaBright' : 'magenta', char)
+    return paint(distance <= 1
+      ? ['whiteBright', 'bold']
+      : distance <= 3
+        ? 'magentaBright'
+        : 'magenta', char)
   }).join('')
 }
 
@@ -167,7 +190,9 @@ function resolveRenderer(): Renderer {
     return 'classic'
   }
 
-  return isInCI() || !process.stdout.isTTY ? 'ci' : 'pretty'
+  return isInCI() || !process.stdout.isTTY
+    ? 'ci'
+    : 'pretty'
 }
 
 export function isFancyUi(): boolean {
@@ -198,6 +223,18 @@ export interface ReleaseStep<T> {
   run: () => Promise<T>
 }
 
+/**
+ * A box of the end of a command: a title and its lines (`note()` of clack)
+ */
+export interface CommandNote {
+  title: string
+  lines: string[]
+  /** Lines shown dimmed, after the others */
+  footer?: string[]
+  /** The title in red: what fails */
+  failed?: boolean
+}
+
 export interface CommandOutcome {
   /**
    * What the command did: `Bumped relizy 1.14.4-beta.0 → 2.0.0`
@@ -211,6 +248,14 @@ export interface CommandOutcome {
    * Nothing was done because it failed (every post failed)
    */
   failed?: boolean
+  /**
+   * Boxes shown before the end, before the details
+   */
+  notes?: CommandNote[]
+  /**
+   * Shown before the end, after the notes
+   */
+  warnings?: string[]
   /**
    * Lines shown before the end
    */
@@ -277,7 +322,9 @@ let activeUi: StepUi | undefined
 
 function setActiveUi(ui: StepUi | undefined): void {
   activeUi = ui
-  setBumpConfirmation(ui ? packages => confirmBumpInReleaseUi({ packages }) : undefined)
+  setBumpConfirmation(ui
+    ? packages => confirmBumpInReleaseUi({ packages })
+    : undefined)
   setProgressHandlers(ui
     ? {
         progress: (message, options) => ui.showProgress(message, options),
@@ -386,7 +433,9 @@ abstract class StepUi implements ReleaseUi {
   /** The warnings of the step, on one line each */
   protected takeWarnings(): string[] {
     const warnings = this.logs.filter(({ type }) => type === 'warn').map(({ message }) => message.split('\n')[0]!.replace(/:$/, ''))
-    return [...new Set(warnings)]
+    return [
+      ...new Set(warnings),
+    ]
   }
 
   async step<T>(step: ReleaseStep<T>): Promise<T> {
@@ -432,21 +481,37 @@ abstract class StepUi implements ReleaseUi {
   /** What a dry run generated, shown under the result of the step (in full in the log file) */
   preview(preview: Preview): void {
     this.previews.push(preview)
-    this.writeLogFile([`[preview] ${preview.title}`, ...preview.meta ?? [], preview.content].join('\n'))
+    this.writeLogFile([
+      `[preview] ${preview.title}`,
+      ...preview.meta ?? [],
+      preview.content,
+    ].join('\n'))
   }
 
   /** The lines of a preview: its facts, then its content, cut unless verbose */
   protected getPreviewLines(preview: Preview): { lines: string[], hidden: number } {
     const content = preview.content.trim().split('\n')
-    const shown = this.options.verbose ? content : content.slice(0, PREVIEW_MAX_LINES)
-    const meta = preview.meta?.length ? [...preview.meta, ''] : []
+    const shown = this.options.verbose
+      ? content
+      : content.slice(0, PREVIEW_MAX_LINES)
+    const meta = preview.meta?.length
+      ? [...preview.meta, '']
+      : []
 
-    return { lines: [...meta, ...shown], hidden: content.length - shown.length }
+    return {
+      lines: [
+        ...meta,
+        ...shown,
+      ],
+      hidden: content.length - shown.length,
+    }
   }
 
   /** The error, once: what went wrong, how to go on, where the full log is */
   protected describeError(error: unknown): string[] {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error
+      ? error.message
+      : String(error)
 
     return [
       ...message.split('\n').filter(line => line.trim()).slice(0, 6).map(line => line.trim()),
@@ -499,7 +564,9 @@ class PrettyUi extends StepUi {
       ? `${AI_SYMBOL} ${shimmer(this.current.message, this.frame)}`
       : this.current?.message ?? this.currentStep
     const seconds = dim(`${Math.floor(elapsed / 1000)}s`)
-    this.spin?.message(elapsed < 2000 ? text : `${text}  ${seconds}`)
+    this.spin?.message(elapsed < 2000
+      ? text
+      : `${text}  ${seconds}`)
   }
 
   progress(message: string, options: ProgressOptions): void {
@@ -509,15 +576,25 @@ class PrettyUi extends StepUi {
 
   private printNotes(): void {
     for (const { message, ai } of this.notes) {
-      log.message(ai ? paint('magenta', message) : dim(message), { symbol: ai ? AI_SYMBOL : dim('·') })
+      log.message(ai
+        ? paint('magenta', message)
+        : dim(message), {
+        symbol: ai
+          ? AI_SYMBOL
+          : dim('·'),
+      })
     }
   }
 
   private printPreviews(): void {
     for (const preview of this.previews) {
       const { lines, hidden } = this.getPreviewLines(preview)
-      const metaCount = preview.meta?.length ? preview.meta.length + 1 : 0
-      const styled = lines.map((line, index) => index < metaCount ? dim(line) : styleMarkdown(line))
+      const metaCount = preview.meta?.length
+        ? preview.meta.length + 1
+        : 0
+      const styled = lines.map((line, index) => index < metaCount
+        ? dim(line)
+        : styleMarkdown(line))
 
       if (hidden > 0) {
         styled.push('', dim(`… ${hidden} more lines (--log-level verbose, or ${this.logFilePath})`))
@@ -536,7 +613,10 @@ class PrettyUi extends StepUi {
     }
 
     if (report.dryRun) {
-      entries.push({ label: 'For real', value: getRealCommand() })
+      entries.push({
+        label: 'For real',
+        value: getRealCommand(),
+      })
     }
 
     const width = Math.max(...entries.map(({ label }) => label.length))
@@ -545,10 +625,14 @@ class PrettyUi extends StepUi {
       const { label, links } = entry
       const { icon, text } = formatSummaryEntry(entry)
       // Under the value when it fits, else under the label
-      const urls = formatLinks(links).map(url => `${' '.repeat(width + url.length + 14 <= columns ? width + 4 : 2)}${paint('cyan', url)}`)
+      const urls = formatLinks(links).map(url => `${' '.repeat(width + url.length + 14 <= columns
+        ? width + 4
+        : 2)}${paint('cyan', url)}`)
       return [`${icon} ${dim(label.padEnd(width))}  ${text}`, ...urls]
     })
-    const title = report.dryRun ? `Summary  ${dryRunBadge()}` : 'Summary'
+    const title = report.dryRun
+      ? `Summary  ${dryRunBadge()}`
+      : 'Summary'
 
     note(lines.join('\n'), bold(title))
   }
@@ -556,7 +640,9 @@ class PrettyUi extends StepUi {
   protected onStart(title: string): void {
     // Apart from the command typed, or the line of the package manager running the script
     process.stdout.write('\n')
-    intro(this.options.dryRun ? `${bold(title)}  ${dryRunBadge()} ${dim('nothing will be written')}` : bold(title))
+    intro(this.options.dryRun
+      ? `${bold(title)}  ${dryRunBadge()} ${dim('nothing will be written')}`
+      : bold(title))
   }
 
   protected onLog(): void {
@@ -583,7 +669,9 @@ class PrettyUi extends StepUi {
   }
 
   protected onStepDone<T>(step: ReleaseStep<T>, result: T, duration: string): void {
-    const dryRunTag = this.options.dryRun ? `  ${DRY_RUN_TAG}` : ''
+    const dryRunTag = this.options.dryRun
+      ? `  ${DRY_RUN_TAG}`
+      : ''
     const text = `${step.done(result)}  ${dim(duration)}${dryRunTag}`
     this.stopTicker()
 
@@ -624,7 +712,9 @@ class PrettyUi extends StepUi {
   }
 
   skip({ label, reason }: { label: string, reason: string }): void {
-    log.message(dim(`${label} skipped (${reason})`), { symbol: dim('○') })
+    log.message(dim(`${label} skipped (${reason})`), {
+      symbol: dim('○'),
+    })
   }
 
   async prompt<T>(run: () => Promise<T>): Promise<T> {
@@ -648,7 +738,26 @@ class PrettyUi extends StepUi {
     }
   }
 
-  complete({ message, nothing, failed, details = [], links = [] }: CommandOutcome): void {
+  complete({ message, nothing, failed, notes = [], warnings = [], details = [], links = [] }: CommandOutcome): void {
+    for (const { title, lines, footer = [], failed: noteFailed } of notes) {
+      const footerLines = footer.length > 0
+        ? [
+            '',
+            ...footer.map(line => dim(line)),
+          ]
+        : []
+      note([
+        ...lines,
+        ...footerLines,
+      ].join('\n'), noteFailed
+        ? paint(['red', 'bold'], title)
+        : bold(title))
+    }
+
+    for (const warning of warnings) {
+      log.warn(warning)
+    }
+
     if (details.length > 0) {
       log.message(details.join('\n'))
     }
@@ -698,7 +807,9 @@ class PrettyUi extends StepUi {
     if (report) {
       this.printSummary(report)
     }
-    outro(paint('red', error instanceof RelizyCancelError ? error.message : 'Release failed'))
+    outro(paint('red', error instanceof RelizyCancelError
+      ? error.message
+      : 'Release failed'))
   }
 }
 
@@ -711,23 +822,38 @@ class CiUi extends StepUi {
     // In the group of the step, with the logs
     if (message !== this.lastProgress) {
       this.lastProgress = message
-      this.write(`  ${ai ? AI_SYMBOL : dim('›')} ${ai ? paint('magenta', message) : message}`)
+      this.write(`  ${ai
+        ? AI_SYMBOL
+        : dim('›')} ${ai
+        ? paint('magenta', message)
+        : message}`)
     }
   }
 
   private writeNotes(): void {
     for (const { message, ai } of this.notes) {
-      this.write(`  ${ai ? AI_SYMBOL : dim('·')} ${ai ? paint('magenta', message) : dim(message)}`)
+      this.write(`  ${ai
+        ? AI_SYMBOL
+        : dim('·')} ${ai
+        ? paint('magenta', message)
+        : dim(message)}`)
     }
   }
 
   /** Each preview in its own collapsible group, in full */
   private writePreviews(): void {
     for (const preview of this.previews) {
-      const lines = [...preview.meta?.length ? [...preview.meta, ''] : [], ...preview.content.trim().split('\n')]
+      const lines = [
+        ...preview.meta?.length
+          ? [...preview.meta, '']
+          : [],
+        ...preview.content.trim().split('\n'),
+      ]
       this.startGroup(`Preview: ${preview.title}`)
       for (const line of lines) {
-        this.write(line ? `  ${styleMarkdown(line)}` : '')
+        this.write(line
+          ? `  ${styleMarkdown(line)}`
+          : '')
       }
       this.endGroup()
     }
@@ -749,7 +875,9 @@ class CiUi extends StepUi {
 
   /** The mark of the end: the dry run badge, else a check */
   private endSymbol(): string {
-    return this.options.dryRun ? dryRunBadge() : paint('green', '✔')
+    return this.options.dryRun
+      ? dryRunBadge()
+      : paint('green', '✔')
   }
 
   private write(line: string): void {
@@ -757,8 +885,12 @@ class CiUi extends StepUi {
   }
 
   protected onStart(title: string): void {
-    const provider = dim(`· ${this.provider === 'other' ? 'ci' : this.provider}`)
-    const dryRun = this.options.dryRun ? `  ${dryRunBadge()} ${dim('nothing will be written')}` : ''
+    const provider = dim(`· ${this.provider === 'other'
+      ? 'ci'
+      : this.provider}`)
+    const dryRun = this.options.dryRun
+      ? `  ${dryRunBadge()} ${dim('nothing will be written')}`
+      : ''
     this.write(`${bold(title)} ${provider}${dryRun}`)
   }
 
@@ -766,7 +898,9 @@ class CiUi extends StepUi {
     // The logs of the step go in its collapsible group
     if (INFO_TYPES.has(type) || type === 'warn' || ERROR_TYPES.has(type)) {
       for (const line of message.split('\n')) {
-        this.write(line ? `  ${line}` : '')
+        this.write(line
+          ? `  ${line}`
+          : '')
       }
     }
   }
@@ -801,17 +935,25 @@ class CiUi extends StepUi {
 
   private writeWarnings(): void {
     for (const warning of this.takeWarnings()) {
-      this.write(this.provider === 'github' ? `::warning title=relizy::${warning}` : paint('yellow', `▲ ${warning}`))
+      this.write(this.provider === 'github'
+        ? `::warning title=relizy::${warning}`
+        : paint('yellow', `▲ ${warning}`))
     }
   }
 
   protected onStepDone<T>(step: ReleaseStep<T>, result: T, duration: string): void {
     this.endGroup()
     // After the group, so that it stays visible when the group is collapsed
-    const dryRunTag = this.options.dryRun ? `  ${DRY_RUN_TAG}` : ''
+    const dryRunTag = this.options.dryRun
+      ? `  ${DRY_RUN_TAG}`
+      : ''
     const failed = step.failed?.(result)
-    const icon = failed ? paint('yellow', '▲') : paint('green', '✔')
-    const text = failed ? paint('yellow', step.done(result)) : step.done(result)
+    const icon = failed
+      ? paint('yellow', '▲')
+      : paint('green', '✔')
+    const text = failed
+      ? paint('yellow', step.done(result))
+      : step.done(result)
     this.write(`${icon} ${text}  ${dim(duration)}${dryRunTag}`)
 
     for (const detail of step.details?.(result) ?? []) {
@@ -841,7 +983,25 @@ class CiUi extends StepUi {
     return run()
   }
 
-  complete({ message, nothing, failed, details = [], links = [] }: CommandOutcome): void {
+  complete({ message, nothing, failed, notes = [], warnings = [], details = [], links = [] }: CommandOutcome): void {
+    for (const { title, lines, footer = [], failed: noteFailed } of notes) {
+      this.write(noteFailed
+        ? paint(['red', 'bold'], title)
+        : bold(title))
+      for (const line of lines) {
+        this.write(`  ${line}`)
+      }
+      for (const line of footer) {
+        this.write(`  ${dim(line)}`)
+      }
+    }
+
+    for (const warning of warnings) {
+      this.write(this.provider === 'github'
+        ? `::warning title=relizy::${warning}`
+        : paint('yellow', `▲ ${warning}`))
+    }
+
     for (const line of details) {
       this.write(`  ${line}`)
     }
@@ -857,8 +1017,12 @@ class CiUi extends StepUi {
       return
     }
 
-    const text = `${message}${this.options.dryRun && !nothing ? ', nothing was written' : ''}`
-    this.write(nothing ? `${dim('○')} ${text}  ${duration}` : `${this.endSymbol()} ${bold(text)}  ${duration}`)
+    const text = `${message}${this.options.dryRun && !nothing
+      ? ', nothing was written'
+      : ''}`
+    this.write(nothing
+      ? `${dim('○')} ${text}  ${duration}`
+      : `${this.endSymbol()} ${bold(text)}  ${duration}`)
 
     if (this.provider === 'github' && !nothing) {
       this.write(`::notice title=relizy::${text}`)
@@ -874,7 +1038,9 @@ class CiUi extends StepUi {
       : `${report.dryRun ? 'Simulated release of' : 'Released'} ${getReleaseName(report)}${report.dryRun ? ', nothing was written' : ''}`
 
     this.writeSummary(report)
-    this.write(report.status === 'nothing' ? `${dim('○')} ${message}  ${duration}` : `${this.endSymbol()} ${bold(message)}  ${duration}`)
+    this.write(report.status === 'nothing'
+      ? `${dim('○')} ${message}  ${duration}`
+      : `${this.endSymbol()} ${bold(message)}  ${duration}`)
 
     if (this.provider === 'github' && report.status !== 'nothing') {
       this.write(`::notice title=relizy::${message}`)
@@ -919,13 +1085,19 @@ export function createCommandUi({ title, dryRun, logLevel, cwd }: { title: strin
 
 function createReleaseUi({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
   const renderer = resolveRenderer()
-  const options = { dryRun, verbose: VERBOSE_LEVELS.has(logLevel ?? ''), cwd }
+  const options = {
+    dryRun,
+    verbose: VERBOSE_LEVELS.has(logLevel ?? ''),
+    cwd,
+  }
 
   if (renderer === 'pretty') {
     return new PrettyUi(options)
   }
 
-  return renderer === 'ci' ? new CiUi(options) : createClassicUi()
+  return renderer === 'ci'
+    ? new CiUi(options)
+    : createClassicUi()
 }
 
 /** The commits of a type, in plain words: singular and plural */
@@ -948,7 +1120,9 @@ function describeReason(pkg: PackageBase & { oldVersion?: string }): string {
   const preid = semver.prerelease(oldVersion)?.[0]
 
   if (pkg.reason === 'graduation' || (preid !== undefined && pkg.newVersion && !semver.prerelease(pkg.newVersion))) {
-    return `stable release of the ${typeof preid === 'string' ? preid : 'prerelease'}`
+    return `stable release of the ${typeof preid === 'string'
+      ? preid
+      : 'prerelease'}`
   }
 
   if (pkg.breakingPeerDependency) {
@@ -959,37 +1133,69 @@ function describeReason(pkg: PackageBase & { oldVersion?: string }): string {
     const outOfRange = pkg.outOfRangeDependency
 
     return outOfRange
-      ? `follows ${outOfRange.name} (${outOfRange.field === 'peerDependencies' ? 'peer range' : 'range'})`
+      ? `follows ${outOfRange.name} (${outOfRange.field === 'peerDependencies'
+        ? 'peer range'
+        : 'range'})`
       : `follows ${pkg.dependencyChain?.[0] ?? 'a dependency'}`
   }
 
+  return describeCommitCounts(pkg.commits ?? []) || 'forced'
+}
+
+/**
+ * The commits of a package in plain words, by type: `1 feature, 2 fixes`
+ */
+export function describeCommitCounts(commits: { type: string, isBreaking: boolean }[]): string {
   const counts = new Map<string, number>()
-  for (const commit of pkg.commits ?? []) {
+  for (const commit of commits) {
     const type = commit.isBreaking ? 'breaking' : commit.type
     counts.set(type, (counts.get(type) ?? 0) + 1)
   }
 
   return [...counts].map(([type, count]) => {
     const [one, many] = COMMIT_TYPE_WORDS[type] ?? [`${type} commit`, `${type} commits`]
-    return `${count} ${count === 1 ? one : many}`
-  }).join(', ') || 'forced'
+    return `${count} ${count === 1
+      ? one
+      : many}`
+  }).join(', ')
+}
+
+/** A package of a release, as shown in the terminal */
+export interface PackageRow {
+  name: string
+  oldVersion: string
+  newVersion: string
+  /** Why it is released, in plain words */
+  reason: string
+}
+
+/**
+ * Packages of a release, one per line with aligned columns: name, versions and why
+ */
+export function formatPackageRows(rows: PackageRow[]): string[] {
+  const nameWidth = Math.min(32, Math.max(...rows.map(row => row.name.length)))
+  const oldWidth = Math.max(...rows.map(row => row.oldVersion.length))
+  const newWidth = Math.max(...rows.map(row => row.newVersion.length))
+
+  return rows.map(row => [
+    bold(row.name.padEnd(nameWidth)),
+    dim(row.oldVersion.padStart(oldWidth)),
+    dim('→'),
+    paint(['green', 'bold'], row.newVersion.padEnd(newWidth)),
+    dim(row.reason),
+  ].join('  '))
 }
 
 /**
  * The packages of a bump, one per line: name, versions and why
  */
 export function describeBumpedPackages(packages: (PackageBase & { oldVersion?: string })[]): string[] {
-  const nameWidth = Math.min(32, Math.max(...packages.map(pkg => pkg.name.length)))
-  const oldWidth = Math.max(...packages.map(pkg => (pkg.oldVersion ?? pkg.version).length))
-  const newWidth = Math.max(...packages.map(pkg => (pkg.newVersion ?? pkg.version).length))
-
-  return packages.map(pkg => [
-    bold(pkg.name.padEnd(nameWidth)),
-    dim((pkg.oldVersion ?? pkg.version).padStart(oldWidth)),
-    dim('→'),
-    paint(['green', 'bold'], (pkg.newVersion ?? pkg.version).padEnd(newWidth)),
-    dim(describeReason(pkg)),
-  ].join('  '))
+  return formatPackageRows(packages.map(pkg => ({
+    name: pkg.name,
+    oldVersion: pkg.oldVersion ?? pkg.version,
+    newVersion: pkg.newVersion ?? pkg.version,
+    reason: describeReason(pkg),
+  })))
 }
 
 /**
@@ -1001,14 +1207,18 @@ export function describeBumpResult(result: BumpResult): string {
   }
 
   const count = result.bumpedPackages.length
-  return count === 1 ? describeBumpedPackages(result.bumpedPackages)[0]! : `${count} packages to release`
+  return count === 1
+    ? describeBumpedPackages(result.bumpedPackages)[0]!
+    : `${count} packages to release`
 }
 
 /**
  * The packages of a bump of several packages, when not listed by the confirmation
  */
 export function getBumpResultDetails(result: BumpResult, yes: boolean | undefined): string[] {
-  return result.bumped && result.bumpedPackages.length > 1 && yes ? describeBumpedPackages(result.bumpedPackages) : []
+  return result.bumped && result.bumpedPackages.length > 1 && yes
+    ? describeBumpedPackages(result.bumpedPackages)
+    : []
 }
 
 /**
@@ -1024,14 +1234,22 @@ export function confirmBumpInReleaseUi({ packages }: { packages: (PackageBase & 
 
   return ui.prompt(async () => {
     // `relizy release` releases, `relizy bump` bumps
-    const action = ui.command === 'bump' ? 'Bump' : 'Release'
-    const count = packages.length === 1 ? '' : ` · ${packages.length} packages`
+    const action = ui.command === 'bump'
+      ? 'Bump'
+      : 'Release'
+    const count = packages.length === 1
+      ? ''
+      : ` · ${packages.length} packages`
     const title = `${action} plan${count}${ui.isDryRun ? ' · DRY RUN' : ''}`
     note(describeBumpedPackages(packages).join('\n'), title)
 
-    const versions = packages.length === 1 ? 'this version' : `these ${packages.length} versions`
+    const versions = packages.length === 1
+      ? 'this version'
+      : `these ${packages.length} versions`
     assertInteractivePrompt({ message: `${action} ${versions}?`, whenNotInteractive: BUMP_NOT_INTERACTIVE })
-    const dryRunNote = ui.isDryRun ? `  ${dryRunBadge()} ${dim('nothing will be written')}` : ''
+    const dryRunNote = ui.isDryRun
+      ? `  ${dryRunBadge()} ${dim('nothing will be written')}`
+      : ''
     const answer = await promptConfirm({ message: `${action} ${versions}?${dryRunNote}`, active: action, inactive: 'Cancel' })
 
     // Refused or cancelled: nothing is written

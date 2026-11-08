@@ -11,7 +11,16 @@ import { commitlint } from '../commitlint'
 vi.mock('@maz-ui/node', importActual => importActual())
 
 /** Variables of the CI running these tests, which change the output of the command */
-const CI_VARIABLES = ['GITHUB_BASE_REF', 'GITHUB_EVENT_PATH', 'GITHUB_ACTIONS', 'GITLAB_CI', 'CI_MERGE_REQUEST_TITLE', 'CI_MERGE_REQUEST_DIFF_BASE_SHA', 'FORCE_COLOR', 'NO_COLOR']
+const CI_VARIABLES = [
+  'GITHUB_BASE_REF',
+  'GITHUB_EVENT_PATH',
+  'GITHUB_ACTIONS',
+  'GITLAB_CI',
+  'CI_MERGE_REQUEST_TITLE',
+  'CI_MERGE_REQUEST_DIFF_BASE_SHA',
+  'FORCE_COLOR',
+  'NO_COLOR',
+]
 
 describe('Given commitlint command', () => {
   let cwd: string
@@ -26,11 +35,17 @@ describe('Given commitlint command', () => {
   function createConfig(overrides: Parameters<typeof createMockConfig>[0] = {}) {
     return createMockConfig({
       cwd,
-      monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+      monorepo: {
+        versionMode: 'selective',
+        packages: ['packages/*'],
+      },
       templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' },
       ...overrides,
       // Off by default, the examples of these tests use it
-      commitlint: { ...overrides.commitlint, rules: { 'subject-case': 'error', ...overrides.commitlint?.rules } },
+      commitlint: {
+        ...overrides.commitlint,
+        rules: { 'subject-case': 'error', ...overrides.commitlint?.rules },
+      },
     })
   }
 
@@ -62,14 +77,19 @@ describe('Given commitlint command', () => {
 
   describe('When linting a message', () => {
     it('Then prints one line for a valid message', async () => {
-      const result = await commitlint({ message: 'feat(nuxt): add the module options', config: createConfig() })
+      const result = await commitlint({
+        message: 'feat(nuxt): add the module options',
+        config: createConfig(),
+      })
 
       expect(result).toEqual(expect.objectContaining({ errorCount: 0, warningCount: 0 }))
       expect(output).toEqual(['✔ feat(nuxt) → minor bump, 🚀 Enhancements'])
     })
 
     it('Then prints the problems, the summary and the help url of an invalid message', async () => {
-      const config = createConfig({ commitlint: { helpUrl: 'https://example.com/commits' } })
+      const config = createConfig({
+        commitlint: { helpUrl: 'https://example.com/commits' },
+      })
       const result = await commitlint({ message: 'feat(unknown): Add the module options.', config })
 
       expect(result).toEqual(expect.objectContaining({ errorCount: 3, warningCount: 0 }))
@@ -96,7 +116,11 @@ describe('Given commitlint command', () => {
     })
 
     it('Then prints the changelog entry with --preview', async () => {
-      await commitlint({ message: 'feat(nuxt): add the module options\n\nUse `modules: [\'@maz-ui/nuxt\']`.', preview: true, config: createConfig() })
+      await commitlint({
+        message: 'feat(nuxt): add the module options\n\nUse `modules: [\'@maz-ui/nuxt\']`.',
+        preview: true,
+        config: createConfig(),
+      })
 
       expect(output).toEqual([
         '✔ feat(nuxt) → minor bump, 🚀 Enhancements',
@@ -113,7 +137,13 @@ describe('Given commitlint command', () => {
 
   describe('When previewing a commit absent from the changelog', () => {
     it('Then only prints its line', async () => {
-      await commitlint({ message: 'chore: tidy the scripts up', preview: true, config: createConfig({ types: { chore: false } }) })
+      await commitlint({
+        message: 'chore: tidy the scripts up',
+        preview: true,
+        config: createConfig({
+          types: { chore: false },
+        }),
+      })
 
       expect(output).toEqual(['✔ chore → no bump, not in the changelog'])
     })
@@ -125,7 +155,10 @@ describe('Given commitlint command', () => {
       git('add', 'packages/core/index.ts')
       write('.git/COMMIT_EDITMSG', 'fix(nuxt): correct the module options\n# Please enter the commit message\n# ------------------------ >8 ------------------------\ndiff --git a/file b/file\n')
 
-      const result = await commitlint({ edit: true, config: createConfig() })
+      const result = await commitlint({
+        edit: true,
+        config: createConfig(),
+      })
 
       expect(result).toEqual(expect.objectContaining({ errorCount: 0, warningCount: 1 }))
       expect(output).toEqual([
@@ -143,7 +176,10 @@ describe('Given commitlint command', () => {
     it('Then explains how to commit again with the kept message', async () => {
       write('.git/COMMIT_EDITMSG', 'fix: Typo')
 
-      expect((await commitlint({ edit: true, config: createConfig() })).errorCount).toBe(2)
+      expect((await commitlint({
+        edit: true,
+        config: createConfig(),
+      })).errorCount).toBe(2)
       expect(output.slice(-2)).toEqual([
         '  Fix:   edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:',
         '           $ git commit --edit --file .git/COMMIT_EDITMSG',
@@ -155,7 +191,10 @@ describe('Given commitlint command', () => {
       writeFileSync(outside, 'wip')
 
       try {
-        await commitlint({ edit: outside, config: createConfig() })
+        await commitlint({
+          edit: outside,
+          config: createConfig(),
+        })
 
         expect(output.at(-1)).toBe(`           $ git commit --edit --file ${outside}`)
       }
@@ -167,7 +206,10 @@ describe('Given commitlint command', () => {
     it('Then reads the file given by the hook', async () => {
       write('message.txt', 'wip')
 
-      const result = await commitlint({ edit: 'message.txt', config: createConfig() })
+      const result = await commitlint({
+        edit: 'message.txt',
+        config: createConfig(),
+      })
 
       expect(result.errorCount).toBe(1)
       expect(result.results[0]?.commit.header).toBe('wip')
@@ -182,7 +224,9 @@ describe('Given commitlint command', () => {
       commitFiles('chore(release): bump version to 1.1.0', { 'package.json': '{ "name": "root", "version": "1.1.0", "private": true }' })
       commitFiles('fix: Typo', { 'packages/core/index.ts': 'c' })
 
-      const result = await commitlint({ config: createConfig() })
+      const result = await commitlint({
+        config: createConfig(),
+      })
 
       expect(result.results).toHaveLength(4)
       expect(result.errorCount).toBe(2)
@@ -216,7 +260,12 @@ describe('Given commitlint command', () => {
       commitFiles('fix(core): correct the helper', { 'packages/core/helper.ts': 'b' })
       vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'Draft: feat(nuxt): Add the module options')
 
-      const result = await commitlint({ from: 'v1.0.0', config: createConfig({ commitlint: { title: true } }) })
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          commitlint: { title: true },
+        }),
+      })
 
       expect(result.results[0]?.commit).toEqual(expect.objectContaining({
         header: 'feat(nuxt): Add the module options',
@@ -241,17 +290,51 @@ describe('Given commitlint command', () => {
     })
 
     it.each([
-      ['does not lint', 'by default', undefined, undefined, false],
-      ['lints', 'with commitlint.title', undefined, true, true],
-      ['lints', 'with title: true', true, undefined, true],
-      ['does not lint', 'with title: false over commitlint.title', false, true, false],
-      ['lints', 'with title: true over commitlint.title: false', true, false, true],
+      [
+        'does not lint',
+        'by default',
+        undefined,
+        undefined,
+        false,
+      ],
+      [
+        'lints',
+        'with commitlint.title',
+        undefined,
+        true,
+        true,
+      ],
+      [
+        'lints',
+        'with title: true',
+        true,
+        undefined,
+        true,
+      ],
+      [
+        'does not lint',
+        'with title: false over commitlint.title',
+        false,
+        true,
+        false,
+      ],
+      [
+        'lints',
+        'with title: true over commitlint.title: false',
+        true,
+        false,
+        true,
+      ],
     ])('Then %s the title of the merge request %s', async (_, __, title, configTitle, linted) => {
       git('tag', 'v1.0.0')
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
       vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'wip')
 
-      const config = createConfig(configTitle === undefined ? {} : { commitlint: { title: configTitle } })
+      const config = createConfig(configTitle === undefined
+        ? {}
+        : {
+            commitlint: { title: configTitle },
+          })
       const { results, report } = await commitlint({ from: 'v1.0.0', title, config })
 
       expect(results).toHaveLength(linted ? 2 : 1)
@@ -261,7 +344,9 @@ describe('Given commitlint command', () => {
     it('Then lints the whole history without tag and explains how to fix it', async () => {
       commitFiles('wip', { 'README.md': 'readme' })
 
-      const result = await commitlint({ config: createConfig() })
+      const result = await commitlint({
+        config: createConfig(),
+      })
 
       expect(result.results.map(entry => entry.commit.header)).toEqual(['chore: init the repository', 'wip'])
       expect(result.errorCount).toBe(1)
@@ -273,14 +358,20 @@ describe('Given commitlint command', () => {
     })
 
     it('Then rejects a start missing from the history', async () => {
-      await expect(commitlint({ from: 'origin/unknown', config: createConfig() })).rejects.toThrow('Cannot find "origin/unknown": fetch it before linting')
+      await expect(commitlint({
+        from: 'origin/unknown',
+        config: createConfig(),
+      })).rejects.toThrow('Cannot find "origin/unknown": fetch it before linting')
     })
 
     it('Then checks the scope against the files of each commit', async () => {
       git('tag', 'v1.0.0')
       commitFiles('fix(nuxt): correct the core helper', { 'packages/core/helper.ts': 'a' })
 
-      const result = await commitlint({ from: 'v1.0.0', config: createConfig() })
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig(),
+      })
 
       expect(result.warningCount).toBe(1)
       expect(result.results[0]?.commit.packages).toEqual(['@maz-ui/core'])
@@ -289,7 +380,10 @@ describe('Given commitlint command', () => {
     it('Then reports a range without commit', async () => {
       git('tag', 'v1.0.0')
 
-      expect((await commitlint({ from: 'v1.0.0', config: createConfig() })).results).toEqual([])
+      expect((await commitlint({
+        from: 'v1.0.0',
+        config: createConfig(),
+      })).results).toEqual([])
       expect(output).toEqual(['No commit to lint'])
     })
   })
@@ -302,7 +396,11 @@ describe('Given commitlint command', () => {
     })
 
     it('Then prints a JSON report for programs and AI agents', async () => {
-      const result = await commitlint({ from: 'v1.0.0', format: 'json', config: createConfig() })
+      const result = await commitlint({
+        from: 'v1.0.0',
+        format: 'json',
+        config: createConfig(),
+      })
       const report = JSON.parse(output.join('\n'))
 
       expect(result.errorCount).toBe(2)
@@ -320,13 +418,22 @@ describe('Given commitlint command', () => {
     })
 
     it('Then includes the changelog entries in the JSON report with --preview', async () => {
-      await commitlint({ from: 'v1.0.0', format: 'json', preview: true, config: createConfig() })
+      await commitlint({
+        from: 'v1.0.0',
+        format: 'json',
+        preview: true,
+        config: createConfig(),
+      })
 
       expect(JSON.parse(output.join('\n')).entries[0].changelogEntry).toMatch(/^### 🚀 Enhancements\n\n- \*\*nuxt:\*\* Add the module options \([0-9a-f]{7}\)$/)
     })
 
     it('Then only prints the commits with problems with --quiet', async () => {
-      await commitlint({ from: 'v1.0.0', quiet: true, config: createConfig() })
+      await commitlint({
+        from: 'v1.0.0',
+        quiet: true,
+        config: createConfig(),
+      })
 
       expect(output[0]).toMatch(/^✖ [0-9a-f]{7} fix: Typo$/)
       expect(output.some(line => line.includes('feat(nuxt)'))).toBe(false)
@@ -336,7 +443,10 @@ describe('Given commitlint command', () => {
       vi.stubEnv('GITHUB_ACTIONS', 'true')
       vi.stubEnv('NO_COLOR', '1')
 
-      await commitlint({ from: 'v1.0.0', config: createConfig() })
+      await commitlint({
+        from: 'v1.0.0',
+        config: createConfig(),
+      })
 
       expect(output.filter(line => line.startsWith('::'))).toEqual([
         expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-case\)::fix: Typo%0AThe subject starts with an uppercase letter%0A→ /),
@@ -347,9 +457,19 @@ describe('Given commitlint command', () => {
 
   describe('When installing the hook', () => {
     it('Then writes the hook and lints nothing', async () => {
-      const result = await commitlint({ install: true, config: createConfig() })
+      const result = await commitlint({
+        install: true,
+        config: createConfig(),
+      })
 
-      expect(result).toEqual(expect.objectContaining({ results: [], errorCount: 0, hook: { path: join(cwd, '.git/hooks/commit-msg'), status: 'created' } }))
+      expect(result).toEqual(expect.objectContaining({
+        results: [],
+        errorCount: 0,
+        hook: {
+          path: join(cwd, '.git/hooks/commit-msg'),
+          status: 'created',
+        },
+      }))
       expect(readFileSync(join(cwd, '.git/hooks/commit-msg'), 'utf8')).toContain('relizy commitlint --edit "$1"')
       expect(output).toEqual([`✔ commit-msg hook created: ${join(cwd, '.git/hooks/commit-msg')}`])
     })
@@ -358,15 +478,28 @@ describe('Given commitlint command', () => {
       mkdirSync(join(cwd, '.husky'))
       write('.husky/commit-msg', 'npx --no-install commitlint --edit "$1"\n')
 
-      await expect(commitlint({ install: true, config: createConfig() })).rejects.toThrow('A commit-msg hook already exists')
-      expect((await commitlint({ install: true, force: true, config: createConfig() })).hook?.status).toBe('replaced')
+      await expect(commitlint({
+        install: true,
+        config: createConfig(),
+      })).rejects.toThrow('A commit-msg hook already exists')
+      expect((await commitlint({
+        install: true,
+        force: true,
+        config: createConfig(),
+      })).hook?.status).toBe('replaced')
     })
 
     it('Then says when the hook is already installed', async () => {
-      await commitlint({ install: true, config: createConfig() })
+      await commitlint({
+        install: true,
+        config: createConfig(),
+      })
       output = []
 
-      await commitlint({ install: true, config: createConfig() })
+      await commitlint({
+        install: true,
+        config: createConfig(),
+      })
 
       expect(output).toEqual([`The commit-msg hook already runs relizy commitlint (${join(cwd, '.git/hooks/commit-msg')})`])
     })
@@ -391,7 +524,9 @@ describe('Given commitlint command', () => {
         const result = await commitlint({ message: 'fix(ci): correct the workflow of the release', logLevel: 'silent' })
 
         expect(result.errorCount).toBe(0)
-        expect(result.results[0]?.problems).toEqual([{ rule: 'ticket', severity: 'warn', message: 'Mention the ticket, e.g. [ABC-123]' }])
+        expect(result.results[0]?.problems).toEqual([
+          { rule: 'ticket', severity: 'warn', message: 'Mention the ticket, e.g. [ABC-123]' },
+        ])
       }
       finally {
         process.chdir(previousCwd)

@@ -14,7 +14,13 @@ interface JsonRpcMessage {
 /** Runs `relizy mcp` like an agent does, and returns every line of its stdout once the requests are answered */
 function runServer(cwd: string, requests: object[], expected: number): Promise<{ lines: string[], stderr: string }> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [join(ROOT_DIR, 'node_modules/tsx/dist/cli.mjs'), join(ROOT_DIR, 'src/cli.ts'), 'mcp', '--cwd', cwd], {
+    const child = spawn(process.execPath, [
+      join(ROOT_DIR, 'node_modules/tsx/dist/cli.mjs'),
+      join(ROOT_DIR, 'src/cli.ts'),
+      'mcp',
+      '--cwd',
+      cwd,
+    ], {
       cwd: ROOT_DIR,
       env: { ...process.env, CI: 'true', GITHUB_ACTIONS: 'true' },
     })
@@ -60,9 +66,26 @@ describe('Given relizy mcp started on stdio', () => {
       repository.commit('feat: add the export', { 'export.js': 'export {}' })
 
       const { lines } = await runServer(repository.cwd, [
-        { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'test', version: '1.0.0' } } },
+        {
+          jsonrpc: '2.0',
+          id: 1,
+          method: 'initialize',
+          params: {
+            protocolVersion: '2025-06-18',
+            capabilities: {},
+            clientInfo: { name: 'test', version: '1.0.0' },
+          },
+        },
         { jsonrpc: '2.0', method: 'notifications/initialized' },
-        { jsonrpc: '2.0', id: 2, method: 'tools/call', params: { name: 'preview_release', arguments: { config: 'relizy' } } },
+        {
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'tools/call',
+          params: {
+            name: 'preview_release',
+            arguments: { config: 'relizy' },
+          },
+        },
       ], 2)
 
       const messages = lines.map(line => JSON.parse(line) as JsonRpcMessage)

@@ -1,14 +1,16 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
+import { isInCI } from './ci-env'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
+import { getGhCliToken } from './gh-cli'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { getEnvNpmToken } from './npm-oidc'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
@@ -164,6 +166,12 @@ export function getDefaultConfig(cwd = process.cwd()) {
     prComment: {
       mode: 'update',
     } as Required<PrCommentConfig>,
+    mergePreview: {
+      comment: true,
+      check: true,
+      commitlint: 'auto',
+      squash: 'auto',
+    } as Required<MergePreviewConfig>,
     ai: {
       provider: 'claude-code',
       language: 'en',
@@ -280,6 +288,14 @@ async function resolveConfig(
     config.publish.registry = getNpmRegistry(cwd)
   }
 
+  // A local run without GITHUB_TOKEN: the token of the GitHub CLI, when it is logged in
+  if (config.tokens && !config.tokens.github && config.repo?.provider === 'github' && !isInCI()) {
+    config.tokens.github = getGhCliToken(config.repo.domain)
+    if (config.tokens.github) {
+      logger.debug('GitHub token: the one of the GitHub CLI (gh auth token)')
+    }
+  }
+
   return config
 }
 
@@ -356,7 +372,21 @@ function copyPlainObjects<T>(value: T): T {
     return value
   }
 
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyPlainObjects(entry)])) as T
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    copyPlainObjects(entry),
+  ])) as T
+}
+
+/** The top-level options the config files set, before the defaults: by resolved config */
+const userConfigKeys = new WeakMap<ResolvedRelizyConfig, Set<string>>()
+
+/**
+ * True when a config file sets the top-level option `key` (`commitlint`), the
+ * defaults left out: every option has a value once the config is resolved
+ */
+export function isSetInUserConfig(config: ResolvedRelizyConfig, key: keyof RelizyConfig): boolean {
+  return userConfigKeys.get(config)?.has(key) ?? false
 }
 
 /**
@@ -369,10 +399,16 @@ function copyPlainObjects<T>(value: T): T {
 function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
   const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
   setupLogger(overrides?.logLevel || config.logLevel)
+  const userKeys = userConfigKeys.get(baseConfig)
+  if (userKeys) {
+    userConfigKeys.set(config, userKeys)
+  }
 
   const groupName = getVersionGroupName(baseConfig)
 
-  return groupName ? markVersionGroupConfig(config, groupName) : config
+  return groupName
+    ? markVersionGroupConfig(config, groupName)
+    : config
 }
 
 export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
@@ -429,6 +465,8 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   const resolvedConfig = await resolveConfig(results.config, cwd)
 
   logger.debug('Resolved config:', formatJson(redactSecrets(resolvedConfig)))
+
+  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set((results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {}))))
 
   return resolvedConfig as ResolvedRelizyConfig
 }

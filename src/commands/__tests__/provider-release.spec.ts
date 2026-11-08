@@ -39,7 +39,11 @@ vi.mock('../../core/ai', async importActual => ({
 describe('Given providerRelease command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      safetyCheck: false,
+    })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(github).mockResolvedValue([])
@@ -69,7 +73,10 @@ describe('Given providerRelease command', () => {
 
   describe('When creating GitLab release', () => {
     it('Then calls gitlab function', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: false,
+      })
       config.repo = { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
@@ -81,7 +88,10 @@ describe('Given providerRelease command', () => {
     })
 
     it('Then uses the provider of the repo config without --provider', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, safetyCheck: false })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        safetyCheck: false,
+      })
       config.repo = { provider: 'gitlab', domain: 'gitlab.example.com', repo: 'team/app' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
@@ -121,7 +131,9 @@ describe('Given providerRelease command', () => {
 
   describe('When the provider is Bitbucket, without releases API', () => {
     it('Then creates no release, without error', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = { provider: 'bitbucket', domain: 'bitbucket.org', repo: 'user/repo' }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
@@ -147,7 +159,9 @@ describe('Given providerReleaseSafetyCheck', () => {
         release: { providerRelease: true, publish: false },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
-        ai: { providerRelease: { enabled: true } },
+        ai: {
+          providerRelease: { enabled: true },
+        },
       })
 
       await providerReleaseSafetyCheck({ config, provider: 'github' })
@@ -169,8 +183,19 @@ describe('Given providerReleaseSafetyCheck', () => {
     }
 
     it('Then does not check the AI provider, that never runs', async () => {
-      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true } }), provider: 'github' })
-      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true } }), provider: 'github', ai: true })
+      await providerReleaseSafetyCheck({
+        config: createPrereleaseConfig({
+          providerRelease: { enabled: true },
+        }),
+        provider: 'github',
+      })
+      await providerReleaseSafetyCheck({
+        config: createPrereleaseConfig({
+          providerRelease: { enabled: true },
+        }),
+        provider: 'github',
+        ai: true,
+      })
 
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
@@ -182,18 +207,33 @@ describe('Given providerReleaseSafetyCheck', () => {
         release: { providerRelease: true, publish: false },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
-        ai: { providerRelease: { enabled: true } },
+        ai: {
+          providerRelease: { enabled: true },
+        },
       })
 
-      await providerReleaseSafetyCheck({ config, provider: 'github', versions: ['2.0.0-beta.1'] })
+      await providerReleaseSafetyCheck({
+        config,
+        provider: 'github',
+        versions: ['2.0.0-beta.1'],
+      })
       expect(aiSafetyCheck).not.toHaveBeenCalled()
 
-      await providerReleaseSafetyCheck({ config, provider: 'github', versions: ['2.0.0'] })
+      await providerReleaseSafetyCheck({
+        config,
+        provider: 'github',
+        versions: ['2.0.0'],
+      })
       expect(aiSafetyCheck).toHaveBeenCalled()
     })
 
     it('Then checks it when the onlyStable of the AI is off', async () => {
-      await providerReleaseSafetyCheck({ config: createPrereleaseConfig({ providerRelease: { enabled: true, onlyStable: false } }), provider: 'github' })
+      await providerReleaseSafetyCheck({
+        config: createPrereleaseConfig({
+          providerRelease: { enabled: true, onlyStable: false },
+        }),
+        provider: 'github',
+      })
 
       expect(aiSafetyCheck).toHaveBeenCalled()
     })
@@ -226,21 +266,39 @@ describe('Given providerReleaseSafetyCheck', () => {
       })
       config.monorepo = {
         groups: [
-          { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-          { name: 'header', versionMode: 'independent', packages: ['shared/*'], ai: { providerRelease: { enabled: true } } },
+          {
+            name: 'main',
+            versionMode: 'selective',
+            packages: ['packages/*'],
+          },
+          {
+            name: 'header',
+            versionMode: 'independent',
+            packages: ['shared/*'],
+            ai: {
+              providerRelease: { enabled: true },
+            },
+          },
         ],
       }
       return config
     }
 
     it('Then checks the AI provider', async () => {
-      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github' })
+      await providerReleaseSafetyCheck({
+        config: createGroupAIConfig(),
+        provider: 'github',
+      })
 
       expect(aiSafetyCheck).toHaveBeenCalled()
     })
 
     it('Then does not check it with the ai option disabled', async () => {
-      await providerReleaseSafetyCheck({ config: createGroupAIConfig(), provider: 'github', ai: false })
+      await providerReleaseSafetyCheck({
+        config: createGroupAIConfig(),
+        provider: 'github',
+        ai: false,
+      })
 
       expect(aiSafetyCheck).not.toHaveBeenCalled()
     })
@@ -268,16 +326,42 @@ describe('Given providerReleaseSafetyCheck', () => {
 })
 
 describe('Given providerRelease command with version groups', () => {
-  const mainGroup: GroupBumpResult = { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '7.0.0', fromTag: 'v6.19.1', bumpedPackages: [] }
-  const headerGroup: GroupBumpResult = { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [] }
+  const mainGroup: GroupBumpResult = {
+    name: 'main',
+    title: 'main',
+    versionMode: 'selective',
+    bumped: true,
+    newVersion: '7.0.0',
+    fromTag: 'v6.19.1',
+    bumpedPackages: [],
+  }
+  const headerGroup: GroupBumpResult = {
+    name: 'header',
+    title: 'header',
+    versionMode: 'independent',
+    bumped: true,
+    bumpedPackages: [],
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      safetyCheck: false,
+    })
     config.monorepo = {
       groups: [
-        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+        {
+          name: 'main',
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        {
+          name: 'header',
+          versionMode: 'independent',
+          packages: ['shared/*'],
+        },
       ],
     }
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
@@ -286,22 +370,44 @@ describe('Given providerRelease command with version groups', () => {
 
   it('Then posts the releases of each group with the config of the group', async () => {
     vi.mocked(github)
-      .mockResolvedValueOnce([{ name: 'v7.0.0', tag: 'v7.0.0', prerelease: false, version: '7.0.0' }])
-      .mockResolvedValueOnce([{ name: '@scope/nav@1.2.1', tag: '@scope/nav@1.2.1', prerelease: false, version: '1.2.1' }])
+      .mockResolvedValueOnce([
+        {
+          name: 'v7.0.0',
+          tag: 'v7.0.0',
+          prerelease: false,
+          version: '7.0.0',
+        },
+      ])
+      .mockResolvedValueOnce([
+        {
+          name: '@scope/nav@1.2.1',
+          tag: '@scope/nav@1.2.1',
+          prerelease: false,
+          version: '1.2.1',
+        },
+      ])
 
     const result = await providerRelease({
       provider: 'github',
-      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [],
+        groups: [mainGroup, headerGroup],
+      },
     })
 
     expect(github).toHaveBeenNthCalledWith(1, expect.objectContaining({
       from: 'v6.19.1',
       bumpResult: mainGroup,
-      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'selective' }) }),
+      config: expect.objectContaining({
+        monorepo: expect.objectContaining({ versionMode: 'selective' }),
+      }),
     }))
     expect(github).toHaveBeenNthCalledWith(2, expect.objectContaining({
       bumpResult: headerGroup,
-      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
+      config: expect.objectContaining({
+        monorepo: expect.objectContaining({ versionMode: 'independent' }),
+      }),
     }))
     expect(result.postedReleases.map(release => release.tag)).toEqual(['v7.0.0', '@scope/nav@1.2.1'])
     expect(executeHook).toHaveBeenCalledTimes(2)
@@ -312,7 +418,11 @@ describe('Given providerRelease command with version groups', () => {
 
     await providerRelease({
       provider: 'github',
-      bumpResult: { bumped: true, bumpedPackages: [], groups: [headerGroup] },
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [],
+        groups: [headerGroup],
+      },
     })
 
     expect(github).toHaveBeenCalledTimes(1)
@@ -322,21 +432,39 @@ describe('Given providerRelease command with version groups', () => {
   it('Then only releases the targeted groups', async () => {
     vi.mocked(gitlab).mockResolvedValue([])
 
-    await providerRelease({ provider: 'gitlab', groups: ['header'] })
+    await providerRelease({
+      provider: 'gitlab',
+      groups: ['header'],
+    })
 
     expect(gitlab).toHaveBeenCalledTimes(1)
     expect(gitlab).toHaveBeenCalledWith(expect.objectContaining({
       bumpResult: undefined,
-      config: expect.objectContaining({ monorepo: expect.objectContaining({ versionMode: 'independent' }) }),
+      config: expect.objectContaining({
+        monorepo: expect.objectContaining({ versionMode: 'independent' }),
+      }),
     }))
   })
 
   it('Then skips the groups with release.providerRelease disabled', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      safetyCheck: false,
+    })
     config.monorepo = {
       groups: [
-        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-        { name: 'header', versionMode: 'independent', packages: ['shared/*'], release: { providerRelease: false } },
+        {
+          name: 'main',
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        {
+          name: 'header',
+          versionMode: 'independent',
+          packages: ['shared/*'],
+          release: { providerRelease: false },
+        },
       ],
     }
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
@@ -344,7 +472,11 @@ describe('Given providerRelease command with version groups', () => {
 
     await providerRelease({
       provider: 'github',
-      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [],
+        groups: [mainGroup, headerGroup],
+      },
     })
 
     expect(github).toHaveBeenCalledTimes(1)
@@ -357,7 +489,11 @@ describe('Given providerRelease command with version groups', () => {
     await providerRelease({
       provider: 'github',
       ai: false,
-      bumpResult: { bumped: true, bumpedPackages: [], groups: [mainGroup, headerGroup] },
+      bumpResult: {
+        bumped: true,
+        bumpedPackages: [],
+        groups: [mainGroup, headerGroup],
+      },
     })
 
     const groupConfigs = vi.mocked(github).mock.calls.map(([options]) => options.config)
@@ -367,9 +503,15 @@ describe('Given providerRelease command with version groups', () => {
   })
 
   it('Then returns an error when targeting groups on a config without groups', async () => {
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, safetyCheck: false }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      safetyCheck: false,
+    }))
 
-    const result = await providerRelease({ provider: 'github', groups: ['header'] })
+    const result = await providerRelease({
+      provider: 'github',
+      groups: ['header'],
+    })
 
     expect(result.error).toContain('the config has no monorepo.groups')
     expect(github).not.toHaveBeenCalled()
@@ -381,8 +523,19 @@ describe('Given the output of providerRelease in CI', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, safetyCheck: false }))
-    vi.mocked(github).mockResolvedValue([{ name: 'v1.0.0', tag: 'v1.0.0', version: '1.0.0', prerelease: false }])
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      safetyCheck: false,
+    }))
+    vi.mocked(github).mockResolvedValue([
+      {
+        name: 'v1.0.0',
+        tag: 'v1.0.0',
+        version: '1.0.0',
+        prerelease: false,
+      },
+    ])
     output = captureCliOutput()
   })
 
@@ -429,6 +582,22 @@ describe('Given the result of a provider release', () => {
   it('Then tells it in words', () => {
     expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [], error: 'down' })).toBe('GitLab release failed: down')
     expect(describeProviderReleaseResult({ detectedProvider: 'bitbucket', postedReleases: [] })).toBe('No release on Bitbucket, only the tags')
-    expect(describeProviderReleaseResult({ detectedProvider: 'gitlab', postedReleases: [{ name: 'a', tag: 'a@1.0.0', version: '1.0.0', prerelease: false }, { name: 'b', tag: 'b@1.0.0', version: '1.0.0', prerelease: false }] })).toBe('2 GitLab releases created')
+    expect(describeProviderReleaseResult({
+      detectedProvider: 'gitlab',
+      postedReleases: [
+        {
+          name: 'a',
+          tag: 'a@1.0.0',
+          version: '1.0.0',
+          prerelease: false,
+        },
+        {
+          name: 'b',
+          tag: 'b@1.0.0',
+          version: '1.0.0',
+          prerelease: false,
+        },
+      ],
+    })).toBe('2 GitLab releases created')
   })
 })

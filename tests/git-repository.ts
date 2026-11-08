@@ -23,7 +23,11 @@ export interface GitRepository {
  */
 export function createGitRepository(prefix = 'relizy-repo-'): GitRepository {
   const cwd = realpathSync(mkdtempSync(join(tmpdir(), prefix)))
-  const git = (...args: string[]) => execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  const git = (...args: string[]) => execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
   const write = (path: string, content: string) => {
     mkdirSync(dirname(join(cwd, path)), { recursive: true })
     writeFileSync(join(cwd, path), content)

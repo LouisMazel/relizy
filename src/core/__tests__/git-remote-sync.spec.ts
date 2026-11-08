@@ -54,14 +54,18 @@ function mockGit(responses: Record<string, GitResponse>) {
   vi.mocked(runGit).mockImplementation((args: string[]) => {
     const command = args.join(' ')
     const key = Object.keys(responses).find(prefix => command.startsWith(prefix))
-    const response = key === undefined ? '' : responses[key]
+    const response = key === undefined
+      ? ''
+      : responses[key]
 
     try {
       if (response instanceof Error) {
         throw response
       }
 
-      const stdout = typeof response === 'function' ? response() : response
+      const stdout = typeof response === 'function'
+        ? response()
+        : response
 
       return Promise.resolve((stdout ?? '').trim())
     }
@@ -96,7 +100,9 @@ function rejectFirstPush(error: Error): () => string {
 }
 
 function createReleaseConfig(overrides: Partial<ResolvedRelizyConfig['release']> = {}): ResolvedRelizyConfig {
-  const config = createMockConfig({ bump: { type: 'patch' } })
+  const config = createMockConfig({
+    bump: { type: 'patch' },
+  })
 
   config.release = {
     ...config.release,
@@ -227,7 +233,10 @@ describe('Given assertBranchUpToDateWithRemote function', () => {
   describe('When the remote cannot be fetched', () => {
     it('Then resolves with a warning', async () => {
       const warnSpy = vi.spyOn(logger, 'warn')
-      mockGit({ ...upstreamResponses, fetch: new Error('network error') })
+      mockGit({
+        ...upstreamResponses,
+        fetch: new Error('network error'),
+      })
 
       await expect(assertBranchUpToDateWithRemote({ cwd: '/project' })).resolves.toBeUndefined()
 
@@ -245,9 +254,17 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
   describe('When the push is rejected as non-fast-forward', () => {
     describe('When the remote commits merge cleanly', () => {
       it('Then merges the upstream branch and pushes again', async () => {
-        mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError()) })
+        mockGit({
+          ...upstreamResponses,
+          push: rejectFirstPush(createPushRejectedError()),
+        })
 
-        await pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] })
+        await pushCommitAndTags({
+          config: createReleaseConfig(),
+          dryRun: false,
+          cwd: '/project',
+          tags: ['v1.0.1'],
+        })
 
         const commands = getExecutedCommands()
         expect(commands).toContain('fetch origin +refs/heads/develop:refs/remotes/origin/develop')
@@ -256,9 +273,16 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
       })
 
       it('Then passes --no-verify to the merge when noVerify is enabled', async () => {
-        mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError()) })
+        mockGit({
+          ...upstreamResponses,
+          push: rejectFirstPush(createPushRejectedError()),
+        })
 
-        await pushCommitAndTags({ config: createReleaseConfig({ noVerify: true }), dryRun: false, cwd: '/project' })
+        await pushCommitAndTags({
+          config: createReleaseConfig({ noVerify: true }),
+          dryRun: false,
+          cwd: '/project',
+        })
 
         expect(getExecutedCommands()).toContain('merge --no-edit --no-verify origin/develop')
       })
@@ -274,7 +298,12 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
           'merge --no-edit': new Error('CONFLICT (content): Merge conflict in package.json'),
         })
 
-        await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] }))
+        await expect(pushCommitAndTags({
+          config: createReleaseConfig(),
+          dryRun: false,
+          cwd: '/project',
+          tags: ['v1.0.1'],
+        }))
           .rejects
           .toThrow('git fetch --tags && git merge v1.0.1 && git push')
 
@@ -294,7 +323,12 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
           'merge --abort': new Error('There is no merge to abort'),
         })
 
-        await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project', tags: ['v1.0.1'] }))
+        await expect(pushCommitAndTags({
+          config: createReleaseConfig(),
+          dryRun: false,
+          cwd: '/project',
+          tags: ['v1.0.1'],
+        }))
           .rejects
           .toThrow('git fetch --tags && git merge v1.0.1 && git push')
       })
@@ -303,9 +337,16 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
 
   describe('When the push is rejected because the remote has unknown commits', () => {
     it('Then merges the upstream branch and pushes again', async () => {
-      mockGit({ ...upstreamResponses, push: rejectFirstPush(createPushRejectedError('fetch first')) })
+      mockGit({
+        ...upstreamResponses,
+        push: rejectFirstPush(createPushRejectedError('fetch first')),
+      })
 
-      await pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' })
+      await pushCommitAndTags({
+        config: createReleaseConfig(),
+        dryRun: false,
+        cwd: '/project',
+      })
 
       expect(getExecutedCommands()).toContain('merge --no-edit origin/develop')
     })
@@ -318,7 +359,11 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
       })
       mockGit({ ...upstreamResponses, push: pushError })
 
-      await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' }))
+      await expect(pushCommitAndTags({
+        config: createReleaseConfig(),
+        dryRun: false,
+        cwd: '/project',
+      }))
         .rejects
         .toBe(pushError)
 
@@ -332,7 +377,11 @@ describe('Given pushCommitAndTags function with a rejected push', () => {
       const pushError = createPushRejectedError()
       mockGit({ push: pushError })
 
-      await expect(pushCommitAndTags({ config: createReleaseConfig(), dryRun: false, cwd: '/project' }))
+      await expect(pushCommitAndTags({
+        config: createReleaseConfig(),
+        dryRun: false,
+        cwd: '/project',
+      }))
         .rejects
         .toBe(pushError)
     })
@@ -353,7 +402,12 @@ describe('Given getReleaseTagNames function', () => {
     })
 
     it('Then falls back to the root package version', () => {
-      vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '1.3.0', path: '/project', private: true })
+      vi.mocked(readPackageJson).mockReturnValue({
+        name: 'root',
+        version: '1.3.0',
+        path: '/project',
+        private: true,
+      })
       const config = createReleaseConfig()
 
       expect(getReleaseTagNames({ config })).toEqual(['v1.3.0'])
@@ -365,8 +419,14 @@ describe('Given getReleaseTagNames function', () => {
       const config = createReleaseConfig()
       config.monorepo = { ...config.monorepo!, versionMode: 'independent' }
       const bumpedPackages = [
-        { ...createMockPackageInfo({ name: 'pkg-a', newVersion: '1.0.1' }), oldVersion: '1.0.0' },
-        { ...createMockPackageInfo({ name: 'pkg-b', newVersion: '2.1.0' }), oldVersion: '2.0.0' },
+        {
+          ...createMockPackageInfo({ name: 'pkg-a', newVersion: '1.0.1' }),
+          oldVersion: '1.0.0',
+        },
+        {
+          ...createMockPackageInfo({ name: 'pkg-b', newVersion: '2.1.0' }),
+          oldVersion: '2.0.0',
+        },
       ]
 
       expect(getReleaseTagNames({ config, bumpedPackages })).toEqual(['pkg-a@1.0.1', 'pkg-b@2.1.0'])
@@ -391,7 +451,10 @@ describe('Given assertReleaseTagsAvailable function', () => {
     it('Then resolves', async () => {
       vi.mocked(tagExists).mockResolvedValue(false)
 
-      await expect(assertReleaseTagsAvailable({ tags: ['v1.0.1'], cwd: '/project' })).resolves.toBeUndefined()
+      await expect(assertReleaseTagsAvailable({
+        tags: ['v1.0.1'],
+        cwd: '/project',
+      })).resolves.toBeUndefined()
     })
   })
 
@@ -400,7 +463,10 @@ describe('Given assertReleaseTagsAvailable function', () => {
       vi.mocked(tagExists).mockResolvedValue(true)
       vi.mocked(isAncestor).mockResolvedValue(false)
 
-      await expect(assertReleaseTagsAvailable({ tags: ['v1.0.1'], cwd: '/project' }))
+      await expect(assertReleaseTagsAvailable({
+        tags: ['v1.0.1'],
+        cwd: '/project',
+      }))
         .rejects
         .toThrow('git fetch --tags && git merge v1.0.1 && git push')
     })
@@ -411,7 +477,10 @@ describe('Given assertReleaseTagsAvailable function', () => {
       vi.mocked(tagExists).mockResolvedValue(true)
       vi.mocked(isAncestor).mockResolvedValue(true)
 
-      await expect(assertReleaseTagsAvailable({ tags: ['v1.0.1'], cwd: '/project' }))
+      await expect(assertReleaseTagsAvailable({
+        tags: ['v1.0.1'],
+        cwd: '/project',
+      }))
         .rejects
         .toThrow('Tag "v1.0.1" already exists. Check the versions in your package.json files')
     })

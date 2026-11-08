@@ -35,7 +35,13 @@ const HASH_LINK_REGEX = /\[[0-9a-f]{7}\]\([^)]+\)/g
 const FENCE_REGEX = /^[ \t]*```[\w-]*\n([\s\S]*?)^[ \t]*```/gm
 
 function check(name: string, failures: string[]): CheckResult {
-  return failures.length === 0 ? { name, passed: true } : { name, passed: false, detail: failures.join(', ') }
+  return failures.length === 0
+    ? { name, passed: true }
+    : {
+        name,
+        passed: false,
+        detail: failures.join(', '),
+      }
 }
 
 function getHeadings(markdown: string, prefix: '## ' | '### '): string[] {
@@ -43,18 +49,24 @@ function getHeadings(markdown: string, prefix: '## ' | '### '): string[] {
 }
 
 function getCodeBlocks(markdown: string): string[] {
-  return [...markdown.matchAll(FENCE_REGEX)].map(([, content]) => content!.split('\n').map(line => line.trim()).filter(Boolean).join('\n'))
+  return [
+    ...markdown.matchAll(FENCE_REGEX),
+  ].map(([, content]) => content!.split('\n').map(line => line.trim()).filter(Boolean).join('\n'))
 }
 
 function unique(values: string[]): string[] {
-  return [...new Set(values)]
+  return [
+    ...new Set(values),
+  ]
 }
 
 function checkHeadings(input: string, output: string, prefix: '## ' | '### '): CheckResult {
   const expected = getHeadings(input, prefix)
   const actual = getHeadings(output, prefix)
 
-  return check(`"${prefix.trim()}" headings kept exactly, in order`, expected.join('|') === actual.join('|') ? [] : [`expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`])
+  return check(`"${prefix.trim()}" headings kept exactly, in order`, expected.join('|') === actual.join('|')
+    ? []
+    : [`expected ${JSON.stringify(expected)}, got ${JSON.stringify(actual)}`])
 }
 
 function checkLinks(input: string, output: string, regex: RegExp, name: string): CheckResult {
@@ -75,11 +87,17 @@ function checkCommon(output: string): CheckResult[] {
   return [
     check('no wrapper tag nor preamble', [
       ...['<changelog', '</changelog>', '<release-context'].filter(tag => output.includes(tag)),
-      ...(/^(?:here|sure|voici)\b/i.test(output.trim()) ? ['starts with a preamble'] : []),
-      ...(output.trim().startsWith('```') ? ['wrapped in a code fence'] : []),
+      ...(/^(?:here|sure|voici)\b/i.test(output.trim())
+        ? ['starts with a preamble']
+        : []),
+      ...(output.trim().startsWith('```')
+        ? ['wrapped in a code fence']
+        : []),
     ]),
     check('injected instructions ignored', INJECTION_SIGNS.filter(([, regex]) => regex.test(output.trim())).map(([sign]) => sign)),
-    check('git trailers dropped', /^[ \t]*(?:Signed-off-by|Co-authored-by|Claude-Session):/im.test(output) ? ['a trailer is left'] : []),
+    check('git trailers dropped', /^[ \t]*(?:Signed-off-by|Co-authored-by|Claude-Session):/im.test(output)
+      ? ['a trailer is left']
+      : []),
   ]
 }
 
@@ -93,8 +111,16 @@ export function runChecks({ target, input, output, maxLength }: {
 
   if (target === 'twitter') {
     results.push(
-      check(`at most ${maxLength} characters`, maxLength && output.length > maxLength ? [`${output.length} characters`] : []),
-      check('plain text, no markdown', [/\*\*/, /`/, /\]\(/, /^#{1,6} /m, /^[ \t]*[-*] /m].filter(regex => regex.test(output)).map(String)),
+      check(`at most ${maxLength} characters`, maxLength && output.length > maxLength
+        ? [`${output.length} characters`]
+        : []),
+      check('plain text, no markdown', [
+        /\*\*/,
+        /`/,
+        /\]\(/,
+        /^#{1,6} /m,
+        /^[ \t]*[-*] /m,
+      ].filter(regex => regex.test(output)).map(String)),
       check('no hashtag nor reference', output.match(/(?:^|\s)#\w+/g) ?? []),
       check('no commit hash', output.match(/\b[0-9a-f]{7}\b/g) ?? []),
     )
@@ -114,8 +140,12 @@ export function runChecks({ target, input, output, maxLength }: {
       checkCodeBlocks(input, output),
       check('bodies folded into their bullet', unique(getBodyParagraphs(input)).filter(paragraph => output.includes(paragraph)).map(paragraph => `copied ${JSON.stringify(paragraph.slice(0, 40))}`)),
       check('breaking changes kept', [
-        ...(input.includes('⚠️') && !output.includes('⚠️') ? ['no ⚠️ marker'] : []),
-        ...(input.includes('#### ⚠️ Breaking Changes') && !output.includes('#### ⚠️ Breaking Changes') ? ['no breaking changes section'] : []),
+        ...(input.includes('⚠️') && !output.includes('⚠️')
+          ? ['no ⚠️ marker']
+          : []),
+        ...(input.includes('#### ⚠️ Breaking Changes') && !output.includes('#### ⚠️ Breaking Changes')
+          ? ['no breaking changes section']
+          : []),
       ]),
     )
   }
@@ -126,7 +156,9 @@ export function runChecks({ target, input, output, maxLength }: {
 
   if (target === 'slack-summary') {
     const bullets = output.split('\n').filter(line => line.startsWith('- ')).length
-    results.push(check('3 to 8 bullets', bullets <= 8 ? [] : [`${bullets} bullets`]))
+    results.push(check('3 to 8 bullets', bullets <= 8
+      ? []
+      : [`${bullets} bullets`]))
   }
 
   if (target === 'slack-full') {

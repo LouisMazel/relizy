@@ -1,0 +1,40 @@
+name: Merge preview
+
+# What the merge of a pull request into main releases (Release Latest runs on
+# each push to main): a comment and the commit status relizy/merge-preview
+on:
+  pull_request:
+    branches:
+      - main
+    # edited: a new title (the commit of a squash merge) or a new base
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: merge-preview-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  merge-preview:
+    name: Merge preview
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+
+    steps:
+      # The merge commit of the pull request with main, with the full history and the tags
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js and pnpm
+        uses: ./.github/actions/setup
+
+      # The relizy of the sources, run with the options of Release Latest.
+      # RELEASE_TOKEN, as Release Latest: the release of the merge rewrites the comment
+      - name: Merge preview
+        env:
+          RELIZY_GITHUB_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: pnpm relizy merge-preview --tag latest

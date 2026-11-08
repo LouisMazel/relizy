@@ -21,7 +21,9 @@ export default defineConfig({
   ai: {
     provider: 'claude-code',
     providerRelease: { enabled: true },
-    social: { twitter: { enabled: true } },
+    social: {
+      twitter: { enabled: true },
+    },
   },
 
   templates: {
@@ -46,10 +48,16 @@ export default defineConfig({
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
   },
+  mergePreview: {
+    // The pull requests are merged with a merge commit, never squashed
+    squash: false,
+  },
   hooks: {
     // The CI builds before the bump: the docs bundle of the MCP server (agent-docs/) gets the new version
     'success:bump': () => {
-      generateAgentDocs({ rootDir: process.cwd() })
+      generateAgentDocs({
+        rootDir: process.cwd(),
+      })
     },
   },
 })

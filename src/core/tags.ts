@@ -42,7 +42,9 @@ interface VersionedTag {
  * written by relizy never has.
  */
 function parseTagVersion(value: string): string | null {
-  return /^\d/.test(value) ? semver.valid(value) : null
+  return /^\d/.test(value)
+    ? semver.valid(value)
+    : null
 }
 
 /**
@@ -83,7 +85,9 @@ export function extractVersionFromRepoTag(tag: string, tagBody: string): string 
  * `1.2.3`), or null. A package tag (`name@1.2.3`) never matches.
  */
 function extractVersionFromLegacyRepoTag(tag: string): string | null {
-  return parseTagVersion(tag.startsWith('v') ? tag.slice(1) : tag)
+  return parseTagVersion(tag.startsWith('v')
+    ? tag.slice(1)
+    : tag)
 }
 
 /**
@@ -93,7 +97,9 @@ function extractVersionFromLegacyRepoTag(tag: string): string | null {
 function extractVersionFromPackageTag(tag: string, packageName: string): string | null {
   const prefix = `${packageName}@`
 
-  return tag.startsWith(prefix) ? parseTagVersion(tag.slice(prefix.length)) : null
+  return tag.startsWith(prefix)
+    ? parseTagVersion(tag.slice(prefix.length))
+    : null
 }
 
 /**
@@ -120,7 +126,9 @@ async function getRepoTags({
   const unrecognizedTags: string[] = []
 
   for (const tag of await listTags({ cwd })) {
-    const templateVersion = tagBody ? extractVersionFromRepoTag(tag, tagBody) : null
+    const templateVersion = tagBody
+      ? extractVersionFromRepoTag(tag, tagBody)
+      : null
 
     if (templateVersion) {
       templateTags.push({ tag, version: templateVersion })
@@ -139,7 +147,13 @@ async function getRepoTags({
 
   logger.debug(`Retrieved ${templateTags.length} repo tags following "${tagBody}" and ${legacyTags.length} in the v1.2.3 or 1.2.3 format`)
 
-  return { tags: [...templateTags, ...legacyTags], unrecognizedTags }
+  return {
+    tags: [
+      ...templateTags,
+      ...legacyTags,
+    ],
+    unrecognizedTags,
+  }
 }
 
 /**
@@ -210,7 +224,9 @@ function selectPreviousTag({
   })
 
   const highest = (list: VersionedTag[]) => list.reduce<VersionedTag | null>(
-    (best, candidate) => (!best || semver.gt(candidate.version, best.version) ? candidate : best),
+    (best, candidate) => (!best || semver.gt(candidate.version, best.version)
+      ? candidate
+      : best),
     null,
   )
 
@@ -391,9 +407,15 @@ function findVersionCommit({
     }
 
     // A move git does not detect adds the `package.json` of the new directory
-    const movedFrom = entry.status === 'A' ? movedPackages.find(([, to]) => to.replace(/\/$/, '') === path)?.[0].replace(/\/$/, '') : undefined
-    const previousFile = entry.status === 'A' ? movedFrom && `${movedFrom}/package.json` : entry.paths[0]
-    const previous = previousFile ? readPackageJsonAt({ ref: `${shortHash}~1`, file: previousFile, cwd: config.cwd }) : null
+    const movedFrom = entry.status === 'A'
+      ? movedPackages.find(([, to]) => to.replace(/\/$/, '') === path)?.[0].replace(/\/$/, '')
+      : undefined
+    const previousFile = entry.status === 'A'
+      ? movedFrom && `${movedFrom}/package.json`
+      : entry.paths[0]
+    const previous = previousFile
+      ? readPackageJsonAt({ ref: `${shortHash}~1`, file: previousFile, cwd: config.cwd })
+      : null
 
     if (!previous || previous.name !== name) {
       return NEW_PACKAGE_MARKER
@@ -406,7 +428,13 @@ function findVersionCommit({
     path = posix.dirname(previousFile!)
 
     if (movedFrom) {
-      return findVersionCommit({ name, version, path, rev: `${shortHash}~1`, config })
+      return findVersionCommit({
+        name,
+        version,
+        path,
+        rev: `${shortHash}~1`,
+        config,
+      })
     }
   }
 
@@ -461,7 +489,14 @@ async function resolveFromTagIndependent({
 
   if (startsAtCurrentVersion && lastPackageTag !== getIndependentTag({ name: pkg.name, version: pkg.version })) {
     const packagePath = relative(cwd, pkg.path).split(sep).join('/')
-    const versionCommit = packagePath ? findVersionCommit({ name: pkg.name, version: pkg.version, path: packagePath, config }) : null
+    const versionCommit = packagePath
+      ? findVersionCommit({
+          name: pkg.name,
+          version: pkg.version,
+          path: packagePath,
+          config,
+        })
+      : null
 
     if (versionCommit === NEW_PACKAGE_MARKER) {
       logger.debug(`${pkg.name} was created at ${pkg.version} and never tagged, marking as new package`)
@@ -506,7 +541,9 @@ function getRepoCurrentVersion({ cwd, pkg }: { cwd: string, pkg: ReadPackage }):
     return rootVersion || pkg.version
   }
 
-  return semver.gt(rootVersion, pkg.version) ? rootVersion : pkg.version
+  return semver.gt(rootVersion, pkg.version)
+    ? rootVersion
+    : pkg.version
 }
 
 async function resolveFromTagUnified({
@@ -621,7 +658,9 @@ function resolveToTag({
     to = getIndependentTag({ version: newVersion, name: packageName })
   }
   else {
-    to = newVersion ? formatRepoTag(config.templates.tagBody, newVersion) : getCurrentGitRef(config.cwd)
+    to = newVersion
+      ? formatRepoTag(config.templates.tagBody, newVersion)
+      : getCurrentGitRef(config.cwd)
   }
 
   logger.debug(`[${versionMode}](${step}) Using to tag: ${to}`)
@@ -646,7 +685,9 @@ export async function resolveTags<S extends Step, NewVersion = S extends 'bump' 
 
   const releaseType = config.bump.type
 
-  const graduating = typeof newVersion === 'string' ? isGraduatingToStableBetweenVersion(pkg.version, newVersion) : isGraduating(pkg.version, releaseType)
+  const graduating = typeof newVersion === 'string'
+    ? isGraduatingToStableBetweenVersion(pkg.version, newVersion)
+    : isGraduating(pkg.version, releaseType)
 
   const from = await resolveFromTag({
     config,

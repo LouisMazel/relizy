@@ -46,7 +46,12 @@ export async function askConfirm({ message, initialValue, active, inactive, canc
   inactive?: string
   cancelMessage?: string
 }): Promise<boolean> {
-  return answerOf<boolean>(await confirm({ message, initialValue, active, inactive }), cancelMessage)
+  return answerOf<boolean>(await confirm({
+    message,
+    initialValue,
+    active,
+    inactive,
+  }), cancelMessage)
 }
 
 export async function askSelect<T extends string>({ message, options, initialValue, cancelMessage = 'Cancelled' }: {

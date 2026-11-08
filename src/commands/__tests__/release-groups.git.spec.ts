@@ -8,7 +8,11 @@ import { release } from '../release'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
-vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn(), assertInteractivePrompt: vi.fn(), BUMP_NOT_INTERACTIVE: '' }))
+vi.mock('../../core/prompts', () => ({
+  askConfirm: vi.fn(),
+  assertInteractivePrompt: vi.fn(),
+  BUMP_NOT_INTERACTIVE: '',
+}))
 
 // Only the registry is mocked: publishing and querying the published versions
 vi.mock('../../core/npm', async (importActual) => {
@@ -51,7 +55,10 @@ describe('Given a release with version groups on a real git repository', () => {
       expect(releaseRepo.publishedPackages.map(({ name, version }) => `${name}@${version}`)).toEqual(['@scope/components@6.20.0', '@scope/nav@2.0.0'])
       // @scope/theme is not released: its version must be on the registry for the peer of @scope/nav
       expect(isVersionPublished).toHaveBeenCalledTimes(1)
-      expect(isVersionPublished).toHaveBeenCalledWith(expect.objectContaining({ pkg: expect.objectContaining({ name: '@scope/theme' }), version: '6.18.0' }))
+      expect(isVersionPublished).toHaveBeenCalledWith(expect.objectContaining({
+        pkg: expect.objectContaining({ name: '@scope/theme' }),
+        version: '6.18.0',
+      }))
     })
 
     it('Then creates a single release commit with the tags of both groups', async () => {
@@ -173,7 +180,11 @@ describe('Given a release with version groups on a real git repository', () => {
     it('Then bumps the selective group for a package depending on a package of an independent group', async () => {
       // No commit of the selective group either
       git('reset', '--hard', 'HEAD~1')
-      writeJson('packages/app', { name: '@scope/app', version: '6.19.1', dependencies: { '@scope/login': 'workspace:*' } })
+      writeJson('packages/app', {
+        name: '@scope/app',
+        version: '6.19.1',
+        dependencies: { '@scope/login': 'workspace:*' },
+      })
       git('add', '-A')
       git('commit', '--no-verify', '-m', 'chore: add the app')
       commitFile('shared/login/form.js', 'fix(login): fix the form')
@@ -192,8 +203,16 @@ describe('Given a release with version groups on a real git repository', () => {
     it('Then checks the peer ranges with the root version of a selective group bumped for its dependents only', async () => {
       git('reset', '--hard', 'HEAD~1')
       // @scope/app has its own version: bumped for @scope/login, it gets the root version 6.19.2, out of the range "^1.5.0" of @scope/kit
-      writeJson('packages/app', { name: '@scope/app', version: '1.5.0', dependencies: { '@scope/login': 'workspace:*' } })
-      writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1', peerDependencies: { '@scope/app': 'workspace:^' } })
+      writeJson('packages/app', {
+        name: '@scope/app',
+        version: '1.5.0',
+        dependencies: { '@scope/login': 'workspace:*' },
+      })
+      writeJson('packages/kit', {
+        name: '@scope/kit',
+        version: '6.19.1',
+        peerDependencies: { '@scope/app': 'workspace:^' },
+      })
       git('add', '-A')
       git('commit', '--no-verify', '-m', 'chore: add the app and the kit')
       commitFile('shared/login/form.js', 'fix(login): fix the form')
@@ -206,7 +225,11 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then bumps every package of a unified group for a dependent of an independent group', async () => {
       git('reset', '--hard', 'HEAD~1')
-      writeJson('packages/app', { name: '@scope/app', version: '6.19.1', dependencies: { '@scope/login': 'workspace:*' } })
+      writeJson('packages/app', {
+        name: '@scope/app',
+        version: '6.19.1',
+        dependencies: { '@scope/login': 'workspace:*' },
+      })
       writeFileSync(join(releaseRepo.cwd, 'relizy.config.mjs'), readFileSync(join(releaseRepo.cwd, 'relizy.config.mjs'), 'utf8').replace(`versionMode: 'selective'`, `versionMode: 'unified'`))
       git('add', '-A')
       git('commit', '--no-verify', '-m', 'chore: unified app')
@@ -223,7 +246,11 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then follows the dependencies back and forth between the groups', async () => {
       // @scope/app (main) depends on @scope/nav (header), which has a peer dependency on @scope/components (main)
-      writeJson('packages/app', { name: '@scope/app', version: '6.19.1', dependencies: { '@scope/nav': 'workspace:*' } })
+      writeJson('packages/app', {
+        name: '@scope/app',
+        version: '6.19.1',
+        dependencies: { '@scope/nav': 'workspace:*' },
+      })
       commitConfig(FOLLOW_PEERS)
 
       await release({ yes: true })

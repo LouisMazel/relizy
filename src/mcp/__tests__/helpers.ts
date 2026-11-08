@@ -48,7 +48,10 @@ export function getKnowledge(): Knowledge {
 }
 
 export function createTestContext(cwd: string = createTempDir()): ServerContext {
-  return createContext({ cwd, knowledge: getKnowledge() })
+  return createContext({
+    cwd,
+    knowledge: getKnowledge(),
+  })
 }
 
 /** A temporary git repository, without remote, removed by `cleanTempDirs()` */

@@ -78,7 +78,9 @@ export function shouldUseColors(stream: { isTTY?: boolean } = process.stdout): b
 }
 
 export function createStyles(colors: boolean): Styles {
-  const style = (code: string): Style => colors ? text => `${code}${text}${ANSI.reset}` : text => text
+  const style = (code: string): Style => colors
+    ? text => `${code}${text}${ANSI.reset}`
+    : text => text
   return {
     bold: style(ANSI.bold),
     dim: style(ANSI.dim),
@@ -103,13 +105,17 @@ function wrap(text: string, firstWidth: number, width: number): string[] {
   const lines: string[] = []
   let line = ''
   for (const word of text.split(' ')) {
-    const max = lines.length === 0 ? firstWidth : width
+    const max = lines.length === 0
+      ? firstWidth
+      : width
     if (line && line.length + word.length + 1 > max) {
       lines.push(line)
       line = word
     }
     else {
-      line = line ? `${line} ${word}` : word
+      line = line
+        ? `${line} ${word}`
+        : word
     }
   }
   lines.push(line)
@@ -122,26 +128,37 @@ function formatCommitKind(result: CommitlintResult): string {
   if (!type) {
     return result.commit.header
   }
-  const scopePart = scope ? `(${scope})` : ''
+  const scopePart = scope
+    ? `(${scope})`
+    : ''
   return `${type}${scopePart}${isBreaking ? '!' : ''}`
 }
 
 /** `minor bump, 🚀 Enhancements` */
 export function formatReleaseEffect(result: CommitlintResult): string {
-  const bump = result.commit.bump ? `${result.commit.bump} bump` : 'no bump'
+  const bump = result.commit.bump
+    ? `${result.commit.bump} bump`
+    : 'no bump'
   const changelog = result.changelogTitle ?? 'not in the changelog'
   return `${bump}, ${changelog}`
 }
 
 function formatProblem(problem: CommitlintProblem, column: number, styles: Styles): string[] {
-  const symbol = problem.severity === 'error' ? styles.red('✖') : styles.yellow('⚠')
+  const symbol = problem.severity === 'error'
+    ? styles.red('✖')
+    : styles.yellow('⚠')
   const indent = ' '.repeat(4 + column)
   const width = getWidth() - indent.length
   const [first = '', ...rest] = wrap(problem.message, width, width)
-  const lines = [`  ${symbol} ${styles.cyan(problem.rule.padEnd(column))}${first}`, ...rest.map(line => `${indent}${line}`)]
+  const lines = [
+    `  ${symbol} ${styles.cyan(problem.rule.padEnd(column))}${first}`,
+    ...rest.map(line => `${indent}${line}`),
+  ]
   if (problem.fix) {
     wrap(problem.fix, width - 2, width - 2).forEach((line, index) => {
-      lines.push(`${indent}${index === 0 ? styles.dim('→ ') : '  '}${styles.dim(line)}`)
+      lines.push(`${indent}${index === 0
+        ? styles.dim('→ ')
+        : '  '}${styles.dim(line)}`)
     })
   }
   return lines
@@ -154,11 +171,17 @@ function formatProblem(problem: CommitlintProblem, column: number, styles: Style
  */
 export function formatCommitResult(result: CommitlintResult, { label, colors = false }: { label?: string, colors?: boolean } = {}): string[] {
   const styles = createStyles(colors)
-  const prefix = label ? `${styles.dim(label)} ` : ''
+  const prefix = label
+    ? `${styles.dim(label)} `
+    : ''
 
   if (result.ignored) {
-    const labelPart = label ? `${label} ` : ''
-    return [styles.dim(`○ ${labelPart}${result.commit.header} (ignored)`)]
+    const labelPart = label
+      ? `${label} `
+      : ''
+    return [
+      styles.dim(`○ ${labelPart}${result.commit.header} (ignored)`),
+    ]
   }
 
   const firstLine = result.valid
@@ -169,7 +192,11 @@ export function formatCommitResult(result: CommitlintResult, { label, colors = f
   }
 
   const column = Math.max(...result.problems.map(problem => problem.rule.length)) + 2
-  const lines = [firstLine, '', ...result.problems.flatMap(problem => formatProblem(problem, column, styles))]
+  const lines = [
+    firstLine,
+    '',
+    ...result.problems.flatMap(problem => formatProblem(problem, column, styles)),
+  ]
 
   if (result.suggestion) {
     const remaining = result.suggestion.remainingRules
@@ -203,10 +230,16 @@ function formatVerdict(report: CommitlintReport, styles: Styles): string {
   const invalidCommits = commits.filter(entry => !entry.result.valid).length
   const invalidTitle = report.entries.some(entry => !entry.result.commit.hash && !entry.result.valid)
   const subjects = [
-    ...(invalidCommits > 0 || !invalidTitle ? [`${invalidCommits} of ${plural(commits.length, 'commit')}`] : []),
-    ...(invalidTitle ? [`the ${report.titleKind} title`] : []),
+    ...(invalidCommits > 0 || !invalidTitle
+      ? [`${invalidCommits} of ${plural(commits.length, 'commit')}`]
+      : []),
+    ...(invalidTitle
+      ? [`the ${report.titleKind} title`]
+      : []),
   ]
-  const verb = subjects.length > 1 || invalidCommits > 1 ? 'are' : 'is'
+  const verb = subjects.length > 1 || invalidCommits > 1
+    ? 'are'
+    : 'is'
   const verdict = `${subjects.join(' and ')} ${verb} invalid`
   return `${styles.red('✖')} ${styles.bold(verdict)}: ${counts}`
 }
@@ -229,9 +262,15 @@ export function formatHowToFix(report: CommitlintReport): string[] {
   const lines: string[] = []
   const commits = invalid.filter(entry => entry.result.commit.hash)
   if (commits.length > 0) {
-    const base = report.from ? (/^[0-9a-f]{40}$/.test(report.from) ? report.from.slice(0, 7) : report.from) : '--root'
+    const base = report.from
+      ? (/^[0-9a-f]{40}$/.test(report.from)
+          ? report.from.slice(0, 7)
+          : report.from)
+      : '--root'
     lines.push(
-      `reword ${commits.map(entry => entry.label).join(', ')}: mark ${commits.length > 1 ? 'them' : 'it'} as "reword" in the rebase, then force-push:`,
+      `reword ${commits.map(entry => entry.label).join(', ')}: mark ${commits.length > 1
+        ? 'them'
+        : 'it'} as "reword" in the rebase, then force-push:`,
       `$ git rebase -i ${base}`,
       '$ git push --force-with-lease',
     )
@@ -268,10 +307,18 @@ export function formatTextReport(report: CommitlintReport, { colors = false, qui
     return ['No commit to lint']
   }
 
-  const printed = quiet ? report.entries.filter(entry => entry.result.problems.length > 0) : report.entries
+  const printed = quiet
+    ? report.entries.filter(entry => entry.result.problems.length > 0)
+    : report.entries
   const lines = printed.flatMap(entry => [
     ...formatCommitResult(entry.result, { label: entry.label, colors }),
-    ...(entry.preview ? ['', ...entry.preview.split('\n').map(line => `    ${line}`), ''] : []),
+    ...(entry.preview
+      ? [
+          '',
+          ...entry.preview.split('\n').map(line => `    ${line}`),
+          '',
+        ]
+      : []),
   ])
   const { errorCount, warningCount } = summarizeResults(report.entries.map(entry => entry.result))
 
@@ -279,7 +326,9 @@ export function formatTextReport(report: CommitlintReport, { colors = false, qui
     if (report.mode === 'range') {
       const ignored = report.entries.filter(entry => entry.result.ignored).length
       const commits = report.entries.filter(entry => entry.result.commit.hash).length
-      const ignoredPart = ignored > 0 ? ` (${ignored} ignored)` : ''
+      const ignoredPart = ignored > 0
+        ? ` (${ignored} ignored)`
+        : ''
       lines.push(`${styles.green('✔')} ${plural(commits, 'commit')} checked, all valid${ignoredPart}`)
     }
     return lines
@@ -293,21 +342,29 @@ export function formatTextReport(report: CommitlintReport, { colors = false, qui
   const links = getRuleLinks(report)
   const column = Math.max(0, ...links.map(link => link.rule.length)) + 2
   links.forEach((link, index) => {
-    lines.push(`  ${index === 0 ? 'Rules:' : '      '} ${styles.cyan(link.rule.padEnd(column))}${styles.dim(link.url)}`)
+    lines.push(`  ${index === 0
+      ? 'Rules:'
+      : '      '} ${styles.cyan(link.rule.padEnd(column))}${styles.dim(link.url)}`)
   })
   if (report.helpUrl && errorCount > 0) {
     lines.push(`  Help:  ${report.helpUrl}`)
   }
   const indent = ' '.repeat(9)
   formatHowToFix(report).forEach((fix, index) => {
-    const label = index === 0 ? '  Fix:   ' : indent
+    const label = index === 0
+      ? '  Fix:   '
+      : indent
     // A command is printed whole, to be copied and pasted
     if (fix.startsWith('$ ')) {
       lines.push(`${label}  ${styles.green(fix)}`)
       return
     }
     wrap(fix, getWidth() - indent.length, getWidth() - indent.length - 2).forEach((line, lineIndex) => {
-      lines.push(`${lineIndex === 0 ? label : indent}${lineIndex > 0 ? '  ' : ''}${line}`)
+      lines.push(`${lineIndex === 0
+        ? label
+        : indent}${lineIndex > 0
+        ? '  '
+        : ''}${line}`)
     })
   })
 
@@ -322,7 +379,9 @@ function getEntryKind(entry: ReportEntry, report: CommitlintReport): 'commit' | 
   if (entry.result.commit.hash) {
     return 'commit'
   }
-  return report.mode === 'range' ? 'title' : 'message'
+  return report.mode === 'range'
+    ? 'title'
+    : 'message'
 }
 
 /**
@@ -356,7 +415,9 @@ export function formatJsonReport(report: CommitlintReport): string {
 /** Escape a GitHub Actions workflow command */
 function escapeAnnotation(text: string, { property = false } = {}): string {
   const escaped = text.replaceAll('%', '%25').replaceAll('\r', '%0D').replaceAll('\n', '%0A')
-  return property ? escaped.replaceAll(':', '%3A').replaceAll(',', '%2C') : escaped
+  return property
+    ? escaped.replaceAll(':', '%3A').replaceAll(',', '%2C')
+    : escaped
 }
 
 /**
@@ -365,10 +426,20 @@ function escapeAnnotation(text: string, { property = false } = {}): string {
  */
 export function formatGithubAnnotations(report: CommitlintReport): string[] {
   return report.entries.flatMap(entry => entry.result.problems.map((problem) => {
-    const command = problem.severity === 'error' ? 'error' : 'warning'
-    const subject = entry.label ? `${entry.label} ` : ''
+    const command = problem.severity === 'error'
+      ? 'error'
+      : 'warning'
+    const subject = entry.label
+      ? `${entry.label} `
+      : ''
     const title = escapeAnnotation(`Commit ${subject}(${problem.rule})`, { property: true })
-    const message = [entry.result.commit.header, problem.message, ...(problem.fix ? [`→ ${problem.fix}`] : [])].join('\n')
+    const message = [
+      entry.result.commit.header,
+      problem.message,
+      ...(problem.fix
+        ? [`→ ${problem.fix}`]
+        : []),
+    ].join('\n')
     return `::${command} title=${title}::${escapeAnnotation(message)}`
   }))
 }

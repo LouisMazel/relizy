@@ -46,12 +46,43 @@ jobs:
 
 The guide: [GitHub Actions](https://relizy.dev/guide/github-actions).
 
+### Preview the release before the merge
+
+The same action, with `merge-preview: true`, on the pull requests: a comment tells what the merge releases (versions, tags, dist-tag, what the pull request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail (a version or a tag already taken, a squash title that is not a Conventional Commit...). Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview) instead of `relizy release`: give it the `release-type` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...).
+
+```yaml
+name: Merge preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+jobs:
+  merge-preview:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      statuses: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: relizy/action@v2
+        with:
+          merge-preview: true
+```
+
+The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
+
 ## Inputs
 
 | Input                                                                                              | Default                | Description                                                                                               |
 | -------------------------------------------------------------------------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------------- |
 | `release-type`                                                                                     | `auto`                 | `auto` (follows the commits), `patch`, `minor`, `major`, `prerelease`, `prepatch`, `preminor`, `premajor` |
 | `args`                                                                                             |                        | More arguments for `relizy release`, e.g. `--tag beta --preid beta`                                       |
+| `merge-preview`                                                                                    | `false`                | `true` on a pull request: runs `relizy merge-preview`, writes nothing                                     |
 | `github-token`                                                                                     | `${{ github.token }}`  | GitHub releases, push and PR comment                                                                      |
 | `npm-token`                                                                                        |                        | npm publishing, not needed with trusted publishing                                                        |
 | `slack-token`, `teams-webhook-url`                                                                 |                        | Slack posts, Microsoft Teams cards                                                                        |

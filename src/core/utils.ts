@@ -10,7 +10,12 @@ import { getPackages } from './repo'
  * Context of the hooks of the steps of a release, undefined without bump result
  */
 export function getHookContext(config: ResolvedRelizyConfig, bumpResult: BumpResultTruthy | undefined): HookContext | undefined {
-  return bumpResult ? { bumpResult, release: getReleaseOverview({ config, bumpResult }) } : undefined
+  return bumpResult
+    ? {
+        bumpResult,
+        release: getReleaseOverview({ config, bumpResult }),
+      }
+    : undefined
 }
 
 /**
@@ -30,8 +35,11 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     // A hook can commit, tag or check out
     clearGitCache()
 
-    if (result)
-      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
+    if (result) {
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object'
+        ? JSON.stringify(result)
+        : result}`)
+    }
 
     logger.info(`Hook ${hook} executed`)
 
@@ -48,8 +56,11 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
     })
     clearGitCache()
 
-    if (result)
-      logger.debug(`Hook ${hook} returned: ${typeof result === 'object' ? JSON.stringify(result) : result}`)
+    if (result) {
+      logger.debug(`Hook ${hook} returned: ${typeof result === 'object'
+        ? JSON.stringify(result)
+        : result}`)
+    }
 
     logger.info(`Hook ${hook} executed`)
 
@@ -109,7 +120,9 @@ export function filterPrivatePackagesUnlessIncluded<T extends { private: boolean
   packages: T[],
   privatePackages: PrivatePackages | undefined,
 ): T[] {
-  return privatePackages === 'release' ? packages : filterOutPrivatePackages(packages)
+  return privatePackages === 'release'
+    ? packages
+    : filterOutPrivatePackages(packages)
 }
 
 export async function getPackagesOrBumpedPackages({

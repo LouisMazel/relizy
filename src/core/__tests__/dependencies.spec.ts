@@ -182,9 +182,15 @@ describe('Given getDependentsOf function', () => {
   describe('When finding dependents', () => {
     it('Then returns packages that depend on given package', () => {
       const allPackages = [
-        { name: 'pkg-a', dependencies: ['pkg-b'] },
+        {
+          name: 'pkg-a',
+          dependencies: ['pkg-b'],
+        },
         { name: 'pkg-b', dependencies: [] },
-        { name: 'pkg-c', dependencies: ['pkg-b'] },
+        {
+          name: 'pkg-c',
+          dependencies: ['pkg-b'],
+        },
       ]
 
       const result = getDependentsOf({
@@ -212,7 +218,10 @@ describe('Given getDependentsOf function', () => {
 
     it('Then handles packages with multiple dependencies', () => {
       const allPackages = [
-        { name: 'pkg-a', dependencies: ['pkg-b', 'pkg-c'] },
+        {
+          name: 'pkg-a',
+          dependencies: ['pkg-b', 'pkg-c'],
+        },
         { name: 'pkg-b', dependencies: [] },
         { name: 'pkg-c', dependencies: [] },
       ]
@@ -228,7 +237,10 @@ describe('Given getDependentsOf function', () => {
 
     it('Then excludes package if not a dependent', () => {
       const allPackages = [
-        { name: 'pkg-a', dependencies: ['pkg-c'] },
+        {
+          name: 'pkg-a',
+          dependencies: ['pkg-c'],
+        },
         { name: 'pkg-b', dependencies: [] },
       ]
 
@@ -246,10 +258,18 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
   describe('When expanding packages with commits', () => {
     it('Then includes original packages with commits', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -264,11 +284,23 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then includes direct dependents', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -282,12 +314,28 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then includes transitive dependents', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-b'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-b'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -301,11 +349,23 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then sets reason to dependency for dependents', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -319,12 +379,28 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then builds dependency chain for dependents', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-b'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-b'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -341,12 +417,28 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then does not duplicate packages', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-a'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-a'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -361,13 +453,33 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then handles multiple packages with commits', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-a', 'pkg-b'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-a', 'pkg-b'],
+        },
       ]
       const packagesWithCommits: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: [],
+        },
       ]
 
       const result = expandPackagesToBumpWithDependents({
@@ -381,7 +493,11 @@ describe('Given expandPackagesToBumpWithDependents function', () => {
 
     it('Then handles empty packagesWithCommits', () => {
       const allPackages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
       const packagesWithCommits: PackageBase[] = []
 
@@ -399,9 +515,21 @@ describe('Given topologicalSort function', () => {
   describe('When sorting packages', () => {
     it('Then sorts packages in dependency order', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-b'] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-b'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = topologicalSort(packages)
@@ -417,8 +545,16 @@ describe('Given topologicalSort function', () => {
 
     it('Then handles packages with no dependencies', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: [],
+        },
       ]
 
       const result = topologicalSort(packages)
@@ -428,10 +564,26 @@ describe('Given topologicalSort function', () => {
 
     it('Then handles diamond dependency pattern', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-d', dependencies: ['pkg-b', 'pkg-c'] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-d',
+          dependencies: ['pkg-b', 'pkg-c'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = topologicalSort(packages)
@@ -450,8 +602,16 @@ describe('Given topologicalSort function', () => {
 
     it('Then handles circular dependencies gracefully', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: ['pkg-b'] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: ['pkg-a'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: ['pkg-b'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: ['pkg-a'],
+        },
       ]
       const loggerSpy = vi.spyOn(logger, 'warn')
 
@@ -465,7 +625,11 @@ describe('Given topologicalSort function', () => {
 
     it('Then handles self-dependency', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: ['pkg-a'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: ['pkg-a'],
+        },
       ]
       const loggerSpy = vi.spyOn(logger, 'warn')
 
@@ -478,10 +642,26 @@ describe('Given topologicalSort function', () => {
 
     it('Then handles packages with multiple dependencies', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-d', dependencies: ['pkg-a', 'pkg-b', 'pkg-c'] },
-        { ...createMockPackageInfo(), name: 'pkg-c', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-b', dependencies: [] },
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: [] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-d',
+          dependencies: ['pkg-a', 'pkg-b', 'pkg-c'],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-c',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          dependencies: [],
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: [],
+        },
       ]
 
       const result = topologicalSort(packages)
@@ -499,7 +679,11 @@ describe('Given topologicalSort function', () => {
 
     it('Then skips packages not in map', () => {
       const packages: PackageBase[] = [
-        { ...createMockPackageInfo(), name: 'pkg-a', dependencies: ['non-existent'] },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          dependencies: ['non-existent'],
+        },
       ]
 
       const result = topologicalSort(packages)

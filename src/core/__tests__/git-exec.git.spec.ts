@@ -46,7 +46,9 @@ describe('Given the git execution of relizy', () => {
   describe('When git fails', () => {
     it('Then throws with the stderr of git in the message', async () => {
       expect(() => runGitSync(['show', 'unknown-ref'], { cwd: repo.cwd })).toThrow(/unknown-ref/)
-      await expect(runGit(['show', 'unknown-ref'], { cwd: repo.cwd })).rejects.toMatchObject({ stderr: expect.stringContaining('unknown-ref') })
+      await expect(runGit(['show', 'unknown-ref'], { cwd: repo.cwd })).rejects.toMatchObject({
+        stderr: expect.stringContaining('unknown-ref'),
+      })
     })
 
     it('Then gives undefined with the try variants', async () => {

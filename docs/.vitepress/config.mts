@@ -6,6 +6,7 @@ import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
 import packageJson from '../../package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
+import { writeAgentSkills, writeAiCatalog } from './agents'
 
 const SITE_URL = 'https://relizy.dev'
 const CLI_COMMAND_PAGE = /^(?:cli\/(?!commands\.md)[\w-]+|commitlint\/cli)\.md$/
@@ -15,8 +16,14 @@ const isProduction = process.env.CF_PAGES_BRANCH === 'main' || !process.env.CF_P
 // typedoc reference, generated without descriptions and covered by the pages of the API section
 function getIndexingTag(pageData: PageData, url: string): HeadConfig {
   return pageData.isNotFound || pageData.relativePath.startsWith('typedoc/')
-    ? ['meta', { name: 'robots', content: 'noindex' }]
-    : ['link', { rel: 'canonical', href: url }]
+    ? [
+        'meta',
+        { name: 'robots', content: 'noindex' },
+      ]
+    : [
+        'link',
+        { rel: 'canonical', href: url },
+      ]
 }
 
 // https://vitepress.dev/reference/site-config
@@ -50,6 +57,7 @@ const guideSidebar = [
       { text: 'Release from CI', link: '/guide/ci-cd' },
       { text: 'GitHub Actions', link: '/guide/github-actions' },
       { text: 'GitLab CI', link: '/guide/gitlab-ci' },
+      { text: 'Merge Preview', link: '/guide/merge-preview' },
       { text: 'Trusted Publishing (OIDC)', link: '/guide/trusted-publishing' },
     ],
   },
@@ -85,6 +93,7 @@ const configSidebar = [
       { text: 'AI', link: '/config/ai' },
       { text: 'Social', link: '/config/social' },
       { text: 'PR Comment', link: '/config/pr-comment' },
+      { text: 'Merge Preview', link: '/config/merge-preview' },
     ],
   },
 ]
@@ -102,6 +111,7 @@ const cliSidebar = [
       { text: 'provider-release', link: '/cli/provider-release' },
       { text: 'social', link: '/cli/social' },
       { text: 'pr-comment', link: '/cli/pr-comment' },
+      { text: 'merge-preview', link: '/cli/merge-preview' },
       { text: 'commitlint', link: '/commitlint/cli' },
       { text: 'mcp', link: '/cli/mcp' },
     ],
@@ -134,6 +144,7 @@ const apiSidebar = [
       { text: 'providerRelease()', link: '/api/provider-release' },
       { text: 'social()', link: '/api/social' },
       { text: 'prComment()', link: '/api/pr-comment' },
+      { text: 'mergePreview()', link: '/api/merge-preview' },
       { text: 'commitlint()', link: '/api/commitlint' },
       { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
     ],
@@ -152,7 +163,9 @@ const breadcrumbSections: Record<string, { name: string, link: string }> = {
 function getBreadcrumbList(url: string, title: string): HeadConfig {
   const path = url.slice(SITE_URL.length)
   const section = breadcrumbSections[path.split('/')[1]!]
-  const breadcrumbs = [{ name: 'Home', url: SITE_URL }]
+  const breadcrumbs = [
+    { name: 'Home', url: SITE_URL },
+  ]
 
   if (section && section.link !== path) {
     breadcrumbs.push({ name: section.name, url: `${SITE_URL}${section.link}` })
@@ -160,16 +173,20 @@ function getBreadcrumbList(url: string, title: string): HeadConfig {
 
   breadcrumbs.push({ name: title, url })
 
-  return ['script', { type: 'application/ld+json' }, JSON.stringify({
-    '@context': 'https://schema.org',
-    '@type': 'BreadcrumbList',
-    'itemListElement': breadcrumbs.map((crumb, i) => ({
-      '@type': 'ListItem',
-      'position': i + 1,
-      'name': crumb.name,
-      'item': crumb.url,
-    })),
-  })]
+  return [
+    'script',
+    { type: 'application/ld+json' },
+    JSON.stringify({
+      '@context': 'https://schema.org',
+      '@type': 'BreadcrumbList',
+      'itemListElement': breadcrumbs.map((crumb, i) => ({
+        '@type': 'ListItem',
+        'position': i + 1,
+        'name': crumb.name,
+        'item': crumb.url,
+      })),
+    }),
+  ]
 }
 
 export default defineConfig({
@@ -181,51 +198,98 @@ export default defineConfig({
   description: 'Seamless and automated release manager with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.',
 
   head: [
-    ['meta', { name: 'author', content: 'Louis Mazel' }],
-    ['meta', { name: 'robots', content: isProduction ? 'index, follow' : 'noindex, nofollow' }],
-    ['meta', { name: 'theme-color', content: '#8b5cf6' }],
-    ['meta', { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
-    ['meta', { property: 'og:image:width', content: '1200' }],
-    ['meta', { property: 'og:image:height', content: '630' }],
-    ['meta', { property: 'og:locale', content: 'en_US' }],
-    ['meta', { name: 'twitter:card', content: 'summary_large_image' }],
-    ['meta', { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
-    ['meta', { name: 'twitter:site', content: '@mazeel' }],
-    ['meta', { name: 'twitter:creator', content: '@mazeel' }],
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${SITE_URL}/logo.svg` }],
-    ['script', { type: 'application/ld+json' }, JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'WebSite',
-      'name': 'Relizy',
-      'url': SITE_URL,
-      'description': 'Seamless and automated release manager for monorepos and single packages',
-      'author': {
-        '@type': 'Person',
-        'name': 'Louis Mazel',
-        'url': 'https://github.com/LouisMazel',
+    [
+      'meta',
+      { name: 'author', content: 'Louis Mazel' },
+    ],
+    [
+      'meta',
+      {
+        name: 'robots',
+        content: isProduction ? 'index, follow' : 'noindex, nofollow',
       },
-    })],
-    ['script', { type: 'application/ld+json' }, JSON.stringify({
-      '@context': 'https://schema.org',
-      '@type': 'SoftwareApplication',
-      'name': 'Relizy',
-      'applicationCategory': 'DeveloperApplication',
-      'operatingSystem': 'Cross-platform',
-      'url': SITE_URL,
-      'downloadUrl': 'https://www.npmjs.com/package/relizy',
-      'softwareVersion': packageJson.version,
-      'license': 'https://opensource.org/licenses/MIT',
-      'sameAs': ['https://github.com/LouisMazel/relizy', 'https://www.npmjs.com/package/relizy'],
-      'offers': {
-        '@type': 'Offer',
-        'price': '0',
-        'priceCurrency': 'USD',
-      },
-      'author': {
-        '@type': 'Person',
-        'name': 'Louis Mazel',
-      },
-    })],
+    ],
+    [
+      'meta',
+      { name: 'theme-color', content: '#8b5cf6' },
+    ],
+    [
+      'meta',
+      { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` },
+    ],
+    [
+      'meta',
+      { property: 'og:image:width', content: '1200' },
+    ],
+    [
+      'meta',
+      { property: 'og:image:height', content: '630' },
+    ],
+    [
+      'meta',
+      { property: 'og:locale', content: 'en_US' },
+    ],
+    [
+      'meta',
+      { name: 'twitter:card', content: 'summary_large_image' },
+    ],
+    [
+      'meta',
+      { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` },
+    ],
+    [
+      'meta',
+      { name: 'twitter:site', content: '@mazeel' },
+    ],
+    [
+      'meta',
+      { name: 'twitter:creator', content: '@mazeel' },
+    ],
+    [
+      'link',
+      { rel: 'icon', type: 'image/svg+xml', href: `${SITE_URL}/logo.svg` },
+    ],
+    [
+      'script',
+      { type: 'application/ld+json' },
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        'name': 'Relizy',
+        'url': SITE_URL,
+        'description': 'Seamless and automated release manager for monorepos and single packages',
+        'author': {
+          '@type': 'Person',
+          'name': 'Louis Mazel',
+          'url': 'https://github.com/LouisMazel',
+        },
+      }),
+    ],
+    [
+      'script',
+      { type: 'application/ld+json' },
+      JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'SoftwareApplication',
+        'name': 'Relizy',
+        'applicationCategory': 'DeveloperApplication',
+        'operatingSystem': 'Cross-platform',
+        'url': SITE_URL,
+        'downloadUrl': 'https://www.npmjs.com/package/relizy',
+        'softwareVersion': packageJson.version,
+        'license': 'https://opensource.org/licenses/MIT',
+        'sameAs': ['https://github.com/LouisMazel/relizy', 'https://www.npmjs.com/package/relizy'],
+        'offers': {
+          '@type': 'Offer',
+          'price': '0',
+          'priceCurrency': 'USD',
+        },
+        'author': {
+          '@type': 'Person',
+          'name': 'Louis Mazel',
+        },
+      }),
+    ],
   ],
 
   appearance: true,
@@ -252,7 +316,9 @@ export default defineConfig({
           continue
         }
 
-        const url = item.url === 'index' ? '' : item.url
+        const url = item.url === 'index'
+          ? ''
+          : item.url
 
         modifyItems.push({ ...item, url })
       }
@@ -277,29 +343,76 @@ export default defineConfig({
     // commitlint/index.md is served at /commitlint/, index.md at /
     const currentUrl = `${SITE_URL}/${slug.replace(/(^|\/)index$/, '$1')}`
     const isArticle = pageData.relativePath !== 'index.md'
-    const lastUpdatedISO = pageData.lastUpdated ? new Date(pageData.lastUpdated).toISOString() : new Date().toISOString()
+    const lastUpdatedISO = pageData.lastUpdated
+      ? new Date(pageData.lastUpdated).toISOString()
+      : new Date().toISOString()
 
     const pageHead: HeadConfig[] = [
-      ['meta', { property: 'og:site_name', content: 'Relizy' }],
-      ['meta', { property: 'og:title', content: currentTitle }],
-      ['meta', { property: 'og:url', content: currentUrl }],
-      ['meta', { property: 'og:type', content: isArticle ? 'article' : 'website' }],
-      ['meta', { name: 'description', content: currentDescription }],
-      ['meta', { property: 'og:description', content: currentDescription }],
-      ['meta', { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
-      ['meta', { property: 'og:image:alt', content: currentDescription }],
-      ['meta', { name: 'twitter:title', content: currentTitle }],
-      ['meta', { name: 'twitter:description', content: currentDescription }],
-      ['meta', { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` }],
-      ['meta', { name: 'twitter:image:alt', content: currentDescription }],
+      [
+        'meta',
+        { property: 'og:site_name', content: 'Relizy' },
+      ],
+      [
+        'meta',
+        { property: 'og:title', content: currentTitle },
+      ],
+      [
+        'meta',
+        { property: 'og:url', content: currentUrl },
+      ],
+      [
+        'meta',
+        {
+          property: 'og:type',
+          content: isArticle ? 'article' : 'website',
+        },
+      ],
+      [
+        'meta',
+        { name: 'description', content: currentDescription },
+      ],
+      [
+        'meta',
+        { property: 'og:description', content: currentDescription },
+      ],
+      [
+        'meta',
+        { property: 'og:image', content: `${SITE_URL}/relizy-illustration.jpeg` },
+      ],
+      [
+        'meta',
+        { property: 'og:image:alt', content: currentDescription },
+      ],
+      [
+        'meta',
+        { name: 'twitter:title', content: currentTitle },
+      ],
+      [
+        'meta',
+        { name: 'twitter:description', content: currentDescription },
+      ],
+      [
+        'meta',
+        { name: 'twitter:image', content: `${SITE_URL}/relizy-illustration.jpeg` },
+      ],
+      [
+        'meta',
+        { name: 'twitter:image:alt', content: currentDescription },
+      ],
     ]
 
     pageHead.push(getIndexingTag(pageData, currentUrl))
 
     if (isArticle) {
       pageHead.push(
-        ['meta', { property: 'article:modified_time', content: lastUpdatedISO }],
-        ['meta', { property: 'article:author', content: 'Louis Mazel' }],
+        [
+          'meta',
+          { property: 'article:modified_time', content: lastUpdatedISO },
+        ],
+        [
+          'meta',
+          { property: 'article:author', content: 'Louis Mazel' },
+        ],
       )
     }
 
@@ -311,19 +424,28 @@ export default defineConfig({
           ? pageData.frontmatter.keywords.join(', ')
           : ''
       if (keywords) {
-        pageHead.push(['meta', { name: 'keywords', content: keywords }])
+        pageHead.push([
+          'meta',
+          { name: 'keywords', content: keywords },
+        ])
       }
     }
 
     // Add article category
     if (pageData.frontmatter.category) {
-      pageHead.push(['meta', { property: 'article:section', content: pageData.frontmatter.category }])
+      pageHead.push([
+        'meta',
+        { property: 'article:section', content: pageData.frontmatter.category },
+      ])
     }
 
     // Add article tags
     if (pageData.frontmatter.tags && Array.isArray(pageData.frontmatter.tags)) {
       for (const tag of pageData.frontmatter.tags) {
-        pageHead.push(['meta', { property: 'article:tag', content: tag }])
+        pageHead.push([
+          'meta',
+          { property: 'article:tag', content: tag },
+        ])
       }
     }
 
@@ -385,6 +507,9 @@ export default defineConfig({
   },
 
   buildEnd: ({ outDir }) => {
+    writeAgentSkills(outDir, SITE_URL)
+    writeAiCatalog(outDir, SITE_URL)
+
     if (isProduction) {
       return
     }

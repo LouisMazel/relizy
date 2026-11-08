@@ -8,7 +8,10 @@ const MCP_ONLY_DEPENDENCIES = ['@modelcontextprotocol/sdk', 'zod', 'minisearch']
 function resolveSource(from: string, specifier: string): string | undefined {
   const base = join(dirname(from), specifier)
 
-  return [`${base}.ts`, join(base, 'index.ts')].find(existsSync)
+  return [
+    `${base}.ts`,
+    join(base, 'index.ts'),
+  ].find(existsSync)
 }
 
 /** The packages imported statically (not through `await import()`) from a source file, transitively */
@@ -49,7 +52,9 @@ describe('Given the commands of the CLI other than relizy mcp', () => {
   describe('When their static imports are followed from src/cli.ts and src/index.ts', () => {
     it('Then they never load the dependencies of the MCP server', () => {
       for (const entry of ['src/cli.ts', 'src/index.ts']) {
-        const loaded = [...staticImports(join(ROOT_DIR, entry))]
+        const loaded = [
+          ...staticImports(join(ROOT_DIR, entry)),
+        ]
           .filter(([specifier]) => MCP_ONLY_DEPENDENCIES.some(dependency => specifier === dependency || specifier.startsWith(`${dependency}/`)))
           .map(([specifier, file]) => `${specifier} (imported by ${file})`)
 

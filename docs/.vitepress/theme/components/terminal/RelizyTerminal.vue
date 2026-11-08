@@ -53,7 +53,11 @@ let ticker: ReturnType<typeof setInterval> | undefined
 let observer: IntersectionObserver | undefined
 let reducedMotion = false
 
-const title = computed(() => scenario.value === 'ci' ? 'release.yml · Run relizy' : `~/acme — relizy release${scenario.value === 'dry-run' ? ' --dry-run' : ''}`)
+const title = computed(() => scenario.value === 'ci'
+  ? 'release.yml · Run relizy'
+  : `~/acme — relizy release${scenario.value === 'dry-run'
+    ? ' --dry-run'
+    : ''}`)
 
 const TONES: Record<Tone, string> = {
   dim: 'text-terminal-dim',
@@ -81,13 +85,25 @@ function railClass(row: Row): string {
   if (row.kind === 'command') {
     return ''
   }
-  const edge = row.kind === 'line' ? row.edge : undefined
-  return [RAIL, edge === 'start' ? 'before:top-[0.8em]' : 'before:top-0', edge === 'end' ? 'before:bottom-[calc(100%-0.8em)]' : 'before:bottom-0'].join(' ')
+  const edge = row.kind === 'line'
+    ? row.edge
+    : undefined
+  return [
+    RAIL,
+    edge === 'start'
+      ? 'before:top-[0.8em]'
+      : 'before:top-0',
+    edge === 'end'
+      ? 'before:bottom-[calc(100%-0.8em)]'
+      : 'before:bottom-0',
+  ].join(' ')
 }
 
 function elapsed(startedAt: number): string {
   const seconds = Math.floor((now.value - startedAt) / 1000 * TIME_SCALE)
-  return seconds >= 2 ? `${seconds}s` : ''
+  return seconds >= 2
+    ? `${seconds}s`
+    : ''
 }
 
 type CommandRow = Extract<Row, { kind: 'command' }>
@@ -104,14 +120,20 @@ function push<R extends Row>(row: Omit<R, 'id'>): R {
 
 /** The space between two steps, on the rail */
 function gap() {
-  push<LineRow>({ kind: 'line', line: { segments: [] } })
+  push<LineRow>({
+    kind: 'line',
+    line: { segments: [] },
+  })
 }
 
 function scrollToEnd() {
   void nextTick(() => {
     const element = screen.value
     if (element) {
-      element.scrollTo({ top: element.scrollHeight, behavior: reducedMotion ? 'auto' : 'smooth' })
+      element.scrollTo({
+        top: element.scrollHeight,
+        behavior: reducedMotion ? 'auto' : 'smooth',
+      })
     }
   })
 }
@@ -135,7 +157,12 @@ async function typeCommand(text: string, sleep: Sleep) {
 
 async function confirm(action: Extract<Action, { do: 'confirm' }>, sleep: Sleep) {
   gap()
-  const row = push<ConfirmRow>({ kind: 'confirm', question: action.question, options: action.options, answered: false })
+  const row = push<ConfirmRow>({
+    kind: 'confirm',
+    question: action.question,
+    options: action.options,
+    answered: false,
+  })
   await sleep(1400)
   row.answered = true
   await sleep(300)
@@ -144,7 +171,12 @@ async function confirm(action: Extract<Action, { do: 'confirm' }>, sleep: Sleep)
 /** A step: its spinner and what it does, then its result */
 async function runStep(action: Extract<Action, { do: 'step' }>, sleep: Sleep) {
   gap()
-  const row = push<SpinnerRow>({ kind: 'spinner', label: action.running, ai: false, startedAt: Date.now() })
+  const row = push<SpinnerRow>({
+    kind: 'spinner',
+    label: action.running,
+    ai: false,
+    startedAt: Date.now(),
+  })
 
   for (const progress of action.progress ?? []) {
     row.label = progress.text
@@ -156,9 +188,24 @@ async function runStep(action: Extract<Action, { do: 'step' }>, sleep: Sleep) {
     await sleep(action.ms ?? 600)
   }
 
-  const dryRun: Segment[] = scenario.value === 'dry-run' ? [{ text: '  dry run', tone: 'yellow' }] : []
+  const dryRun: Segment[] = scenario.value === 'dry-run'
+    ? [
+        { text: '  dry run', tone: 'yellow' },
+      ]
+    : []
   const index = rows.value.findIndex(({ id }) => id === row.id)
-  rows.value.splice(index, 1, { id: row.id, kind: 'line', line: { symbol: { text: '◇', tone: 'green' }, segments: [...action.done, { text: `  ${action.duration}`, tone: 'dim' }, ...dryRun] } })
+  rows.value.splice(index, 1, {
+    id: row.id,
+    kind: 'line',
+    line: {
+      symbol: { text: '◇', tone: 'green' },
+      segments: [
+        ...action.done,
+        { text: `  ${action.duration}`, tone: 'dim' },
+        ...dryRun,
+      ],
+    },
+  })
 
   for (const line of action.after ?? []) {
     gap()
@@ -171,8 +218,24 @@ function runAction(action: Action, sleep: Sleep): Promise<void> {
     case 'type':
       return typeCommand(action.text, sleep)
     case 'intro': {
-      const badge: Segment[] = action.dryRun ? [{ text: '  ' }, { text: ' DRY RUN ', tone: 'badge' }, { text: ' nothing will be written', tone: 'dim' }] : []
-      push<LineRow>({ kind: 'line', edge: 'start', line: { symbol: { text: '●', tone: 'magenta' }, segments: [{ text: action.title, tone: 'bold' }, ...badge] } })
+      const badge: Segment[] = action.dryRun
+        ? [
+            { text: '  ' },
+            { text: ' DRY RUN ', tone: 'badge' },
+            { text: ' nothing will be written', tone: 'dim' },
+          ]
+        : []
+      push<LineRow>({
+        kind: 'line',
+        edge: 'start',
+        line: {
+          symbol: { text: '●', tone: 'magenta' },
+          segments: [
+            { text: action.title, tone: 'bold' },
+            ...badge,
+          ],
+        },
+      })
       return sleep(300)
     }
     case 'line':
@@ -188,7 +251,14 @@ function runAction(action: Action, sleep: Sleep): Promise<void> {
       return runStep(action, sleep)
     case 'outro':
       gap()
-      push<LineRow>({ kind: 'line', edge: 'end', line: { symbol: { text: '●', tone: 'dim' }, segments: action.segments } })
+      push<LineRow>({
+        kind: 'line',
+        edge: 'end',
+        line: {
+          symbol: { text: '●', tone: 'dim' },
+          segments: action.segments,
+        },
+      })
       return Promise.resolve()
     case 'pause':
       return sleep(action.ms)
@@ -225,7 +295,9 @@ async function play() {
       await playCi(sleep)
     }
     else {
-      for (const action of scenario.value === 'release' ? releaseScenario : dryRunScenario) {
+      for (const action of scenario.value === 'release'
+        ? releaseScenario
+        : dryRunScenario) {
         await runAction(action, sleep)
       }
     }

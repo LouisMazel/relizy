@@ -146,7 +146,7 @@ A cycle between packages (`ui → core → ui`) is reported with a warning (`Cir
 
 ## Ignored Packages
 
-The packages matched by [`monorepo.ignored`](./../config/monorepo.md#ignored) (path globs) are left out of the release: they are never bumped, changelogged nor published, and they do not release their dependents. In `unified` and `selective` mode, a commit only changing ignored packages does not bump the root version.
+The packages matched by [`monorepo.ignored`](./../config/monorepo.md#ignored) (path globs) are left out of the release: they are never bumped, changelogged nor published, and they do not release their dependents. In `unified` and `selective` mode, a commit only changing ignored packages does not bump the root version: the root version comes from the commits of the released packages.
 
 ```ts
 import { defineConfig } from 'relizy'

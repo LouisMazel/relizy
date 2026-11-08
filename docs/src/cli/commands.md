@@ -22,6 +22,7 @@ tags: [cli, commands, options, reference]
 | [`provider-release`](./provider-release.md) | Create the GitHub or GitLab releases                                                          |
 | [`social`](./social.md)                     | Post the release on X (Twitter) and Slack                                                     |
 | [`pr-comment`](./pr-comment.md)             | Post the release on its pull request or merge request                                         |
+| [`merge-preview`](./merge-preview.md)       | In a pull request, preview what its merge releases, and fail when its release would fail      |
 | [`commitlint`](./../commitlint/cli.md)      | Lint commit messages with the relizy config                                                   |
 | [`mcp`](./mcp.md)                           | Start the MCP server for the AI coding agents, and set them up (`relizy mcp init`)            |
 
@@ -39,7 +40,7 @@ These options go before or after the command name.
 | `--no-preview`         | With `--dry-run`, do not show what would be generated (still shown with `--log-level verbose`)                                                                                                                                                                                                 | -                                                            |
 | `--ai-preview`         | With `--dry-run`, call the AI to preview its rewrites of the release notes and the posts. Each call costs, as in a real release                                                                                                                                                                | [AI](./../config/ai.md)                                      |
 | `--group <names>`      | Only process these [version groups](./../guide/version-groups.md), comma-separated names. Used by `release`, `bump`, `changelog`, `publish`, `provider-release` and `social`                                                                                                                   | [`monorepo.groups`](./../config/monorepo.md#groups)          |
-| `--pr-number <number>` | Number of the pull request or merge request to comment, instead of the detected one. Used by `release` and `pr-comment`                                                                                                                                                                        | [PR comment](./../config/pr-comment.md)                      |
+| `--pr-number <number>` | Number of the pull request or merge request to comment, instead of the detected one. Used by `release`, `pr-comment` and `merge-preview`                                                                                                                                                       | [PR comment](./../config/pr-comment.md)                      |
 | `--no-safety-check`    | Skip the checks run before writing anything (tokens, registry access, branch up to date, push access). The branch is still checked right before publishing, the release tags before the commit, and the push access by the push. Used by `release`, `publish`, `provider-release` and `social` | [`safetyCheck`](./../config/overview.md#safetycheck)         |
 
 With `--group`, only the targeted groups are bumped, published and tagged, in a single release commit. Without it, every group is processed:
@@ -115,6 +116,6 @@ relizy pr-comment
 ## See Also
 
 - [release](./release.md), [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md)
-- [social](./social.md), [pr-comment](./pr-comment.md), [init](./init.md), [mcp](./mcp.md), [commitlint](./../commitlint/cli.md)
+- [social](./social.md), [pr-comment](./pr-comment.md), [merge-preview](./merge-preview.md), [init](./init.md), [mcp](./mcp.md), [commitlint](./../commitlint/cli.md)
 - [CI/CD](./../guide/ci-cd.md)
 - [Programmatic API](./../api/usage.md)

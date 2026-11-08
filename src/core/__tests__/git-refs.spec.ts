@@ -33,7 +33,12 @@ describe('Given isAncestor', () => {
     mockRun.mockResolvedValue('')
     const result = await isAncestor('v1.0.0', 'HEAD', '/repo')
     expect(result).toBe(true)
-    expect(mockRun).toHaveBeenCalledWith(['merge-base', '--is-ancestor', 'v1.0.0', 'HEAD'], { cwd: '/repo' })
+    expect(mockRun).toHaveBeenCalledWith([
+      'merge-base',
+      '--is-ancestor',
+      'v1.0.0',
+      'HEAD',
+    ], { cwd: '/repo' })
   })
 
   it('Then returns false when the command rejects (not an ancestor)', async () => {
@@ -65,7 +70,15 @@ describe('Given findReachableCommitBySubject', () => {
     const sha = await findReachableCommitBySubject('bump version to 1.0.0', 'HEAD')
     expect(sha).toBe('abc123def')
     expect(mockRun).toHaveBeenCalledWith(
-      ['log', 'HEAD', '--grep=bump version to 1.0.0', '--fixed-strings', '--format=%H', '-n', '1'],
+      [
+        'log',
+        'HEAD',
+        '--grep=bump version to 1.0.0',
+        '--fixed-strings',
+        '--format=%H',
+        '-n',
+        '1',
+      ],
       { cwd: undefined },
     )
   })
@@ -92,7 +105,12 @@ describe('Given tagExists', () => {
   it('Then returns true when the tag resolves', async () => {
     mockRun.mockResolvedValue('sha')
     expect(await tagExists('v1.0.0')).toBe(true)
-    expect(mockRun).toHaveBeenCalledWith(['rev-parse', '--verify', '--quiet', 'refs/tags/v1.0.0'], { cwd: undefined })
+    expect(mockRun).toHaveBeenCalledWith([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      'refs/tags/v1.0.0',
+    ], { cwd: undefined })
   })
 
   it('Then returns false when the tag does not exist', async () => {
@@ -104,14 +122,41 @@ describe('Given tagExists', () => {
 describe('Given retagAnnotatedLocal', () => {
   it('Then force-creates an annotated tag at the given commit', async () => {
     mockRun.mockResolvedValue('')
-    await retagAnnotatedLocal({ tag: 'v1.0.0', commit: 'abc123', message: 'Bump to 1.0.0', cwd: '/repo' })
-    expect(mockRun).toHaveBeenCalledWith(['tag', '-f', '-a', 'v1.0.0', 'abc123', '-m', 'Bump to 1.0.0'], { cwd: '/repo' })
+    await retagAnnotatedLocal({
+      tag: 'v1.0.0',
+      commit: 'abc123',
+      message: 'Bump to 1.0.0',
+      cwd: '/repo',
+    })
+    expect(mockRun).toHaveBeenCalledWith([
+      'tag',
+      '-f',
+      '-a',
+      'v1.0.0',
+      'abc123',
+      '-m',
+      'Bump to 1.0.0',
+    ], { cwd: '/repo' })
   })
 
   it('Then adds the sign flag when signed is true', async () => {
     mockRun.mockResolvedValue('')
-    await retagAnnotatedLocal({ tag: 'v1.0.0', commit: 'abc123', message: 'm', signed: true })
-    expect(mockRun.mock.calls[0]![0]).toEqual(['tag', '-f', '-s', '-a', 'v1.0.0', 'abc123', '-m', 'm'])
+    await retagAnnotatedLocal({
+      tag: 'v1.0.0',
+      commit: 'abc123',
+      message: 'm',
+      signed: true,
+    })
+    expect(mockRun.mock.calls[0]![0]).toEqual([
+      'tag',
+      '-f',
+      '-s',
+      '-a',
+      'v1.0.0',
+      'abc123',
+      '-m',
+      'm',
+    ])
   })
 })
 
@@ -130,7 +175,13 @@ describe('Given getGitDiff', () => {
     getGitDiff('v1.0.0', 'HEAD', '/repo')
 
     expect(mockRunSync).toHaveBeenCalledWith(
-      ['--no-pager', 'log', 'v1.0.0...HEAD', '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b', '--name-status'],
+      [
+        '--no-pager',
+        'log',
+        'v1.0.0...HEAD',
+        '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b',
+        '--name-status',
+      ],
       { cwd: '/repo' },
     )
   })
@@ -208,21 +259,35 @@ describe('Given stripNameStatus', () => {
 describe('Given NAME_STATUS_LINE', () => {
   it('Then only matches a status letter, an optional score and a tab', () => {
     expect(['M\tsrc/a.ts', 'R100\ta\tb', 'C075\ta\tb'].every(line => NAME_STATUS_LINE.test(line))).toBe(true)
-    expect(['A new option', 'M src/a.ts', 'Mention\tx', ''].some(line => NAME_STATUS_LINE.test(line))).toBe(false)
+    expect([
+      'A new option',
+      'M src/a.ts',
+      'Mention\tx',
+      '',
+    ].some(line => NAME_STATUS_LINE.test(line))).toBe(false)
   })
 })
 
 describe('Given parseNameStatus', () => {
   it('Then returns the status and the paths of each file line', () => {
     expect(parseNameStatus('Fix the parser\n\nM\tsrc/a.ts\nR100\tpackages/a/package.json\tpackages/b/package.json\n')).toEqual([
-      { status: 'M', paths: ['src/a.ts'] },
-      { status: 'R100', paths: ['packages/a/package.json', 'packages/b/package.json'] },
+      {
+        status: 'M',
+        paths: ['src/a.ts'],
+      },
+      {
+        status: 'R100',
+        paths: ['packages/a/package.json', 'packages/b/package.json'],
+      },
     ])
   })
 
   it('Then drops the quotes git adds around paths with unusual characters', () => {
     expect(parseNameStatus('\n\nR100\t"packages/a b/package.json"\t"packages/c d/package.json"\n')).toEqual([
-      { status: 'R100', paths: ['packages/a b/package.json', 'packages/c d/package.json'] },
+      {
+        status: 'R100',
+        paths: ['packages/a b/package.json', 'packages/c d/package.json'],
+      },
     ])
   })
 

@@ -22,7 +22,9 @@ vi.mock('../repo', async () => {
     getPrivatePackagesMode: (await vi.importActual<typeof import('../repo')>('../repo')).getPrivatePackagesMode,
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
-    getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
+    getPackageCommits: vi.fn().mockResolvedValue([
+      { type: 'feat', description: 'feature' },
+    ]),
     getNewPackageCompareBase: vi.fn(() => null),
   }
 })
@@ -48,7 +50,9 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release'
+      ? packages
+      : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -122,7 +126,10 @@ describe('Given github function', () => {
       await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
-        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
+        {
+          repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+          tokens: expect.objectContaining({ github: 'test-token' }),
+        },
         {
           tag_name: 'v1.0.0',
           name: 'v1.0.0',
@@ -196,7 +203,15 @@ describe('Given github function', () => {
     })
 
     it('Then uses the new version of the root package', async () => {
-      vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', newVersion: '1.1.0', path: '/root', commits: [], fromTag: 'v1.0.0', private: false })
+      vi.mocked(getRootPackage).mockResolvedValue({
+        name: 'test',
+        version: '1.0.0',
+        newVersion: '1.1.0',
+        path: '/root',
+        commits: [],
+        fromTag: 'v1.0.0',
+        private: false,
+      })
 
       await github({ force: false })
 
@@ -252,7 +267,10 @@ describe('Given github function', () => {
     beforeEach(() => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'github',
           domain: 'github.com',
@@ -264,8 +282,22 @@ describe('Given github function', () => {
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: 'pkg-a@0.9.0',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          fromTag: 'pkg-b@1.9.0',
+        },
       ])
       vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => {
         return `${name}@${version}`
@@ -283,11 +315,17 @@ describe('Given github function', () => {
       await github({ force: false })
 
       expect(createGithubRelease).toHaveBeenCalledWith(
-        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
+        {
+          repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+          tokens: expect.objectContaining({ github: 'test-token' }),
+        },
         expect.objectContaining({ tag_name: 'pkg-a@1.0.0' }),
       )
       expect(createGithubRelease).toHaveBeenCalledWith(
-        { repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: expect.objectContaining({ github: 'test-token' }) },
+        {
+          repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+          tokens: expect.objectContaining({ github: 'test-token' }),
+        },
         expect.objectContaining({ tag_name: 'pkg-b@2.0.0' }),
       )
     })
@@ -302,7 +340,10 @@ describe('Given github function', () => {
 
     it('Then names the releases after the versions, not after the end of the range', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
         to: 'abc1234',
@@ -338,14 +379,34 @@ describe('Given github function', () => {
     it('Then creates GitHub releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
-        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/public',
+          version: '1.0.0',
+          path: '/pub',
+          commits: [],
+          fromTag: '@scope/public@0.9.0',
+          private: false,
+        },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/private',
+          version: '1.0.0',
+          path: '/priv',
+          commits: [],
+          fromTag: '@scope/private@0.9.0',
+          private: true,
+        },
       ])
 
       await github({ force: false })
@@ -360,14 +421,34 @@ describe('Given github function', () => {
     it('Then excludes private packages from GitHub releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'ignore',
+        },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
-        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/public',
+          version: '1.0.0',
+          path: '/pub',
+          commits: [],
+          fromTag: '@scope/public@0.9.0',
+          private: false,
+        },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/private',
+          version: '1.0.0',
+          path: '/priv',
+          commits: [],
+          fromTag: '@scope/private@0.9.0',
+          private: true,
+        },
       ])
 
       await github({ force: false })
@@ -381,8 +462,22 @@ describe('Given github function', () => {
 
     it('Then skips packages without from tag', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '' },
-        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: '',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          fromTag: 'pkg-b@1.9.0',
+        },
       ])
 
       const result = await github({ force: false })
@@ -417,7 +512,9 @@ describe('Given github function', () => {
 
   describe('When missing repository config', () => {
     it('Then throws error in unified mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = undefined
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
@@ -427,8 +524,13 @@ describe('Given github function', () => {
     })
 
     it('Then throws error in independent mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       config.repo = undefined
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
@@ -442,7 +544,10 @@ describe('Given github function', () => {
     it('Then throws error in unified mode', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'github',
           domain: 'github.com',
@@ -452,14 +557,17 @@ describe('Given github function', () => {
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await expect(github({ force: false })).rejects.toThrow(
-        'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
+        'No GitHub token specified. Log in the GitHub CLI (gh auth login), or set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
     })
 
     it('Then throws error in independent mode', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'github',
           domain: 'github.com',
@@ -468,14 +576,19 @@ describe('Given github function', () => {
         tokens: {
           github: undefined,
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: {
+            apiKey: undefined,
+            apiKeySecret: undefined,
+            accessToken: undefined,
+            accessTokenSecret: undefined,
+          },
           slack: undefined,
         },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
 
       await expect(github({ force: false })).rejects.toThrow(
-        'No GitHub token specified. Set GITHUB_TOKEN or GH_TOKEN environment variable.',
+        'No GitHub token specified. Log in the GitHub CLI (gh auth login), or set GITHUB_TOKEN or GH_TOKEN environment variable.',
       )
     })
   })
@@ -536,7 +649,9 @@ describe('Given github function', () => {
 
   describe('When using base config option', () => {
     it('Then passes base config to loadRelizyConfig', async () => {
-      const baseConfig = createMockConfig({ bump: { type: 'minor' } })
+      const baseConfig = createMockConfig({
+        bump: { type: 'minor' },
+      })
 
       await github({ config: baseConfig, force: false })
 
@@ -550,7 +665,10 @@ describe('Given github function', () => {
     it('Then passes force to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'github',
           domain: 'github.com',
@@ -559,7 +677,12 @@ describe('Given github function', () => {
         tokens: {
           github: 'test-token',
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: {
+            apiKey: undefined,
+            apiKeySecret: undefined,
+            accessToken: undefined,
+            accessTokenSecret: undefined,
+          },
           slack: undefined,
         },
       })
@@ -586,7 +709,10 @@ describe('Given github function', () => {
     it('Then passes suffix to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'github',
           domain: 'github.com',
@@ -595,7 +721,12 @@ describe('Given github function', () => {
         tokens: {
           github: 'test-token',
           gitlab: undefined,
-          twitter: { apiKey: undefined, apiKeySecret: undefined, accessToken: undefined, accessTokenSecret: undefined },
+          twitter: {
+            apiKey: undefined,
+            apiKeySecret: undefined,
+            accessToken: undefined,
+            accessTokenSecret: undefined,
+          },
           slack: undefined,
         },
       })
@@ -638,7 +769,9 @@ describe('Given github function', () => {
         monorepo: { versionMode: 'unified' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
-        ai: { providerRelease: { enabled: true } },
+        ai: {
+          providerRelease: { enabled: true },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(buildCompareLink).mockReturnValue('[compare changes](https://github.com/user/repo/compare/v0.9.0...v1.0.0)')
@@ -689,20 +822,40 @@ describe('Given github function', () => {
         monorepo: { versionMode: 'unified' },
         repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
         tokens: { github: 'test-token' },
-        ai: { providerRelease: { enabled: true } },
+        ai: {
+          providerRelease: { enabled: true },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(buildChangelogBody).mockReturnValue('### Features\n\n- Original feature')
       vi.mocked(generateAIProviderReleaseBody).mockResolvedValue('### Features\n\n- AI-rewritten feature')
       vi.mocked(isPrerelease).mockImplementation(version => !!version?.includes('-'))
 
-      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+      await github({
+        force: false,
+        bumpResult: {
+          bumped: true,
+          newVersion: '2.0.0-beta.0',
+          oldVersion: '1.0.0',
+          bumpedPackages: [],
+        },
+      })
 
       expect(generateAIProviderReleaseBody).not.toHaveBeenCalled()
-      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ body: expect.stringContaining('Original feature') }))
+      expect(createGithubRelease).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({
+        body: expect.stringContaining('Original feature'),
+      }))
 
       config.ai!.providerRelease!.onlyStable = false
-      await github({ force: false, bumpResult: { bumped: true, newVersion: '2.0.0-beta.0', oldVersion: '1.0.0', bumpedPackages: [] } })
+      await github({
+        force: false,
+        bumpResult: {
+          bumped: true,
+          newVersion: '2.0.0-beta.0',
+          oldVersion: '1.0.0',
+          bumpedPackages: [],
+        },
+      })
 
       expect(generateAIProviderReleaseBody).toHaveBeenCalledWith(expect.objectContaining({ label: 'v2.0.0-beta.0' }))
     })

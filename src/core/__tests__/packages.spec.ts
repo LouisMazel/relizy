@@ -6,14 +6,36 @@ describe('Given collectPackageBumps function', () => {
     it('Then returns entries with hasTransition=true and both versions set', () => {
       const entries = collectPackageBumps({
         bumpedPackages: [
-          { name: '@acme/a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0' } as any,
-          { name: '@acme/b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.1.0' } as any,
+          {
+            name: '@acme/a',
+            version: '1.0.0',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+          } as any,
+          {
+            name: '@acme/b',
+            version: '2.0.0',
+            oldVersion: '2.0.0',
+            newVersion: '2.1.0',
+          } as any,
         ],
       })
 
       expect(entries).toEqual([
-        { name: '@acme/a', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', hasTransition: true },
-        { name: '@acme/b', oldVersion: '2.0.0', newVersion: '2.1.0', version: '2.1.0', hasTransition: true },
+        {
+          name: '@acme/a',
+          oldVersion: '1.0.0',
+          newVersion: '1.1.0',
+          version: '1.1.0',
+          hasTransition: true,
+        },
+        {
+          name: '@acme/b',
+          oldVersion: '2.0.0',
+          newVersion: '2.1.0',
+          version: '2.1.0',
+          hasTransition: true,
+        },
       ])
     })
   })
@@ -23,7 +45,12 @@ describe('Given collectPackageBumps function', () => {
       const entries = collectPackageBumps({
         bumpedPackages: [
           { name: '@acme/a', version: '1.0.0', oldVersion: '1.0.0' } as any,
-          { name: '@acme/b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.0.0' } as any,
+          {
+            name: '@acme/b',
+            version: '2.0.0',
+            oldVersion: '2.0.0',
+            newVersion: '2.0.0',
+          } as any,
         ],
       })
 
@@ -151,7 +178,12 @@ describe('Given collectPackageBumps function', () => {
     it('Then ignores standalone packages fallback', () => {
       const entries = collectPackageBumps({
         bumpedPackages: [
-          { name: '@acme/a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0' } as any,
+          {
+            name: '@acme/a',
+            version: '1.0.0',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+          } as any,
         ],
         packages: [
           { name: '@acme/ignored', version: '9.9.9' },

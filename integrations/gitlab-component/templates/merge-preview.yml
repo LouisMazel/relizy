@@ -1,0 +1,102 @@
+# Synced to gitlab.com/relizy/relizy at each release of relizy: edit it in github.com/LouisMazel/relizy
+spec:
+  description: 'Preview what the merge of a merge request releases: a comment and the commit status relizy/merge-preview, without writing anything'
+  inputs:
+    stage:
+      default: test
+      description: Stage of the merge preview job
+    image:
+      default: node:lts
+      description: Image of the merge preview job, a Node.js image
+    release-type:
+      default: auto
+      options: [auto, patch, minor, major, prerelease, prepatch, preminor, premajor]
+      description: Release type of the release job (auto follows the commits)
+    args:
+      default: ''
+      description: The options of the release job that change the release, for relizy merge-preview, e.g. "--tag beta --preid beta"
+    setup:
+      type: boolean
+      default: true
+      description: Install the package manager and the dependencies (false when the image or the before_script already did)
+    package-manager:
+      default: ''
+      description: npm, pnpm, yarn or bun, detected from the lockfile by default
+    relizy-version:
+      default: ''
+      description: Version of relizy to run, the one of the project by default, else the one of this component
+    working-directory:
+      default: .
+      description: Directory of the project to release
+---
+merge-preview:
+  stage: $[[ inputs.stage ]]
+  image: $[[ inputs.image ]]
+  variables:
+    # The versions need the history since the last release, and the target branch
+    GIT_DEPTH: 0
+    RELIZY_INPUT_RELEASE_TYPE: '$[[ inputs.release-type ]]'
+    RELIZY_INPUT_ARGS: '$[[ inputs.args ]]'
+    RELIZY_INPUT_SETUP: '$[[ inputs.setup ]]'
+    RELIZY_INPUT_PACKAGE_MANAGER: '$[[ inputs.package-manager ]]'
+    RELIZY_INPUT_VERSION: '$[[ inputs.relizy-version ]]'
+    RELIZY_INPUT_WORKING_DIRECTORY: '$[[ inputs.working-directory ]]'
+    # Replaced by the version of relizy when synced to gitlab.com/relizy/relizy
+    RELIZY_COMPONENT_VERSION: __RELIZY_VERSION__
+  rules:
+    # The merge requests into the default branch, the one the release component releases
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH
+  script:
+    - cd "$RELIZY_INPUT_WORKING_DIRECTORY"
+    - |
+      lockfile=""
+      for file in pnpm-lock.yaml bun.lock bun.lockb yarn.lock package-lock.json npm-shrinkwrap.json; do
+        if [ -f "$file" ]; then lockfile="$file"; break; fi
+      done
+      pm="$RELIZY_INPUT_PACKAGE_MANAGER"
+      if [ -z "$pm" ]; then
+        case "$lockfile" in
+          pnpm-lock.yaml) pm=pnpm ;;
+          bun.lock|bun.lockb) pm=bun ;;
+          yarn.lock) pm=yarn ;;
+          *) pm=npm ;;
+        esac
+      fi
+    - |
+      if [ "$RELIZY_INPUT_SETUP" = "true" ]; then
+        # Node 25+ no longer ships corepack: it pins the version of the packageManager field
+        case "$pm" in
+          pnpm|yarn) npm install -g corepack && corepack enable ;;
+          bun) npm install -g bun ;;
+        esac
+        case "$pm" in
+          pnpm) pnpm install --frozen-lockfile ;;
+          bun) bun install --frozen-lockfile ;;
+          yarn) if [ -f .yarnrc.yml ]; then yarn install --immutable; else yarn install --frozen-lockfile; fi ;;
+          *) if [ -n "$lockfile" ]; then npm ci; else npm install; fi ;;
+        esac
+      fi
+    - |
+      release_type="${RELEASE_TYPE:-$RELIZY_INPUT_RELEASE_TYPE}"
+      case "$release_type" in
+        auto) flag="" ;;
+        patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$release_type" ;;
+        *) echo "Unknown release type \"$release_type\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
+      esac
+      # The relizy of the project, else the version of this component
+      if [ -n "$RELIZY_INPUT_VERSION" ]; then
+        relizy="npx --yes relizy@$RELIZY_INPUT_VERSION"
+      elif node -e "const pkg = require('./package.json'); process.exit({ ...pkg.dependencies, ...pkg.devDependencies }.relizy ? 0 : 1)" 2> /dev/null; then
+        case "$pm" in
+          pnpm) relizy="pnpm exec relizy" ;;
+          yarn) relizy="yarn relizy" ;;
+          bun) relizy="bunx relizy" ;;
+          *) relizy="npx relizy" ;;
+        esac
+      else
+        case "$RELIZY_COMPONENT_VERSION" in
+          [0-9]*) relizy="npx --yes relizy@$RELIZY_COMPONENT_VERSION" ;;
+          *) relizy="npx --yes relizy@latest" ;;
+        esac
+      fi
+      $relizy merge-preview $flag $RELIZY_INPUT_ARGS

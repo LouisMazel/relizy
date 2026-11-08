@@ -1,6 +1,7 @@
 import type { GitRepository } from '../../tests/git-repository'
 import { spawnSync } from 'node:child_process'
-import { join } from 'node:path'
+import { chmodSync, mkdirSync, writeFileSync } from 'node:fs'
+import { delimiter, join } from 'node:path'
 import process from 'node:process'
 import { createGitRepository } from '../../tests/git-repository'
 
@@ -15,10 +16,18 @@ describe('Given the relizy CLI', () => {
     repository = createGitRepository('relizy-cli-')
     cwd = repository.cwd
 
+    mkdirSync(join(cwd, '.bin'))
+    writeFileSync(join(cwd, '.bin/gh'), '#!/bin/sh\nexit 1\n')
+    chmodSync(join(cwd, '.bin/gh'), 0o755)
     repository.git('remote', 'add', 'origin', 'https://github.com/acme/app.git')
     repository.commit('chore: init', {
       'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
-      'relizy.config.json': JSON.stringify({ logLevel: 'silent', social: { twitter: { enabled: true } } }),
+      'relizy.config.json': JSON.stringify({
+        logLevel: 'silent',
+        social: {
+          twitter: { enabled: true },
+        },
+      }),
     })
     repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
     repository.commit('feat: add the parser', { 'parser.js': 'export {}\n' })
@@ -31,10 +40,18 @@ describe('Given the relizy CLI', () => {
   function run(...args: string[]) {
     const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !IGNORED_VARIABLES.test(name)))
 
-    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), ...args], {
+    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [
+      join(process.cwd(), 'src/cli.ts'),
+      ...args,
+    ], {
       cwd,
       encoding: 'utf8',
-      env: { ...env, NO_COLOR: '1' },
+      // No token of the GitHub CLI of the machine either: a gh that is not logged in
+      env: {
+        ...env,
+        NO_COLOR: '1',
+        PATH: `${join(cwd, '.bin')}${delimiter}${process.env.PATH}`,
+      },
     })
   }
 

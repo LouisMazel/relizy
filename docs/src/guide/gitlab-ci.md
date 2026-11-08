@@ -73,7 +73,7 @@ include:
 
 ### A Self-Managed GitLab
 
-A self-managed instance cannot include the components of gitlab.com: `init` writes the job itself, with the same steps (mirror the project [`gitlab.com/relizy/relizy`](https://gitlab.com/relizy/relizy) on your instance to include the component instead):
+A self-managed instance cannot include the components of gitlab.com: `init` writes the job itself, with the same steps. On gitlab.com, `init` writes it too when you choose the relizy CLI (`How does the CI run relizy?`) (mirror the project [`gitlab.com/relizy/relizy`](https://gitlab.com/relizy/relizy) on your instance to include the component instead):
 
 ```yaml
 release:
@@ -201,6 +201,16 @@ release:
 ### Dry Run
 
 `args: --dry-run` (or `pnpm exec relizy release --yes --dry-run`) previews the release in any job: nothing is written, committed nor published, and `RELIZY_RELEASED` is `false`.
+
+### Preview the Release on Merge Requests
+
+The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
+
+```yaml
+include:
+  - component: gitlab.com/relizy/relizy/release@2
+  - component: gitlab.com/relizy/relizy/merge-preview@2
+```
 
 ### Canary Release on Merge Requests
 

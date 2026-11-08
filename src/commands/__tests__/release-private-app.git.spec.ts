@@ -10,14 +10,24 @@ import { release } from '../release'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', async (importActual) => {
   const actual = await importActual<typeof import('@maz-ui/node')>()
-  return { ...actual, execPromise: vi.fn(actual.execPromise) }
+  return {
+    ...actual,
+    execPromise: vi.fn(actual.execPromise),
+  }
 })
 
-vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn(), assertInteractivePrompt: vi.fn(), BUMP_NOT_INTERACTIVE: '' }))
+vi.mock('../../core/prompts', () => ({
+  askConfirm: vi.fn(),
+  assertInteractivePrompt: vi.fn(),
+  BUMP_NOT_INTERACTIVE: '',
+}))
 
 vi.mock('../../core/npm', async (importActual) => {
   const actual = await importActual<typeof import('../../core/npm')>()
-  return { ...actual, publishPackage: vi.fn() }
+  return {
+    ...actual,
+    publishPackage: vi.fn(),
+  }
 })
 
 /**

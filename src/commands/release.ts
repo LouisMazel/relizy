@@ -37,7 +37,8 @@ import { publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
-function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
+/** The config of a release run: the config file, with the options of the run */
+export function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
   return loadRelizyConfig({
     configFile: options.configName,
     overrides: {
@@ -181,10 +182,23 @@ async function releaseSafetyCheck({
     await Promise.all([
       providerReleaseSafetyCheck({ config, provider, ai }),
       // The release only publishes with release.publish (disabled by --no-publish)
-      ...(config.release.publish ? [publishSafetyCheck({ config })] : []),
+      ...(config.release.publish
+        ? [
+            publishSafetyCheck({ config }),
+          ]
+        : []),
       // The release only posts with release.social (disabled by --no-social and --canary)
-      ...(config.release.social ? [socialSafetyCheck({ config })] : []),
-      ...(shouldPushReleaseCommit(config) ? [checkBranchUpToDate({ config, dryRun }), checkPushAccess({ config, dryRun })] : []),
+      ...(config.release.social
+        ? [
+            socialSafetyCheck({ config }),
+          ]
+        : []),
+      ...(shouldPushReleaseCommit(config)
+        ? [
+            checkBranchUpToDate({ config, dryRun }),
+            checkPushAccess({ config, dryRun }),
+          ]
+        : []),
     ])
 
     logger.success('Safety checks passed')
@@ -197,7 +211,9 @@ async function releaseSafetyCheck({
 
 /** The published versions: `relizy@2.0.0`, or their count */
 function describePublished(packages: PublishResponse['publishedPackages']): string {
-  return packages.length === 1 ? `${packages[0]!.name}@${packages[0]!.newVersion ?? packages[0]!.version}` : plural(packages.length, 'package')
+  return packages.length === 1
+    ? `${packages[0]!.name}@${packages[0]!.newVersion ?? packages[0]!.version}`
+    : plural(packages.length, 'package')
 }
 
 export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
@@ -236,7 +252,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
-  const ui = createCommandUi({ title: `relizy release${isCanary ? ' --canary' : ''}`, dryRun, logLevel: config.logLevel, cwd: config.cwd })
+  const ui = createCommandUi({
+    title: `relizy release${isCanary ? ' --canary' : ''}`,
+    dryRun,
+    logLevel: config.logLevel,
+    cwd: config.cwd,
+  })
   // The facts recorded by the steps (links, AI rewrites) start with this release
   takeReleaseFacts()
   // The step running when the release fails
@@ -261,7 +282,13 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   }
   // The detail only says what a step did: none for a skipped step
   const addStep = (name: ReleaseStepReport['name'], done: boolean, detail?: string) => {
-    steps.push({ name, status: done ? 'done' : 'skipped', ...(done && detail ? { detail } : {}) })
+    steps.push({
+      name,
+      status: done ? 'done' : 'skipped',
+      ...(done && detail
+        ? { detail }
+        : {}),
+    })
   }
   const reportOf = (status: ReleaseReport['status'], error?: unknown): ReleaseReport => ({
     status,
@@ -274,7 +301,13 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     // A copy: the report of the PR comment is the release so far
     steps: steps.map(step => ({ ...step })),
     ...Object.fromEntries(Object.entries(facts).filter(([, value]) => value !== undefined)),
-    ...(error === undefined ? {} : { error: error instanceof Error ? error.message : String(error) }),
+    ...(error === undefined
+      ? {}
+      : {
+          error: error instanceof Error
+            ? error.message
+            : String(error),
+        }),
   })
   // Before the release commit: after a merge, its pull request is the one commented
   const startCommit = getHeadCommit(config.cwd)
@@ -287,7 +320,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
   try {
     // A failed check also writes the report, comments the pull request and runs error:release
-    assertBumpConfirmable({ command: 'release', yes: config.bump.yes, ciName: getCIName() })
+    assertBumpConfirmable({
+      command: 'release',
+      yes: config.bump.yes,
+      ciName: getCIName(),
+    })
     // The CI clone: full history, branch, identity
     prepareCiRepository(config.cwd)
 
@@ -295,7 +332,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       await ui.step({
         running: 'Checking the release',
         done: () => 'Ready to release (tokens, registry, branch)',
-        run: () => releaseSafetyCheck({ config, provider: options.provider, ai: options.ai, dryRun }),
+        run: () => releaseSafetyCheck({
+          config,
+          provider: options.provider,
+          ai: options.ai,
+          dryRun,
+        }),
       })
     }
     else {
@@ -306,7 +348,13 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     currentStep = 'Bump'
     const bumpResult = await ui.step({
-      title: ['Bump versions', `- type: ${config.bump.type}`, ...(config.bump.preid ? [`- preid: ${config.bump.preid}`] : [])],
+      title: [
+        'Bump versions',
+        `- type: ${config.bump.type}`,
+        ...(config.bump.preid
+          ? [`- preid: ${config.bump.preid}`]
+          : []),
+      ],
       running: 'Computing the versions',
       done: describeBumpResult,
       // Already listed before the confirmation
@@ -333,7 +381,15 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       await collectFacts()
 
       if (config.release.prComment) {
-        await ui.step({ title: 'Post PR comment', running: 'Commenting the pull request', done: posted => posted ? 'Pull request commented' : 'No pull request to comment', run: () => postPrComment({ status: 'no-release', report: reportOf('nothing') }) })
+        await ui.step({
+          title: 'Post PR comment',
+          running: 'Commenting the pull request',
+          done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
+          run: () => postPrComment({
+            status: 'no-release',
+            report: reportOf('nothing'),
+          }),
+        })
         await collectFacts()
       }
 
@@ -349,7 +405,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         config,
         dryRun,
         guard: () => assertReleaseTagsAvailable({
-          tags: getReleaseTagNames({ config, bumpedPackages: bumpResult.bumpedPackages, newVersion: bumpResult.newVersion, groups: bumpResult.groups }),
+          tags: getReleaseTagNames({
+            config,
+            bumpedPackages: bumpResult.bumpedPackages,
+            newVersion: bumpResult.newVersion,
+            groups: bumpResult.groups,
+          }),
           cwd: config.cwd,
         }),
       })
@@ -391,14 +452,22 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Publishing the packages',
         done: (response) => {
           const packages = response?.publishedPackages.map(pkg => `${pkg.name}@${pkg.newVersion ?? pkg.version}`).join(', ')
-          const tag = config.publish.tag ? ` (${config.publish.tag})` : ''
-          return packages ? `Published ${packages}${tag}` : 'Nothing to publish'
+          const tag = config.publish.tag
+            ? ` (${config.publish.tag})`
+            : ''
+          return packages
+            ? `Published ${packages}${tag}`
+            : 'Nothing to publish'
         },
         run: async () => {
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
           if (shouldPushReleaseCommit(config)) {
-            await guardBeforePublish({ config, dryRun, guard: () => checkBranchUpToDate({ config, dryRun }) })
+            await guardBeforePublish({
+              config,
+              dryRun,
+              guard: () => checkBranchUpToDate({ config, dryRun }),
+            })
           }
 
           try {
@@ -430,7 +499,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     }
     else {
       if (shouldPushReleaseCommit(config)) {
-        await guardBeforePublish({ config, dryRun, guard: () => checkBranchUpToDate({ config, dryRun }) })
+        await guardBeforePublish({
+          config,
+          dryRun,
+          guard: () => checkBranchUpToDate({ config, dryRun }),
+        })
       }
       ui.skip({ title: 'Publish packages to registry', label: 'Publish', reason: '--no-publish' })
 
@@ -465,7 +538,9 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       ui.skip({ title: 'Commit changes and create tag', label: 'Commit and tags', reason: '--no-commit' })
     }
     committed = Boolean(config.release.commit)
-    addStep('commit', committed, committed ? describeTags(createdTags) : undefined)
+    addStep('commit', committed, committed
+      ? describeTags(createdTags)
+      : undefined)
 
     currentStep = 'Push'
     if (config.release.push && config.release.commit) {
@@ -476,7 +551,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         run: async () => {
           try {
             await executeHook('before:push', config, dryRun, hookContext)
-            await pushCommitAndTags({ config, dryRun, cwd: config.cwd, tags: createdTags })
+            await pushCommitAndTags({
+              config,
+              dryRun,
+              cwd: config.cwd,
+              tags: createdTags,
+            })
             await executeHook('success:push', config, dryRun, hookContext)
           }
           catch (error) {
@@ -487,7 +567,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Push changes and tags', label: 'Push', reason: config.release.commit ? '--no-push' : '--no-commit' })
+      ui.skip({
+        title: 'Push changes and tags',
+        label: 'Push',
+        reason: config.release.commit ? '--no-push' : '--no-commit',
+      })
     }
     addStep('push', Boolean(config.release.push && config.release.commit))
 
@@ -553,17 +637,31 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Post release to social media', label: 'Social posts', reason: config.release.social ? 'no platform enabled' : '--no-social' })
+      ui.skip({
+        title: 'Post release to social media',
+        label: 'Social posts',
+        reason: config.release.social ? 'no platform enabled' : '--no-social',
+      })
     }
     if (socialResults?.hasErrors) {
-      steps.push({ name: 'social', status: 'failed', detail: socialResults.results.filter(result => !result.success).map(result => `${result.platform}: ${result.error}`).join(', ') })
+      steps.push({
+        name: 'social',
+        status: 'failed',
+        detail: socialResults.results.filter(result => !result.success).map(result => `${result.platform}: ${result.error}`).join(', '),
+      })
     }
     else if (socialResults?.results.length && socialResults.results.every(result => result.skipped)) {
       // Every platform posted nothing: a prerelease with `onlyStable`, or no version to announce
-      steps.push({ name: 'social', status: 'skipped', detail: socialResults.results.map(result => `${result.platform}: ${result.skipped}`).join(', ') })
+      steps.push({
+        name: 'social',
+        status: 'skipped',
+        detail: socialResults.results.map(result => `${result.platform}: ${result.skipped}`).join(', '),
+      })
     }
     else {
-      addStep('social', Boolean(socialResults?.results.length), socialResults?.results.map(result => result.skipped ? `${result.platform} skipped (${result.skipped})` : result.platform).join(', '))
+      addStep('social', Boolean(socialResults?.results.length), socialResults?.results.map(result => result.skipped
+        ? `${result.platform} skipped (${result.skipped})`
+        : result.platform).join(', '))
     }
 
     currentStep = 'PR comment'
@@ -576,7 +674,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         title: 'Post PR comment',
         running: 'Commenting the pull request',
         done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
-        run: () => postPrComment({ status: 'success', bumpResult, tags: createdTags, report: reportSoFar }),
+        run: () => postPrComment({
+          status: 'success',
+          bumpResult,
+          tags: createdTags,
+          report: reportSoFar,
+        }),
       })
     }
     else {

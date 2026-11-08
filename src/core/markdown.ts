@@ -23,7 +23,9 @@ export function buildCompareLink({ config, from, to, isFirstCommit }: {
 
   return formatCompareChanges(to, {
     repo: config.repo,
-    from: isFirstCommit ? getFirstCommit(config.cwd) : from,
+    from: isFirstCommit
+      ? getFirstCommit(config.cwd)
+      : from,
     to,
   })
 }
@@ -108,7 +110,10 @@ export function collectContributorNames({ commits, config }: {
  * `Co-authored-by:` trailers, so squash-merged contributions are credited.
  */
 function getCommitAuthors(commit: GitCommit): GitCommitAuthor[] {
-  return [commit.author, ...(commit.authors ?? [])].filter(Boolean)
+  return [
+    commit.author,
+    ...(commit.authors ?? []),
+  ].filter(Boolean)
 }
 
 function getGithubUsernameFromNoreplyEmail(email: string): string | undefined {
@@ -126,7 +131,10 @@ export async function buildContributors({ commits, config }: {
 
   const _authors = new Map<string, { email: Set<string>, github?: string, name?: string }>()
   for (const name of names) {
-    _authors.set(name, { email: new Set<string>(), name })
+    _authors.set(name, {
+      email: new Set<string>(),
+      name,
+    })
   }
   for (const author of commits.flatMap(getCommitAuthors)) {
     const name = formatName(author.name)
@@ -184,7 +192,9 @@ export async function buildContributors({ commits, config }: {
         e => !e.includes('noreply.github.com'),
       )
       const email
-        = config.hideAuthorEmail !== true && _email ? ` <${_email}>` : ''
+        = config.hideAuthorEmail !== true && _email
+          ? ` <${_email}>`
+          : ''
       const github = i.github
         ? ` ([@${i.github}](https://github.com/${i.github}))`
         : ''
@@ -222,11 +232,20 @@ export async function generateMarkDown({
     .replaceAll('{{date}}', new Date().toISOString().split('T')[0] as string)
   const title = `## ${changelogTitle}`
 
-  const compareLink = minify ? '' : buildCompareLink({ config: updatedConfig, from, to, isFirstCommit })
+  const compareLink = minify
+    ? ''
+    : buildCompareLink({
+        config: updatedConfig,
+        from,
+        to,
+        isFirstCommit,
+      })
 
   const body = buildChangelogBody({ commits, config: updatedConfig, minify })
 
-  const contributors = minify ? '' : await buildContributors({ commits, config: updatedConfig })
+  const contributors = minify
+    ? ''
+    : await buildContributors({ commits, config: updatedConfig })
 
   return [title, compareLink, body, contributors].filter(Boolean).join('\n\n').trim()
 }
@@ -236,7 +255,22 @@ export async function generateMarkDown({
 /**
  * Trailers without a hyphen, which reference an issue: `Closes #12`, `Fixes: #12`
  */
-const REFERENCE_TRAILERS = new Set(['close', 'closes', 'closed', 'fix', 'fixes', 'fixed', 'resolve', 'resolves', 'resolved', 'ref', 'refs', 'see', 'cc', 'link'])
+const REFERENCE_TRAILERS = new Set([
+  'close',
+  'closes',
+  'closed',
+  'fix',
+  'fixes',
+  'fixed',
+  'resolve',
+  'resolves',
+  'resolved',
+  'ref',
+  'refs',
+  'see',
+  'cc',
+  'link',
+])
 
 const BREAKING_TRAILER_REGEX = /^BREAKING[ -]CHANGE: /
 
@@ -280,7 +314,14 @@ function stripTrailers(body: string): string {
     content.pop()
   }
 
-  return [...content, ...(breakingChanges.length > 0 ? [breakingChanges.join('\n')] : [])].join('\n\n')
+  return [
+    ...content,
+    ...(breakingChanges.length > 0
+      ? [
+          breakingChanges.join('\n'),
+        ]
+      : []),
+  ].join('\n\n')
 }
 
 function getCommitBody(commit: GitCommit) {
@@ -304,7 +345,9 @@ function getCommitBody(commit: GitCommit) {
   }
 
   const indentedBody = paragraphLines
-    .map(line => line.trim() ? `  ${line}` : '')
+    .map(line => line.trim()
+      ? `  ${line}`
+      : '')
     .join('\n')
 
   return `\n\n${indentedBody}\n`
@@ -315,14 +358,20 @@ function formatCommit({ commit, config, minify }: {
   config: ResolvedRelizyConfig
   minify?: boolean
 }) {
-  const body = config.changelog.includeCommitBody && !minify ? getCommitBody(commit) : ''
+  const body = config.changelog.includeCommitBody && !minify
+    ? getCommitBody(commit)
+    : ''
 
   return (
     `- ${
-      commit.scope ? `**${commit.scope.trim()}:** ` : ''
+      commit.scope
+        ? `**${commit.scope.trim()}:** `
+        : ''
     }${commit.isBreaking ? '⚠️  ' : ''
     }${upperFirst(commit.description)
-    }${minify ? '' : formatReferences(commit.references, config)}${body}`
+    }${minify
+      ? ''
+      : formatReferences(commit.references, config)}${body}`
   )
 }
 
@@ -335,7 +384,10 @@ function formatReferences(
   if (pr.length > 0 || issue.length > 0) {
     return (
       ` (${
-        [...pr, ...issue]
+        [
+          ...pr,
+          ...issue,
+        ]
           .map(ref => formatReference(ref, config.repo))
           .join(', ')
       })`

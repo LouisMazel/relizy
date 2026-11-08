@@ -75,7 +75,9 @@ const LIGHT_CODE_POINT_RANGES: [number, number][] = [
 const segmenter = new Intl.Segmenter('en', { granularity: 'grapheme' })
 
 function getCodePointLength(codePoint: number): number {
-  return LIGHT_CODE_POINT_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end) ? 1 : 2
+  return LIGHT_CODE_POINT_RANGES.some(([start, end]) => codePoint >= start && codePoint <= end)
+    ? 1
+    : 2
 }
 
 function getTextLength(text: string): number {
@@ -109,7 +111,9 @@ function truncateTweetText(text: string, maxLength: number, ellipsis: string): s
     return text
   }
 
-  const segments = [...segmenter.segment(text)].map(({ segment }) => segment)
+  const segments = [
+    ...segmenter.segment(text),
+  ].map(({ segment }) => segment)
 
   while (segments.length > 0 && getTweetLength(`${segments.join('')}${ellipsis}`) > maxLength) {
     segments.pop()
@@ -131,15 +135,21 @@ interface TweetSectionState {
 }
 
 function renderTweetSection(section: TweetSection, state: TweetSectionState): string {
-  const lines: string[] = section.title ? [section.title] : []
+  const lines: string[] = section.title
+    ? [section.title]
+    : []
 
   if (section.packages) {
     if (state.collapsed) {
       const count = `${section.packages.length} packages`
-      return section.title ? `${section.title}: ${count}` : count
+      return section.title
+        ? `${section.title}: ${count}`
+        : count
     }
 
-    lines.push(...section.packages.map((pkg, index) => state.packageHighlights[index] ? `• ${pkg.label}: ${pkg.highlights[0]}` : `• ${pkg.label}`))
+    lines.push(...section.packages.map((pkg, index) => state.packageHighlights[index]
+      ? `• ${pkg.label}: ${pkg.highlights[0]}`
+      : `• ${pkg.label}`))
   }
 
   lines.push(...(section.highlights ?? []).slice(0, state.highlights).map(highlight => `• ${highlight}`))
@@ -242,7 +252,11 @@ export async function postReleaseToTwitter({
   logger.debug(`Tweet message (${getTweetLength(message)} chars):\n${message}`)
 
   if (dryRun) {
-    showPreview({ title: 'Twitter post', meta: [`Length: ${getTweetLength(message)}/${postMaxLength} chars`], content: message })
+    showPreview({
+      title: 'Twitter post',
+      meta: [`Length: ${getTweetLength(message)}/${postMaxLength} chars`],
+      content: message,
+    })
     return
   }
 

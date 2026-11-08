@@ -47,6 +47,7 @@ An array of the config replaces the default one instead of being merged with it:
 | `ai`                                                                                                                                             | [AI](./ai.md)                           |
 | `social`                                                                                                                                         | [Social](./social.md)                   |
 | `prComment`                                                                                                                                      | [PR Comment](./pr-comment.md)           |
+| `mergePreview`                                                                                                                                   | [Merge Preview](./merge-preview.md)     |
 | `hooks`                                                                                                                                          | [Hooks](./hooks.md)                     |
 | `commitlint`                                                                                                                                     | [Commitlint](./../commitlint/config.md) |
 | `projectName`, `cwd`, `from`, `to`, `logLevel`, `safetyCheck`, `signTags`, `scopeMap`, `repo`, `tokens`, `detectRewrittenTags`, `onRewrittenTag` | This page                               |
@@ -147,6 +148,8 @@ A more specific setting wins over these keys:
 - provider: `tokens.github` or `tokens.gitlab` (both set by `--token`). `CI_JOB_TOKEN`, the last fallback of `tokens.gitlab`, creates the GitLab releases but cannot comment the merge requests
 - Twitter and Slack: `social.twitter.credentials` and `social.slack.credentials`, see [Social](./social.md)
 - AI: `ai.providers['claude-code'].apiKey` and `oauthToken`, see [AI](./ai.md)
+
+On a local run without these variables, `tokens.github` is the token of the [GitHub CLI](https://cli.github.com) when it is logged in (`gh auth login`, for the host of the repository): no token to create. In a GitHub Actions job, the [relizy action](./../guide/github-actions.md#the-relizy-action) passes the `GITHUB_TOKEN` of the job: no secret to create either, unless the job must push to a protected branch or trigger other workflows.
 
 Keep the tokens out of the config file: set the environment variables in the CI (see [CI/CD](./../guide/ci-cd.md)).
 

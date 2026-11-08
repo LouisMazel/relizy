@@ -80,7 +80,13 @@ export function socialVariables({ projectName = 'pkg', newVersion = '1.0.0', ...
 /**
  * The context of a step hook: undefined without bump result
  */
-export const anyHookContext = expect.toBeOneOf([undefined, expect.objectContaining({ bumpResult: expect.any(Object), release: expect.any(Object) })])
+export const anyHookContext = expect.toBeOneOf([
+  undefined,
+  expect.objectContaining({
+    bumpResult: expect.any(Object),
+    release: expect.any(Object),
+  }),
+])
 
 /**
  * Make the standard input an interactive terminal or not, for the prompts:

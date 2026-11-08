@@ -32,10 +32,23 @@ describe('Given the init helpers', () => {
   }
 
   function createMonorepo() {
-    writePackage('.', { name: 'mono', private: true, packageManager: 'pnpm@9.0.0', scripts: { build: 'turbo build' } })
+    writePackage('.', {
+      name: 'mono',
+      private: true,
+      packageManager: 'pnpm@9.0.0',
+      scripts: { build: 'turbo build' },
+    })
     write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - apps/*\n  - tools/*\n  - \'!**/fixtures/**\'\n')
-    writePackage('packages/core', { name: '@acme/core', version: '1.2.0', publishConfig: { access: 'public' } })
-    writePackage('packages/ui', { name: '@acme/ui', version: '1.2.0', publishConfig: { access: 'public' } })
+    writePackage('packages/core', {
+      name: '@acme/core',
+      version: '1.2.0',
+      publishConfig: { access: 'public' },
+    })
+    writePackage('packages/ui', {
+      name: '@acme/ui',
+      version: '1.2.0',
+      publishConfig: { access: 'public' },
+    })
     writePackage('packages/docs', { name: '@acme/docs', private: true })
     writePackage('packages/fixtures', { name: 'fixtures', version: '1.0.0' })
     writePackage('apps/web', { name: 'web', private: true })
@@ -45,7 +58,10 @@ describe('Given the init helpers', () => {
   function answers(detection: ProjectDetection, overrides: Partial<InitAnswers> = {}): InitAnswers {
     const goal = overrides.goal ?? suggestGoal(detection)
     const patterns = overrides.patterns ?? suggestPatterns(detection, goal)
-    return { ...getDefaultAnswers(detection, { goal, patterns }), ...overrides }
+    return {
+      ...getDefaultAnswers(detection, { goal, patterns }),
+      ...overrides,
+    }
   }
 
   beforeEach(() => {
@@ -65,18 +81,54 @@ describe('Given the init helpers', () => {
       expect(detection.packageManager).toBe('pnpm')
       expect(detection.workspaceFiles).toEqual(['pnpm-workspace.yaml'])
       expect(detection.provider).toBeNull()
-      expect(detection.root).toEqual(expect.objectContaining({ name: 'mono', version: undefined, private: true, hasRelizy: false }))
+      expect(detection.root).toEqual(expect.objectContaining({
+        name: 'mono',
+        version: undefined,
+        private: true,
+        hasRelizy: false,
+      }))
       expect(detection.workspaces).toEqual([
         {
           pattern: 'packages/*',
           packages: [
-            { name: '@acme/core', path: 'packages/core', version: '1.2.0', private: false, access: 'public', registry: undefined },
-            { name: '@acme/docs', path: 'packages/docs', version: undefined, private: true, access: undefined, registry: undefined },
-            { name: '@acme/ui', path: 'packages/ui', version: '1.2.0', private: false, access: 'public', registry: undefined },
+            {
+              name: '@acme/core',
+              path: 'packages/core',
+              version: '1.2.0',
+              private: false,
+              access: 'public',
+              registry: undefined,
+            },
+            {
+              name: '@acme/docs',
+              path: 'packages/docs',
+              version: undefined,
+              private: true,
+              access: undefined,
+              registry: undefined,
+            },
+            {
+              name: '@acme/ui',
+              path: 'packages/ui',
+              version: '1.2.0',
+              private: false,
+              access: 'public',
+              registry: undefined,
+            },
           ],
         },
-        { pattern: 'apps/*', packages: [expect.objectContaining({ name: 'web', version: undefined })] },
-        { pattern: 'tools/*', packages: [expect.objectContaining({ name: '@acme/cfg', version: '0.1.0', private: true })] },
+        {
+          pattern: 'apps/*',
+          packages: [
+            expect.objectContaining({ name: 'web', version: undefined }),
+          ],
+        },
+        {
+          pattern: 'tools/*',
+          packages: [
+            expect.objectContaining({ name: '@acme/cfg', version: '0.1.0', private: true }),
+          ],
+        },
       ])
     })
 
@@ -95,20 +147,34 @@ describe('Given the init helpers', () => {
       const detection = detectProject({ cwd })
 
       expect(buildInitConfig(detection, answers(detection))).toEqual({
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/docs'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+          ignored: ['packages/docs'],
+        },
         publish: { buildCmd: 'pnpm run build' },
         release: { providerRelease: false, prComment: false },
       })
-      expect(getDetectedPublishConfig(detection, { goal: 'publish', patterns: ['packages/*'] })).toEqual({ access: 'public', registry: undefined })
+      expect(getDetectedPublishConfig(detection, {
+        goal: 'publish',
+        patterns: ['packages/*'],
+      })).toEqual({ access: 'public', registry: undefined })
     })
 
     it('Then includes the private packages when only versioning', () => {
       createMonorepo()
       const detection = detectProject({ cwd })
 
-      const config = buildInitConfig(detection, answers(detection, { goal: 'version', patterns: ['tools/*'] }))
+      const config = buildInitConfig(detection, answers(detection, {
+        goal: 'version',
+        patterns: ['tools/*'],
+      }))
 
-      expect(config.monorepo).toEqual({ versionMode: 'selective', packages: ['tools/*'], privatePackages: 'release' })
+      expect(config.monorepo).toEqual({
+        versionMode: 'selective',
+        packages: ['tools/*'],
+        privatePackages: 'release',
+      })
       expect(config.release).toEqual(expect.objectContaining({ publish: false }))
       expect(config.publish).toBeUndefined()
     })
@@ -131,7 +197,11 @@ describe('Given the init helpers', () => {
 
   describe('When detecting a standalone package', () => {
     it('Then suggests publishing a public package and versioning a private one', () => {
-      writePackage('.', { name: 'lib', version: '0.3.0', devDependencies: { relizy: '^1.0.0', eslint: '^9.0.0' } })
+      writePackage('.', {
+        name: 'lib',
+        version: '0.3.0',
+        devDependencies: { relizy: '^1.0.0', eslint: '^9.0.0' },
+      })
       const detection = detectProject({ cwd })
 
       expect(detection.workspaces).toEqual([])
@@ -146,7 +216,10 @@ describe('Given the init helpers', () => {
 
     it('Then builds an empty config with the defaults', () => {
       writePackage('.', { name: 'lib', version: '1.0.0' })
-      const detection = { ...detectProject({ cwd }), provider: 'github' as const }
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'github' as const,
+      }
 
       expect(buildInitConfig(detection, answers(detection))).toEqual({})
     })
@@ -167,11 +240,18 @@ describe('Given the init helpers', () => {
     it('Then completes the missing name and version', () => {
       writePackage('.', { private: true })
 
-      expect(getMissingRootFields(detectProject({ cwd }), answers(detectProject({ cwd })))).toEqual({ name: basename(cwd), version: '0.0.0' })
+      expect(getMissingRootFields(detectProject({ cwd }), answers(detectProject({ cwd })))).toEqual({
+        name: basename(cwd),
+        version: '0.0.0',
+      })
     })
 
     it('Then treats a workspace without versioned packages as a standalone project', () => {
-      writePackage('.', { name: 'site', version: '1.0.0', workspaces: ['apps/*'] })
+      writePackage('.', {
+        name: 'site',
+        version: '1.0.0',
+        workspaces: ['apps/*'],
+      })
       writePackage('apps/web', { name: 'web', private: true })
       const detection = detectProject({ cwd })
 
@@ -182,7 +262,11 @@ describe('Given the init helpers', () => {
 
   describe('When detecting an existing config', () => {
     it('Then finds a config file of any format, or the relizy key of the package.json', () => {
-      writePackage('.', { name: 'lib', version: '1.0.0', relizy: { types: {} } })
+      writePackage('.', {
+        name: 'lib',
+        version: '1.0.0',
+        relizy: { types: {} },
+      })
       expect(detectProject({ cwd }).existingConfigFile).toBe('package.json')
       expect(detectProject({ cwd, configName: 'relizy.other' }).existingConfigFile).toBeUndefined()
 
@@ -198,7 +282,10 @@ describe('Given the init helpers', () => {
   describe('When building the advanced options', () => {
     it('Then writes only the values differing from the defaults', () => {
       createMonorepo()
-      const detection = { ...detectProject({ cwd }), provider: 'gitlab' as const }
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'gitlab' as const,
+      }
 
       const config = buildInitConfig(detection, answers(detection, {
         versionMode: 'independent',
@@ -220,44 +307,110 @@ describe('Given the init helpers', () => {
       }))
 
       expect(config).toEqual({
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], ignored: ['packages/docs'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          ignored: ['packages/docs'],
+        },
         types: { chore: false, ci: false },
-        bump: { dependencyTypes: ['dependencies', 'peerDependencies'], capZeroMajor: false },
+        bump: {
+          dependencyTypes: ['dependencies', 'peerDependencies'],
+          capZeroMajor: false,
+        },
         changelog: { rootChangelog: false, formatCmd: 'pnpm lint:fix' },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev/' },
-        social: { twitter: { enabled: true }, slack: { enabled: true, channel: '#releases' }, changelogUrl: 'https://acme.dev/changelog' },
+        social: {
+          twitter: { enabled: true },
+          slack: { enabled: true, channel: '#releases' },
+          changelogUrl: 'https://acme.dev/changelog',
+        },
         prComment: { mode: 'append' },
-        ai: { language: 'fr', providerRelease: { enabled: true }, social: { slack: { enabled: true } } },
+        ai: {
+          language: 'fr',
+          providerRelease: { enabled: true },
+          social: {
+            slack: { enabled: true },
+          },
+        },
       })
     })
 
     it('Then skips the public npm registry and the default AI language', () => {
       writePackage('.', { name: 'lib', version: '1.0.0' })
-      const detection = { ...detectProject({ cwd }), provider: 'github' as const }
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'github' as const,
+      }
 
-      expect(buildInitConfig(detection, answers(detection, { registry: 'https://registry.npmjs.org/', ai: ['twitter'], twitter: true }))).toEqual({
-        social: { twitter: { enabled: true } },
-        ai: { social: { twitter: { enabled: true } } },
+      expect(buildInitConfig(detection, answers(detection, {
+        registry: 'https://registry.npmjs.org/',
+        ai: ['twitter'],
+        twitter: true,
+      }))).toEqual({
+        social: {
+          twitter: { enabled: true },
+        },
+        ai: {
+          social: {
+            twitter: { enabled: true },
+          },
+        },
       })
       expect(isPublicNpmRegistry('https://registry.npmjs.org')).toBe(true)
     })
 
     it('Then shows the changelog in the Teams cards when the AI rewrites it', () => {
       writePackage('.', { name: 'lib', version: '1.0.0' })
-      const detection = { ...detectProject({ cwd }), provider: 'github' as const }
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'github' as const,
+      }
 
-      expect(buildInitConfig(detection, answers(detection, { teams: true }))).toEqual({ social: { teams: { enabled: true } } })
-      expect(buildInitConfig(detection, answers(detection, { teams: true, ai: ['teams'] }))).toEqual({
-        social: { teams: { enabled: true, changelog: 'summary' } },
-        ai: { social: { teams: { enabled: true } } },
+      expect(buildInitConfig(detection, answers(detection, { teams: true }))).toEqual({
+        social: {
+          teams: { enabled: true },
+        },
+      })
+      expect(buildInitConfig(detection, answers(detection, {
+        teams: true,
+        ai: ['teams'],
+      }))).toEqual({
+        social: {
+          teams: { enabled: true, changelog: 'summary' },
+        },
+        ai: {
+          social: {
+            teams: { enabled: true },
+          },
+        },
       })
     })
   })
 
   describe('When suggesting the version mode', () => {
     it('Then picks independent for packages on different versions', () => {
-      expect(suggestVersionMode([{ name: 'a', path: 'a', version: '1.0.0', private: false }, { name: 'b', path: 'b', version: '2.0.0', private: false }])).toBe('independent')
-      expect(suggestVersionMode([{ name: 'a', path: 'a', version: '1.0.0', private: false }])).toBe('selective')
+      expect(suggestVersionMode([
+        {
+          name: 'a',
+          path: 'a',
+          version: '1.0.0',
+          private: false,
+        },
+        {
+          name: 'b',
+          path: 'b',
+          version: '2.0.0',
+          private: false,
+        },
+      ])).toBe('independent')
+      expect(suggestVersionMode([
+        {
+          name: 'a',
+          path: 'a',
+          version: '1.0.0',
+          private: false,
+        },
+      ])).toBe('selective')
     })
   })
 
@@ -265,7 +418,11 @@ describe('Given the init helpers', () => {
     it('Then adds the fields first and the scripts, keeping the indentation', () => {
       write('package.json', '{\n    "private": true,\n    "scripts": { "build": "tsc" }\n}\n')
 
-      updateRootPackageJson({ cwd, fields: { name: 'lib', version: '0.0.0' }, scripts: getScriptsToAdd(detectProject({ cwd })) })
+      updateRootPackageJson({
+        cwd,
+        fields: { name: 'lib', version: '0.0.0' },
+        scripts: getScriptsToAdd(detectProject({ cwd })),
+      })
 
       expect(readFileSync(join(cwd, 'package.json'), 'utf8')).toBe([
         '{',
@@ -308,8 +465,15 @@ describe('Given the init helpers', () => {
 
     it('Then quotes the strings and the keys that are not identifiers, and wraps the long arrays', () => {
       const content = renderConfigFile({
-        monorepo: { versionMode: 'selective', packages: ['packages/*', 'apps/very-long-application-name/*', 'tools/another-long-folder/*'] },
-        ai: { providers: { 'claude-code': { model: 'it\'s' } } },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*', 'apps/very-long-application-name/*', 'tools/another-long-folder/*'],
+        },
+        ai: {
+          providers: {
+            'claude-code': { model: 'it\'s' },
+          },
+        },
         bump: { capZeroMajor: false },
       })
 

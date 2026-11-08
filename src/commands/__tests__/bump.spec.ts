@@ -183,7 +183,9 @@ describe('Given bump command', () => {
         newVersion: '1.1.0',
         path: mockCwd,
         fromTag: 'v1.0.0',
-        commits: [createMockCommit('feat', 'add feature')],
+        commits: [
+          createMockCommit('feat', 'add feature'),
+        ],
       })
 
       vi.mocked(getPackages).mockResolvedValueOnce([
@@ -193,7 +195,9 @@ describe('Given bump command', () => {
           path: `${mockCwd}/packages/pkg-a`,
           newVersion: '1.1.0',
           reason: 'commits',
-          commits: [createMockCommit('feat', 'add feature')],
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
           fromTag: 'v1.0.0',
           dependencies: [],
           private: false,
@@ -268,7 +272,9 @@ describe('Given bump command', () => {
         newVersion: '1.0.1',
         path: mockCwd,
         fromTag: 'v1.0.0',
-        commits: [createMockCommit('fix', 'fix bug')],
+        commits: [
+          createMockCommit('fix', 'fix bug'),
+        ],
         private: false,
       })
 
@@ -303,7 +309,10 @@ describe('Given bump command', () => {
         cwd: mockCwd,
         bump: { type: 'patch', yes: true },
         release: { clean: false },
-        monorepo: { versionMode: 'unified', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
         types: {},
         templates: { tagBody: 'v{{newVersion}}' },
         logLevel: 'default',
@@ -405,7 +414,9 @@ describe('Given bump command', () => {
           newVersion: '1.1.0',
           path: `${mockCwd}/packages/pkg-a`,
           reason: 'commits',
-          commits: [createMockCommit('feat', 'add feature to pkg-a')],
+          commits: [
+            createMockCommit('feat', 'add feature to pkg-a'),
+          ],
           fromTag: 'v1.0.0',
           private: false,
           dependencies: [],
@@ -416,7 +427,9 @@ describe('Given bump command', () => {
           newVersion: '2.0.1',
           path: `${mockCwd}/packages/pkg-b`,
           reason: 'commits',
-          commits: [createMockCommit('fix', 'fix bug in pkg-b')],
+          commits: [
+            createMockCommit('fix', 'fix bug in pkg-b'),
+          ],
           fromTag: 'v2.0.0',
           private: false,
           dependencies: [],
@@ -581,7 +594,9 @@ describe('Given bump command', () => {
         newVersion: '1.1.0',
         path: mockCwd,
         fromTag: 'v1.0.0',
-        commits: [createMockCommit('feat', 'feature')],
+        commits: [
+          createMockCommit('feat', 'feature'),
+        ],
         private: false,
       })
 
@@ -592,7 +607,9 @@ describe('Given bump command', () => {
           newVersion: '1.1.0',
           path: `${mockCwd}/packages/pkg-a`,
           reason: 'commits',
-          commits: [createMockCommit('feat', 'feature in pkg-a')],
+          commits: [
+            createMockCommit('feat', 'feature in pkg-a'),
+          ],
           fromTag: 'v1.0.0',
           dependencies: [],
           private: false,
@@ -637,7 +654,9 @@ describe('Given bump command', () => {
         newVersion: '1.1.0',
         path: mockCwd,
         fromTag: 'v1.0.0',
-        commits: [createMockCommit('feat', 'feature')],
+        commits: [
+          createMockCommit('feat', 'feature'),
+        ],
         private: false,
       })
 
@@ -953,7 +972,9 @@ describe('Given bump command', () => {
           path: `${mockCwd}/packages/pkg-a`,
           newVersion: '1.1.0',
           reason: 'commits',
-          commits: [createMockCommit('feat', 'add feature')],
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
           fromTag: 'v1.0.0',
           dependencies: [],
           private: false,
@@ -1068,7 +1089,9 @@ describe('Given bump command', () => {
           path: `${mockCwd}/packages/pkg-a`,
           newVersion: '1.1.0',
           reason: 'commits',
-          commits: [createMockCommit('feat', 'add feature')],
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
           fromTag: 'v1.0.0',
           dependencies: [],
           private: false,
@@ -1252,7 +1275,9 @@ describe('Given bump command', () => {
           path: `${mockCwd}/packages/pkg-a`,
           newVersion: '2.1.0',
           reason: 'commits',
-          commits: [createMockCommit('feat', 'add feature')],
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
           fromTag: 'pkg-a@2.0.0',
           dependencies: [],
           private: false,
@@ -1281,18 +1306,58 @@ describe('Given the output of bump in CI', () => {
   let output: ReturnType<typeof captureCliOutput>
   const config = {
     cwd: mockCwd,
-    bump: { type: 'minor', yes: true, clean: true, dependencyTypes: ['dependencies'] },
+    bump: {
+      type: 'minor',
+      yes: true,
+      clean: true,
+      dependencyTypes: ['dependencies'],
+    },
     release: { clean: true },
-    monorepo: { versionMode: 'unified', packages: ['packages/*'] },
-    types: { feat: { title: 'Features', semver: 'minor' }, fix: { title: 'Bug Fixes', semver: 'patch' } },
-    templates: { commitMessage: 'chore: bump version {{newVersion}}', tagBody: 'v{{newVersion}}', tagMessage: 'chore: bump version {{newVersion}}', emptyChangelogContent: 'No changes' },
+    monorepo: {
+      versionMode: 'unified',
+      packages: ['packages/*'],
+    },
+    types: {
+      feat: { title: 'Features', semver: 'minor' },
+      fix: { title: 'Bug Fixes', semver: 'patch' },
+    },
+    templates: {
+      commitMessage: 'chore: bump version {{newVersion}}',
+      tagBody: 'v{{newVersion}}',
+      tagMessage: 'chore: bump version {{newVersion}}',
+      emptyChangelogContent: 'No changes',
+    },
     logLevel: 'default',
   } as unknown as ResolvedRelizyConfig
 
   function mockPackages(newVersion: string | undefined) {
-    vi.mocked(getRootPackage).mockResolvedValueOnce({ name: 'root-package', private: false, version: '1.0.0', newVersion, path: mockCwd, fromTag: 'v1.0.0', commits: newVersion ? [createMockCommit('feat', 'add feature')] : [] })
+    vi.mocked(getRootPackage).mockResolvedValueOnce({
+      name: 'root-package',
+      private: false,
+      version: '1.0.0',
+      newVersion,
+      path: mockCwd,
+      fromTag: 'v1.0.0',
+      commits: newVersion
+        ? [
+            createMockCommit('feat', 'add feature'),
+          ]
+        : [],
+    })
     vi.mocked(getPackages).mockResolvedValueOnce(newVersion
-      ? ['pkg-a', 'pkg-b'].map(name => ({ name, version: '1.0.0', path: `${mockCwd}/packages/${name}`, newVersion, reason: 'commits' as const, commits: [createMockCommit('feat', 'add feature')], fromTag: 'v1.0.0', dependencies: [], private: false }))
+      ? ['pkg-a', 'pkg-b'].map(name => ({
+          name,
+          version: '1.0.0',
+          path: `${mockCwd}/packages/${name}`,
+          newVersion,
+          reason: 'commits' as const,
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
+          fromTag: 'v1.0.0',
+          dependencies: [],
+          private: false,
+        }))
       : [])
   }
 
@@ -1337,7 +1402,10 @@ describe('Given the output of bump in CI', () => {
 
   it('Then fails right away without --yes when nobody can confirm, with the fix', async () => {
     setInteractiveTerminal(false)
-    vi.mocked(loadRelizyConfig).mockReset().mockResolvedValueOnce({ ...config, bump: { ...config.bump, yes: false } })
+    vi.mocked(loadRelizyConfig).mockReset().mockResolvedValueOnce({
+      ...config,
+      bump: { ...config.bump, yes: false },
+    })
 
     await expect(bump({ type: 'minor' })).rejects.toThrow('relizy bump asks to confirm the new versions, but the terminal is not interactive: run "relizy bump --yes" to confirm them in advance')
 

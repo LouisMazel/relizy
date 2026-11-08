@@ -23,7 +23,9 @@ interface GithubApiConfig {
 
 /** `https://api.github.com` for github.com, the `/api/v3` of a GitHub Enterprise Server */
 function getGithubApiUrl(domain: string | undefined): string {
-  return domain === 'github.com' ? 'https://api.github.com' : `https://${domain}/api/v3`
+  return domain === 'github.com'
+    ? 'https://api.github.com'
+    : `https://${domain}/api/v3`
 }
 
 async function githubFetch<T>(config: GithubApiConfig, path: string, init: { method: string, body: unknown }): Promise<T> {
@@ -36,7 +38,9 @@ async function githubFetch<T>(config: GithubApiConfig, path: string, init: { met
       'accept': 'application/json',
       'content-type': 'application/json',
       'x-github-api-version': '2022-11-28',
-      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(token
+        ? { authorization: `Bearer ${token}` }
+        : {}),
     },
     body: JSON.stringify(init.body),
   })
@@ -44,7 +48,9 @@ async function githubFetch<T>(config: GithubApiConfig, path: string, init: { met
   if (!response.ok) {
     const errorText = await response.text().catch(() => '')
     const message = `[${init.method}] "${url}": ${response.status} ${response.statusText}`
-    throw new Error(errorText ? `${message} ${errorText}` : message)
+    throw new Error(errorText
+      ? `${message} ${errorText}`
+      : message)
   }
 
   return await response.json() as T

@@ -68,18 +68,37 @@ function expandQuery(query: string): string {
   const words = query.toLowerCase().split(/[^a-z\d@./-]+/).filter(Boolean)
   const synonyms = words.flatMap(word => SYNONYMS[word] ?? [])
 
-  return [...new Set([...words, ...synonyms])].join(' ')
+  return [
+    ...new Set([
+      ...words,
+      ...synonyms,
+    ]),
+  ].join(' ')
 }
 
 /** Search over the doc pages and the config options, built on the first search */
 export class DocSearch {
   private readonly index = new MiniSearch<IndexedEntry>({
-    fields: ['title', 'keywords', 'headings', 'description', 'body'],
+    fields: [
+      'title',
+      'keywords',
+      'headings',
+      'description',
+      'body',
+    ],
     storeFields: ['kind', 'category'],
     searchOptions: {
-      boost: { title: 5, keywords: 3, headings: 2, description: 2, body: 1 },
+      boost: {
+        title: 5,
+        keywords: 3,
+        headings: 2,
+        description: 2,
+        body: 1,
+      },
       prefix: term => term.length > 3,
-      fuzzy: term => (term.length > 5 ? 0.2 : false),
+      fuzzy: term => (term.length > 5
+        ? 0.2
+        : false),
       combineWith: 'OR',
     },
   })
@@ -120,12 +139,20 @@ export class DocSearch {
       if (result.kind === 'config') {
         const option = this.knowledge.configByPath.get(id.slice('config:'.length))
 
-        return option ? [{ kind: 'config', score: result.score, option }] : []
+        return option
+          ? [
+              { kind: 'config', score: result.score, option },
+            ]
+          : []
       }
 
       const doc = this.knowledge.docsById.get(id.slice('doc:'.length))
 
-      return doc ? [{ kind: 'doc', score: result.score, doc }] : []
+      return doc
+        ? [
+            { kind: 'doc', score: result.score, doc },
+          ]
+        : []
     })
   }
 }

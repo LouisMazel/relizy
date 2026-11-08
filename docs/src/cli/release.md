@@ -132,6 +132,7 @@ relizy release --yes --report-dotenv relizy.env
 
 ## See Also
 
+- [`relizy merge-preview`](./merge-preview.md): before the merge of a pull request, what its release will be
 - [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md), [social](./social.md), [pr-comment](./pr-comment.md): each step alone
 - [Release config](./../config/release.md)
 - [CI/CD](./../guide/ci-cd.md)

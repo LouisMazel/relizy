@@ -11,7 +11,10 @@ import { cleanTempDirs, createTempDir, createTestContext, getKnowledge } from '.
 vi.mock('@maz-ui/node', importActual => importActual())
 
 async function connect(): Promise<Client> {
-  const { server } = createRelizyMcpServer({ knowledge: getKnowledge(), cwd: createTempDir() })
+  const { server } = createRelizyMcpServer({
+    knowledge: getKnowledge(),
+    cwd: createTempDir(),
+  })
   const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
   const client = new Client({ name: 'test', version: '1.0.0' })
 
@@ -36,7 +39,10 @@ afterAll(() => {
 describe('Given the start of the relizy MCP server', () => {
   describe('When a client connects and lists the tools', () => {
     it('Then the docs bundle is not read', async () => {
-      const { server, context } = createRelizyMcpServer({ cwd: createTempDir(), docsDir: createTempDir() })
+      const { server, context } = createRelizyMcpServer({
+        cwd: createTempDir(),
+        docsDir: createTempDir(),
+      })
       const knowledge = vi.spyOn(context, 'knowledge', 'get')
       const [serverTransport, clientTransport] = InMemoryTransport.createLinkedPair()
       const client = new Client({ name: 'test', version: '1.0.0' })
@@ -65,7 +71,10 @@ describe('Given the relizy MCP server', () => {
 
   describe('When a client connects', () => {
     it('Then it receives the server info and the instructions', () => {
-      expect(client.getServerVersion()).toEqual(expect.objectContaining({ name: 'relizy', version: readOwnVersion() }))
+      expect(client.getServerVersion()).toEqual(expect.objectContaining({
+        name: 'relizy',
+        version: readOwnVersion(),
+      }))
       expect(client.getInstructions()).toContain('preview_release')
       expect(client.getInstructions()).toContain('lint_commit')
     })
@@ -75,7 +84,16 @@ describe('Given the relizy MCP server', () => {
     it('Then they keep the TOOLS order with read-only annotations', async () => {
       const { tools } = await client.listTools()
 
-      expect(tools.map(tool => tool.name)).toEqual(['preview_release', 'preview_changelog', 'lint_commit', 'get_project', 'get_config_option', 'search_docs', 'get_doc', 'check_migration'])
+      expect(tools.map(tool => tool.name)).toEqual([
+        'preview_release',
+        'preview_changelog',
+        'lint_commit',
+        'get_project',
+        'get_config_option',
+        'search_docs',
+        'get_doc',
+        'check_migration',
+      ])
       expect(tools.map(tool => tool.name)).toEqual(TOOLS.map(tool => tool.name))
 
       for (const tool of tools) {
@@ -91,14 +109,32 @@ describe('Given the relizy MCP server', () => {
     it('Then each prompt drives the tools of the server', async () => {
       const { prompts } = await client.listPrompts()
 
-      expect(prompts.map(prompt => prompt.name)).toEqual(['write-commit', 'prepare-release', 'setup-relizy', 'migrate-to-v2', 'setup-ci'])
+      expect(prompts.map(prompt => prompt.name)).toEqual([
+        'write-commit',
+        'prepare-release',
+        'setup-relizy',
+        'migrate-to-v2',
+        'setup-ci',
+      ])
 
-      const commit = await client.getPrompt({ name: 'write-commit', arguments: { intent: 'fix the tags' } })
-      const release = await client.getPrompt({ name: 'prepare-release', arguments: { type: 'minor' } })
+      const commit = await client.getPrompt({
+        name: 'write-commit',
+        arguments: { intent: 'fix the tags' },
+      })
+      const release = await client.getPrompt({
+        name: 'prepare-release',
+        arguments: { type: 'minor' },
+      })
       const plainRelease = await client.getPrompt({ name: 'prepare-release', arguments: {} })
       const setup = await client.getPrompt({ name: 'setup-relizy' })
-      const github = await client.getPrompt({ name: 'setup-ci', arguments: { provider: 'github' } })
-      const gitlab = await client.getPrompt({ name: 'setup-ci', arguments: { provider: 'gitlab' } })
+      const github = await client.getPrompt({
+        name: 'setup-ci',
+        arguments: { provider: 'github' },
+      })
+      const gitlab = await client.getPrompt({
+        name: 'setup-ci',
+        arguments: { provider: 'gitlab' },
+      })
       const migration = await client.getPrompt({ name: 'migrate-to-v2' })
 
       expect(promptText(commit)).toContain('(fix the tags)')
@@ -115,7 +151,10 @@ describe('Given the relizy MCP server', () => {
 
   describe('When a tool is called with valid arguments', () => {
     it('Then it returns markdown', async () => {
-      const result = await client.callTool({ name: 'get_config_option', arguments: { path: 'bump.yes' } })
+      const result = await client.callTool({
+        name: 'get_config_option',
+        arguments: { path: 'bump.yes' },
+      })
 
       expect(result.isError).toBeFalsy()
       expect((result.content as { text: string }[])[0]!.text).toContain('# `bump.yes`')
@@ -124,7 +163,10 @@ describe('Given the relizy MCP server', () => {
 
   describe('When a tool is called with invalid arguments', () => {
     it('Then the client gets an error', async () => {
-      const result = await client.callTool({ name: 'search_docs', arguments: { query: '' } })
+      const result = await client.callTool({
+        name: 'search_docs',
+        arguments: { query: '' },
+      })
 
       expect(result.isError).toBe(true)
     })
@@ -132,7 +174,13 @@ describe('Given the relizy MCP server', () => {
 })
 
 describe('Given runTool', () => {
-  const tool = (run: ToolDefinition['run']): ToolDefinition => ({ name: 'test_tool', title: 'Test', description: 'Test', inputSchema: {}, run })
+  const tool = (run: ToolDefinition['run']): ToolDefinition => ({
+    name: 'test_tool',
+    title: 'Test',
+    description: 'Test',
+    inputSchema: {},
+    run,
+  })
 
   describe('When the tool throws a ToolInputError', () => {
     it('Then the message is returned as is', async () => {
@@ -140,7 +188,12 @@ describe('Given runTool', () => {
         throw new ToolInputError('Pass another id')
       }), {})
 
-      expect(result).toEqual({ content: [{ type: 'text', text: 'Pass another id' }], isError: true })
+      expect(result).toEqual({
+        content: [
+          { type: 'text', text: 'Pass another id' },
+        ],
+        isError: true,
+      })
     })
   })
 

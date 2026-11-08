@@ -67,17 +67,22 @@ const LOOSE_SCOPE_PATTERN = /^[^(:]*\((?<scope>[^)]*)\)!?: /
 
 /** Parse a message like relizy does when it reads the git history */
 function parseWithRelizy(header: string, body: string, hash: string | undefined, config: ResolvedRelizyConfig): GitCommit | undefined {
-  const [parsed] = parseCommits([{
-    message: header,
-    body,
-    shortHash: hash?.slice(0, 7) ?? '',
-    author: { name: '', email: '' },
-  }], config)
+  const [parsed] = parseCommits([
+    {
+      message: header,
+      body,
+      shortHash: hash?.slice(0, 7) ?? '',
+      author: { name: '', email: '' },
+    },
+  ], config)
   if (!parsed) {
     return undefined
   }
   // The commit being created has no hash yet: no empty hash reference in its changelog entry
-  return { ...parsed, references: parsed.references.filter(reference => reference.value) }
+  return {
+    ...parsed,
+    references: parsed.references.filter(reference => reference.value),
+  }
 }
 
 /** The version bump the commit triggers, as computed by relizy for a release */
@@ -86,7 +91,13 @@ function getBump(gitCommit: GitCommit | undefined, config: ResolvedRelizyConfig)
     return undefined
   }
   const type = config.types?.[gitCommit.type]
-  if (!isAllowedCommit({ commit: gitCommit, type: type === undefined ? undefined : type, changelog: false })) {
+  if (!isAllowedCommit({
+    commit: gitCommit,
+    type: type === undefined
+      ? undefined
+      : type,
+    changelog: false,
+  })) {
     return undefined
   }
   return determineSemverChange([gitCommit], config.types)
@@ -95,7 +106,9 @@ function getBump(gitCommit: GitCommit | undefined, config: ResolvedRelizyConfig)
 function normalizeCustomOutcome(outcome: CommitlintCustomRuleOutcome): string | undefined {
   if (Array.isArray(outcome)) {
     const [valid, message] = outcome
-    return valid ? undefined : message || 'The custom rule failed'
+    return valid
+      ? undefined
+      : message || 'The custom rule failed'
   }
   if (typeof outcome === 'string') {
     return outcome
@@ -170,7 +183,11 @@ function resolveRules(config: ResolvedRelizyConfig, context: Omit<RuleContext, '
       conventionalOnly: false,
       run: async (commit) => {
         const message = normalizeCustomOutcome(await rule(commit, { value: ruleConfig?.value, config }))
-        return message ? [{ message }] : []
+        return message
+          ? [
+              { message },
+            ]
+          : []
       },
     })
   }
@@ -198,7 +215,9 @@ function buildCommit({ parts, gitCommit, config, files, hash, packages }: {
     bump: getBump(gitCommit, config),
     references: gitCommit?.references ?? [],
     files,
-    packages: files ? getPackagesOfFiles(files, packages) : undefined,
+    packages: files
+      ? getPackagesOfFiles(files, packages)
+      : undefined,
     hash,
   }
 }
@@ -213,23 +232,50 @@ export async function lintCommitMessage(message: string, options: LintCommitMess
   const bodyWithFooter = [parts.body, parts.footer].filter(Boolean).join('\n\n')
   const gitCommit = parseWithRelizy(parts.header, bodyWithFooter, hash, config)
   const packages = options.packages ?? getWorkspacePackages(config)
-  const commit = buildCommit({ parts, gitCommit, config, files, hash, packages })
+  const commit = buildCommit({
+    parts,
+    gitCommit,
+    config,
+    files,
+    hash,
+    packages,
+  })
 
-  const changelogTitle = gitCommit ? getChangelogTitle(gitCommit.type, config) : undefined
+  const changelogTitle = gitCommit
+    ? getChangelogTitle(gitCommit.type, config)
+    : undefined
 
   if (isIgnoredCommitMessage(message, config)) {
-    return { commit, ignored: true, valid: true, problems: [], changelogTitle, gitCommit }
+    return {
+      commit,
+      ignored: true,
+      valid: true,
+      problems: [],
+      changelogTitle,
+      gitCommit,
+    }
   }
 
   const allowedScopes = getAllowedScopes(config, packages)
-  const rules = resolveRules(config, { config, parts, gitCommit, packages, allowedScopes })
+  const rules = resolveRules(config, {
+    config,
+    parts,
+    gitCommit,
+    packages,
+    allowedScopes,
+  })
   const problems: CommitlintProblem[] = []
   for (const rule of rules) {
     if (rule.conventionalOnly && !gitCommit) {
       continue
     }
     for (const problem of await rule.run(commit)) {
-      problems.push({ rule: rule.name, severity: rule.severity, ...problem, ...(rule.url && { url: rule.url }) })
+      problems.push({
+        rule: rule.name,
+        severity: rule.severity,
+        ...problem,
+        ...(rule.url && { url: rule.url }),
+      })
     }
   }
 
@@ -250,7 +296,13 @@ export async function lintCommitMessage(message: string, options: LintCommitMess
 }
 
 /** The errors a suggested header can fix */
-const HEADER_RULES = new Set(['header-format', 'type-enum', 'scope-enum', 'subject-case', 'subject-full-stop'])
+const HEADER_RULES = new Set([
+  'header-format',
+  'type-enum',
+  'scope-enum',
+  'subject-case',
+  'subject-full-stop',
+])
 
 /**
  * A header with the safe fixes applied, linted again to report what remains.
@@ -264,13 +316,21 @@ async function getSuggestion(message: string, result: CommitlintResult, options:
 
   // Without subject-case, the case of the subject is kept: "MazChart" is a name
   const lowercaseSubject = errors.includes('subject-case')
-  const header = suggestHeader(result.commit.header, { types: Object.keys(options.config.types ?? {}), allowedScopes, lowercaseSubject })
+  const header = suggestHeader(result.commit.header, {
+    types: Object.keys(options.config.types ?? {}),
+    allowedScopes,
+    lowercaseSubject,
+  })
   if (!header) {
     return undefined
   }
 
   const [, ...rest] = message.split('\n')
   const suggested = await lintCommitMessage([header, ...rest].join('\n'), { ...options, suggest: false })
-  const remainingRules = [...new Set(suggested.problems.filter(problem => problem.severity === 'error').map(problem => problem.rule))]
-  return remainingRules.length < new Set(errors).size ? { header, remainingRules } : undefined
+  const remainingRules = [
+    ...new Set(suggested.problems.filter(problem => problem.severity === 'error').map(problem => problem.rule)),
+  ]
+  return remainingRules.length < new Set(errors).size
+    ? { header, remainingRules }
+    : undefined
 }

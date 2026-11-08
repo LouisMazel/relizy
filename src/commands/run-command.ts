@@ -52,8 +52,15 @@ export async function runCommand<T>({
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
-  const hookContext = options.bumpResult ? getHookContext(config, options.bumpResult) : undefined
-  const ui = createCommandUi({ title: `relizy ${name}`, dryRun, logLevel: config.logLevel, cwd: config.cwd })
+  const hookContext = options.bumpResult
+    ? getHookContext(config, options.bumpResult)
+    : undefined
+  const ui = createCommandUi({
+    title: `relizy ${name}`,
+    dryRun,
+    logLevel: config.logLevel,
+    cwd: config.cwd,
+  })
 
   try {
     check?.(config)

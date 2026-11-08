@@ -54,7 +54,9 @@ export function resolveSlackPostMaxLength({ changelogFormat = 'summary', postMax
   changelogFormat?: SlackChangelogFormat
   postMaxLength?: number
 }): number | undefined {
-  return postMaxLength ?? (changelogFormat === 'full' ? undefined : SLACK_SUMMARY_MAX_LENGTH)
+  return postMaxLength ?? (changelogFormat === 'full'
+    ? undefined
+    : SLACK_SUMMARY_MAX_LENGTH)
 }
 
 /**
@@ -82,7 +84,9 @@ export function formatPackagesForSlack(packages: PackageBumpEntry[]): string {
 }
 
 function truncateSlackText(text: string, maxLength: number): string {
-  return text.length > maxLength ? `${sliceSlackText(text, maxLength - 1)}…` : text
+  return text.length > maxLength
+    ? `${sliceSlackText(text, maxLength - 1)}…`
+    : text
 }
 
 /**
@@ -166,7 +170,10 @@ const SLACK_BUTTON_TEXT_MAX_LENGTH = 75
 function getAnnouncementMarkdown({ message, links = [] }: { message?: string, links?: SocialLink[] }): string {
   const linksLine = links.map(link => `[${link.title}](${link.url})`).join(' · ')
 
-  return [message?.trim(), linksLine].filter(Boolean).join('\n\n')
+  return [
+    message?.trim(),
+    linksLine,
+  ].filter(Boolean).join('\n\n')
 }
 
 /**
@@ -175,7 +182,9 @@ function getAnnouncementMarkdown({ message, links = [] }: { message?: string, li
 function formatSlackAnnouncement(announcement: { message?: string, links?: SocialLink[] }): string {
   const markdown = getAnnouncementMarkdown(announcement)
 
-  return markdown ? formatChangelogForSlack(markdown, SLACK_SECTION_MAX_LENGTH) : ''
+  return markdown
+    ? formatChangelogForSlack(markdown, SLACK_SECTION_MAX_LENGTH)
+    : ''
 }
 
 /**
@@ -184,7 +193,13 @@ function formatSlackAnnouncement(announcement: { message?: string, links?: Socia
  */
 export function slackSectionsToMarkdown(sections: SlackReleaseSection[]): string {
   return sections.map((section) => {
-    const parts = [section.title ? `## ${section.title}` : '', getAnnouncementMarkdown(section), section.changelog?.trim() ?? '']
+    const parts = [
+      section.title
+        ? `## ${section.title}`
+        : '',
+      getAnnouncementMarkdown(section),
+      section.changelog?.trim() ?? '',
+    ]
 
     for (const pkg of section.packages ?? []) {
       parts.push(formatSlackPackageLine(pkg).replace(/^\*([^*]+)\*/, '**$1**'), getAnnouncementMarkdown(pkg), pkg.changelog.trim())
@@ -195,7 +210,9 @@ export function slackSectionsToMarkdown(sections: SlackReleaseSection[]): string
 }
 
 function getSectionBodies(section: SlackReleaseSection): string[] {
-  return section.changelog !== undefined ? [section.changelog] : (section.packages ?? []).map(pkg => pkg.changelog)
+  return section.changelog !== undefined
+    ? [section.changelog]
+    : (section.packages ?? []).map(pkg => pkg.changelog)
 }
 
 /**
@@ -205,16 +222,31 @@ function getSectionBodies(section: SlackReleaseSection): string[] {
  * without limit.
  */
 function formatSlackSummarySection(section: SlackReleaseSection, maxLength: number, renderedBodies: string[]): string {
-  const lines = [section.title ? `*${section.title}*` : '', formatSlackAnnouncement(section)].filter(Boolean)
+  const lines = [
+    section.title
+      ? `*${section.title}*`
+      : '',
+    formatSlackAnnouncement(section),
+  ].filter(Boolean)
   const packages = section.packages ?? []
-  const packageHeads = packages.map(pkg => [formatSlackPackageLine(pkg), formatSlackAnnouncement(pkg)].filter(Boolean).join('\n'))
+  const packageHeads = packages.map(pkg => [
+    formatSlackPackageLine(pkg),
+    formatSlackAnnouncement(pkg),
+  ].filter(Boolean).join('\n'))
   const bodies = getSectionBodies(section)
   // The lines always shown, and the line break before each changelog
-  const fixedLength = [...lines, ...packageHeads].join('\n').length + renderedBodies.filter(Boolean).length
+  const fixedLength = [
+    ...lines,
+    ...packageHeads,
+  ].join('\n').length + renderedBodies.filter(Boolean).length
   const shares = shareBudget(maxLength - fixedLength, renderedBodies.map(body => body.length))
   const renderBody = (index: number) => {
     const share = shares[index]!
-    return share >= renderedBodies[index]!.length ? renderedBodies[index]! : share > 0 ? formatChangelogForSlack(bodies[index]!, share) : ''
+    return share >= renderedBodies[index]!.length
+      ? renderedBodies[index]!
+      : share > 0
+        ? formatChangelogForSlack(bodies[index]!, share)
+        : ''
   }
 
   if (section.changelog !== undefined) {
@@ -248,22 +280,50 @@ function formatSlackSections({ sections, changelogFormat, maxLength, surrounding
 
     return sections.map((section, index) => ({
       type: 'section',
-      text: { type: 'mrkdwn', text: formatSlackSummarySection(section, Math.min(shares[index]!, SLACK_SECTION_MAX_LENGTH), renderedBodies[index]!) },
+      text: {
+        type: 'mrkdwn',
+        text: formatSlackSummarySection(section, Math.min(shares[index]!, SLACK_SECTION_MAX_LENGTH), renderedBodies[index]!),
+      },
     }))
   }
 
   const titleBlocks = sections.map(section => section.title
-    ? { type: 'section', text: { type: 'mrkdwn', text: truncateSlackText(`*${section.title}*`, SLACK_SECTION_MAX_LENGTH) } }
+    ? {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: truncateSlackText(`*${section.title}*`, SLACK_SECTION_MAX_LENGTH),
+        },
+      }
     : undefined)
   // The budgets are shared by version, so that a long package does not leave out the next ones of its group
   const units = sections.flatMap((section, index) => section.changelog === undefined && section.packages?.length
-    ? section.packages.map(pkg => ({ section: index, markdown: slackSectionsToMarkdown([{ packages: [pkg] }]) }))
-    : [{ section: index, markdown: slackSectionsToMarkdown([{ ...section, title: undefined }]) }])
-  const fixedBlocks = [...surroundingBlocks, ...titleBlocks.filter(Boolean)]
+    ? section.packages.map(pkg => ({
+        section: index,
+        markdown: slackSectionsToMarkdown([
+          {
+            packages: [pkg],
+          },
+        ]),
+      }))
+    : [
+        {
+          section: index,
+          markdown: slackSectionsToMarkdown([
+            { ...section, title: undefined },
+          ]),
+        },
+      ])
+  const fixedBlocks = [
+    ...surroundingBlocks,
+    ...titleBlocks.filter(Boolean),
+  ]
   const rendered = units.map(unit => markdownToSlackRichText(unit.markdown, { maxLength, maxBlocks: SLACK_MAX_BLOCKS, maxPayloadLength: SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH }))
   const blockShares = shareBudget(SLACK_MAX_BLOCKS - fixedBlocks.length, rendered.map(blocks => blocks.length))
   const payloadShares = shareBudget(SLACK_RICH_TEXT_MESSAGE_MAX_LENGTH - JSON.stringify(fixedBlocks).length, rendered.map(blocks => JSON.stringify(blocks).length))
-  const lengthShares = maxLength === undefined ? undefined : shareBudget(maxLength, units.map(unit => unit.markdown.length))
+  const lengthShares = maxLength === undefined
+    ? undefined
+    : shareBudget(maxLength, units.map(unit => unit.markdown.length))
   const renderUnit = (index: number) => {
     const blocks = rendered[index]!
     const fits = blocks.length <= blockShares[index]! && JSON.stringify(blocks).length <= payloadShares[index]! && lengthShares === undefined
@@ -278,8 +338,12 @@ function formatSlackSections({ sections, changelogFormat, maxLength, surrounding
   }
 
   return sections.flatMap((_section, sectionIndex) => [
-    ...(titleBlocks[sectionIndex] ? [titleBlocks[sectionIndex]] : []),
-    ...units.flatMap((unit, index) => unit.section === sectionIndex ? renderUnit(index) : []),
+    ...(titleBlocks[sectionIndex]
+      ? [titleBlocks[sectionIndex]]
+      : []),
+    ...units.flatMap((unit, index) => unit.section === sectionIndex
+      ? renderUnit(index)
+      : []),
   ])
 }
 
@@ -301,9 +365,18 @@ function getUnlistedPackages(packages: PackageBumpEntry[], changelog: string | S
  * The section of the message of an announcement, none without message
  */
 function getSlackAnnouncementBlocks(announcement: SlackOptions['announcement']): any[] {
-  const text = announcement?.message ? formatSlackAnnouncement({ message: announcement.message }) : ''
+  const text = announcement?.message
+    ? formatSlackAnnouncement({ message: announcement.message })
+    : ''
 
-  return text ? [{ type: 'section', text: { type: 'mrkdwn', text } }] : []
+  return text
+    ? [
+        {
+          type: 'section',
+          text: { type: 'mrkdwn', text },
+        },
+      ]
+    : []
 }
 
 /**
@@ -313,7 +386,11 @@ function getSlackAnnouncementBlocks(announcement: SlackOptions['announcement']):
 function getSlackButtons(variables: SocialTemplateVariables, announcement: SlackOptions['announcement']): any[] {
   const button = (text: string, url: string, actionId: string) => ({
     type: 'button',
-    text: { type: 'plain_text', text: truncateSlackText(text, SLACK_BUTTON_TEXT_MAX_LENGTH), emoji: true },
+    text: {
+      type: 'plain_text',
+      text: truncateSlackText(text, SLACK_BUTTON_TEXT_MAX_LENGTH),
+      emoji: true,
+    },
     url,
     action_id: actionId,
   })
@@ -323,8 +400,16 @@ function getSlackButtons(variables: SocialTemplateVariables, announcement: Slack
   }
 
   return [
-    ...(variables.releaseUrl ? [button('📦 View Release', variables.releaseUrl, 'view_release')] : []),
-    ...(variables.changelogUrl ? [button('📋 Full Changelog', variables.changelogUrl, 'view_changelog')] : []),
+    ...(variables.releaseUrl
+      ? [
+          button('📦 View Release', variables.releaseUrl, 'view_release'),
+        ]
+      : []),
+    ...(variables.changelogUrl
+      ? [
+          button('📋 Full Changelog', variables.changelogUrl, 'view_changelog'),
+        ]
+      : []),
   ]
 }
 
@@ -360,7 +445,12 @@ export function formatSlackMessage({ variables, changelog, template, contributor
 
   // Use template if provided, otherwise use blocks
   if (template) {
-    const templateContext = { template, variables, contributorsLine, packagesLine }
+    const templateContext = {
+      template,
+      variables,
+      contributorsLine,
+      packagesLine,
+    }
     let changelogText: string
     if (typeof changelog !== 'string') {
       // The sections of several versions are kept: they are fitted as a whole, not summarized
@@ -408,7 +498,9 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   }
 
   // The announcement of a single version: its message before its changelog, its links as buttons
-  const singleAnnouncement = typeof changelog === 'string' ? announcement : undefined
+  const singleAnnouncement = typeof changelog === 'string'
+    ? announcement
+    : undefined
   const leadingBlocks = getSlackAnnouncementBlocks(singleAnnouncement)
   const trailingBlocks: any[] = []
 
@@ -463,7 +555,11 @@ export function formatSlackMessage({ variables, changelog, template, contributor
   }
   else if (changelogFormat === 'full') {
     // Messages with rich_text blocks are capped by Slack: the changelog gets what the other blocks leave.
-    const surroundingBlocks = [headerBlock, ...leadingBlocks, ...trailingBlocks]
+    const surroundingBlocks = [
+      headerBlock,
+      ...leadingBlocks,
+      ...trailingBlocks,
+    ]
     changelogBlocks.push(...markdownToSlackRichText(changelog, {
       maxLength,
       maxBlocks: SLACK_MAX_BLOCKS - surroundingBlocks.length,
@@ -483,7 +579,12 @@ export function formatSlackMessage({ variables, changelog, template, contributor
     }
   }
 
-  return [headerBlock, ...leadingBlocks, ...changelogBlocks, ...trailingBlocks]
+  return [
+    headerBlock,
+    ...leadingBlocks,
+    ...changelogBlocks,
+    ...trailingBlocks,
+  ]
 }
 
 function mapWebhookError(status: number, body: string): string | null {
@@ -516,8 +617,12 @@ async function postViaWebhook({ url, blocks, text }: {
   if (!response.ok) {
     const body = await response.text().catch(() => '')
     const hint = mapWebhookError(response.status, body)
-    const detail = body ? ` - ${body}` : ''
-    const hintLine = hint ? `\n  → ${hint}` : ''
+    const detail = body
+      ? ` - ${body}`
+      : ''
+    const hintLine = hint
+      ? `\n  → ${hint}`
+      : ''
     throw new Error(`Slack webhook failed: ${response.status} ${response.statusText}${detail}${hintLine}`)
   }
 
@@ -623,16 +728,29 @@ export async function postReleaseToSlack({
 
   if (dryRun) {
     const preview = blocks
-      .map((b: any) => b.type === 'rich_text' ? richTextToPlainText(b as SlackRichTextBlock) : b.text?.text ?? '')
+      .map((b: any) => b.type === 'rich_text'
+        ? richTextToPlainText(b as SlackRichTextBlock)
+        : b.text?.text ?? '')
       .filter(Boolean)
       .join('\n\n')
-    const target = useWebhook ? 'webhook' : `channel: ${channel}`
-    showPreview({ title: 'Slack post', meta: [`Target: ${target}`], content: preview })
+    const target = useWebhook
+      ? 'webhook'
+      : `channel: ${channel}`
+    showPreview({
+      title: 'Slack post',
+      meta: [`Target: ${target}`],
+      content: preview,
+    })
     return
   }
 
   if (useWebhook) {
     return await postViaWebhook({ url: webhookUrl!, blocks, text: fallbackText })
   }
-  return await postViaWebApi({ token: token!, channel: channel!, blocks, text: fallbackText })
+  return await postViaWebApi({
+    token: token!,
+    channel: channel!,
+    blocks,
+    text: fallbackText,
+  })
 }

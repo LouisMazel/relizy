@@ -95,8 +95,12 @@ function getReleaseKind(version: string, previousVersion?: string): string | und
     return `prerelease (${prerelease[0]}), not a stable version yet`
   }
 
-  const diff = previousVersion && semver.valid(previousVersion) ? semver.diff(previousVersion, version) : null
-  return diff ? `${diff} release` : undefined
+  const diff = previousVersion && semver.valid(previousVersion)
+    ? semver.diff(previousVersion, version)
+    : null
+  return diff
+    ? `${diff} release`
+    : undefined
 }
 
 function formatReleaseContext(context?: AIReleaseContext): string {
@@ -104,7 +108,9 @@ function formatReleaseContext(context?: AIReleaseContext): string {
     return ''
   }
 
-  const version = context.version && semver.valid(context.version) ? context.version : undefined
+  const version = context.version && semver.valid(context.version)
+    ? context.version
+    : undefined
   const kind = version && getReleaseKind(version, context.previousVersion)
   const lines = [
     context.project && `Project: ${context.project}`,

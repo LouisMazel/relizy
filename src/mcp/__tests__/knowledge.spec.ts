@@ -24,17 +24,32 @@ function citedDocIds(): string[] {
     ...listFiles(join(ROOT_DIR, 'src/mcp')).filter(file => file.endsWith('.ts') && !file.includes('__tests__')),
     join(ROOT_DIR, 'src/mcp/content/rules.md'),
   ]
-  const ids = files.flatMap(file => [...readFileSync(file, 'utf8').matchAll(/["`]((?:guide|config|cli|commitlint|api)\/[a-z-]+)[#"`]/g)].map(match => match[1]!))
+  const ids = files.flatMap(file => [
+    ...readFileSync(file, 'utf8').matchAll(/["`]((?:guide|config|cli|commitlint|api)\/[a-z-]+)[#"`]/g),
+  ].map(match => match[1]!))
 
-  return [...new Set([...ids, ...Object.values(CONFIG_DOC_IDS)])]
+  return [
+    ...new Set([
+      ...ids,
+      ...Object.values(CONFIG_DOC_IDS),
+    ]),
+  ]
 }
 
 /** The `https://relizy.dev/<page>#<anchor>` links of the code, outside the tests */
 function citedDocUrls(): { file: string, id: string, anchor?: string }[] {
   const files = listFiles(join(ROOT_DIR, 'src')).filter(file => file.endsWith('.ts') && !file.includes('__tests__'))
 
-  return files.flatMap(file => [...readFileSync(file, 'utf8').matchAll(/https:\/\/relizy\.dev\/([a-z0-9/-]+)(?:#([a-z0-9-]+))?/g)]
-    .map(([, path, anchor]) => ({ file: file.slice(ROOT_DIR.length + 1), id: path!.endsWith('/') ? `${path}index` : path!, anchor })))
+  return files.flatMap(file => [
+    ...readFileSync(file, 'utf8').matchAll(/https:\/\/relizy\.dev\/([a-z0-9/-]+)(?:#([a-z0-9-]+))?/g),
+  ]
+    .map(([, path, anchor]) => ({
+      file: file.slice(ROOT_DIR.length + 1),
+      id: path!.endsWith('/')
+        ? `${path}index`
+        : path!,
+      anchor,
+    })))
 }
 
 /** A page without its code blocks, whose `#` lines are not headings */
@@ -55,7 +70,9 @@ function withoutCodeBlocks(markdown: string): string {
  * (`## CI/CD Variables` is `ci-cd-variables`), or their custom `{#id}`
  */
 function headingAnchors(markdown: string): Set<string> {
-  return new Set([...withoutCodeBlocks(markdown).matchAll(/^#{1,6} (.+)$/gm)].map(([, title]) => {
+  return new Set([
+    ...withoutCodeBlocks(markdown).matchAll(/^#{1,6} (.+)$/gm),
+  ].map(([, title]) => {
     const custom = title!.match(/\{#([^}]+)\}$/)
     if (custom) {
       return custom[1]!
@@ -70,7 +87,9 @@ function headingAnchors(markdown: string): Set<string> {
 /** The targets of the links and images of a page, outside its code blocks */
 function markdownLinks(markdown: string): string[] {
   // The url, without its title: [text](./page.md "title")
-  return [...withoutCodeBlocks(markdown).matchAll(/\]\(([^)]+)\)/g)].map(([, target]) => target!.split(' ')[0]!)
+  return [
+    ...withoutCodeBlocks(markdown).matchAll(/\]\(([^)]+)\)/g),
+  ].map(([, target]) => target!.split(' ')[0]!)
 }
 
 describe('Given the docs bundle generated from the sources', () => {
@@ -96,7 +115,14 @@ describe('Given the docs bundle generated from the sources', () => {
       const ids = knowledge.docs.map(doc => doc.id)
 
       expect(new Set(ids).size).toBe(ids.length)
-      expect(ids).toEqual(expect.arrayContaining(['guide/getting-started', 'guide/version-groups', 'config/bump', 'cli/release', 'commitlint/rules', 'api/bump']))
+      expect(ids).toEqual(expect.arrayContaining([
+        'guide/getting-started',
+        'guide/version-groups',
+        'config/bump',
+        'cli/release',
+        'commitlint/rules',
+        'api/bump',
+      ]))
       expect(ids).not.toContain('index')
       expect(ids).not.toContain('guide/contributing')
       expect(ids.some(id => id.startsWith('typedoc'))).toBe(false)
@@ -112,7 +138,9 @@ describe('Given the docs bundle generated from the sources', () => {
     })
 
     it('Then the links between pages point to existing doc ids', () => {
-      const missing = knowledge.docs.flatMap(doc => [...knowledge.readDoc(doc.id).matchAll(/\]\(((?:guide|config|cli|commitlint|api)\/[a-z-]+)(?:#[^)]*)?\)/g)]
+      const missing = knowledge.docs.flatMap(doc => [
+        ...knowledge.readDoc(doc.id).matchAll(/\]\(((?:guide|config|cli|commitlint|api)\/[a-z-]+)(?:#[^)]*)?\)/g),
+      ]
         .map(match => match[1]!)
         .filter(id => !knowledge.docsById.has(id))
         .map(id => `${doc.id} -> ${id}`))
@@ -145,7 +173,9 @@ describe('Given the docs bundle generated from the sources', () => {
           return []
         }
 
-        return option.default.replaceAll('\'', '"') === JSON.stringify(value) ? [] : [`${option.path}: ${option.default} !== ${JSON.stringify(value)}`]
+        return option.default.replaceAll('\'', '"') === JSON.stringify(value)
+          ? []
+          : [`${option.path}: ${option.default} !== ${JSON.stringify(value)}`]
       })
 
       expect(mismatches).toEqual([])
@@ -166,7 +196,9 @@ describe('Given the docs bundle generated from the sources', () => {
 
     it('Then the pages named in the description of get_doc exist too', () => {
       const description = readFileSync(join(ROOT_DIR, 'src/mcp/tools/get-doc.ts'), 'utf8')
-      const names = [...description.matchAll(/\b(guide|config|cli|commitlint) \(([^)]+)\)/g)]
+      const names = [
+        ...description.matchAll(/\b(guide|config|cli|commitlint) \(([^)]+)\)/g),
+      ]
         .flatMap(([, section, list]) => list!.split(', ').map(name => name.replace('...', '').trim()).filter(Boolean).map(name => `${section}/${name}`))
 
       expect(names.length).toBeGreaterThan(10)
@@ -178,25 +210,36 @@ describe('Given the docs bundle generated from the sources', () => {
     it('Then the link is relative to the .md file and reaches an existing page and heading', () => {
       const docsDir = join(ROOT_DIR, 'docs/src')
       const pages = listFiles(docsDir).filter(file => file.endsWith('.md') && !file.includes('/typedoc/'))
-      const anchorsByPage = new Map(pages.map(page => [page, headingAnchors(readFileSync(page, 'utf8'))]))
+      const anchorsByPage = new Map(pages.map(page => [
+        page,
+        headingAnchors(readFileSync(page, 'utf8')),
+      ]))
 
       const broken = pages.flatMap(page => markdownLinks(readFileSync(page, 'utf8'))
         .filter(url => !/^[a-z]+:/.test(url))
         .flatMap((url) => {
           const [path, anchor] = url.split('#')
-          const target = path ? join(dirname(page), path) : page
+          const target = path
+            ? join(dirname(page), path)
+            : page
           const problem = path && !path.startsWith('./')
             ? 'not relative to the file (./)'
             : path && !path.endsWith('.md')
-              ? (existsSync(target) || existsSync(join(docsDir, 'public', relative(docsDir, target))) ? undefined : 'not a .md file')
+              ? (existsSync(target) || existsSync(join(docsDir, 'public', relative(docsDir, target)))
+                  ? undefined
+                  : 'not a .md file')
               // The typedoc pages are generated by the build of the docs
               : target.startsWith(join(docsDir, 'typedoc'))
                 ? undefined
                 : !anchorsByPage.has(target)
                     ? 'missing page'
-                    : anchor && !anchorsByPage.get(target)!.has(anchor) ? 'missing heading' : undefined
+                    : anchor && !anchorsByPage.get(target)!.has(anchor)
+                      ? 'missing heading'
+                      : undefined
 
-          return problem ? [`${relative(docsDir, page)}: ${url} (${problem})`] : []
+          return problem
+            ? [`${relative(docsDir, page)}: ${url} (${problem})`]
+            : []
         }))
 
       expect(pages.length).toBeGreaterThan(30)
@@ -216,8 +259,13 @@ describe('Given the docs bundle generated from the sources', () => {
 
   describe('When a CLI command is added', () => {
     it('Then it has its page in the docs', () => {
-      const commands = [...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^program\n {2}\.command\('([a-z-]+)'/gm)].map(match => match[1]!)
-      const pages = commands.map(command => command === 'commitlint' ? 'commitlint/cli' : `cli/${command}`)
+      const commands = [
+        // `program.command('bump')`, and the groups of commands: `const mcp = program.command('mcp')`
+        ...readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8').matchAll(/^(?:const \w+ = )?program\n {2}\.command\('([a-z-]+)'/gm),
+      ].map(match => match[1]!)
+      const pages = commands.map(command => command === 'commitlint'
+        ? 'commitlint/cli'
+        : `cli/${command}`)
 
       expect(commands.length).toBeGreaterThan(5)
       expect(pages.filter(page => !knowledge.docsById.has(page))).toEqual([])
@@ -252,22 +300,48 @@ describe('Given the docs bundle generated from the sources', () => {
  */
 function getCliFlags(): Record<string, string[]> {
   const source = readFileSync(join(ROOT_DIR, 'src/cli.ts'), 'utf8')
-  const commands = [...source.matchAll(/\.command\('([a-z-]+)'/g)]
-  // The options shared by several commands: `function slackFormatOption() { return new Option('--slack-format...`
-  const sharedOptions = [...source.matchAll(/function (\w+Option)\(\) \{\n {2}return new Option\('(--[a-z-]+)/g)].map(match => ({ call: `${match[1]}()`, flag: match[2]! }))
-  const flagsOf = (text: string, withOptionObjects = true) => [
-    ...[...text.matchAll(/\.option\('(?:-\w, )?(--[a-z-]+)/g)].map(match => match[1]!),
-    ...(withOptionObjects ? [...text.matchAll(/new Option\('(--[a-z-]+)/g)].map(match => match[1]!) : []),
-    ...(withOptionObjects ? sharedOptions.filter(option => text.includes(option.call)).map(option => option.flag) : []),
+  const commands = [
+    ...source.matchAll(/\.command\('([a-z-]+)'/g),
   ]
-  const pages: Record<string, string[]> = { 'cli/commands': flagsOf(source.slice(0, commands[0]!.index), false) }
+  // The options shared by several commands: `function slackFormatOption() { return new Option('--slack-format...`
+  const sharedOptions = [
+    ...source.matchAll(/function (\w+Option)\(\) \{\n {2}return new Option\('(--[a-z-]+)/g),
+  ].map(match => ({ call: `${match[1]}()`, flag: match[2]! }))
+  const flagsOf = (text: string, withOptionObjects = true) => [
+    ...[
+      ...text.matchAll(/\.option\('(?:-\w, )?(--[a-z-]+)/g),
+    ].map(match => match[1]!),
+    ...(withOptionObjects
+      ? [
+          ...text.matchAll(/new Option\('(--[a-z-]+)/g),
+        ].map(match => match[1]!)
+      : []),
+    ...(withOptionObjects
+      ? sharedOptions.filter(option => text.includes(option.call)).map(option => option.flag)
+      : []),
+  ]
+  const pages: Record<string, string[]> = {
+    'cli/commands': flagsOf(source.slice(0, commands[0]!.index), false),
+  }
 
   commands.forEach((match, index) => {
     const name = match[1]!
     const previous = commands[index - 1]?.[1]
-    const page = name === 'commitlint' ? 'commitlint/cli' : name === 'serve' || previous === 'mcp' || previous === 'serve' ? 'cli/mcp' : `cli/${name}`
+    const page = name === 'commitlint'
+      ? 'commitlint/cli'
+      : name === 'serve' || previous === 'mcp' || previous === 'serve'
+        ? 'cli/mcp'
+        // The subcommands of relizy merge-preview: run (the default one) and init
+        : name === 'run' || previous === 'run'
+          ? 'cli/merge-preview'
+          : `cli/${name}`
 
-    pages[page] = [...new Set([...(pages[page] ?? []), ...flagsOf(source.slice(match.index, commands[index + 1]?.index))])]
+    pages[page] = [
+      ...new Set([
+        ...(pages[page] ?? []),
+        ...flagsOf(source.slice(match.index, commands[index + 1]?.index)),
+      ]),
+    ]
   })
 
   return pages
@@ -277,7 +351,12 @@ describe('Given parseFrontmatter', () => {
   describe('When the page has a frontmatter', () => {
     it('Then it reads its fields, unquoted, and returns the body', () => {
       expect(parseFrontmatter('---\ntitle: "Bump"\ndescription: \'Bump versions\'\nkeywords: a, b\ntags: [x]\n---\n\n# Body')).toEqual({
-        data: { title: 'Bump', description: 'Bump versions', keywords: 'a, b', tags: '[x]' },
+        data: {
+          title: 'Bump',
+          description: 'Bump versions',
+          keywords: 'a, b',
+          tags: '[x]',
+        },
         body: '\n# Body',
       })
     })
@@ -381,7 +460,13 @@ export interface RelizyConfig extends Base {
         'nested.deep',
         'scopeMap',
       ])
-      expect(options.find(option => option.path === 'children[].name')).toEqual({ path: 'children[].name', type: 'string', description: 'Name of the child', default: '\'a\'', docId: 'config/overview' })
+      expect(options.find(option => option.path === 'children[].name')).toEqual({
+        path: 'children[].name',
+        type: 'string',
+        description: 'Name of the child',
+        default: '\'a\'',
+        docId: 'config/overview',
+      })
       expect(options.find(option => option.path === 'children[].old')?.deprecated).toBe('Deprecated')
       expect(options.find(option => option.path === 'nested')?.type).toBe('object')
       expect(options.find(option => option.path === 'scopeMap')?.description).toBe('')
@@ -408,7 +493,12 @@ export interface RelizyConfig {
       expect(values).toEqual({
         mode: ['"unified"', '"selective"'],
         modes: ['"unified"', '"selective"'],
-        items: ['"unified"', '"selective"', '"off"', '0'],
+        items: [
+          '"unified"',
+          '"selective"',
+          '"off"',
+          '0',
+        ],
         inline: undefined,
         enabled: undefined,
         either: undefined,
@@ -459,7 +549,10 @@ describe('Given defaultBundleDir', () => {
     it('Then it finds the agent-docs folder at the root of the repository, or falls back to the package folder', () => {
       const directory = defaultBundleDir(join(ROOT_DIR, 'src/mcp/knowledge'))
 
-      expect([join(ROOT_DIR, 'agent-docs'), join(ROOT_DIR, 'src/agent-docs')]).toContain(directory)
+      expect([
+        join(ROOT_DIR, 'agent-docs'),
+        join(ROOT_DIR, 'src/agent-docs'),
+      ]).toContain(directory)
       expect(defaultBundleDir(join(process.cwd(), 'nowhere/a/b/c'))).toBe(join(process.cwd(), 'nowhere/a/b/agent-docs'))
     })
   })

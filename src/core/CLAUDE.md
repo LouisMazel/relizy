@@ -43,7 +43,7 @@ A commit belongs to a package when a file of its `--name-status` list is under t
 
 - the moves detected in the commits of the range (`getDetectedPackageMoves()`: a renamed `package.json`, `R<score>\told/package.json\tnew/package.json`, as is for `R100`, only when the package keeps its `name` for an inexact rename since git pairs the look-alike `package.json` of a removed and an added package), read from the raw commits so a non-conventional commit of the move still counts, and skipped when a package lives in the old directory again;
 - the moves of `monorepo.movedPackages` (`old path: new path`), for the moves git does not detect, applied as is;
-- followed through the chains. Applied to the package commits, to the ignored paths of the root filter (`isCommitOnlyInIgnoredPackages()`) and to the first commit of a new package (`getFirstPackageCommitHash()`, which follows its `package.json` with `git log --follow`).
+- followed through the chains. Applied to the package commits, to the packages of the root filter (the root of a monorepo only gets the commits of its released packages, `resolveReleasedPackagePaths()`) and to the first commit of a new package (`getFirstPackageCommitHash()`, which follows its `package.json` with `git log --follow`).
 
 ## Git Cache
 

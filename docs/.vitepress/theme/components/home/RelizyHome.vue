@@ -3,6 +3,7 @@ import { MazArrowRight } from '@maz-ui/icons/raw/MazArrowRight'
 import { MazGithub as MazGithubRaw } from '@maz-ui/icons/raw/MazGithub'
 import { MazBeaker } from '@maz-ui/icons/static/MazBeaker'
 import { MazChatBubbleLeftRight } from '@maz-ui/icons/static/MazChatBubbleLeftRight'
+import { MazCheckBadge } from '@maz-ui/icons/static/MazCheckBadge'
 import { MazCloudArrowUp } from '@maz-ui/icons/static/MazCloudArrowUp'
 import { MazCodeBracket } from '@maz-ui/icons/static/MazCodeBracket'
 import { MazCommandLine } from '@maz-ui/icons/static/MazCommandLine'
@@ -38,14 +39,54 @@ import HomeModes from './HomeModes.vue'
  */
 
 const pipeline = [
-  { icon: MazTag, title: 'Versions', text: 'From your Conventional Commits, dependents included', href: '/cli/bump' },
-  { icon: MazDocumentText, title: 'Changelogs', text: 'One per package, and the root one', href: '/guide/changelog' },
-  { icon: MazCube, title: 'Publish', text: 'npm, pnpm, yarn or bun, any registry', href: '/cli/publish' },
-  { icon: MazCodeBracket, title: 'Commit & tag', text: 'The release commit and its tags', href: '/config/commit-templates' },
-  { icon: MazCloudArrowUp, title: 'Push', text: 'Guarded against a stale branch', href: '/config/release' },
-  { icon: MazRocketLaunch, title: 'Releases', text: 'GitHub or GitLab, notes rewritten by AI', href: '/cli/provider-release' },
-  { icon: MazMegaphone, title: 'Announce', text: 'One post on X, on Slack, on Teams', href: '/guide/social-media' },
-  { icon: MazChatBubbleLeftRight, title: 'PR comment', text: 'The summary of the release', href: '/guide/pr-comment' },
+  {
+    icon: MazTag,
+    title: 'Versions',
+    text: 'From your Conventional Commits, dependents included',
+    href: '/cli/bump',
+  },
+  {
+    icon: MazDocumentText,
+    title: 'Changelogs',
+    text: 'One per package, and the root one',
+    href: '/guide/changelog',
+  },
+  {
+    icon: MazCube,
+    title: 'Publish',
+    text: 'npm, pnpm, yarn or bun, any registry',
+    href: '/cli/publish',
+  },
+  {
+    icon: MazCodeBracket,
+    title: 'Commit & tag',
+    text: 'The release commit and its tags',
+    href: '/config/commit-templates',
+  },
+  {
+    icon: MazCloudArrowUp,
+    title: 'Push',
+    text: 'Guarded against a stale branch',
+    href: '/config/release',
+  },
+  {
+    icon: MazRocketLaunch,
+    title: 'Releases',
+    text: 'GitHub or GitLab, notes rewritten by AI',
+    href: '/cli/provider-release',
+  },
+  {
+    icon: MazMegaphone,
+    title: 'Announce',
+    text: 'One post on X, on Slack, on Teams',
+    href: '/guide/social-media',
+  },
+  {
+    icon: MazChatBubbleLeftRight,
+    title: 'PR comment',
+    text: 'The summary of the release',
+    href: '/guide/pr-comment',
+  },
 ]
 
 const ecosystem = [
@@ -81,7 +122,10 @@ export default defineConfig({
 })`
 
 /** The release job of the CI, shown on the page */
-const ciTabs = [{ label: 'GitHub Actions' }, { label: 'GitLab CI' }]
+const ciTabs = [
+  { label: 'GitHub Actions' },
+  { label: 'GitLab CI' },
+]
 const ciTab = ref(1)
 
 const ciSnippets = [
@@ -374,6 +418,15 @@ const ciFeatures = [
 
           <HomeFeatureCard :icon="MazCpuChip" title="Ready for AI agents" href="/guide/ai-agents" link="AI agents">
             <code class="text-primary">relizy mcp</code> lets Claude Code, Cursor or Codex preview a release, lint a commit and read the docs, read-only.
+          </HomeFeatureCard>
+
+          <HomeFeatureCard :icon="MazCheckBadge" title="Know what a merge releases" href="/guide/merge-preview" link="Merge preview">
+            Each pull request tells what its merge releases, and its check fails when the release would fail.
+            <template #visual>
+              <p class="flex items-center gap-2 rounded-md bg-surface px-2 py-1 font-mono text-xs">
+                <span class="text-success">✔</span><span class="text-foreground">relizy/merge-preview</span><span class="text-muted">acme@2.5.0</span>
+              </p>
+            </template>
           </HomeFeatureCard>
         </div>
       </div>

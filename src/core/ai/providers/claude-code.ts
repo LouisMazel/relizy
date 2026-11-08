@@ -6,7 +6,9 @@ import { logger } from '@maz-ui/node'
 import { wrapChangelogPrompt } from '../prompts'
 
 function toTokenCount(value: unknown): number {
-  return typeof value === 'number' ? value : 0
+  return typeof value === 'number'
+    ? value
+    : 0
 }
 
 /**
@@ -103,6 +105,9 @@ export const claudeCodeProvider: AIProvider = {
 
     logger.verbose('Claude SDK events:', result.events?.map(e => e.type).join(', '))
 
-    return { text: (result.output ?? '').trim(), usage: getUsage(result) }
+    return {
+      text: (result.output ?? '').trim(),
+      usage: getUsage(result),
+    }
   },
 }

@@ -8,14 +8,25 @@ import { createMockCommit, createMockConfig } from '../../../tests/mocks'
 import { getChangelogLinter, getChangelogTitle, renderChangelogEntry } from '../commitlint/changelog-entry'
 
 function createCommit(overrides: Partial<GitCommit> = {}): GitCommit {
-  return createMockCommit('feat', 'feat(core): add the parser', { body: 'Parses the messages.', description: 'add the parser', scope: 'core', ...overrides })
+  return createMockCommit('feat', 'feat(core): add the parser', {
+    body: 'Parses the messages.',
+    description: 'add the parser',
+    scope: 'core',
+    ...overrides,
+  })
 }
 
 const INVALID_TS = '```ts\nai: {\n  global: \'a\',\n  slack: \'b\',\n}\n```'
 const VALID_TS = '```ts\nexport default defineConfig({ ai: { slack: \'b\' } })\n```'
 
 describe('Given getChangelogTitle function', () => {
-  const config = createMockConfig({ types: { feat: { title: '🚀 Features', semver: 'minor' }, chore: false, wip: { title: '' } } })
+  const config = createMockConfig({
+    types: {
+      feat: { title: '🚀 Features', semver: 'minor' },
+      chore: false,
+      wip: { title: '' },
+    },
+  })
 
   it.each([
     ['feat', '🚀 Features'],
@@ -28,7 +39,12 @@ describe('Given getChangelogTitle function', () => {
 })
 
 describe('Given renderChangelogEntry function', () => {
-  const config = createMockConfig({ types: { feat: { title: '🚀 Features', semver: 'minor' }, chore: false } })
+  const config = createMockConfig({
+    types: {
+      feat: { title: '🚀 Features', semver: 'minor' },
+      chore: false,
+    },
+  })
 
   it('Then renders the commit with its body as in the CHANGELOG.md files', () => {
     expect(renderChangelogEntry(createCommit(), config)).toBe('### 🚀 Features\n\n- **core:** Add the parser\n\n  Parses the messages.')
@@ -74,16 +90,36 @@ describe('Given getChangelogLinter function', () => {
     })
 
     it.each([
-      ['an invalid ts block', INVALID_TS, [/^Invalid ts code block: .+, on "slack: 'b',"$/]],
+      [
+        'an invalid ts block',
+        INVALID_TS,
+        [/^Invalid ts code block: .+, on "slack: 'b',"$/],
+      ],
       ['a valid ts block', VALID_TS, []],
-      ['a typescript block', '```typescript\nconst = 1\n```', [/^Invalid typescript code block/]],
+      [
+        'a typescript block',
+        '```typescript\nconst = 1\n```',
+        [/^Invalid typescript code block/],
+      ],
       ['a valid tsx block', '```tsx\nexport const App = () => <div>{value}</div>\n```', []],
-      ['an invalid js block', '```js\nconst = 1\n```', [/^Invalid js code block: .+, on "const = 1"/]],
-      ['an invalid json block', '```json\n{ "a": 1, }\n```', [/^Invalid JSON code block: .+, in the block starting with "\{ "a": 1, \}"/]],
+      [
+        'an invalid js block',
+        '```js\nconst = 1\n```',
+        [/^Invalid js code block: .+, on "const = 1"/],
+      ],
+      [
+        'an invalid json block',
+        '```json\n{ "a": 1, }\n```',
+        [/^Invalid JSON code block: .+, in the block starting with "\{ "a": 1, \}"/],
+      ],
       ['a valid json block', '```json\n{ "a": 1 }\n```', []],
       ['a bash block', '```bash\nif then fi (\n```', []],
       ['a block without language', '```\nconst = 1\n```', []],
-      ['a nested block', '- item\n\n  ```js\n  const = 1\n  ```', [/^Invalid js code block/]],
+      [
+        'a nested block',
+        '- item\n\n  ```js\n  const = 1\n  ```',
+        [/^Invalid js code block/],
+      ],
     ])('Then checks %s', async (_, markdown, expected) => {
       const problems = await (await getChangelogLinter(createProject())).lint(markdown)
 
@@ -106,9 +142,18 @@ describe('Given getChangelogLinter function', () => {
 
   describe('When the project ESLint does not lint the changelogs', () => {
     it.each([
-      ['it only lints the JavaScript files', { 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' }],
-      ['it ignores the changelogs', { 'eslint.config.mjs': 'export default [{ ignores: [\'CHANGELOG.md\'] }, { files: [\'**/*.md\'] }]' }],
-      ['its config cannot be loaded', { 'eslint.config.mjs': 'throw new Error(\'broken config\')' }],
+      [
+        'it only lints the JavaScript files',
+        { 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' },
+      ],
+      [
+        'it ignores the changelogs',
+        { 'eslint.config.mjs': 'export default [{ ignores: [\'CHANGELOG.md\'] }, { files: [\'**/*.md\'] }]' },
+      ],
+      [
+        'its config cannot be loaded',
+        { 'eslint.config.mjs': 'throw new Error(\'broken config\')' },
+      ],
     ])('Then uses the built-in parser when %s', async (_, files) => {
       const linter = await getChangelogLinter(createProject(files, { withEslint: true }))
 
@@ -126,9 +171,21 @@ describe('Given getChangelogLinter function', () => {
     }, 60_000)
 
     it.each([
-      ['is not installed', () => createProject(), 'ESLint is not installed in the project'],
-      ['does not lint the changelogs', () => createProject({ 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' }, { withEslint: true }), 'the ESLint config of the project does not lint CHANGELOG.md'],
-      ['cannot be loaded', () => createProject({ 'eslint.config.mjs': 'throw new Error(\'broken config\')' }, { withEslint: true }), 'ESLint could not be loaded'],
+      [
+        'is not installed',
+        () => createProject(),
+        'ESLint is not installed in the project',
+      ],
+      [
+        'does not lint the changelogs',
+        () => createProject({ 'eslint.config.mjs': 'export default [{ files: [\'**/*.js\'] }]' }, { withEslint: true }),
+        'the ESLint config of the project does not lint CHANGELOG.md',
+      ],
+      [
+        'cannot be loaded',
+        () => createProject({ 'eslint.config.mjs': 'throw new Error(\'broken config\')' }, { withEslint: true }),
+        'ESLint could not be loaded',
+      ],
     ])('Then fails with eslint when the project ESLint %s', async (_, project, reason) => {
       await expect(getChangelogLinter(project(), 'eslint')).rejects.toThrow(`commitlint: changelogLinter is "eslint" but ${reason}`)
     }, 30_000)
@@ -150,7 +207,9 @@ describe('Given getChangelogLinter function', () => {
       const { getChangelogLinter: getLinter } = await import('../commitlint/changelog-entry')
       const linter = await getLinter(createProject())
 
-      expect(await linter.lint('```json\n{ "a": 1, }\n```\n\n```ts\nconst = 1\n```')).toEqual([expect.stringMatching(/^Invalid JSON/)])
+      expect(await linter.lint('```json\n{ "a": 1, }\n```\n\n```ts\nconst = 1\n```')).toEqual([
+        expect.stringMatching(/^Invalid JSON/),
+      ])
       expect(logger.warn).toHaveBeenCalledWith('commitlint: oxc-parser could not be loaded, the code blocks of the commit bodies are not checked')
     })
   })

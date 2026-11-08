@@ -269,6 +269,37 @@ export interface ProviderReleaseResult {
 
 export type PrCommentMode = 'append' | 'update'
 
+export interface MergePreviewConfig {
+  /**
+   * Post the merge preview as a comment of the pull request, updated at each
+   * run (`relizy merge-preview --no-comment` disables it)
+   * @default true
+   */
+  comment?: boolean
+  /**
+   * Set the commit status `relizy/merge-preview` on the last commit of the
+   * pull request: failed when the release of the merge would fail, to require
+   * it in the protection of the branch (`--no-check` disables it)
+   * @default true
+   */
+  check?: boolean
+  /**
+   * Lint the commits of the pull request (and the commit of its squash merge)
+   * with `relizy commitlint`: `auto` when the project uses it, a `commitlint`
+   * option in its config or a commit-msg hook running `relizy commitlint`
+   * @default 'auto'
+   */
+  commitlint?: 'auto' | boolean
+  /**
+   * Whether the merge squashes the commits of the pull request into one, its
+   * title: `auto` reads it from GitHub (auto-merge, merge methods of the
+   * repository) or GitLab (squash option of the merge request), and computes
+   * both when only the merge will tell
+   * @default 'auto'
+   */
+  squash?: 'auto' | boolean
+}
+
 export interface PrCommentConfig {
   /**
    * PR comment mode
@@ -335,10 +366,10 @@ export interface MonorepoConfig {
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
    *
-   * In `unified`/`selective` mode, commits whose changed files all live inside
-   * ignored packages are also excluded from the root version bump and the root
-   * changelog (a breaking change in an ignored package no longer bumps the
-   * whole repository).
+   * In `unified`/`selective` mode, the root version bump and the root changelog
+   * only count the commits of the released packages: a commit changing only
+   * ignored packages, private packages left out by `privatePackages` or files
+   * outside every package (CI, scripts) does not bump the repository.
    * @default []
    */
   ignored?: string[]
@@ -2209,6 +2240,11 @@ export interface RelizyConfig {
    * PR comment configuration
    */
   prComment?: PrCommentConfig
+  /**
+   * Merge preview of a pull request (`relizy merge-preview`): what
+   * its merge releases, posted before the merge
+   */
+  mergePreview?: MergePreviewConfig
   /**
    * API tokens configuration
    */

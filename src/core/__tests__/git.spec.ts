@@ -71,7 +71,9 @@ vi.mock('../git-exec', async (importOriginal) => {
   }
 })
 
-vi.mock('../ci-env', () => ({ isInCI: vi.fn(() => false) }))
+vi.mock('../ci-env', () => ({
+  isInCI: vi.fn(() => false),
+}))
 
 vi.mock('../release-files', () => {
   return {
@@ -351,7 +353,9 @@ describe('Given detectGitProvider function', () => {
 
       detectGitProvider()
 
-      expect(runGitSync).toHaveBeenCalledWith(['remote', 'get-url', 'origin'], { cwd: process.cwd() })
+      expect(runGitSync).toHaveBeenCalledWith(['remote', 'get-url', 'origin'], {
+        cwd: process.cwd(),
+      })
     })
   })
 })
@@ -390,7 +394,9 @@ describe('Given createCommitAndTags function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
+    config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.templates = {
       commitMessage: 'chore(release): bump version to {{newVersion}}',
       commitBody: undefined,
@@ -420,7 +426,12 @@ describe('Given createCommitAndTags function', () => {
     vi.mocked(hasLernaJson).mockReturnValue(false)
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(join).mockImplementation((...args) => args.join('/'))
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/project', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/project',
+      private: false,
+    })
     vi.mocked(runGitSync).mockReturnValue('')
     mockGitRun()
   })
@@ -528,10 +539,27 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When version mode is independent', () => {
     it('Then creates individual tags for each bumped package', async () => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       bumpedPackages = [
-        { ...createMockPackageInfo(), name: 'package-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
-        { ...createMockPackageInfo(), name: 'package-b', version: '2.0.0', oldVersion: '2.0.0', newVersion: '2.1.0', path: '/path/b' },
+        {
+          ...createMockPackageInfo(),
+          name: 'package-a',
+          version: '1.0.0',
+          oldVersion: '1.0.0',
+          newVersion: '1.1.0',
+          path: '/path/a',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'package-b',
+          version: '2.0.0',
+          oldVersion: '2.0.0',
+          newVersion: '2.1.0',
+          path: '/path/b',
+        },
       ]
       vi.mocked(getIndependentTag)
         .mockReturnValueOnce('package-a@1.1.0')
@@ -552,9 +580,19 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then uses independent tags in commit message', async () => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       bumpedPackages = [
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', oldVersion: '1.0.0', newVersion: '1.1.0', path: '/path/a' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          oldVersion: '1.0.0',
+          newVersion: '1.1.0',
+          path: '/path/a',
+        },
       ]
       vi.mocked(getIndependentTag).mockReturnValue('pkg-a@1.1.0')
 
@@ -569,10 +607,25 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then skips packages without newVersion', async () => {
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       bumpedPackages = [
-        { ...createMockPackageInfo(), name: 'package-a', newVersion: '1.0.0', oldVersion: '0.0.9', path: '/path/a' },
-        { ...createMockPackageInfo(), name: 'package-b', newVersion: '2.0.0', oldVersion: '1.0.0', path: '/path/b' },
+        {
+          ...createMockPackageInfo(),
+          name: 'package-a',
+          newVersion: '1.0.0',
+          oldVersion: '0.0.9',
+          path: '/path/a',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'package-b',
+          newVersion: '2.0.0',
+          oldVersion: '1.0.0',
+          path: '/path/b',
+        },
       ]
       vi.mocked(getIndependentTag).mockImplementation(pkg => `${pkg.name}@${pkg.version}`)
 
@@ -589,7 +642,10 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When version mode is not independent', () => {
     it('Then creates single tag with version', async () => {
-      config.monorepo = { versionMode: 'unified', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'unified',
+        packages: ['packages/*'],
+      }
 
       const result = await createCommitAndTags({
         config,
@@ -762,7 +818,13 @@ describe('Given createCommitAndTags function', () => {
 
       const gitArgs = vi.mocked(runGit).mock.calls.map(([args]) => args)
       expect(gitArgs).toContainEqual(['commit', '-m', 'release: `whoami` $HOME "5.0.0"'])
-      expect(gitArgs).toContainEqual(['tag', '-a', 'v5.0.0', '-m', 'Tag \'5.0.0\' $(id)'])
+      expect(gitArgs).toContainEqual([
+        'tag',
+        '-a',
+        'v5.0.0',
+        '-m',
+        'Tag \'5.0.0\' $(id)',
+      ])
     })
 
     it('Then uses default message when template is undefined', async () => {
@@ -781,7 +843,10 @@ describe('Given createCommitAndTags function', () => {
 
     it('Then replaces new placeholders {{packageCount}}, {{packageNames}}, {{packageList}}, {{rootVersion}}', async () => {
       vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       config.templates.commitMessage = 'chore(release): bump {{packageCount}} packages (root {{rootVersion}}) - {{packageNames}}'
       config.templates.commitBody = 'Packages: {{packageList}}'
       bumpedPackages = [
@@ -803,7 +868,10 @@ describe('Given createCommitAndTags function', () => {
 
     it('Then renders the independent-mode resolved templates (title + body) end-to-end', async () => {
       vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       // Simulate what loadRelizyConfig produces in independent mode.
       config.templates.commitMessage = 'chore(release): bump {{packageCount}} packages'
       config.templates.commitBody = '{{packageList}}'
@@ -827,7 +895,10 @@ describe('Given createCommitAndTags function', () => {
 
     it('Then keeps user-customized commitMessage in independent mode', async () => {
       vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => `${name}@${version}`)
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       config.templates.commitMessage = 'release: {{packageCount}}'
       bumpedPackages = [
         createMockPackageInfo({ name: '@scope/a', version: '1.0.0', newVersion: '1.1.0' }),
@@ -849,7 +920,12 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When newVersion is not provided', () => {
     it('Then uses version from root package.json', async () => {
-      vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '4.5.6', path: '/project', private: false })
+      vi.mocked(readPackageJson).mockReturnValue({
+        name: 'test',
+        version: '4.5.6',
+        path: '/project',
+        private: false,
+      })
 
       await createCommitAndTags({
         config,
@@ -893,7 +969,10 @@ describe('Given createCommitAndTags function', () => {
     })
 
     it('Then executes error hook', async () => {
-      mockGitRun({ match: 'git tag', error: new Error('Failed') })
+      mockGitRun({
+        match: 'git tag',
+        error: new Error('Failed'),
+      })
 
       try {
         await createCommitAndTags({
@@ -914,7 +993,10 @@ describe('Given createCommitAndTags function', () => {
 
   describe('When commit fails', () => {
     it('Then executes error hook', async () => {
-      mockGitRun({ match: 'git commit', error: new Error('Commit failed') })
+      mockGitRun({
+        match: 'git commit',
+        error: new Error('Commit failed'),
+      })
 
       try {
         await createCommitAndTags({
@@ -955,7 +1037,9 @@ describe('Given pushCommitAndTags function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' } })
+    config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.release = {
       gitTag: true,
       commit: true,
@@ -1051,7 +1135,9 @@ describe('Given getGitUpstream function', () => {
   it('Then passes a branch with quotes and $() to git as a single argument', async () => {
     const branch = 'feat/$(id)"x\'`y`'
     vi.mocked(runGitSync).mockReturnValue(branch)
-    vi.mocked(runGit).mockImplementation(args => Promise.resolve(args[0] === 'config' ? 'origin' : 'refs/remotes/origin/main'))
+    vi.mocked(runGit).mockImplementation(args => Promise.resolve(args[0] === 'config'
+      ? 'origin'
+      : 'refs/remotes/origin/main'))
 
     const upstream = await getGitUpstream('/project')
 
@@ -1189,7 +1275,9 @@ describe('Given rollbackModifiedFiles function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ monorepo: { versionMode: 'selective' } })
+    config = createMockConfig({
+      monorepo: { versionMode: 'selective' },
+    })
     config.cwd = '/project'
   })
 

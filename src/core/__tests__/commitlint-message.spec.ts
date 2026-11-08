@@ -74,7 +74,9 @@ describe('Given splitCommitMessage function', () => {
 })
 
 describe('Given isIgnoredCommitMessage function', () => {
-  const config = createMockConfig({ templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' } })
+  const config = createMockConfig({
+    templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' },
+  })
 
   it.each([
     'Merge pull request #12 from org/branch',
@@ -96,14 +98,26 @@ describe('Given isIgnoredCommitMessage function', () => {
   })
 
   it('Then matches the release commits of a custom template', () => {
-    const custom = createMockConfig({ templates: { commitMessage: 'release: {{packageCount}} packages ({{rootVersion}})' } })
+    const custom = createMockConfig({
+      templates: { commitMessage: 'release: {{packageCount}} packages ({{rootVersion}})' },
+    })
 
     expect(isIgnoredCommitMessage('release: 3 packages (1.0.0)', custom)).toBe(true)
     expect(isIgnoredCommitMessage('release: everything', custom)).toBe(false)
   })
 
   it('Then matches the release commits of version groups, whose title depends on the groups that bumped', () => {
-    const config = createMockConfig({ monorepo: { groups: [{ name: 'main', versionMode: 'selective', packages: ['packages/*'] }] } })
+    const config = createMockConfig({
+      monorepo: {
+        groups: [
+          {
+            name: 'main',
+            versionMode: 'selective',
+            packages: ['packages/*'],
+          },
+        ],
+      },
+    })
     config.templates.commitMessage = undefined
 
     expect(isIgnoredCommitMessage('chore(release): bump version to 2.0.0', config)).toBe(true)
@@ -112,14 +126,19 @@ describe('Given isIgnoredCommitMessage function', () => {
   })
 
   it('Then escapes the regular expression characters of the template', () => {
-    const custom = createMockConfig({ templates: { commitMessage: 'chore(release): v{{newVersion}} [skip ci]' } })
+    const custom = createMockConfig({
+      templates: { commitMessage: 'chore(release): v{{newVersion}} [skip ci]' },
+    })
 
     expect(isIgnoredCommitMessage('chore(release): v1.0.0 [skip ci]', custom)).toBe(true)
     expect(isIgnoredCommitMessage('chore(release): v1.0.0 s', custom)).toBe(false)
   })
 
   it('Then lints everything with defaultIgnores disabled', () => {
-    const strict = createMockConfig({ commitlint: { defaultIgnores: false }, templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' } })
+    const strict = createMockConfig({
+      commitlint: { defaultIgnores: false },
+      templates: { commitMessage: 'chore(release): bump version to {{newVersion}}' },
+    })
 
     expect(isIgnoredCommitMessage('Merge branch \'main\'', strict)).toBe(false)
     expect(isIgnoredCommitMessage('chore(release): bump version to 1.2.3', strict)).toBe(false)
@@ -128,7 +147,10 @@ describe('Given isIgnoredCommitMessage function', () => {
   it('Then applies the ignores of the config: regular expressions on the header and functions on the message', () => {
     const custom = createMockConfig({
       commitlint: {
-        ignores: [/^Initial commit$/, (message: string) => message.includes('[skip lint]')],
+        ignores: [
+          /^Initial commit$/,
+          (message: string) => message.includes('[skip lint]'),
+        ],
       },
     })
 

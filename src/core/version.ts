@@ -76,7 +76,9 @@ export function determineSemverChange(
 
   const detected: SemverChangeType = hasMajor
     ? 'major'
-    : hasMinor ? 'minor' : hasPatch ? 'patch' : undefined
+    : hasMinor
+      ? 'minor'
+      : hasPatch ? 'patch' : undefined
 
   if (currentVersion && capZeroMajor)
     return capReleaseTypeForZeroMajor(currentVersion, detected)
@@ -92,7 +94,9 @@ function detectReleaseTypeFromCommits(
   breakingPeer = false,
 ): SemverChangeType {
   if (breakingPeer) {
-    return capZeroMajor ? capReleaseTypeForZeroMajor(currentVersion, 'major') : 'major'
+    return capZeroMajor
+      ? capReleaseTypeForZeroMajor(currentVersion, 'major')
+      : 'major'
   }
 
   return determineSemverChange(commits ?? [], types, currentVersion, capZeroMajor)
@@ -342,11 +346,25 @@ export function determineReleaseType({
    * Prerelease branch
    */
   if (releaseType === 'release') {
-    return handlePrereleaseVersionToStable({ currentVersion, commits, types, capZeroMajor, breakingPeer })
+    return handlePrereleaseVersionToStable({
+      currentVersion,
+      commits,
+      types,
+      capZeroMajor,
+      breakingPeer,
+    })
   }
 
   if (releaseType === 'prerelease') {
-    return handlePrereleaseVersionWithPrereleaseType({ currentVersion, preid, commits, force, types, capZeroMajor, breakingPeer })
+    return handlePrereleaseVersionWithPrereleaseType({
+      currentVersion,
+      preid,
+      commits,
+      force,
+      types,
+      capZeroMajor,
+      breakingPeer,
+    })
   }
 
   return handleExplicitReleaseType({ releaseType, currentVersion })
@@ -476,7 +494,9 @@ export function isPrerelease(version?: string): boolean {
     return false
 
   const prerelease = semver.prerelease(version)
-  return prerelease ? prerelease.length > 0 : false
+  return prerelease
+    ? prerelease.length > 0
+    : false
 }
 
 export function isStableReleaseType(releaseType: ReleaseType): boolean {
@@ -485,7 +505,12 @@ export function isStableReleaseType(releaseType: ReleaseType): boolean {
 }
 
 export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
-  const prereleaseTypes = ['prerelease', 'premajor', 'preminor', 'prepatch']
+  const prereleaseTypes = [
+    'prerelease',
+    'premajor',
+    'preminor',
+    'prepatch',
+  ]
   return prereleaseTypes.includes(releaseType)
 }
 
@@ -497,9 +522,15 @@ export function isPrereleaseReleaseType(releaseType: ReleaseType): boolean {
  */
 export function getKnownReleaseVersions({ config, bumpResult }: { config: ResolvedRelizyConfig, bumpResult?: BumpResultTruthy }): string[] | undefined {
   if (bumpResult) {
-    const versions = [bumpResult.newVersion, ...(bumpResult.groups ?? []).map(group => group.newVersion), ...bumpResult.bumpedPackages.map(pkg => pkg.newVersion)]
+    const versions = [
+      bumpResult.newVersion,
+      ...(bumpResult.groups ?? []).map(group => group.newVersion),
+      ...bumpResult.bumpedPackages.map(pkg => pkg.newVersion),
+    ]
     const known = versions.filter((version): version is string => Boolean(version))
-    return known.length > 0 ? known : undefined
+    return known.length > 0
+      ? known
+      : undefined
   }
 
   if (config.monorepo?.groups?.length || config.monorepo?.versionMode === 'independent') {
@@ -507,7 +538,9 @@ export function getKnownReleaseVersions({ config, bumpResult }: { config: Resolv
   }
 
   const version = readPackageJson(config.cwd)?.version
-  return version ? [version] : undefined
+  return version
+    ? [version]
+    : undefined
 }
 
 /**

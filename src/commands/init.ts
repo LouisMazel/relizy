@@ -16,7 +16,9 @@ import {
   getDefaultAnswers,
   getDefaultConfig,
   getDetectedPublishConfig,
+  getGitlabMergePreviewSnippet,
   getInstallCommand,
+  getMergePreviewWorkflowFile,
   getMissingRootFields,
   getReleasedPackages,
   getRunCommand,
@@ -39,6 +41,22 @@ import {
 } from '../core'
 import { setupRelizyAgents } from '../mcp/agents'
 
+/**
+ * A step of `relizy init`: the config, the commit-msg hook, the `release`
+ * script, the AI agents, the release workflow of the CI, the merge preview
+ * workflow
+ */
+export type InitStep = 'config' | 'commitlint' | 'scripts' | 'agents' | 'workflow' | 'merge-preview'
+
+export const INIT_STEPS: InitStep[] = [
+  'config',
+  'commitlint',
+  'scripts',
+  'agents',
+  'workflow',
+  'merge-preview',
+]
+
 export interface InitOptions {
   /** Accept the detected values without asking (also when there is no TTY or in CI) */
   yes?: boolean
@@ -55,10 +73,17 @@ export interface InitOptions {
   /** @default process.cwd() */
   cwd?: string
   /**
-   * Offer the release workflow of the CI (GitHub Actions, GitLab CI)
+   * Offer the workflows of the CI (GitHub Actions, GitLab CI): the release
+   * and the merge preview
    * @default true
    */
   workflow?: boolean
+  /**
+   * Only run these steps, e.g. `['merge-preview']` to add the merge preview
+   * workflow to a project already set up. Without `config`, the existing
+   * config is kept (one is needed)
+   */
+  only?: InitStep[]
 }
 
 export interface InitResult {
@@ -84,6 +109,11 @@ export interface InitResult {
     /** The `include:` to add to an existing `.gitlab-ci.yml` */
     include?: string
   }
+  /** Set when the merge preview workflow was written */
+  mergePreview?: {
+    /** Relative to the root of the project: its own file on GitHub, the release workflow on GitLab */
+    file: string
+  }
 }
 
 const c = createStyles(shouldUseColors())
@@ -106,7 +136,9 @@ async function answer<T>(prompt: Promise<T>): Promise<Exclude<T, symbol>> {
 
 /** Ask the question, or take the detected value when not interactive */
 function ask<T>(interactive: boolean, detected: T, prompt: () => Promise<NoInfer<T> | symbol>): Promise<T> {
-  return interactive ? answer(prompt()) as Promise<T> : Promise.resolve(detected)
+  return interactive
+    ? answer(prompt()) as Promise<T>
+    : Promise.resolve(detected)
 }
 
 function getProviderName(detection: ProjectDetection): string {
@@ -115,7 +147,9 @@ function getProviderName(detection: ProjectDetection): string {
 
 function formatPackageList(packages: InitPackage[]): string {
   const names = packages.map(pkg => pkg.name)
-  return names.length > 3 ? `${names.slice(0, 3).join(', ')} +${names.length - 3}` : names.join(', ')
+  return names.length > 3
+    ? `${names.slice(0, 3).join(', ')} +${names.length - 3}`
+    : names.join(', ')
 }
 
 /** Why relizy releases a package or not, for the detection summary */
@@ -123,7 +157,9 @@ function getPackageStatus(pkg: { version?: string, private: boolean }): string {
   if (pkg.version === undefined) {
     return c.dim('no version, not released')
   }
-  return pkg.private ? c.yellow(`${pkg.version}, private`) : c.green(pkg.version)
+  return pkg.private
+    ? c.yellow(`${pkg.version}, private`)
+    : c.green(pkg.version)
 }
 
 function showDetection(detection: ProjectDetection) {
@@ -143,14 +179,18 @@ function showDetection(detection: ProjectDetection) {
   for (const workspace of detection.workspaces) {
     rows.push(c.bold(workspace.pattern))
     for (const pkg of workspace.packages) {
-      rows.push(`  ${pkg.version === undefined ? c.dim('-') : c.green('✔')} ${pkg.name.padEnd(width)}  ${getPackageStatus(pkg)}`)
+      rows.push(`  ${pkg.version === undefined
+        ? c.dim('-')
+        : c.green('✔')} ${pkg.name.padEnd(width)}  ${getPackageStatus(pkg)}`)
     }
   }
   note(rows.join('\n'), 'Project detected')
 }
 
 async function askBasics(detection: ProjectDetection, interactive: boolean): Promise<Pick<InitAnswers, 'goal' | 'patterns' | 'versionMode'>> {
-  const provider = supportsProviderRelease(detection.provider) ? `${getProviderName(detection)} release` : 'no provider release'
+  const provider = supportsProviderRelease(detection.provider)
+    ? `${getProviderName(detection)} release`
+    : 'no provider release'
   const goal = await ask<InitGoal>(interactive, suggestGoal(detection), () => select({
     message: 'What should a release do?',
     initialValue: suggestGoal(detection),
@@ -232,7 +272,11 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
       initialValue: answers.rootChangelog,
     }))
   }
-  const types = Object.entries(getDefaultConfig().types).flatMap(([type, value]) => value ? [{ type, title: value.title }] : [])
+  const types = Object.entries(getDefaultConfig().types).flatMap(([type, value]) => value
+    ? [
+        { type, title: value.title },
+      ]
+    : [])
   const shown = await answer(multiselect({
     message: 'Commit types listed in the changelogs:',
     required: false,
@@ -247,7 +291,9 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
       ? `Command formatting the changelogs once written (leave empty to use ${formatter}, detected):`
       : 'Command formatting the changelogs once written (leave empty to skip):',
     placeholder: 'e.g. eslint --fix {{files}}',
-    initialValue: !formatter && detection.root.scripts.format ? getRunCommand(detection.packageManager, 'format') : undefined,
+    initialValue: !formatter && detection.root.scripts.format
+      ? getRunCommand(detection.packageManager, 'format')
+      : undefined,
   })
 
   return result
@@ -302,7 +348,9 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
   }
   if (supportsProviderRelease(detection.provider)) {
     result.prCommentMode = await answer(select({
-      message: `Comment on the ${detection.provider === 'gitlab' ? 'merge' : 'pull'} requests included in a release:`,
+      message: `Comment on the ${detection.provider === 'gitlab'
+        ? 'merge'
+        : 'pull'} requests included in a release:`,
       initialValue: answers.prCommentMode,
       options: [
         { value: 'append' as const, label: 'New comment at each release' },
@@ -316,10 +364,26 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
 
 async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise<Partial<InitAnswers>> {
   const targets: { value: InitAITarget, label: string }[] = [
-    ...(supportsProviderRelease(detection.provider) ? [{ value: 'providerRelease' as const, label: `${getProviderName(detection)} release notes` }] : []),
-    ...(answers.twitter ? [{ value: 'twitter' as const, label: 'Twitter / X posts' }] : []),
-    ...(answers.slack ? [{ value: 'slack' as const, label: 'Slack posts' }] : []),
-    ...(answers.teams ? [{ value: 'teams' as const, label: 'Teams cards (adds the changelog to the cards)' }] : []),
+    ...(supportsProviderRelease(detection.provider)
+      ? [
+          { value: 'providerRelease' as const, label: `${getProviderName(detection)} release notes` },
+        ]
+      : []),
+    ...(answers.twitter
+      ? [
+          { value: 'twitter' as const, label: 'Twitter / X posts' },
+        ]
+      : []),
+    ...(answers.slack
+      ? [
+          { value: 'slack' as const, label: 'Slack posts' },
+        ]
+      : []),
+    ...(answers.teams
+      ? [
+          { value: 'teams' as const, label: 'Teams cards (adds the changelog to the cards)' },
+        ]
+      : []),
   ]
   if (targets.length === 0) {
     return {}
@@ -341,12 +405,24 @@ async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise
 }
 
 async function askAdvanced(detection: ProjectDetection, answers: InitAnswers): Promise<InitAnswers> {
-  let result = { ...answers, ...await askChangelog(detection, answers) }
-  if (answers.goal === 'publish') {
-    result = { ...result, ...await askPublish(detection, result) }
+  let result = {
+    ...answers,
+    ...await askChangelog(detection, answers),
   }
-  result = { ...result, ...await askAnnouncements(detection, result) }
-  return { ...result, ...await askAI(detection, result) }
+  if (answers.goal === 'publish') {
+    result = {
+      ...result,
+      ...await askPublish(detection, result),
+    }
+  }
+  result = {
+    ...result,
+    ...await askAnnouncements(detection, result),
+  }
+  return {
+    ...result,
+    ...await askAI(detection, result),
+  }
 }
 
 /** Why the root package.json needs these fields */
@@ -355,8 +431,12 @@ function describeRootFields(fields: { name?: string, version?: string }, answers
     ? `add "version": "${fields.version}" ${c.dim('(required, never bumped in independent mode)')}`
     : `add "version": "${fields.version}" ${c.dim('(the shared version, bumped at each release)')}`
   return [
-    ...(fields.name ? [`add "name": "${fields.name}" ${c.dim('(required)')}`] : []),
-    ...(fields.version ? [version] : []),
+    ...(fields.name
+      ? [`add "name": "${fields.name}" ${c.dim('(required)')}`]
+      : []),
+    ...(fields.version
+      ? [version]
+      : []),
   ]
 }
 
@@ -373,19 +453,34 @@ interface InitPlan {
 }
 
 interface PlannedWorkflow {
-  file: WorkflowFile
+  /** The release workflow, `replace` when it replaces an existing file */
+  file?: WorkflowFile & { replace: boolean }
+  /** The workflow of the merge preview, when in its own file (GitHub) */
+  mergePreviewFile?: WorkflowFile & { replace: boolean }
+  /** The merge preview is in the release workflow (GitLab) */
+  mergePreviewIncluded?: boolean
+  /** The merge preview is wanted on GitLab without generating `.gitlab-ci.yml`: the snippet to add by hand */
+  mergePreviewSnippet?: string
   /** The CI name: `GitHub Actions` */
   ci: string
   /** Secrets (GitHub) or CI/CD variables (GitLab) to create */
   secrets: string[]
-  /** An existing workflow file is replaced */
-  replace: boolean
+}
+
+function getFileAction(replace: boolean): string {
+  return replace
+    ? c.yellow('replace'.padEnd(9))
+    : c.green('create'.padEnd(9))
 }
 
 function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   const rows = [
-    plan.keepConfig ? `${c.dim('keep')}     ${relative(cwd, plan.configFile)}` : `${c.green('create')}   ${relative(cwd, plan.configFile)}`,
-    ...(plan.replacedFile ? [`${c.red('remove')}   ${plan.replacedFile} ${c.dim('replaced by the new config')}`] : []),
+    plan.keepConfig
+      ? `${c.dim('keep')}     ${relative(cwd, plan.configFile)}`
+      : `${c.green('create')}   ${relative(cwd, plan.configFile)}`,
+    ...(plan.replacedFile
+      ? [`${c.red('remove')}   ${plan.replacedFile} ${c.dim('replaced by the new config')}`]
+      : []),
   ]
   const packageChanges = [
     ...describeRootFields(plan.rootFields, answers),
@@ -397,10 +492,15 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   if (plan.hook) {
     rows.push(`${c.cyan('install')}  commit-msg hook ${c.dim('runs relizy commitlint at each commit')}`)
   }
-  if (plan.workflow) {
-    const action = plan.workflow.replace ? c.yellow('replace'.padEnd(9)) : c.green('create'.padEnd(9))
-    const description = c.dim(plan.workflow.ci)
-    rows.push(`${action}${plan.workflow.file.path} ${description}`)
+  if (plan.workflow?.file) {
+    const description = plan.workflow.mergePreviewIncluded
+      ? `${plan.workflow.ci}, with the merge preview`
+      : plan.workflow.ci
+    rows.push(`${getFileAction(plan.workflow.file.replace)}${plan.workflow.file.path} ${c.dim(description)}`)
+  }
+  const preview = plan.workflow?.mergePreviewFile
+  if (preview) {
+    rows.push(`${getFileAction(preview.replace)}${preview.path} ${c.dim('what the merge of each pull request releases')}`)
   }
   if (plan.agents.length > 0) {
     rows.push(`${c.cyan('setup')}    AI agents (${plan.agents.join(', ')}) ${c.dim('relizy rules and MCP server, as relizy mcp init')}`)
@@ -413,7 +513,9 @@ async function installHook(cwd: string, interactive: boolean): Promise<Installed
     return installCommitMsgHook({ cwd })
   }
   catch (error) {
-    const message = error instanceof Error ? error.message : String(error)
+    const message = error instanceof Error
+      ? error.message
+      : String(error)
     if (!message.includes('already exists')) {
       log.warn(`commit-msg hook not installed - ${message}`)
       return undefined
@@ -431,81 +533,256 @@ function setUpAgents(cwd: string, targets: AgentTarget[]): SetupAgentsResult | u
     const result = setupRelizyAgents({ cwd, targets })
     const written = result.changes.filter(change => change.action === 'create' || change.action === 'update').map(change => change.file)
 
-    log.success(written.length > 0 ? `Set up the AI agents (${written.join(', ')})` : 'The AI agents are already set up for relizy')
+    log.success(written.length > 0
+      ? `Set up the AI agents (${written.join(', ')})`
+      : 'The AI agents are already set up for relizy')
     return result
   }
   catch (error) {
-    log.warn(`AI agents not set up - ${error instanceof Error ? error.message : String(error)} (run relizy mcp init later)`)
+    log.warn(`AI agents not set up - ${error instanceof Error
+      ? error.message
+      : String(error)} (run relizy mcp init later)`)
     return undefined
   }
 }
 
 /**
- * The release workflow of the CI: offered when the provider is GitHub or
- * GitLab, an existing file is only replaced once confirmed
+ * A workflow file to write: an existing one is only replaced once confirmed,
+ * none when it is kept
  */
-async function askWorkflow({ detection, answers, commitMessage, interactive }: {
+async function planWorkflowFile({ cwd, file, label, interactive }: {
+  cwd: string
+  file?: WorkflowFile
+  /** `the release workflow` */
+  label: string
+  interactive: boolean
+}): Promise<(WorkflowFile & { replace: boolean }) | undefined> {
+  if (!file) {
+    return undefined
+  }
+
+  const exists = existsSync(join(cwd, file.path))
+  if (!exists) {
+    return { ...file, replace: false }
+  }
+  if (await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
+    return { ...file, replace: true }
+  }
+
+  log.warn(`${file.path} already exists: ${label} is not generated`)
+  return undefined
+}
+
+/**
+ * Run relizy with its integration (the relizy action, the component of the
+ * CI/CD catalog) or with its CLI in the steps of the workflow. A GitLab
+ * instance other than gitlab.com cannot include the component: its job is
+ * always written out
+ */
+async function askIntegration({ provider, gitlabCom, interactive }: { provider: 'github' | 'gitlab', gitlabCom?: boolean, interactive: boolean }): Promise<boolean> {
+  if (provider === 'gitlab' && !gitlabCom) {
+    return false
+  }
+
+  const choice = await ask<'integration' | 'cli'>(interactive, 'integration', () => select<'integration' | 'cli'>({
+    message: 'How does the CI run relizy?',
+    options: provider === 'github'
+      ? [
+          { value: 'integration', label: 'With the relizy action', hint: 'relizy/action@v2: sets up Node.js and the package manager, installs and runs relizy in one step' },
+          { value: 'cli', label: 'With the relizy CLI', hint: 'the steps written out in the workflow: setup, install, relizy release' },
+        ]
+      : [
+          { value: 'integration', label: 'With the relizy component', hint: 'gitlab.com/relizy/relizy: the job of the CI/CD catalog, configured by its inputs' },
+          { value: 'cli', label: 'With the relizy CLI', hint: 'the job written out in .gitlab-ci.yml: setup, install, relizy release' },
+        ],
+    initialValue: 'integration',
+  }))
+  return choice === 'integration'
+}
+
+/**
+ * The workflows of the CI, offered when the provider is GitHub or GitLab: the
+ * release workflow and the merge preview, each one asked on its own (a
+ * project with its release workflow can add the merge preview). An existing
+ * file is only replaced once confirmed
+ */
+async function askWorkflow({ detection, answers, commitMessage, interactive, release, preview }: {
   detection: ProjectDetection
   answers: InitAnswers
   /** `templates.commitMessage` of the config, when set */
   commitMessage?: string
   interactive: boolean
+  /** Offer the release workflow */
+  release: boolean
+  /** Offer the merge preview */
+  preview: boolean
 }): Promise<PlannedWorkflow | undefined> {
-  const provider = detection.provider === 'github' || detection.provider === 'gitlab' ? detection.provider : undefined
+  const provider = detection.provider === 'github' || detection.provider === 'gitlab'
+    ? detection.provider
+    : undefined
   if (!provider) {
     return undefined
   }
 
   const ci = CI_NAMES[provider]
-  const wanted = await ask(interactive, true, () => confirm({
+  const wantRelease = release && await ask(interactive, true, () => confirm({
     message: `Generate the release workflow of ${ci}? (installs, the tokens it needs, the outputs of the release)`,
     initialValue: true,
   }))
-  if (!wanted) {
-    return undefined
-  }
+  const trigger = wantRelease
+    ? await ask<WorkflowTrigger>(interactive, 'manual', () => select<WorkflowTrigger>({
+        message: 'When does the workflow release?',
+        options: [
+          { value: 'manual', label: 'On demand', hint: 'run it from the CI, choosing the release type (auto, patch, minor, major)' },
+          { value: 'push', label: 'At each push on the default branch', hint: 'releases as soon as a commit bumps a version' },
+        ],
+        initialValue: 'manual',
+      }))
+    : 'manual'
 
-  const trigger = await ask<WorkflowTrigger>(interactive, 'manual', () => select<WorkflowTrigger>({
-    message: 'When does the workflow release?',
-    options: [
-      { value: 'manual', label: 'On demand', hint: 'run it from the CI, choosing the release type (auto, patch, minor, major)' },
-      { value: 'push', label: 'At each push on the default branch', hint: 'releases as soon as a commit bumps a version' },
-    ],
-    initialValue: 'manual',
+  const mergePreview = preview && await ask(interactive, true, () => confirm({
+    message: `Preview the release in each ${provider === 'gitlab'
+      ? 'merge'
+      : 'pull'} request? (a comment and a commit status: what the merge releases, red when its release would fail)`,
+    initialValue: true,
   }))
-
-  const options = getWorkflowOptions({ detection, answers, trigger, commitMessage })
-  const file = getWorkflowFile(options, detection.cwd)
-  const exists = existsSync(join(detection.cwd, file.path))
-  if (exists && !await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
-    log.warn(`${file.path} already exists: the release workflow is not generated`)
+  if (!wantRelease && !mergePreview) {
     return undefined
   }
 
-  return { file, ci, secrets: getWorkflowSecrets(options), replace: exists }
+  const defaults = getWorkflowOptions({
+    detection,
+    answers,
+    trigger,
+    commitMessage,
+    mergePreview,
+  })
+  const options = {
+    ...defaults,
+    integration: await askIntegration({ provider, gitlabCom: defaults.gitlabCom, interactive }),
+  }
+
+  const file = await planWorkflowFile({
+    cwd: detection.cwd,
+    file: wantRelease
+      ? getWorkflowFile(options, detection.cwd)
+      : undefined,
+    label: 'the release workflow',
+    interactive,
+  })
+  const mergePreviewFile = await planWorkflowFile({
+    cwd: detection.cwd,
+    file: getMergePreviewWorkflowFile(options),
+    label: 'the merge preview workflow',
+    interactive,
+  })
+
+  // GitLab: the merge preview is a component of .gitlab-ci.yml
+  const inGitlabFile = mergePreview && provider === 'gitlab'
+  if (!file && !mergePreviewFile && !inGitlabFile) {
+    return undefined
+  }
+
+  return {
+    ...(file && { file }),
+    ...(mergePreviewFile && { mergePreviewFile }),
+    ...(inGitlabFile && (file
+      ? { mergePreviewIncluded: true }
+      : {
+          mergePreviewSnippet: getGitlabMergePreviewSnippet(options),
+        })),
+    ci,
+    // The secrets of the release, the merge preview alone uses the token of the job
+    secrets: file
+      ? getWorkflowSecrets(options)
+      : provider === 'gitlab'
+        ? ['GITLAB_TOKEN']
+        : [],
+  }
 }
 
 function getRequiredTokens(detection: ProjectDetection, answers: InitAnswers): string[] {
   return [
-    ...(answers.goal === 'publish' ? ['NPM_TOKEN'] : []),
-    ...(detection.provider === 'github' ? ['GITHUB_TOKEN'] : []),
-    ...(detection.provider === 'gitlab' ? ['GITLAB_TOKEN'] : []),
-    ...(answers.twitter ? ['TWITTER_API_KEY', 'TWITTER_API_KEY_SECRET', 'TWITTER_ACCESS_TOKEN', 'TWITTER_ACCESS_TOKEN_SECRET'] : []),
-    ...(answers.slack ? ['SLACK_TOKEN'] : []),
-    ...(answers.teams ? [detection.provider === 'gitlab' ? 'TEAMS_WEBHOOK_URL_B64' : 'TEAMS_WEBHOOK_URL'] : []),
-    ...(answers.ai.length > 0 ? ['ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN'] : []),
+    ...(answers.goal === 'publish'
+      ? ['NPM_TOKEN']
+      : []),
+    ...(detection.provider === 'github'
+      ? ['GITHUB_TOKEN']
+      : []),
+    ...(detection.provider === 'gitlab'
+      ? ['GITLAB_TOKEN']
+      : []),
+    ...(answers.twitter
+      ? [
+          'TWITTER_API_KEY',
+          'TWITTER_API_KEY_SECRET',
+          'TWITTER_ACCESS_TOKEN',
+          'TWITTER_ACCESS_TOKEN_SECRET',
+        ]
+      : []),
+    ...(answers.slack
+      ? ['SLACK_TOKEN']
+      : []),
+    ...(answers.teams
+      ? [
+          detection.provider === 'gitlab'
+            ? 'TEAMS_WEBHOOK_URL_B64'
+            : 'TEAMS_WEBHOOK_URL',
+        ]
+      : []),
+    ...(answers.ai.length > 0
+      ? ['ANTHROPIC_API_KEY or CLAUDE_CODE_OAUTH_TOKEN']
+      : []),
   ]
 }
 
+/** The steps to run: all of them, or the ones of `only`; `workflow: false` drops the workflows of the CI */
+function getInitSteps(options: InitOptions): Set<InitStep> {
+  const steps = new Set(options.only ?? INIT_STEPS)
+  if (options.workflow === false) {
+    steps.delete('workflow')
+    steps.delete('merge-preview')
+  }
+  return steps
+}
+
+/** The file of the merge preview written: its own one (GitHub), or the release workflow including it (GitLab) */
+function getWrittenMergePreview(workflow: PlannedWorkflow): Pick<InitResult, 'mergePreview'> {
+  const file = workflow.mergePreviewFile?.path ?? (workflow.mergePreviewIncluded
+    ? workflow.file?.path
+    : undefined)
+  return file
+    ? {
+        mergePreview: { file },
+      }
+    : {}
+}
+
 function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workflow?: PlannedWorkflow) {
+  if (workflow?.mergePreviewSnippet) {
+    note(workflow.mergePreviewSnippet.trimEnd(), 'Add to .gitlab-ci.yml')
+  }
   const tokens = workflow?.secrets ?? getRequiredTokens(detection, answers)
-  const secretsLabel = detection.provider === 'gitlab' ? 'Add the CI/CD variables' : 'Add the secrets      '
+  const secretsLabel = detection.provider === 'gitlab'
+    ? 'Add the CI/CD variables'
+    : 'Add the secrets      '
   const steps = [
-    ...(detection.root.hasRelizy ? [] : [`Install relizy        ${c.cyan(getInstallCommand(detection))}`]),
+    ...(detection.root.hasRelizy
+      ? []
+      : [`Install relizy        ${c.cyan(getInstallCommand(detection))}`]),
     `Preview the release   ${c.cyan('npx relizy release --dry-run')}`,
-    ...(workflow?.file.include ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`] : []),
-    ...(tokens.length > 0 ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`] : []),
-    ...(answers.goal === 'publish' ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`] : []),
+    ...(workflow?.file?.include
+      ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`]
+      : []),
+    ...(workflow?.mergePreviewSnippet
+      ? [`Add the merge preview ${c.dim('the snippet above, in .gitlab-ci.yml')}`]
+      : []),
+    ...(tokens.length > 0
+      ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`]
+      : []),
+    ...(answers.goal === 'publish'
+      ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`]
+      : []),
     `All the options       ${c.cyan('https://relizy.dev/config/overview')}`,
   ]
   note(steps.join('\n'), 'Next steps')
@@ -527,7 +804,7 @@ async function askExistingConfig(existing: string, options: InitOptions, interac
   const choice = await answer(select<'keep' | 'replace' | 'cancel'>({
     message: `A relizy config already exists (${existing})`,
     options: [
-      { value: 'keep', label: 'Keep it and set up the rest', hint: 'commit-msg hook, release script, AI agents, release workflow' },
+      { value: 'keep', label: 'Keep it and set up the rest', hint: 'commit-msg hook, release script, AI agents, CI workflows' },
       { value: 'replace', label: 'Replace it', hint: 'answer the questions of the config again' },
       { value: 'cancel', label: 'Cancel' },
     ],
@@ -549,12 +826,21 @@ async function askConfig({ detection, options, interactive, keep }: {
   keep: boolean
 }): Promise<{ answers: InitAnswers, config?: RelizyConfig, commitMessage?: string }> {
   if (keep) {
-    const resolved = await loadRelizyConfig({ configFile: options.configName, overrides: { cwd: detection.cwd } })
-    return { answers: getAnswersFromConfig(detection, resolved), commitMessage: getCustomCommitMessage(resolved) }
+    const resolved = await loadRelizyConfig({
+      configFile: options.configName,
+      overrides: { cwd: detection.cwd },
+    })
+    return {
+      answers: getAnswersFromConfig(detection, resolved),
+      commitMessage: getCustomCommitMessage(resolved),
+    }
   }
 
   const basics = await askBasics(detection, interactive)
-  let answers: InitAnswers = { ...getDefaultAnswers(detection, basics), ...basics }
+  let answers: InitAnswers = {
+    ...getDefaultAnswers(detection, basics),
+    ...basics,
+  }
 
   const advanced = await ask(interactive, false, () => confirm({
     message: 'Customize the changelog, publishing, announcements and AI? (you can edit the config later)',
@@ -577,54 +863,102 @@ async function runInit({ options, detection, configFile, interactive }: {
 }): Promise<InitResult> {
   const { cwd } = detection
   const existing = detection.existingConfigFile
-  const keep = existing ? await askExistingConfig(existing, options, interactive) === 'keep' : false
-  const { answers, config, commitMessage } = await askConfig({ detection, options, interactive, keep })
+  const steps = getInitSteps(options)
+  if (!steps.has('config') && !existing) {
+    throw new Error(`No relizy config in ${cwd}: run relizy init first, or add config to --only`)
+  }
+  // Without the config step, the existing config is kept without asking
+  const keep = existing
+    ? !steps.has('config') || await askExistingConfig(existing, options, interactive) === 'keep'
+    : false
+  const { answers, config, commitMessage } = await askConfig({
+    detection,
+    options,
+    interactive,
+    keep,
+  })
 
-  const withHook = await ask(interactive, true, () => confirm({
+  const withHook = steps.has('commitlint') && await ask(interactive, true, () => confirm({
     message: 'Check the commit messages at each commit with relizy commitlint? (types, scopes, changelog preview)',
     initialValue: true,
   }))
 
   // Only offered to the projects that already use an AI agent (CLAUDE.md, AGENTS.md, .cursor...)
   const agentTargets = detectAgentTargets(cwd)
-  const withAgents = agentTargets.length > 0 && await ask(interactive, true, () => confirm({
+  const withAgents = steps.has('agents') && agentTargets.length > 0 && await ask(interactive, true, () => confirm({
     message: `Give relizy to your AI agents (${agentTargets.join(', ')})? (rules and the relizy MCP server: release preview, commit linting, config reference)`,
     initialValue: true,
   }))
 
   const scriptsToAdd = getScriptsToAdd(detection)
-  const withScripts = Object.keys(scriptsToAdd).length > 0 && await ask(interactive, true, () => confirm({
+  const withScripts = steps.has('scripts') && Object.keys(scriptsToAdd).length > 0 && await ask(interactive, true, () => confirm({
     message: `Add a "release" script to the package.json? (${detection.packageManager} run release)`,
     initialValue: true,
   }))
 
-  const workflow = options.workflow === false ? undefined : await askWorkflow({ detection, answers, commitMessage, interactive })
+  const workflow = await askWorkflow({
+    detection,
+    answers,
+    commitMessage,
+    interactive,
+    release: steps.has('workflow'),
+    preview: steps.has('merge-preview'),
+  })
 
-  const content = config ? renderConfigFile(config) : ''
+  const content = config
+    ? renderConfigFile(config)
+    : ''
   if (config) {
     note(content.trimEnd(), relative(cwd, configFile))
   }
 
   if (options.dryRun) {
     if (workflow) {
-      note(workflow.file.content.trimEnd(), workflow.file.path)
+      if (workflow.file) {
+        note(workflow.file.content.trimEnd(), workflow.file.path)
+      }
+      if (workflow.mergePreviewSnippet) {
+        note(workflow.mergePreviewSnippet.trimEnd(), 'Add to .gitlab-ci.yml')
+      }
+      if (workflow.mergePreviewFile) {
+        note(workflow.mergePreviewFile.content.trimEnd(), workflow.mergePreviewFile.path)
+      }
     }
     outro('Dry run, nothing written')
-    return { configFile, config: config ?? {}, content, written: false, scripts: [], ...(keep && { kept: true }) }
+    return {
+      configFile,
+      config: config ?? {},
+      content,
+      written: false,
+      scripts: [],
+      ...(keep && { kept: true }),
+    }
   }
 
-  const existingPath = existing && existing !== 'package.json' ? join(cwd, existing) : undefined
+  const existingPath = existing && existing !== 'package.json'
+    ? join(cwd, existing)
+    : undefined
   const plan: InitPlan = {
     // The kept config stays where it is
-    configFile: keep && existing ? join(cwd, existing) : configFile,
+    configFile: keep && existing
+      ? join(cwd, existing)
+      : configFile,
     keepConfig: keep,
     // A config in another format would take precedence over the new file
-    replacedFile: !keep && existingPath && existingPath !== configFile && existsSync(existingPath) ? existing : undefined,
+    replacedFile: !keep && existingPath && existingPath !== configFile && existsSync(existingPath)
+      ? existing
+      : undefined,
     // The fields the questions of the config need
-    rootFields: keep ? {} : getMissingRootFields(detection, answers),
-    scripts: withScripts ? scriptsToAdd : {},
+    rootFields: keep
+      ? {}
+      : getMissingRootFields(detection, answers),
+    scripts: withScripts
+      ? scriptsToAdd
+      : {},
     hook: withHook,
-    agents: withAgents ? agentTargets : [],
+    agents: withAgents
+      ? agentTargets
+      : [],
     workflow,
   }
   showPlan(plan, answers, cwd)
@@ -651,18 +985,33 @@ async function runInit({ options, detection, configFile, interactive }: {
     log.success('Updated package.json')
   }
 
-  const hook = withHook ? await installHook(cwd, interactive) : undefined
+  const hook = withHook
+    ? await installHook(cwd, interactive)
+    : undefined
   if (hook) {
-    log.success(hook.status === 'unchanged' ? `The commit-msg hook already runs relizy commitlint (${relative(cwd, hook.path)})` : `Installed the commit-msg hook (${relative(cwd, hook.path)})`)
+    log.success(hook.status === 'unchanged'
+      ? `The commit-msg hook already runs relizy commitlint (${relative(cwd, hook.path)})`
+      : `Installed the commit-msg hook (${relative(cwd, hook.path)})`)
   }
 
-  const agents = plan.agents.length > 0 ? setUpAgents(cwd, plan.agents) : undefined
+  const agents = plan.agents.length > 0
+    ? setUpAgents(cwd, plan.agents)
+    : undefined
 
   if (workflow) {
-    const path = join(cwd, workflow.file.path)
-    mkdirSync(dirname(path), { recursive: true })
-    writeFileSync(path, workflow.file.content)
-    log.success(`${workflow.replace ? 'Replaced' : 'Created'} ${workflow.file.path}`)
+    for (const file of [
+      ...(workflow.file
+        ? [workflow.file]
+        : []),
+      ...(workflow.mergePreviewFile
+        ? [workflow.mergePreviewFile]
+        : []),
+    ]) {
+      const path = join(cwd, file.path)
+      mkdirSync(dirname(path), { recursive: true })
+      writeFileSync(path, file.content)
+      log.success(`${file.replace ? 'Replaced' : 'Created'} ${file.path}`)
+    }
   }
 
   showNextSteps(detection, answers, workflow)
@@ -677,7 +1026,13 @@ async function runInit({ options, detection, configFile, interactive }: {
     hook,
     scripts,
     ...(agents && { agents }),
-    ...(workflow && { workflow: { file: workflow.file.path, ...(workflow.file.include && { include: workflow.file.include }) } }),
+    ...(workflow?.file && {
+      workflow: {
+        file: workflow.file.path,
+        ...(workflow.file.include && { include: workflow.file.include }),
+      },
+    }),
+    ...(workflow && getWrittenMergePreview(workflow)),
   }
 }
 
@@ -703,12 +1058,23 @@ export async function init(options: InitOptions = {}): Promise<InitResult> {
   showDetection(detection)
 
   try {
-    return await runInit({ options, detection, configFile, interactive })
+    return await runInit({
+      options,
+      detection,
+      configFile,
+      interactive,
+    })
   }
   catch (error) {
     if (error instanceof InitCancelledError) {
       cancel(error.message)
-      return { configFile, config: {}, content: '', written: false, scripts: [] }
+      return {
+        configFile,
+        config: {},
+        content: '',
+        written: false,
+        scripts: [],
+      }
     }
     throw error
   }

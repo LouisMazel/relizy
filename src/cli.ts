@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 
+import type { InitOptions, InitStep } from './commands'
 import type { BumpOptions } from './types'
 import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { logger, printBanner } from '@maz-ui/node'
-import { Command, Option } from 'commander'
-import { bump, changelog, commitlint, init, prComment, providerRelease, publish, release, social } from './commands'
+import { Command, InvalidArgumentError, Option } from 'commander'
+import { bump, changelog, commitlint, init, INIT_STEPS, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
 import { getCIName, isInCI } from './core/ci-env'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
@@ -40,7 +41,9 @@ if (!hasSilentFlag && isInit) {
   })
 }
 
-logger.debug(isInCI() ? `Running in CI: ${getCIName()}` : 'Running locally')
+logger.debug(isInCI()
+  ? `Running in CI: ${getCIName()}`
+  : 'Running locally')
 
 const program = new Command()
 
@@ -50,7 +53,10 @@ function hasCliFlag(flag: string): boolean {
 
 program.hook('preAction', () => {
   enableCliUi()
-  setDryRunOptions({ preview: !hasCliFlag('--no-preview'), ai: hasCliFlag('--ai-preview') })
+  setDryRunOptions({
+    preview: !hasCliFlag('--no-preview'),
+    ai: hasCliFlag('--ai-preview'),
+  })
 })
 
 function getReleaseType(options: any) {
@@ -74,6 +80,33 @@ function getReleaseType(options: any) {
   return type
 }
 
+function parseInitSteps(value: string): InitStep[] {
+  const steps = value.split(',').map(step => step.trim()).filter(Boolean)
+  const unknown = steps.filter(step => !INIT_STEPS.includes(step as InitStep))
+  if (unknown.length > 0) {
+    throw new InvalidArgumentError(`Unknown step ${unknown.join(', ')}: ${INIT_STEPS.join(', ')}`)
+  }
+  return steps as InitStep[]
+}
+
+/** `relizy init`, and its shortcuts (`relizy merge-preview init`) */
+async function runInitCommand(options: Pick<InitOptions, 'yes' | 'force' | 'workflow' | 'only'>): Promise<void> {
+  try {
+    await init({
+      ...options,
+      dryRun: program.opts().dryRun,
+      configName: program.opts().config,
+      logLevel: program.opts().logLevel,
+    })
+  }
+  catch (error) {
+    logger.error('Failed to init relizy -', error instanceof Error
+      ? error.message
+      : error)
+    process.exit(1)
+  }
+}
+
 function parseGroupNames(value: string): string[] {
   return value.split(',').map(name => name.trim()).filter(Boolean)
 }
@@ -81,7 +114,9 @@ function parseGroupNames(value: string): string[] {
 /** The files of the report given on the command line, if any */
 function getReportOverride(options: { reportJson?: string, reportDotenv?: string, reportMarkdown?: string }) {
   const report = { json: options.reportJson, dotenv: options.reportDotenv, markdown: options.reportMarkdown }
-  return Object.values(report).some(Boolean) ? report : undefined
+  return Object.values(report).some(Boolean)
+    ? report
+    : undefined
 }
 
 function privatePackagesOption() {
@@ -147,7 +182,9 @@ program
       await bump({
         type: getReleaseType(options),
         preid: options.preid,
-        clean: hasCliFlag('--no-clean') ? false : undefined,
+        clean: hasCliFlag('--no-clean')
+          ? false
+          : undefined,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         force: options.force,
@@ -179,7 +216,9 @@ program
         from: options.from,
         to: options.to,
         formatCmd: options.formatCmd,
-        rootChangelog: hasCliFlag('--no-root-changelog') ? false : undefined,
+        rootChangelog: hasCliFlag('--no-root-changelog')
+          ? false
+          : undefined,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
@@ -216,7 +255,9 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
-        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
       })
     }
     catch (error) {
@@ -244,8 +285,14 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
-        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
-        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
+        ai: hasCliFlag('--ai')
+          ? true
+          : hasCliFlag('--no-ai')
+            ? false
+            : undefined,
       })
 
       // The error is already shown by the output of the command
@@ -275,8 +322,14 @@ program
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
         groups: program.opts().group,
-        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
-        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
+        ai: hasCliFlag('--ai')
+          ? true
+          : hasCliFlag('--no-ai')
+            ? false
+            : undefined,
         slackFormat: options.slackFormat,
       })
 
@@ -326,7 +379,9 @@ program
     }
     catch (error) {
       // Expected errors (missing ref, existing hook...): the message is enough in a hook or a CI log
-      const message = error instanceof Error ? error.message : String(error)
+      const message = error instanceof Error
+        ? error.message
+        : String(error)
       if (options.format === 'json') {
         process.stdout.write(`${JSON.stringify({ valid: false, error: message }, null, 2)}\n`)
       }
@@ -342,22 +397,15 @@ program
   .description('Create the relizy config of the project: detect the packages, ask the rest, set up commitlint')
   .option('--yes', 'Accept the detected values without asking')
   .option('--force', 'Replace an existing config file (kept by default, the other steps still run)')
-  .option('--no-workflow', 'Do not offer the release workflow of the CI (GitHub Actions, GitLab CI)')
+  .option('--no-workflow', 'Do not offer the workflows of the CI (GitHub Actions, GitLab CI): the release and the merge preview')
+  .option('--only <steps>', `Only run these steps (comma-separated): ${INIT_STEPS.join(', ')}`, parseInitSteps)
   .action(async (options) => {
-    try {
-      await init({
-        yes: options.yes,
-        force: options.force,
-        workflow: options.workflow,
-        dryRun: program.opts().dryRun,
-        configName: program.opts().config,
-        logLevel: program.opts().logLevel,
-      })
-    }
-    catch (error) {
-      logger.error('Failed to init relizy -', error instanceof Error ? error.message : error)
-      process.exit(1)
-    }
+    await runInitCommand({
+      yes: options.yes,
+      force: options.force,
+      workflow: options.workflow,
+      only: options.only,
+    })
   })
 
 const mcp = program
@@ -375,10 +423,14 @@ mcp
       }
 
       const { startStdioServer } = await import('./mcp')
-      await startStdioServer({ cwd: process.cwd() })
+      await startStdioServer({
+        cwd: process.cwd(),
+      })
     }
     catch (error) {
-      process.stderr.write(`Failed to start the relizy MCP server - ${error instanceof Error ? error.message : error}\n`)
+      process.stderr.write(`Failed to start the relizy MCP server - ${error instanceof Error
+        ? error.message
+        : error}\n`)
       process.exit(1)
     }
   })
@@ -403,7 +455,9 @@ mcp
       })
     }
     catch (error) {
-      logger.error('Failed to set up the AI agents -', error instanceof Error ? error.message : error)
+      logger.error('Failed to set up the AI agents -', error instanceof Error
+        ? error.message
+        : error)
       process.exit(1)
     }
   })
@@ -423,6 +477,89 @@ program
     catch (error) {
       exitWithError('Failed to post PR comment -', error)
     }
+  })
+
+const mergePreviewCommand = program
+  .command('merge-preview')
+  .description('Preview what the merge of the pull request releases: comment and commit status on the pull request (relizy merge-preview init adds its workflow)')
+
+mergePreviewCommand
+  .command('run', { isDefault: true })
+  .description('Preview what the merge of the pull request releases, with the options of the release job, without writing anything: comment and commit status on the pull request, fails when the release of the merge would fail (default command of relizy merge-preview)')
+  .option('--major', 'Bump major version')
+  .option('--minor', 'Bump minor version')
+  .option('--patch', 'Bump patch version')
+  .option('--prerelease', 'Bump prerelease version')
+  .option('--premajor', 'Bump premajor version')
+  .option('--preminor', 'Bump preminor version')
+  .option('--prepatch', 'Bump prepatch version')
+  .option('--preid <id>', 'Prerelease identifier (alpha, beta, rc, etc.)')
+  .option('--suffix <suffix>', 'Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)')
+  .option('--from <ref>', 'Start commit reference')
+  .option('--to <ref>', 'End commit reference')
+  .option('--force', 'Bump even if there are no commits')
+  .option('--no-publish', 'The release job does not publish')
+  .option('--no-commit', 'The release job does not commit nor tag')
+  .option('--no-git-tag', 'The release job does not create tags')
+  .option('--registry <url>', 'Custom npm registry URL')
+  .option('--tag <tag>', 'Publish with specific tag (default: latest for stable, next for prerelease)')
+  .option('--token <token>', 'Git token (github or gitlab)')
+  .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
+  .addOption(privatePackagesOption())
+  .option('--no-comment', 'Do not comment the pull request')
+  .option('--no-check', 'Do not set the commit status')
+  .option('--report-json <file>', 'Write the report of the preview to this JSON file')
+  .option('--report-markdown <file>', 'Write the preview to this markdown file, e.g. for an artifact of GitLab CI')
+  .action(async (options) => {
+    try {
+      await mergePreview({
+        type: getReleaseType(options),
+        preid: options.preid,
+        suffix: options.suffix,
+        from: options.from,
+        to: options.to,
+        force: options.force,
+        publish: hasCliFlag('--no-publish')
+          ? false
+          : undefined,
+        commit: hasCliFlag('--no-commit')
+          ? false
+          : undefined,
+        gitTag: hasCliFlag('--no-git-tag')
+          ? false
+          : undefined,
+        registry: options.registry,
+        tag: options.tag,
+        token: options.token,
+        publishToken: options.publishToken,
+        privatePackages: options.privatePackages,
+        comment: hasCliFlag('--no-comment')
+          ? false
+          : undefined,
+        check: hasCliFlag('--no-check')
+          ? false
+          : undefined,
+        prNumber: program.opts().prNumber,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        groups: program.opts().group,
+        report: getReportOverride(options),
+      })
+    }
+    catch (error) {
+      exitWithError('Failed to preview the merge -', error)
+    }
+  })
+
+mergePreviewCommand
+  .command('init')
+  .description('Add the merge preview workflow to the CI of the project (GitHub Actions, GitLab CI), as relizy init --only merge-preview')
+  .option('--yes', 'Accept the detected values without asking')
+  .action(async (options) => {
+    await runInitCommand({
+      yes: options.yes,
+      only: ['merge-preview'],
+    })
   })
 
 program
@@ -481,14 +618,30 @@ program
         privatePackages: options.privatePackages,
         from: options.from,
         to: options.to,
-        changelog: hasCliFlag('--no-changelog') ? false : undefined,
-        commit: hasCliFlag('--no-commit') ? false : undefined,
-        push: hasCliFlag('--no-push') || hasCliFlag('--no-commit') ? false : undefined,
-        publish: hasCliFlag('--no-publish') ? false : undefined,
-        providerRelease: hasCliFlag('--no-provider-release') ? false : undefined,
-        gitTag: hasCliFlag('--no-git-tag') ? false : undefined,
-        noVerify: hasCliFlag('--no-verify') ? true : undefined,
-        clean: hasCliFlag('--no-clean') ? false : undefined,
+        changelog: hasCliFlag('--no-changelog')
+          ? false
+          : undefined,
+        commit: hasCliFlag('--no-commit')
+          ? false
+          : undefined,
+        push: hasCliFlag('--no-push') || hasCliFlag('--no-commit')
+          ? false
+          : undefined,
+        publish: hasCliFlag('--no-publish')
+          ? false
+          : undefined,
+        providerRelease: hasCliFlag('--no-provider-release')
+          ? false
+          : undefined,
+        gitTag: hasCliFlag('--no-git-tag')
+          ? false
+          : undefined,
+        noVerify: hasCliFlag('--no-verify')
+          ? true
+          : undefined,
+        clean: hasCliFlag('--no-clean')
+          ? false
+          : undefined,
         registry: options.registry,
         tag: options.tag,
         access: options.access,
@@ -496,7 +649,9 @@ program
         dryRun: program.opts().dryRun,
         formatCmd: options.formatCmd,
         buildCmd: options.buildCmd,
-        rootChangelog: hasCliFlag('--no-root-changelog') ? false : undefined,
+        rootChangelog: hasCliFlag('--no-root-changelog')
+          ? false
+          : undefined,
         token: options.token,
         publishToken: options.publishToken,
         skipExistingVersions: options.skipExistingVersions,
@@ -505,11 +660,21 @@ program
         yes: options.yes,
         configName: program.opts().config,
         groups: program.opts().group,
-        safetyCheck: hasCliFlag('--no-safety-check') ? false : undefined,
-        social: hasCliFlag('--no-social') ? false : undefined,
-        prComment: hasCliFlag('--no-pr-comment') ? false : undefined,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
+        social: hasCliFlag('--no-social')
+          ? false
+          : undefined,
+        prComment: hasCliFlag('--no-pr-comment')
+          ? false
+          : undefined,
         prNumber: program.opts().prNumber,
-        ai: hasCliFlag('--ai') ? true : hasCliFlag('--no-ai') ? false : undefined,
+        ai: hasCliFlag('--ai')
+          ? true
+          : hasCliFlag('--no-ai')
+            ? false
+            : undefined,
         slackFormat: options.slackFormat,
         report: getReportOverride(options),
       })

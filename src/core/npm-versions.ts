@@ -95,7 +95,12 @@ async function queryVersionViaView({
   packageManager: 'npm' | 'pnpm'
   registryTarget: RegistryTarget
 }): Promise<boolean | null> {
-  const args = ['view', `${pkg.name}@${version}`, 'version', '--json']
+  const args = [
+    'view',
+    `${pkg.name}@${version}`,
+    'version',
+    '--json',
+  ]
   if (registryTarget.registry) {
     args.push('--registry', registryTarget.registry)
   }
@@ -127,7 +132,9 @@ async function queryVersionViaView({
     if (isPackageNotFoundError(error)) {
       return false
     }
-    logger.debug(`\`view\` check was inconclusive for ${pkg.name}@${version}: ${error instanceof Error ? error.message : String(error)}`)
+    logger.debug(`\`view\` check was inconclusive for ${pkg.name}@${version}: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return null
   }
 }
@@ -138,7 +145,9 @@ async function queryVersionViaView({
  * registries expect. The `@` is kept literal.
  */
 function buildPackumentUrl(registry: string, packageName: string): string {
-  const base = registry.endsWith('/') ? registry : `${registry}/`
+  const base = registry.endsWith('/')
+    ? registry
+    : `${registry}/`
   const encodedName = packageName.replace('/', '%2F')
   return `${base}${encodedName}`
 }
@@ -163,7 +172,9 @@ export async function isPackageOnRegistry({ name, registry, timeoutMs = 15000 }:
     return response.ok ? true : null
   }
   catch (error) {
-    logger.debug(`Packument request for ${name} failed: ${error instanceof Error ? error.message : String(error)}`)
+    logger.debug(`Packument request for ${name} failed: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return null
   }
 }
@@ -221,7 +232,9 @@ async function queryVersionViaHttp({
     return Boolean(packument.versions && Object.hasOwn(packument.versions, version))
   }
   catch (error) {
-    logger.debug(`Packument request for ${pkg.name} failed: ${error instanceof Error ? error.message : String(error)}`)
+    logger.debug(`Packument request for ${pkg.name} failed: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return null
   }
 }
@@ -258,7 +271,13 @@ export async function isVersionPublished({
   registryTarget: RegistryTarget
 }): Promise<boolean | null> {
   if (canQueryVersionViaView(packageManager)) {
-    const viaView = await queryVersionViaView({ pkg, version, config, packageManager, registryTarget })
+    const viaView = await queryVersionViaView({
+      pkg,
+      version,
+      config,
+      packageManager,
+      registryTarget,
+    })
     if (viaView !== null) {
       return viaView
     }

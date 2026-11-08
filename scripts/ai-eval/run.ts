@@ -21,7 +21,12 @@ import { runChecks } from './checks'
  */
 
 const FIXTURES_DIR = join(import.meta.dirname, 'fixtures')
-const TARGETS: EvalTarget[] = ['providerRelease', 'twitter', 'slack-summary', 'slack-full']
+const TARGETS: EvalTarget[] = [
+  'providerRelease',
+  'twitter',
+  'slack-summary',
+  'slack-full',
+]
 const TWITTER_MAX_LENGTH = 200
 
 const CONTEXTS: Record<string, AIReleaseContext> = {
@@ -54,14 +59,24 @@ const { values } = parseArgs({
 const runs = Number(values.runs)
 
 const fixtures = values.changelog
-  ? [{ name: basename(values.changelog, '.md'), input: readFileSync(values.changelog, 'utf8') }]
+  ? [
+      {
+        name: basename(values.changelog, '.md'),
+        input: readFileSync(values.changelog, 'utf8'),
+      },
+    ]
   : Object.keys(CONTEXTS)
       .filter(name => !values.fixture || values.fixture.includes(name))
-      .map(name => ({ name, input: readFileSync(join(FIXTURES_DIR, `${name}.md`), 'utf8') }))
+      .map(name => ({
+        name,
+        input: readFileSync(join(FIXTURES_DIR, `${name}.md`), 'utf8'),
+      }))
 const targets = TARGETS.filter(target => !values.target || values.target.includes(target))
 
 function getLabel(result: { fixture: string, target: EvalTarget, run: number }): string {
-  return runs > 1 ? `${result.fixture} > ${result.target} #${result.run}` : `${result.fixture} > ${result.target}`
+  return runs > 1
+    ? `${result.fixture} > ${result.target} #${result.run}`
+    : `${result.fixture} > ${result.target}`
 }
 
 function formatFailure(check: CheckResult): string {
@@ -69,12 +84,19 @@ function formatFailure(check: CheckResult): string {
 }
 
 function formatCheck(check: CheckResult): string {
-  const detail = check.detail ? ` (${check.detail})` : ''
+  const detail = check.detail
+    ? ` (${check.detail})`
+    : ''
   return `- ${check.passed ? 'pass' : 'FAIL'}: ${check.name}${detail}`
 }
 
 const config = await loadRelizyConfig({
-  overrides: { ai: { fallback: 'fail', ...(values.language && { language: values.language }) } },
+  overrides: {
+    ai: {
+      fallback: 'fail',
+      ...(values.language && { language: values.language }),
+    },
+  },
 })
 
 async function rewrite(target: EvalTarget, input: string, context?: AIReleaseContext): Promise<{ output: string, maxLength?: number }> {
@@ -83,15 +105,29 @@ async function rewrite(target: EvalTarget, input: string, context?: AIReleaseCon
   }
 
   if (target === 'twitter') {
-    const output = await generateAISocialChangelog({ config, rawBody: input, platform: 'twitter', maxLength: TWITTER_MAX_LENGTH, context })
+    const output = await generateAISocialChangelog({
+      config,
+      rawBody: input,
+      platform: 'twitter',
+      maxLength: TWITTER_MAX_LENGTH,
+      context,
+    })
     return { output, maxLength: TWITTER_MAX_LENGTH }
   }
 
-  const changelogFormat = target === 'slack-full' ? 'full' : 'summary'
+  const changelogFormat = target === 'slack-full'
+    ? 'full'
+    : 'summary'
   config.social.slack = { ...config.social.slack, changelog: changelogFormat }
   const maxLength = resolveSlackPostMaxLength({ changelogFormat })
 
-  return { output: await generateAISocialChangelog({ config, rawBody: input, platform: 'slack', maxLength, context }), maxLength }
+  return { output: await generateAISocialChangelog({
+    config,
+    rawBody: input,
+    platform: 'slack',
+    maxLength,
+    context,
+  }), maxLength }
 }
 
 const results: EvalResult[] = []
@@ -101,9 +137,21 @@ for (const fixture of fixtures) {
     for (let run = 1; run <= runs; run++) {
       const started = Date.now()
       const { output, maxLength } = await rewrite(target, fixture.input, CONTEXTS[fixture.name])
-      const checks = runChecks({ target, input: fixture.input, output, maxLength })
+      const checks = runChecks({
+        target,
+        input: fixture.input,
+        output,
+        maxLength,
+      })
 
-      results.push({ fixture: fixture.name, target, run, output, durationMs: Date.now() - started, checks })
+      results.push({
+        fixture: fixture.name,
+        target,
+        run,
+        output,
+        durationMs: Date.now() - started,
+        checks,
+      })
 
       const failed = checks.filter(result => !result.passed)
       const label = getLabel({ fixture: fixture.name, target, run })
@@ -120,7 +168,9 @@ for (const fixture of fixtures) {
 const rewrites = takeReleaseFacts().aiRewrites
 const failedRuns = results.filter(result => result.checks.some(check => !check.passed))
 const usage = describeAIUsage(getReleaseAI(rewrites) ?? {})
-const usageLabel = usage.length > 0 ? `, ${usage.join(', ')}` : ''
+const usageLabel = usage.length > 0
+  ? `, ${usage.join(', ')}`
+  : ''
 logger.info(`${results.length - failedRuns.length}/${results.length} rewrites passed every check${usageLabel}`)
 
 if (values.out) {
@@ -138,4 +188,6 @@ if (values.out) {
   logger.info(`Report written to ${values.out}`)
 }
 
-process.exitCode = failedRuns.length > 0 ? 1 : 0
+process.exitCode = failedRuns.length > 0
+  ? 1
+  : 0

@@ -122,7 +122,16 @@ export function markDependents({
         ...pkg,
         reason: 'dependency',
         dependencyChain: [dependency],
-        ...(outOfRange ? { outOfRangeDependency: { name: outOfRange.dependency, field: outOfRange.field, range: outOfRange.range, newVersion: outOfRange.newVersion } } : {}),
+        ...(outOfRange
+          ? {
+              outOfRangeDependency: {
+                name: outOfRange.dependency,
+                field: outOfRange.field,
+                range: outOfRange.range,
+                newVersion: outOfRange.newVersion,
+              },
+            }
+          : {}),
       })
     }
     else {
@@ -193,7 +202,9 @@ function findOutOfRangeDependents({
 }) {
   const seeds: { pkg: PackageBase, outOfRange: OutOfRangeDependency }[] = []
   const breaking: { pkg: PackageBase, dependency: string }[] = []
-  const fields = [...new Set<DependencyField>(['peerDependencies', ...dependencyFields])]
+  const fields = [
+    ...new Set<DependencyField>(['peerDependencies', ...dependencyFields]),
+  ]
   const isSeed = (dependency: OutOfRangeDependency) => dependencyFields.has(dependency.field)
     || (bumpOutOfRange && dependency.field === 'peerDependencies' && dependency.range !== null)
 
@@ -244,7 +255,9 @@ export function bumpPeerDependents({
   suffix: string | undefined
   newVersionOverride?: string
 }): void {
-  const dependencyFields = new Set<DependencyField>(outOfRangeDependents ? versionContext.config.bump.dependencyTypes : [])
+  const dependencyFields = new Set<DependencyField>(outOfRangeDependents
+    ? versionContext.config.bump.dependencyTypes
+    : [])
 
   for (;;) {
     const bumped = new Map(externalBumps)
@@ -255,7 +268,12 @@ export function bumpPeerDependents({
       }
     }
 
-    const { seeds, breaking } = findOutOfRangeDependents({ packages, bumped, bumpOutOfRange, dependencyFields })
+    const { seeds, breaking } = findOutOfRangeDependents({
+      packages,
+      bumped,
+      bumpOutOfRange,
+      dependencyFields,
+    })
 
     if (seeds.length === 0 && breaking.length === 0) {
       return
@@ -269,7 +287,10 @@ export function bumpPeerDependents({
 
     for (const { pkg, dependency } of breaking) {
       logger.debug(`${pkg.name}: its peer dependency ${dependency} makes a breaking change, bumped as for a breaking commit`)
-      packages.set(pkg.name, { ...packages.get(pkg.name)!, breakingPeerDependency: dependency })
+      packages.set(pkg.name, {
+        ...packages.get(pkg.name)!,
+        breakingPeerDependency: dependency,
+      })
     }
 
     computeNewVersions({ packages, ...versionContext })
@@ -312,13 +333,18 @@ export function planPackages({
   const packagesArray = Array.from(packages.values())
   // With `out-of-range`, the dependents are found once the new versions are known (`bumpPeerDependents`)
   const outOfRangeDependents = config.bump.dependents === 'out-of-range'
-  const externalDependents = outOfRangeDependents ? [] : getExternalDependents(packagesArray, externalBumps)
+  const externalDependents = outOfRangeDependents
+    ? []
+    : getExternalDependents(packagesArray, externalBumps)
 
   markDependents({
     packages,
     seeds: [
       ...packagesArray.filter(p => p.commits.length > 0).map(pkg => ({ pkg })),
-      ...externalDependents.map(pkg => ({ pkg, dependency: pkg.dependencies.find(name => externalBumps!.has(name)) })),
+      ...externalDependents.map(pkg => ({
+        pkg,
+        dependency: pkg.dependencies.find(name => externalBumps!.has(name)),
+      })),
     ],
     expand: !outOfRangeDependents,
   })
@@ -326,5 +352,11 @@ export function planPackages({
   computeNewVersions({ packages, ...versionContext })
 
   // `bump` is the default
-  bumpPeerDependents({ packages, externalBumps, bumpOutOfRange: !['warn', 'error'].includes(config.bump.outOfRangePeers!), outOfRangeDependents, ...versionContext })
+  bumpPeerDependents({
+    packages,
+    externalBumps,
+    bumpOutOfRange: !['warn', 'error'].includes(config.bump.outOfRangePeers!),
+    outOfRangeDependents,
+    ...versionContext,
+  })
 }

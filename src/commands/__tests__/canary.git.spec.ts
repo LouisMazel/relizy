@@ -76,7 +76,9 @@ describe('Given a canary bump on a real git repository', () => {
 
       const result = await bump({ canary: true, yes: true, dryRun: true })
 
-      expect(result.bumped && result.bumpedPackages.map(pkg => pkg.newVersion)).toEqual([expect.stringMatching(/^0\.6\.0-0\.canary-[0-9a-f]+$/)])
+      expect(result.bumped && result.bumpedPackages.map(pkg => pkg.newVersion)).toEqual([
+        expect.stringMatching(/^0\.6\.0-0\.canary-[0-9a-f]+$/),
+      ])
     })
   })
 })

@@ -128,7 +128,11 @@ async function generateSimpleRootChangelog({
   })
 
   if (dryRun) {
-    showPreview({ title: `Root changelog of ${rootPackage.name}`, meta: [`${fromTag}...${to}`], content: rootChangelog })
+    showPreview({
+      title: `Root changelog of ${rootPackage.name}`,
+      meta: [`${fromTag}...${to}`],
+      content: rootChangelog,
+    })
   }
   else {
     logger.debug('Root changelog written')
@@ -199,7 +203,9 @@ async function generateChangelogs({
 
   logger.debug(`Processing ${packages.length} package(s)`)
 
-  const written = rootChangelogPath ? [rootChangelogPath] : []
+  const written = rootChangelogPath
+    ? [rootChangelogPath]
+    : []
 
   for await (const pkg of packages) {
     logger.debug(`Processing ${pkg.name}`)
@@ -260,7 +266,9 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
 
       const generatedCount = await ui.step({
         running: 'Writing the changelogs',
-        done: count => count === 0 ? 'No changelog to write' : `${plural(count, 'changelog')} written`,
+        done: count => count === 0
+          ? 'No changelog to write'
+          : `${plural(count, 'changelog')} written`,
         run: () => writeChangelogs({ config, options, dryRun }),
       })
 
@@ -290,7 +298,12 @@ async function writeChangelogs({ config, options, dryRun }: {
 
   const written: string[] = []
 
-  for (const target of getReleaseTargets({ config, bumpResult: options.bumpResult, only: options.groups, nothing: 'no changelog to generate' })) {
+  for (const target of getReleaseTargets({
+    config,
+    bumpResult: options.bumpResult,
+    only: options.groups,
+    nothing: 'no changelog to generate',
+  })) {
     if (target.group) {
       logger.debug(`Generating changelogs of version group "${target.group.name}"`)
     }
@@ -310,7 +323,9 @@ async function writeChangelogs({ config, options, dryRun }: {
   await executeFormatCmd({
     config,
     dryRun,
-    files: [...new Set(written)],
+    files: [
+      ...new Set(written),
+    ],
   })
 
   return written.length

@@ -130,7 +130,12 @@ describe('Given reconcileFromTag', () => {
       mockGit({ isAncestor: false, twin: TWIN_SHA })
       const config = createMockConfig({ onRewrittenTag: 'rebind' })
 
-      const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config, dryRun: true })
+      const result = await reconcileFromTag({
+        from: ORPHAN_TAG,
+        to: TO,
+        config,
+        dryRun: true,
+      })
 
       expect(result).toBe(ORPHAN_TAG)
       expect(git.retagAnnotatedLocal).not.toHaveBeenCalled()
@@ -247,7 +252,12 @@ describe('Given reconcileFromTag', () => {
       vi.mocked(prompts.askConfirm).mockResolvedValue(true)
       const config = createMockConfig({})
 
-      const result = await reconcileFromTag({ from: ORPHAN_TAG, to: TO, config, dryRun: true })
+      const result = await reconcileFromTag({
+        from: ORPHAN_TAG,
+        to: TO,
+        config,
+        dryRun: true,
+      })
 
       expect(result).toBe(ORPHAN_TAG)
       expect(git.retagAnnotatedLocal).not.toHaveBeenCalled()

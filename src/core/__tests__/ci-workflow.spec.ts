@@ -1,5 +1,5 @@
 import type { WorkflowOptions } from '../ci-workflow'
-import { getInstallDependenciesCommand, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
+import { getGitlabMergePreviewSnippet, getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
 
 const options: WorkflowOptions = {
   provider: 'github',
@@ -9,11 +9,15 @@ const options: WorkflowOptions = {
   yarnBerry: false,
   publish: false,
   prComment: false,
+  mergePreview: false,
   twitter: false,
   slack: false,
   teams: false,
   ai: false,
   releaseCommitPrefix: 'chore(release): ',
+  integration: true,
+  pnpmPinned: true,
+  registryNeedsToken: false,
 }
 
 describe('Given the release workflow of GitHub Actions', () => {
@@ -42,7 +46,13 @@ describe('Given the release workflow of GitHub Actions', () => {
   })
 
   it('Then leaves the setup of Node.js, the package manager and the dependencies to the action', () => {
-    const { content } = getWorkflowFile({ ...options, packageManager: 'bun', nodeVersionFile: '.nvmrc', publish: true, ai: true }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      packageManager: 'bun',
+      nodeVersionFile: '.nvmrc',
+      publish: true,
+      ai: true,
+    }, '/nonexistent')
 
     expect(content).not.toContain('setup-node')
     expect(content).not.toContain('setup-bun')
@@ -50,7 +60,14 @@ describe('Given the release workflow of GitHub Actions', () => {
   })
 
   it('When the release needs secrets, Then gives each one to its input, named after its variable', () => {
-    const { content } = getWorkflowFile({ ...options, publish: true, twitter: true, slack: true, teams: true, ai: true }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      publish: true,
+      twitter: true,
+      slack: true,
+      teams: true,
+      ai: true,
+    }, '/nonexistent')
 
     /* eslint-disable no-template-curly-in-string -- expressions of GitHub Actions */
     expect(content).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
@@ -119,7 +136,12 @@ describe('Given the release job of a self-managed GitLab', () => {
   })
 
   it('Then lists the CI/CD variables to create, with the token able to push', () => {
-    expect(getWorkflowSecrets({ ...options, provider: 'gitlab', publish: true, slack: true })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
+    expect(getWorkflowSecrets({
+      ...options,
+      provider: 'gitlab',
+      publish: true,
+      slack: true,
+    })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
   })
 
   it('Then asks the URL of the Teams workflow in base64, as a masked variable refuses its characters', () => {
@@ -138,9 +160,143 @@ describe('Given the commands of a package manager', () => {
 
   it('Then installs from the lockfile and runs the relizy of the project', () => {
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getInstallDependenciesCommand({ packageManager: packageManager as WorkflowOptions['packageManager'], yarnBerry: false })))
-      .toEqual(['npm ci', 'pnpm install --frozen-lockfile', 'yarn install --frozen-lockfile', 'bun install --frozen-lockfile'])
+      .toEqual([
+        'npm ci',
+        'pnpm install --frozen-lockfile',
+        'yarn install --frozen-lockfile',
+        'bun install --frozen-lockfile',
+      ])
     expect(getInstallDependenciesCommand({ packageManager: 'yarn', yarnBerry: true })).toBe('yarn install --immutable')
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getRelizyCommand(packageManager as WorkflowOptions['packageManager'])))
-      .toEqual(['npx relizy', 'pnpm exec relizy', 'yarn relizy', 'bunx relizy'])
+      .toEqual([
+        'npx relizy',
+        'pnpm exec relizy',
+        'yarn relizy',
+        'bunx relizy',
+      ])
+  })
+})
+
+describe('Given the merge preview of the release workflow', () => {
+  it('When it is not wanted, Then there is no merge preview workflow', () => {
+    expect(getMergePreviewWorkflowFile(options)).toBeUndefined()
+    expect(getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true }, '/nonexistent').content).not.toContain('merge-preview')
+  })
+
+  it('When it is wanted on GitHub, Then runs the action with merge-preview on the pull requests into the default branch', () => {
+    const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true })!
+
+    expect(file.path).toBe('.github/workflows/merge-preview.yml')
+    expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n    # edited: a new title (the commit of a squash merge) or a new base\n    types: [opened, synchronize, reopened, edited]\n')
+    expect(file.content).toContain('      statuses: write\n')
+    // A public package is checked on npmjs.com without token
+    expect(file.content.endsWith('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n')).toBe(true)
+    expect(file.content).not.toContain('NPM_TOKEN')
+  })
+
+  it('When the registry needs a token, Then gives it to the merge preview', () => {
+    const file = getMergePreviewWorkflowFile({
+      ...options,
+      mergePreview: true,
+      publish: true,
+      registryNeedsToken: true,
+    })!
+
+    // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
+    expect(file.content).toContain('          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+  })
+
+  it('When it is added by hand to .gitlab-ci.yml, Then gives the include of the component on gitlab.com, else the job', () => {
+    const gitlab = { ...options, provider: 'gitlab' as const, mergePreview: true }
+
+    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('include:\n  # What the merge')
+    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n')
+    for (const snippet of [
+      getGitlabMergePreviewSnippet(gitlab),
+      getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true, integration: false }),
+    ]) {
+      expect(snippet).not.toContain('component:')
+      expect(snippet).toContain('merge-preview:\n  stage: test\n')
+      expect(snippet).toContain('    - pnpm exec relizy merge-preview\n')
+    }
+  })
+
+  it('When it is wanted on gitlab.com, Then includes the merge-preview component', () => {
+    const { content } = getWorkflowFile({
+      ...options,
+      provider: 'gitlab',
+      gitlabCom: true,
+      mergePreview: true,
+      nodeVersion: '22',
+    }, '/nonexistent')
+
+    expect(content).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:22\n')
+    expect(getMergePreviewWorkflowFile({ ...options, provider: 'gitlab', mergePreview: true })).toBeUndefined()
+  })
+
+  it('When it is wanted on a GitLab instance, Then writes the merge-preview job on the merge requests into the default branch', () => {
+    const { content } = getWorkflowFile({
+      ...options,
+      provider: 'gitlab',
+      gitlabCom: false,
+      mergePreview: true,
+      publish: true,
+      ai: true,
+    }, '/nonexistent')
+    const job = content.slice(content.indexOf('merge-preview:'))
+
+    expect(job).toContain('    - if: \'$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH\'\n')
+    expect(job).toContain('    - pnpm exec relizy merge-preview\n')
+    expect(job).not.toContain('npm install -g npm@latest')
+    expect(job).not.toContain('claude-code')
+  })
+})
+
+describe('Given the workflows run with the relizy CLI', () => {
+  const cli = { ...options, integration: false }
+
+  it('When released on demand on GitHub, Then sets up the project and runs relizy release with the chosen release type', () => {
+    const { content } = getWorkflowFile({ ...cli, publish: true, nodeVersionFile: '.nvmrc' }, '/nonexistent')
+
+    expect(content).not.toContain('relizy/action')
+    expect(content).toContain('      - uses: pnpm/action-setup@v6\n      - uses: actions/setup-node@v7\n        with:\n          node-version-file: .nvmrc\n          cache: pnpm\n      - run: pnpm install --frozen-lockfile\n')
+    expect(content).toContain('      - run: npm install -g npm@latest\n')
+    // eslint-disable-next-line no-template-curly-in-string -- expressions of GitHub Actions
+    expect(content).toContain('      - id: release\n        env:\n          GITHUB_TOKEN: ${{ github.token }}\n          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n          RELEASE_TYPE: ${{ inputs.release }}\n        run: |\n')
+    expect(content).toContain('          pnpm exec relizy release --yes $flag\n')
+  })
+
+  it('When released at each push with yarn and an unpinned pnpm, Then sets up the package manager it needs', () => {
+    expect(getWorkflowFile({
+      ...cli,
+      trigger: 'push',
+      packageManager: 'yarn',
+      yarnBerry: true,
+    }, '/nonexistent').content)
+      .toContain('          node-version: lts/*\n      - run: npm install -g corepack && corepack enable\n      - run: yarn install --immutable\n')
+    expect(getWorkflowFile({ ...cli, trigger: 'push', pnpmPinned: false }, '/nonexistent').content)
+      .toContain('      - uses: pnpm/action-setup@v6\n        with:\n          version: latest\n')
+    expect(getWorkflowFile({ ...cli, trigger: 'push' }, '/nonexistent').content)
+      .toContain('        run: pnpm exec relizy release --yes\n')
+  })
+
+  it('When the merge preview is wanted on GitHub, Then runs relizy merge-preview', () => {
+    const file = getMergePreviewWorkflowFile({ ...cli, mergePreview: true })
+
+    expect(file?.content).not.toContain('relizy/action')
+    expect(file?.content).toContain('        run: pnpm exec relizy merge-preview\n')
+  })
+
+  it('When the repository is on gitlab.com, Then writes out the job instead of the component', () => {
+    const { content } = getWorkflowFile({
+      ...cli,
+      provider: 'gitlab',
+      gitlabCom: true,
+      mergePreview: true,
+    }, '/nonexistent')
+
+    expect(content).not.toContain('component:')
+    expect(content).toContain('    - pnpm exec relizy release --yes $RELEASE_FLAG --report-dotenv relizy.env\n')
+    expect(content).toContain('    - pnpm exec relizy merge-preview\n')
   })
 })

@@ -89,7 +89,7 @@ jobs:
 
 `relizy/action@v2` follows the latest relizy 2, `relizy/action@v2.3.0` stays on a version. The other variables of the step (`env:`) reach relizy too: `RELIZY_GITHUB_TOKEN`, `RELIZY_SLACK_WEBHOOK_URL`...
 
-Without the action, the same job sets up the project and runs relizy itself:
+Without the action, the same job sets up the project and runs relizy itself. `relizy init` writes it when you choose the relizy CLI (`How does the CI run relizy?`), the merge preview workflow too:
 
 ```yaml
 steps:
@@ -216,6 +216,16 @@ on:
   uses: relizy/action@v2
   with:
     args: ${{ inputs.dry-run && '--dry-run' || '' }}
+```
+
+### Preview the Release on Pull Requests
+
+A second workflow, on the pull requests, runs the action with `merge-preview: true` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
+
+```yaml
+- uses: relizy/action@v2
+  with:
+    merge-preview: true
 ```
 
 ### Canary Release on Pull Requests

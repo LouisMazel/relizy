@@ -82,7 +82,9 @@ export function reportStepNote(message: string, options: ProgressOptions = {}): 
  * in a box of the logger
  */
 export function showPreview(preview: Preview): void {
-  const meta = preview.meta?.length ? `${preview.meta.join('\n')}\n\n` : ''
+  const meta = preview.meta?.length
+    ? `${preview.meta.join('\n')}\n\n`
+    : ''
 
   // --no-preview: only in the logs of --log-level verbose (and the log file of the release)
   if (!dryRunOptions.preview) {
@@ -139,7 +141,9 @@ function formatTokenCount(count: number): string {
   if (count < 1000) {
     return String(count)
   }
-  const [value, unit] = count < 1_000_000 ? [count / 1000, 'k'] : [count / 1_000_000, 'M']
+  const [value, unit] = count < 1_000_000
+    ? [count / 1000, 'k']
+    : [count / 1_000_000, 'M']
   return `${value.toFixed(1).replace(/\.0$/, '')}${unit}`
 }
 
@@ -152,8 +156,14 @@ export function describeAIUsage(usage: AIUsage): string[] {
     : (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
 
   return [
-    tokens === undefined ? '' : `${formatTokenCount(tokens)} ${tokens === 1 ? 'token' : 'tokens'}`,
-    usage.costUsd === undefined ? '' : `$${usage.costUsd.toFixed(3)}`,
+    tokens === undefined
+      ? ''
+      : `${formatTokenCount(tokens)} ${tokens === 1
+        ? 'token'
+        : 'tokens'}`,
+    usage.costUsd === undefined
+      ? ''
+      : `$${usage.costUsd.toFixed(3)}`,
   ].filter(Boolean)
 }
 
@@ -171,5 +181,8 @@ export function recordAIRewrite(rewrite: AIRewrite): void {
  * The facts recorded since the last call
  */
 export function takeReleaseFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
-  return { links: facts.links.splice(0), aiRewrites: facts.aiRewrites.splice(0) }
+  return {
+    links: facts.links.splice(0),
+    aiRewrites: facts.aiRewrites.splice(0),
+  }
 }

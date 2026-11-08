@@ -1,5 +1,6 @@
 import type { ReleaseReportConfig } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import type { MergePreviewProblem, MergePreviewSquashMode } from './merge-preview'
 import type { ReleaseOverview } from './release-overview'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
@@ -115,7 +116,31 @@ export interface ReleaseReport {
   git?: ReleaseGit
   publish?: ReleasePublish
   ai?: ReleaseAI
+  /**
+   * The merge preview of `relizy merge-preview`: what the merge of the pull request releases
+   */
+  mergePreview?: ReleaseMergePreview
   error?: string
+}
+
+export interface ReleaseMergePreview {
+  /**
+   * Number of the pull/merge request, none outside a pull request pipeline
+   */
+  pullRequest?: number
+  /**
+   * How the merge was computed: `squash`, `commits`, or `both` when the merge method is unknown
+   */
+  squash?: MergePreviewSquashMode
+  /**
+   * What would make the release of the merge fail
+   */
+  problems: MergePreviewProblem[]
+  warnings: string[]
+  /**
+   * The comment of the pull request and the summary of the CI job
+   */
+  markdown: string
 }
 
 const STEP_LABELS: Record<ReleaseStepName, string> = {
@@ -146,15 +171,24 @@ function getVersionEntries(report: ReleaseReport): ReleaseSummaryEntry[] {
   const groups = report.release?.groups ?? []
 
   return groups.map((group) => {
-    const label = groups.length > 1 || group.name ? `Version (${group.title})` : 'Version'
+    const label = groups.length > 1 || group.name
+      ? `Version (${group.title})`
+      : 'Version'
 
     if (group.version) {
       return { label, value: group.version, code: true }
     }
 
     return group.packages.length > RELEASE_NAME_MAX_VERSIONS
-      ? { label, value: plural(group.packages.length, 'package') }
-      : { label, value: group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', '), code: true }
+      ? {
+          label,
+          value: plural(group.packages.length, 'package'),
+        }
+      : {
+          label,
+          value: group.packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', '),
+          code: true,
+        }
   })
 }
 
@@ -165,7 +199,9 @@ function getHeadline(report: ReleaseReport): string {
     return `Release failed${dryRun}`
   }
 
-  return report.status === 'nothing' ? `Nothing to release${dryRun}` : `Release completed${dryRun}`
+  return report.status === 'nothing'
+    ? `Nothing to release${dryRun}`
+    : `Release completed${dryRun}`
 }
 
 export interface ReleaseSummaryEntry {
@@ -185,11 +221,21 @@ export function describeReleaseContent(content: ReleaseContent): string {
   const changes = content.features + content.fixes + content.breaking
 
   return [
-    changes ? '' : plural(content.commits, 'commit'),
-    content.features ? plural(content.features, 'feature') : '',
-    content.fixes ? plural(content.fixes, 'fix', 'fixes') : '',
-    content.breaking ? `${content.breaking} breaking` : '',
-    content.contributors ? plural(content.contributors, 'contributor') : '',
+    changes
+      ? ''
+      : plural(content.commits, 'commit'),
+    content.features
+      ? plural(content.features, 'feature')
+      : '',
+    content.fixes
+      ? plural(content.fixes, 'fix', 'fixes')
+      : '',
+    content.breaking
+      ? `${content.breaking} breaking`
+      : '',
+    content.contributors
+      ? plural(content.contributors, 'contributor')
+      : '',
   ].filter(Boolean).join(' · ')
 }
 
@@ -201,7 +247,10 @@ export function describeReleaseAI(ai: ReleaseAI): string {
     return `${plural(ai.rewrites, 'rewrite')} simulated (${ai.provider})`
   }
 
-  return [`${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDuration(ai.durationMs)}`, ...describeAIUsage(ai)].join(' · ')
+  return [
+    `${plural(ai.rewrites, 'rewrite')} by ${ai.provider} in ${formatDuration(ai.durationMs)}`,
+    ...describeAIUsage(ai),
+  ].join(' · ')
 }
 
 /**
@@ -209,11 +258,17 @@ export function describeReleaseAI(ai: ReleaseAI): string {
  */
 function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
   if (step.status === 'skipped') {
-    return step.detail ? `skipped (${step.detail})` : 'skipped'
+    return step.detail
+      ? `skipped (${step.detail})`
+      : 'skipped'
   }
 
   if (step.status === 'done' && step.name === 'publish' && report.publish) {
-    return [step.detail, ...report.publish.tags, ...report.publish.registries].filter(Boolean).join(' · ')
+    return [
+      step.detail,
+      ...report.publish.tags,
+      ...report.publish.registries,
+    ].filter(Boolean).join(' · ')
   }
 
   if (step.status === 'done' && step.name === 'commit' && report.git?.commit) {
@@ -221,17 +276,23 @@ function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
   }
 
   if (step.status === 'done' && step.name === 'push' && report.git) {
-    return report.git.remote ? `${report.git.branch} → ${report.git.remote}` : report.git.branch
+    return report.git.remote
+      ? `${report.git.branch} → ${report.git.remote}`
+      : report.git.branch
   }
 
-  return step.detail ?? (step.status === 'done' ? 'done' : 'failed')
+  return step.detail ?? (step.status === 'done'
+    ? 'done'
+    : 'failed')
 }
 
 /**
  * The tags of a release: `v2.0.0, @scope/nav@1.3.0`, or their count beyond 2
  */
 export function describeTags(tags: string[]): string {
-  return tags.length > RELEASE_NAME_MAX_VERSIONS ? plural(tags.length, 'tag') : tags.join(', ')
+  return tags.length > RELEASE_NAME_MAX_VERSIONS
+    ? plural(tags.length, 'tag')
+    : tags.join(', ')
 }
 
 /**
@@ -246,23 +307,37 @@ export function getReleaseSummary(report: ReleaseReport, { versions = true }: { 
     : getVersionEntries(report)
 
   if (versions && report.tags.length > 0) {
-    entries.push({ label: report.tags.length === 1 ? 'Tag' : 'Tags', value: describeTags(report.tags), code: report.tags.length <= RELEASE_NAME_MAX_VERSIONS })
+    entries.push({
+      label: report.tags.length === 1
+        ? 'Tag'
+        : 'Tags',
+      value: describeTags(report.tags),
+      code: report.tags.length <= RELEASE_NAME_MAX_VERSIONS,
+    })
   }
 
   // A forced release without commit has nothing to tell
   if (report.content?.commits) {
-    entries.push({ label: 'Content', value: describeReleaseContent(report.content) })
+    entries.push({
+      label: 'Content',
+      value: describeReleaseContent(report.content),
+    })
   }
 
   entries.push(...report.steps.map(step => ({
     label: STEP_LABELS[step.name],
     value: describeStep(step, report),
     status: step.status,
-    ...(step.links?.length ? { links: step.links } : {}),
+    ...(step.links?.length
+      ? { links: step.links }
+      : {}),
   })))
 
   if (report.ai) {
-    entries.push({ label: 'AI', value: describeReleaseAI(report.ai) })
+    entries.push({
+      label: 'AI',
+      value: describeReleaseAI(report.ai),
+    })
   }
 
   if (report.publish?.install) {
@@ -274,17 +349,24 @@ export function getReleaseSummary(report: ReleaseReport, { versions = true }: { 
 
 function describeStepText(step: ReleaseStepReport): string {
   if (step.status === 'skipped') {
-    return step.detail ? `Skipped (${step.detail})` : 'Skipped'
+    return step.detail
+      ? `Skipped (${step.detail})`
+      : 'Skipped'
   }
 
-  return step.detail ?? (step.status === 'done' ? 'Done' : 'Failed')
+  return step.detail ?? (step.status === 'done'
+    ? 'Done'
+    : 'Failed')
 }
 
 /**
  * The report as plain text, for the terminal
  */
 export function formatReleaseReportText(report: ReleaseReport): string {
-  const lines = [getHeadline(report), '']
+  const lines = [
+    getHeadline(report),
+    '',
+  ]
 
   if (report.error) {
     lines.push(`Error: ${report.error}`)
@@ -295,7 +377,9 @@ export function formatReleaseReportText(report: ReleaseReport): string {
   }
 
   if (report.status === 'released' || report.tags.length > 0) {
-    lines.push(`Tag(s): ${report.tags.length > 0 ? report.tags.join(', ') : 'None'}`)
+    lines.push(`Tag(s): ${report.tags.length > 0
+      ? report.tags.join(', ')
+      : 'None'}`)
   }
 
   lines.push(...report.steps.map(step => `${STEP_LABELS[step.name]}: ${describeStepText(step)}`))
@@ -316,7 +400,9 @@ export function getReleaseName(report: ReleaseReport): string {
   const lines = getReleaseLines(release)
 
   if (lines.length > RELEASE_NAME_MAX_VERSIONS) {
-    return release.projectName ? `${plural(lines.length, 'version')} of ${release.projectName}` : plural(lines.length, 'version')
+    return release.projectName
+      ? `${plural(lines.length, 'version')} of ${release.projectName}`
+      : plural(lines.length, 'version')
   }
 
   return lines.map(line => `${line.name} ${line.version}`).join(', ')
@@ -324,15 +410,31 @@ export function getReleaseName(report: ReleaseReport): string {
 
 function getMarkdownHeadline(report: ReleaseReport): string[] {
   if (report.status === 'failed') {
-    return [`## ❌ Release failed${report.dryRun ? ' (dry run)' : ''}`, '', ...(report.error ? [`> ${report.error.split('\n')[0]}`, ''] : [])]
+    return [
+      `## ❌ Release failed${report.dryRun ? ' (dry run)' : ''}`,
+      '',
+      ...(report.error
+        ? [`> ${report.error.split('\n')[0]}`, '']
+        : []),
+    ]
   }
 
   if (report.status === 'nothing') {
-    return ['## ℹ️ Nothing to release', '', 'No commit since the last release triggers a new version.', '']
+    return [
+      '## ℹ️ Nothing to release',
+      '',
+      'No commit since the last release triggers a new version.',
+      '',
+    ]
   }
 
   return report.dryRun
-    ? [`## 🧪 Dry run: ${getReleaseName(report)}`, '', 'Nothing was written nor published.', '']
+    ? [
+        `## 🧪 Dry run: ${getReleaseName(report)}`,
+        '',
+        'Nothing was written nor published.',
+        '',
+      ]
     : [`## 🚀 Released ${getReleaseName(report)}`, '']
 }
 
@@ -340,11 +442,17 @@ function getMarkdownHeadline(report: ReleaseReport): string[] {
  * The packages of the release and their versions, by group
  */
 function getMarkdownPackages(report: ReleaseReport): string[] {
-  const groups = report.status === 'nothing' ? [] : report.release?.groups ?? []
+  const groups = report.status === 'nothing'
+    ? []
+    : report.release?.groups ?? []
 
   return groups.flatMap((group) => {
-    const version = group.version ? ` \`${group.version}\`` : ''
-    const title = groups.length > 1 || group.name ? [`### ${group.title}${version} (${group.versionMode})`, ''] : ['### Packages', '']
+    const version = group.version
+      ? ` \`${group.version}\``
+      : ''
+    const title = groups.length > 1 || group.name
+      ? [`### ${group.title}${version} (${group.versionMode})`, '']
+      : ['### Packages', '']
 
     return [
       ...title,
@@ -363,11 +471,21 @@ function getMarkdownPackages(report: ReleaseReport): string[] {
  * a GitHub Actions run, the comment of the pull request, and `release.report.markdown`
  */
 export function formatReleaseReportMarkdown(report: ReleaseReport): string {
+  if (report.mergePreview) {
+    return `${report.mergePreview.markdown}\n`
+  }
+
   const packages = getMarkdownPackages(report)
   // The tables of the packages give the versions and the tags: the summary tells what the release did
   const rows = getReleaseSummary(report, { versions: packages.length === 0 }).map(({ label, value, code, status, links = [] }) => {
-    const icon = status ? `${STATUS_ICONS[status]} ` : label === 'AI' ? '✨ ' : ''
-    let text = code ? `\`${value}\`` : value
+    const icon = status
+      ? `${STATUS_ICONS[status]} `
+      : label === 'AI'
+        ? '✨ '
+        : ''
+    let text = code
+      ? `\`${value}\``
+      : value
     // A link replaces its label in the value, else follows it
     const others = links.filter((link) => {
       if (!code && text.includes(link.label)) {
@@ -377,13 +495,22 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
       return true
     })
     // Beyond 2, the value counts what the step created (`13 releases on github`): no list of links
-    const linksText = others.length > 0 && others.length <= RELEASE_NAME_MAX_VERSIONS ? `<br>${others.map(formatMarkdownLink).join(' · ')}` : ''
+    const linksText = others.length > 0 && others.length <= RELEASE_NAME_MAX_VERSIONS
+      ? `<br>${others.map(formatMarkdownLink).join(' · ')}`
+      : ''
     return `| ${icon}**${label}** | ${text}${linksText} |`
   })
 
   const lines = [
     ...getMarkdownHeadline(report),
-    ...(rows.length > 0 ? ['| Step | Result |', '| --- | --- |', ...rows, ''] : []),
+    ...(rows.length > 0
+      ? [
+          '| Step | Result |',
+          '| --- | --- |',
+          ...rows,
+          '',
+        ]
+      : []),
     ...packages,
     `<sub>${getMarkdownFooter(report)}</sub>`,
   ]
@@ -392,8 +519,14 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
 }
 
 function getMarkdownFooter(report: ReleaseReport): string {
-  const branch = report.git ? `\`${report.git.branch}\`` : ''
-  return [branch, formatUtcDate(new Date()), 'by [relizy](https://relizy.dev)'].filter(Boolean).join(' · ')
+  const branch = report.git
+    ? `\`${report.git.branch}\``
+    : ''
+  return [
+    branch,
+    formatUtcDate(new Date()),
+    'by [relizy](https://relizy.dev)',
+  ].filter(Boolean).join(' · ')
 }
 
 /**
@@ -412,11 +545,17 @@ function toOutputName(name: string): string {
  * version group and `package_<name>_version` for each released package
  */
 export function getReleaseReportOutputs(report: ReleaseReport): Record<string, string> {
-  const groups = report.released ? report.release?.groups ?? [] : []
+  const groups = report.released
+    ? report.release?.groups ?? []
+    : []
   const packages = (report.release?.groups ?? []).flatMap(group => group.packages)
 
   const versions = Object.fromEntries([
-    ...groups.flatMap(group => group.name && group.version ? [[`group_${toOutputName(group.name)}_version`, group.version]] : []),
+    ...groups.flatMap(group => group.name && group.version
+      ? [
+          [`group_${toOutputName(group.name)}_version`, group.version],
+        ]
+      : []),
     ...groups.flatMap(group => group.packages).map(pkg => [`package_${toOutputName(pkg.name)}_version`, pkg.newVersion]),
   ])
 
@@ -457,7 +596,13 @@ export function writeReleaseReport({ config, report }: { config: ResolvedRelizyC
   try {
     if (reportConfig.github !== false && process.env.GITHUB_ACTIONS === 'true') {
       if (process.env.GITHUB_OUTPUT) {
-        const lines = [...Object.entries(outputs), ['report', JSON.stringify(report)]].map(([name, value]) => `${name}=${value}`)
+        const lines = [
+          ...Object.entries(outputs),
+          [
+            'report',
+            JSON.stringify(report),
+          ],
+        ].map(([name, value]) => `${name}=${value}`)
         // Multiline: the markdown summary, to reuse in another step (comment, message)
         lines.push(`summary<<${OUTPUT_DELIMITER}`, markdown.trimEnd(), OUTPUT_DELIMITER)
         appendFileSync(process.env.GITHUB_OUTPUT, `${lines.join('\n')}\n`)

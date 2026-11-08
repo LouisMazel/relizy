@@ -20,7 +20,9 @@ const sessionOtpByRegistry = new Map<string, string>()
  * prerelease and `latest` otherwise
  */
 export function getPublishTag(version: string, configTag?: string): string {
-  return configTag || (isPrerelease(version) ? 'next' : 'latest')
+  return configTag || (isPrerelease(version)
+    ? 'next'
+    : 'latest')
 }
 
 export function determinePublishTag(version: string, configTag?: string): string {
@@ -62,7 +64,9 @@ function getCommandArgs<T extends 'auth' | 'publish'>({
    */
   extraArgs?: string[]
 }) {
-  const args = type === 'publish' ? ['publish', '--tag', tag] : ['whoami']
+  const args = type === 'publish'
+    ? ['publish', '--tag', tag]
+    : ['whoami']
 
   const registry = registryTarget.registry
   if (registry) {
@@ -161,7 +165,9 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
       .catch((error) => {
         clearTimeout(timer)
         // Not a cancelled run: packages may already be published, the publish fails
-        reject(isRelizyCancelError(error) ? new Error('OTP input cancelled', { cause: error }) : error)
+        reject(isRelizyCancelError(error)
+          ? new Error('OTP input cancelled', { cause: error })
+          : error)
       })
   })
 }
@@ -275,7 +281,9 @@ function getPublishCommand({
     extraArgs,
   })
 
-  const baseCommand = packageManager === 'yarn' && isYarnBerry(cwd) ? 'yarn npm' : packageManager
+  const baseCommand = packageManager === 'yarn' && isYarnBerry(cwd)
+    ? 'yarn npm'
+    : packageManager
 
   return `${baseCommand} ${args.join(' ')}`
 }
@@ -314,7 +322,13 @@ async function publishToRegistryTarget({
   // still catches an already-published version (and races).
   if (config.publish.skipExistingVersions && !dryRun) {
     const version = pkg.newVersion || pkg.version
-    const alreadyPublished = await isVersionPublished({ pkg, version, config, packageManager, registryTarget })
+    const alreadyPublished = await isVersionPublished({
+      pkg,
+      version,
+      config,
+      packageManager,
+      registryTarget,
+    })
     if (alreadyPublished) {
       logger.warn(`Skipping ${packageNameAndVersion}${registryLabel}: version already exists on the registry (publish.skipExistingVersions enabled)`)
       return
@@ -432,7 +446,10 @@ export async function publishPackage({
   if (needsTempVersionWrite) {
     originalContent = readFileSync(packageJsonPath, 'utf8')
     logger.debug(`[dry-run] Temporarily writing ${pkg.newVersion} to ${pkg.name} for publish --dry-run validation`)
-    writeFileSync(packageJsonPath, `${formatJson({ ...JSON.parse(originalContent), version: pkg.newVersion })}\n`, 'utf8')
+    writeFileSync(packageJsonPath, `${formatJson({
+      ...JSON.parse(originalContent),
+      version: pkg.newVersion,
+    })}\n`, 'utf8')
   }
 
   try {

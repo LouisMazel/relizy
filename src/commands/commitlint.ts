@@ -90,18 +90,43 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
   const helpUrl = config.commitlint?.helpUrl
 
   if (options.message !== undefined) {
-    const result = await lintCommitMessage(options.message, { config, packages, files: getStagedFiles(config.cwd) })
-    return { mode: 'message', entries: [{ result }], helpUrl }
+    const result = await lintCommitMessage(options.message, {
+      config,
+      packages,
+      files: getStagedFiles(config.cwd),
+    })
+    return {
+      mode: 'message',
+      entries: [
+        { result },
+      ],
+      helpUrl,
+    }
   }
 
   if (options.edit) {
-    const file = typeof options.edit === 'string' ? options.edit : undefined
+    const file = typeof options.edit === 'string'
+      ? options.edit
+      : undefined
     const message = stripGitComments(readCommitMessageFile(file, config.cwd), getCommentChar(config.cwd))
-    const result = await lintCommitMessage(message, { config, packages, files: getStagedFiles(config.cwd) })
+    const result = await lintCommitMessage(message, {
+      config,
+      packages,
+      files: getStagedFiles(config.cwd),
+    })
     const path = getCommitMessageFile(file, config.cwd)
     // Relative inside the repository, absolute outside (e.g. a temporary file)
-    const messageFile = relative(config.cwd, path).startsWith('..') ? path : relative(config.cwd, path)
-    return { mode: 'edit', entries: [{ result }], messageFile, helpUrl }
+    const messageFile = relative(config.cwd, path).startsWith('..')
+      ? path
+      : relative(config.cwd, path)
+    return {
+      mode: 'edit',
+      entries: [
+        { result },
+      ],
+      messageFile,
+      helpUrl,
+    }
   }
 
   // A range needs the history: a shallow CI clone may miss its start
@@ -121,23 +146,40 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
   const entries: ReportEntry[] = []
 
   // The title becomes the commit message of a squash merge, with every file of the pull request
-  const pullRequest = (options.title ?? config.commitlint?.title) ? getPullRequestTitle() : undefined
+  const pullRequest = (options.title ?? config.commitlint?.title)
+    ? getPullRequestTitle()
+    : undefined
   if (pullRequest) {
-    const files = [...new Set(commits.flatMap(commit => commit.files))]
+    const files = [
+      ...new Set(commits.flatMap(commit => commit.files)),
+    ]
     entries.push({
       result: await lintCommitMessage(pullRequest.title, { config, packages, files }),
-      label: pullRequest.kind === 'merge request' ? 'MR title' : 'PR title',
+      label: pullRequest.kind === 'merge request'
+        ? 'MR title'
+        : 'PR title',
     })
   }
 
   for (const commit of commits) {
     entries.push({
-      result: await lintCommitMessage(commit.message, { config, packages, files: commit.files, hash: commit.hash }),
+      result: await lintCommitMessage(commit.message, {
+        config,
+        packages,
+        files: commit.files,
+        hash: commit.hash,
+      }),
       label: commit.hash.slice(0, 7),
     })
   }
 
-  return { mode: 'range', entries, from, titleKind: pullRequest?.kind, helpUrl }
+  return {
+    mode: 'range',
+    entries,
+    from,
+    titleKind: pullRequest?.kind,
+    helpUrl,
+  }
 }
 
 /**
@@ -152,29 +194,47 @@ export async function commitlint(options: CommitlintOptions = {}): Promise<Commi
 
   if (options.install) {
     const hook = installCommitMsgHook({ cwd: config.cwd, force: options.force })
-    print([hook.status === 'unchanged'
-      ? `The commit-msg hook already runs relizy commitlint (${hook.path})`
-      : `✔ commit-msg hook ${hook.status}: ${hook.path}`])
-    return { results: [], errorCount: 0, warningCount: 0, hook }
+    print([
+      hook.status === 'unchanged'
+        ? `The commit-msg hook already runs relizy commitlint (${hook.path})`
+        : `✔ commit-msg hook ${hook.status}: ${hook.path}`,
+    ])
+    return {
+      results: [],
+      errorCount: 0,
+      warningCount: 0,
+      hook,
+    }
   }
 
   const report = await lintMessages(options, config)
   if (options.preview) {
     for (const entry of report.entries) {
-      entry.preview = entry.result.gitCommit && !entry.result.ignored ? renderChangelogEntry(entry.result.gitCommit, config) : undefined
+      entry.preview = entry.result.gitCommit && !entry.result.ignored
+        ? renderChangelogEntry(entry.result.gitCommit, config)
+        : undefined
     }
   }
 
   if (options.format === 'json') {
-    print([formatJsonReport(report)])
+    print([
+      formatJsonReport(report),
+    ])
   }
   else {
-    print(formatTextReport(report, { colors: shouldUseColors(), quiet: options.quiet }))
+    print(formatTextReport(report, {
+      colors: shouldUseColors(),
+      quiet: options.quiet,
+    }))
     if (process.env.GITHUB_ACTIONS === 'true') {
       print(formatGithubAnnotations(report))
     }
   }
 
   const results = report.entries.map(entry => entry.result)
-  return { results, ...summarizeResults(results), report }
+  return {
+    results,
+    ...summarizeResults(results),
+    report,
+  }
 }

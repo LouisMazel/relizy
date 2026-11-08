@@ -52,8 +52,17 @@ export function getDetectedPackageMoves(commits: { body: string, shortHash?: str
   return commits.flatMap(commit => parseNameStatus(commit.body)
     .filter(entry => entry.status.startsWith('R') && entry.paths.length === 2 && entry.paths.every(isPackageJson))
     .filter(({ status, paths: [from, to] }) => status === 'R100'
-      || (!!commit.shortHash && isSamePackage({ hash: commit.shortHash, from: from!, to: to!, cwd })))
-    .map(entry => ({ from: posix.dirname(entry.paths[0]!), to: posix.dirname(entry.paths[1]!), detected: true })))
+      || (!!commit.shortHash && isSamePackage({
+        hash: commit.shortHash,
+        from: from!,
+        to: to!,
+        cwd,
+      })))
+    .map(entry => ({
+      from: posix.dirname(entry.paths[0]!),
+      to: posix.dirname(entry.paths[1]!),
+      detected: true,
+    })))
 }
 
 /**
@@ -77,7 +86,11 @@ export function getPreviousPackagePaths({
   cwd: string
 }): string[] {
   const moves: PackageMove[] = [
-    ...Object.entries(movedPackages ?? {}).map(([from, to]) => ({ from: normalizeDirectory(from), to: normalizeDirectory(to), detected: false })),
+    ...Object.entries(movedPackages ?? {}).map(([from, to]) => ({
+      from: normalizeDirectory(from),
+      to: normalizeDirectory(to),
+      detected: false,
+    })),
     ...getDetectedPackageMoves(commits, cwd),
   ]
   const currentPath = normalizeDirectory(packagePath)
@@ -114,14 +127,28 @@ export function getPreviousPackagePaths({
 export function getPackageJsonHistory(packageRelativePath: string, cwd: string, rev?: string): { body: string, shortHash: string }[] {
   try {
     const output = runGitSync(
-      ['--no-pager', 'log', '--follow', '--name-status', '--format=%x1E%h', ...(rev ? [rev] : []), '--', `${packageRelativePath}/package.json`],
+      [
+        '--no-pager',
+        'log',
+        '--follow',
+        '--name-status',
+        '--format=%x1E%h',
+        ...(rev
+          ? [rev]
+          : []),
+        '--',
+        `${packageRelativePath}/package.json`,
+      ],
       { cwd, trim: false },
     )
 
     return output.split('\x1E').slice(1).map((record) => {
       const [shortHash = '', ...body] = record.split('\n')
 
-      return { shortHash, body: body.join('\n') }
+      return {
+        shortHash,
+        body: body.join('\n'),
+      }
     })
   }
   catch {
