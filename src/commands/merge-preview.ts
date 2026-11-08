@@ -96,7 +96,7 @@ async function computePreview({ config, options, settings, ui }: {
 
   try {
     // The CI clone: full history, branch
-    prepareCiRepository(config.cwd)
+    prepareCiRepository(config.cwd, { commit: false })
 
     const pullRequest = getMergePreviewPullRequest()
     if (pullRequest) {
@@ -297,7 +297,8 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
   const settings = getSettings(config, options)
   const ui = createCommandUi({
     title: 'relizy merge-preview',
-    dryRun: true,
+    // Not a dry run: nothing is written in the repository, but the comment and the commit status are posted
+    dryRun: false,
     logLevel: config.logLevel,
     cwd: config.cwd,
   })

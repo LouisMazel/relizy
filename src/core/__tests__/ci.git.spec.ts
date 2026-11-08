@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { createMockConfig } from '../../../tests/mocks'
-import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, RELIZY_BOT_IDENTITY } from '../ci'
+import { applyCiGitIdentity, attachCiBranch, ensureFullHistory, ensurePushAccess, getCiBranch, getCiGitIdentity, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, prepareCiRepository, RELIZY_BOT_IDENTITY } from '../ci'
 import { withGitCache } from '../git-cache'
 
 // The setup file mocks this module and execPromise: these tests run the real git commands on temporary repositories
@@ -248,6 +248,16 @@ describe('Given the identity of the release commit', () => {
 
     expect(applyCiGitIdentity(cwd, { ...process.env })).toBeUndefined()
     expect(applyCiGitIdentity(cwd, { ...process.env, GIT_AUTHOR_NAME: 'Release Bot' })).toBeUndefined()
+  })
+  it('When the command only reads the repository, Then sets no identity', () => {
+    const cwd = clone(createOrigin())
+    inCI({ GITHUB_ACTIONS: 'true', GITHUB_ACTOR: 'LouisMazel', GITHUB_ACTOR_ID: '12446546' })
+
+    prepareCiRepository(cwd, { commit: false })
+    expect(process.env.GIT_AUTHOR_NAME).toBeUndefined()
+
+    prepareCiRepository(cwd)
+    expect(process.env.GIT_AUTHOR_NAME).toBe('LouisMazel')
   })
 })
 

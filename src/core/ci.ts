@@ -202,16 +202,21 @@ export function applyCiGitIdentity(cwd: string, env: Env = process.env): GitIden
 /**
  * Prepare the repository of a CI job for a command reading the history or
  * committing: once per repository and run, a no-op outside a CI (except the
- * shallow clone warning).
+ * shallow clone warning). `commit: false` for a command that only reads it:
+ * no git identity of the release commit.
  */
-export function prepareCiRepository(cwd: string): void {
+export function prepareCiRepository(cwd: string, { commit = true }: { commit?: boolean } = {}): void {
   oncePerRun({
-    key: 'prepare-ci-repository',
+    key: commit
+      ? 'prepare-ci-repository'
+      : 'prepare-ci-repository-read',
     cwd,
     run: () => {
       ensureFullHistory(cwd)
       attachCiBranch(cwd)
-      applyCiGitIdentity(cwd)
+      if (commit) {
+        applyCiGitIdentity(cwd)
+      }
     },
   })
 }
