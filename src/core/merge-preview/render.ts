@@ -162,7 +162,10 @@ export function formatMergePreviewMarkdown(result: MergePreviewResult): string {
   }
 
   if (checks.problems.length > 0) {
-    lines.push('', '#### ❌ The release of the merge would fail', '', ...checks.problems.map(problem => `- ${problem.message}`))
+    const failing = result.context
+      ? 'The release of the merge would fail'
+      : 'The next release would fail'
+    lines.push('', `#### ❌ ${failing}`, '', ...checks.problems.map(problem => `- ${problem.message}`))
   }
 
   if (checks.warnings.length > 0) {

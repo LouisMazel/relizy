@@ -24,6 +24,7 @@ import {
 import { prepareCiRepository } from '../core/ci'
 import { plural } from '../core/format'
 import { withGitCache } from '../core/git-cache'
+import { tryGitSync } from '../core/git-exec'
 import { planBumps } from './bump'
 import { getReleaseConfig } from './release'
 
@@ -49,9 +50,9 @@ export class MergePreviewError extends Error {
   override name = 'MergePreviewError'
 }
 
-function describeProblems(checks: MergePreviewChecks): string {
+function describeProblems(checks: MergePreviewChecks, context?: MergePreviewContext): string {
   const problems = checks.problems.map(problem => `- ${problem.message}`)
-  return ['The release of the merge would fail:', ...problems].join('\n')
+  return [`${context ? 'The release of the merge' : 'The next release'} would fail:`, ...problems].join('\n')
 }
 
 /** `Pull request` or `Merge request` */
@@ -97,6 +98,14 @@ async function computePreview({ config, options, settings, ui }: {
   try {
     // The CI clone: full history, branch
     prepareCiRepository(config.cwd, { commit: false })
+    if (!tryGitSync([
+      'rev-parse',
+      '--verify',
+      '--quiet',
+      'HEAD',
+    ], { cwd: config.cwd })) {
+      throw new Error('The repository has no commit yet: commit first, nothing can be released before')
+    }
 
     const pullRequest = getMergePreviewPullRequest()
     if (pullRequest) {
@@ -262,7 +271,7 @@ function getReport(result: MergePreviewResult): ReleaseReport {
     },
     ...(checks.problems.length > 0
       ? {
-          error: describeProblems(checks),
+          error: describeProblems(checks, context),
         }
       : {}),
   }
@@ -292,9 +301,18 @@ export function mergePreview(options: MergePreviewOptions = {}): Promise<Release
   return withGitCache(() => runMergePreview(options))
 }
 
+/** The branch of the preview, also in a repository without commit (`git rev-parse` fails there) */
+function getBranch(cwd: string): string {
+  try {
+    return getCurrentGitBranch(cwd)
+  }
+  catch {
+    return tryGitSync(['symbolic-ref', '--short', 'HEAD'], { cwd }) ?? 'HEAD'
+  }
+}
+
 async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseReport> {
   const config = await getReleaseConfig(options)
-  const settings = getSettings(config, options)
   const ui = createCommandUi({
     title: 'relizy merge-preview',
     // Not a dry run: nothing is written in the repository, but the comment and the commit status are posted
@@ -302,6 +320,21 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
     logLevel: config.logLevel,
     cwd: config.cwd,
   })
+
+  try {
+    return await previewMerge({ config, options, ui })
+  }
+  catch (error) {
+    // The problems of the preview are already shown, an unexpected error is shown here
+    if (!(error instanceof MergePreviewError)) {
+      ui.fail(error, 'Merge preview')
+    }
+    throw error
+  }
+}
+
+async function previewMerge({ config, options, ui }: { config: ResolvedRelizyConfig, options: MergePreviewOptions, ui: ReleaseUi }): Promise<ReleaseReport> {
+  const settings = getSettings(config, options)
   const { context, plan, checks } = await computePreview({ config, options, settings, ui })
 
   const outcome = plan?.outcome
@@ -316,7 +349,7 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
       enabled: Boolean(config.release.publish),
       distTag: getPublishTag(version, config.publish.tag),
     },
-    branch: context?.pullRequest.targetBranch ?? getCurrentGitBranch(config.cwd),
+    branch: context?.pullRequest.targetBranch ?? getBranch(config.cwd),
   }
 
   if (context) {
@@ -342,7 +375,7 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
   })
 
   if (failed) {
-    const error = new MergePreviewError(describeProblems(checks))
+    const error = new MergePreviewError(describeProblems(checks, context))
     // Already shown by the output of the command
     markErrorReported(error)
     throw error

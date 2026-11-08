@@ -204,4 +204,21 @@ describe('Given the merge preview of a GitHub pull request', () => {
       expect.objectContaining({ target_url: 'https://github.com/test/repo/actions/runs/42' }),
     ])
   })
+
+  it('When the repository has no commit yet, Then fails with a clear message', async () => {
+    const empty = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-merge-preview-empty-')))
+    execFileSync('git', ['init', '--quiet'], { cwd: empty })
+    writeFileSync(join(empty, 'package.json'), JSON.stringify({ name: 'empty', version: '0.0.0' }))
+    vi.stubEnv('GITHUB_BASE_REF', undefined)
+    vi.stubEnv('GITHUB_EVENT_PATH', undefined)
+    process.chdir(empty)
+
+    try {
+      await expect(mergePreview({ comment: false, check: false })).rejects.toThrow('The next release would fail:\n- The repository has no commit yet')
+    }
+    finally {
+      process.chdir(cwd)
+      rmSync(empty, { recursive: true, force: true })
+    }
+  })
 })
