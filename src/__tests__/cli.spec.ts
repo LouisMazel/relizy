@@ -7,7 +7,7 @@ import { createGitRepository } from '../../tests/git-repository'
 import { writeOutdatedRules } from '../mcp/__tests__/helpers'
 
 /** The variables that would give relizy a token, or the output of a CI */
-const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITLAB_CI|GITHUB_BASE_REF|GITHUB_EVENT_PATH|FORCE_COLOR|NO_COLOR)$|^CI_MERGE_REQUEST_|TOKEN|TWITTER|SLACK/
+const IGNORED_VARIABLES = /^(?:CI|GITHUB_ACTIONS|GITHUB_WORKFLOW|GITLAB_CI|GITHUB_BASE_REF|GITHUB_EVENT_PATH|FORCE_COLOR|NO_COLOR)$|^CI_MERGE_REQUEST_|TOKEN|TWITTER|SLACK/
 
 describe('Given the relizy CLI', () => {
   let repository: GitRepository
