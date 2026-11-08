@@ -39,14 +39,54 @@ import HomeModes from './HomeModes.vue'
  */
 
 const pipeline = [
-  { icon: MazTag, title: 'Versions', text: 'From your Conventional Commits, dependents included', href: '/cli/bump' },
-  { icon: MazDocumentText, title: 'Changelogs', text: 'One per package, and the root one', href: '/guide/changelog' },
-  { icon: MazCube, title: 'Publish', text: 'npm, pnpm, yarn or bun, any registry', href: '/cli/publish' },
-  { icon: MazCodeBracket, title: 'Commit & tag', text: 'The release commit and its tags', href: '/config/commit-templates' },
-  { icon: MazCloudArrowUp, title: 'Push', text: 'Guarded against a stale branch', href: '/config/release' },
-  { icon: MazRocketLaunch, title: 'Releases', text: 'GitHub or GitLab, notes rewritten by AI', href: '/cli/provider-release' },
-  { icon: MazMegaphone, title: 'Announce', text: 'One post on X, on Slack, on Teams', href: '/guide/social-media' },
-  { icon: MazChatBubbleLeftRight, title: 'PR comment', text: 'The summary of the release', href: '/guide/pr-comment' },
+  {
+    icon: MazTag,
+    title: 'Versions',
+    text: 'From your Conventional Commits, dependents included',
+    href: '/cli/bump',
+  },
+  {
+    icon: MazDocumentText,
+    title: 'Changelogs',
+    text: 'One per package, and the root one',
+    href: '/guide/changelog',
+  },
+  {
+    icon: MazCube,
+    title: 'Publish',
+    text: 'npm, pnpm, yarn or bun, any registry',
+    href: '/cli/publish',
+  },
+  {
+    icon: MazCodeBracket,
+    title: 'Commit & tag',
+    text: 'The release commit and its tags',
+    href: '/config/commit-templates',
+  },
+  {
+    icon: MazCloudArrowUp,
+    title: 'Push',
+    text: 'Guarded against a stale branch',
+    href: '/config/release',
+  },
+  {
+    icon: MazRocketLaunch,
+    title: 'Releases',
+    text: 'GitHub or GitLab, notes rewritten by AI',
+    href: '/cli/provider-release',
+  },
+  {
+    icon: MazMegaphone,
+    title: 'Announce',
+    text: 'One post on X, on Slack, on Teams',
+    href: '/guide/social-media',
+  },
+  {
+    icon: MazChatBubbleLeftRight,
+    title: 'PR comment',
+    text: 'The summary of the release',
+    href: '/guide/pr-comment',
+  },
 ]
 
 const ecosystem = [
@@ -82,7 +122,10 @@ export default defineConfig({
 })`
 
 /** The release job of the CI, shown on the page */
-const ciTabs = [{ label: 'GitHub Actions' }, { label: 'GitLab CI' }]
+const ciTabs = [
+  { label: 'GitHub Actions' },
+  { label: 'GitLab CI' },
+]
 const ciTab = ref(1)
 
 const ciSnippets = [
