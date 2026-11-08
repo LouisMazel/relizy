@@ -27,7 +27,9 @@ async function fetchText(path: string): Promise<string> {
 function getMarkdownPath(path: string): string {
   const pathname = new URL(path, globalThis.location.origin).pathname.replace(/(?:\.html|\.md)?\/?$/, '')
 
-  return pathname === '' ? '/llms.txt' : `${pathname}.md`
+  return pathname === ''
+    ? '/llms.txt'
+    : `${pathname}.md`
 }
 
 const tools: ModelContextTool[] = [
@@ -45,7 +47,9 @@ const tools: ModelContextTool[] = [
     description: 'Find the documentation pages of Relizy whose title or description contains all the words of the query. Returns the matching lines of the index, with the path of each page.',
     inputSchema: {
       type: 'object',
-      properties: { query: { type: 'string', description: 'Words to look for, e.g. "version groups" or "github release"' } },
+      properties: {
+        query: { type: 'string', description: 'Words to look for, e.g. "version groups" or "github release"' },
+      },
       required: ['query'],
     },
     annotations: { readOnlyHint: true },
@@ -54,7 +58,9 @@ const tools: ModelContextTool[] = [
       const lines = (await fetchText('/llms.txt')).split('\n').filter(line => line.startsWith('- ['))
       const matches = lines.filter(line => words.every(word => line.toLowerCase().includes(word)))
 
-      return matches.length > 0 ? matches.join('\n') : `No page matches "${query}". Use list_docs to see all the pages.`
+      return matches.length > 0
+        ? matches.join('\n')
+        : `No page matches "${query}". Use list_docs to see all the pages.`
     },
   },
   {
@@ -63,10 +69,14 @@ const tools: ModelContextTool[] = [
     description: 'Content of a documentation page of Relizy in markdown, from its path (e.g. "/guide/version-modes" or "/config/monorepo"). Defaults to the current page.',
     inputSchema: {
       type: 'object',
-      properties: { path: { type: 'string', description: 'Path of the page, as given by list_docs or search_docs' } },
+      properties: {
+        path: { type: 'string', description: 'Path of the page, as given by list_docs or search_docs' },
+      },
     },
     annotations: { readOnlyHint: true },
-    execute: ({ path }) => fetchText(getMarkdownPath(typeof path === 'string' && path ? path : globalThis.location.pathname)),
+    execute: ({ path }) => fetchText(getMarkdownPath(typeof path === 'string' && path
+      ? path
+      : globalThis.location.pathname)),
   },
 ]
 

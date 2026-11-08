@@ -38,13 +38,15 @@ export function writeAgentSkills(outDir: string, siteUrl: string) {
   write(outDir, skillPath, skill)
   write(outDir, '.well-known/agent-skills/index.json', `${JSON.stringify({
     $schema: 'https://schemas.agentskills.io/discovery/0.2.0/schema.json',
-    skills: [{
-      name: SKILL.name,
-      type: 'skill-md',
-      description: SKILL.description,
-      url: `${siteUrl}/${skillPath}`,
-      digest: `sha256:${createHash('sha256').update(skill).digest('hex')}`,
-    }],
+    skills: [
+      {
+        name: SKILL.name,
+        type: 'skill-md',
+        description: SKILL.description,
+        url: `${siteUrl}/${skillPath}`,
+        digest: `sha256:${createHash('sha256').update(skill).digest('hex')}`,
+      },
+    ],
   }, null, 2)}\n`)
 }
 
