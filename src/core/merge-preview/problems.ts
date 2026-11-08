@@ -32,7 +32,9 @@ function canSquash(plan: MergePreviewPlan): boolean {
 
 /** The outcomes of the plan: the release of the merge, and the one of a squash merge when it differs */
 function getOutcomes(plan: MergePreviewPlan): MergePreviewOutcome[] {
-  return plan.squashOutcome ? [plan.outcome, plan.squashOutcome] : [plan.outcome]
+  return plan.squashOutcome
+    ? [plan.outcome, plan.squashOutcome]
+    : [plan.outcome]
 }
 
 async function checkPublishedVersions(config: ResolvedRelizyConfig, outcome: MergePreviewOutcome, checks: MergePreviewChecks): Promise<void> {
@@ -45,9 +47,17 @@ async function checkPublishedVersions(config: ResolvedRelizyConfig, outcome: Mer
     const registryTargets = resolveRegistryTargetsForPackage(pkg, config)
     return registryTargets.map(async (registryTarget) => {
       const version = pkg.newVersion!
-      const published = await isVersionPublished({ pkg, version, config, packageManager: config.publish.packageManager, registryTarget })
+      const published = await isVersionPublished({
+        pkg,
+        version,
+        config,
+        packageManager: config.publish.packageManager,
+        registryTarget,
+      })
       // The registry is only named when the package is published to several ones, as the publish does
-      const registry = registryTargets.length > 1 ? ` (${registryTarget.name ?? registryTarget.registry ?? 'default'})` : ''
+      const registry = registryTargets.length > 1
+        ? ` (${registryTarget.name ?? registryTarget.registry ?? 'default'})`
+        : ''
       if (published) {
         checks.problems.push({ kind: 'version-taken', message: `${pkg.name}@${version} is already published${registry}: the publish would fail. Check the versions in the package.json files, they are behind the latest release` })
       }
@@ -64,12 +74,22 @@ async function checkRemoteTags(config: ResolvedRelizyConfig, outcome: MergePrevi
   }
 
   const { bumpedPackages, newVersion, groups } = outcome.bumpResult
-  const tags = getReleaseTagNames({ config, bumpedPackages, newVersion, groups })
+  const tags = getReleaseTagNames({
+    config,
+    bumpedPackages,
+    newVersion,
+    groups,
+  })
   if (tags.length === 0) {
     return
   }
 
-  const output = await tryGit(['ls-remote', '--tags', 'origin', ...tags.map(tag => `refs/tags/${tag}`)], { cwd: config.cwd })
+  const output = await tryGit([
+    'ls-remote',
+    '--tags',
+    'origin',
+    ...tags.map(tag => `refs/tags/${tag}`),
+  ], { cwd: config.cwd })
   if (output === undefined) {
     checks.warnings.push('Could not check the tags of the remote')
     return
@@ -106,21 +126,47 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
   option: 'auto' | boolean
   checks: MergePreviewChecks
 }): Promise<void> {
-  const enabled = option === 'auto' ? isSetInUserConfig(config, 'commitlint') || hasRelizyCommitMsgHook(config.cwd) : option
+  const enabled = option === 'auto'
+    ? isSetInUserConfig(config, 'commitlint') || hasRelizyCommitMsgHook(config.cwd)
+    : option
   if (!enabled) {
     return
   }
 
   const packages = getWorkspacePackages(config)
   const commits = getCommitsInRange({ from: context.targetSha, to: context.headSha, cwd: config.cwd })
-  const squash = canSquash(plan) ? plan.squash.squash : undefined
+  const squash = canSquash(plan)
+    ? plan.squash.squash
+    : undefined
   const entries = [
-    ...(squash ? [{ label: 'the squash commit', message: squash.commit.message, files: [...new Set(commits.flatMap(commit => commit.files))], hash: undefined }] : []),
-    ...commits.map(commit => ({ label: commit.hash.slice(0, 7), message: commit.message, files: commit.files, hash: commit.hash })),
+    ...(squash
+      ? [
+          {
+            label: 'the squash commit',
+            message: squash.commit.message,
+            files: [
+              ...new Set(commits.flatMap(commit => commit.files)),
+            ],
+            hash: undefined,
+          },
+        ]
+      : []),
+    ...commits.map(commit => ({
+      label: commit.hash.slice(0, 7),
+      message: commit.message,
+      files: commit.files,
+      hash: commit.hash,
+    })),
   ]
 
   for (const entry of entries) {
-    const result = await lintCommitMessage(entry.message, { config, packages, files: entry.files, hash: entry.hash, suggest: false })
+    const result = await lintCommitMessage(entry.message, {
+      config,
+      packages,
+      files: entry.files,
+      hash: entry.hash,
+      suggest: false,
+    })
     const errors = result.problems.filter(problem => problem.severity === 'error')
     if (errors.length > 0) {
       checks.problems.push({
@@ -143,19 +189,35 @@ export async function checkMergePreview({ config, plan, context, commitlint }: {
   context?: MergePreviewContext
   commitlint: 'auto' | boolean
 }): Promise<MergePreviewChecks> {
-  const checks: MergePreviewChecks = { problems: [], warnings: context?.warning ? [context.warning] : [] }
+  const checks: MergePreviewChecks = {
+    problems: [],
+    warnings: context?.warning
+      ? [context.warning]
+      : [],
+  }
 
   for (const outcome of getOutcomes(plan)) {
-    await Promise.all([checkPublishedVersions(config, outcome, checks), checkRemoteTags(config, outcome, checks)])
+    await Promise.all([
+      checkPublishedVersions(config, outcome, checks),
+      checkRemoteTags(config, outcome, checks),
+    ])
   }
   if (context) {
     checkSquashTitle(plan, context, checks)
-    await checkCommitlint({ config, plan, context, option: commitlint, checks })
+    await checkCommitlint({
+      config,
+      plan,
+      context,
+      option: commitlint,
+      checks,
+    })
   }
 
   // The same version or tag found by both outcomes is one problem
   checks.problems = checks.problems.filter((problem, index) => checks.problems.findIndex(other => other.message === problem.message) === index)
-  checks.warnings = [...new Set(checks.warnings)]
+  checks.warnings = [
+    ...new Set(checks.warnings),
+  ]
 
   return checks
 }

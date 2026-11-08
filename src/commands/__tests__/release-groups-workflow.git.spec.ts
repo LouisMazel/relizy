@@ -13,7 +13,11 @@ import { release } from '../release'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
-vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn(), assertInteractivePrompt: vi.fn(), BUMP_NOT_INTERACTIVE: '' }))
+vi.mock('../../core/prompts', () => ({
+  askConfirm: vi.fn(),
+  assertInteractivePrompt: vi.fn(),
+  BUMP_NOT_INTERACTIVE: '',
+}))
 
 // Only the registry is mocked: publishing and querying the published versions
 vi.mock('../../core/npm', async (importActual) => {
@@ -85,13 +89,20 @@ describe('Given a release with version groups on a real git repository', () => {
     let changedFiles: Record<string, string>
 
     function readFiles(paths: string[]): Record<string, string> {
-      return Object.fromEntries(paths.map(path => [path, readFileSync(join(releaseRepo.cwd, path), 'utf8')]))
+      return Object.fromEntries(paths.map(path => [
+        path,
+        readFileSync(join(releaseRepo.cwd, path), 'utf8'),
+      ]))
     }
 
     beforeEach(() => {
       // An uncommitted change in a package bumped by the release, another in a package not bumped
       writeJson('packages/components', { name: '@scope/components', version: '6.19.1', description: 'uncommitted' })
-      writeJson('packages/theme', { name: '@scope/theme', version: '6.18.0', keywords: ['uncommitted'] })
+      writeJson('packages/theme', {
+        name: '@scope/theme',
+        version: '6.18.0',
+        keywords: ['uncommitted'],
+      })
       writeJson('packages/draft', { name: '@scope/draft', version: '0.0.0', private: true })
       changedFiles = readFiles(['packages/components/package.json', 'packages/theme/package.json', untrackedPackage])
     })
@@ -111,10 +122,19 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then leaves every file untouched in dry-run', async () => {
-      const files = ['package.json', 'shared/nav/package.json', ...Object.keys(changedFiles)]
+      const files = [
+        'package.json',
+        'shared/nav/package.json',
+        ...Object.keys(changedFiles),
+      ]
       const before = readFiles(files)
 
-      await release({ canary: true, yes: true, clean: false, dryRun: true })
+      await release({
+        canary: true,
+        yes: true,
+        clean: false,
+        dryRun: true,
+      })
       await release({ yes: true, clean: false, dryRun: true })
 
       expect(readFiles(files)).toEqual(before)
@@ -150,7 +170,10 @@ describe('Given a release with version groups on a real git repository', () => {
 
   describe('When releasing a single group', () => {
     it('Then only releases the packages of that group', async () => {
-      await release({ yes: true, groups: ['header'] })
+      await release({
+        yes: true,
+        groups: ['header'],
+      })
 
       expect(readVersion('.')).toBe('6.19.1')
       expect(readVersion('packages/components')).toBe('6.19.1')
@@ -176,7 +199,11 @@ describe('Given a release with version groups on a real git repository', () => {
   describe('When a workspace dependency resolves to a version missing from the registry', () => {
     it('Then fails before publishing anything and rolls back the release files', async () => {
       writeJson('shared/internal', { name: '@scope/internal', version: '0.1.0', private: true })
-      writeJson('shared/login', { name: '@scope/login', version: '2.0.0', dependencies: { '@scope/internal': 'workspace:*' } })
+      writeJson('shared/login', {
+        name: '@scope/login',
+        version: '2.0.0',
+        dependencies: { '@scope/internal': 'workspace:*' },
+      })
       git('add', '-A')
       git('commit', '--no-verify', '-m', 'fix(login): use the internal package')
       vi.mocked(isVersionPublished).mockImplementation(({ pkg }) => Promise.resolve(pkg.name !== '@scope/internal'))

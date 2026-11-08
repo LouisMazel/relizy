@@ -35,14 +35,23 @@ export const TOOLS: ToolDefinition[] = [
 export async function runTool(context: ServerContext, tool: ToolDefinition, args: unknown): Promise<CallToolResult> {
   try {
     // One git cache per call: the tools read the same refs and ranges for each package
-    return { content: [{ type: 'text', text: await withGitCache(() => tool.run(context, args)) }] }
+    return {
+      content: [
+        { type: 'text', text: await withGitCache(() => tool.run(context, args)) },
+      ],
+    }
   }
   catch (error) {
     const message = error instanceof ToolInputError
       ? error.message
       : `Unexpected error in ${tool.name}: ${getErrorMessage(error)}. Retry with other arguments, or run the relizy CLI with \`--dry-run\` (e.g. \`relizy release --dry-run\`).`
 
-    return { content: [{ type: 'text', text: message }], isError: true }
+    return {
+      content: [
+        { type: 'text', text: message },
+      ],
+      isError: true,
+    }
   }
 }
 
@@ -55,7 +64,9 @@ export function createRelizyMcpServer(options: CreateContextOptions = {}): { ser
   const context = createContext(options)
   const server = new McpServer(
     { name: 'relizy', title: 'relizy', version: context.version },
-    { instructions: buildInstructions(context) },
+    {
+      instructions: buildInstructions(context),
+    },
   )
 
   captureLogs()

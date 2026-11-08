@@ -48,13 +48,22 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
         continue
       }
 
-      const packages: ChangelogPackage[] = result.bumpedPackages.flatMap(pkg => pkg.newVersion && pkg.path !== plan.config.cwd ? [{ ...pkg, newVersion: pkg.newVersion }] : [])
+      const packages: ChangelogPackage[] = result.bumpedPackages.flatMap(pkg => pkg.newVersion && pkg.path !== plan.config.cwd
+        ? [
+            { ...pkg, newVersion: pkg.newVersion },
+          ]
+        : [])
 
       // As `relizy changelog`: the root changelog of an independent release aggregates the changelogs of its packages
       if (set.config.changelog.rootChangelog) {
         if (set.versionMode !== 'independent' && result.rootPackage && result.newVersion) {
           const rootPackage = { ...result.rootPackage, newVersion: result.newVersion }
-          targets.push({ label: `root (${rootPackage.name})`, file: 'CHANGELOG.md', packageName: rootPackage.name, generate: () => generate(rootPackage, set.config) })
+          targets.push({
+            label: `root (${rootPackage.name})`,
+            file: 'CHANGELOG.md',
+            packageName: rootPackage.name,
+            generate: () => generate(rootPackage, set.config),
+          })
         }
         else if (set.versionMode === 'independent' && packages.length > 0) {
           const rootName = readPackageJson(plan.config.cwd)?.name ?? 'root'
@@ -68,15 +77,24 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
       }
 
       for (const pkg of packages) {
-        targets.push({ label: pkg.name, file: `${relativePath(plan.config.cwd, pkg.path)}/CHANGELOG.md`, packageName: pkg.name, generate: () => generate(pkg, set.config) })
+        targets.push({
+          label: pkg.name,
+          file: `${relativePath(plan.config.cwd, pkg.path)}/CHANGELOG.md`,
+          packageName: pkg.name,
+          generate: () => generate(pkg, set.config),
+        })
       }
     }
 
-    const selected = args.package ? targets.filter(target => target.packageName === args.package || (args.package === 'root' && target.file === 'CHANGELOG.md')) : targets
+    const selected = args.package
+      ? targets.filter(target => target.packageName === args.package || (args.package === 'root' && target.file === 'CHANGELOG.md'))
+      : targets
 
     if (args.package && selected.length === 0) {
       const released = codeList(targets.map(target => target.packageName)) || 'nothing'
-      const root = targets.some(target => target.file === 'CHANGELOG.md') ? ' (and `root`)' : ''
+      const root = targets.some(target => target.file === 'CHANGELOG.md')
+        ? ' (and `root`)'
+        : ''
 
       throw new ToolInputError(`"${args.package}" is not released by this release. Released: ${released}${root}.`)
     }
@@ -98,7 +116,12 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
   let size = 0
 
   for (const { target, changelog } of value) {
-    const section = [`## ${target.label} → \`${target.file}\``, '', changelog || '_Empty: no commit of this package appears in the changelog._', ''].join('\n')
+    const section = [
+      `## ${target.label} → \`${target.file}\``,
+      '',
+      changelog || '_Empty: no commit of this package appears in the changelog._',
+      '',
+    ].join('\n')
 
     if (size + section.length > MAX_CHANGELOGS_CHARS) {
       lines.push(`The other changelogs are cut (${value.length} in total): request them one by one with \`package\`.`)
@@ -113,7 +136,9 @@ export async function previewChangelog(context: ServerContext, args: PreviewChan
 
   const notes = formatNotes(logs)
 
-  return notes ? `${lines.join('\n')}\n\n${notes}` : lines.join('\n')
+  return notes
+    ? `${lines.join('\n')}\n\n${notes}`
+    : lines.join('\n')
 }
 
 export const previewChangelogTool = defineTool({

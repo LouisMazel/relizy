@@ -71,14 +71,20 @@ export function resolveAnnouncement(line: ReleaseLine, { announcements, exclude 
   }
 
   const groupName = line.group.name
-  const groupEntry = groupName ? announcements.find(entry => entry.group === groupName) : undefined
+  const groupEntry = groupName
+    ? announcements.find(entry => entry.group === groupName)
+    : undefined
   const packageEntry = announcements.find(entry => entry.package !== undefined && micromatch.isMatch(line.name, entry.package))
 
   if (!groupEntry && !packageEntry) {
     return undefined
   }
 
-  return { ...base, ...(groupEntry && pickContent(groupEntry)), ...(packageEntry && pickContent(packageEntry)) }
+  return {
+    ...base,
+    ...(groupEntry && pickContent(groupEntry)),
+    ...(packageEntry && pickContent(packageEntry)),
+  }
 }
 
 /** `@scope/ui` gives `ui` */
@@ -135,7 +141,9 @@ export function getAnnouncementVariables({ config, version, content, projectName
     changelogUrl: '',
   }
 
-  const changelogFile = version.changelogDir === undefined ? undefined : [version.changelogDir, 'CHANGELOG.md'].filter(Boolean).join('/')
+  const changelogFile = version.changelogDir === undefined
+    ? undefined
+    : [version.changelogDir, 'CHANGELOG.md'].filter(Boolean).join('/')
   const changelogUrl = content.changelogUrl === false
     ? ''
     : (content.changelogUrl && fillTemplate(content.changelogUrl, { ...variables }))
@@ -163,6 +171,9 @@ export function getAnnouncementLinks(content: SocialAnnouncementContent, variabl
     { title: '📝 Changelog', url: variables.changelogUrl },
     ...(content.links ?? []),
   ]
-    .map(link => ({ title: fillAnnouncementText(link.title, variables), url: fillAnnouncementText(link.url, variables) }))
+    .map(link => ({
+      title: fillAnnouncementText(link.title, variables),
+      url: fillAnnouncementText(link.url, variables),
+    }))
     .filter(link => link.title && link.url)
 }

@@ -31,7 +31,9 @@ export async function setMergePreviewStatus({ config, context, failed, descripti
   const { provider } = context.pullRequest
   const api = getProviderApi(config, provider)
   if (!api) {
-    logger.warn(`No ${provider === 'github' ? 'GitHub' : 'GitLab'} token or repository to set the commit status of the merge preview`)
+    logger.warn(`No ${provider === 'github'
+      ? 'GitHub'
+      : 'GitLab'} token or repository to set the commit status of the merge preview`)
     return false
   }
   if (provider === 'gitlab' && isGitlabJobToken(config.tokens.gitlab ?? '')) {
@@ -41,8 +43,22 @@ export async function setMergePreviewStatus({ config, context, failed, descripti
 
   const targetUrl = getJobUrl()
   const body = provider === 'github'
-    ? { state: failed ? 'failure' : 'success', context: MERGE_PREVIEW_STATUS_CONTEXT, description, ...(targetUrl ? { target_url: targetUrl } : {}) }
-    : { state: failed ? 'failed' : 'success', name: MERGE_PREVIEW_STATUS_CONTEXT, description, ...(targetUrl ? { target_url: targetUrl } : {}) }
+    ? {
+        state: failed ? 'failure' : 'success',
+        context: MERGE_PREVIEW_STATUS_CONTEXT,
+        description,
+        ...(targetUrl
+          ? { target_url: targetUrl }
+          : {}),
+      }
+    : {
+        state: failed ? 'failed' : 'success',
+        name: MERGE_PREVIEW_STATUS_CONTEXT,
+        description,
+        ...(targetUrl
+          ? { target_url: targetUrl }
+          : {}),
+      }
 
   try {
     await api.request('POST', `/statuses/${context.headSha}`, body)
@@ -50,7 +66,9 @@ export async function setMergePreviewStatus({ config, context, failed, descripti
     return true
   }
   catch (error) {
-    logger.warn(`Failed to set the commit status of the merge preview: ${error instanceof Error ? error.message : String(error)}`)
+    logger.warn(`Failed to set the commit status of the merge preview: ${error instanceof Error
+      ? error.message
+      : String(error)}`)
     return false
   }
 }

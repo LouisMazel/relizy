@@ -74,7 +74,9 @@ const RELEASE_TYPES = ['auto', 'patch', 'minor', 'major']
 function getDefaultBranch(cwd: string): string {
   const remoteHead = (tryGitSync(['symbolic-ref', '--short', 'refs/remotes/origin/HEAD'], { cwd }) ?? '').replace(/^origin\//, '')
   const current = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
-  return remoteHead || (current && current !== 'HEAD' ? current : 'main')
+  return remoteHead || (current && current !== 'HEAD'
+    ? current
+    : 'main')
 }
 
 function getNodeVersion(cwd: string): Pick<WorkflowOptions, 'nodeVersionFile' | 'nodeVersion'> {
@@ -84,7 +86,10 @@ function getNodeVersion(cwd: string): Pick<WorkflowOptions, 'nodeVersionFile' | 
   }
 
   const major = /^v?(\d+)/.exec(readFileSync(join(cwd, file), 'utf8').trim())?.[1]
-  return { nodeVersionFile: file, ...(major && { nodeVersion: major }) }
+  return {
+    nodeVersionFile: file,
+    ...(major && { nodeVersion: major }),
+  }
 }
 
 /**
@@ -107,7 +112,9 @@ export function getWorkflowOptions({ detection, answers, trigger, commitMessage,
   const { cwd } = detection
 
   return {
-    provider: detection.provider === 'gitlab' ? 'gitlab' : 'github',
+    provider: detection.provider === 'gitlab'
+      ? 'gitlab'
+      : 'github',
     trigger,
     packageManager: detection.packageManager,
     branch: getDefaultBranch(cwd),
@@ -148,14 +155,37 @@ export function getRelizyCommand(packageManager: PackageManager): string {
  */
 function getSecrets(options: WorkflowOptions): [variable: string, secret: string][] {
   return [
-    ...(options.publish ? [['RELIZY_NPM_TOKEN', 'NPM_TOKEN'] as [string, string]] : []),
-    ...(options.twitter
-      ? (['API_KEY', 'API_KEY_SECRET', 'ACCESS_TOKEN', 'ACCESS_TOKEN_SECRET'].map(name => [`RELIZY_TWITTER_${name}`, `TWITTER_${name}`]) as [string, string][])
+    ...(options.publish
+      ? [
+          ['RELIZY_NPM_TOKEN', 'NPM_TOKEN'] as [string, string],
+        ]
       : []),
-    ...(options.slack ? [['RELIZY_SLACK_TOKEN', 'SLACK_TOKEN'] as [string, string]] : []),
+    ...(options.twitter
+      ? ([
+          'API_KEY',
+          'API_KEY_SECRET',
+          'ACCESS_TOKEN',
+          'ACCESS_TOKEN_SECRET',
+        ].map(name => [`RELIZY_TWITTER_${name}`, `TWITTER_${name}`]) as [string, string][])
+      : []),
+    ...(options.slack
+      ? [
+          ['RELIZY_SLACK_TOKEN', 'SLACK_TOKEN'] as [string, string],
+        ]
+      : []),
     // A masked GitLab variable refuses the characters of the URL: its base64
-    ...(options.teams ? [(options.provider === 'gitlab' ? ['RELIZY_TEAMS_WEBHOOK_URL_B64', 'TEAMS_WEBHOOK_URL_B64'] : ['RELIZY_TEAMS_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL']) as [string, string]] : []),
-    ...(options.ai ? [['RELIZY_CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'] as [string, string]] : []),
+    ...(options.teams
+      ? [
+          (options.provider === 'gitlab'
+            ? ['RELIZY_TEAMS_WEBHOOK_URL_B64', 'TEAMS_WEBHOOK_URL_B64']
+            : ['RELIZY_TEAMS_WEBHOOK_URL', 'TEAMS_WEBHOOK_URL']) as [string, string],
+        ]
+      : []),
+    ...(options.ai
+      ? [
+          ['RELIZY_CLAUDE_CODE_OAUTH_TOKEN', 'CLAUDE_CODE_OAUTH_TOKEN'] as [string, string],
+        ]
+      : []),
   ]
 }
 
@@ -164,7 +194,9 @@ function getSecrets(options: WorkflowOptions): [variable: string, secret: string
  */
 export function getWorkflowSecrets(options: WorkflowOptions): string[] {
   return [
-    ...(options.provider === 'gitlab' ? ['GITLAB_TOKEN'] : []),
+    ...(options.provider === 'gitlab'
+      ? ['GITLAB_TOKEN']
+      : []),
     ...getSecrets(options).map(([, secret]) => secret),
   ]
 }
@@ -195,7 +227,9 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     : ['on:', '  push:', `    branches: [${options.branch}]`]
   // The inputs of the action take the name of the variables: RELIZY_NPM_TOKEN is npm-token
   const inputs = [
-    ...(options.trigger === 'manual' ? [`          release-type: ${expression('inputs.release')}`] : []),
+    ...(options.trigger === 'manual'
+      ? [`          release-type: ${expression('inputs.release')}`]
+      : []),
     ...getSecrets(options).map(([variable, secret]) => `          ${variable.replace(/^RELIZY_/, '').toLowerCase().replaceAll('_', '-')}: ${secretExpression(secret)}`),
   ]
 
@@ -214,8 +248,12 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     '    permissions:',
     '      # The release commit, the tags and the GitHub release',
     '      contents: write',
-    ...(options.prComment ? ['      # The comment of the pull request of the release', '      pull-requests: write', '      issues: write'] : []),
-    ...(options.publish ? ['      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com', '      id-token: write'] : []),
+    ...(options.prComment
+      ? ['      # The comment of the pull request of the release', '      pull-requests: write', '      issues: write']
+      : []),
+    ...(options.publish
+      ? ['      # npm trusted publishing (OIDC): publishes without NPM_TOKEN once set up on npmjs.com', '      id-token: write']
+      : []),
     '    steps:',
     '      - uses: actions/checkout@v7',
     '        with:',
@@ -224,7 +262,9 @@ function renderGithubWorkflow(options: WorkflowOptions): string {
     '      # Sets up Node.js and the package manager, installs the dependencies and runs relizy release',
     '      - id: release',
     `        uses: ${GITHUB_ACTION}`,
-    ...(inputs.length > 0 ? ['        with:', ...inputs] : []),
+    ...(inputs.length > 0
+      ? ['        with:', ...inputs]
+      : []),
     '      # The outputs of the release, for the next steps',
     `      - if: steps.release.outputs.released == 'true'`,
     `        run: echo "Released ${expression('steps.release.outputs.version')} (${expression('steps.release.outputs.tags')})"`,
@@ -241,7 +281,9 @@ function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
   const inputs = [
     '          merge-preview: true',
     // The registry tells whether a version is already published
-    ...(options.publish ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`] : []),
+    ...(options.publish
+      ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`]
+      : []),
   ]
 
   return [
@@ -284,11 +326,19 @@ function renderGithubMergePreviewWorkflow(options: WorkflowOptions): string {
 function getGitlabSetup(options: WorkflowOptions): string[] {
   return [
     // Node 25+ no longer ships corepack: installed first, it pins the version of the `packageManager` field
-    ...(options.packageManager === 'pnpm' || options.packageManager === 'yarn' ? ['    - npm install -g corepack && corepack enable'] : []),
-    ...(options.packageManager === 'bun' ? ['    - npm install -g bun'] : []),
+    ...(options.packageManager === 'pnpm' || options.packageManager === 'yarn'
+      ? ['    - npm install -g corepack && corepack enable']
+      : []),
+    ...(options.packageManager === 'bun'
+      ? ['    - npm install -g bun']
+      : []),
     `    - ${getInstallDependenciesCommand(options)}`,
-    ...(options.publish ? [`    # ${TRUSTED_PUBLISHING_COMMENT}`, '    - npm install -g npm@latest'] : []),
-    ...(options.ai ? ['    # The claude-code provider of the AI rewrites runs the claude CLI', '    - npm install -g @anthropic-ai/claude-code'] : []),
+    ...(options.publish
+      ? [`    # ${TRUSTED_PUBLISHING_COMMENT}`, '    - npm install -g npm@latest']
+      : []),
+    ...(options.ai
+      ? ['    # The claude-code provider of the AI rewrites runs the claude CLI', '    - npm install -g @anthropic-ai/claude-code']
+      : []),
   ]
 }
 
@@ -329,11 +379,19 @@ function quote(value: string): string {
 function renderGitlabComponent(options: WorkflowOptions): string {
   const prefix = options.releaseCommitPrefix
   // An empty message never matches: an empty regular expression would match every commit
-  const skipCommit = prefix ? `^${escapeRegExp(prefix)}` : '^$'
+  const skipCommit = prefix
+    ? `^${escapeRegExp(prefix)}`
+    : '^$'
   const inputs = [
-    ...(options.trigger === 'push' ? ['      when: on_success'] : []),
-    ...(options.nodeVersion ? [`      image: node:${options.nodeVersion}`] : []),
-    ...(prefix === DEFAULT_RELEASE_COMMIT_PREFIX ? [] : [`      skip-commit: ${quote(skipCommit)}`]),
+    ...(options.trigger === 'push'
+      ? ['      when: on_success']
+      : []),
+    ...(options.nodeVersion
+      ? [`      image: node:${options.nodeVersion}`]
+      : []),
+    ...(prefix === DEFAULT_RELEASE_COMMIT_PREFIX
+      ? []
+      : [`      skip-commit: ${quote(skipCommit)}`]),
   ]
 
   return [
@@ -341,12 +399,16 @@ function renderGitlabComponent(options: WorkflowOptions): string {
     'include:',
     '  # The release job, its outputs (RELIZY_RELEASED, RELIZY_VERSION, RELIZY_TAGS...) go to the next jobs: https://gitlab.com/relizy/relizy',
     `  - component: ${GITLAB_COMPONENT}`,
-    ...(inputs.length > 0 ? ['    inputs:', ...inputs] : []),
+    ...(inputs.length > 0
+      ? ['    inputs:', ...inputs]
+      : []),
     ...(options.mergePreview
       ? [
           '  # What the merge of each merge request releases: a comment and the commit status relizy/merge-preview',
           `  - component: ${GITLAB_MERGE_PREVIEW_COMPONENT}`,
-          ...(options.nodeVersion ? ['    inputs:', `      image: node:${options.nodeVersion}`] : []),
+          ...(options.nodeVersion
+            ? ['    inputs:', `      image: node:${options.nodeVersion}`]
+            : []),
         ]
       : []),
     '',
@@ -383,7 +445,9 @@ function renderGitlabMergePreviewJob(options: WorkflowOptions): string[] {
  */
 function renderGitlabJob(options: WorkflowOptions): string {
   const manual = options.trigger === 'manual'
-  const skipRelease = options.releaseCommitPrefix ? ` && $CI_COMMIT_MESSAGE !~ /^${escapeRegExp(options.releaseCommitPrefix)}/` : ''
+  const skipRelease = options.releaseCommitPrefix
+    ? ` && $CI_COMMIT_MESSAGE !~ /^${escapeRegExp(options.releaseCommitPrefix)}/`
+    : ''
   // Quoted: the regular expression may contain ": "
   const rule = `$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH${skipRelease}`.replaceAll('\'', '\'\'')
 
@@ -406,17 +470,26 @@ function renderGitlabJob(options: WorkflowOptions): string {
     '  rules:',
     '    # On the default branch, not on the release commit it pushes',
     `    - if: '${rule}'`,
-    ...(manual ? ['      when: manual'] : []),
+    ...(manual
+      ? ['      when: manual']
+      : []),
     '  before_script:',
     ...getGitlabSetup(options),
     '  script:',
-    ...(manual ? ['    - if [ "$RELEASE_TYPE" != "auto" ]; then RELEASE_FLAG="--$RELEASE_TYPE"; fi'] : []),
+    ...(manual
+      ? ['    - if [ "$RELEASE_TYPE" != "auto" ]; then RELEASE_FLAG="--$RELEASE_TYPE"; fi']
+      : []),
     `    - ${getRelizyCommand(options.packageManager)} release --yes${manual ? ' $RELEASE_FLAG' : ''} --report-dotenv relizy.env`,
     '  artifacts:',
     '    # The outputs of the release (RELIZY_RELEASED, RELIZY_VERSION, RELIZY_TAGS...), for the next jobs',
     '    reports:',
     '      dotenv: relizy.env',
-    ...(options.mergePreview ? ['', ...renderGitlabMergePreviewJob(options)] : []),
+    ...(options.mergePreview
+      ? [
+          '',
+          ...renderGitlabMergePreviewJob(options),
+        ]
+      : []),
     '',
   ].join('\n')
 }
@@ -427,7 +500,10 @@ function renderGitlabJob(options: WorkflowOptions): string {
  */
 export function getMergePreviewWorkflowFile(options: WorkflowOptions): WorkflowFile | undefined {
   return options.mergePreview && options.provider === 'github'
-    ? { path: '.github/workflows/merge-preview.yml', content: renderGithubMergePreviewWorkflow(options) }
+    ? {
+        path: '.github/workflows/merge-preview.yml',
+        content: renderGithubMergePreviewWorkflow(options),
+      }
     : undefined
 }
 
@@ -437,10 +513,15 @@ export function getMergePreviewWorkflowFile(options: WorkflowOptions): WorkflowF
  */
 export function getWorkflowFile(options: WorkflowOptions, cwd: string): WorkflowFile {
   if (options.provider === 'github') {
-    return { path: '.github/workflows/release.yml', content: renderGithubWorkflow(options) }
+    return {
+      path: '.github/workflows/release.yml',
+      content: renderGithubWorkflow(options),
+    }
   }
 
-  const content = options.gitlabCom ? renderGitlabComponent(options) : renderGitlabJob(options)
+  const content = options.gitlabCom
+    ? renderGitlabComponent(options)
+    : renderGitlabJob(options)
   if (!existsSync(join(cwd, '.gitlab-ci.yml'))) {
     return { path: '.gitlab-ci.yml', content }
   }

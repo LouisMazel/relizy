@@ -38,7 +38,13 @@ export function readPackageSets(config: ResolvedRelizyConfig): PackageSet[] {
     }))
   }
 
-  return [{ versionMode: getVersionMode(config), config, packages: read(config) }]
+  return [
+    {
+      versionMode: getVersionMode(config),
+      config,
+      packages: read(config),
+    },
+  ]
 }
 
 export function relativePath(cwd: string, path: string): string {

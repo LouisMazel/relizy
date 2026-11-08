@@ -23,12 +23,19 @@ vi.mock('../../core', async () => {
 describe('Given changelog command', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+    }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
     vi.mocked(executeFormatCmd).mockResolvedValue(undefined)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
     vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(writeChangelogToFile).mockImplementation(({ pkg }) => `${pkg.path}/CHANGELOG.md`)
     vi.mocked(getRootPackage).mockResolvedValue({
@@ -110,16 +117,30 @@ describe('Given changelog command', () => {
 
   describe('When the changelogs are written', () => {
     it('Then formats each changelog written once', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
+        createMockPackageInfo({
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+        }),
       ])
 
       await changelog({})
 
-      expect(executeFormatCmd).toHaveBeenCalledWith({ config, dryRun: false, files: ['/root/CHANGELOG.md', '/pkg-a/CHANGELOG.md'] })
+      expect(executeFormatCmd).toHaveBeenCalledWith({
+        config,
+        dryRun: false,
+        files: ['/root/CHANGELOG.md', '/pkg-a/CHANGELOG.md'],
+      })
     })
   })
 
@@ -135,14 +156,29 @@ describe('Given changelog command', () => {
 
   describe('When in independent mode', () => {
     it('Then generates changelogs for all packages', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
-      config.monorepo = { versionMode: 'independent', packages: ['packages/*'] }
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      config.monorepo = {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      }
       config.changelog = { rootChangelog: true, formatCmd: '', includeCommitBody: false }
 
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        createMockPackageInfo({ name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [] }),
-        createMockPackageInfo({ name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [] }),
+        createMockPackageInfo({
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+        }),
+        createMockPackageInfo({
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+        }),
       ])
 
       await changelog({})
@@ -159,13 +195,31 @@ describe('Given the output of changelog in CI', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ bump: { type: 'patch' }, monorepo: { versionMode: 'unified', packages: ['packages/*'] } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      monorepo: {
+        versionMode: 'unified',
+        packages: ['packages/*'],
+      },
+    }))
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
     vi.mocked(generateChangelog).mockResolvedValue('## v1.0.0\n\n- Feature')
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test', version: '1.0.0', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
     vi.mocked(resolveTags).mockResolvedValue({ from: 'v0.9.0', to: 'v1.0.0' })
     vi.mocked(writeChangelogToFile).mockImplementation(({ pkg }) => `${pkg.path}/CHANGELOG.md`)
-    vi.mocked(getRootPackage).mockResolvedValue({ name: 'test', version: '1.0.0', path: '/root', private: false, fromTag: 'v0.9.0', commits: [] })
+    vi.mocked(getRootPackage).mockResolvedValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+      fromTag: 'v0.9.0',
+      commits: [],
+    })
     output = captureCliOutput()
   })
 

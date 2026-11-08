@@ -31,7 +31,9 @@ describe('Given generateMarkDown function', () => {
 
   describe('When generating markdown with commits', () => {
     it('Then includes version title with from and to', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         createMockCommit('feat', 'add new feature'),
       ]
@@ -48,7 +50,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then uses custom changelogTitle template', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.templates = { ...config.templates, changelogTitle: '{{newVersion}}' }
       const commits: GitCommit[] = [
         createMockCommit('feat', 'add new feature'),
@@ -67,11 +71,15 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then replaces every occurrence of a variable of changelogTitle', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.templates = { ...config.templates, changelogTitle: '{{newVersion}} (from {{oldVersion}}, see {{newVersion}})' }
 
       const result = await generateMarkDown({
-        commits: [createMockCommit('feat', 'add new feature')],
+        commits: [
+          createMockCommit('feat', 'add new feature'),
+        ],
         config,
         from: 'v1.0.0',
         to: 'v1.1.0',
@@ -82,7 +90,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then supports date variable in changelogTitle template', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.templates = { ...config.templates, changelogTitle: '{{newVersion}} ({{date}})' }
       const commits: GitCommit[] = [
         createMockCommit('feat', 'add new feature'),
@@ -101,7 +111,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes compare link when repo config exists', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -129,7 +141,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then uses first commit hash when isFirstCommit is true', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -160,10 +174,18 @@ describe('Given generateMarkDown function', () => {
 
   describe('When grouping commits by type', () => {
     it('Then groups feat commits under Enhancements', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('feat', 'feature one'), type: 'feat' },
-        { ...createMockCommit('feat', 'feature two'), type: 'feat' },
+        {
+          ...createMockCommit('feat', 'feature one'),
+          type: 'feat',
+        },
+        {
+          ...createMockCommit('feat', 'feature two'),
+          type: 'feat',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -180,10 +202,18 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then groups fix commits under Fixes', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('fix', 'bug fix one'), type: 'fix' },
-        { ...createMockCommit('fix', 'bug fix two'), type: 'fix' },
+        {
+          ...createMockCommit('fix', 'bug fix one'),
+          type: 'fix',
+        },
+        {
+          ...createMockCommit('fix', 'bug fix two'),
+          type: 'fix',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -200,7 +230,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips types with no commits', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         createMockCommit('feat', 'feature'),
       ]
@@ -218,7 +250,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips boolean type configurations', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.types = {
         ...config.types,
         feat: true as any,
@@ -241,9 +275,14 @@ describe('Given generateMarkDown function', () => {
 
   describe('When formatting commit messages', () => {
     it('Then capitalizes first letter of description', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('feat', 'add new feature'), description: 'add new feature' },
+        {
+          ...createMockCommit('feat', 'add new feature'),
+          description: 'add new feature',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -259,9 +298,15 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes scope in commit message', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('feat', 'new feature'), scope: 'core', type: 'feat' },
+        {
+          ...createMockCommit('feat', 'new feature'),
+          scope: 'core',
+          type: 'feat',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -276,9 +321,15 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then marks breaking changes with warning emoji', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('feat', 'breaking change'), isBreaking: true, type: 'feat' },
+        {
+          ...createMockCommit('feat', 'breaking change'),
+          isBreaking: true,
+          type: 'feat',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -293,11 +344,15 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes pull request references', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature with PR'),
-          references: [{ type: 'pull-request', value: '123' }],
+          references: [
+            { type: 'pull-request', value: '123' },
+          ],
           type: 'feat',
         },
       ]
@@ -315,11 +370,15 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes issue references', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('fix', 'fix issue'),
-          references: [{ type: 'issue', value: '456' }],
+          references: [
+            { type: 'issue', value: '456' },
+          ],
           type: 'fix',
         },
       ]
@@ -337,7 +396,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes multiple references', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -366,10 +427,20 @@ describe('Given generateMarkDown function', () => {
 
   describe('When handling breaking changes', () => {
     it('Then creates separate breaking changes section', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
-        { ...createMockCommit('feat', 'breaking feature'), isBreaking: true, type: 'feat' },
-        { ...createMockCommit('fix', 'breaking fix'), isBreaking: true, type: 'fix' },
+        {
+          ...createMockCommit('feat', 'breaking feature'),
+          isBreaking: true,
+          type: 'feat',
+        },
+        {
+          ...createMockCommit('fix', 'breaking fix'),
+          isBreaking: true,
+          type: 'fix',
+        },
       ]
 
       const result = await generateMarkDown({
@@ -386,7 +457,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then does not include breaking section when no breaking changes', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         createMockCommit('feat', 'regular feature'),
       ]
@@ -405,7 +478,9 @@ describe('Given generateMarkDown function', () => {
 
   describe('When handling commit bodies', () => {
     it('Then includes commit body when includeCommitBody is true', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -428,7 +503,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then excludes commit body when includeCommitBody is false', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: false, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -450,7 +527,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then filters out the git diff status lines appended to the body', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -476,7 +555,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then keeps the lines of the body that start like a status letter', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -499,7 +580,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then keeps a single blank line between body paragraphs', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -522,7 +605,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then ignores a body made of file status lines only', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -545,11 +630,19 @@ describe('Given generateMarkDown function', () => {
     })
 
     async function renderBody(body: string) {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
 
       return await generateMarkDown({
-        commits: [{ ...createMockCommit('feat', 'feature'), body, type: 'feat' }],
+        commits: [
+          {
+            ...createMockCommit('feat', 'feature'),
+            body,
+            type: 'feat',
+          },
+        ],
         config,
         from: 'v1.0.0',
         to: 'v1.1.0',
@@ -585,7 +678,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then handles empty body', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.changelog = { includeCommitBody: true, rootChangelog: true, formatCmd: '' }
       const commits: GitCommit[] = [
         {
@@ -609,7 +704,9 @@ describe('Given generateMarkDown function', () => {
 
   describe('When handling authors', () => {
     it('Then includes contributors section', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -636,7 +733,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then capitalizes author names', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -657,7 +756,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then excludes bot authors', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -678,7 +779,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then excludes authors in excludeAuthors list', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       ;(config as any).excludeAuthors = ['ignored']
       const commits: GitCommit[] = [
         {
@@ -700,7 +803,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then excludes authors by email in excludeAuthors', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       ;(config as any).excludeAuthors = ['excluded@example.com']
       const commits: GitCommit[] = [
         {
@@ -722,7 +827,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then merges commits from same author', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature one'),
@@ -749,7 +856,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then includes author email by default', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -770,7 +879,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then hides author email when hideAuthorEmail is true', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.hideAuthorEmail = true
       const commits: GitCommit[] = [
         {
@@ -792,7 +903,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then excludes noreply.github.com emails', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -816,7 +929,10 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips contributors section when noAuthors is true', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        noAuthors: true,
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -837,7 +953,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips contributors section when no authors', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         {
           ...createMockCommit('feat', 'feature'),
@@ -860,14 +978,18 @@ describe('Given generateMarkDown function', () => {
 
   describe('When fetching GitHub usernames', () => {
     it('Then fetches GitHub username for authors', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
         repo: 'user/repo',
       }
       vi.mocked(fetch).mockResolvedValue({
-        json: vi.fn().mockResolvedValue({ user: { username: 'johndoe' } }),
+        json: vi.fn().mockResolvedValue({
+          user: { username: 'johndoe' },
+        }),
       } as any)
       const commits: GitCommit[] = [
         {
@@ -890,7 +1012,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then handles fetch errors gracefully', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -917,7 +1041,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then skips GitHub fetch for non-GitHub providers', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -945,7 +1071,9 @@ describe('Given generateMarkDown function', () => {
 
   describe('When converting to gitmoji', () => {
     it('Then converts markdown with gitmoji', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         createMockCommit('feat', 'feature'),
       ]
@@ -964,7 +1092,9 @@ describe('Given generateMarkDown function', () => {
     })
 
     it('Then passes commit mode to convert', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       const commits: GitCommit[] = [
         createMockCommit('feat', 'feature'),
       ]
@@ -990,49 +1120,84 @@ describe('Given buildCompareLink function', () => {
   })
 
   it('Then returns compare link when repo config exists', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
 
-    const result = buildCompareLink({ config, from: 'v1.0.0', to: 'v1.1.0', isFirstCommit: false })
+    const result = buildCompareLink({
+      config,
+      from: 'v1.0.0',
+      to: 'v1.1.0',
+      isFirstCommit: false,
+    })
 
     expect(result).toBe('[compare changes](https://github.com/user/repo/compare)')
     expect(formatCompareChanges).toHaveBeenCalledWith('v1.1.0', expect.objectContaining({ from: 'v1.0.0', to: 'v1.1.0' }))
   })
 
   it('Then uses first commit hash when isFirstCommit is true', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
     vi.mocked(getFirstCommit).mockReturnValue('initial123')
 
-    buildCompareLink({ config, from: 'v1.0.0', to: 'v1.0.0', isFirstCommit: true })
+    buildCompareLink({
+      config,
+      from: 'v1.0.0',
+      to: 'v1.0.0',
+      isFirstCommit: true,
+    })
 
     expect(getFirstCommit).toHaveBeenCalledWith(config.cwd)
     expect(formatCompareChanges).toHaveBeenCalledWith('v1.0.0', expect.objectContaining({ from: 'initial123' }))
   })
 
   it('Then returns empty string when no repo config', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = undefined as any
 
-    const result = buildCompareLink({ config, from: 'v1.0.0', to: 'v1.1.0', isFirstCommit: false })
+    const result = buildCompareLink({
+      config,
+      from: 'v1.0.0',
+      to: 'v1.1.0',
+      isFirstCommit: false,
+    })
 
     expect(result).toBe('')
   })
 
   it('Then returns empty string when from is empty', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
 
-    const result = buildCompareLink({ config, from: '', to: 'v1.1.0', isFirstCommit: false })
+    const result = buildCompareLink({
+      config,
+      from: '',
+      to: 'v1.1.0',
+      isFirstCommit: false,
+    })
 
     expect(result).toBe('')
   })
 
   it('Then returns empty string when to is empty', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
 
-    const result = buildCompareLink({ config, from: 'v1.0.0', to: '', isFirstCommit: false })
+    const result = buildCompareLink({
+      config,
+      from: 'v1.0.0',
+      to: '',
+      isFirstCommit: false,
+    })
 
     expect(result).toBe('')
   })
@@ -1046,10 +1211,18 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then groups commits by type into sections', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature one'), type: 'feat' },
-      { ...createMockCommit('fix', 'bug fix'), type: 'fix' },
+      {
+        ...createMockCommit('feat', 'feature one'),
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('fix', 'bug fix'),
+        type: 'fix',
+      },
     ]
 
     const result = buildChangelogBody({ commits, config })
@@ -1061,9 +1234,15 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then includes breaking changes section when present', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'breaking feature'), isBreaking: true, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'breaking feature'),
+        isBreaking: true,
+        type: 'feat',
+      },
     ]
 
     const result = buildChangelogBody({ commits, config })
@@ -1073,7 +1252,9 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then omits breaking changes section when none present', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
       createMockCommit('feat', 'regular feature'),
     ]
@@ -1084,9 +1265,13 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then skips boolean type configurations', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.types = { ...config.types, feat: true as any }
-    const commits: GitCommit[] = [createMockCommit('feat', 'feature')]
+    const commits: GitCommit[] = [
+      createMockCommit('feat', 'feature'),
+    ]
 
     const result = buildChangelogBody({ commits, config })
 
@@ -1094,8 +1279,12 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then skips types with no commits', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
-    const commits: GitCommit[] = [createMockCommit('feat', 'feature')]
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
+    const commits: GitCommit[] = [
+      createMockCommit('feat', 'feature'),
+    ]
 
     const result = buildChangelogBody({ commits, config })
 
@@ -1103,9 +1292,17 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then includes references when not minified', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), references: [{ type: 'pull-request', value: '42' }], type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        references: [
+          { type: 'pull-request', value: '42' },
+        ],
+        type: 'feat',
+      },
     ]
 
     const result = buildChangelogBody({ commits, config })
@@ -1114,9 +1311,17 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then omits references when minified', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), references: [{ type: 'pull-request', value: '42' }], type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        references: [
+          { type: 'pull-request', value: '42' },
+        ],
+        type: 'feat',
+      },
     ]
 
     const result = buildChangelogBody({ commits, config, minify: true })
@@ -1125,7 +1330,9 @@ describe('Given buildChangelogBody function', () => {
   })
 
   it('Then returns empty string when no matching commits', () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = []
 
     const result = buildChangelogBody({ commits, config })
@@ -1140,11 +1347,26 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then returns unique formatted names', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: [],
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: { name: 'alice martin', email: 'alice@example.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'b'), author: { name: 'alice martin', email: 'alice+ci@example.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'c'), author: { name: 'bob dupont', email: 'bob@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'alice martin', email: 'alice@example.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'b'),
+        author: { name: 'alice martin', email: 'alice+ci@example.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'c'),
+        author: { name: 'bob dupont', email: 'bob@example.com' },
+        type: 'feat',
+      },
     ]
 
     const names = collectContributorNames({ commits, config })
@@ -1153,10 +1375,21 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then filters bot authors', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: [],
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'b'), author: { name: 'dependabot[bot]', email: 'bot@github.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'alice', email: 'a@x.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'b'),
+        author: { name: 'dependabot[bot]', email: 'bot@github.com' },
+        type: 'feat',
+      },
     ]
 
     const names = collectContributorNames({ commits, config })
@@ -1170,9 +1403,21 @@ describe('Given collectContributorNames function', () => {
       excludeAuthors: ['bob', 'excluded-domain'],
     })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'alice@x.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'b'), author: { name: 'bob', email: 'bob@x.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'c'), author: { name: 'charlie', email: 'c@excluded-domain.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'alice', email: 'alice@x.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'b'),
+        author: { name: 'bob', email: 'bob@x.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'c'),
+        author: { name: 'charlie', email: 'c@excluded-domain.com' },
+        type: 'feat',
+      },
     ]
 
     const names = collectContributorNames({ commits, config })
@@ -1181,9 +1426,17 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then returns empty array when noAuthors is true', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true, excludeAuthors: [] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      noAuthors: true,
+      excludeAuthors: [],
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'alice', email: 'a@x.com' },
+        type: 'feat',
+      },
     ]
 
     const names = collectContributorNames({ commits, config })
@@ -1192,10 +1445,21 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then skips commits without author', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: [],
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: null as any, type: 'feat' },
-      { ...createMockCommit('feat', 'b'), author: { name: 'alice', email: 'a@x.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: null as any,
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'b'),
+        author: { name: 'alice', email: 'a@x.com' },
+        type: 'feat',
+      },
     ]
 
     const names = collectContributorNames({ commits, config })
@@ -1204,13 +1468,19 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then includes co-authors from Co-authored-by trailers', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: [] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: [],
+    })
     const author = { name: 'alice', email: 'alice@x.com' }
     const commits: GitCommit[] = [
       {
         ...createMockCommit('feat', 'a'),
         author,
-        authors: [author, { name: 'Raphaël', email: 'lestote@users.noreply.github.com' }],
+        authors: [
+          author,
+          { name: 'Raphaël', email: 'lestote@users.noreply.github.com' },
+        ],
         type: 'feat',
       },
     ]
@@ -1221,7 +1491,10 @@ describe('Given collectContributorNames function', () => {
   })
 
   it('Then filters bot and excluded co-authors', () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, excludeAuthors: ['bob'] })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      excludeAuthors: ['bob'],
+    })
     const commits: GitCommit[] = [
       {
         ...createMockCommit('feat', 'a'),
@@ -1249,9 +1522,15 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then returns contributors block with author names', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1261,9 +1540,16 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then returns empty string when noAuthors is true', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' }, noAuthors: true })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      noAuthors: true,
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1272,9 +1558,15 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then returns empty string when all authors are bots', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'bot[bot]', email: 'bot@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'bot[bot]', email: 'bot@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1283,10 +1575,16 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then excludes authors in excludeAuthors list', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     ;(config as any).excludeAuthors = ['ignored']
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'ignored user', email: 'ignored@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'ignored user', email: 'ignored@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1295,13 +1593,21 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then includes GitHub username when available', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
     vi.mocked(fetch).mockResolvedValue({
-      json: vi.fn().mockResolvedValue({ user: { username: 'johndoe' } }),
+      json: vi.fn().mockResolvedValue({
+        user: { username: 'johndoe' },
+      }),
     } as any)
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1310,9 +1616,15 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then includes email by default', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1321,10 +1633,16 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then hides email when hideAuthorEmail is true', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.hideAuthorEmail = true
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1334,10 +1652,20 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then merges commits from same author', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'feature one'), author: { name: 'john doe', email: 'john@example.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'feature two'), author: { name: 'john doe', email: 'john@work.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'feature one'),
+        author: { name: 'john doe', email: 'john@example.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'feature two'),
+        author: { name: 'john doe', email: 'john@work.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })
@@ -1347,7 +1675,9 @@ describe('Given buildContributors function', () => {
   })
 
   it('Then credits co-authors parsed from a squash-merged commit', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
     const commit = parseGitCommit({
       message: 'feat: support publishing to multiple registries (#113)',
@@ -1356,14 +1686,19 @@ describe('Given buildContributors function', () => {
       author: { name: 'Mazel', email: 'me@example.com' },
     }, config as any)
 
-    const result = await buildContributors({ commits: [commit as GitCommit], config })
+    const result = await buildContributors({
+      commits: [commit as GitCommit],
+      config,
+    })
 
     expect(result).toContain('- Mazel')
     expect(result).toContain('- Raphaël ([@lestote](https://github.com/lestote))')
   })
 
   it('Then does not credit the AI tools, but credits the people named like them', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
     const commit = parseGitCommit({
       message: 'feat: support publishing to multiple registries (#113)',
@@ -1372,18 +1707,31 @@ describe('Given buildContributors function', () => {
       author: { name: 'Copilot', email: '198982749+Copilot@users.noreply.github.com' },
     }, config as any)
 
-    const result = await buildContributors({ commits: [commit as GitCommit], config })
+    const result = await buildContributors({
+      commits: [commit as GitCommit],
+      config,
+    })
 
     expect(result).toContain('- Claude Dupont')
     expect(result).not.toMatch(/- Claude\n|Cursor|Copilot/)
   })
 
   it('Then resolves the GitHub username from a noreply email without a lookup', async () => {
-    const config = createMockConfig({ bump: { type: 'patch' } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+    })
     config.repo = { provider: 'github', domain: 'github.com', repo: 'user/repo' }
     const commits: GitCommit[] = [
-      { ...createMockCommit('feat', 'a'), author: { name: 'jane', email: '7392338+janedoe@users.noreply.github.com' }, type: 'feat' },
-      { ...createMockCommit('feat', 'b'), author: { name: 'joe', email: 'joedoe@users.noreply.github.com' }, type: 'feat' },
+      {
+        ...createMockCommit('feat', 'a'),
+        author: { name: 'jane', email: '7392338+janedoe@users.noreply.github.com' },
+        type: 'feat',
+      },
+      {
+        ...createMockCommit('feat', 'b'),
+        author: { name: 'joe', email: 'joedoe@users.noreply.github.com' },
+        type: 'feat',
+      },
     ]
 
     const result = await buildContributors({ commits, config })

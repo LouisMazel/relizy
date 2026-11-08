@@ -198,7 +198,9 @@ Second paragraph.`
 describe('Given getReleaseUrl function', () => {
   describe('When provider is GitHub', () => {
     it('Then returns GitHub release URL format', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -211,7 +213,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then works with custom GitHub domain', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.company.com',
@@ -224,7 +228,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then defaults to GitHub when no provider specified', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         domain: 'github.com',
         repo: 'username/repository',
@@ -236,7 +242,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then handles tags without v prefix', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -251,17 +259,24 @@ describe('Given getReleaseUrl function', () => {
 
   describe('When the tag is the tag of a package', () => {
     it('Then encodes it as a single segment of the URL', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = { provider: 'gitlab', domain: 'gitlab.com', repo: 'group/project' }
 
       expect(getReleaseUrl(config, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/-/releases/@scope%2Fnav@1.3.0')
-      expect(getReleaseUrl({ ...config, repo: { ...config.repo, provider: 'github' } }, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/releases/tag/@scope%2Fnav@1.3.0')
+      expect(getReleaseUrl({
+        ...config,
+        repo: { ...config.repo, provider: 'github' },
+      }, '@scope/nav@1.3.0')).toBe('https://gitlab.com/group/project/releases/tag/@scope%2Fnav@1.3.0')
     })
   })
 
   describe('When provider is GitLab', () => {
     it('Then returns GitLab release URL format', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -274,7 +289,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then works with custom GitLab domain', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.company.com',
@@ -287,7 +304,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then handles nested GitLab groups', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'gitlab',
         domain: 'gitlab.com',
@@ -302,7 +321,9 @@ describe('Given getReleaseUrl function', () => {
 
   describe('When provider is Bitbucket', () => {
     it('Then returns Bitbucket tag URL format', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'bitbucket',
         domain: 'bitbucket.org',
@@ -315,7 +336,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then works with custom Bitbucket domain', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'bitbucket',
         domain: 'bitbucket.company.com',
@@ -330,7 +353,9 @@ describe('Given getReleaseUrl function', () => {
 
   describe('When repo config is incomplete', () => {
     it('Then returns undefined when domain is missing', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         repo: 'user/repo',
@@ -342,7 +367,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then returns undefined when repo is missing', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',
@@ -354,7 +381,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then returns undefined when repo config is empty object', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {}
 
       const result = getReleaseUrl(config, 'v1.0.0')
@@ -363,7 +392,9 @@ describe('Given getReleaseUrl function', () => {
     })
 
     it('Then returns undefined when repo is undefined', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = undefined
 
       const result = getReleaseUrl(config, 'v1.0.0')
@@ -374,7 +405,9 @@ describe('Given getReleaseUrl function', () => {
 
   describe('When provider is unknown', () => {
     it('Then returns undefined for unsupported provider', () => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'unknown' as any,
         domain: 'example.com',
@@ -389,11 +422,28 @@ describe('Given getReleaseUrl function', () => {
 
   describe('When tag format varies', () => {
     it.each([
-      ['prerelease tags', 'user/repo', 'v1.0.0-beta.1', 'https://github.com/user/repo/releases/tag/v1.0.0-beta.1'],
-      ['custom tag formats', 'user/repo', 'release-1.0.0', 'https://github.com/user/repo/releases/tag/release-1.0.0'],
-      ['package-specific tags', 'user/monorepo', 'pkg-a@1.0.0', 'https://github.com/user/monorepo/releases/tag/pkg-a@1.0.0'],
+      [
+        'prerelease tags',
+        'user/repo',
+        'v1.0.0-beta.1',
+        'https://github.com/user/repo/releases/tag/v1.0.0-beta.1',
+      ],
+      [
+        'custom tag formats',
+        'user/repo',
+        'release-1.0.0',
+        'https://github.com/user/repo/releases/tag/release-1.0.0',
+      ],
+      [
+        'package-specific tags',
+        'user/monorepo',
+        'pkg-a@1.0.0',
+        'https://github.com/user/monorepo/releases/tag/pkg-a@1.0.0',
+      ],
     ])('Then handles %s', (_description, repo, tag, expected) => {
-      const config = createMockConfig({ bump: { type: 'patch' } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
       config.repo = {
         provider: 'github',
         domain: 'github.com',

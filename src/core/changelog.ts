@@ -110,7 +110,14 @@ function resolveChangelogTags({
     throw new Error(`No tag found for ${pkg.name}`)
   }
 
-  return { gitFromRef, gitToRef, displayFromTag, displayToTag, compareFromRef, isFirstCommit }
+  return {
+    gitFromRef,
+    gitToRef,
+    displayFromTag,
+    displayToTag,
+    compareFromRef,
+    isFirstCommit,
+  }
 }
 
 function renderTitle({
@@ -158,7 +165,12 @@ async function renderChangelogParts({
   }
 
   if (sections.compareLink && !minify && compareFromRef) {
-    const compareLink = buildCompareLink({ config, from: compareFromRef, to: toTag, isFirstCommit })
+    const compareLink = buildCompareLink({
+      config,
+      from: compareFromRef,
+      to: toTag,
+      isFirstCommit,
+    })
     if (compareLink) {
       parts.push(compareLink)
     }
@@ -344,7 +356,13 @@ export function writeChangelogToFile({
   if (titleIndex !== -1) {
     const beforeTitle = lines.slice(0, titleIndex + 1)
     const afterTitle = lines.slice(titleIndex + 1)
-    updatedChangelog = [...beforeTitle, '', changelog, '', ...afterTitle].join('\n')
+    updatedChangelog = [
+      ...beforeTitle,
+      '',
+      changelog,
+      '',
+      ...afterTitle,
+    ].join('\n')
   }
   else {
     const title = '# Changelog\n'

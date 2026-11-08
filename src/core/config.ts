@@ -362,7 +362,10 @@ function copyPlainObjects<T>(value: T): T {
     return value
   }
 
-  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, copyPlainObjects(entry)])) as T
+  return Object.fromEntries(Object.entries(value).map(([key, entry]) => [
+    key,
+    copyPlainObjects(entry),
+  ])) as T
 }
 
 /** The top-level options the config files set, before the defaults: by resolved config */
@@ -393,7 +396,9 @@ function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?
 
   const groupName = getVersionGroupName(baseConfig)
 
-  return groupName ? markVersionGroupConfig(config, groupName) : config
+  return groupName
+    ? markVersionGroupConfig(config, groupName)
+    : config
 }
 
 export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {

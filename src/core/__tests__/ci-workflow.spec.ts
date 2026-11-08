@@ -43,7 +43,13 @@ describe('Given the release workflow of GitHub Actions', () => {
   })
 
   it('Then leaves the setup of Node.js, the package manager and the dependencies to the action', () => {
-    const { content } = getWorkflowFile({ ...options, packageManager: 'bun', nodeVersionFile: '.nvmrc', publish: true, ai: true }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      packageManager: 'bun',
+      nodeVersionFile: '.nvmrc',
+      publish: true,
+      ai: true,
+    }, '/nonexistent')
 
     expect(content).not.toContain('setup-node')
     expect(content).not.toContain('setup-bun')
@@ -51,7 +57,14 @@ describe('Given the release workflow of GitHub Actions', () => {
   })
 
   it('When the release needs secrets, Then gives each one to its input, named after its variable', () => {
-    const { content } = getWorkflowFile({ ...options, publish: true, twitter: true, slack: true, teams: true, ai: true }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      publish: true,
+      twitter: true,
+      slack: true,
+      teams: true,
+      ai: true,
+    }, '/nonexistent')
 
     /* eslint-disable no-template-curly-in-string -- expressions of GitHub Actions */
     expect(content).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
@@ -120,7 +133,12 @@ describe('Given the release job of a self-managed GitLab', () => {
   })
 
   it('Then lists the CI/CD variables to create, with the token able to push', () => {
-    expect(getWorkflowSecrets({ ...options, provider: 'gitlab', publish: true, slack: true })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
+    expect(getWorkflowSecrets({
+      ...options,
+      provider: 'gitlab',
+      publish: true,
+      slack: true,
+    })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
   })
 
   it('Then asks the URL of the Teams workflow in base64, as a masked variable refuses its characters', () => {
@@ -139,10 +157,20 @@ describe('Given the commands of a package manager', () => {
 
   it('Then installs from the lockfile and runs the relizy of the project', () => {
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getInstallDependenciesCommand({ packageManager: packageManager as WorkflowOptions['packageManager'], yarnBerry: false })))
-      .toEqual(['npm ci', 'pnpm install --frozen-lockfile', 'yarn install --frozen-lockfile', 'bun install --frozen-lockfile'])
+      .toEqual([
+        'npm ci',
+        'pnpm install --frozen-lockfile',
+        'yarn install --frozen-lockfile',
+        'bun install --frozen-lockfile',
+      ])
     expect(getInstallDependenciesCommand({ packageManager: 'yarn', yarnBerry: true })).toBe('yarn install --immutable')
     expect(['npm', 'pnpm', 'yarn', 'bun'].map(packageManager => getRelizyCommand(packageManager as WorkflowOptions['packageManager'])))
-      .toEqual(['npx relizy', 'pnpm exec relizy', 'yarn relizy', 'bunx relizy'])
+      .toEqual([
+        'npx relizy',
+        'pnpm exec relizy',
+        'yarn relizy',
+        'bunx relizy',
+      ])
   })
 })
 
@@ -163,14 +191,27 @@ describe('Given the merge preview of the release workflow', () => {
   })
 
   it('When it is wanted on gitlab.com, Then includes the merge-preview component', () => {
-    const { content } = getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true, mergePreview: true, nodeVersion: '22' }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      provider: 'gitlab',
+      gitlabCom: true,
+      mergePreview: true,
+      nodeVersion: '22',
+    }, '/nonexistent')
 
     expect(content).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:22\n')
     expect(getMergePreviewWorkflowFile({ ...options, provider: 'gitlab', mergePreview: true })).toBeUndefined()
   })
 
   it('When it is wanted on a GitLab instance, Then writes the merge-preview job on the merge requests into the default branch', () => {
-    const { content } = getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: false, mergePreview: true, publish: true, ai: true }, '/nonexistent')
+    const { content } = getWorkflowFile({
+      ...options,
+      provider: 'gitlab',
+      gitlabCom: false,
+      mergePreview: true,
+      publish: true,
+      ai: true,
+    }, '/nonexistent')
     const job = content.slice(content.indexOf('merge-preview:'))
 
     expect(job).toContain('    - if: \'$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == $CI_DEFAULT_BRANCH\'\n')

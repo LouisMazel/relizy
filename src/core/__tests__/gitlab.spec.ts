@@ -14,7 +14,9 @@ vi.mock('../repo', async () => {
     getPrivatePackagesMode: (await vi.importActual<typeof import('../repo')>('../repo')).getPrivatePackagesMode,
     getRootPackage: vi.fn(),
     readPackageJson: vi.fn(),
-    getPackageCommits: vi.fn().mockResolvedValue([{ type: 'feat', description: 'feature' }]),
+    getPackageCommits: vi.fn().mockResolvedValue([
+      { type: 'feat', description: 'feature' },
+    ]),
     getNewPackageCompareBase: vi.fn(() => null),
   }
 })
@@ -40,7 +42,9 @@ vi.mock('../utils', () => {
     getPackagesOrBumpedPackages: vi.fn(),
     isBumpedPackage: vi.fn(),
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release'
+      ? packages
+      : packages.filter(p => !p.private),
     executeHook: vi.fn(),
   }
 })
@@ -99,7 +103,10 @@ describe('Given createGitlabRelease function', () => {
       })
 
       try {
-        await createGitlabRelease({ config, release: { tag_name: 'v1.0.0', name: 'v1.0.0', description: 'Release notes' } })
+        await createGitlabRelease({
+          config,
+          release: { tag_name: 'v1.0.0', name: 'v1.0.0', description: 'Release notes' },
+        })
       }
       finally {
         vi.unstubAllEnvs()
@@ -345,12 +352,16 @@ describe('Given createGitlabRelease function', () => {
 
   describe('When missing repository config', () => {
     it('Then throws error', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, tokens: {
-        gitlab: 'test-token',
-      }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+        },
+      })
 
       await expect(
         createGitlabRelease({
@@ -367,13 +378,17 @@ describe('Given createGitlabRelease function', () => {
 
   describe('When GitLab API fails', () => {
     it('Then throws error with API response', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, tokens: {
-        gitlab: 'test-token',
-      }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-        repo: 'user/repo',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+      })
 
       vi.mocked(fetch).mockResolvedValue({
         ok: false,
@@ -396,13 +411,17 @@ describe('Given createGitlabRelease function', () => {
 
   describe('When release has optional fields', () => {
     it('Then includes ref in payload', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, tokens: {
-        gitlab: 'test-token',
-      }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-        repo: 'user/repo',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+      })
 
       await createGitlabRelease({
         config,
@@ -423,13 +442,17 @@ describe('Given createGitlabRelease function', () => {
     })
 
     it('Then defaults ref to main when not provided', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, tokens: {
-        gitlab: 'test-token',
-      }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-        repo: 'user/repo',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+      })
 
       await createGitlabRelease({
         config,
@@ -453,13 +476,17 @@ describe('Given createGitlabRelease function', () => {
 describe('Given gitlab function', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    const config = createMockConfig({ bump: { type: 'patch' }, repo: {
-      provider: 'gitlab',
-      domain: 'gitlab.com',
-      repo: 'user/repo',
-    }, tokens: {
-      gitlab: 'test-token',
-    } })
+    const config = createMockConfig({
+      bump: { type: 'patch' },
+      repo: {
+        provider: 'gitlab',
+        domain: 'gitlab.com',
+        repo: 'user/repo',
+      },
+      tokens: {
+        gitlab: 'test-token',
+      },
+    })
     vi.mocked(loadRelizyConfig).mockResolvedValue(config)
     vi.mocked(readPackageJson).mockReturnValue({
       name: 'test',
@@ -607,17 +634,39 @@ describe('Given gitlab function', () => {
 
   describe('When in independent mode', () => {
     beforeEach(() => {
-      const config = createMockConfig({ bump: { type: 'patch' }, monorepo: { versionMode: 'independent', packages: ['packages/*'] }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-        repo: 'user/repo',
-      }, tokens: {
-        gitlab: 'test-token',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+        tokens: {
+          gitlab: 'test-token',
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: 'pkg-a@0.9.0',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          fromTag: 'pkg-b@1.9.0',
+        },
       ])
       vi.mocked(getIndependentTag).mockImplementation(({ name, version }) => {
         return `${name}@${version}`
@@ -678,8 +727,22 @@ describe('Given gitlab function', () => {
 
     it('Then skips packages without from tag', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: '' },
-        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: '',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          fromTag: 'pkg-b@1.9.0',
+        },
       ])
 
       const result = await gitlab({ force: false })
@@ -691,14 +754,34 @@ describe('Given gitlab function', () => {
     it('Then creates GitLab releases for private packages with privatePackages: release', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
-        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/public',
+          version: '1.0.0',
+          path: '/pub',
+          commits: [],
+          fromTag: '@scope/public@0.9.0',
+          private: false,
+        },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/private',
+          version: '1.0.0',
+          path: '/priv',
+          commits: [],
+          fromTag: '@scope/private@0.9.0',
+          private: true,
+        },
       ])
 
       await gitlab({ force: false })
@@ -711,14 +794,34 @@ describe('Given gitlab function', () => {
     it('Then excludes private packages from GitLab releases with privatePackages: ignore', async () => {
       const configWithPrivates = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'ignore' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'ignore',
+        },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(configWithPrivates)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: '@scope/public', version: '1.0.0', path: '/pub', commits: [], fromTag: '@scope/public@0.9.0', private: false },
-        { ...createMockPackageInfo(), name: '@scope/private', version: '1.0.0', path: '/priv', commits: [], fromTag: '@scope/private@0.9.0', private: true },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/public',
+          version: '1.0.0',
+          path: '/pub',
+          commits: [],
+          fromTag: '@scope/public@0.9.0',
+          private: false,
+        },
+        {
+          ...createMockPackageInfo(),
+          name: '@scope/private',
+          version: '1.0.0',
+          path: '/priv',
+          commits: [],
+          fromTag: '@scope/private@0.9.0',
+          private: true,
+        },
       ])
 
       await gitlab({ force: false })
@@ -730,8 +833,22 @@ describe('Given gitlab function', () => {
 
     it('Then skips packages with empty changelog body', async () => {
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([
-        { ...createMockPackageInfo(), name: 'pkg-a', version: '1.0.0', path: '/pkg-a', commits: [], fromTag: 'pkg-a@0.9.0' },
-        { ...createMockPackageInfo(), name: 'pkg-b', version: '2.0.0', path: '/pkg-b', commits: [], fromTag: 'pkg-b@1.9.0' },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: '/pkg-a',
+          commits: [],
+          fromTag: 'pkg-a@0.9.0',
+        },
+        {
+          ...createMockPackageInfo(),
+          name: 'pkg-b',
+          version: '2.0.0',
+          path: '/pkg-b',
+          commits: [],
+          fromTag: 'pkg-b@1.9.0',
+        },
       ])
       vi.mocked(buildChangelogBody).mockReturnValueOnce('')
       vi.mocked(buildChangelogBody).mockReturnValueOnce('- Feature')
@@ -778,7 +895,9 @@ describe('Given gitlab function', () => {
 
   describe('When using base config option', () => {
     it('Then passes base config to loadRelizyConfig', async () => {
-      const baseConfig = createMockConfig({ bump: { type: 'minor' } })
+      const baseConfig = createMockConfig({
+        bump: { type: 'minor' },
+      })
 
       await gitlab({ config: baseConfig, force: false })
 
@@ -790,13 +909,21 @@ describe('Given gitlab function', () => {
 
   describe('When using force option', () => {
     it('Then passes force to getPackagesOrBumpedPackages in independent mode', async () => {
-      const config = createMockConfig({ bump: { type: 'patch' }, tokens: {
-        gitlab: 'test-token',
-      }, monorepo: { versionMode: 'independent', packages: ['packages/*'] }, repo: {
-        provider: 'gitlab',
-        domain: 'gitlab.com',
-        repo: 'user/repo',
-      } })
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+        tokens: {
+          gitlab: 'test-token',
+        },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
+        repo: {
+          provider: 'gitlab',
+          domain: 'gitlab.com',
+          repo: 'user/repo',
+        },
+      })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
 
@@ -820,7 +947,10 @@ describe('Given gitlab function', () => {
     it('Then passes suffix to getPackagesOrBumpedPackages in independent mode', async () => {
       const config = createMockConfig({
         bump: { type: 'patch' },
-        monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+        },
         repo: {
           provider: 'gitlab',
           domain: 'gitlab.com',
@@ -906,7 +1036,9 @@ describe('Given gitlab function', () => {
         bump: { type: 'patch' },
         repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
         tokens: { gitlab: 'test-token' },
-        ai: { providerRelease: { enabled: true } },
+        ai: {
+          providerRelease: { enabled: true },
+        },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
       vi.mocked(buildCompareLink).mockReturnValue('[compare changes](https://gitlab.com/user/repo/-/compare/v0.9.0...v1.0.0)')

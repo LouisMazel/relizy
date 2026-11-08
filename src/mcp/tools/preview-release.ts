@@ -40,10 +40,14 @@ function releaseSteps(release: object): string {
 }
 
 function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, plan: ReleasePlan, full: boolean): string[] {
-  const title = set.group ? `## Group ${code(set.group.name)} (${set.versionMode})` : `## ${set.versionMode} mode`
+  const title = set.group
+    ? `## Group ${code(set.group.name)} (${set.versionMode})`
+    : `## ${set.versionMode} mode`
 
   if (!isBumped(result)) {
-    const since = set.versionMode === 'independent' ? 'the last tag of each package' : (plan.config.from && code(plan.config.from)) || 'the last release tag'
+    const since = set.versionMode === 'independent'
+      ? 'the last tag of each package'
+      : (plan.config.from && code(plan.config.from)) || 'the last release tag'
 
     return [title, '', `Nothing to release: none of the commits since ${since} triggers a bump (see the \`types\` of the config), and no dependency was bumped.`]
   }
@@ -85,10 +89,17 @@ function describeNextSteps(plan: ReleasePlan): string[] {
     return ['No package would be released. `relizy release` would stop here: add commits whose type bumps (`feat`, `fix`...), or force a type (`type: "patch"` with `force: true`).']
   }
 
-  const tags = getReleaseTagNames({ config: plan.config, bumpedPackages: result.bumpedPackages, newVersion: result.newVersion, groups: result.groups })
+  const tags = getReleaseTagNames({
+    config: plan.config,
+    bumpedPackages: result.bumpedPackages,
+    newVersion: result.newVersion,
+    groups: result.groups,
+  })
 
   return [
-    `**Tags:** ${tags.length > 0 ? codeList(tags) : 'none (`release.gitTag` is off)'}`,
+    `**Tags:** ${tags.length > 0
+      ? codeList(tags)
+      : 'none (`release.gitTag` is off)'}`,
     '',
     `\`relizy release\` would then ${releaseSteps(plan.config.release)}.`,
     '',
@@ -117,12 +128,17 @@ export async function previewRelease(context: ServerContext, { full = false, ...
   const lines = [
     `# Release preview (relizy ${context.version})`,
     '',
-    ...plan.results.flatMap(entry => [...trimEnd(describeSet(entry, plan, full)), '']),
+    ...plan.results.flatMap(entry => [
+      ...trimEnd(describeSet(entry, plan, full)),
+      '',
+    ]),
     ...describeNextSteps(plan),
   ]
   const notes = formatNotes(logs)
 
-  return fitPreview(notes ? `${lines.join('\n')}\n\n${notes}` : lines.join('\n'))
+  return fitPreview(notes
+    ? `${lines.join('\n')}\n\n${notes}`
+    : lines.join('\n'))
 }
 
 export const previewReleaseTool = defineTool({

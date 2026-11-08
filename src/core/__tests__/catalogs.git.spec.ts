@@ -16,30 +16,69 @@ describe('Given readCatalogEntries', () => {
     const yaml = 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.4.0\ncatalogs:\n  default:\n    react: ^18.0.0\n  vue2:\n    vue: ^2.7.0\n'
 
     for (const file of ['pnpm-workspace.yaml', '.yarnrc.yml'] as const) {
-      expect([...readCatalogEntries(file, yaml)]).toEqual([['default:vue', '^3.4.0'], ['default:react', '^18.0.0'], ['vue2:vue', '^2.7.0']])
+      expect([
+        ...readCatalogEntries(file, yaml),
+      ]).toEqual([
+        ['default:vue', '^3.4.0'],
+        ['default:react', '^18.0.0'],
+        ['vue2:vue', '^2.7.0'],
+      ])
     }
   })
 
   it('Then reads the catalogs of a bun package.json, at its root or in its workspaces', () => {
-    expect([...readCatalogEntries('package.json', JSON.stringify({ catalog: { vue: '^3.4.0' } }))]).toEqual([['default:vue', '^3.4.0']])
-    expect([...readCatalogEntries('package.json', JSON.stringify({ workspaces: { packages: ['packages/*'], catalog: { vue: '^3.5.0' }, catalogs: { test: { vitest: '^2.0.0' } } } }))])
-      .toEqual([['default:vue', '^3.5.0'], ['test:vitest', '^2.0.0']])
+    expect([
+      ...readCatalogEntries('package.json', JSON.stringify({
+        catalog: { vue: '^3.4.0' },
+      })),
+    ]).toEqual([
+      ['default:vue', '^3.4.0'],
+    ])
+    expect([
+      ...readCatalogEntries('package.json', JSON.stringify({
+        workspaces: {
+          packages: ['packages/*'],
+          catalog: { vue: '^3.5.0' },
+          catalogs: {
+            test: { vitest: '^2.0.0' },
+          },
+        },
+      })),
+    ])
+      .toEqual([
+        ['default:vue', '^3.5.0'],
+        ['test:vitest', '^2.0.0'],
+      ])
   })
 
   it('Then a missing, invalid or catalog-less file declares no entry', () => {
     expect(readCatalogEntries('pnpm-workspace.yaml', undefined).size).toBe(0)
     expect(readCatalogEntries('package.json', '{ invalid').size).toBe(0)
-    expect(readCatalogEntries('package.json', JSON.stringify({ name: 'root', workspaces: ['packages/*'], catalog: 'nope' })).size).toBe(0)
+    expect(readCatalogEntries('package.json', JSON.stringify({
+      name: 'root',
+      workspaces: ['packages/*'],
+      catalog: 'nope',
+    })).size).toBe(0)
     expect(readCatalogEntries('pnpm-workspace.yaml', 'catalogs: 12\n').size).toBe(0)
   })
 })
 
 describe('Given getChangedCatalogEntries', () => {
   it('Then returns the entries added, removed and changed', () => {
-    const before = new Map([['default:vue', '^3.4.0'], ['default:vitest', '^2.0.0'], ['default:lodash', '^4.0.0']])
-    const after = new Map([['default:vue', '^3.5.0'], ['default:vitest', '^2.0.0'], ['default:zod', '^4.0.0']])
+    const before = new Map([
+      ['default:vue', '^3.4.0'],
+      ['default:vitest', '^2.0.0'],
+      ['default:lodash', '^4.0.0'],
+    ])
+    const after = new Map([
+      ['default:vue', '^3.5.0'],
+      ['default:vitest', '^2.0.0'],
+      ['default:zod', '^4.0.0'],
+    ])
 
-    expect([...getChangedCatalogEntries(before, after)].sort()).toEqual(['default:lodash', 'default:vue', 'default:zod'])
+    expect([
+      ...getChangedCatalogEntries(before, after),
+    ].sort()).toEqual(['default:lodash', 'default:vue', 'default:zod'])
   })
 })
 
@@ -74,7 +113,10 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
   function createConfig(): ResolvedRelizyConfig {
     const config = createMockConfig({
       bump: { type: 'release' },
-      monorepo: { versionMode: 'independent', packages: ['packages/*'] },
+      monorepo: {
+        versionMode: 'independent',
+        packages: ['packages/*'],
+      },
     })
     config.cwd = cwd
     config.logLevel = 'silent'
@@ -84,7 +126,12 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
 
   async function descriptionsOf(name: string) {
     const commits = await getPackageCommits({
-      pkg: { name, version: '1.0.0', path: join(cwd, 'packages', name), private: false },
+      pkg: {
+        name,
+        version: '1.0.0',
+        path: join(cwd, 'packages', name),
+        private: false,
+      },
       from: base,
       to: 'HEAD',
       config: createConfig(),
@@ -99,9 +146,22 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
     cwd = repository.cwd
 
     files()
-    writeJson('packages/ui/package.json', { name: 'ui', version: '1.0.0', dependencies: { vue: 'catalog:' }, devDependencies: { vitest: 'catalog:test' } })
-    writeJson('packages/legacy/package.json', { name: 'legacy', version: '1.0.0', peerDependencies: { vue: 'catalog:vue2' } })
-    writeJson('packages/utils/package.json', { name: 'utils', version: '1.0.0', dependencies: { vue: '^3.4.0' } })
+    writeJson('packages/ui/package.json', {
+      name: 'ui',
+      version: '1.0.0',
+      dependencies: { vue: 'catalog:' },
+      devDependencies: { vitest: 'catalog:test' },
+    })
+    writeJson('packages/legacy/package.json', {
+      name: 'legacy',
+      version: '1.0.0',
+      peerDependencies: { vue: 'catalog:vue2' },
+    })
+    writeJson('packages/utils/package.json', {
+      name: 'utils',
+      version: '1.0.0',
+      dependencies: { vue: '^3.4.0' },
+    })
     commit('chore: init the monorepo')
     base = git('rev-parse', 'HEAD')
   }
@@ -144,7 +204,11 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
     it('Then the package.json of the package at the commit decides, not the current one', async () => {
       write('pnpm-workspace.yaml', workspace('^3.5.0'))
       commit('fix(deps): update vue to 3.5')
-      writeJson('packages/utils/package.json', { name: 'utils', version: '1.0.0', dependencies: { vue: 'catalog:' } })
+      writeJson('packages/utils/package.json', {
+        name: 'utils',
+        version: '1.0.0',
+        dependencies: { vue: 'catalog:' },
+      })
       commit('refactor(utils): use the vue catalog')
 
       expect(await descriptionsOf('utils')).toEqual(['use the vue catalog'])
@@ -154,7 +218,11 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
       write('packages/utils/package.json', '{ invalid')
       write('pnpm-workspace.yaml', workspace('^3.5.0'))
       commit('fix(deps): update vue to 3.5')
-      writeJson('packages/later/package.json', { name: 'later', version: '1.0.0', dependencies: { vue: 'catalog:' } })
+      writeJson('packages/later/package.json', {
+        name: 'later',
+        version: '1.0.0',
+        dependencies: { vue: 'catalog:' },
+      })
       commit('feat(later): add the later package')
 
       expect(await descriptionsOf('ui')).toEqual(['update vue to 3.5'])
@@ -166,7 +234,12 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
   describe('When the catalogs are in .yarnrc.yml', () => {
     beforeEach(() => {
       initRepository(() => {
-        writeJson('package.json', { name: 'root', version: '1.0.0', private: true, workspaces: ['packages/*'] })
+        writeJson('package.json', {
+          name: 'root',
+          version: '1.0.0',
+          private: true,
+          workspaces: ['packages/*'],
+        })
         write('.yarnrc.yml', 'nodeLinker: node-modules\ncatalog:\n  vue: ^3.4.0\n')
       })
     })
@@ -181,7 +254,15 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
   })
 
   describe('When the catalogs are in the package.json of bun', () => {
-    const root = (vue: string) => ({ name: 'root', version: '1.0.0', private: true, workspaces: { packages: ['packages/*'], catalog: { vue } } })
+    const root = (vue: string) => ({
+      name: 'root',
+      version: '1.0.0',
+      private: true,
+      workspaces: {
+        packages: ['packages/*'],
+        catalog: { vue },
+      },
+    })
 
     beforeEach(() => {
       initRepository(() => writeJson('package.json', root('^3.4.0')))
@@ -190,7 +271,10 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
     it('Then a commit changing a catalog entry belongs to the packages referencing it, and the other changes of the root package.json do not', async () => {
       writeJson('package.json', root('^3.5.0'))
       commit('fix(deps): update vue to 3.5')
-      writeJson('package.json', { ...root('^3.5.0'), scripts: { build: 'bun run build' } })
+      writeJson('package.json', {
+        ...root('^3.5.0'),
+        scripts: { build: 'bun run build' },
+      })
       commit('chore: add the build script')
 
       expect(await descriptionsOf('ui')).toEqual(['update vue to 3.5'])
@@ -205,8 +289,22 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
         write('notes/é.md', 'Accents: é\n')
       })
 
-      expect(readFilesAtCommits(cwd, [`${base}:pnpm-workspace.yaml`, `${base}:missing.yaml`, `${base}:notes/é.md`, `${base}:packages`, 'nothing:file', `${base}^:package.json`]))
-        .toEqual(['catalog:\n  vue: ^3.4.0\n', undefined, 'Accents: é\n', undefined, undefined, undefined])
+      expect(readFilesAtCommits(cwd, [
+        `${base}:pnpm-workspace.yaml`,
+        `${base}:missing.yaml`,
+        `${base}:notes/é.md`,
+        `${base}:packages`,
+        'nothing:file',
+        `${base}^:package.json`,
+      ]))
+        .toEqual([
+          'catalog:\n  vue: ^3.4.0\n',
+          undefined,
+          'Accents: é\n',
+          undefined,
+          undefined,
+          undefined,
+        ])
       expect(readFilesAtCommits(cwd, [])).toEqual([])
       expect(readFilesAtCommits(join(cwd, 'missing'), ['HEAD:package.json'])).toEqual([undefined])
     })
@@ -220,9 +318,31 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
       commit('fix(deps): update vue')
       const head = git('rev-parse', '--short', 'HEAD')
 
-      prefetchCatalogChanges({ commits: [{ hash: base, files: ['pnpm-workspace.yaml'] }, { hash: head, files: ['pnpm-workspace.yaml', 'README.md'] }, { hash: head, files: ['README.md'] }], cwd })
+      prefetchCatalogChanges({
+        commits: [
+          {
+            hash: base,
+            files: ['pnpm-workspace.yaml'],
+          },
+          {
+            hash: head,
+            files: ['pnpm-workspace.yaml', 'README.md'],
+          },
+          {
+            hash: head,
+            files: ['README.md'],
+          },
+        ],
+        cwd,
+      })
 
-      expect([...getCommitCatalogChanges({ hash: head, files: ['pnpm-workspace.yaml'], cwd })]).toEqual(['default:vue'])
+      expect([
+        ...getCommitCatalogChanges({
+          hash: head,
+          files: ['pnpm-workspace.yaml'],
+          cwd,
+        }),
+      ]).toEqual(['default:vue'])
     })
   })
 
@@ -233,14 +353,41 @@ describe('Given getPackageCommits with catalogs on a real git repository', () =>
         write('pnpm-workspace.yaml', 'catalog:\n  vue: ^3.4.0\n')
       })
 
-      const changes = getCommitCatalogChanges({ hash: base, files: ['pnpm-workspace.yaml'], cwd })
+      const changes = getCommitCatalogChanges({
+        hash: base,
+        files: ['pnpm-workspace.yaml'],
+        cwd,
+      })
 
       expect([...changes]).toEqual(['default:vue'])
-      expect(getCommitCatalogChanges({ hash: base, files: ['pnpm-workspace.yaml'], cwd })).toBe(changes)
-      expect(getCommitCatalogChanges({ hash: base, files: ['README.md'], cwd }).size).toBe(0)
-      expect(referencesCatalogEntries({ hash: base, packageRelativePath: 'packages/ui', entries: changes, cwd })).toBe(true)
-      expect(referencesCatalogEntries({ hash: base, packageRelativePath: 'packages/ui', entries: new Set(), cwd })).toBe(false)
-      expect(referencesCatalogEntries({ hash: base, packageRelativePath: 'packages/missing', entries: changes, cwd })).toBe(false)
+      expect(getCommitCatalogChanges({
+        hash: base,
+        files: ['pnpm-workspace.yaml'],
+        cwd,
+      })).toBe(changes)
+      expect(getCommitCatalogChanges({
+        hash: base,
+        files: ['README.md'],
+        cwd,
+      }).size).toBe(0)
+      expect(referencesCatalogEntries({
+        hash: base,
+        packageRelativePath: 'packages/ui',
+        entries: changes,
+        cwd,
+      })).toBe(true)
+      expect(referencesCatalogEntries({
+        hash: base,
+        packageRelativePath: 'packages/ui',
+        entries: new Set(),
+        cwd,
+      })).toBe(false)
+      expect(referencesCatalogEntries({
+        hash: base,
+        packageRelativePath: 'packages/missing',
+        entries: changes,
+        cwd,
+      })).toBe(false)
     })
   })
 })
@@ -259,7 +406,11 @@ describe('Given a bump in selective mode after a commit that only updates a cata
     git('remote', 'add', 'origin', 'https://github.com/acme/mono.git')
 
     repository.writeJson('.', { name: 'mono', version: '1.0.0', private: true })
-    repository.writeJson('packages/ui', { name: '@acme/ui', version: '1.0.0', dependencies: { vue: 'catalog:' } })
+    repository.writeJson('packages/ui', {
+      name: '@acme/ui',
+      version: '1.0.0',
+      dependencies: { vue: 'catalog:' },
+    })
     repository.writeJson('packages/utils', { name: '@acme/utils', version: '1.0.0' })
     repository.commit('chore: init', {
       'pnpm-workspace.yaml': 'packages:\n  - packages/*\ncatalog:\n  vue: ^3.4.0\n',
@@ -280,7 +431,9 @@ describe('Given a bump in selective mode after a commit that only updates a cata
   it('Then only the packages using the updated catalog entry are released, without writing anything in dry run', async () => {
     const result = await bump({ dryRun: true, yes: true })
 
-    expect(result.bumped && result.bumpedPackages.map(pkg => [pkg.name, pkg.newVersion])).toEqual([['@acme/ui', '1.0.1']])
+    expect(result.bumped && result.bumpedPackages.map(pkg => [pkg.name, pkg.newVersion])).toEqual([
+      ['@acme/ui', '1.0.1'],
+    ])
     expect(git('status', '--porcelain')).toBe('')
   })
 })

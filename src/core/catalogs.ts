@@ -19,7 +19,12 @@ export type CatalogFile = typeof CATALOG_FILES[number]
 const DEFAULT_CATALOG = 'default'
 
 /** Fields of a `package.json` whose dependencies can reference a catalog */
-const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'] as const
+const DEPENDENCY_FIELDS = [
+  'dependencies',
+  'devDependencies',
+  'peerDependencies',
+  'optionalDependencies',
+] as const
 
 /** Entries of the catalogs, keyed by `<catalog>:<dependency>`, with their version range */
 export type CatalogEntries = Map<string, string>
@@ -61,7 +66,9 @@ export function readCatalogEntries(file: CatalogFile, content: string | undefine
   }
 
   try {
-    const parsed: unknown = file === 'package.json' ? parseJSON(content) : parseYAML(content)
+    const parsed: unknown = file === 'package.json'
+      ? parseJSON(content)
+      : parseYAML(content)
 
     addCatalogs(entries, parsed)
 
@@ -164,7 +171,10 @@ export interface CatalogCommit {
  */
 export function prefetchCatalogChanges({ commits, cwd }: { commits: CatalogCommit[], cwd: string }): void {
   const pending = commits
-    .map(commit => ({ ...commit, catalogFiles: CATALOG_FILES.filter(file => commit.files.includes(file)) }))
+    .map(commit => ({
+      ...commit,
+      catalogFiles: CATALOG_FILES.filter(file => commit.files.includes(file)),
+    }))
     .filter(commit => commit.catalogFiles.length > 0 && !changedEntriesCache.has(`${cwd}\0${commit.hash}`))
   const objects = pending.flatMap(commit => commit.catalogFiles.flatMap(file => [`${commit.hash}^:${file}`, `${commit.hash}:${file}`]))
   const contents = readFilesAtCommits(cwd, objects)
@@ -195,7 +205,12 @@ export function getCommitCatalogChanges({ hash, files, cwd }: CatalogCommit & { 
     return new Set()
   }
 
-  prefetchCatalogChanges({ commits: [{ hash, files }], cwd })
+  prefetchCatalogChanges({
+    commits: [
+      { hash, files },
+    ],
+    cwd,
+  })
 
   return changedEntriesCache.get(`${cwd}\0${hash}`)!
 }
@@ -219,7 +234,9 @@ export function referencesCatalogEntries({ hash, packageRelativePath, entries, c
   let packageJson: unknown
 
   try {
-    packageJson = content ? parseJSON(content) : undefined
+    packageJson = content
+      ? parseJSON(content)
+      : undefined
   }
   catch {
     return false

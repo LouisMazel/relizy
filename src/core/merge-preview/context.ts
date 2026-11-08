@@ -64,7 +64,9 @@ function readGitHubEvent(env: Env): Record<string, any> | undefined {
 
 function toNumber(value: unknown): number | undefined {
   const number = Number(value)
-  return Number.isInteger(number) && number > 0 ? number : undefined
+  return Number.isInteger(number) && number > 0
+    ? number
+    : undefined
 }
 
 function getGitLabPullRequest(env: Env): MergePreviewPullRequest {
@@ -81,7 +83,9 @@ function getGitLabPullRequest(env: Env): MergePreviewPullRequest {
 }
 
 function getString(value: unknown): string | undefined {
-  return typeof value === 'string' && value ? value : undefined
+  return typeof value === 'string' && value
+    ? value
+    : undefined
 }
 
 function getGitHubPullRequest(env: Env): MergePreviewPullRequest {
@@ -115,7 +119,13 @@ export function getMergePreviewPullRequest(env: Env = process.env): MergePreview
 }
 
 function fetchTargetBranch(branch: string, cwd: string): void {
-  if (tryGitSync(['fetch', '--quiet', '--no-tags', 'origin', `+refs/heads/${branch}:refs/remotes/origin/${branch}`], { cwd }) !== undefined) {
+  if (tryGitSync([
+    'fetch',
+    '--quiet',
+    '--no-tags',
+    'origin',
+    `+refs/heads/${branch}:refs/remotes/origin/${branch}`,
+  ], { cwd }) !== undefined) {
     clearGitCache()
   }
 }
@@ -163,13 +173,28 @@ export async function prepareMergePreviewContext({ pullRequest, cwd, env = proce
   const { targetBranch } = pullRequest
   fetchTargetBranch(targetBranch, cwd)
 
-  const targetSha = tryGitSync(['rev-parse', '--verify', '--quiet', `refs/remotes/origin/${targetBranch}^{commit}`], { cwd })
-    ?? tryGitSync(['rev-parse', '--verify', '--quiet', `refs/heads/${targetBranch}^{commit}`], { cwd })
+  const targetSha = tryGitSync([
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `refs/remotes/origin/${targetBranch}^{commit}`,
+  ], { cwd })
+  ?? tryGitSync([
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `refs/heads/${targetBranch}^{commit}`,
+  ], { cwd })
   if (!targetSha) {
     throw new Error(`Cannot find the target branch "${targetBranch}" of the ${pullRequest.kind}: fetch it before the preview (git fetch origin ${targetBranch})`)
   }
 
-  const headSha = pullRequest.headSha && tryGitSync(['rev-parse', '--verify', '--quiet', `${pullRequest.headSha}^{commit}`], { cwd })
+  const headSha = pullRequest.headSha && tryGitSync([
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `${pullRequest.headSha}^{commit}`,
+  ], { cwd })
     ? pullRequest.headSha
     : runGitSync(['rev-parse', 'HEAD'], { cwd })
 
@@ -187,5 +212,14 @@ export async function prepareMergePreviewContext({ pullRequest, cwd, env = proce
 
   const commits = runGitSync(['rev-list', '--no-merges', `${targetSha}..${headSha}`], { cwd }).split('\n').filter(Boolean)
 
-  return { pullRequest, targetSha, headSha, commits, merged, ...(warning ? { warning } : {}) }
+  return {
+    pullRequest,
+    targetSha,
+    headSha,
+    commits,
+    merged,
+    ...(warning
+      ? { warning }
+      : {}),
+  }
 }

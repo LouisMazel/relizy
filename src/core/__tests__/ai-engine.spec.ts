@@ -12,7 +12,15 @@ vi.mock('../ai/registry', () => ({
 }))
 
 vi.mock('@maz-ui/node', () => ({
-  logger: { warn: vi.fn(), fail: vi.fn(), debug: vi.fn(), info: vi.fn(), log: vi.fn(), success: vi.fn(), verbose: vi.fn() },
+  logger: {
+    warn: vi.fn(),
+    fail: vi.fn(),
+    debug: vi.fn(),
+    info: vi.fn(),
+    log: vi.fn(),
+    success: vi.fn(),
+    verbose: vi.fn(),
+  },
 }))
 
 function createFakeProvider(overrides?: Partial<AIProvider>) {
@@ -45,7 +53,9 @@ describe('aiSafetyCheck', () => {
 
 describe('generateAIProviderReleaseBody', () => {
   it('assembles base + platform prompt with language substitution', async () => {
-    const config = createMockConfig({ ai: { language: 'fr' } })
+    const config = createMockConfig({
+      ai: { language: 'fr' },
+    })
     await generateAIProviderReleaseBody({ config, rawBody: 'changelog content' })
 
     const expected = `${BASE_PROMPT}\n\n${PROVIDER_RELEASE_PROMPT}`.replaceAll('{{language}}', 'fr')
@@ -60,7 +70,9 @@ describe('generateAIProviderReleaseBody', () => {
   })
 
   it('appends extraGuidelines when set', async () => {
-    const config = createMockConfig({ ai: { extraGuidelines: 'Be concise.' } })
+    const config = createMockConfig({
+      ai: { extraGuidelines: 'Be concise.' },
+    })
     await generateAIProviderReleaseBody({ config, rawBody: 'body' })
     expect(fakeProvider.lastRequest?.systemPrompt).toContain('Be concise.')
   })
@@ -114,7 +126,12 @@ describe('Given the changelog sent to the model', () => {
 describe('generateAISocialChangelog', () => {
   it('assembles base + twitter prompt with maxLength substitution', async () => {
     const config = createMockConfig({})
-    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280 })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'body',
+      platform: 'twitter',
+      maxLength: 280,
+    })
 
     const expected = `${BASE_PROMPT}\n\n${TWITTER_PROMPT}\n\n${MAX_LENGTH_PROMPT}`
       .replaceAll('{{language}}', 'en')
@@ -129,7 +146,11 @@ describe('generateAISocialChangelog', () => {
   })
 
   it('keeps every change of the slack message in the full format', async () => {
-    const config = createMockConfig({ social: { slack: { changelog: 'full' } } })
+    const config = createMockConfig({
+      social: {
+        slack: { changelog: 'full' },
+      },
+    })
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
 
     const systemPrompt = fakeProvider.lastRequest?.systemPrompt ?? ''
@@ -139,19 +160,32 @@ describe('generateAISocialChangelog', () => {
 
   it('sends the context of the release to the provider', async () => {
     const config = createMockConfig({})
-    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280, context: { project: 'relizy', version: '2.0.0' } })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'body',
+      platform: 'twitter',
+      maxLength: 280,
+      context: { project: 'relizy', version: '2.0.0' },
+    })
     expect(fakeProvider.lastRequest?.context).toEqual({ project: 'relizy', version: '2.0.0' })
   })
 
   it('adds the length budget to the slack prompt when provided', async () => {
     const config = createMockConfig({})
-    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack', maxLength: 2500 })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'body',
+      platform: 'slack',
+      maxLength: 2500,
+    })
     expect(fakeProvider.lastRequest?.systemPrompt).toContain('Hard maximum: 2500 characters')
   })
 
   it('appends the global then the target extraGuidelines when given per target', async () => {
     const config = createMockConfig({
-      ai: { extraGuidelines: { global: 'Global rule.', slack: 'Slack rule.', twitter: 'Twitter rule.' } },
+      ai: {
+        extraGuidelines: { global: 'Global rule.', slack: 'Slack rule.', twitter: 'Twitter rule.' },
+      },
     })
     await generateAISocialChangelog({ config, rawBody: 'body', platform: 'slack' })
 
@@ -161,16 +195,32 @@ describe('generateAISocialChangelog', () => {
   })
 
   it('appends only the target extraGuidelines when no global ones are set', async () => {
-    const config = createMockConfig({ ai: { extraGuidelines: { twitter: 'Twitter rule.' } } })
-    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 280 })
+    const config = createMockConfig({
+      ai: {
+        extraGuidelines: { twitter: 'Twitter rule.' },
+      },
+    })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'body',
+      platform: 'twitter',
+      maxLength: 280,
+    })
     expect(fakeProvider.lastRequest?.systemPrompt?.endsWith(`${MAX_LENGTH_PROMPT.replace('{{maxLength}}', '280')}\n\nTwitter rule.`)).toBe(true)
   })
 
   it('uses systemPromptOverrides per platform', async () => {
     const config = createMockConfig({
-      ai: { systemPromptOverrides: { twitter: 'Twitter override {{maxLength}}' } },
+      ai: {
+        systemPromptOverrides: { twitter: 'Twitter override {{maxLength}}' },
+      },
     })
-    await generateAISocialChangelog({ config, rawBody: 'body', platform: 'twitter', maxLength: 140 })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'body',
+      platform: 'twitter',
+      maxLength: 140,
+    })
     expect(fakeProvider.lastRequest?.systemPrompt).toBe('Twitter override 140')
   })
 })
@@ -191,7 +241,9 @@ describe('fallback modes', () => {
     fakeProvider = createFakeProvider({
       generate() { throw new Error('timeout') },
     })
-    const config = createMockConfig({ ai: { fallback: 'raw' } })
+    const config = createMockConfig({
+      ai: { fallback: 'raw' },
+    })
     const result = await generateAISocialChangelog({ config, rawBody: 'fallback body', platform: 'slack' })
     expect(result).toBe('fallback body')
   })
@@ -200,7 +252,9 @@ describe('fallback modes', () => {
     fakeProvider = createFakeProvider({
       generate() { throw new Error('API down') },
     })
-    const config = createMockConfig({ ai: { fallback: 'fail' } })
+    const config = createMockConfig({
+      ai: { fallback: 'fail' },
+    })
     await expect(generateAIProviderReleaseBody({ config, rawBody: 'body' }))
       .rejects
       .toThrow('AI generation failed: API down')
@@ -213,7 +267,9 @@ describe('unknown provider error', () => {
 
     const { getAIProvider: originalGetAIProvider } = await vi.importActual('../ai/registry') as typeof import('../ai/registry')
 
-    const config = createMockConfig({ ai: { provider: 'nonexistent' as any } })
+    const config = createMockConfig({
+      ai: { provider: 'nonexistent' as any },
+    })
     await expect(async () => {
       const provider = originalGetAIProvider(config)
       await provider.safetyCheck(config)
@@ -225,14 +281,33 @@ describe('unknown provider error', () => {
 
 describe('generateAISocialReleases', () => {
   const releases = [
-    { id: '1', title: 'Maz UI 7.0.0', body: '- feat a', highlights: 3 },
-    { id: '2', title: '@scope/nav 1.3.0', body: '- fix b', highlights: 1 },
+    {
+      id: '1',
+      title: 'Maz UI 7.0.0',
+      body: '- feat a',
+      highlights: 3,
+    },
+    {
+      id: '2',
+      title: '@scope/nav 1.3.0',
+      body: '- fix b',
+      highlights: 1,
+    },
   ]
 
   it('sends every release in one call, with the release instructions even over an overridden prompt', async () => {
-    const config = createMockConfig({ ai: { systemPromptOverrides: { twitter: 'Custom prompt' } } })
+    const config = createMockConfig({
+      ai: {
+        systemPromptOverrides: { twitter: 'Custom prompt' },
+      },
+    })
 
-    await generateAISocialReleases({ config, releases, platform: 'twitter', maxLength: 200 })
+    await generateAISocialReleases({
+      config,
+      releases,
+      platform: 'twitter',
+      maxLength: 200,
+    })
 
     expect(fakeProvider.lastRequest?.systemPrompt).toBe(`Custom prompt\n\n${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}`)
     expect(fakeProvider.lastRequest?.prompt).toBe('<release id="1" title="Maz UI 7.0.0" highlights="3">\n- feat a\n</release>\n\n<release id="2" title="@scope/nav 1.3.0" highlights="1">\n- fix b\n</release>')
@@ -243,23 +318,48 @@ describe('generateAISocialReleases', () => {
       generate: () => Promise.resolve({ text: '<release id="2">\nFixed b\n</release>\n<release id="1" title="x">A is new</release>' }),
     })
 
-    const result = await generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })
+    const result = await generateAISocialReleases({
+      config: createMockConfig({}),
+      releases,
+      platform: 'slack',
+    })
 
-    expect(result).toEqual(new Map([['2', 'Fixed b'], ['1', 'A is new']]))
+    expect(result).toEqual(new Map([
+      ['2', 'Fixed b'],
+      ['1', 'A is new'],
+    ]))
   })
 
   it('leaves out the releases without changelog and skips the call when none has one', async () => {
-    const result = await generateAISocialReleases({ config: createMockConfig({}), releases: [{ id: '1', title: 'a 1.0.0', body: '  ' }], platform: 'slack' })
+    const result = await generateAISocialReleases({
+      config: createMockConfig({}),
+      releases: [
+        { id: '1', title: 'a 1.0.0', body: '  ' },
+      ],
+      platform: 'slack',
+    })
 
     expect(result).toEqual(new Map())
     expect(fakeProvider.lastRequest).toBeUndefined()
   })
 
   it('returns no changelog when the call fails with the raw fallback, throws with the fail one', async () => {
-    fakeProvider = createFakeProvider({ generate: () => Promise.reject(new Error('down')) })
+    fakeProvider = createFakeProvider({
+      generate: () => Promise.reject(new Error('down')),
+    })
 
-    await expect(generateAISocialReleases({ config: createMockConfig({}), releases, platform: 'slack' })).resolves.toEqual(new Map())
-    await expect(generateAISocialReleases({ config: createMockConfig({ ai: { fallback: 'fail' } }), releases, platform: 'slack' })).rejects.toThrow('AI generation failed: down')
+    await expect(generateAISocialReleases({
+      config: createMockConfig({}),
+      releases,
+      platform: 'slack',
+    })).resolves.toEqual(new Map())
+    await expect(generateAISocialReleases({
+      config: createMockConfig({
+        ai: { fallback: 'fail' },
+      }),
+      releases,
+      platform: 'slack',
+    })).rejects.toThrow('AI generation failed: down')
   })
 })
 
@@ -268,7 +368,11 @@ describe('Given the AI in a dry run', () => {
   const note = vi.fn()
 
   beforeEach(() => {
-    setProgressHandlers({ progress, note, preview: vi.fn() })
+    setProgressHandlers({
+      progress,
+      note,
+      preview: vi.fn(),
+    })
     takeReleaseFacts()
     progress.mockClear()
     note.mockClear()
@@ -284,9 +388,27 @@ describe('Given the AI in a dry run', () => {
     fakeProvider = createFakeProvider({ generate })
     const config = createMockConfig({})
 
-    expect(await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0', dryRun: true })).toBe('raw notes')
-    expect(await generateAISocialChangelog({ config, rawBody: 'rich', fallbackBody: 'minified', platform: 'twitter', dryRun: true })).toBe('minified')
-    expect(await generateAISocialReleases({ config, releases: [{ id: '1', title: 'a 1.0.0', body: 'body' }], platform: 'slack', dryRun: true })).toEqual(new Map())
+    expect(await generateAIProviderReleaseBody({
+      config,
+      rawBody: 'raw notes',
+      label: 'v2.0.0',
+      dryRun: true,
+    })).toBe('raw notes')
+    expect(await generateAISocialChangelog({
+      config,
+      rawBody: 'rich',
+      fallbackBody: 'minified',
+      platform: 'twitter',
+      dryRun: true,
+    })).toBe('minified')
+    expect(await generateAISocialReleases({
+      config,
+      releases: [
+        { id: '1', title: 'a 1.0.0', body: 'body' },
+      ],
+      platform: 'slack',
+      dryRun: true,
+    })).toEqual(new Map())
 
     expect(generate).not.toHaveBeenCalled()
     expect(note).toHaveBeenCalledWith('The notes of v2.0.0: AI rewrite simulated (fake not called in dry run, see --ai-preview)', { ai: true })
@@ -303,13 +425,21 @@ describe('Given the AI in a dry run', () => {
     setDryRunOptions({ ai: true })
     const config = createMockConfig({})
 
-    expect(await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0', dryRun: true })).toBe('AI generated output')
+    expect(await generateAIProviderReleaseBody({
+      config,
+      rawBody: 'raw notes',
+      label: 'v2.0.0',
+      dryRun: true,
+    })).toBe('AI generated output')
     expect(fakeProvider.lastRequest?.prompt).toBe('raw notes')
   })
 
   it('Then shows the rewrite while it runs, then its duration, tokens and cost', async () => {
     fakeProvider = createFakeProvider({
-      generate: () => Promise.resolve({ text: 'rewritten', usage: { inputTokens: 1800, outputTokens: 450, costUsd: 0.0123 } }),
+      generate: () => Promise.resolve({
+        text: 'rewritten',
+        usage: { inputTokens: 1800, outputTokens: 450, costUsd: 0.0123 },
+      }),
     })
     const config = createMockConfig({})
 
@@ -318,17 +448,38 @@ describe('Given the AI in a dry run', () => {
     expect(progress).toHaveBeenCalledWith('Rewriting the notes of v2.0.0 with AI (fake)', { ai: true })
     expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms, 2\.3k tokens, \$0\.012$/), { ai: true })
     expect(takeReleaseFacts().aiRewrites).toEqual([
-      { subject: 'the notes of v2.0.0', provider: 'fake', simulated: false, durationMs: expect.any(Number), inputTokens: 1800, outputTokens: 450, costUsd: 0.0123 },
+      {
+        subject: 'the notes of v2.0.0',
+        provider: 'fake',
+        simulated: false,
+        durationMs: expect.any(Number),
+        inputTokens: 1800,
+        outputTokens: 450,
+        costUsd: 0.0123,
+      },
     ])
   })
 
   it('Then records each call of a release with its own usage, so they add up', async () => {
-    const usages = [{ inputTokens: 1000, outputTokens: 200, costUsd: 0.01 }, { inputTokens: 500, outputTokens: 100, costUsd: 0.005 }]
-    fakeProvider = createFakeProvider({ generate: () => Promise.resolve({ text: 'rewritten', usage: usages.shift() }) })
+    const usages = [
+      { inputTokens: 1000, outputTokens: 200, costUsd: 0.01 },
+      { inputTokens: 500, outputTokens: 100, costUsd: 0.005 },
+    ]
+    fakeProvider = createFakeProvider({
+      generate: () => Promise.resolve({
+        text: 'rewritten',
+        usage: usages.shift(),
+      }),
+    })
     const config = createMockConfig({})
 
     await generateAIProviderReleaseBody({ config, rawBody: 'raw notes', label: 'v2.0.0' })
-    await generateAISocialChangelog({ config, rawBody: 'rich', platform: 'twitter', maxLength: 200 })
+    await generateAISocialChangelog({
+      config,
+      rawBody: 'rich',
+      platform: 'twitter',
+      maxLength: 200,
+    })
 
     expect(takeReleaseFacts().aiRewrites.map(({ inputTokens, outputTokens, costUsd }) => ({ inputTokens, outputTokens, costUsd }))).toEqual([
       { inputTokens: 1000, outputTokens: 200, costUsd: 0.01 },
@@ -337,7 +488,11 @@ describe('Given the AI in a dry run', () => {
   })
 
   it('Then shows no usage when the provider gives none', async () => {
-    await generateAIProviderReleaseBody({ config: createMockConfig({}), rawBody: 'raw notes', label: 'v2.0.0' })
+    await generateAIProviderReleaseBody({
+      config: createMockConfig({}),
+      rawBody: 'raw notes',
+      label: 'v2.0.0',
+    })
 
     expect(note).toHaveBeenCalledWith(expect.stringMatching(/^The notes of v2\.0\.0 rewritten by AI \(fake\) in \d+ms$/), { ai: true })
   })

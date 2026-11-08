@@ -29,7 +29,9 @@ vi.mock('../../core', async () => {
     getCurrentGitBranch: vi.fn(),
     PR_COMMENT_MARKER: '<!-- relizy-pr-comment -->',
     filterOutPrivatePackages: <T extends { private: boolean }>(packages: T[]): T[] => packages.filter(p => !p.private),
-    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release' ? packages : packages.filter(p => !p.private),
+    filterPrivatePackagesUnlessIncluded: <T extends { private: boolean }>(packages: T[], privatePackages?: string): T[] => privatePackages === 'release'
+      ? packages
+      : packages.filter(p => !p.private),
     // Use the real collectPackageBumps so the package table renders in tests
     collectPackageBumps: actual.collectPackageBumps,
     // Real implementation so the metadata "from" version is derived from fromTag
@@ -68,8 +70,18 @@ describe('Given prComment command', () => {
       private: false,
     })
     vi.mocked(readPackages).mockReturnValue([
-      { name: 'pkg-a', version: '1.2.3', path: '/packages/pkg-a', private: false },
-      { name: 'pkg-b', version: '1.2.3', path: '/packages/pkg-b', private: false },
+      {
+        name: 'pkg-a',
+        version: '1.2.3',
+        path: '/packages/pkg-a',
+        private: false,
+      },
+      {
+        name: 'pkg-b',
+        version: '1.2.3',
+        path: '/packages/pkg-b',
+        private: false,
+      },
     ])
     vi.mocked(detectPullRequest).mockResolvedValue(mockPr)
     vi.mocked(postPrComment).mockResolvedValue(false)
@@ -95,9 +107,17 @@ describe('Given prComment command', () => {
     })
 
     it('Then does not reload config when config is passed directly', async () => {
-      const config = createMockConfig({ prComment: { mode: 'append' } })
+      const config = createMockConfig({
+        prComment: { mode: 'append' },
+      })
 
-      await prComment({ config, releaseContext: { status: 'success', bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0' } } })
+      await prComment({
+        config,
+        releaseContext: {
+          status: 'success',
+          bumpResult: { bumped: true, bumpedPackages: [], newVersion: '1.0.0' },
+        },
+      })
 
       expect(loadRelizyConfig).not.toHaveBeenCalled()
     })
@@ -155,8 +175,18 @@ describe('Given prComment command', () => {
   describe('When the workspace contains private packages', () => {
     it('Then excludes private packages from the standalone-mode comment body', async () => {
       vi.mocked(readPackages).mockReturnValue([
-        { name: '@scope/public', version: '1.2.3', path: '/packages/public', private: false },
-        { name: '@scope/private', version: '1.2.3', path: '/packages/private', private: true },
+        {
+          name: '@scope/public',
+          version: '1.2.3',
+          path: '/packages/public',
+          private: false,
+        },
+        {
+          name: '@scope/private',
+          version: '1.2.3',
+          path: '/packages/private',
+          private: true,
+        },
       ])
 
       await prComment({})
@@ -391,7 +421,17 @@ describe('Given prComment command', () => {
             newVersion: '2.0.0',
             oldVersion: '1.0.0',
             bumpedPackages: [
-              { name: 'pkg-a', oldVersion: '1.0.0', newVersion: '2.0.0', version: '2.0.0', path: '/a', private: false, fromTag: '', commits: [], dependencies: [] },
+              {
+                name: 'pkg-a',
+                oldVersion: '1.0.0',
+                newVersion: '2.0.0',
+                version: '2.0.0',
+                path: '/a',
+                private: false,
+                fromTag: '',
+                commits: [],
+                dependencies: [],
+              },
             ],
           },
           tags: ['v2.0.0'],
@@ -419,7 +459,9 @@ describe('Given prComment command', () => {
 
 describe('Given buildCommentBody', () => {
   const baseParams = {
-    config: createMockConfig({ prComment: { mode: 'append' } }),
+    config: createMockConfig({
+      prComment: { mode: 'append' },
+    }),
     branch: 'main',
     date: '2026-02-22 14:30 UTC',
   }
@@ -478,7 +520,17 @@ describe('Given buildCommentBody', () => {
             newVersion: '2.0.0',
             oldVersion: '1.0.0',
             bumpedPackages: [
-              { name: 'pkg-a', oldVersion: '1.0.0', newVersion: '2.0.0', version: '2.0.0', path: '/a', private: false, fromTag: '', commits: [], dependencies: [] },
+              {
+                name: 'pkg-a',
+                oldVersion: '1.0.0',
+                newVersion: '2.0.0',
+                version: '2.0.0',
+                path: '/a',
+                private: false,
+                fromTag: '',
+                commits: [],
+                dependencies: [],
+              },
             ],
           },
           tags: ['v2.0.0'],
@@ -502,7 +554,17 @@ describe('Given buildCommentBody', () => {
             oldVersion: '6.16.0-beta.5',
             fromTag: 'v6.15.0',
             bumpedPackages: [
-              { name: 'pkg-a', oldVersion: '6.16.0-beta.5', newVersion: '6.16.0', version: '6.16.0', path: '/a', private: false, fromTag: 'v6.15.0', commits: [], dependencies: [] },
+              {
+                name: 'pkg-a',
+                oldVersion: '6.16.0-beta.5',
+                newVersion: '6.16.0',
+                version: '6.16.0',
+                path: '/a',
+                private: false,
+                fromTag: 'v6.15.0',
+                commits: [],
+                dependencies: [],
+              },
             ],
           },
           tags: ['v6.16.0'],
@@ -522,8 +584,28 @@ describe('Given buildCommentBody', () => {
       bumpResult: {
         bumped: true as const,
         bumpedPackages: [
-          { name: '@scope/web', oldVersion: '0.0.0', newVersion: '0.1.0', version: '0.1.0', path: '/web', private: true, fromTag: '__NEW_PACKAGE__', commits: [], dependencies: [] },
-          { name: '@scope/lib', oldVersion: '1.0.0', newVersion: '1.1.0', version: '1.1.0', path: '/lib', private: false, fromTag: '@scope/lib@1.0.0', commits: [], dependencies: [] },
+          {
+            name: '@scope/web',
+            oldVersion: '0.0.0',
+            newVersion: '0.1.0',
+            version: '0.1.0',
+            path: '/web',
+            private: true,
+            fromTag: '__NEW_PACKAGE__',
+            commits: [],
+            dependencies: [],
+          },
+          {
+            name: '@scope/lib',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+            version: '1.1.0',
+            path: '/lib',
+            private: false,
+            fromTag: '@scope/lib@1.0.0',
+            commits: [],
+            dependencies: [],
+          },
         ],
       },
       tags: ['@scope/web@0.1.0', '@scope/lib@1.1.0'],
@@ -534,7 +616,11 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
         ...overrides,
       })
     }
@@ -600,7 +686,11 @@ describe('Given buildCommentBody', () => {
         prComment: { mode: 'append' },
         publish: { packageManager: 'pnpm' },
         projectName: 'my-project',
-        monorepo: { versionMode: 'independent', packages: ['packages/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'independent',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
       })
       const body = buildCommentBody({
         ...baseParams,
@@ -610,7 +700,17 @@ describe('Given buildCommentBody', () => {
           bumpResult: {
             bumped: true,
             bumpedPackages: [
-              { name: '@scope/web', oldVersion: '0.0.0', newVersion: '0.1.0', version: '0.1.0', path: '/web', private: true, fromTag: '__NEW_PACKAGE__', commits: [], dependencies: [] },
+              {
+                name: '@scope/web',
+                oldVersion: '0.0.0',
+                newVersion: '0.1.0',
+                version: '0.1.0',
+                path: '/web',
+                private: true,
+                fromTag: '__NEW_PACKAGE__',
+                commits: [],
+                dependencies: [],
+              },
             ],
           },
           tags: ['@scope/web@0.1.0'],
@@ -690,7 +790,10 @@ describe('Given tryPostPrComment function', () => {
 
   describe('When prComment is disabled in config', () => {
     it('Then returns false without attempting to detect a PR', async () => {
-      const config = createMockConfig({ release: { prComment: false }, prComment: { mode: 'append' } })
+      const config = createMockConfig({
+        release: { prComment: false },
+        prComment: { mode: 'append' },
+      })
 
       const result = await tryPostPrComment({ config, releaseContext, dryRun: false })
 
@@ -701,9 +804,17 @@ describe('Given tryPostPrComment function', () => {
 
   describe('When prComment is enabled', () => {
     it('Then delegates to prComment, forwards prNumber and returns its result', async () => {
-      const config = createMockConfig({ release: { prComment: true }, prComment: { mode: 'append' } })
+      const config = createMockConfig({
+        release: { prComment: true },
+        prComment: { mode: 'append' },
+      })
 
-      const result = await tryPostPrComment({ config, releaseContext, prNumber: 7, dryRun: false })
+      const result = await tryPostPrComment({
+        config,
+        releaseContext,
+        prNumber: 7,
+        dryRun: false,
+      })
 
       expect(result).toBe(true)
       expect(detectPullRequest).toHaveBeenCalledWith(expect.objectContaining({ prNumber: 7 }))
@@ -713,7 +824,10 @@ describe('Given tryPostPrComment function', () => {
 
   describe('When the underlying prComment throws', () => {
     it('Then swallows the error and returns false', async () => {
-      const config = createMockConfig({ release: { prComment: true }, prComment: { mode: 'append' } })
+      const config = createMockConfig({
+        release: { prComment: true },
+        prComment: { mode: 'append' },
+      })
       vi.mocked(detectPullRequest).mockRejectedValue(new Error('network down'))
 
       const result = await tryPostPrComment({ config, releaseContext, dryRun: false })
@@ -724,15 +838,46 @@ describe('Given tryPostPrComment function', () => {
 })
 
 describe('Given buildCommentBody with version groups', () => {
-  const nav = { name: '@scope/nav', oldVersion: '1.2.0', newVersion: '2.0.0', version: '2.0.0', path: '/nav', private: false, fromTag: '@scope/nav@1.2.0', commits: [], dependencies: [] }
-  const components = { name: '@scope/components', oldVersion: '6.19.1', newVersion: '6.20.0', version: '6.20.0', path: '/components', private: false, fromTag: 'v6.19.1', commits: [], dependencies: [] }
+  const nav = {
+    name: '@scope/nav',
+    oldVersion: '1.2.0',
+    newVersion: '2.0.0',
+    version: '2.0.0',
+    path: '/nav',
+    private: false,
+    fromTag: '@scope/nav@1.2.0',
+    commits: [],
+    dependencies: [],
+  }
+  const components = {
+    name: '@scope/components',
+    oldVersion: '6.19.1',
+    newVersion: '6.20.0',
+    version: '6.20.0',
+    path: '/components',
+    private: false,
+    fromTag: 'v6.19.1',
+    commits: [],
+    dependencies: [],
+  }
 
   function createGroupsConfig() {
-    const config = createMockConfig({ prComment: { mode: 'append' }, publish: { packageManager: 'pnpm' } })
+    const config = createMockConfig({
+      prComment: { mode: 'append' },
+      publish: { packageManager: 'pnpm' },
+    })
     config.monorepo = {
       groups: [
-        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+        {
+          name: 'main',
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        {
+          name: 'header',
+          versionMode: 'independent',
+          packages: ['shared/*'],
+        },
       ],
     }
     return config
@@ -752,8 +897,22 @@ describe('Given buildCommentBody with version groups', () => {
           fromTag: 'v6.19.1',
           bumpedPackages: [components, nav],
           groups: [
-            { name: 'main', title: 'main', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
-            { name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] },
+            {
+              name: 'main',
+              title: 'main',
+              versionMode: 'selective',
+              bumped: true,
+              newVersion: '6.20.0',
+              fromTag: 'v6.19.1',
+              bumpedPackages: [components],
+            },
+            {
+              name: 'header',
+              title: 'header',
+              versionMode: 'independent',
+              bumped: true,
+              bumpedPackages: [nav],
+            },
           ],
         },
       },
@@ -792,8 +951,22 @@ describe('Given buildCommentBody with version groups', () => {
           newVersion: '6.20.0',
           bumpedPackages: [components, nav, login],
           groups: [
-            { name: 'header', title: 'Header', versionMode: 'independent', bumped: true, bumpedPackages: [nav, login] },
-            { name: 'main', title: 'Maz UI', versionMode: 'selective', bumped: true, newVersion: '6.20.0', fromTag: 'v6.19.1', bumpedPackages: [components] },
+            {
+              name: 'header',
+              title: 'Header',
+              versionMode: 'independent',
+              bumped: true,
+              bumpedPackages: [nav, login],
+            },
+            {
+              name: 'main',
+              title: 'Maz UI',
+              versionMode: 'selective',
+              bumped: true,
+              newVersion: '6.20.0',
+              fromTag: 'v6.19.1',
+              bumpedPackages: [components],
+            },
           ],
         },
       },
@@ -815,7 +988,15 @@ describe('Given buildCommentBody with version groups', () => {
         bumpResult: {
           bumped: true,
           bumpedPackages: [nav],
-          groups: [{ name: 'header', title: 'header', versionMode: 'independent', bumped: true, bumpedPackages: [nav] }],
+          groups: [
+            {
+              name: 'header',
+              title: 'header',
+              versionMode: 'independent',
+              bumped: true,
+              bumpedPackages: [nav],
+            },
+          ],
         },
       },
     })
@@ -827,13 +1008,20 @@ describe('Given buildCommentBody with version groups', () => {
   it('Then reads the packages of every group in standalone mode', async () => {
     vi.mocked(loadRelizyConfig).mockResolvedValue(createGroupsConfig())
     vi.mocked(getCurrentGitBranch).mockReturnValue('main')
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '6.20.0', path: '/root', private: true })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'root',
+      version: '6.20.0',
+      path: '/root',
+      private: true,
+    })
     vi.mocked(readPackages).mockReturnValue([])
     vi.mocked(detectPullRequest).mockResolvedValue(null)
 
     await prComment({ dryRun: true })
 
-    expect(readPackages).toHaveBeenCalledWith(expect.objectContaining({ patterns: ['packages/*', 'shared/*'] }))
+    expect(readPackages).toHaveBeenCalledWith(expect.objectContaining({
+      patterns: ['packages/*', 'shared/*'],
+    }))
   })
 })
 
@@ -844,13 +1032,41 @@ describe('Given the comment of a release', () => {
       released: true,
       dryRun: false,
       canary: false,
-      release: { projectName: 'lib', groups: [{ name: '', title: 'lib', versionMode: 'unified', version: '1.1.0', oldVersion: '1.0.0', tag: 'v1.1.0', packages: [{ name: 'lib', oldVersion: '1.0.0', newVersion: '1.1.0', tag: 'v1.1.0', private: false }] }] },
+      release: {
+        projectName: 'lib',
+        groups: [
+          {
+            name: '',
+            title: 'lib',
+            versionMode: 'unified',
+            version: '1.1.0',
+            oldVersion: '1.0.0',
+            tag: 'v1.1.0',
+            packages: [
+              {
+                name: 'lib',
+                oldVersion: '1.0.0',
+                newVersion: '1.1.0',
+                tag: 'v1.1.0',
+                private: false,
+              },
+            ],
+          },
+        ],
+      },
       version: '1.1.0',
       tags: ['v1.1.0'],
-      steps: [{ name: 'publish', status: 'done', detail: 'lib@1.1.0' }],
+      steps: [
+        { name: 'publish', status: 'done', detail: 'lib@1.1.0' },
+      ],
     }
 
-    const body = buildCommentBody({ config: createMockConfig({}), branch: 'main', date: '2026-02-22 14:30 UTC', releaseContext: { status: 'success', report } })
+    const body = buildCommentBody({
+      config: createMockConfig({}),
+      branch: 'main',
+      date: '2026-02-22 14:30 UTC',
+      releaseContext: { status: 'success', report },
+    })
 
     expect(body).toBe(`<!-- relizy-pr-comment -->\n\n${formatReleaseReportMarkdown(report)}`)
     expect(body).toContain('| `lib` | `1.0.0` → `1.1.0` |')
@@ -862,9 +1078,18 @@ describe('Given the output of prComment in CI', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({ repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' }, tokens: { github: 'test-token' }, prComment: { mode: 'append' } }))
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+      tokens: { github: 'test-token' },
+      prComment: { mode: 'append' },
+    }))
     vi.mocked(getCurrentGitBranch).mockReturnValue('feature-branch')
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'test-project', version: '1.2.3', path: '/root', private: false })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test-project',
+      version: '1.2.3',
+      path: '/root',
+      private: false,
+    })
     vi.mocked(readPackages).mockReturnValue([])
     vi.mocked(detectPullRequest).mockResolvedValue({ number: 42, url: 'https://github.com/user/repo/pull/42', provider: 'github' })
     vi.mocked(postPrComment).mockResolvedValue(true)

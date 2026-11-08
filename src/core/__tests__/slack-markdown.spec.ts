@@ -39,7 +39,13 @@ describe('Given markdownToSlackRichText function', () => {
     it('Then renders the section title in bold', () => {
       expect(blocks[0]?.elements[0]).toEqual({
         type: 'rich_text_section',
-        elements: [{ type: 'text', text: '🚀 Features', style: { bold: true } }],
+        elements: [
+          {
+            type: 'text',
+            text: '🚀 Features',
+            style: { bold: true },
+          },
+        ],
       })
     })
 
@@ -47,22 +53,30 @@ describe('Given markdownToSlackRichText function', () => {
       expect(blocks[0]?.elements[1]).toEqual({
         type: 'rich_text_list',
         style: 'bullet',
-        elements: [{
-          type: 'rich_text_section',
-          elements: [
-            { type: 'text', text: 'slack:', style: { bold: true } },
-            { type: 'text', text: ' Add the full format (' },
-            { type: 'link', url: 'https://github.com/o/r/pull/12', text: '#12' },
-            { type: 'text', text: ')' },
-          ],
-        }],
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              {
+                type: 'text',
+                text: 'slack:',
+                style: { bold: true },
+              },
+              { type: 'text', text: ' Add the full format (' },
+              { type: 'link', url: 'https://github.com/o/r/pull/12', text: '#12' },
+              { type: 'text', text: ')' },
+            ],
+          },
+        ],
       })
     })
 
     it('Then renders body paragraphs as a quote with soft breaks joined', () => {
       expect(blocks[0]?.elements[2]).toEqual({
         type: 'rich_text_quote',
-        elements: [{ type: 'text', text: 'Commit bodies are hard-wrapped at 72 columns.' }],
+        elements: [
+          { type: 'text', text: 'Commit bodies are hard-wrapped at 72 columns.' },
+        ],
       })
     })
 
@@ -72,8 +86,28 @@ describe('Given markdownToSlackRichText function', () => {
         style: 'bullet',
         indent: 1,
         elements: [
-          { type: 'rich_text_section', elements: [{ type: 'text', text: 'first point with ' }, { type: 'text', text: 'code', style: { code: true } }] },
-          { type: 'rich_text_section', elements: [{ type: 'text', text: 'second ' }, { type: 'text', text: 'point', style: { italic: true } }] },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'first point with ' },
+              {
+                type: 'text',
+                text: 'code',
+                style: { code: true },
+              },
+            ],
+          },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'second ' },
+              {
+                type: 'text',
+                text: 'point',
+                style: { italic: true },
+              },
+            ],
+          },
         ],
       })
     })
@@ -81,7 +115,9 @@ describe('Given markdownToSlackRichText function', () => {
     it('Then renders body code as a preformatted block without forwarding its language', () => {
       expect(blocks[0]?.elements[4]).toEqual({
         type: 'rich_text_preformatted',
-        elements: [{ type: 'text', text: 'const a = 1' }],
+        elements: [
+          { type: 'text', text: 'const a = 1' },
+        ],
       })
     })
 
@@ -89,7 +125,14 @@ describe('Given markdownToSlackRichText function', () => {
       expect(blocks[0]?.elements[5]).toEqual({
         type: 'rich_text_list',
         style: 'bullet',
-        elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'Second feature' }] }],
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'Second feature' },
+            ],
+          },
+        ],
       })
     })
 
@@ -98,7 +141,14 @@ describe('Given markdownToSlackRichText function', () => {
       expect(block?.elements[0]).toEqual({
         type: 'rich_text_list',
         style: 'bullet',
-        elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'Support <T> & friends' }] }],
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'Support <T> & friends' },
+            ],
+          },
+        ],
       })
     })
   })
@@ -108,9 +158,37 @@ describe('Given markdownToSlackRichText function', () => {
       const [block] = markdownToSlackRichText('1. first\n\n   body\n2. second')
 
       expect(block?.elements).toEqual([
-        { type: 'rich_text_list', style: 'ordered', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'first' }] }] },
-        { type: 'rich_text_quote', elements: [{ type: 'text', text: 'body' }] },
-        { type: 'rich_text_list', style: 'ordered', offset: 1, elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'second' }] }] },
+        {
+          type: 'rich_text_list',
+          style: 'ordered',
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                { type: 'text', text: 'first' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'rich_text_quote',
+          elements: [
+            { type: 'text', text: 'body' },
+          ],
+        },
+        {
+          type: 'rich_text_list',
+          style: 'ordered',
+          offset: 1,
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                { type: 'text', text: 'second' },
+              ],
+            },
+          ],
+        },
       ])
     })
 
@@ -119,7 +197,9 @@ describe('Given markdownToSlackRichText function', () => {
 
       expect(block?.elements[1]).toEqual({
         type: 'rich_text_quote',
-        elements: [{ type: 'text', text: 'first paragraph\n\nsecond paragraph' }],
+        elements: [
+          { type: 'text', text: 'first paragraph\n\nsecond paragraph' },
+        ],
       })
     })
 
@@ -129,15 +209,21 @@ describe('Given markdownToSlackRichText function', () => {
       expect(block?.elements[0]).toEqual({
         type: 'rich_text_list',
         style: 'bullet',
-        elements: [{
-          type: 'rich_text_section',
-          elements: [
-            { type: 'text', text: '☑ ' },
-            { type: 'text', text: 'old', style: { strike: true } },
-            { type: 'text', text: ' see ' },
-            { type: 'link', url: 'https://example.com' },
-          ],
-        }],
+        elements: [
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: '☑ ' },
+              {
+                type: 'text',
+                text: 'old',
+                style: { strike: true },
+              },
+              { type: 'text', text: ' see ' },
+              { type: 'link', url: 'https://example.com' },
+            ],
+          },
+        ],
       })
     })
 
@@ -147,7 +233,13 @@ describe('Given markdownToSlackRichText function', () => {
       expect(blocks).toHaveLength(2)
       expect(blocks[0]?.elements[0]).toEqual({
         type: 'rich_text_section',
-        elements: [{ type: 'text', text: 'pkg-a@1.0.0\nFeatures', style: { bold: true } }],
+        elements: [
+          {
+            type: 'text',
+            text: 'pkg-a@1.0.0\nFeatures',
+            style: { bold: true },
+          },
+        ],
       })
     })
   })
@@ -175,7 +267,13 @@ describe('Given markdownToSlackRichText function', () => {
       expect(text).toMatch(/… and \d+ more changes$/)
       expect(blocks.at(-1)?.elements.at(-1)).toEqual({
         type: 'rich_text_section',
-        elements: [{ type: 'text', text: expect.stringMatching(/^… and \d+ more changes$/), style: { italic: true } }],
+        elements: [
+          {
+            type: 'text',
+            text: expect.stringMatching(/^… and \d+ more changes$/),
+            style: { italic: true },
+          },
+        ],
       })
     })
 
@@ -302,7 +400,17 @@ describe('Given the less common markdown constructs', () => {
     it('Then adds no note when only empty sections are left out', () => {
       expect(markdownToSlackMrkdwn('Some text\n\n# Heading', { maxLength: 12 })).toBe('Some text')
       expect(markdownToSlackRichText('Some text\n\n# Heading', { maxLength: 10 })).toEqual([
-        { type: 'rich_text', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'Some text' }] }] },
+        {
+          type: 'rich_text',
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                { type: 'text', text: 'Some text' },
+              ],
+            },
+          ],
+        },
       ])
     })
   })
@@ -311,43 +419,76 @@ describe('Given the less common markdown constructs', () => {
     const elementsOf = (markdown: string) => markdownToSlackRichText(markdown).flatMap(block => block.elements)
 
     it('Then turns hard breaks into line breaks', () => {
-      expect(elementsOf('a  \nb')).toEqual([{ type: 'rich_text_section', elements: [{ type: 'text', text: 'a\nb' }] }])
+      expect(elementsOf('a  \nb')).toEqual([
+        {
+          type: 'rich_text_section',
+          elements: [
+            { type: 'text', text: 'a\nb' },
+          ],
+        },
+      ])
     })
 
     it('Then renders images, references, inline html and footnotes', () => {
-      expect(elementsOf(`![logo](https://x.dev/l.png) ![rel](./r.png) [ref][docs] ![img][logo] <kbd>K</kbd> a[^1]${REFERENCES}`)).toEqual([{
-        type: 'rich_text_section',
-        elements: [
-          { type: 'link', url: 'https://x.dev/l.png', text: 'logo' },
-          { type: 'text', text: ' rel ref img <kbd>K</kbd> a[^1]' },
-        ],
-      }])
+      expect(elementsOf(`![logo](https://x.dev/l.png) ![rel](./r.png) [ref][docs] ![img][logo] <kbd>K</kbd> a[^1]${REFERENCES}`)).toEqual([
+        {
+          type: 'rich_text_section',
+          elements: [
+            { type: 'link', url: 'https://x.dev/l.png', text: 'logo' },
+            { type: 'text', text: ' rel ref img <kbd>K</kbd> a[^1]' },
+          ],
+        },
+      ])
     })
 
     it('Then styles links and combines styles', () => {
-      expect(elementsOf('**[bold](https://x.dev)** ***both***')).toEqual([{
-        type: 'rich_text_section',
-        elements: [
-          { type: 'link', url: 'https://x.dev', text: 'bold', style: { bold: true } },
-          { type: 'text', text: ' ' },
-          { type: 'text', text: 'both', style: { bold: true, italic: true } },
-        ],
-      }])
+      expect(elementsOf('**[bold](https://x.dev)** ***both***')).toEqual([
+        {
+          type: 'rich_text_section',
+          elements: [
+            {
+              type: 'link',
+              url: 'https://x.dev',
+              text: 'bold',
+              style: { bold: true },
+            },
+            { type: 'text', text: ' ' },
+            {
+              type: 'text',
+              text: 'both',
+              style: { bold: true, italic: true },
+            },
+          ],
+        },
+      ])
     })
 
     it('Then renders every child of a blockquote in one quote', () => {
-      expect(elementsOf('> quoted\n>\n> # Title\n>\n> ```\n> code\n> ```')).toEqual([{
-        type: 'rich_text_quote',
-        elements: [
-          { type: 'text', text: 'quoted\n' },
-          { type: 'text', text: 'Title', style: { bold: true } },
-          { type: 'text', text: '\ncode' },
-        ],
-      }])
+      expect(elementsOf('> quoted\n>\n> # Title\n>\n> ```\n> code\n> ```')).toEqual([
+        {
+          type: 'rich_text_quote',
+          elements: [
+            { type: 'text', text: 'quoted\n' },
+            {
+              type: 'text',
+              text: 'Title',
+              style: { bold: true },
+            },
+            { type: 'text', text: '\ncode' },
+          ],
+        },
+      ])
     })
 
     it('Then drops the thematic breaks of a blockquote', () => {
-      expect(elementsOf('> a\n>\n> ***')).toEqual([{ type: 'rich_text_quote', elements: [{ type: 'text', text: 'a\n' }] }])
+      expect(elementsOf('> a\n>\n> ***')).toEqual([
+        {
+          type: 'rich_text_quote',
+          elements: [
+            { type: 'text', text: 'a\n' },
+          ],
+        },
+      ])
     })
 
     it('Then skips empty code blocks, quotes and headings', () => {
@@ -356,34 +497,83 @@ describe('Given the less common markdown constructs', () => {
 
     it('Then renders html blocks as text and tables as preformatted text', () => {
       expect(elementsOf('<div>raw</div>\n\n| a | b |\n| - | - |\n| 1 | 2 |')).toEqual([
-        { type: 'rich_text_section', elements: [{ type: 'text', text: '<div>raw</div>' }] },
-        { type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'a | b\n1 | 2' }] },
+        {
+          type: 'rich_text_section',
+          elements: [
+            { type: 'text', text: '<div>raw</div>' },
+          ],
+        },
+        {
+          type: 'rich_text_preformatted',
+          elements: [
+            { type: 'text', text: 'a | b\n1 | 2' },
+          ],
+        },
       ])
     })
 
     it('Then skips thematic breaks and joins the surrounding paragraphs', () => {
-      expect(elementsOf('a\n\n---\n\nb')).toEqual([{ type: 'rich_text_section', elements: [{ type: 'text', text: 'a\nb' }] }])
+      expect(elementsOf('a\n\n---\n\nb')).toEqual([
+        {
+          type: 'rich_text_section',
+          elements: [
+            { type: 'text', text: 'a\nb' },
+          ],
+        },
+      ])
     })
 
     it('Then joins a paragraph after one ending with a link', () => {
-      expect(elementsOf('see https://x.dev\n\nnext')).toEqual([{
-        type: 'rich_text_section',
-        elements: [
-          { type: 'text', text: 'see ' },
-          { type: 'link', url: 'https://x.dev' },
-          { type: 'text', text: '\nnext' },
-        ],
-      }])
+      expect(elementsOf('see https://x.dev\n\nnext')).toEqual([
+        {
+          type: 'rich_text_section',
+          elements: [
+            { type: 'text', text: 'see ' },
+            { type: 'link', url: 'https://x.dev' },
+            { type: 'text', text: '\nnext' },
+          ],
+        },
+      ])
     })
 
     it('Then renders the quotes, html, tables and headings of a commit body', () => {
       const markdown = '- item\n\n  > quoted\n\n  <details>x</details>\n\n  | a |\n  | - |\n  | 1 |\n\n  ### Title\n\n  ---'
 
       expect(elementsOf(markdown)).toEqual([
-        { type: 'rich_text_list', style: 'bullet', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'item' }] }] },
-        { type: 'rich_text_quote', elements: [{ type: 'text', text: 'quoted\n\n<details>x</details>' }] },
-        { type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'a\n1' }] },
-        { type: 'rich_text_section', elements: [{ type: 'text', text: 'Title', style: { bold: true } }] },
+        {
+          type: 'rich_text_list',
+          style: 'bullet',
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                { type: 'text', text: 'item' },
+              ],
+            },
+          ],
+        },
+        {
+          type: 'rich_text_quote',
+          elements: [
+            { type: 'text', text: 'quoted\n\n<details>x</details>' },
+          ],
+        },
+        {
+          type: 'rich_text_preformatted',
+          elements: [
+            { type: 'text', text: 'a\n1' },
+          ],
+        },
+        {
+          type: 'rich_text_section',
+          elements: [
+            {
+              type: 'text',
+              text: 'Title',
+              style: { bold: true },
+            },
+          ],
+        },
       ])
     })
 
@@ -435,7 +625,18 @@ describe('Given a full changelog cut at its limit', () => {
       const [block] = markdownToSlackRichText('- see [a very long link label](https://x.dev/page) after', { maxLength: 12 })
 
       expect(block?.elements).toEqual([
-        { type: 'rich_text_list', style: 'bullet', elements: [{ type: 'rich_text_section', elements: [{ type: 'text', text: 'see…' }] }] },
+        {
+          type: 'rich_text_list',
+          style: 'bullet',
+          elements: [
+            {
+              type: 'rich_text_section',
+              elements: [
+                { type: 'text', text: 'see…' },
+              ],
+            },
+          ],
+        },
       ])
     })
 
@@ -447,8 +648,18 @@ describe('Given a full changelog cut at its limit', () => {
         style: 'bullet',
         indent: 1,
         elements: [
-          { type: 'rich_text_section', elements: [{ type: 'text', text: 'first detail' }] },
-          { type: 'rich_text_section', elements: [{ type: 'text', text: 'second detai…' }] },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'first detail' },
+            ],
+          },
+          {
+            type: 'rich_text_section',
+            elements: [
+              { type: 'text', text: 'second detai…' },
+            ],
+          },
         ],
       })
     })
@@ -456,7 +667,12 @@ describe('Given a full changelog cut at its limit', () => {
     it('Then cuts inside a code block', () => {
       const [block] = markdownToSlackRichText('- item\n\n  ```\n  const value = computeSomething()\n  ```', { maxLength: 32 })
 
-      expect(block?.elements.at(-1)).toEqual({ type: 'rich_text_preformatted', elements: [{ type: 'text', text: 'const value = co…' }] })
+      expect(block?.elements.at(-1)).toEqual({
+        type: 'rich_text_preformatted',
+        elements: [
+          { type: 'text', text: 'const value = co…' },
+        ],
+      })
     })
 
     it('Then never cuts a section title', () => {

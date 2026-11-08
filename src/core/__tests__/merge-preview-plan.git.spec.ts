@@ -46,7 +46,13 @@ describe('Given the merge of a pull request in a selective monorepo', () => {
     repository.git('merge', '--quiet', '--no-edit', 'main')
 
     context = {
-      pullRequest: { provider: 'github', kind: 'pull request', number: 5, title: 'feat(a)!: the new api', targetBranch: 'main' },
+      pullRequest: {
+        provider: 'github',
+        kind: 'pull request',
+        number: 5,
+        title: 'feat(a)!: the new api',
+        targetBranch: 'main',
+      },
       targetSha,
       headSha,
       commits: [headSha],
@@ -77,15 +83,37 @@ describe('Given the merge of a pull request in a selective monorepo', () => {
       expect(result.squashOutcome).toBeUndefined()
       expect(result.outcome.overview?.groups.map(group => group.version)).toEqual(['1.0.1'])
       expect(result.outcome.packages).toEqual([
-        expect.objectContaining({ name: 'a', oldVersion: '1.0.0', newVersion: '1.0.1', reason: 'commits', fromPullRequest: true, commits: [expect.objectContaining({ type: 'fix', scope: 'a', fromPullRequest: true })] }),
-        expect.objectContaining({ name: 'b', oldVersion: '1.0.0', newVersion: '1.0.1', reason: 'commits', fromPullRequest: false, commits: [expect.objectContaining({ type: 'fix', scope: 'b', fromPullRequest: false })] }),
+        expect.objectContaining({
+          name: 'a',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          reason: 'commits',
+          fromPullRequest: true,
+          commits: [
+            expect.objectContaining({ type: 'fix', scope: 'a', fromPullRequest: true }),
+          ],
+        }),
+        expect.objectContaining({
+          name: 'b',
+          oldVersion: '1.0.0',
+          newVersion: '1.0.1',
+          reason: 'commits',
+          fromPullRequest: false,
+          commits: [
+            expect.objectContaining({ type: 'fix', scope: 'b', fromPullRequest: false }),
+          ],
+        }),
       ])
     })
   })
 
   describe('When the merge squashes', () => {
     it('Then releases the title of the pull request instead of its commits', async () => {
-      const squash = getSquashCommit({ context, settings: { title: 'PR_TITLE', body: 'BLANK' }, cwd: repository.cwd })!
+      const squash = getSquashCommit({
+        context,
+        settings: { title: 'PR_TITLE', body: 'BLANK' },
+        cwd: repository.cwd,
+      })!
 
       const result = await plan({ mode: 'squash', reason: 'the repository only allows squash merges', squash })
 
@@ -93,14 +121,25 @@ describe('Given the merge of a pull request in a selective monorepo', () => {
       expect(result.outcome.packages.find(pkg => pkg.name === 'a')).toMatchObject({
         newVersion: '2.0.0',
         fromPullRequest: true,
-        commits: [{ type: 'feat', scope: 'a', isBreaking: true, fromPullRequest: true }],
+        commits: [
+          {
+            type: 'feat',
+            scope: 'a',
+            isBreaking: true,
+            fromPullRequest: true,
+          },
+        ],
       })
     })
   })
 
   describe('When the merge method is unknown', () => {
     it('Then keeps the squash outcome when it releases other versions', async () => {
-      const squash = getSquashCommit({ context, settings: { title: 'PR_TITLE', body: 'BLANK' }, cwd: repository.cwd })!
+      const squash = getSquashCommit({
+        context,
+        settings: { title: 'PR_TITLE', body: 'BLANK' },
+        cwd: repository.cwd,
+      })!
 
       const result = await plan({ mode: 'both', reason: 'the repository allows several merge methods', squash })
 
@@ -110,7 +149,11 @@ describe('Given the merge of a pull request in a selective monorepo', () => {
 
     it('Then drops the squash outcome when it releases the same versions', async () => {
       context.pullRequest.title = 'fix(a): the bug'
-      const squash = getSquashCommit({ context, settings: { title: 'PR_TITLE', body: 'BLANK' }, cwd: repository.cwd })!
+      const squash = getSquashCommit({
+        context,
+        settings: { title: 'PR_TITLE', body: 'BLANK' },
+        cwd: repository.cwd,
+      })!
 
       const result = await plan({ mode: 'both', reason: 'the repository allows several merge methods', squash })
 
@@ -121,11 +164,17 @@ describe('Given the merge of a pull request in a selective monorepo', () => {
   describe('When the squash title is not a conventional commit', () => {
     it('Then the pull request releases nothing, only the target branch does', async () => {
       context.pullRequest.title = 'Update the a package'
-      const squash = getSquashCommit({ context, settings: { title: 'PR_TITLE', body: 'BLANK' }, cwd: repository.cwd })!
+      const squash = getSquashCommit({
+        context,
+        settings: { title: 'PR_TITLE', body: 'BLANK' },
+        cwd: repository.cwd,
+      })!
 
       const result = await plan({ mode: 'squash', reason: 'the repository only allows squash merges', squash })
 
-      expect(result.outcome.packages.map(pkg => [pkg.name, pkg.fromPullRequest])).toEqual([['b', false]])
+      expect(result.outcome.packages.map(pkg => [pkg.name, pkg.fromPullRequest])).toEqual([
+        ['b', false],
+      ])
     })
   })
 })

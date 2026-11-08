@@ -14,7 +14,9 @@ export function setBumpConfirmation(confirmation: BumpConfirmation | undefined):
 }
 
 export function confirmBumpWithOutput(packages: (PackageBase & { oldVersion?: string })[]): Promise<boolean | undefined> {
-  return bumpConfirmation ? bumpConfirmation(packages) : Promise.resolve(undefined)
+  return bumpConfirmation
+    ? bumpConfirmation(packages)
+    : Promise.resolve(undefined)
 }
 
 /**
@@ -35,6 +37,8 @@ export function assertBumpConfirmable({ command, yes, ciName }: {
   }
 
   // `CI=true` alone does not tell which CI
-  const where = ciName && ciName !== 'Unknown CI' ? ` (${ciName})` : ''
+  const where = ciName && ciName !== 'Unknown CI'
+    ? ` (${ciName})`
+    : ''
   throw new Error(`relizy ${command} asks to confirm the new versions, but the terminal is not interactive${where}: run "relizy ${command} --yes" to confirm them in advance`)
 }

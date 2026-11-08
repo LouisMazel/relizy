@@ -10,7 +10,9 @@ export default defineConfig({
     setupFiles: ['./vitest.setup.ts'],
     coverage: {
       provider: 'v8',
-      reporter: process.env.CI ? ['lcov'] : ['html', 'lcov', 'text', 'text-summary'],
+      reporter: process.env.CI
+        ? ['lcov']
+        : ['html', 'lcov', 'text', 'text-summary'],
       include: ['src/**/*'],
       exclude: [
         ...coverageConfigDefaults.exclude,

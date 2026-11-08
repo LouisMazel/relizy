@@ -47,7 +47,12 @@ export function sortPackagesForPublish<T extends PackageBase>(packages: T[]): T[
       .flatMap(field => Object.keys(fields[field] ?? {}))
       .filter(name => names.has(name) && name !== pkg.name)
 
-    return { ...pkg, dependencies: [...new Set(dependencies)] }
+    return {
+      ...pkg,
+      dependencies: [
+        ...new Set(dependencies),
+      ],
+    }
   })
 
   return topologicalSort(withPublishDependencies).map(pkg => byName.get(pkg.name)!)
@@ -81,7 +86,9 @@ export function readWorkspacePackages(config: ResolvedRelizyConfig): Map<string,
       }
     }
     catch (error) {
-      logger.debug(`Cannot read the package of ${directory}: ${error instanceof Error ? error.message : String(error)}`)
+      logger.debug(`Cannot read the package of ${directory}: ${error instanceof Error
+        ? error.message
+        : String(error)}`)
     }
   }
 
@@ -186,7 +193,11 @@ export async function checkWorkspaceDependencies({
         registryChecks.set(key, queryRegistries({ config, target: dependency.target, version: dependency.version }))
       }
 
-      return { dependent: pkg.name, ...dependency, onRegistry: registryChecks.get(key)! }
+      return {
+        dependent: pkg.name,
+        ...dependency,
+        onRegistry: registryChecks.get(key)!,
+      }
     }))
 
   // The registry queries run in parallel
@@ -199,7 +210,9 @@ export async function checkWorkspaceDependencies({
       field,
       dependency: target.name,
       version,
-      status: onRegistry === false ? 'missing' : 'unknown',
+      status: onRegistry === false
+        ? 'missing'
+        : 'unknown',
     }))
 
   reportUnresolvedWorkspaceDependencies(unresolved)
@@ -219,7 +232,12 @@ async function queryRegistries({
   target: ReadPackage
   version: string
 }): Promise<boolean | null> {
-  const pkg = { ...target, fromTag: '', commits: [], dependencies: [] } satisfies PackageBase
+  const pkg = {
+    ...target,
+    fromTag: '',
+    commits: [],
+    dependencies: [],
+  } satisfies PackageBase
   let inconclusive = false
 
   for (const registryTarget of resolveRegistryTargetsForPackage(pkg, config)) {
@@ -297,14 +315,19 @@ export function findStalePeerDependents({
 }): StaleDependent[] {
   const bumped = new Map(bumpedPackages
     .filter(pkg => pkg.newVersion && pkg.newVersion !== pkg.oldVersion)
-    .map(pkg => [pkg.name, { oldVersion: pkg.oldVersion, newVersion: pkg.newVersion! }]))
+    .map(pkg => [
+      pkg.name,
+      { oldVersion: pkg.oldVersion, newVersion: pkg.newVersion! },
+    ]))
   const published = new Set(publishedPackages.map(pkg => pkg.name))
 
   if (bumped.size === 0) {
     return []
   }
 
-  return [...readWorkspacePackages(config).values()]
+  return [
+    ...readWorkspacePackages(config).values(),
+  ]
     .filter(dependent => !dependent.private && !published.has(dependent.name))
     .flatMap(dependent => getOutOfRangePeers({ packagePath: dependent.path, bumped })
       .map(peer => ({ dependent: dependent.name, ...peer })))

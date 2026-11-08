@@ -23,13 +23,26 @@ describe('Given the prompts', () => {
     it('Then askConfirm returns the answer, with the options of the prompt', async () => {
       vi.mocked(confirm).mockResolvedValueOnce(false)
 
-      await expect(askConfirm({ message: 'Release?', initialValue: true, active: 'Release', inactive: 'Cancel' })).resolves.toBe(false)
-      expect(confirm).toHaveBeenCalledWith({ message: 'Release?', initialValue: true, active: 'Release', inactive: 'Cancel' })
+      await expect(askConfirm({
+        message: 'Release?',
+        initialValue: true,
+        active: 'Release',
+        inactive: 'Cancel',
+      })).resolves.toBe(false)
+      expect(confirm).toHaveBeenCalledWith({
+        message: 'Release?',
+        initialValue: true,
+        active: 'Release',
+        inactive: 'Cancel',
+      })
     })
 
     it('Then askSelect returns the chosen value', async () => {
       vi.mocked(select).mockResolvedValueOnce('keep')
-      const options = [{ value: 'keep', label: 'Keep' }, { value: 'abort', label: 'Abort', hint: 'stop the run' }]
+      const options = [
+        { value: 'keep', label: 'Keep' },
+        { value: 'abort', label: 'Abort', hint: 'stop the run' },
+      ]
 
       await expect(askSelect({ message: 'What now?', options, initialValue: 'keep' })).resolves.toBe('keep')
       expect(select).toHaveBeenCalledWith({ message: 'What now?', options, initialValue: 'keep' })
@@ -50,7 +63,13 @@ describe('Given the prompts', () => {
       vi.mocked(text).mockResolvedValueOnce(CANCEL as never)
 
       await expect(askConfirm({ message: 'Release?', cancelMessage: 'Bump cancelled' })).rejects.toThrow(new RelizyCancelError('Bump cancelled'))
-      await expect(askSelect({ message: 'What now?', options: [{ value: 'keep', label: 'Keep' }], cancelMessage: 'Tag cancelled' })).rejects.toThrow(new RelizyCancelError('Tag cancelled'))
+      await expect(askSelect({
+        message: 'What now?',
+        options: [
+          { value: 'keep', label: 'Keep' },
+        ],
+        cancelMessage: 'Tag cancelled',
+      })).rejects.toThrow(new RelizyCancelError('Tag cancelled'))
       await expect(askText({ message: 'OTP' })).rejects.toThrow(new RelizyCancelError('Cancelled'))
     })
   })

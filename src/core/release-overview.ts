@@ -143,7 +143,14 @@ export function getReleaseOverview({ config, bumpResult }: {
   if (!bumpResult.groups) {
     return {
       projectName,
-      groups: [toOverviewGroup({ config, result: bumpResult, title: projectName, versionMode: config.monorepo?.versionMode ?? 'unified' })],
+      groups: [
+        toOverviewGroup({
+          config,
+          result: bumpResult,
+          title: projectName,
+          versionMode: config.monorepo?.versionMode ?? 'unified',
+        }),
+      ],
     }
   }
 
@@ -152,7 +159,13 @@ export function getReleaseOverview({ config, bumpResult }: {
 
   return {
     projectName,
-    groups: groups.map(group => toOverviewGroup({ config, result: group, name: group.name, title: group.title, versionMode: group.versionMode })),
+    groups: groups.map(group => toOverviewGroup({
+      config,
+      result: group,
+      name: group.name,
+      title: group.title,
+      versionMode: group.versionMode,
+    })),
   }
 }
 
@@ -164,7 +177,10 @@ export function withoutPrivatePackages(overview: ReleaseOverview): ReleaseOvervi
   return {
     ...overview,
     groups: overview.groups
-      .map(group => ({ ...group, packages: group.packages.filter(pkg => !pkg.private) }))
+      .map(group => ({
+        ...group,
+        packages: group.packages.filter(pkg => !pkg.private),
+      }))
       .filter(group => group.versionMode !== 'independent' || group.packages.length > 0),
   }
 }
@@ -175,10 +191,24 @@ export function withoutPrivatePackages(overview: ReleaseOverview): ReleaseOvervi
 export function getReleaseLines(overview: ReleaseOverview): ReleaseLine[] {
   return overview.groups.flatMap((group): ReleaseLine[] => {
     if (group.versionMode === 'independent') {
-      return group.packages.map(pkg => ({ name: pkg.name, version: pkg.newVersion, tag: pkg.tag, group }))
+      return group.packages.map(pkg => ({
+        name: pkg.name,
+        version: pkg.newVersion,
+        tag: pkg.tag,
+        group,
+      }))
     }
 
-    return group.version ? [{ name: overview.projectName, version: group.version, tag: group.tag!, group }] : []
+    return group.version
+      ? [
+          {
+            name: overview.projectName,
+            version: group.version,
+            tag: group.tag!,
+            group,
+          },
+        ]
+      : []
   })
 }
 
@@ -209,7 +239,9 @@ export function getSocialTemplateVariables({ overview, releaseUrl, changelogUrl 
   return {
     projectName: overview.projectName,
     releaseTitle: getReleaseTitle(overview),
-    newVersion: lines.length === 1 ? lines[0]!.version : '',
+    newVersion: lines.length === 1
+      ? lines[0]!.version
+      : '',
     packageList: packages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(', '),
     packageCount: String(packages.length),
     releaseUrl,
@@ -236,7 +268,12 @@ const URL_LINE_REGEX = /^\s*\{\{(releaseUrl|changelogUrl)\}\}\s*$/
  * the URLs not set are removed, with their line when they are alone on it.
  */
 export function fillSocialTemplate(template: string, variables: SocialTemplateVariables, extraVariables: Record<string, string | undefined> = {}): string {
-  const values: Record<string, string | undefined> = { releaseUrl: undefined, changelogUrl: undefined, ...variables, ...extraVariables }
+  const values: Record<string, string | undefined> = {
+    releaseUrl: undefined,
+    changelogUrl: undefined,
+    ...variables,
+    ...extraVariables,
+  }
   const lines = template.split('\n').filter((line) => {
     const name = URL_LINE_REGEX.exec(line)?.[1]
     return !name || Boolean(values[name])
@@ -273,12 +310,18 @@ export function keepReleaseLines(overview: ReleaseOverview, keep: (line: Release
       const groupLines = keptLines.filter(line => line.group === group)
 
       if (group.versionMode !== 'independent') {
-        return groupLines.length > 0 ? [group] : []
+        return groupLines.length > 0
+          ? [group]
+          : []
       }
 
       const packages = group.packages.filter(pkg => groupLines.some(line => line.name === pkg.name))
 
-      return packages.length > 0 ? [{ ...group, packages }] : []
+      return packages.length > 0
+        ? [
+            { ...group, packages },
+          ]
+        : []
     }),
   }
 }

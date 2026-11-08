@@ -11,7 +11,11 @@ import { release } from '../release'
 // The setup file mocks execPromise: these tests run the real git commands against a temporary repository
 vi.mock('@maz-ui/node', importActual => importActual())
 
-vi.mock('../../core/prompts', () => ({ askConfirm: vi.fn(), assertInteractivePrompt: vi.fn(), BUMP_NOT_INTERACTIVE: '' }))
+vi.mock('../../core/prompts', () => ({
+  askConfirm: vi.fn(),
+  assertInteractivePrompt: vi.fn(),
+  BUMP_NOT_INTERACTIVE: '',
+}))
 
 // Only the registry is mocked: publishing and querying the published versions
 vi.mock('../../core/npm', async (importActual) => {
@@ -51,7 +55,11 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then bumps the packages with a workspace:* peer dependency, in every group, without following the peer dependencies', async () => {
       // @scope/kit is in the selective group, @scope/nav in the independent one
-      commitChanges('chore: add the kit', () => writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1', peerDependencies: { '@scope/components': 'workspace:*' } }))
+      commitChanges('chore: add the kit', () => writeJson('packages/kit', {
+        name: '@scope/kit',
+        version: '6.19.1',
+        peerDependencies: { '@scope/components': 'workspace:*' },
+      }))
 
       await release({ yes: true })
 
@@ -65,10 +73,25 @@ describe('Given a release with version groups on a real git repository', () => {
       const config = await loadRelizyConfig()
 
       const { result, plans, groups } = await planBumps({ config, dryRun: true })
-      const nav = result.bumped ? result.bumpedPackages.find(pkg => pkg.name === '@scope/nav') : undefined
+      const nav = result.bumped
+        ? result.bumpedPackages.find(pkg => pkg.name === '@scope/nav')
+        : undefined
 
-      expect(nav).toEqual(expect.objectContaining({ newVersion: '1.2.1', reason: 'dependency', dependencyChain: ['@scope/components'], outOfRangeDependency: { name: '@scope/components', field: 'peerDependencies', range: '6.19.1', newVersion: '6.20.0' } }))
-      expect(groups?.map(({ group, result }) => [group.name, result.bumped])).toEqual([['main', true], ['header', true]])
+      expect(nav).toEqual(expect.objectContaining({
+        newVersion: '1.2.1',
+        reason: 'dependency',
+        dependencyChain: ['@scope/components'],
+        outOfRangeDependency: {
+          name: '@scope/components',
+          field: 'peerDependencies',
+          range: '6.19.1',
+          newVersion: '6.20.0',
+        },
+      }))
+      expect(groups?.map(({ group, result }) => [group.name, result.bumped])).toEqual([
+        ['main', true],
+        ['header', true],
+      ])
       expect(plans.map(plan => plan.result)).toEqual(groups?.map(group => group.result))
       expect(readVersion('packages/components')).toBe('6.19.1')
       expect(readVersion('shared/nav')).toBe('1.2.0')
@@ -77,7 +100,11 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then does not bump a package whose workspace:^ range accepts the new version', async () => {
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
+      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+        name: '@scope/nav',
+        version: '1.2.0',
+        peerDependencies: { '@scope/components': 'workspace:^' },
+      }))
       const warn = vi.spyOn(logger, 'warn')
 
       await release({ yes: true })
@@ -91,7 +118,11 @@ describe('Given a release with version groups on a real git repository', () => {
       function setupNav({ version = '1.2.0', headerOptions = '' }: { version?: string, headerOptions?: string } = {}) {
         git('reset', '--hard', 'HEAD~1')
         commitChanges('chore: caret peer', () => {
-          writeJson('shared/nav', { name: '@scope/nav', version, peerDependencies: { '@scope/components': 'workspace:^' } })
+          writeJson('shared/nav', {
+            name: '@scope/nav',
+            version,
+            peerDependencies: { '@scope/components': 'workspace:^' },
+          })
           writeConfig({ headerOptions })
         })
         commitFile('packages/components/button.js', 'feat(components)!: new button API')
@@ -172,7 +203,11 @@ describe('Given a release with version groups on a real git repository', () => {
     describe('When a package depends on a package of another group with bump.dependents: out-of-range', () => {
       beforeEach(() => {
         commitChanges('chore: caret dependency', () => {
-          writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', dependencies: { '@scope/components': 'workspace:^' } })
+          writeJson('shared/nav', {
+            name: '@scope/nav',
+            version: '1.2.0',
+            dependencies: { '@scope/components': 'workspace:^' },
+          })
           writeConfig({ headerOptions: `, bump: { dependents: 'out-of-range' }` })
         })
       })
@@ -196,7 +231,11 @@ describe('Given a release with version groups on a real git repository', () => {
 
     describe('When a package of the selective group has a peer dependency on a package of the independent group making a breaking change', () => {
       beforeEach(() => {
-        commitChanges('chore: add the kit', () => writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1', peerDependencies: { '@scope/login': 'workspace:^' } }))
+        commitChanges('chore: add the kit', () => writeJson('packages/kit', {
+          name: '@scope/kit',
+          version: '6.19.1',
+          peerDependencies: { '@scope/login': 'workspace:^' },
+        }))
         commitFile('shared/login/form.js', 'feat(login)!: new form API')
       })
 
@@ -234,7 +273,11 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then publishes a major canary of a package whose peer dependency makes a breaking change', async () => {
       git('reset', '--hard', 'HEAD~1')
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
+      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+        name: '@scope/nav',
+        version: '1.2.0',
+        peerDependencies: { '@scope/components': 'workspace:^' },
+      }))
       commitFile('packages/components/button.js', 'feat(components)!: new button API')
 
       await release({ canary: true, yes: true })
@@ -245,7 +288,11 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then publishes the canary version of a package whose workspace:^ range rejects the canary of its dependency', async () => {
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', { name: '@scope/nav', version: '1.2.0', peerDependencies: { '@scope/components': 'workspace:^' } }))
+      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+        name: '@scope/nav',
+        version: '1.2.0',
+        peerDependencies: { '@scope/components': 'workspace:^' },
+      }))
 
       await release({ canary: true, yes: true })
 
@@ -280,7 +327,10 @@ describe('Given a release with version groups on a real git repository', () => {
     it('Then warns about the packages of the groups not released', async () => {
       const warn = vi.spyOn(logger, 'warn')
 
-      await release({ yes: true, groups: ['main'] })
+      await release({
+        yes: true,
+        groups: ['main'],
+      })
 
       expect(readVersion('shared/nav')).toBe('1.2.0')
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('@scope/nav: @scope/components "6.19.1" does not accept 6.20.0'))

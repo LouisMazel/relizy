@@ -29,16 +29,27 @@ export function readOwnAgentDocs(directory: string = process.env.RELIZY_AGENT_DO
     return readFileSync(path, 'utf8').trim()
   }
 
-  return { directory, version: readOwnVersion(), claudeRule: read('claude-rule.md'), agentsMdSection: read('agents-md.md') }
+  return {
+    directory,
+    version: readOwnVersion(),
+    claudeRule: read('claude-rule.md'),
+    agentsMdSection: read('agents-md.md'),
+  }
 }
 
 /** Rules generated in a project by an older relizy than the installed one: `relizy mcp init` updates them */
 export function findOutdatedRules(cwd: string, version: string = readOwnVersion()): { file: string, version: string }[] {
   return ['.claude/rules/relizy.md', 'AGENTS.md'].flatMap((file) => {
     const path = join(cwd, file)
-    const written = existsSync(path) ? readManagedVersion(readFileSync(path, 'utf8'), RELIZY_AGENTS_TOOL) : undefined
+    const written = existsSync(path)
+      ? readManagedVersion(readFileSync(path, 'utf8'), RELIZY_AGENTS_TOOL)
+      : undefined
 
-    return written && compareVersions(written, version) < 0 ? [{ file, version: written }] : []
+    return written && compareVersions(written, version) < 0
+      ? [
+          { file, version: written },
+        ]
+      : []
   })
 }
 
@@ -61,7 +72,9 @@ export interface McpInitOptions {
 export function getDefaultAgentTargets(cwd: string): AgentTarget[] {
   const detected = detectAgentTargets(cwd)
 
-  return detected.length > 0 ? detected : ['claude', 'agents-md']
+  return detected.length > 0
+    ? detected
+    : ['claude', 'agents-md']
 }
 
 /** Configure the AI coding agents of a project for relizy: rules and MCP server */
@@ -80,7 +93,9 @@ export function setupRelizyAgents({ cwd = process.cwd(), targets, rules = true, 
     dryRun,
     remove,
     tool: RELIZY_AGENTS_TOOL,
-    agentDocs: remove || !rules ? undefined : readOwnAgentDocs(docsDir),
+    agentDocs: remove || !rules
+      ? undefined
+      : readOwnAgentDocs(docsDir),
     mcpVersion: readOwnVersion(),
   })
 }
@@ -95,7 +110,9 @@ export function formatAgentsChanges(changes: SetupAgentsChange[], dryRun: boolea
   }
 
   return changes.map((change) => {
-    const reason = change.reason ? ` (${change.reason})` : ''
+    const reason = change.reason
+      ? ` (${change.reason})`
+      : ''
 
     return `${labels[change.action].padEnd(13)} ${change.file}${reason}`
   })

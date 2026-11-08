@@ -262,7 +262,10 @@ describe('Given getAuthCommand function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    config = createMockConfig({ bump: { type: 'patch' }, publish: { args: [], safetyCheck: false } })
+    config = createMockConfig({
+      bump: { type: 'patch' },
+      publish: { args: [], safetyCheck: false },
+    })
     vi.mocked(path.join).mockImplementation((...args) => args.join('/'))
     vi.mocked(existsSync).mockReturnValue(false)
   })
@@ -402,8 +405,18 @@ describe('Given withRegistryNpmrc function', () => {
       const listeners = () => ['exit', 'SIGINT', 'SIGTERM', 'SIGHUP'].map(event => process.listenerCount(event))
       const before = listeners()
 
-      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.resolve() })
-      await withRegistryNpmrc({ config, registryTarget: target, packageManager: 'npm', fn: () => Promise.reject(new Error('E403')) }).catch(() => {})
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => Promise.resolve(),
+      })
+      await withRegistryNpmrc({
+        config,
+        registryTarget: target,
+        packageManager: 'npm',
+        fn: () => Promise.reject(new Error('E403')),
+      }).catch(() => {})
 
       expect(listeners()).toEqual(before)
     })
@@ -568,7 +581,10 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
 
   beforeEach(() => {
     vi.clearAllMocks()
-    pkg = { ...createMockPackageInfo(), name: 'test-package' }
+    pkg = {
+      ...createMockPackageInfo(),
+      name: 'test-package',
+    }
   })
 
   describe('When only the legacy registry is configured', () => {
@@ -582,7 +598,14 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
       const result = resolveRegistryTargetsForPackage(pkg, config)
 
       expect(result).toEqual([
-        { name: 'default', registry: 'https://registry.npmjs.org/', token: 'legacy-token', tag: 'latest', access: undefined, otp: undefined },
+        {
+          name: 'default',
+          registry: 'https://registry.npmjs.org/',
+          token: 'legacy-token',
+          tag: 'latest',
+          access: undefined,
+          otp: undefined,
+        },
       ])
     })
   })
@@ -594,7 +617,9 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         publish: {
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' }],
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-token' },
+          ],
         },
       })
 
@@ -611,11 +636,20 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         publish: {
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+          registries: [
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
         },
       })
 
-      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+      const scopedPkg = {
+        ...createMockPackageInfo(),
+        name: '@scope/foo',
+      }
 
       const result = resolveRegistryTargetsForPackage(scopedPkg, config)
 
@@ -628,7 +662,13 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         publish: {
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+          registries: [
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
         },
       })
 
@@ -645,7 +685,9 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         publish: {
           args: [],
           registry: 'https://registry.npmjs.org/',
-          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }],
+          registries: [
+            { name: 'duplicate', registry: 'https://registry.npmjs.org/' },
+          ],
         },
       })
 
@@ -661,7 +703,9 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         publish: {
           args: [],
           registry: 'https://registry.npmjs.org', // no trailing slash
-          registries: [{ name: 'duplicate', registry: 'https://registry.npmjs.org/' }], // trailing slash
+          registries: [
+            { name: 'duplicate', registry: 'https://registry.npmjs.org/' },
+          ], // trailing slash
         },
       })
 
@@ -680,12 +724,20 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+              exclusive: true,
+            },
           ],
         },
       })
 
-      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+      const scopedPkg = {
+        ...createMockPackageInfo(),
+        name: '@scope/foo',
+      }
 
       const result = resolveRegistryTargetsForPackage(scopedPkg, config)
 
@@ -699,7 +751,12 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           args: [],
           registry: 'https://registry.npmjs.org/',
           registries: [
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+              exclusive: true,
+            },
           ],
         },
       })
@@ -717,12 +774,20 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
           registry: 'https://registry.npmjs.org/',
           registries: [
             { name: 'nexus', registry: 'https://nexus.internal/repo/' },
-            { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'], exclusive: true },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+              exclusive: true,
+            },
           ],
         },
       })
 
-      const scopedPkg = { ...createMockPackageInfo(), name: '@scope/foo' }
+      const scopedPkg = {
+        ...createMockPackageInfo(),
+        name: '@scope/foo',
+      }
 
       const result = resolveRegistryTargetsForPackage(scopedPkg, config)
 
@@ -756,7 +821,13 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         bump: { type: 'patch' },
         publish: {
           args: [],
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+          registries: [
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
         },
       })
 
@@ -774,7 +845,13 @@ describe('Given resolveRegistryTargetsForPackage function', () => {
         bump: { type: 'patch' },
         publish: {
           args: [],
-          registries: [{ name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] }],
+          registries: [
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
         },
       })
 
@@ -833,7 +910,11 @@ describe('Given isVersionPublished function', () => {
   const registryTarget = { name: 'default', registry: 'https://registry.npmjs.org/', token: 'token' }
 
   function mockFetchResponse({ status = 200, ok = status < 400, body = {} }: { status?: number, ok?: boolean, body?: unknown } = {}) {
-    fetchMock.mockResolvedValue({ status, ok, json: () => Promise.resolve(body) })
+    fetchMock.mockResolvedValue({
+      status,
+      ok,
+      json: () => Promise.resolve(body),
+    })
   }
 
   beforeEach(() => {
@@ -844,8 +925,16 @@ describe('Given isVersionPublished function', () => {
     vi.stubEnv('RELIZY_NPM_TOKEN', undefined)
     vi.stubEnv('NPM_TOKEN', undefined)
     vi.stubEnv('NODE_AUTH_TOKEN', undefined)
-    config = createMockConfig({ cwd: '/project', publish: { args: [], safetyCheck: false } })
-    pkg = { ...createMockPackageInfo(), name: '@scope/pkg', path: '/packages/pkg', version: '1.0.0' }
+    config = createMockConfig({
+      cwd: '/project',
+      publish: { args: [], safetyCheck: false },
+    })
+    pkg = {
+      ...createMockPackageInfo(),
+      name: '@scope/pkg',
+      path: '/packages/pkg',
+      version: '1.0.0',
+    }
     vi.mocked(existsSync).mockReturnValue(false)
     vi.mocked(readFileSync).mockReturnValue('')
     fetchMock = vi.fn()
@@ -861,7 +950,13 @@ describe('Given isVersionPublished function', () => {
     it('Then returns true when the registry returns the version', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '"1.0.1"', stderr: '' })
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'pnpm', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'pnpm',
+        registryTarget,
+      })
 
       expect(result).toBe(true)
       expect(execPromise).toHaveBeenCalledWith(
@@ -874,7 +969,13 @@ describe('Given isVersionPublished function', () => {
     it('Then queries the target registry', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '"1.0.1"', stderr: '' })
 
-      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'pnpm', registryTarget })
+      await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'pnpm',
+        registryTarget,
+      })
 
       expect(execPromise).toHaveBeenCalledWith(
         expect.stringContaining('--registry https://registry.npmjs.org/'),
@@ -885,7 +986,13 @@ describe('Given isVersionPublished function', () => {
     it('Then returns false when the package exists but not that version (empty stdout)', async () => {
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
-      const result = await isVersionPublished({ pkg, version: '9.9.9', config, packageManager: 'npm', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '9.9.9',
+        config,
+        packageManager: 'npm',
+        registryTarget,
+      })
 
       expect(result).toBe(false)
       expect(fetchMock).not.toHaveBeenCalled()
@@ -894,7 +1001,13 @@ describe('Given isVersionPublished function', () => {
     it('Then returns false when the package is not found (E404)', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('npm error code E404 - Not found'))
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'npm', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'npm',
+        registryTarget,
+      })
 
       expect(result).toBe(false)
       expect(fetchMock).not.toHaveBeenCalled()
@@ -902,9 +1015,19 @@ describe('Given isVersionPublished function', () => {
 
     it('Then falls back to a direct HTTP request when view is inconclusive', async () => {
       vi.mocked(execPromise).mockRejectedValue(new Error('ENEEDAUTH: authentication required'))
-      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+      mockFetchResponse({
+        body: {
+          versions: { '1.0.1': {} },
+        },
+      })
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'npm', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'npm',
+        registryTarget,
+      })
 
       expect(result).toBe(true)
       expect(fetchMock).toHaveBeenCalled()
@@ -913,37 +1036,79 @@ describe('Given isVersionPublished function', () => {
 
   describe('When using yarn/bun (HTTP strategy)', () => {
     it('Then never shells out to a view command', async () => {
-      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+      mockFetchResponse({
+        body: {
+          versions: { '1.0.1': {} },
+        },
+      })
 
-      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(execPromise).not.toHaveBeenCalled()
       expect(fetchMock).toHaveBeenCalled()
     })
 
     it('Then requests the packument with the scope slash encoded and a bearer token', async () => {
-      mockFetchResponse({ body: { versions: { '1.0.1': {} } } })
+      mockFetchResponse({
+        body: {
+          versions: { '1.0.1': {} },
+        },
+      })
 
-      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'yarn', registryTarget })
+      await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'yarn',
+        registryTarget,
+      })
 
       expect(fetchMock).toHaveBeenCalledWith(
         'https://registry.npmjs.org/@scope%2Fpkg',
-        expect.objectContaining({ headers: expect.objectContaining({ authorization: 'Bearer token' }) }),
+        expect.objectContaining({
+          headers: expect.objectContaining({ authorization: 'Bearer token' }),
+        }),
       )
     })
 
     it('Then returns true when the packument lists the version', async () => {
-      mockFetchResponse({ body: { versions: { '1.0.0': {}, '1.0.1': {} } } })
+      mockFetchResponse({
+        body: {
+          versions: { '1.0.0': {}, '1.0.1': {} },
+        },
+      })
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(result).toBe(true)
     })
 
     it('Then returns false when the packument does not list the version', async () => {
-      mockFetchResponse({ body: { versions: { '1.0.0': {} } } })
+      mockFetchResponse({
+        body: {
+          versions: { '1.0.0': {} },
+        },
+      })
 
-      const result = await isVersionPublished({ pkg, version: '9.9.9', config, packageManager: 'bun', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '9.9.9',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(result).toBe(false)
     })
@@ -951,7 +1116,13 @@ describe('Given isVersionPublished function', () => {
     it('Then returns false on a 404 (package absent)', async () => {
       mockFetchResponse({ status: 404, ok: false })
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(result).toBe(false)
     })
@@ -959,7 +1130,13 @@ describe('Given isVersionPublished function', () => {
     it('Then returns null (inconclusive) on a non-OK response (e.g. 401)', async () => {
       mockFetchResponse({ status: 401, ok: false })
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(result).toBeNull()
     })
@@ -967,13 +1144,21 @@ describe('Given isVersionPublished function', () => {
     it('Then returns null (inconclusive) on a network error', async () => {
       fetchMock.mockRejectedValue(new Error('network down'))
 
-      const result = await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      const result = await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(result).toBeNull()
     })
 
     it('Then omits the Authorization header when no token is configured', async () => {
-      mockFetchResponse({ body: { versions: {} } })
+      mockFetchResponse({
+        body: { versions: {} },
+      })
 
       await isVersionPublished({
         pkg,
@@ -988,13 +1173,23 @@ describe('Given isVersionPublished function', () => {
     })
 
     it('Then guards the request with a timeout signal', async () => {
-      mockFetchResponse({ body: { versions: {} } })
+      mockFetchResponse({
+        body: { versions: {} },
+      })
 
-      await isVersionPublished({ pkg, version: '1.0.1', config, packageManager: 'bun', registryTarget })
+      await isVersionPublished({
+        pkg,
+        version: '1.0.1',
+        config,
+        packageManager: 'bun',
+        registryTarget,
+      })
 
       expect(fetchMock).toHaveBeenCalledWith(
         expect.any(String),
-        expect.objectContaining({ signal: expect.any(AbortSignal) }),
+        expect.objectContaining({
+          signal: expect.any(AbortSignal),
+        }),
       )
     })
   })
@@ -1262,7 +1457,12 @@ describe('Given publishPackage function', () => {
       vi.mocked(askText).mockRejectedValue(new RelizyCancelError('Cancelled'))
       vi.mocked(execPromise).mockRejectedValueOnce(new Error('OTP required'))
 
-      const error = await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false }).catch(error_ => error_)
+      const error = await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }).catch(error_ => error_)
 
       expect(error).toBeInstanceOf(Error)
       expect(error).not.toBeInstanceOf(RelizyCancelError)
@@ -1667,7 +1867,11 @@ describe('Given publishPackage function', () => {
         dryRun: true,
       })
 
-      expect(JSON.parse(writes[0]!)).toEqual({ name: 'test-package', version: '1.0.1', dependencies: { dep: 'workspace:^' } })
+      expect(JSON.parse(writes[0]!)).toEqual({
+        name: 'test-package',
+        version: '1.0.1',
+        dependencies: { dep: 'workspace:^' },
+      })
       expect(writes.at(-1)).toBe(original)
     })
 
@@ -1806,7 +2010,11 @@ describe('Given publishPackage function', () => {
     it('Then only publishes to a scoped registry matching the package name', async () => {
       config.publish.registry = 'https://registry.npmjs.org/'
       config.publish.registries = [
-        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+        {
+          name: 'jfrog',
+          registry: 'https://jfrog.internal/repo/',
+          packageFilter: ['@scope/*'],
+        },
       ]
 
       await publishPackage({
@@ -1825,7 +2033,11 @@ describe('Given publishPackage function', () => {
       vi.mocked(getIndependentTag).mockReturnValue('@scope/foo@1.0.1')
       config.publish.registry = 'https://registry.npmjs.org/'
       config.publish.registries = [
-        { name: 'jfrog', registry: 'https://jfrog.internal/repo/', packageFilter: ['@scope/*'] },
+        {
+          name: 'jfrog',
+          registry: 'https://jfrog.internal/repo/',
+          packageFilter: ['@scope/*'],
+        },
       ]
 
       await publishPackage({
@@ -1888,7 +2100,12 @@ describe('Given publishPackage function', () => {
         npmrcWrites.push(content as string)
       })
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       // No scope registry override leaks into the CLI command (pnpm 12 rejects it).
       expect(execPromise).not.toHaveBeenCalledWith(expect.stringContaining(':registry='), expect.any(Object))
@@ -1901,7 +2118,12 @@ describe('Given publishPackage function', () => {
       // pkg.name is the unscoped 'test-package'
       config.publish.registry = 'https://registry.npmjs.org/'
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       const command = vi.mocked(execPromise).mock.calls[0]![0] as string
       expect(command).toContain('--registry https://registry.npmjs.org/')
@@ -1919,7 +2141,12 @@ describe('Given publishPackage function', () => {
         { name: 'jfrog', registry: 'https://jfrog.internal/repo/' },
       ]
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--tag canary'), expect.any(Object))
       expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--tag canary'), expect.any(Object))
@@ -1932,7 +2159,12 @@ describe('Given publishPackage function', () => {
         { name: 'jfrog', registry: 'https://jfrog.internal/repo/', tag: 'beta' },
       ]
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--tag canary'), expect.any(Object))
       expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--tag beta'), expect.any(Object))
@@ -1966,7 +2198,12 @@ describe('Given publishPackage function', () => {
         return Promise.resolve({ stdout: '', stderr: '' })
       })
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       // First attempt failed (no otp yet), retry succeeded with the prompted otp.
       expect(askText).toHaveBeenCalledTimes(1)
@@ -1978,7 +2215,12 @@ describe('Given publishPackage function', () => {
       vi.mocked(execPromise).mockClear()
       vi.mocked(askText).mockClear()
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       expect(askText).not.toHaveBeenCalled()
       expect(callsFor('otp-reuse.internal')).toHaveLength(1)
@@ -1993,7 +2235,12 @@ describe('Given publishPackage function', () => {
 
       vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       const isolatedCalls = callsFor('otp-isolated.internal')
       expect(isolatedCalls).toHaveLength(1)
@@ -2013,7 +2260,12 @@ describe('Given publishPackage function', () => {
         return Promise.resolve({ stdout: '', stderr: '' })
       })
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       expect(askText).toHaveBeenCalledTimes(1)
 
@@ -2024,7 +2276,12 @@ describe('Given publishPackage function', () => {
         { name: 'otp-trailing-slash', registry: 'https://otp-trailing-slash.internal/repo/' }, // trailing slash
       ]
 
-      await publishPackage({ pkg, config, packageManager: 'npm', dryRun: false })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })
 
       expect(askText).not.toHaveBeenCalled()
       const calls = callsFor('otp-trailing-slash.internal')

@@ -18,7 +18,9 @@ export interface WorkspacePackage {
 
 /** `@maz-ui/nuxt` → `nuxt` */
 function getShortName(name: string): string {
-  return name.startsWith('@') ? name.slice(name.indexOf('/') + 1) : name
+  return name.startsWith('@')
+    ? name.slice(name.indexOf('/') + 1)
+    : name
 }
 
 function readFile(path: string): string | undefined {
@@ -31,7 +33,9 @@ function readFile(path: string): string | undefined {
 }
 
 function toStrings(value: unknown): string[] {
-  return Array.isArray(value) ? value.filter((item): item is string => typeof item === 'string') : []
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === 'string')
+    : []
 }
 
 /** A config file of the repository root, `undefined` when it is missing or invalid */
@@ -41,8 +45,12 @@ function readConfigFile(cwd: string, file: string): Record<string, any> | undefi
     return undefined
   }
   try {
-    const parsed = file.endsWith('.yaml') ? parseYAML(content) : parseJSONC(content, { allowTrailingComma: true })
-    return parsed && typeof parsed === 'object' ? parsed as Record<string, any> : undefined
+    const parsed = file.endsWith('.yaml')
+      ? parseYAML(content)
+      : parseJSONC(content, { allowTrailingComma: true })
+    return parsed && typeof parsed === 'object'
+      ? parsed as Record<string, any>
+      : undefined
   }
   catch {
     return undefined
@@ -55,7 +63,9 @@ function readConfigFile(cwd: string, file: string): Record<string, any> | undefi
  * `pnpm-workspace.yaml`, `lerna.json`, `rush.json` and the `workspace` of `deno.json`.
  */
 export function getPackageManagerWorkspaces(cwd: string): string[] {
-  return [...new Set(getPackageManagerWorkspaceSources(cwd).flatMap(source => source.patterns))]
+  return [
+    ...new Set(getPackageManagerWorkspaceSources(cwd).flatMap(source => source.patterns)),
+  ]
 }
 
 /**
@@ -63,13 +73,32 @@ export function getPackageManagerWorkspaces(cwd: string): string[] {
  */
 export function getPackageManagerWorkspaceSources(cwd: string): { file: string, patterns: string[] }[] {
   const workspaces = readConfigFile(cwd, 'package.json')?.workspaces
-  const deno = readConfigFile(cwd, 'deno.json') ? 'deno.json' : 'deno.jsonc'
+  const deno = readConfigFile(cwd, 'deno.json')
+    ? 'deno.json'
+    : 'deno.jsonc'
   return [
-    { file: 'package.json', patterns: toStrings(Array.isArray(workspaces) ? workspaces : workspaces?.packages) },
-    { file: 'pnpm-workspace.yaml', patterns: toStrings(readConfigFile(cwd, 'pnpm-workspace.yaml')?.packages) },
-    { file: 'lerna.json', patterns: toStrings(readConfigFile(cwd, 'lerna.json')?.packages) },
-    { file: 'rush.json', patterns: toStrings((readConfigFile(cwd, 'rush.json')?.projects ?? []).map((project: { projectFolder?: unknown }) => project?.projectFolder)) },
-    { file: deno, patterns: toStrings(readConfigFile(cwd, deno)?.workspace) },
+    {
+      file: 'package.json',
+      patterns: toStrings(Array.isArray(workspaces)
+        ? workspaces
+        : workspaces?.packages),
+    },
+    {
+      file: 'pnpm-workspace.yaml',
+      patterns: toStrings(readConfigFile(cwd, 'pnpm-workspace.yaml')?.packages),
+    },
+    {
+      file: 'lerna.json',
+      patterns: toStrings(readConfigFile(cwd, 'lerna.json')?.packages),
+    },
+    {
+      file: 'rush.json',
+      patterns: toStrings((readConfigFile(cwd, 'rush.json')?.projects ?? []).map((project: { projectFolder?: unknown }) => project?.projectFolder)),
+    },
+    {
+      file: deno,
+      patterns: toStrings(readConfigFile(cwd, deno)?.workspace),
+    },
   ].filter(source => source.patterns.length > 0)
 }
 
@@ -82,12 +111,14 @@ export function getPackageManagerWorkspaceSources(cwd: string): { file: string, 
  * Empty in standalone mode without them.
  */
 export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePackage[] {
-  const patterns = [...new Set([
-    ...(config.monorepo?.packages ?? []),
-    ...(config.monorepo?.groups ?? []).flatMap(group => group.packages),
-    ...getPackageManagerWorkspaces(config.cwd),
-    ...(config.commitlint?.packages ?? []),
-  ].map(pattern => pattern.replace(/^\.\//, '')))]
+  const patterns = [
+    ...new Set([
+      ...(config.monorepo?.packages ?? []),
+      ...(config.monorepo?.groups ?? []).flatMap(group => group.packages),
+      ...getPackageManagerWorkspaces(config.cwd),
+      ...(config.commitlint?.packages ?? []),
+    ].map(pattern => pattern.replace(/^\.\//, ''))),
+  ]
   if (patterns.length === 0) {
     return []
   }
@@ -98,21 +129,39 @@ export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePac
     ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
   })
 
-  return [...new Set(directories)]
+  return [
+    ...new Set(directories),
+  ]
     .map(directory => directory.replace(/\/$/, ''))
     .filter(directory => directory !== '' && directory !== '.')
     .sort()
     .flatMap((path) => {
       // Only the name matters to the linter: apps without version are packages too
       const name = readPackageName(join(config.cwd, path))
-      return name ? [{ name, path, scopes: [...new Set([getShortName(name), name, basename(path)])] }] : []
+      return name
+        ? [
+            {
+              name,
+              path,
+              scopes: [
+                ...new Set([
+                  getShortName(name),
+                  name,
+                  basename(path),
+                ]),
+              ],
+            },
+          ]
+        : []
     })
 }
 
 function readPackageName(directory: string): string | undefined {
   try {
     const { name } = JSON.parse(readFileSync(join(directory, 'package.json'), 'utf8'))
-    return typeof name === 'string' && name ? name : undefined
+    return typeof name === 'string' && name
+      ? name
+      : undefined
   }
   catch {
     return undefined
@@ -130,11 +179,13 @@ export function getAllowedScopes(config: ResolvedRelizyConfig, packages: Workspa
     return undefined
   }
 
-  return [...new Set([
-    ...packages.flatMap(pkg => pkg.scopes),
-    ...Object.keys(config.scopeMap ?? {}),
-    ...explicit,
-  ])]
+  return [
+    ...new Set([
+      ...packages.flatMap(pkg => pkg.scopes),
+      ...Object.keys(config.scopeMap ?? {}),
+      ...explicit,
+    ]),
+  ]
 }
 
 /** Names of the packages containing at least one of the files */

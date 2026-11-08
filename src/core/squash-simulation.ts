@@ -40,7 +40,10 @@ export function applySimulatedSquash(commits: RawGitCommit[]): RawGitCommit[] {
   }
 
   const rest = commits.filter(commit => !isSquashed(commit))
-  rest.splice(index, 0, { ...squash.commit, author: { ...squash.commit.author } })
+  rest.splice(index, 0, {
+    ...squash.commit,
+    author: { ...squash.commit.author },
+  })
 
   return rest
 }

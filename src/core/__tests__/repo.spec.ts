@@ -463,7 +463,9 @@ describe('Given getPackages function', () => {
         }),
       }, mockCwd)
 
-      setupMockCommits('default', [createMockCommit('feat', 'a change')])
+      setupMockCommits('default', [
+        createMockCommit('feat', 'a change'),
+      ])
 
       const config = createMockConfig({
         cwd: mockCwd,
@@ -573,7 +575,9 @@ describe('Given getPackages function', () => {
 
     describe('When there are no patterns (standalone project) and the root is private', () => {
       it('Then reads the root, its only package', () => {
-        vol.fromJSON({ [`${mockCwd}/package.json`]: JSON.stringify({ name: 'app', version: '1.0.0', private: true }) }, mockCwd)
+        vol.fromJSON({
+          [`${mockCwd}/package.json`]: JSON.stringify({ name: 'app', version: '1.0.0', private: true }),
+        }, mockCwd)
 
         const result = readPackages({ cwd: mockCwd, patterns: undefined })
 
@@ -675,31 +679,51 @@ describe('Given getCommitChangedFiles', () => {
 
 describe('Given isCommitInPackage', () => {
   it('Then is true when the commit changes a file of the package', () => {
-    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components/src/index.ts'] })
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['packages/components/src/index.ts'],
+    })
 
     expect(isCommitInPackage(commit, 'packages/components')).toBe(true)
   })
 
   it('Then is true when the commit changes the package directory itself (submodule, symlink)', () => {
-    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components'] })
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['packages/components'],
+    })
 
     expect(isCommitInPackage(commit, 'packages/components')).toBe(true)
   })
 
   it('Then respects the directory boundary (packages/components does not match packages/components-mcp)', () => {
-    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['packages/components-mcp/src/index.ts'] })
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['packages/components-mcp/src/index.ts'],
+    })
 
     expect(isCommitInPackage(commit, 'packages/components')).toBe(false)
   })
 
   it('Then does not match the package path inside a longer directory name', () => {
-    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['shared-components/ah-related-dropdown/src/index.ts'] })
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['shared-components/ah-related-dropdown/src/index.ts'],
+    })
 
     expect(isCommitInPackage(commit, 'shared-components/related-dropdown')).toBe(false)
   })
 
   it('Then does not match a nested directory of another package with the same name', () => {
-    const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['apps/demo/packages/components/index.ts'] })
+    const commit = commitWithFiles({
+      type: 'feat',
+      message: 'feat: x',
+      files: ['apps/demo/packages/components/index.ts'],
+    })
 
     expect(isCommitInPackage(commit, 'packages/components')).toBe(false)
   })
@@ -818,7 +842,11 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
     it('Then returns the relative POSIX path matched by monorepo.ignored', () => {
       const config = createMockConfig({
         cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+          ignored: ['packages/pkg-a'],
+        },
       })
 
       expect(resolveIgnoredPackagePaths(config)).toEqual(['packages/pkg-a'])
@@ -828,18 +856,40 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
   describe('When the root package aggregates commits with an ignored package', () => {
     it('Then excludes commits that only touch an ignored package', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
-        commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
-        commitWithFiles({ type: 'build', message: 'build: lockfile', files: ['pnpm-lock.yaml'] }),
+        commitWithFiles({
+          type: 'feat',
+          message: 'feat(pkg-a)!: breaking',
+          files: ['packages/pkg-a/src/x.ts'],
+          isBreaking: true,
+        }),
+        commitWithFiles({
+          type: 'feat',
+          message: 'feat(pkg-b): feature',
+          files: ['packages/pkg-b/src/y.ts'],
+        }),
+        commitWithFiles({
+          type: 'build',
+          message: 'build: lockfile',
+          files: ['pnpm-lock.yaml'],
+        }),
       ])
 
       const config = createMockConfig({
         cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+          ignored: ['packages/pkg-a'],
+        },
       })
 
       const commits = await getPackageCommits({
-        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        pkg: {
+          name: 'root-package',
+          version: '1.0.0',
+          path: mockCwd,
+          private: false,
+        },
         from: 'root-package@1.0.0',
         to: 'HEAD',
         config,
@@ -854,17 +904,34 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
 
     it('Then keeps every commit at root when nothing is ignored', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        commitWithFiles({ type: 'feat', message: 'feat(pkg-a)!: breaking', files: ['packages/pkg-a/src/x.ts'], isBreaking: true }),
-        commitWithFiles({ type: 'feat', message: 'feat(pkg-b): feature', files: ['packages/pkg-b/src/y.ts'] }),
+        commitWithFiles({
+          type: 'feat',
+          message: 'feat(pkg-a)!: breaking',
+          files: ['packages/pkg-a/src/x.ts'],
+          isBreaking: true,
+        }),
+        commitWithFiles({
+          type: 'feat',
+          message: 'feat(pkg-b): feature',
+          files: ['packages/pkg-b/src/y.ts'],
+        }),
       ])
 
       const config = createMockConfig({
         cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
-        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        pkg: {
+          name: 'root-package',
+          version: '1.0.0',
+          path: mockCwd,
+          private: false,
+        },
         from: 'root-package@1.0.0',
         to: 'HEAD',
         config,
@@ -890,12 +957,20 @@ describe('Given resolveIgnoredPackagePaths and root commit filtering', () => {
   describe('When getPackages receives ignored path globs', () => {
     it('Then never discovers or bumps a package matched by monorepo.ignored', async () => {
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        commitWithFiles({ type: 'feat', message: 'feat: work', files: ['packages/pkg-b/src/x.ts'] }),
+        commitWithFiles({
+          type: 'feat',
+          message: 'feat: work',
+          files: ['packages/pkg-b/src/x.ts'],
+        }),
       ])
 
       const config = createMockConfig({
         cwd: mockCwd,
-        monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+          ignored: ['packages/pkg-a'],
+        },
       })
 
       const packages = await getPackages({ config, suffix: undefined, force: false })
@@ -911,7 +986,10 @@ describe('Given a package moved to another directory', () => {
   const moveLines = 'R100\tlegacy/pkg-a/package.json\tpackages/pkg-a/package.json\nR100\tlegacy/pkg-a/src/x.ts\tpackages/pkg-a/src/x.ts'
 
   function commitWithBody({ type, message, body, isBreaking = false }: { type: string, message: string, body: string, isBreaking?: boolean }): GitCommit {
-    return { ...commitWithFiles({ type, message, files: [], isBreaking }), body: `\n\n${body}\n` }
+    return {
+      ...commitWithFiles({ type, message, files: [], isBreaking }),
+      body: `\n\n${body}\n`,
+    }
   }
 
   function mockHistory(commits: GitCommit[]) {
@@ -919,7 +997,12 @@ describe('Given a package moved to another directory', () => {
     vi.mocked(commitsModule.parseCommits).mockReturnValue(commits)
   }
 
-  const breakingBeforeMove = commitWithBody({ type: 'feat', message: 'feat(pkg-a)!: drop the old api', body: 'M\tlegacy/pkg-a/src/x.ts', isBreaking: true })
+  const breakingBeforeMove = commitWithBody({
+    type: 'feat',
+    message: 'feat(pkg-a)!: drop the old api',
+    body: 'M\tlegacy/pkg-a/src/x.ts',
+    isBreaking: true,
+  })
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -938,7 +1021,11 @@ describe('Given a package moved to another directory', () => {
 
   describe('When isCommitInPackage receives the former directories of the package', () => {
     it('Then a commit of a former directory belongs to the package', () => {
-      const commit = commitWithFiles({ type: 'feat', message: 'feat: x', files: ['legacy/pkg-a/src/x.ts'] })
+      const commit = commitWithFiles({
+        type: 'feat',
+        message: 'feat: x',
+        files: ['legacy/pkg-a/src/x.ts'],
+      })
 
       expect(isCommitInPackage(commit, 'packages/pkg-a', ['legacy/pkg-a'])).toBe(true)
       expect(isCommitInPackage(commit, 'packages/pkg-a')).toBe(false)
@@ -953,10 +1040,21 @@ describe('Given a package moved to another directory', () => {
       ])
 
       const commits = await getPackageCommits({
-        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        pkg: {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          private: false,
+        },
         from: 'pkg-a@1.0.0',
         to: 'HEAD',
-        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'independent', packages: ['packages/*'] } }),
+        config: createMockConfig({
+          cwd: mockCwd,
+          monorepo: {
+            versionMode: 'independent',
+            packages: ['packages/*'],
+          },
+        }),
         changelog: true,
       })
 
@@ -975,10 +1073,21 @@ describe('Given a package moved to another directory', () => {
       mockHistory([undetectedMove, breakingBeforeMove])
 
       const commits = await getPackageCommits({
-        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        pkg: {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          private: false,
+        },
         from: 'pkg-a@1.0.0',
         to: 'HEAD',
-        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'independent', packages: ['packages/*'] } }),
+        config: createMockConfig({
+          cwd: mockCwd,
+          monorepo: {
+            versionMode: 'independent',
+            packages: ['packages/*'],
+          },
+        }),
         changelog: true,
       })
 
@@ -989,12 +1098,21 @@ describe('Given a package moved to another directory', () => {
       mockHistory([undetectedMove, breakingBeforeMove])
 
       const commits = await getPackageCommits({
-        pkg: { name: 'pkg-a', version: '1.0.0', path: `${mockCwd}/packages/pkg-a`, private: false },
+        pkg: {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          private: false,
+        },
         from: 'pkg-a@1.0.0',
         to: 'HEAD',
         config: createMockConfig({
           cwd: mockCwd,
-          monorepo: { versionMode: 'independent', packages: ['packages/*'], movedPackages: { 'legacy/pkg-a': 'packages/pkg-a' } },
+          monorepo: {
+            versionMode: 'independent',
+            packages: ['packages/*'],
+            movedPackages: { 'legacy/pkg-a': 'packages/pkg-a' },
+          },
         }),
         changelog: true,
       })
@@ -1012,10 +1130,22 @@ describe('Given a package moved to another directory', () => {
       ])
 
       const commits = await getPackageCommits({
-        pkg: { name: 'root-package', version: '1.0.0', path: mockCwd, private: false },
+        pkg: {
+          name: 'root-package',
+          version: '1.0.0',
+          path: mockCwd,
+          private: false,
+        },
         from: 'root-package@1.0.0',
         to: 'HEAD',
-        config: createMockConfig({ cwd: mockCwd, monorepo: { versionMode: 'selective', packages: ['packages/*'], ignored: ['packages/pkg-a'] } }),
+        config: createMockConfig({
+          cwd: mockCwd,
+          monorepo: {
+            versionMode: 'selective',
+            packages: ['packages/*'],
+            ignored: ['packages/pkg-a'],
+          },
+        }),
         changelog: true,
       })
 
@@ -1028,15 +1158,38 @@ describe('Given getPrivatePackagesMode', () => {
   describe('When the project has no workspace packages (standalone)', () => {
     it('Then releases its private root package', () => {
       expect(getPrivatePackagesMode({})).toBe('release')
-      expect(getPrivatePackagesMode({ monorepo: { privatePackages: 'ignore' } })).toBe('release')
+      expect(getPrivatePackagesMode({
+        monorepo: { privatePackages: 'ignore' },
+      })).toBe('release')
     })
   })
 
   describe('When the project is a monorepo', () => {
     it('Then follows monorepo.privatePackages, ignore by default', () => {
-      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'] } })).toBe('ignore')
-      expect(getPrivatePackagesMode({ monorepo: { versionMode: 'selective', packages: ['packages/*'], privatePackages: 'release' } })).toBe('release')
-      expect(getPrivatePackagesMode({ monorepo: { groups: [{ name: 'main', versionMode: 'selective', packages: ['packages/*'] }] } })).toBe('ignore')
+      expect(getPrivatePackagesMode({
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+      })).toBe('ignore')
+      expect(getPrivatePackagesMode({
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+          privatePackages: 'release',
+        },
+      })).toBe('release')
+      expect(getPrivatePackagesMode({
+        monorepo: {
+          groups: [
+            {
+              name: 'main',
+              versionMode: 'selective',
+              packages: ['packages/*'],
+            },
+          ],
+        },
+      })).toBe('ignore')
     })
   })
 })

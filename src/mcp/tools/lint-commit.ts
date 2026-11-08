@@ -25,18 +25,24 @@ function statusOf(result: CommitlintResult): string {
     return 'invalid'
   }
 
-  return result.problems.length > 0 ? 'valid with warnings' : 'valid'
+  return result.problems.length > 0
+    ? 'valid with warnings'
+    : 'valid'
 }
 
 function describeProblems(result: CommitlintResult): string[] {
   const problems = result.problems.map((problem) => {
-    const fix = problem.fix ? ` (fix: ${problem.fix})` : ''
+    const fix = problem.fix
+      ? ` (fix: ${problem.fix})`
+      : ''
 
     return `- **${problem.severity}** ${code(problem.rule)}: ${problem.message}${fix}`
   })
 
   if (result.suggestion) {
-    const remaining = result.suggestion.remainingRules.length > 0 ? ` (still to fix: ${result.suggestion.remainingRules.join(', ')})` : ''
+    const remaining = result.suggestion.remainingRules.length > 0
+      ? ` (still to fix: ${result.suggestion.remainingRules.join(', ')})`
+      : ''
 
     problems.push(`- Suggested header: ${code(result.suggestion.header)}${remaining}`)
   }
@@ -51,7 +57,9 @@ function describeEffect(result: CommitlintResult, config: ResolvedRelizyConfig):
 
   const { commit } = result
   const breaking = commit.isBreaking ? ' (breaking change)' : ''
-  const packages = commit.packages?.length ? `, packages: ${codeList(commit.packages)}` : ''
+  const packages = commit.packages?.length
+    ? `, packages: ${codeList(commit.packages)}`
+    : ''
   const entry = renderChangelogEntry(result.gitCommit, config)
   const changelog = entry
     ? `- Changelog entry:\n\n${entry.trim().split('\n').map(line => '  '.concat(line)).join('\n')}`
@@ -61,9 +69,16 @@ function describeEffect(result: CommitlintResult, config: ResolvedRelizyConfig):
 }
 
 function formatEntry({ label, result }: LintEntry, config: ResolvedRelizyConfig): string {
-  const prefix = label ? `${label} ` : ''
+  const prefix = label
+    ? `${label} `
+    : ''
 
-  return [`### ${prefix}${code(result.commit.header)}: ${statusOf(result)}`, '', ...describeProblems(result), ...describeEffect(result, config)].join('\n')
+  return [
+    `### ${prefix}${code(result.commit.header)}: ${statusOf(result)}`,
+    '',
+    ...describeProblems(result),
+    ...describeEffect(result, config),
+  ].join('\n')
 }
 
 export interface LintCommitArgs {
@@ -81,14 +96,27 @@ async function lintEntries(context: ServerContext, args: LintCommitArgs): Promis
   if (args.message !== undefined) {
     const files = args.files ?? getStagedFiles(config.cwd)
 
-    return { config, entries: [{ result: await lintCommitMessage(args.message, { config, packages, files }) }] }
+    return {
+      config,
+      entries: [
+        { result: await lintCommitMessage(args.message, { config, packages, files }) },
+      ],
+    }
   }
 
   const from = args.from ?? (await getLastTag({ cwd: config.cwd }) || undefined)
   const entries: LintEntry[] = []
 
   for (const commit of getCommitsInRange({ from, to: args.to, cwd: config.cwd })) {
-    entries.push({ label: commit.hash.slice(0, 7), result: await lintCommitMessage(commit.message, { config, packages, files: commit.files, hash: commit.hash }) })
+    entries.push({
+      label: commit.hash.slice(0, 7),
+      result: await lintCommitMessage(commit.message, {
+        config,
+        packages,
+        files: commit.files,
+        hash: commit.hash,
+      }),
+    })
   }
 
   return { config, from, entries }
@@ -99,8 +127,12 @@ function describeScope(args: LintCommitArgs, count: number, from: string | undef
     return 'the message'
   }
 
-  const start = from ? `after ${code(from)}` : 'of the whole history'
-  const end = args.to ? ` up to ${code(args.to)}` : ''
+  const start = from
+    ? `after ${code(from)}`
+    : 'of the whole history'
+  const end = args.to
+    ? ` up to ${code(args.to)}`
+    : ''
 
   return `${count} commit(s) ${start}${end}`
 }
@@ -112,13 +144,20 @@ export async function lintCommit(context: ServerContext, args: LintCommitArgs): 
 
   const { value: { config, from, entries }, logs } = await withCapturedLogs(() => lintEntries(context, args))
   const { errorCount, warningCount } = summarizeResults(entries.map(entry => entry.result))
-  const detailed = entries.length > MAX_DETAILED_COMMITS ? entries.filter(entry => entry.result.problems.length > 0) : entries
+  const detailed = entries.length > MAX_DETAILED_COMMITS
+    ? entries.filter(entry => entry.result.problems.length > 0)
+    : entries
 
   const lines = [
-    `# Commitlint (relizy ${context.version}): ${errorCount === 0 ? 'passed' : 'failed'}`,
+    `# Commitlint (relizy ${context.version}): ${errorCount === 0
+      ? 'passed'
+      : 'failed'}`,
     '',
     `Linted ${describeScope(args, entries.length, from)}: ${errorCount} error(s), ${warningCount} warning(s).`,
-    ...detailed.flatMap(entry => ['', formatEntry(entry, config)]),
+    ...detailed.flatMap(entry => [
+      '',
+      formatEntry(entry, config),
+    ]),
   ]
 
   if (detailed.length < entries.length) {
@@ -131,7 +170,9 @@ export async function lintCommit(context: ServerContext, args: LintCommitArgs): 
 
   const notes = formatNotes(logs.filter(log => log.type !== 'info'))
 
-  return notes ? `${lines.join('\n')}\n\n${notes}` : lines.join('\n')
+  return notes
+    ? `${lines.join('\n')}\n\n${notes}`
+    : lines.join('\n')
 }
 
 export const lintCommitTool = defineTool({

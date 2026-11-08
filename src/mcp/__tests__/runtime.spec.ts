@@ -91,7 +91,9 @@ describe('Given formatNotes', () => {
     })
 
     it('Then nothing when there is no useful log, and a summary above the limit', () => {
-      expect(formatNotes([{ type: 'debug', message: 'x' }])).toBe('')
+      expect(formatNotes([
+        { type: 'debug', message: 'x' },
+      ])).toBe('')
       expect(formatNotes(Array.from({ length: 4 }, (_, index) => ({ type: 'info', message: `log ${index}` })), 2)).toBe('## Notes\n\n- log 0\n- log 1\n- ... and 2 more')
     })
   })
@@ -102,7 +104,13 @@ describe('Given listConfigNames', () => {
     it('Then it returns their names for --config', () => {
       const directory = createTempDir()
 
-      for (const file of ['relizy.config.ts', 'relizy.standalone.config.mjs', 'relizy.config.json', 'vite.config.ts', 'relizy.md']) {
+      for (const file of [
+        'relizy.config.ts',
+        'relizy.standalone.config.mjs',
+        'relizy.config.json',
+        'vite.config.ts',
+        'relizy.md',
+      ]) {
         writeFileSync(join(directory, file), '')
       }
 

@@ -125,7 +125,12 @@ export function validateVersionGroups(config: ResolvedRelizyConfig): void {
 
 function globDirectories(cwd: string, patterns: string[]): string[] {
   return patterns.length > 0
-    ? fastGlob.sync(patterns, { cwd, onlyDirectories: true, absolute: true, ignore: GLOB_IGNORE })
+    ? fastGlob.sync(patterns, {
+        cwd,
+        onlyDirectories: true,
+        absolute: true,
+        ignore: GLOB_IGNORE,
+      })
     : []
 }
 
@@ -158,7 +163,10 @@ function collectGroupMatches({ cwd, groups, ignored }: { cwd: string, groups: Ve
   const matchesByPath = new Map<string, GroupMatch[]>()
 
   for (const group of groups) {
-    const ignoredDirs = new Set(globDirectories(cwd, [...(ignored ?? []), ...(group.ignored ?? [])]))
+    const ignoredDirs = new Set(globDirectories(cwd, [
+      ...(ignored ?? []),
+      ...(group.ignored ?? []),
+    ]))
 
     for (const pattern of group.packages) {
       for (const absolutePath of globDirectories(cwd, [pattern])) {
@@ -248,14 +256,32 @@ function deriveGroupConfig({
       packages: group.packages,
       // The packages of the other groups are released by their own group: they
       // must stay out of this group, including its root version and changelog.
-      ignored: [...new Set([...(config.monorepo?.ignored ?? []), ...(group.ignored ?? []), ...otherGroupsPaths.map(path => fastGlob.escapePath(path))])],
+      ignored: [
+        ...new Set([
+          ...(config.monorepo?.ignored ?? []),
+          ...(group.ignored ?? []),
+          ...otherGroupsPaths.map(path => fastGlob.escapePath(path)),
+        ]),
+      ],
       privatePackages: config.monorepo?.privatePackages,
       movedPackages: config.monorepo?.movedPackages,
     },
-    bump: { ...config.bump, ...group.bump },
-    changelog: { ...config.changelog, ...group.changelog },
-    release: { ...config.release, ...group.release },
-    ai: { ...config.ai, ...group.ai },
+    bump: {
+      ...config.bump,
+      ...group.bump,
+    },
+    changelog: {
+      ...config.changelog,
+      ...group.changelog,
+    },
+    release: {
+      ...config.release,
+      ...group.release,
+    },
+    ai: {
+      ...config.ai,
+      ...group.ai,
+    },
   } as ResolvedRelizyConfig
 
   return markVersionGroupConfig(groupConfig, group.name)
@@ -424,7 +450,9 @@ export function getRootGroupBumpResult(groups: GroupBumpResult[] | undefined): G
  */
 export function getMonorepoPackagePatterns(config: ResolvedRelizyConfig): string[] | undefined {
   if (config.monorepo?.groups) {
-    return [...new Set(config.monorepo.groups.flatMap(group => group.packages))]
+    return [
+      ...new Set(config.monorepo.groups.flatMap(group => group.packages)),
+    ]
   }
 
   return config.monorepo?.packages

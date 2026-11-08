@@ -45,7 +45,9 @@ function isPostedInRelease(config: ResolvedRelizyConfig, platform: AISocialPlatf
   }
 
   // As the posts: `onlyStable` is on by default for Slack and Teams
-  const onlyStable = platform === 'twitter' ? !!config.social.twitter.onlyStable : config.social[platform]?.onlyStable ?? true
+  const onlyStable = platform === 'twitter'
+    ? !!config.social.twitter.onlyStable
+    : config.social[platform]?.onlyStable ?? true
 
   return !onlyStable || !isPrereleaseOnlyRelease(config, versions)
 }
@@ -248,13 +250,17 @@ async function handleTwitterPost({
     catch (error) {
       await executeHook('error:twitter', config, dryRun, hookContext)
       logger.error('Error posting to Twitter:', error)
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error)
       return { success: false, error: `Error posting to Twitter: ${errorMessage}` }
     }
   }
   catch (error) {
     logger.error('Error during Twitter posting:', error)
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error
+      ? error.message
+      : String(error)
     return { success: false, error: `Error during Twitter posting: ${errorMessage}` }
   }
 }
@@ -323,7 +329,9 @@ async function handleSlackPost({
       return { success: false, error: 'Slack channel not configured' }
     }
 
-    const slackMode = webhookUrl ? 'webhook mode' : `token mode, channel: ${slackConfig.channel}`
+    const slackMode = webhookUrl
+      ? 'webhook mode'
+      : `token mode, channel: ${slackConfig.channel}`
     logger.debug(`Slack: ${slackMode}`)
     logger.debug(`Preparing Slack message for release: ${variables.releaseTitle}`)
 
@@ -358,7 +366,9 @@ async function handleSlackPost({
       logger.debug(`Contributors: ${contributors.length}`)
 
       // Resolve bumped packages (list shown between changelog and contributors)
-      const packages = slackConfig.noPackages === true ? [] : releasedPackages
+      const packages = slackConfig.noPackages === true
+        ? []
+        : releasedPackages
       logger.debug(`Packages: ${packages.length}`)
 
       const response = await postReleaseToSlack({
@@ -384,14 +394,18 @@ async function handleSlackPost({
       await executeHook('error:slack', config, dryRun, hookContext)
       logger.error('Error posting to Slack:', error)
 
-      const errorMessage = error instanceof Error ? error.message : String(error)
+      const errorMessage = error instanceof Error
+        ? error.message
+        : String(error)
       return { success: false, error: `Error posting to Slack: ${errorMessage}` }
     }
   }
   catch (error) {
     logger.error('Error during Slack posting:', error)
 
-    const errorMessage = error instanceof Error ? error.message : String(error)
+    const errorMessage = error instanceof Error
+      ? error.message
+      : String(error)
     return { success: false, error: `Error during Slack posting: ${errorMessage}` }
   }
 }
@@ -420,7 +434,9 @@ const ROOT_VERSION = ''
  * How the Slack message renders its changelog: rich text with `changelog: 'full'`
  */
 function getSlackChangelogFormat(config: ResolvedRelizyConfig): SlackChangelogFormat {
-  return getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full' ? 'full' : 'summary'
+  return getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full'
+    ? 'full'
+    : 'summary'
 }
 
 /**
@@ -480,14 +496,26 @@ async function collectIndependentRelease({ config, options, bumpResult, dryRun }
       config,
       dryRun,
       newVersion,
-      include: { title: false, compareLink: false, body: true, contributors: false },
+      include: {
+        title: false,
+        compareLink: false,
+        body: true,
+        contributors: false,
+      },
       minify,
     })
 
     changelogs.set(pkg.name, { minified: await generate(true), rich: await generate(false) })
 
     // `to` is HEAD because the release tags do not exist yet at this stage of the release flow
-    addCommits(commitsByHash, await getPackageCommits({ pkg, from, to: 'HEAD', config, changelog: true, dryRun }))
+    addCommits(commitsByHash, await getPackageCommits({
+      pkg,
+      from,
+      to: 'HEAD',
+      config,
+      changelog: true,
+      dryRun,
+    }))
   }
 
   return {
@@ -500,7 +528,9 @@ async function collectIndependentRelease({ config, options, bumpResult, dryRun }
       })),
     },
     changelogs,
-    commits: [...commitsByHash.values()],
+    commits: [
+      ...commitsByHash.values(),
+    ],
   }
 }
 
@@ -519,7 +549,12 @@ async function collectRootRelease({ config, bumpResult, dryRun }: {
   }
 
   const newVersion = bumpResult?.newVersion || rootPackageRead.version
-  const { from, to } = await resolveTags<'social'>({ config, step: 'social', newVersion, pkg: rootPackageRead })
+  const { from, to } = await resolveTags<'social'>({
+    config,
+    step: 'social',
+    newVersion,
+    pkg: rootPackageRead,
+  })
   const fromTag = bumpResult?.fromTag || from
   const rootPackage = bumpResult?.rootPackage || await getRootPackage({
     config,
@@ -536,16 +571,38 @@ async function collectRootRelease({ config, bumpResult, dryRun }: {
     config,
     dryRun,
     newVersion,
-    include: { title: false, compareLink: false, body: true, contributors: false },
+    include: {
+      title: false,
+      compareLink: false,
+      body: true,
+      contributors: false,
+    },
     minify,
   })
 
   return {
-    released: { bumped: true, newVersion, fromTag, bumpedPackages: bumpResult?.bumpedPackages ?? [] },
-    changelogs: new Map([[ROOT_VERSION, { minified: await generate(true), rich: await generate(false) }]]),
+    released: {
+      bumped: true,
+      newVersion,
+      fromTag,
+      bumpedPackages: bumpResult?.bumpedPackages ?? [],
+    },
+    changelogs: new Map([
+      [
+        ROOT_VERSION,
+        { minified: await generate(true), rich: await generate(false) },
+      ],
+    ]),
     // With `changelog: true`, the authors of title-only commits (e.g. `docs:`) are credited too.
     // `to` resolves to the future release tag (created later in the release flow), so `git log` uses HEAD
-    commits: await getPackageCommits({ pkg: rootPackage, from: fromTag, to: 'HEAD', config, changelog: true, dryRun }),
+    commits: await getPackageCommits({
+      pkg: rootPackage,
+      from: fromTag,
+      to: 'HEAD',
+      config,
+      changelog: true,
+      dryRun,
+    }),
     rootTag: to,
   }
 }
@@ -574,10 +631,14 @@ function getChangelogDir({ config, line, released }: { config: ResolvedRelizyCon
   if (line.group.versionMode === 'independent') {
     const pkg = released.bumpedPackages.find(({ name }) => name === line.name)
 
-    return pkg?.path ? relative(config.cwd, pkg.path).split('\\').join('/') : undefined
+    return pkg?.path
+      ? relative(config.cwd, pkg.path).split('\\').join('/')
+      : undefined
   }
 
-  return config.monorepo && config.changelog?.rootChangelog === false ? undefined : ''
+  return config.monorepo && config.changelog?.rootChangelog === false
+    ? undefined
+    : ''
 }
 
 /**
@@ -598,21 +659,37 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
     bumpResult: options.bumpResult,
     only: options.groups,
     nothing: 'nothing to post',
-    leftOut: groupConfig => groupConfig.release.social === false ? 'left out of the social posts (release.social: false)' : undefined,
+    leftOut: groupConfig => groupConfig.release.social === false
+      ? 'left out of the social posts (release.social: false)'
+      : undefined,
   })
 
   for (const { group, config: targetConfig, bumpResult: targetBumpResult } of targets) {
-    const release = await collectRelease({ config: targetConfig, options, bumpResult: targetBumpResult, dryRun })
+    const release = await collectRelease({
+      config: targetConfig,
+      options,
+      bumpResult: targetBumpResult,
+      dryRun,
+    })
     collected.push({ name: group?.name, release, config: targetConfig })
 
     if (group) {
-      groups.push({ ...release.released, name: group.name, title: getVersionGroupTitle(group), versionMode: group.versionMode })
+      groups.push({
+        ...release.released,
+        name: group.name,
+        title: getVersionGroupTitle(group),
+        versionMode: group.versionMode,
+      })
     }
   }
 
   // Without version groups, the single release collected
   const bumpResult: BumpResultTruthy = hasVersionGroups(config)
-    ? { bumped: true, bumpedPackages: groups.flatMap(group => group.bumpedPackages), groups }
+    ? {
+        bumped: true,
+        bumpedPackages: groups.flatMap(group => group.bumpedPackages),
+        groups,
+      }
     : collected[0]!.release.released
 
   const overview = withoutPrivatePackages(getReleaseOverview({ config, bumpResult }))
@@ -624,7 +701,9 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
 
   const versions = getReleaseLines(overview).map((line) => {
     const target = collected.find(({ name }) => name === line.group.name)
-    const changelog = target?.release.changelogs.get(line.group.versionMode === 'independent' ? line.name : ROOT_VERSION)
+    const changelog = target?.release.changelogs.get(line.group.versionMode === 'independent'
+      ? line.name
+      : ROOT_VERSION)
 
     return {
       line,
@@ -637,7 +716,9 @@ async function collectAnnouncedRelease({ config, options, dryRun }: {
   return {
     overview,
     versions,
-    commits: [...commitsByHash.values()],
+    commits: [
+      ...commitsByHash.values(),
+    ],
     rootTag: collected.find(({ release }) => release.rootTag)?.release.rootTag,
   }
 }
@@ -661,7 +742,9 @@ function getPlatformPost({ config, overview, versions, rootTag, onlyStable, isAn
   const rootGroup = postedOverview.groups.find(group => group.versionMode !== 'independent')
   const releaseTag = getReleaseTag(postedOverview)
   // The root version is linked to the tag resolved for the post (`--to`)
-  const tag = rootTag && releaseTag && releaseTag === rootGroup?.tag ? rootTag : releaseTag
+  const tag = rootTag && releaseTag && releaseTag === rootGroup?.tag
+    ? rootTag
+    : releaseTag
 
   return {
     versions: postedVersions,
@@ -671,8 +754,12 @@ function getPlatformPost({ config, overview, versions, rootTag, onlyStable, isAn
     // Nothing the platform announces
     notAnnounced: announcedVersions.length === 0,
     variables: getSocialTemplateVariables({
-      overview: postedVersions.length > 0 ? postedOverview : overview,
-      releaseUrl: tag ? getReleaseUrl(config, tag) : undefined,
+      overview: postedVersions.length > 0
+        ? postedOverview
+        : overview,
+      releaseUrl: tag
+        ? getReleaseUrl(config, tag)
+        : undefined,
       changelogUrl: config.social?.changelogUrl,
     }),
   }
@@ -713,12 +800,20 @@ function getTweetSections({ overview, versions, highlights, hasGroups }: {
     if (group.versionMode !== 'independent') {
       const [version] = groupVersions
 
-      return { title: version && getVersionTitle(version.line, hasGroups), highlights: version ? highlights.get(version) ?? [] : [] }
+      return {
+        title: version && getVersionTitle(version.line, hasGroups),
+        highlights: version
+          ? highlights.get(version) ?? []
+          : [],
+      }
     }
 
     return {
       title: hasGroups ? group.title : undefined,
-      packages: groupVersions.map(version => ({ label: getVersionTitle(version.line, hasGroups), highlights: highlights.get(version) ?? [] })),
+      packages: groupVersions.map(version => ({
+        label: getVersionTitle(version.line, hasGroups),
+        highlights: highlights.get(version) ?? [],
+      })),
     }
   })
 }
@@ -742,9 +837,13 @@ function getSlackSections({ overview, versions, changelogs, announcements, hasGr
       const announcement = version && announcements.get(version)
 
       return {
-        title: version && (announcement?.title ? `${announcement.title} ${version.line.version}` : getVersionTitle(version.line, hasGroups)),
+        title: version && (announcement?.title
+          ? `${announcement.title} ${version.line.version}`
+          : getVersionTitle(version.line, hasGroups)),
         ...(announcement && { message: announcement.message, links: announcement.links }),
-        changelog: version ? changelogs.get(version) ?? '' : '',
+        changelog: version
+          ? changelogs.get(version) ?? ''
+          : '',
       }
     }
 
@@ -814,7 +913,15 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
       return version!.minified
     }
 
-    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: version!.minified, platform: 'twitter', maxLength, context: toAIContext(version!), dryRun })
+    return await generateAISocialChangelog({
+      config,
+      rawBody: version!.rich,
+      fallbackBody: version!.minified,
+      platform: 'twitter',
+      maxLength,
+      context: toAIContext(version!),
+      dryRun,
+    })
   }
 
   const rewritten = useAI
@@ -824,12 +931,16 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
         maxLength,
         dryRun,
         releases: versions.flatMap((version, index) => rewrites.has(version)
-          ? [{
-              id: String(index + 1),
-              title: getVersionTitle(version.line, hasGroups),
-              body: version.rich,
-              highlights: version.line.group.versionMode === 'independent' ? 1 : 3,
-            }]
+          ? [
+              {
+                id: String(index + 1),
+                title: getVersionTitle(version.line, hasGroups),
+                body: version.rich,
+                highlights: version.line.group.versionMode === 'independent'
+                  ? 1
+                  : 3,
+              },
+            ]
           : []),
       })
     : new Map<string, string>()
@@ -837,10 +948,20 @@ async function getTweetChangelog({ config, versions, overview, variables, hasGro
   const highlights = new Map(versions.map((version, index) => {
     const aiHighlights = rewritten.get(String(index + 1))
 
-    return [version, aiHighlights ? parseHighlights(aiHighlights) : extractChangelogHighlights(version.minified)]
+    return [
+      version,
+      aiHighlights
+        ? parseHighlights(aiHighlights)
+        : extractChangelogHighlights(version.minified),
+    ]
   }))
 
-  return getTweetSections({ overview, versions, highlights, hasGroups })
+  return getTweetSections({
+    overview,
+    versions,
+    highlights,
+    hasGroups,
+  })
 }
 
 /**
@@ -857,7 +978,11 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
 }): Promise<string | SlackReleaseSection[]> {
   const changelog = getSocialChangelog(config.social?.slack?.changelog, 'summary')
   const changelogFormat = getSlackChangelogFormat(config)
-  const getBody = (version: AnnouncedVersion) => changelog === 'none' ? '' : changelog === 'full' ? version.rich : version.minified
+  const getBody = (version: AnnouncedVersion) => changelog === 'none'
+    ? ''
+    : changelog === 'full'
+      ? version.rich
+      : version.minified
   const rewrites = getAIRewrittenVersions(config, 'slack', versions)
   const useAI = rewrites.size > 0
   const maxLength = resolveSlackPostMaxLength({ changelogFormat, postMaxLength: config.social.slack.postMaxLength })
@@ -869,7 +994,15 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
       return getBody(version!)
     }
 
-    return await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: getBody(version!), platform: 'slack', maxLength, context: toAIContext(version!), dryRun })
+    return await generateAISocialChangelog({
+      config,
+      rawBody: version!.rich,
+      fallbackBody: getBody(version!),
+      platform: 'slack',
+      maxLength,
+      context: toAIContext(version!),
+      dryRun,
+    })
   }
 
   const rewritten = useAI
@@ -878,13 +1011,27 @@ async function getSlackChangelog({ config, versions, overview, announcements, ha
         platform: 'slack',
         maxLength,
         dryRun,
-        releases: versions.flatMap((version, index) => rewrites.has(version) ? [{ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich }] : []),
+        releases: versions.flatMap((version, index) => rewrites.has(version)
+          ? [
+              {
+                id: String(index + 1),
+                title: getVersionTitle(version.line, hasGroups),
+                body: version.rich,
+              },
+            ]
+          : []),
       })
     : new Map<string, string>()
 
   const changelogs = new Map(versions.map((version, index) => [version, rewritten.get(String(index + 1)) ?? getBody(version)]))
 
-  return getSlackSections({ overview, versions, changelogs, announcements, hasGroups })
+  return getSlackSections({
+    overview,
+    versions,
+    changelogs,
+    announcements,
+    hasGroups,
+  })
 }
 
 /** Budget of the changelog of a version in a Teams card */
@@ -921,7 +1068,17 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
   if (versions.length === 1) {
     const [version] = versions
 
-    return new Map([[version!, await generateAISocialChangelog({ config, rawBody: version!.rich, fallbackBody: version!.minified, platform: 'teams', maxLength: TEAMS_CHANGELOG_MAX_LENGTH, context: toAIContext(version!), dryRun })]])
+    return new Map([
+      [version!, await generateAISocialChangelog({
+        config,
+        rawBody: version!.rich,
+        fallbackBody: version!.minified,
+        platform: 'teams',
+        maxLength: TEAMS_CHANGELOG_MAX_LENGTH,
+        context: toAIContext(version!),
+        dryRun,
+      })],
+    ])
   }
 
   const rewritten = await generateAISocialReleases({
@@ -929,7 +1086,15 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
     platform: 'teams',
     maxLength: TEAMS_CHANGELOG_MAX_LENGTH,
     dryRun,
-    releases: versions.flatMap((version, index) => rewrites.has(version) ? [{ id: String(index + 1), title: getVersionTitle(version.line, hasGroups), body: version.rich }] : []),
+    releases: versions.flatMap((version, index) => rewrites.has(version)
+      ? [
+          {
+            id: String(index + 1),
+            title: getVersionTitle(version.line, hasGroups),
+            body: version.rich,
+          },
+        ]
+      : []),
   })
 
   return new Map(versions.map((version, index) => [version, rewritten.get(String(index + 1)) ?? version.minified]))
@@ -940,7 +1105,9 @@ async function getTeamsChangelogs({ config, versions, hasGroups, dryRun }: {
  * project name (the title of its group with version groups) for the root version
  */
 function getAnnouncedName(line: ReleaseLine, hasGroups: boolean): string {
-  return line.group.versionMode !== 'independent' && hasGroups ? line.group.title : line.name
+  return line.group.versionMode !== 'independent' && hasGroups
+    ? line.group.title
+    : line.name
 }
 
 /**
@@ -948,7 +1115,9 @@ function getAnnouncedName(line: ReleaseLine, hasGroups: boolean): string {
  * the post (`--to`)
  */
 function getAnnouncedTag(line: ReleaseLine, rootTag: string | undefined): string {
-  return line.group.versionMode !== 'independent' && rootTag ? rootTag : line.tag
+  return line.group.versionMode !== 'independent' && rootTag
+    ? rootTag
+    : line.tag
 }
 
 /**
@@ -987,15 +1156,23 @@ function getSlackAnnouncements({ config, versions, projectName, rootTag, hasGrou
 
     const variables = getAnnouncementVariables({
       config,
-      version: { line: version.line, name: getAnnouncedName(version.line, hasGroups), changelogDir: version.changelogDir },
+      version: {
+        line: version.line,
+        name: getAnnouncedName(version.line, hasGroups),
+        changelogDir: version.changelogDir,
+      },
       content,
       projectName,
       releaseUrl: getReleaseUrl(config, getAnnouncedTag(version.line, rootTag)),
     })
 
     announcements.set(version, {
-      title: content.title ? fillAnnouncementText(content.title, variables) || undefined : undefined,
-      message: content.message ? fillAnnouncementText(content.message, variables) || undefined : undefined,
+      title: content.title
+        ? fillAnnouncementText(content.title, variables) || undefined
+        : undefined,
+      message: content.message
+        ? fillAnnouncementText(content.message, variables) || undefined
+        : undefined,
       links: getAnnouncementLinks(content, variables),
     })
   }
@@ -1024,12 +1201,26 @@ async function getTeamsCards({ config, versions, overview, rootTag, hasGroups, d
     changelog: '',
   }))
   const announced = resolveTeamsAnnouncements(teamsConfig, candidates)
-  const changelogs = await getTeamsChangelogs({ config, versions: announced.map(({ version }) => byLine.get(version.line)!), hasGroups, dryRun })
+  const changelogs = await getTeamsChangelogs({
+    config,
+    versions: announced.map(({ version }) => byLine.get(version.line)!),
+    hasGroups,
+    dryRun,
+  })
 
   const sections = announced.map(({ version, content }) => {
     const tag = getAnnouncedTag(version.line, rootTag)
-    const withChangelog = { version: { ...version, changelog: changelogs.get(byLine.get(version.line)!) ?? '' }, content }
-    const variables = getAnnouncementVariables({ config, version: withChangelog.version, content, projectName: overview.projectName, releaseUrl: getReleaseUrl(config, tag) })
+    const withChangelog = {
+      version: { ...version, changelog: changelogs.get(byLine.get(version.line)!) ?? '' },
+      content,
+    }
+    const variables = getAnnouncementVariables({
+      config,
+      version: withChangelog.version,
+      content,
+      projectName: overview.projectName,
+      releaseUrl: getReleaseUrl(config, tag),
+    })
 
     return getTeamsCardSection({ announced: withChangelog, variables })
   })
@@ -1039,8 +1230,15 @@ async function getTeamsCards({ config, versions, overview, rootTag, hasGroups, d
   }
 
   return teamsConfig.cards === 'release'
-    ? [{ sections, title: getReleaseTitle(overview) }]
-    : sections.map(section => ({ sections: [section] }))
+    ? [
+        {
+          sections,
+          title: getReleaseTitle(overview),
+        },
+      ]
+    : sections.map(section => ({
+        sections: [section],
+      }))
 }
 
 async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups, prerelease, dryRun, hookContext }: {
@@ -1074,7 +1272,14 @@ async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups,
   }
 
   try {
-    const cards = await getTeamsCards({ config, versions, overview, rootTag, hasGroups, dryRun })
+    const cards = await getTeamsCards({
+      config,
+      versions,
+      overview,
+      rootTag,
+      hasGroups,
+      dryRun,
+    })
 
     if (cards.length === 0) {
       logger.info('No version to announce on Teams (social.teams.announcements, social.teams.exclude)')
@@ -1085,7 +1290,13 @@ async function handleTeamsPost({ config, versions, overview, rootTag, hasGroups,
     await executeHook('before:teams', config, dryRun, hookContext)
 
     try {
-      const response = await postReleaseToTeams({ cards, webhookUrl, badge: teamsConfig.badge, locale: teamsConfig.locale, dryRun })
+      const response = await postReleaseToTeams({
+        cards,
+        webhookUrl,
+        badge: teamsConfig.badge,
+        locale: teamsConfig.locale,
+        dryRun,
+      })
       await executeHook('success:teams', config, dryRun, hookContext)
 
       return { success: true, response }
@@ -1146,11 +1357,21 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
     check: config => assertVersionGroupsOption({ config, groups: options.groups }),
     // The release goes on without its posts: the error is in the result
     recover: error => ({
-      results: [{ platform: 'unknown', success: false, error: error instanceof Error ? error.message : String(error) }],
+      results: [
+        {
+          platform: 'unknown',
+          success: false,
+          error: error instanceof Error
+            ? error.message
+            : String(error),
+        },
+      ],
       hasErrors: true,
     }),
     run: async ({ config, dryRun, ui }) => {
-      logger.debug(`Version mode: ${config.monorepo?.versionMode || (hasVersionGroups(config) ? 'version groups' : 'standalone')}`)
+      logger.debug(`Version mode: ${config.monorepo?.versionMode || (hasVersionGroups(config)
+        ? 'version groups'
+        : 'standalone')}`)
 
       const result = await ui.step({
         running: 'Posting the release',
@@ -1161,10 +1382,19 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
 
       const posted = result.results.filter(({ success, skipped }) => success && !skipped)
       ui.complete(posted.length === 0
-        ? { message: describeSocialResult(result), ...(result.hasErrors ? { failed: true } : { nothing: true }) }
+        ? {
+            message: describeSocialResult(result),
+            ...(result.hasErrors
+              ? { failed: true }
+              : { nothing: true }),
+          }
         : {
             message: `${dryRun ? 'Simulated posts on' : 'Posted on'} ${posted.map(({ platform }) => platform).join(', ')}`,
-            links: posted.flatMap(({ url }) => url ? [{ label: 'Tweet', url }] : []),
+            links: posted.flatMap(({ url }) => url
+              ? [
+                  { label: 'Tweet', url },
+                ]
+              : []),
           })
 
       return result
@@ -1180,9 +1410,13 @@ export function describeSocialResult(result: SocialResult): string {
   const failed = result.results.filter(({ success }) => !success).map(({ platform }) => platform)
 
   return [
-    posted.length > 0 ? `Posted on ${posted.join(', ')}` : '',
+    posted.length > 0
+      ? `Posted on ${posted.join(', ')}`
+      : '',
     ...describeSkippedPosts(result),
-    failed.length > 0 ? `${failed.join(', ')} failed` : '',
+    failed.length > 0
+      ? `${failed.join(', ')} failed`
+      : '',
   ].filter(Boolean).join(', ') || 'Nothing posted'
 }
 
@@ -1202,8 +1436,16 @@ function toNetworkResult(platform: string, response: SocialNetworkResponse<unkno
     return { platform, success: true, skipped: response.skipped }
   }
 
-  const tweetId = platform === 'twitter' ? (response.response as TweetV2PostTweetResult | undefined)?.data?.id : undefined
-  return { platform, success: true, ...(tweetId ? { url: `https://x.com/i/web/status/${tweetId}` } : {}) }
+  const tweetId = platform === 'twitter'
+    ? (response.response as TweetV2PostTweetResult | undefined)?.data?.id
+    : undefined
+  return {
+    platform,
+    success: true,
+    ...(tweetId
+      ? { url: `https://x.com/i/web/status/${tweetId}` }
+      : {}),
+  }
 }
 
 /**
@@ -1216,7 +1458,10 @@ async function postRelease({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<SocialResult> {
   // Safety check
-  await socialSafetyCheck({ config, versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }) })
+  await socialSafetyCheck({
+    config,
+    versions: getKnownReleaseVersions({ config, bumpResult: options.bumpResult }),
+  })
 
   if (!config.release.social && !isAnySocialPlatformEnabled(config)) {
     logger.warn('Social media posting is disabled in configuration.')
@@ -1230,7 +1475,9 @@ async function postRelease({ config, options, dryRun }: {
   const { overview, versions, commits, rootTag } = await collectAnnouncedRelease({ config, options, dryRun })
 
   // The hooks get what the posts announce
-  const getPostHookContext = (release: ReleaseOverview) => options.bumpResult ? { bumpResult: options.bumpResult, release } : undefined
+  const getPostHookContext = (release: ReleaseOverview) => options.bumpResult
+    ? { bumpResult: options.bumpResult, release }
+    : undefined
 
   if (versions.length === 0) {
     logger.info('No version to announce on social media')
@@ -1238,12 +1485,41 @@ async function postRelease({ config, options, dryRun }: {
     return { results: [], hasErrors: false }
   }
 
-  const twitterPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: !!config.social.twitter.onlyStable, isAnnounced: line => !isExcludedLine(line, config.social.twitter.exclude) })
-  const slackPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.slack.onlyStable ?? true, isAnnounced: line => resolveAnnouncement(line, config.social.slack) !== undefined })
-  const teamsPost = getPlatformPost({ config, overview, versions, rootTag, onlyStable: config.social.teams?.onlyStable ?? true, isAnnounced: () => true })
-  const slackAnnouncements = getSlackAnnouncements({ config, versions: slackPost.versions, projectName: overview.projectName, rootTag, hasGroups })
+  const twitterPost = getPlatformPost({
+    config,
+    overview,
+    versions,
+    rootTag,
+    onlyStable: !!config.social.twitter.onlyStable,
+    isAnnounced: line => !isExcludedLine(line, config.social.twitter.exclude),
+  })
+  const slackPost = getPlatformPost({
+    config,
+    overview,
+    versions,
+    rootTag,
+    onlyStable: config.social.slack.onlyStable ?? true,
+    isAnnounced: line => resolveAnnouncement(line, config.social.slack) !== undefined,
+  })
+  const teamsPost = getPlatformPost({
+    config,
+    overview,
+    versions,
+    rootTag,
+    onlyStable: config.social.teams?.onlyStable ?? true,
+    isAnnounced: () => true,
+  })
+  const slackAnnouncements = getSlackAnnouncements({
+    config,
+    versions: slackPost.versions,
+    projectName: overview.projectName,
+    rootTag,
+    hasGroups,
+  })
   // The announcement of a single version: its title in the header, its message and its links
-  const slackSingleAnnouncement = slackPost.versions.length === 1 ? slackAnnouncements.get(slackPost.versions[0]!) : undefined
+  const slackSingleAnnouncement = slackPost.versions.length === 1
+    ? slackAnnouncements.get(slackPost.versions[0]!)
+    : undefined
   const slackVariables = slackSingleAnnouncement?.title
     ? { ...slackPost.variables, releaseTitle: `${slackSingleAnnouncement.title} ${slackPost.versions[0]!.line.version} is out!` }
     : slackPost.variables
@@ -1251,7 +1527,14 @@ async function postRelease({ config, options, dryRun }: {
   const twitterResponse = await handleTwitterPost({
     config,
     changelog: config.social?.twitter?.enabled && twitterPost.versions.length > 0
-      ? await getTweetChangelog({ config, versions: twitterPost.versions, overview: twitterPost.overview, variables: twitterPost.variables, hasGroups, dryRun })
+      ? await getTweetChangelog({
+          config,
+          versions: twitterPost.versions,
+          overview: twitterPost.overview,
+          variables: twitterPost.variables,
+          hasGroups,
+          dryRun,
+        })
       : '',
     dryRun,
     variables: twitterPost.variables,
@@ -1263,7 +1546,14 @@ async function postRelease({ config, options, dryRun }: {
   const slackResponse = await handleSlackPost({
     config,
     changelog: config.social?.slack?.enabled && slackPost.versions.length > 0
-      ? await getSlackChangelog({ config, versions: slackPost.versions, overview: slackPost.overview, announcements: slackAnnouncements, hasGroups, dryRun })
+      ? await getSlackChangelog({
+          config,
+          versions: slackPost.versions,
+          overview: slackPost.overview,
+          announcements: slackAnnouncements,
+          hasGroups,
+          dryRun,
+        })
       : '',
     dryRun,
     variables: slackVariables,

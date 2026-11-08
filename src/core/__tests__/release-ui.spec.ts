@@ -7,7 +7,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockCommit, createMockPackageInfo, setInteractiveTerminal } from '../../../tests/mocks'
 
 const CANCEL = Symbol('clack:cancel')
-const spin = { start: vi.fn(), stop: vi.fn(), error: vi.fn(), clear: vi.fn(), message: vi.fn() }
+const spin = {
+  start: vi.fn(),
+  stop: vi.fn(),
+  error: vi.fn(),
+  clear: vi.fn(),
+  message: vi.fn(),
+}
 
 vi.mock('@clack/prompts', () => ({
   intro: vi.fn(),
@@ -16,13 +22,47 @@ vi.mock('@clack/prompts', () => ({
   confirm: vi.fn(),
   isCancel: vi.fn((value: unknown) => value === CANCEL),
   spinner: vi.fn(() => spin),
-  log: { message: vi.fn(), warn: vi.fn(), error: vi.fn() },
+  log: {
+    message: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
 }))
 
 interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
 
 /** The output and the variables of the CI detection (`ci-env.ts`), cleared so the tests run the same locally and in CI */
-const ENV_KEYS = ['RELIZY_REPORTER', 'NO_COLOR', 'CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'CIRCLECI', 'TRAVIS', 'JENKINS_HOME', 'JENKINS_URL', 'BUILD_ID', 'TF_BUILD', 'AZURE_PIPELINES', 'TEAMCITY_VERSION', 'BITBUCKET_BUILD_NUMBER', 'DRONE', 'APPVEYOR', 'BUILDKITE', 'CODEBUILD_BUILD_ID', 'NETLIFY', 'VERCEL', 'HEROKU_TEST_RUN_ID', 'BUDDY', 'SEMAPHORE', 'CF_BUILD_ID', 'bamboo_buildKey', 'SCREWDRIVER', 'STRIDER'] as const
+const ENV_KEYS = [
+  'RELIZY_REPORTER',
+  'NO_COLOR',
+  'CI',
+  'CONTINUOUS_INTEGRATION',
+  'GITHUB_ACTIONS',
+  'GITHUB_WORKFLOW',
+  'GITLAB_CI',
+  'CIRCLECI',
+  'TRAVIS',
+  'JENKINS_HOME',
+  'JENKINS_URL',
+  'BUILD_ID',
+  'TF_BUILD',
+  'AZURE_PIPELINES',
+  'TEAMCITY_VERSION',
+  'BITBUCKET_BUILD_NUMBER',
+  'DRONE',
+  'APPVEYOR',
+  'BUILDKITE',
+  'CODEBUILD_BUILD_ID',
+  'NETLIFY',
+  'VERCEL',
+  'HEROKU_TEST_RUN_ID',
+  'BUDDY',
+  'SEMAPHORE',
+  'CF_BUILD_ID',
+  'bamboo_buildKey',
+  'SCREWDRIVER',
+  'STRIDER',
+] as const
 const env = Object.fromEntries(ENV_KEYS.map(key => [key, process.env[key]]))
 
 let cwd: string
@@ -40,8 +80,14 @@ async function load(vars: Partial<Record<typeof ENV_KEYS[number], string>> = {},
 
   vi.resetModules()
   const { logger } = await import('@maz-ui/node')
-  reporters = [{ log: vi.fn() }]
-  vi.mocked(logger.removeReporter).mockReturnValue({ options: { reporters } } as never)
+  reporters = [
+    {
+      log: vi.fn(),
+    },
+  ]
+  vi.mocked(logger.removeReporter).mockReturnValue({
+    options: { reporters },
+  } as never)
   // A test may leave its output running: the level is intercepted until it ends
   logger.setLevel = vi.fn()
 
@@ -70,11 +116,39 @@ const releaseReport: ReleaseReport = {
   released: false,
   dryRun: true,
   canary: false,
-  release: { projectName: 'relizy', groups: [{ name: '', title: 'relizy', versionMode: 'unified', version: '2.0.0', oldVersion: '1.14.3', tag: 'v2.0.0', packages: [{ name: 'relizy', oldVersion: '1.14.3', newVersion: '2.0.0', tag: 'v2.0.0', private: false }] }] },
+  release: {
+    projectName: 'relizy',
+    groups: [
+      {
+        name: '',
+        title: 'relizy',
+        versionMode: 'unified',
+        version: '2.0.0',
+        oldVersion: '1.14.3',
+        tag: 'v2.0.0',
+        packages: [
+          {
+            name: 'relizy',
+            oldVersion: '1.14.3',
+            newVersion: '2.0.0',
+            tag: 'v2.0.0',
+            private: false,
+          },
+        ],
+      },
+    ],
+  },
   version: '2.0.0',
   tags: ['v2.0.0'],
   steps: [
-    { name: 'publish', status: 'done', detail: 'relizy@2.0.0', links: [{ label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' }] },
+    {
+      name: 'publish',
+      status: 'done',
+      detail: 'relizy@2.0.0',
+      links: [
+        { label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' },
+      ],
+    },
     { name: 'social', status: 'failed', detail: 'slack: down' },
     { name: 'prComment', status: 'skipped' },
   ],
@@ -112,7 +186,12 @@ describe('Given the renderer of the output', () => {
     const { ui, logger } = await load()
 
     const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
-    const result = await commandUi.step({ title: 'Bump versions', running: 'Computing', done: () => 'done', run: () => Promise.resolve(42) })
+    const result = await commandUi.step({
+      title: 'Bump versions',
+      running: 'Computing',
+      done: () => 'done',
+      run: () => Promise.resolve(42),
+    })
 
     expect(result).toBe(42)
     expect(ui.isFancyUi()).toBe(false)
@@ -142,7 +221,11 @@ describe('Given the renderer of the output', () => {
     expect(classic.ui.isFancyUi()).toBe(false)
   })
 
-  it.each([{ CI: '1' }, { VERCEL: '1' }, { BUILD_ID: '42' }])('Then shows the CI output in a terminal of any CI detected (%o)', async (vars) => {
+  it.each([
+    { CI: '1' },
+    { VERCEL: '1' },
+    { BUILD_ID: '42' },
+  ])('Then shows the CI output in a terminal of any CI detected (%o)', async (vars) => {
     const isTTY = process.stdout.isTTY
     process.stdout.isTTY = true
 
@@ -174,7 +257,11 @@ describe('Given the CI output', () => {
         progress.reportProgress('Writing the notes of v2.0.0')
         progress.reportProgress('Rewriting the notes of v2.0.0 with AI (claude-code)', { ai: true })
         progress.reportStepNote('The notes of v2.0.0: AI rewrite simulated', { ai: true })
-        progress.showPreview({ title: 'GitHub release v2.0.0', meta: ['Prerelease'], content: '### Features\n\n- A feature' })
+        progress.showPreview({
+          title: 'GitHub release v2.0.0',
+          meta: ['Prerelease'],
+          content: '### Features\n\n- A feature',
+        })
         log('warn', 'No from tag found for pkg:\ndetails')
         log('debug', 'hidden')
         return Promise.resolve(1)
@@ -229,7 +316,11 @@ describe('Given the CI output', () => {
     const error = new Error('npm publish failed\nE403 Forbidden')
 
     commandUi.skip({ title: 'Publish', label: 'Publish', reason: '--no-publish' })
-    await expect(commandUi.step({ running: 'Publishing the packages', done: () => '', run: () => Promise.reject(error) })).rejects.toBe(error)
+    await expect(commandUi.step({
+      running: 'Publishing the packages',
+      done: () => '',
+      run: () => Promise.reject(error),
+    })).rejects.toBe(error)
     commandUi.fail(error, 'Publish', releaseReport)
 
     expect(lines()).toEqual(expect.arrayContaining([
@@ -261,7 +352,12 @@ describe('Given the CI output', () => {
   it('Then ends another command with what it did, nothing without a notice', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy publish', dryRun: false, cwd }).complete({ message: 'Published relizy@2.0.0', links: [{ label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' }] })
+    ui.createCommandUi({ title: 'relizy publish', dryRun: false, cwd }).complete({
+      message: 'Published relizy@2.0.0',
+      links: [
+        { label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' },
+      ],
+    })
     ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Nothing to bump', nothing: true })
 
     expect(lines()).toEqual([
@@ -287,7 +383,12 @@ describe('Given the CI output', () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
     const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
 
-    await commandUi.step({ running: 'Posting the release', done: () => 'slack failed', failed: () => true, run: () => Promise.resolve() })
+    await commandUi.step({
+      running: 'Posting the release',
+      done: () => 'slack failed',
+      failed: () => true,
+      run: () => Promise.resolve(),
+    })
 
     expect(lines()).toContainEqual(expect.stringMatching(/^▲ slack failed {2}\d+ms$/))
   })
@@ -297,7 +398,11 @@ describe('Given the CI output', () => {
     const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
     const cancel = new errors.RelizyCancelError('Bump cancelled')
 
-    await expect(commandUi.step({ running: 'Computing the versions', done: () => '', run: () => Promise.reject(cancel) })).rejects.toBe(cancel)
+    await expect(commandUi.step({
+      running: 'Computing the versions',
+      done: () => '',
+      run: () => Promise.reject(cancel),
+    })).rejects.toBe(cancel)
 
     expect(lines()).toEqual(['relizy bump · github', '::group::Computing the versions', '::endgroup::'])
     expect(await (commandUi as unknown as { prompt: <T>(run: () => Promise<T>) => Promise<T> }).prompt(() => Promise.resolve('answer'))).toBe('answer')
@@ -331,7 +436,11 @@ describe('Given a command run by another one', () => {
       done: () => 'Published relizy@2.0.0',
       run: async () => {
         const publish = ui.createCommandUi({ title: 'relizy publish', dryRun: false, cwd })
-        await publish.step({ running: 'Checking the packages to publish', done: () => 'checked', run: () => Promise.resolve() })
+        await publish.step({
+          running: 'Checking the packages to publish',
+          done: () => 'checked',
+          run: () => Promise.resolve(),
+        })
         publish.skip({ title: 'Build', label: 'Build', reason: 'no build command' })
         publish.complete({ message: 'Published' })
         publish.finish(releaseReport)
@@ -391,7 +500,10 @@ describe('Given the terminal output', () => {
       run: () => {
         progress.reportStepNote('The notes of v2.0.0 rewritten by AI', { ai: true })
         progress.reportStepNote('2 contributors found')
-        progress.showPreview({ title: 'GitHub release v2.0.0', content: Array.from({ length: 40 }, (_, index) => `line ${index + 1}`).join('\n') })
+        progress.showPreview({
+          title: 'GitHub release v2.0.0',
+          content: Array.from({ length: 40 }, (_, index) => `line ${index + 1}`).join('\n'),
+        })
         log('warn', 'Rate limited:\nretrying')
         log('info', 'Using Git provider: github')
         return Promise.resolve()
@@ -437,14 +549,22 @@ describe('Given the terminal output', () => {
 
   it('Then shows the logs and the whole previews with --log-level verbose', async () => {
     const { ui, progress, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy changelog', dryRun: true, logLevel: 'verbose', cwd })
+    const commandUi = ui.createCommandUi({
+      title: 'relizy changelog',
+      dryRun: true,
+      logLevel: 'verbose',
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Writing the changelogs',
       done: () => '1 changelog written',
       run: () => {
         log('info', 'Using Git provider: github')
-        progress.showPreview({ title: 'Changelog of relizy', content: Array.from({ length: 40 }, (_, index) => `line ${index + 1}`).join('\n') })
+        progress.showPreview({
+          title: 'Changelog of relizy',
+          content: Array.from({ length: 40 }, (_, index) => `line ${index + 1}`).join('\n'),
+        })
         return Promise.resolve()
       },
     })
@@ -479,7 +599,11 @@ describe('Given the terminal output', () => {
     const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
     const cancel = new errors.RelizyCancelError('Bump cancelled')
 
-    await expect(commandUi.step({ running: 'Computing the versions', done: () => '', run: () => Promise.reject(cancel) })).rejects.toBe(cancel)
+    await expect(commandUi.step({
+      running: 'Computing the versions',
+      done: () => '',
+      run: () => Promise.reject(cancel),
+    })).rejects.toBe(cancel)
     commandUi.fail(cancel)
 
     expect(spin.clear).toHaveBeenCalled()
@@ -492,7 +616,11 @@ describe('Given the terminal output', () => {
     const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
     const error = new Error('push rejected')
 
-    await expect(commandUi.step({ running: 'Pushing', done: () => '', run: () => Promise.reject(error) })).rejects.toBe(error)
+    await expect(commandUi.step({
+      running: 'Pushing',
+      done: () => '',
+      run: () => Promise.reject(error),
+    })).rejects.toBe(error)
     commandUi.fail(error, 'Push', { ...releaseReport, status: 'failed', dryRun: false })
 
     expect(spin.error).toHaveBeenCalledWith(expect.stringMatching(/^Pushing {2}\d+ms$/))
@@ -503,7 +631,14 @@ describe('Given the terminal output', () => {
 
   it('Then ends a dry run with the summary, the command to release for real and the end', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    vi.spyOn(process, 'argv', 'get').mockReturnValue(['node', 'relizy', 'release', '--dry-run', '--ai-preview', '--yes'])
+    vi.spyOn(process, 'argv', 'get').mockReturnValue([
+      'node',
+      'relizy',
+      'release',
+      '--dry-run',
+      '--ai-preview',
+      '--yes',
+    ])
 
     ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd }).finish(releaseReport)
 
@@ -521,7 +656,14 @@ describe('Given the terminal output', () => {
   it('Then ends nothing to release without summary', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
 
-    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd }).finish({ status: 'nothing', released: false, dryRun: false, canary: false, tags: [], steps: [] })
+    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd }).finish({
+      status: 'nothing',
+      released: false,
+      dryRun: false,
+      canary: false,
+      tags: [],
+      steps: [],
+    })
 
     expect(clack.note).not.toHaveBeenCalled()
     expect(clack.outro).toHaveBeenCalledWith(expect.stringMatching(/^Nothing to release/))
@@ -531,7 +673,12 @@ describe('Given the terminal output', () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
     const commandUi = ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd })
 
-    await commandUi.step({ running: 'Posting the release', done: () => 'twitter failed', failed: () => true, run: () => Promise.resolve() })
+    await commandUi.step({
+      running: 'Posting the release',
+      done: () => 'twitter failed',
+      failed: () => true,
+      run: () => Promise.resolve(),
+    })
     commandUi.complete({ message: 'twitter failed', failed: true })
 
     expect(spin.stop).not.toHaveBeenCalled()
@@ -542,7 +689,13 @@ describe('Given the terminal output', () => {
   it('Then ends another command with its details and links', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
 
-    ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd }).complete({ message: 'Posted on twitter', details: ['1 post'], links: [{ label: 'Tweet', url: 'https://x.com/i/web/status/1' }] })
+    ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd }).complete({
+      message: 'Posted on twitter',
+      details: ['1 post'],
+      links: [
+        { label: 'Tweet', url: 'https://x.com/i/web/status/1' },
+      ],
+    })
 
     expect(clack.log.message).toHaveBeenCalledWith('1 post')
     expect(clack.log.message).toHaveBeenCalledWith('https://x.com/i/web/status/1')
@@ -551,7 +704,13 @@ describe('Given the terminal output', () => {
 })
 
 describe('Given the confirmation of a bump', () => {
-  const packages = [{ ...createMockPackageInfo({ name: 'relizy', version: '1.14.4-beta.0', newVersion: '2.0.0' }), oldVersion: '1.14.4-beta.0', reason: 'graduation' as const }]
+  const packages = [
+    {
+      ...createMockPackageInfo({ name: 'relizy', version: '1.14.4-beta.0', newVersion: '2.0.0' }),
+      oldVersion: '1.14.4-beta.0',
+      reason: 'graduation' as const,
+    },
+  ]
 
   let restoreTerminal: () => void
 
@@ -583,7 +742,11 @@ describe('Given the confirmation of a bump', () => {
     expect(vi.mocked(clack.log.warn).mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(clack.note).mock.invocationCallOrder[0]!)
     expect(vi.mocked(clack.note).mock.calls[0]![1]).toBe('Bump plan · DRY RUN')
     expect(vi.mocked(clack.note).mock.calls[0]![0]).toContain('stable release of the beta')
-    expect(clack.confirm).toHaveBeenCalledWith(expect.objectContaining({ message: expect.stringMatching(/^Bump this version\? {3}DRY RUN /), active: 'Bump', inactive: 'Cancel' }))
+    expect(clack.confirm).toHaveBeenCalledWith(expect.objectContaining({
+      message: expect.stringMatching(/^Bump this version\? {3}DRY RUN /),
+      active: 'Bump',
+      inactive: 'Cancel',
+    }))
     // The spinner of the step goes on
     expect(spin.start).toHaveBeenCalledTimes(2)
   })
@@ -619,16 +782,59 @@ describe('Given the confirmation of a bump', () => {
 describe('Given the packages of a bump', () => {
   it('Then tells why each package is released, in plain words', async () => {
     const { ui } = await load()
-    const pkg = (overrides: Record<string, unknown>) => ({ ...createMockPackageInfo({ name: 'pkg', version: '1.0.0', newVersion: '1.1.0', commits: [] }), oldVersion: '1.0.0', ...overrides })
-    const breaking = { ...createMockCommit('feat', 'feat!: drop node 20'), isBreaking: true }
+    const pkg = (overrides: Record<string, unknown>) => ({
+      ...createMockPackageInfo({
+        name: 'pkg',
+        version: '1.0.0',
+        newVersion: '1.1.0',
+        commits: [],
+      }),
+      oldVersion: '1.0.0',
+      ...overrides,
+    })
+    const breaking = {
+      ...createMockCommit('feat', 'feat!: drop node 20'),
+      isBreaking: true,
+    }
 
     expect(ui.describeBumpedPackages([
       pkg({ name: 'graduated', oldVersion: '1.1.0-rc.2', newVersion: '1.1.0' }),
       pkg({ name: 'peer', breakingPeerDependency: 'maz-ui' }),
-      pkg({ name: 'dependent', reason: 'dependency', dependencyChain: ['core'] }),
-      pkg({ name: 'ranged', reason: 'dependency', outOfRangeDependency: { name: 'core', field: 'peerDependencies', range: '1.0.0', newVersion: '1.1.0' } }),
-      pkg({ name: 'range', reason: 'dependency', outOfRangeDependency: { name: 'core', field: 'dependencies', range: '^1.0.0', newVersion: '2.0.0' } }),
-      pkg({ name: 'changed', commits: [createMockCommit('feat', 'feat: a'), createMockCommit('feat', 'feat: b'), createMockCommit('fix', 'fix: c'), breaking, createMockCommit('ci', 'ci: d')] }),
+      pkg({
+        name: 'dependent',
+        reason: 'dependency',
+        dependencyChain: ['core'],
+      }),
+      pkg({
+        name: 'ranged',
+        reason: 'dependency',
+        outOfRangeDependency: {
+          name: 'core',
+          field: 'peerDependencies',
+          range: '1.0.0',
+          newVersion: '1.1.0',
+        },
+      }),
+      pkg({
+        name: 'range',
+        reason: 'dependency',
+        outOfRangeDependency: {
+          name: 'core',
+          field: 'dependencies',
+          range: '^1.0.0',
+          newVersion: '2.0.0',
+        },
+      }),
+      pkg({
+        name: 'changed',
+        commits: [
+          createMockCommit('feat', 'feat: a'),
+          createMockCommit('feat', 'feat: b'),
+          createMockCommit('fix', 'fix: c'),
+          breaking,
+          createMockCommit('ci', 'ci: d'),
+        ],
+      }),
       pkg({ name: 'forced' }),
     ])).toEqual([
       'graduated  1.1.0-rc.2  →  1.1.0  stable release of the rc',
@@ -644,7 +850,13 @@ describe('Given the packages of a bump', () => {
 
   it('Then tells what a bump did', async () => {
     const { ui } = await load()
-    const bumped = (count: number) => ({ bumped: true as const, bumpedPackages: Array.from({ length: count }, (_, index) => ({ ...createMockPackageInfo({ name: `pkg-${index}`, newVersion: '2.0.0' }), oldVersion: '1.0.0' })) })
+    const bumped = (count: number) => ({
+      bumped: true as const,
+      bumpedPackages: Array.from({ length: count }, (_, index) => ({
+        ...createMockPackageInfo({ name: `pkg-${index}`, newVersion: '2.0.0' }),
+        oldVersion: '1.0.0',
+      })),
+    })
 
     expect(ui.describeBumpResult({ bumped: false })).toBe('No commit to release')
     expect(ui.describeBumpResult(bumped(1))).toMatch(/^pkg-0 +1\.0\.0 {2}→ {2}2\.0\.0/)

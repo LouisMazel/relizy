@@ -199,7 +199,12 @@ describe('Given formatTweetMessage function', () => {
         template: '{{projectName}} {{newVersion}}\n{{changelog}}\n{{releaseUrl}}\n{{changelogUrl}}',
         changelog: 'Bug fixes',
         postMaxLength: 280,
-        variables: socialVariables({ projectName: 'my-package', newVersion: '1.0.0', releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0', changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md' }),
+        variables: socialVariables({
+          projectName: 'my-package',
+          newVersion: '1.0.0',
+          releaseUrl: 'https://github.com/user/repo/releases/tag/v1.0.0',
+          changelogUrl: 'https://github.com/user/repo/blob/main/CHANGELOG.md',
+        }),
       })
 
       expect(result).toContain('my-package')
@@ -296,7 +301,12 @@ describe('Given formatTweetMessage function', () => {
         template: '{{projectName}} {{newVersion}} {{changelog}} {{releaseUrl}} {{changelogUrl}}',
         changelog: 'Long changelog text that goes on and on with many details about the release',
         postMaxLength: 280,
-        variables: socialVariables({ projectName: 'very-long-package-name-that-takes-up-space', newVersion: '1.0.0-beta.1', releaseUrl, changelogUrl }),
+        variables: socialVariables({
+          projectName: 'very-long-package-name-that-takes-up-space',
+          newVersion: '1.0.0-beta.1',
+          releaseUrl,
+          changelogUrl,
+        }),
       })
 
       expect(result.length).toBeGreaterThan(280)
@@ -313,7 +323,12 @@ describe('Given formatTweetMessage function', () => {
         template: '{{projectName}} {{newVersion}} {{changelog}} {{releaseUrl}} {{changelogUrl}}',
         changelog: 'Long changelog text that goes on and on with many details about the release',
         postMaxLength: 150,
-        variables: socialVariables({ projectName: 'very-long-package-name-that-takes-up-space', newVersion: '1.0.0-beta.1', releaseUrl: 'https://github.com/verylongusername/verylongrepositoryname/releases/tag/v1.0.0-beta.1', changelogUrl: 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md' }),
+        variables: socialVariables({
+          projectName: 'very-long-package-name-that-takes-up-space',
+          newVersion: '1.0.0-beta.1',
+          releaseUrl: 'https://github.com/verylongusername/verylongrepositoryname/releases/tag/v1.0.0-beta.1',
+          changelogUrl: 'https://github.com/verylongusername/verylongrepositoryname/blob/main/CHANGELOG.md',
+        }),
       })
 
       expect(getTweetLength(result)).toBe(150)
@@ -326,7 +341,12 @@ describe('Given formatTweetMessage function', () => {
         template: `📣 {{projectName}} {{newVersion}} is out!\n\n{{changelog}}\n\n📦 {{releaseUrl}}\n📃 {{changelogUrl}}`,
         changelog: veryLongText,
         postMaxLength: 280,
-        variables: socialVariables({ projectName: 'pkg', changelogUrl: 'https://example.com/changelog', releaseUrl: 'https://example.com/releases', newVersion: '1.0.0' }),
+        variables: socialVariables({
+          projectName: 'pkg',
+          changelogUrl: 'https://example.com/changelog',
+          releaseUrl: 'https://example.com/releases',
+          newVersion: '1.0.0',
+        }),
       })
 
       expect(result).toContain('...')
@@ -612,13 +632,17 @@ describe('Given postReleaseToTwitter function', () => {
       const apiError: any = new Error('Request failed with code 402')
       apiError.code = 402
       apiError.data = { title: 'PaymentRequired', type: 'CreditsDepleted' }
-      apiError.errors = [{ message: 'Credits depleted' }]
+      apiError.errors = [
+        { message: 'Credits depleted' },
+      ]
       apiError.rateLimit = { remaining: 0, reset: 1700000000 }
 
       vi.doMock('twitter-api-v2', () => ({
         TwitterApi: class {
           readWrite = {
-            v2: { tweet: vi.fn().mockRejectedValue(apiError) },
+            v2: {
+              tweet: vi.fn().mockRejectedValue(apiError),
+            },
           }
         },
       }))
@@ -666,7 +690,9 @@ describe('Given postReleaseToTwitter function', () => {
       vi.doMock('twitter-api-v2', () => ({
         TwitterApi: class {
           readWrite = {
-            v2: { tweet: vi.fn().mockRejectedValue(apiError) },
+            v2: {
+              tweet: vi.fn().mockRejectedValue(apiError),
+            },
           }
         },
       }))
@@ -697,8 +723,20 @@ describe('Given postReleaseToTwitter function', () => {
 
 describe('Given fitTweetSections function', () => {
   const sections: TweetSection[] = [
-    { title: 'Maz UI 7.0.0', highlights: ['menu: Add a menu', 'Faster builds', 'Fix the dark mode'] },
-    { title: 'Tooling', packages: [{ label: '@maz-ui/eslint-config 5.1.0', highlights: ['Stop enforcing the catalog'] }, { label: '@maz-ui/upgrade 5.2.1', highlights: [] }] },
+    {
+      title: 'Maz UI 7.0.0',
+      highlights: ['menu: Add a menu', 'Faster builds', 'Fix the dark mode'],
+    },
+    {
+      title: 'Tooling',
+      packages: [
+        {
+          label: '@maz-ui/eslint-config 5.1.0',
+          highlights: ['Stop enforcing the catalog'],
+        },
+        { label: '@maz-ui/upgrade 5.2.1', highlights: [] },
+      ],
+    },
   ]
 
   it('Then renders every section with its highlights when they fit', () => {
@@ -731,7 +769,9 @@ describe('Given fitTweetSections function', () => {
   })
 
   it('Then collapses the packages without group title', () => {
-    expect(fitTweetSections([{ packages: sections[1]!.packages }], 15)).toBe('2 packages')
+    expect(fitTweetSections([
+      { packages: sections[1]!.packages },
+    ], 15)).toBe('2 packages')
   })
 })
 
@@ -739,10 +779,26 @@ describe('Given formatTweetMessage function with the sections of several version
   it('Then fits them in the post, URLs included', () => {
     const result = formatTweetMessage({
       template: '📣 {{releaseTitle}}\n\n{{changelog}}\n\n{{releaseUrl}}\n{{changelogUrl}}',
-      variables: socialVariables({ releaseTitle: 'New releases of maz-ui', newVersion: '', releaseUrl: 'https://github.com/LouisMazel/maz-ui/releases/tag/v7.0.0', changelogUrl: 'https://maz-ui.com/changelog' }),
+      variables: socialVariables({
+        releaseTitle: 'New releases of maz-ui',
+        newVersion: '',
+        releaseUrl: 'https://github.com/LouisMazel/maz-ui/releases/tag/v7.0.0',
+        changelogUrl: 'https://maz-ui.com/changelog',
+      }),
       changelog: [
-        { title: 'Maz UI 7.0.0', highlights: Array.from({ length: 20 }, (_, index) => `A long highlight number ${index} about the components`) },
-        { title: 'Tooling', packages: [{ label: '@maz-ui/eslint-config 5.1.0', highlights: ['Stop enforcing the catalog'] }] },
+        {
+          title: 'Maz UI 7.0.0',
+          highlights: Array.from({ length: 20 }, (_, index) => `A long highlight number ${index} about the components`),
+        },
+        {
+          title: 'Tooling',
+          packages: [
+            {
+              label: '@maz-ui/eslint-config 5.1.0',
+              highlights: ['Stop enforcing the catalog'],
+            },
+          ],
+        },
       ],
       postMaxLength: 280,
     })

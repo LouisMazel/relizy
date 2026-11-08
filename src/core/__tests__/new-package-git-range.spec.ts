@@ -46,7 +46,12 @@ describe('Given getNewPackageCompareBase function', () => {
 
       expect(getNewPackageCompareBase('/repo/packages/web', '/repo')).toBe('parent456')
       expect(runGitSync).toHaveBeenCalledWith(
-        ['rev-parse', '--verify', '--quiet', 'first123^'],
+        [
+          'rev-parse',
+          '--verify',
+          '--quiet',
+          'first123^',
+        ],
         expect.objectContaining({ cwd: '/repo' }),
       )
     })
@@ -54,7 +59,10 @@ describe('Given getNewPackageCompareBase function', () => {
 
   describe('When the first package commit is the repository root commit', () => {
     it('Then falls back to the first package commit', () => {
-      mockGit({ firstCommit: 'root123', parent: new Error('no parent') })
+      mockGit({
+        firstCommit: 'root123',
+        parent: new Error('no parent'),
+      })
 
       expect(getNewPackageCompareBase('/repo/packages/web', '/repo')).toBe('root123')
     })
@@ -71,7 +79,13 @@ describe('Given getNewPackageCompareBase function', () => {
 
 describe('Given getPackageCommits function with a new package', () => {
   const cwd = '/repo'
-  const pkg = { name: '@scope/web', version: '0.0.0', path: `${cwd}/packages/web`, fromTag: '__NEW_PACKAGE__', private: false }
+  const pkg = {
+    name: '@scope/web',
+    version: '0.0.0',
+    path: `${cwd}/packages/web`,
+    fromTag: '__NEW_PACKAGE__',
+    private: false,
+  }
 
   beforeEach(() => {
     vi.clearAllMocks()
@@ -87,7 +101,10 @@ describe('Given getPackageCommits function with a new package', () => {
       pkg,
       from: '__NEW_PACKAGE__',
       to: 'HEAD',
-      config: createMockConfig({ cwd, bump: { type: 'release' } }),
+      config: createMockConfig({
+        cwd,
+        bump: { type: 'release' },
+      }),
       changelog: true,
     })
   }
@@ -104,7 +121,10 @@ describe('Given getPackageCommits function with a new package', () => {
 
   describe('When the first package commit is the repository root commit', () => {
     it('Then drops the lower bound instead of passing an invalid `<root>^` ref', async () => {
-      mockGit({ firstCommit: 'root123', parent: new Error('no parent') })
+      mockGit({
+        firstCommit: 'root123',
+        parent: new Error('no parent'),
+      })
 
       await run()
 

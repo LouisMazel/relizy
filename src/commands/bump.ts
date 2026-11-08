@@ -39,7 +39,9 @@ export interface BumpPlan {
   write?: () => void
 }
 
-const NOT_BUMPED: BumpPlan = { result: { bumped: false } }
+const NOT_BUMPED: BumpPlan = {
+  result: { bumped: false },
+}
 
 /**
  * New root version of a unified/selective bump: from the commits, or a patch
@@ -104,7 +106,9 @@ function getPlannedRootVersion({
   externalBumps: Map<string, VersionChange> | undefined
   suffix: string | undefined
 }): string | undefined {
-  return rootPackage.newVersion ?? (externalBumps?.size ? getDependencyRootVersion({ config, rootPackage, suffix }) : undefined)
+  return rootPackage.newVersion ?? (externalBumps?.size
+    ? getDependencyRootVersion({ config, rootPackage, suffix })
+    : undefined)
 }
 
 /**
@@ -208,19 +212,47 @@ async function planUnifiedMode({
     dryRun,
   })
 
-  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
-  const getUnifiedPackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, includeAll: true, dryRun, externalBumps, newVersionOverride })
+  const plannedVersion = getPlannedRootVersion({
+    config,
+    rootPackage,
+    externalBumps,
+    suffix,
+  })
+  const getUnifiedPackages = (newVersionOverride: string | undefined) => getPackages({
+    config,
+    suffix,
+    force,
+    includeAll: true,
+    dryRun,
+    externalBumps,
+    newVersionOverride,
+  })
 
   // Only needed to find dependents of other version groups when there is no new version
-  let packages = rootPackage.newVersion || externalBumps?.size ? await getUnifiedPackages(plannedVersion) : []
-  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+  let packages = rootPackage.newVersion || externalBumps?.size
+    ? await getUnifiedPackages(plannedVersion)
+    : []
+  const breakingVersion = getBreakingPeerRootVersion({
+    config,
+    rootPackage,
+    plannedVersion,
+    packages,
+    externalBumps,
+    force,
+    suffix,
+  })
 
   if (breakingVersion) {
     packages = await getUnifiedPackages(breakingVersion)
   }
 
   const currentVersion = rootPackage.version
-  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({
+    config,
+    rootPackage,
+    packages,
+    suffix,
+  })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -264,7 +296,9 @@ async function planUnifiedMode({
         })
       }
       else {
-        logger.info(`${packages.length === 1 ? packages[0].name : packages.length} package(s) bumped from ${currentVersion} to ${newVersion} (${config.monorepo?.versionMode || 'standalone'} mode)`)
+        logger.info(`${packages.length === 1
+          ? packages[0].name
+          : packages.length} package(s) bumped from ${currentVersion} to ${newVersion} (${config.monorepo?.versionMode || 'standalone'} mode)`)
       }
     },
     write: () => {
@@ -326,18 +360,43 @@ async function planSelectiveMode({
   }
 
   logger.debug('Determining packages to bump...')
-  const plannedVersion = getPlannedRootVersion({ config, rootPackage, externalBumps, suffix })
-  const getSelectivePackages = (newVersionOverride: string | undefined) => getPackages({ config, suffix, force, dryRun, externalBumps, newVersionOverride })
+  const plannedVersion = getPlannedRootVersion({
+    config,
+    rootPackage,
+    externalBumps,
+    suffix,
+  })
+  const getSelectivePackages = (newVersionOverride: string | undefined) => getPackages({
+    config,
+    suffix,
+    force,
+    dryRun,
+    externalBumps,
+    newVersionOverride,
+  })
 
   let packages = await getSelectivePackages(plannedVersion)
-  const breakingVersion = getBreakingPeerRootVersion({ config, rootPackage, plannedVersion, packages, externalBumps, force, suffix })
+  const breakingVersion = getBreakingPeerRootVersion({
+    config,
+    rootPackage,
+    plannedVersion,
+    packages,
+    externalBumps,
+    force,
+    suffix,
+  })
 
   if (breakingVersion) {
     packages = await getSelectivePackages(breakingVersion)
   }
 
   const currentVersion = rootPackage.version
-  const newVersion = breakingVersion ?? getRootNewVersion({ config, rootPackage, packages, suffix })
+  const newVersion = breakingVersion ?? getRootNewVersion({
+    config,
+    rootPackage,
+    packages,
+    suffix,
+  })
 
   if (!newVersion) {
     logger.debug('Could not determine a new version')
@@ -495,7 +554,11 @@ async function planIndependentMode({
  * commit does: a major, or a minor for a `0.x` version with `bump.capZeroMajor`
  */
 function getBreakingPeerReleaseType(currentVersion: string, capZeroMajor: boolean | undefined): 'major' | 'minor' {
-  return capZeroMajor === false ? 'major' : capReleaseTypeForZeroMajor(currentVersion, 'major') === 'minor' ? 'minor' : 'major'
+  return capZeroMajor === false
+    ? 'major'
+    : capReleaseTypeForZeroMajor(currentVersion, 'major') === 'minor'
+      ? 'minor'
+      : 'major'
 }
 
 async function planCanaryMode({
@@ -514,7 +577,13 @@ async function planCanaryMode({
   // Branch early for independent mode - each package gets its own canary version
   if (config.monorepo?.versionMode === 'independent') {
     const sha = getShortCommitSha(config.cwd)
-    const packages = await getPackages({ config, suffix: undefined, force: false, dryRun, externalBumps })
+    const packages = await getPackages({
+      config,
+      suffix: undefined,
+      force: false,
+      dryRun,
+      externalBumps,
+    })
 
     if (packages.length === 0) {
       logger.debug('No packages to bump')
@@ -581,7 +650,12 @@ async function planCanaryMode({
   const peerReleaseType = getBreakingPeerReleaseType(currentVersion, config.bump.capZeroMajor)
 
   if (releaseType !== 'major' && releaseType !== peerReleaseType && hasExternalBreakingPeer(packages, externalBumps)) {
-    canaryVersion = getCanaryVersion({ currentVersion, releaseType: peerReleaseType, preid, sha })
+    canaryVersion = getCanaryVersion({
+      currentVersion,
+      releaseType: peerReleaseType,
+      preid,
+      sha,
+    })
     packages = await getCanaryPackages(canaryVersion)
   }
 
@@ -631,7 +705,9 @@ async function planCanaryMode({
         })
       }
       else {
-        logger.info(`${packages.length === 1 ? packages[0].name : packages.length} package(s) will be bumped to ${canaryVersion} (canary)`)
+        logger.info(`${packages.length === 1
+          ? packages[0].name
+          : packages.length} package(s) will be bumped to ${canaryVersion} (canary)`)
       }
     },
     write: () => {
@@ -783,7 +859,9 @@ async function applyBumpPlans({ plans, config, dryRun }: {
   }
   else {
     await confirmBump({
-      packages: bumpedPlans.flatMap(plan => plan.result.bumped ? plan.result.bumpedPackages : []),
+      packages: bumpedPlans.flatMap(plan => plan.result.bumped
+        ? plan.result.bumpedPackages
+        : []),
       display,
       dryRun,
     })
@@ -799,13 +877,19 @@ async function applyBumpPlans({ plans, config, dryRun }: {
  */
 function describeBumpOutcome(result: BumpResultTruthy, dryRun: boolean): string {
   const [first] = result.bumpedPackages
-  const what = result.bumpedPackages.length === 1 ? `${first!.name} ${first!.newVersion}` : `${result.bumpedPackages.length} packages`
+  const what = result.bumpedPackages.length === 1
+    ? `${first!.name} ${first!.newVersion}`
+    : `${result.bumpedPackages.length} packages`
 
-  return dryRun ? `Simulated bump of ${what}` : `Bumped ${what}`
+  return dryRun
+    ? `Simulated bump of ${what}`
+    : `Bumped ${what}`
 }
 
 function getBumpedVersions(result: BumpResult): string {
-  return result.bumped ? result.bumpedPackages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(',') : ''
+  return result.bumped
+    ? result.bumpedPackages.map(pkg => `${pkg.name}@${pkg.newVersion}`).join(',')
+    : ''
 }
 
 /**
@@ -824,7 +908,12 @@ function readGroupsDependencies({
 
   return new Map(groups.map(({ group, config: groupConfig }) => {
     // The ranges of the peer dependencies are checked against the bumps of the other groups
-    const dependencyTypes = [...new Set([...(groupConfig.bump.dependencyTypes ?? []), 'peerDependencies' as const])]
+    const dependencyTypes = [
+      ...new Set([
+        ...(groupConfig.bump.dependencyTypes ?? []),
+        'peerDependencies' as const,
+      ]),
+    ]
     const packages = readPackages({
       cwd: groupConfig.cwd,
       patterns: groupConfig.monorepo?.packages,
@@ -836,7 +925,10 @@ function readGroupsDependencies({
       .flatMap(pkg => getPackageDependencies({ packagePath: pkg.path, allPackageNames: workspaceNames, dependencyTypes }))
       .filter(name => !names.has(name)))
 
-    return [group.name, { names, externalDependencies }]
+    return [
+      group.name,
+      { names, externalDependencies },
+    ]
   }))
 }
 
@@ -852,7 +944,9 @@ function sortGroupsByDependencies(
   const remaining = [...groups]
 
   const dependsOnRemaining = (candidate: ResolvedVersionGroup) => remaining.some(other => other !== candidate
-    && [...dependencies.get(candidate.group.name)!.externalDependencies].some(name => dependencies.get(other.group.name)!.names.has(name)))
+    && [
+      ...dependencies.get(candidate.group.name)!.externalDependencies,
+    ].some(name => dependencies.get(other.group.name)!.names.has(name)))
 
   while (remaining.length > 0) {
     const next = remaining.find(candidate => !dependsOnRemaining(candidate)) ?? remaining[0]!
@@ -893,15 +987,24 @@ async function planVersionGroups({
   const sortedGroups = sortGroupsByDependencies(resolvedGroups, dependencies)
   const plans = new Map<string, { plan: BumpPlan, externalKey: string }>()
 
-  const getExternalBumps = (name: string) => new Map([...plans.entries()]
+  const getExternalBumps = (name: string) => new Map([
+    ...plans.entries(),
+  ]
     .filter(([other]) => other !== name)
-    .flatMap(([, { plan }]) => plan.result.bumped ? plan.result.bumpedPackages : [])
+    .flatMap(([, { plan }]) => plan.result.bumped
+      ? plan.result.bumpedPackages
+      : [])
     .filter(pkg => pkg.newVersion && dependencies.get(name)!.externalDependencies.has(pkg.name))
-    .map(pkg => [pkg.name, { oldVersion: pkg.oldVersion, newVersion: pkg.newVersion! }]))
+    .map(pkg => [
+      pkg.name,
+      { oldVersion: pkg.oldVersion, newVersion: pkg.newVersion! },
+    ]))
 
   // A group can only bump more packages when the other groups do: each pass that changes something
   // bumps at least one more package, and the passes stop once no group changes
-  const maxPasses = [...dependencies.values()].reduce((count, { names }) => count + names.size, 0) + 1
+  const maxPasses = [
+    ...dependencies.values(),
+  ].reduce((count, { names }) => count + names.size, 0) + 1
   let changed = true
   let pass = 0
 
@@ -921,10 +1024,21 @@ async function planVersionGroups({
         continue
       }
 
-      const dependingOn = externalBumps.size ? `, depending on ${[...externalBumps.keys()].join(', ')}` : ''
+      const dependingOn = externalBumps.size
+        ? `, depending on ${[
+          ...externalBumps.keys(),
+        ].join(', ')}`
+        : ''
       logger.info(`Version group "${group.name}" (${group.versionMode} mode)${dependingOn}`)
 
-      const plan = await planBump({ config: groupConfig, dryRun, force, suffix, canary, externalBumps })
+      const plan = await planBump({
+        config: groupConfig,
+        dryRun,
+        force,
+        suffix,
+        canary,
+        externalBumps,
+      })
 
       changed ||= getBumpedVersions(plan.result) !== getBumpedVersions(previous?.plan.result ?? { bumped: false })
       plans.set(group.name, { plan, externalKey })
@@ -944,7 +1058,10 @@ async function planVersionGroups({
 
   return {
     result: mergeGroupBumpResults(results),
-    plans: resolvedGroups.map(({ group }) => ({ ...plans.get(group.name)!.plan, group })),
+    plans: resolvedGroups.map(({ group }) => ({
+      ...plans.get(group.name)!.plan,
+      group,
+    })),
     groups: results,
   }
 }
@@ -1008,14 +1125,30 @@ export async function planBumps({
   assertVersionGroupsOption({ config, groups })
 
   if (hasVersionGroups(config)) {
-    return planVersionGroups({ config, dryRun, force, suffix, canary, groups })
+    return planVersionGroups({
+      config,
+      dryRun,
+      force,
+      suffix,
+      canary,
+      groups,
+    })
   }
 
   logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
-  const plan = await planBump({ config, dryRun, force, suffix, canary })
+  const plan = await planBump({
+    config,
+    dryRun,
+    force,
+    suffix,
+    canary,
+  })
 
-  return { result: plan.result, plans: [plan] }
+  return {
+    result: plan.result,
+    plans: [plan],
+  }
 }
 
 export function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
@@ -1051,7 +1184,11 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
       },
     }),
     // Before preparing the CI clone: fails at once in a CI without --yes
-    check: config => assertBumpConfirmable({ command: 'bump', yes: config.bump.yes, ciName: getCIName() }),
+    check: config => assertBumpConfirmable({
+      command: 'bump',
+      yes: config.bump.yes,
+      ciName: getCIName(),
+    }),
     run: async ({ config, dryRun, ui }) => {
       const force = options.force ?? false
       logger.debug(`Bump forced: ${force}`)
@@ -1098,12 +1235,18 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
         return result
       }
 
-      const resultLog = result.bumpedPackages.length === 1 ? result.bumpedPackages[0].name : result.bumpedPackages.length
-      logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string' ? '' : 's'} bumped)`)
+      const resultLog = result.bumpedPackages.length === 1
+        ? result.bumpedPackages[0].name
+        : result.bumpedPackages.length
+      logger.success(`${dryRun ? '[dry-run] ' : ''}Version bump completed (${resultLog} package${resultLog === 1 || typeof resultLog === 'string'
+        ? ''
+        : 's'} bumped)`)
 
       await executeHook('success:bump', config, dryRun, getHookContext(config, result))
 
-      ui.complete({ message: describeBumpOutcome(result, dryRun) })
+      ui.complete({
+        message: describeBumpOutcome(result, dryRun),
+      })
 
       return result
     },

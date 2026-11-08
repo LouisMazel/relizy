@@ -63,14 +63,18 @@ function toPreviewPackage(pkg: PackageBase & { oldVersion: string }, context?: M
     shortHash: commit.shortHash,
     fromPullRequest: isFromPullRequest(commit.shortHash, context),
   }))
-  const reason = pkg.reason ?? (commits.length > 0 ? 'commits' : 'forced')
+  const reason = pkg.reason ?? (commits.length > 0
+    ? 'commits'
+    : 'forced')
 
   return {
     name: pkg.name,
     oldVersion: pkg.oldVersion,
     newVersion: pkg.newVersion ?? pkg.version,
     reason,
-    ...(reason === 'dependency' && pkg.dependencyChain?.[0] ? { dependency: pkg.dependencyChain[0] } : {}),
+    ...(reason === 'dependency' && pkg.dependencyChain?.[0]
+      ? { dependency: pkg.dependencyChain[0] }
+      : {}),
     commits,
     fromPullRequest: commits.some(commit => commit.fromPullRequest),
   }
@@ -127,5 +131,7 @@ export async function planMergePreview({ config, context, squash, planBump }: {
 
   const squashOutcome = await plan(true)
 
-  return getVersionsKey(squashOutcome) === getVersionsKey(outcome) ? { squash, outcome } : { squash, outcome, squashOutcome }
+  return getVersionsKey(squashOutcome) === getVersionsKey(outcome)
+    ? { squash, outcome }
+    : { squash, outcome, squashOutcome }
 }

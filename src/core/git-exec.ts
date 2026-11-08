@@ -28,18 +28,31 @@ export interface GitExecOptions {
 const DEFAULT_MAX_BUFFER = 1024 ** 3
 
 function getStdio(input: string | undefined): ['ignore' | 'pipe', 'pipe', 'pipe'] {
-  return [input === undefined ? 'ignore' : 'pipe', 'pipe', 'pipe']
+  return [
+    input === undefined
+      ? 'ignore'
+      : 'pipe',
+    'pipe',
+    'pipe',
+  ]
 }
 
 /**
  * A git command as shown in the logs: the arguments with spaces or quotes are quoted
  */
 export function formatGitCommand(args: string[]): string {
-  return ['git', ...args.map(arg => /^[\w@./:=+-]+$/.test(arg) ? arg : JSON.stringify(arg))].join(' ')
+  return [
+    'git',
+    ...args.map(arg => /^[\w@./:=+-]+$/.test(arg)
+      ? arg
+      : JSON.stringify(arg)),
+  ].join(' ')
 }
 
 function getOutput(stdout: string, trim = true): string {
-  return trim ? stdout.trim() : stdout
+  return trim
+    ? stdout.trim()
+    : stdout
 }
 
 /**
@@ -47,7 +60,14 @@ function getOutput(stdout: string, trim = true): string {
  */
 export function runGitSync(args: string[], { cwd, env, input, maxBuffer = DEFAULT_MAX_BUFFER, trim }: GitExecOptions = {}): string {
   try {
-    const stdout = execFileSync('git', args, { cwd, env, input, maxBuffer, encoding: 'utf8', stdio: getStdio(input) })
+    const stdout = execFileSync('git', args, {
+      cwd,
+      env,
+      input,
+      maxBuffer,
+      encoding: 'utf8',
+      stdio: getStdio(input),
+    })
     return getOutput(stdout, trim)
   }
   catch (error) {
@@ -72,7 +92,13 @@ export function tryGitSync(args: string[], options?: GitExecOptions): string | u
  */
 export function runGitSyncBuffer(args: string[], { cwd, env, input, maxBuffer = DEFAULT_MAX_BUFFER }: Omit<GitExecOptions, 'trim'> = {}): Buffer {
   try {
-    return execFileSync('git', args, { cwd, env, input, maxBuffer, stdio: getStdio(input) })
+    return execFileSync('git', args, {
+      cwd,
+      env,
+      input,
+      maxBuffer,
+      stdio: getStdio(input),
+    })
   }
   catch (error) {
     throw redactError(error)
@@ -85,7 +111,12 @@ export function runGitSyncBuffer(args: string[], { cwd, env, input, maxBuffer = 
  */
 export function runGit(args: string[], { cwd, env, input, maxBuffer = DEFAULT_MAX_BUFFER, trim }: GitExecOptions = {}): Promise<string> {
   return new Promise((resolve, reject) => {
-    const child = execFile('git', args, { cwd, env, maxBuffer, encoding: 'utf8' }, (error, stdout, stderr) => {
+    const child = execFile('git', args, {
+      cwd,
+      env,
+      maxBuffer,
+      encoding: 'utf8',
+    }, (error, stdout, stderr) => {
       if (error) {
         reject(redactError(Object.assign(error, { stdout, stderr })))
         return

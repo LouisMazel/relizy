@@ -27,7 +27,10 @@ vi.mock('../utils', () => ({
 }))
 
 function bumpedPackage(name: string, newVersion: string): BumpResultTruthy['bumpedPackages'][number] {
-  return { ...createMockPackageInfo({ name, newVersion }), oldVersion: '1.0.0' }
+  return {
+    ...createMockPackageInfo({ name, newVersion }),
+    oldVersion: '1.0.0',
+  }
 }
 
 const mainGroup: GroupBumpResult = {
@@ -37,7 +40,10 @@ const mainGroup: GroupBumpResult = {
   bumped: true,
   newVersion: '7.0.0',
   oldVersion: '6.19.1',
-  bumpedPackages: [bumpedPackage('@scope/components', '7.0.0'), bumpedPackage('@scope/theme', '7.0.0')],
+  bumpedPackages: [
+    bumpedPackage('@scope/components', '7.0.0'),
+    bumpedPackage('@scope/theme', '7.0.0'),
+  ],
 }
 
 const headerGroup: GroupBumpResult = {
@@ -45,7 +51,10 @@ const headerGroup: GroupBumpResult = {
   title: 'header',
   versionMode: 'independent',
   bumped: true,
-  bumpedPackages: [bumpedPackage('@scope/nav', '1.2.1'), bumpedPackage('@scope/login', '2.0.0')],
+  bumpedPackages: [
+    bumpedPackage('@scope/nav', '1.2.1'),
+    bumpedPackage('@scope/login', '2.0.0'),
+  ],
 }
 
 function createGroupsConfig(): ResolvedRelizyConfig {
@@ -53,13 +62,27 @@ function createGroupsConfig(): ResolvedRelizyConfig {
     bump: { type: 'release' },
     monorepo: {
       groups: [
-        { name: 'main', versionMode: 'selective', packages: ['packages/*'] },
-        { name: 'header', versionMode: 'independent', packages: ['shared/*'] },
+        {
+          name: 'main',
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        {
+          name: 'header',
+          versionMode: 'independent',
+          packages: ['shared/*'],
+        },
       ],
     },
     signTags: false,
   })
-  config.templates = { ...config.templates, commitMessage: undefined, commitBody: undefined, tagBody: 'v{{newVersion}}', tagMessage: 'Bump version to {{newVersion}}' }
+  config.templates = {
+    ...config.templates,
+    commitMessage: undefined,
+    commitBody: undefined,
+    tagBody: 'v{{newVersion}}',
+    tagMessage: 'Bump version to {{newVersion}}',
+  }
   return config
 }
 
@@ -70,11 +93,19 @@ function getExecutedCommands(): string[] {
 describe('Given the release tags of version groups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '6.19.1', path: '/project', private: true })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'root',
+      version: '6.19.1',
+      path: '/project',
+      private: true,
+    })
   })
 
   it('Then returns the repository tag of the selective group and the package tags of the independent group', () => {
-    expect(getReleaseTags({ config: createGroupsConfig(), groups: [mainGroup, headerGroup] })).toEqual([
+    expect(getReleaseTags({
+      config: createGroupsConfig(),
+      groups: [mainGroup, headerGroup],
+    })).toEqual([
       { name: 'v7.0.0', version: '7.0.0' },
       { name: '@scope/nav@1.2.1', version: '1.2.1' },
       { name: '@scope/login@2.0.0', version: '2.0.0' },
@@ -82,34 +113,59 @@ describe('Given the release tags of version groups', () => {
   })
 
   it('Then only returns the tags of the groups that bumped', () => {
-    expect(getReleaseTagNames({ config: createGroupsConfig(), groups: [headerGroup] })).toEqual(['@scope/nav@1.2.1', '@scope/login@2.0.0'])
+    expect(getReleaseTagNames({
+      config: createGroupsConfig(),
+      groups: [headerGroup],
+    })).toEqual(['@scope/nav@1.2.1', '@scope/login@2.0.0'])
   })
 
   it('Then follows templates.tagBody for the repository tag', () => {
     const config = createGroupsConfig()
     config.templates.tagBody = 'release-{{newVersion}}'
 
-    expect(getReleaseTagNames({ config, groups: [mainGroup] })).toEqual(['release-7.0.0'])
+    expect(getReleaseTagNames({
+      config,
+      groups: [mainGroup],
+    })).toEqual(['release-7.0.0'])
   })
 
   it('Then skips the packages without new version', () => {
-    const group: GroupBumpResult = { ...headerGroup, bumpedPackages: [{ ...bumpedPackage('@scope/nav', '1.2.1'), newVersion: undefined }] }
+    const group: GroupBumpResult = {
+      ...headerGroup,
+      bumpedPackages: [
+        {
+          ...bumpedPackage('@scope/nav', '1.2.1'),
+          newVersion: undefined,
+        },
+      ],
+    }
 
-    expect(getReleaseTagNames({ config: createGroupsConfig(), groups: [group] })).toEqual([])
+    expect(getReleaseTagNames({
+      config: createGroupsConfig(),
+      groups: [group],
+    })).toEqual([])
   })
 
   it('Then returns no tag with --no-git-tag', () => {
     const config = createGroupsConfig()
     config.release.gitTag = false
 
-    expect(getReleaseTagNames({ config, groups: [mainGroup, headerGroup] })).toEqual([])
+    expect(getReleaseTagNames({
+      config,
+      groups: [mainGroup, headerGroup],
+    })).toEqual([])
   })
 })
 
 describe('Given createCommitAndTags function with version groups', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    vi.mocked(readPackageJson).mockReturnValue({ name: 'root', version: '7.0.0', path: '/project', private: true })
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'root',
+      version: '7.0.0',
+      path: '/project',
+      private: true,
+    })
     vi.mocked(runGitSync).mockReturnValue('')
     vi.mocked(runGit).mockResolvedValue('')
   })

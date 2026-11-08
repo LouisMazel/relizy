@@ -19,7 +19,9 @@ export interface MergePreviewResult {
 }
 
 function getTitle(result: MergePreviewResult): string {
-  return result.context ? `If you merge this ${result.context.pullRequest.kind}` : 'The next release'
+  return result.context
+    ? `If you merge this ${result.context.pullRequest.kind}`
+    : 'The next release'
 }
 
 function code(value: string): string {
@@ -27,31 +29,43 @@ function code(value: string): string {
 }
 
 function describeCommitTypes(commits: MergePreviewCommit[]): string {
-  return [...new Set(commits.map(commit => `${commit.type}${commit.isBreaking ? '!' : ''}`))].join(', ')
+  return [
+    ...new Set(commits.map(commit => `${commit.type}${commit.isBreaking ? '!' : ''}`)),
+  ].join(', ')
 }
 
 /** Why a package is released: its commits (from the pull request or the target branch), a dependency, a graduation */
 function describeReason({ pkg, group, result }: { pkg: MergePreviewPackage, group: ReleaseOverviewGroup, result: MergePreviewResult }): string {
   if (pkg.reason === 'dependency') {
-    return pkg.dependency ? `depends on ${code(pkg.dependency)}` : 'depends on a released package'
+    return pkg.dependency
+      ? `depends on ${code(pkg.dependency)}`
+      : 'depends on a released package'
   }
   if (pkg.reason === 'graduation') {
     return 'graduates from its prerelease'
   }
   if (pkg.commits.length === 0) {
-    return group.versionMode === 'unified' ? 'follows the unified version' : 'forced'
+    return group.versionMode === 'unified'
+      ? 'follows the unified version'
+      : 'forced'
   }
   if (!result.context) {
     return describeCommitTypes(pkg.commits)
   }
 
-  const kind = result.context.pullRequest.kind === 'merge request' ? 'MR' : 'PR'
+  const kind = result.context.pullRequest.kind === 'merge request'
+    ? 'MR'
+    : 'PR'
   const fromPullRequest = pkg.commits.filter(commit => commit.fromPullRequest)
   const fromTarget = pkg.commits.filter(commit => !commit.fromPullRequest)
 
   return [
-    fromPullRequest.length > 0 ? `${describeCommitTypes(fromPullRequest)} (this ${kind}) ⭐` : '',
-    fromTarget.length > 0 ? `${describeCommitTypes(fromTarget)} (on ${code(result.branch)})` : '',
+    fromPullRequest.length > 0
+      ? `${describeCommitTypes(fromPullRequest)} (this ${kind}) ⭐`
+      : '',
+    fromTarget.length > 0
+      ? `${describeCommitTypes(fromTarget)} (on ${code(result.branch)})`
+      : '',
   ].filter(Boolean).join(', ')
 }
 
@@ -59,8 +73,12 @@ function formatGroupTable(group: ReleaseOverviewGroup, outcome: MergePreviewOutc
   const rows = group.packages.map((overviewPackage) => {
     const pkg = outcome.packages.find(candidate => candidate.name === overviewPackage.name)
     const version = `${code(overviewPackage.oldVersion)} → ${code(overviewPackage.newVersion)}`
-    const why = pkg ? describeReason({ pkg, group, result }) : ''
-    const name = overviewPackage.private ? `${overviewPackage.name} (private)` : overviewPackage.name
+    const why = pkg
+      ? describeReason({ pkg, group, result })
+      : ''
+    const name = overviewPackage.private
+      ? `${overviewPackage.name} (private)`
+      : overviewPackage.name
 
     return `| ${name} | ${version} | ${why} |`
   })
@@ -75,14 +93,22 @@ function formatOutcome(outcome: MergePreviewOutcome, result: MergePreviewResult)
   }
 
   const count = overview.groups.reduce((total, group) => total + group.packages.length, 0)
-  const publish = result.publish.enabled ? `, published with the dist-tag ${code(result.publish.distTag)}` : ', not published'
-  const lines = [`relizy releases **${count} package${count === 1 ? '' : 's'}** from ${code(result.branch)}${publish}:`]
+  const publish = result.publish.enabled
+    ? `, published with the dist-tag ${code(result.publish.distTag)}`
+    : ', not published'
+  const lines = [`relizy releases **${count} package${count === 1
+    ? ''
+    : 's'}** from ${code(result.branch)}${publish}:`]
 
   for (const group of overview.groups) {
     lines.push('')
     if (overview.groups.length > 1 || group.version) {
-      const version = group.version ? `${code(group.oldVersion ?? '')} → ${code(group.version)}` : ''
-      const tag = group.tag ? `(tag ${code(group.tag)})` : ''
+      const version = group.version
+        ? `${code(group.oldVersion ?? '')} → ${code(group.version)}`
+        : ''
+      const tag = group.tag
+        ? `(tag ${code(group.tag)})`
+        : ''
       lines.push([`**${group.title}**`, version, tag].filter(Boolean).join(' '), '')
     }
     lines.push(...formatGroupTable(group, outcome, result))
@@ -125,7 +151,9 @@ export function formatMergePreviewMarkdown(result: MergePreviewResult): string {
   if (plan) {
     const mergeLabel = plan.squashOutcome ? 'With a merge commit or a rebase, ' : ''
     const outcome = formatOutcome(plan.outcome, result)
-    lines.push(mergeLabel ? `${mergeLabel}${outcome[0]!.charAt(0).toLowerCase()}${outcome[0]!.slice(1)}` : outcome[0]!, ...outcome.slice(1))
+    lines.push(mergeLabel
+      ? `${mergeLabel}${outcome[0]!.charAt(0).toLowerCase()}${outcome[0]!.slice(1)}`
+      : outcome[0]!, ...outcome.slice(1))
 
     if (plan.squashOutcome) {
       const squashOutcome = formatOutcome(plan.squashOutcome, result)
@@ -159,7 +187,9 @@ export function formatMergePreviewText(result: MergePreviewResult): string {
 
 /** A text cut to `max` characters, with an ellipsis */
 function truncate(text: string, max: number): string {
-  return text.length > max ? `${text.slice(0, max - 1)}…` : text
+  return text.length > max
+    ? `${text.slice(0, max - 1)}…`
+    : text
 }
 
 /**
@@ -169,7 +199,9 @@ function truncate(text: string, max: number): string {
 export function getMergePreviewStatusDescription(result: MergePreviewResult): string {
   const { checks, plan } = result
   if (checks.problems.length > 0) {
-    const more = checks.problems.length > 1 ? ` (+${checks.problems.length - 1} more)` : ''
+    const more = checks.problems.length > 1
+      ? ` (+${checks.problems.length - 1} more)`
+      : ''
     return truncate(`${checks.problems[0]!.message}${more}`, 140)
   }
 

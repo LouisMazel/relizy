@@ -109,7 +109,10 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
         types: {
           build: { title: '🏗️ Build', semver: 'patch' },
         },
@@ -137,7 +140,10 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
         types: {
           ci: { title: '🤖 CI' },
         },
@@ -159,13 +165,21 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       const body = '\nM\tpackage.json\n'
 
       vi.mocked(commitsModule.parseCommits).mockReturnValue([
-        makeCommit({ type: 'chore', scope: 'release', description: 'bump', body }),
+        makeCommit({
+          type: 'chore',
+          scope: 'release',
+          description: 'bump',
+          body,
+        }),
       ])
 
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
@@ -191,7 +205,10 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({
@@ -215,7 +232,10 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       const config = createMockConfig({
         cwd: MOCK_CWD,
         bump: { type: 'release' },
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
       })
 
       const commits = await getPackageCommits({

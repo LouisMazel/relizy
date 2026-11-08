@@ -25,12 +25,24 @@ describe('aiSdkProvider', () => {
 
   describe('safetyCheck', () => {
     it('passes when a model is configured', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
       await expect(aiSdkProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
 
     it('passes when the model is a gateway model id', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model: 'openai/gpt-5-mini' } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model: 'openai/gpt-5-mini' },
+          },
+        },
+      })
       await expect(aiSdkProvider.safetyCheck(config)).resolves.toBeUndefined()
     })
 
@@ -49,7 +61,13 @@ describe('aiSdkProvider', () => {
     }
 
     it('calls generateText with the model, the system prompt and the wrapped prompt; returns trimmed output', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
       const result = await aiSdkProvider.generate(config, request)
 
       expect(result).toEqual({ text: 'generated output', usage: {} })
@@ -61,22 +79,49 @@ describe('aiSdkProvider', () => {
     })
 
     it('sends the context of the release before the changelog', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
-      await aiSdkProvider.generate(config, { ...request, context: { project: 'relizy', version: '2.0.0' } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
+      await aiSdkProvider.generate(config, {
+        ...request,
+        context: { project: 'relizy', version: '2.0.0' },
+      })
 
       const [options] = mockGenerateText.mock.calls[0]
       expect(options.prompt).toMatch(/^<release-context>\nProject: relizy\nVersion: 2.0.0\n<\/release-context>\n\n<changelog>/)
     })
 
     it('returns the tokens of every step of the call', async () => {
-      mockGenerateText.mockResolvedValue({ text: 'done', totalUsage: { inputTokens: 1200, outputTokens: 300, totalTokens: 1500 } })
+      mockGenerateText.mockResolvedValue({
+        text: 'done',
+        totalUsage: { inputTokens: 1200, outputTokens: 300, totalTokens: 1500 },
+      })
 
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
-      expect(await aiSdkProvider.generate(config, request)).toEqual({ text: 'done', usage: { inputTokens: 1200, outputTokens: 300 } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
+      expect(await aiSdkProvider.generate(config, request)).toEqual({
+        text: 'done',
+        usage: { inputTokens: 1200, outputTokens: 300 },
+      })
     })
 
     it('lets the provider default apply when reasoning is not configured', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
       await aiSdkProvider.generate(config, request)
 
       const [options] = mockGenerateText.mock.calls[0]
@@ -84,7 +129,13 @@ describe('aiSdkProvider', () => {
     })
 
     it('passes the configured reasoning effort', async () => {
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model, reasoning: 'low' } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model, reasoning: 'low' },
+          },
+        },
+      })
       await aiSdkProvider.generate(config, request)
 
       const [options] = mockGenerateText.mock.calls[0]
@@ -113,7 +164,13 @@ describe('aiSdkProvider', () => {
         ],
       })
 
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
       const result = await aiSdkProvider.generate(config, request)
 
       expect(result.text).toBe('done')
@@ -129,7 +186,13 @@ describe('aiSdkProvider', () => {
       })
 
       const { aiSdkProvider: providerFresh } = await import('../ai/providers/ai-sdk')
-      const config = createMockConfig({ ai: { providers: { 'ai-sdk': { model } } } })
+      const config = createMockConfig({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      })
 
       await expect(providerFresh.safetyCheck(config)).rejects.toThrow(
         'ai is not installed. Install it with: pnpm add -D ai',

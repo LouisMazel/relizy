@@ -12,7 +12,19 @@ vi.unmock('../ci')
 vi.mock('@maz-ui/node', importActual => importActual())
 
 /** The variables telling relizy it runs in a CI, cleared so the tests run the same locally and in CI */
-const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'BUILD_ID', 'JENKINS_URL', 'JENKINS_HOME', 'GIT_AUTHOR_NAME', 'GIT_COMMITTER_NAME', 'GIT_CONFIG_COUNT']
+const CI_VARIABLES = [
+  'CI',
+  'CONTINUOUS_INTEGRATION',
+  'GITHUB_ACTIONS',
+  'GITHUB_WORKFLOW',
+  'GITLAB_CI',
+  'BUILD_ID',
+  'JENKINS_URL',
+  'JENKINS_HOME',
+  'GIT_AUTHOR_NAME',
+  'GIT_COMMITTER_NAME',
+  'GIT_CONFIG_COUNT',
+]
 
 const dirs: string[] = []
 
@@ -23,7 +35,11 @@ function tempDir(): string {
 }
 
 function git(cwd: string, ...args: string[]): string {
-  return execFileSync('git', args, { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+  return execFileSync('git', args, {
+    cwd,
+    encoding: 'utf8',
+    stdio: ['ignore', 'pipe', 'pipe'],
+  }).trim()
 }
 
 /** A repository with 3 commits and the tag v1.0.0 on the first one */
@@ -43,7 +59,13 @@ function createOrigin(): string {
 
 function clone(origin: string, ...args: string[]): string {
   const cwd = join(tempDir(), 'clone')
-  execFileSync('git', ['clone', '--quiet', ...args, `file://${origin}`, cwd])
+  execFileSync('git', [
+    'clone',
+    '--quiet',
+    ...args,
+    `file://${origin}`,
+    cwd,
+  ])
   return cwd
 }
 
@@ -80,7 +102,12 @@ describe('Given the person who started the release in a CI', () => {
     expect(getCiGitIdentity({ GITHUB_ACTIONS: 'true', GITHUB_ACTOR: 'LouisMazel', GITHUB_ACTOR_ID: '12446546' }))
       .toEqual({ name: 'LouisMazel', email: '12446546+LouisMazel@users.noreply.github.com' })
     // GitHub Enterprise Server
-    expect(getCiGitIdentity({ GITHUB_ACTIONS: 'true', GITHUB_ACTOR: 'jane', GITHUB_ACTOR_ID: '7', GITHUB_SERVER_URL: 'https://github.acme.com' }).email)
+    expect(getCiGitIdentity({
+      GITHUB_ACTIONS: 'true',
+      GITHUB_ACTOR: 'jane',
+      GITHUB_ACTOR_ID: '7',
+      GITHUB_SERVER_URL: 'https://github.acme.com',
+    }).email)
       .toBe('7+jane@users.noreply.github.acme.com')
   })
 
@@ -90,7 +117,14 @@ describe('Given the person who started the release in a CI', () => {
   })
 
   it('When on GitLab CI, Then is the user with the noreply email of the instance, not their own email', () => {
-    expect(getCiGitIdentity({ GITLAB_CI: 'true', GITLAB_USER_LOGIN: 'lmazel', GITLAB_USER_ID: '42', GITLAB_USER_NAME: 'Louis Mazel', GITLAB_USER_EMAIL: 'louis@acme.com', CI_SERVER_HOST: 'gitlab.acme.com' }))
+    expect(getCiGitIdentity({
+      GITLAB_CI: 'true',
+      GITLAB_USER_LOGIN: 'lmazel',
+      GITLAB_USER_ID: '42',
+      GITLAB_USER_NAME: 'Louis Mazel',
+      GITLAB_USER_EMAIL: 'louis@acme.com',
+      CI_SERVER_HOST: 'gitlab.acme.com',
+    }))
       .toEqual({ name: 'Louis Mazel', email: '42-lmazel@users.noreply.gitlab.acme.com' })
   })
 
@@ -104,7 +138,12 @@ describe('Given the branch of a CI job', () => {
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: 'main' })).toBe('main')
     expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'tag', GITHUB_REF_NAME: 'v1.0.0' })).toBeUndefined()
     // A pull request: its branch, not `<number>/merge`
-    expect(getCiBranch({ GITHUB_ACTIONS: 'true', GITHUB_REF_TYPE: 'branch', GITHUB_REF_NAME: '123/merge', GITHUB_HEAD_REF: 'feat/parser' })).toBe('feat/parser')
+    expect(getCiBranch({
+      GITHUB_ACTIONS: 'true',
+      GITHUB_REF_TYPE: 'branch',
+      GITHUB_REF_NAME: '123/merge',
+      GITHUB_HEAD_REF: 'feat/parser',
+    })).toBe('feat/parser')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_COMMIT_BRANCH: 'develop' })).toBe('develop')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_MERGE_REQUEST_IID: '12', CI_MERGE_REQUEST_SOURCE_BRANCH_NAME: 'feat/parser' })).toBe('feat/parser')
     expect(getCiBranch({ GITLAB_CI: 'true', CI_COMMIT_TAG: 'v1.0.0' })).toBeUndefined()
@@ -190,7 +229,12 @@ describe('Given the identity of the release commit', () => {
 
     writeFileSync(join(cwd, 'd'), 'd')
     git(cwd, 'add', 'd')
-    execFileSync('git', ['commit', '--quiet', '-m', 'chore(release): v1.1.0'], { cwd, env })
+    execFileSync('git', [
+      'commit',
+      '--quiet',
+      '-m',
+      'chore(release): v1.1.0',
+    ], { cwd, env })
     expect(git(cwd, 'log', '-1', '--format=%an <%ae> / %cn <%ce>')).toBe('LouisMazel <12446546+LouisMazel@users.noreply.github.com> / LouisMazel <12446546+LouisMazel@users.noreply.github.com>')
     // Still no user.name in the git config
     expect(() => execFileSync('git', ['config', 'user.name'], { cwd, stdio: 'pipe' })).toThrow()
@@ -214,7 +258,9 @@ describe('Given the push of the release', () => {
     // A pushed branch cannot be the checked out branch of a non-bare repository
     git(origin, 'checkout', '--quiet', '--detach')
 
-    await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).resolves.toBeUndefined()
+    await expect(ensurePushAccess({
+      config: createMockConfig({ cwd }),
+    })).resolves.toBeUndefined()
   })
 
   it('When the branch is behind its remote, Then lets the check of the branch report it, not the credentials', async () => {
@@ -226,7 +272,9 @@ describe('Given the push of the release', () => {
     git(origin, '-c', 'user.name=Remote', '-c', 'user.email=remote@acme.com', 'commit', '--quiet', '-m', 'feat: remote only')
     git(origin, 'checkout', '--quiet', '--detach')
 
-    await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).resolves.toBeUndefined()
+    await expect(ensurePushAccess({
+      config: createMockConfig({ cwd }),
+    })).resolves.toBeUndefined()
   })
 
   it('When the push is refused, Then checks it once per run, and again in the next run once the remote accepts it', async () => {
@@ -251,9 +299,17 @@ describe('Given the push of the release', () => {
     // Refused at once: nothing listens on the port 9
     const remoteUrl = 'http://gitlab-ci-token:job-token@127.0.0.1:9/acme/lib.git'
     git(cwd, 'remote', 'set-url', 'origin', remoteUrl)
-    inCI({ GITLAB_CI: 'true', CI_JOB_TOKEN: 'job-token', CI_SERVER_URL: 'http://127.0.0.1:9', CI_PROJECT_PATH: 'acme/lib' })
+    inCI({
+      GITLAB_CI: 'true',
+      CI_JOB_TOKEN: 'job-token',
+      CI_SERVER_URL: 'http://127.0.0.1:9',
+      CI_PROJECT_PATH: 'acme/lib',
+    })
     const env: NodeJS.ProcessEnv = { ...process.env }
-    const config = createMockConfig({ cwd, tokens: { gitlab: 'project-token' } })
+    const config = createMockConfig({
+      cwd,
+      tokens: { gitlab: 'project-token' },
+    })
 
     await expect(ensurePushAccess({ config, env })).rejects.toThrow(/^relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push\.\nGit refused it with:\n {2}fatal: unable to access .+\nFix: add a GITLAB_TOKEN CI\/CD variable/)
 
@@ -265,10 +321,21 @@ describe('Given the push of the release', () => {
   it('When the token is the job token itself, Then does not retry with it', async () => {
     const cwd = clone(createOrigin())
     git(cwd, 'remote', 'set-url', 'origin', 'http://gitlab-ci-token:job-token@127.0.0.1:9/acme/lib.git')
-    inCI({ GITLAB_CI: 'true', CI_JOB_TOKEN: 'job-token', CI_SERVER_URL: 'http://127.0.0.1:9', CI_PROJECT_PATH: 'acme/lib' })
+    inCI({
+      GITLAB_CI: 'true',
+      CI_JOB_TOKEN: 'job-token',
+      CI_SERVER_URL: 'http://127.0.0.1:9',
+      CI_PROJECT_PATH: 'acme/lib',
+    })
     const env: NodeJS.ProcessEnv = { ...process.env }
 
-    await expect(ensurePushAccess({ config: createMockConfig({ cwd, tokens: { gitlab: 'job-token' } }), env })).rejects.toThrow('cannot push')
+    await expect(ensurePushAccess({
+      config: createMockConfig({
+        cwd,
+        tokens: { gitlab: 'job-token' },
+      }),
+      env,
+    })).rejects.toThrow('cannot push')
     expect(env.GIT_CONFIG_COUNT).toBeUndefined()
   })
 
@@ -276,7 +343,9 @@ describe('Given the push of the release', () => {
     const cwd = clone(createOrigin())
     git(cwd, 'remote', 'set-url', 'origin', 'http://dev:secret@127.0.0.1:9/acme/lib.git')
 
-    const error = await ensurePushAccess({ config: createMockConfig({ cwd }) }).then(() => new Error('pushed'), (error: Error) => error)
+    const error = await ensurePushAccess({
+      config: createMockConfig({ cwd }),
+    }).then(() => new Error('pushed'), (error: Error) => error)
 
     expect(error.message).toMatch(/^relizy cannot push the release commit and tags to "origin" \(http:\/\/127\.0\.0\.1:9\/acme\/lib\.git\): git push --dry-run was refused\.\n/)
     // Why git refused it, without the credentials of the remote
@@ -290,7 +359,9 @@ describe('Given the push of the release', () => {
     git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
     inCI({ GITHUB_ACTIONS: 'true' })
 
-    await expect(ensurePushAccess({ config: createMockConfig({ cwd }) })).rejects.toThrow(
+    await expect(ensurePushAccess({
+      config: createMockConfig({ cwd }),
+    })).rejects.toThrow(
       /from GitHub Actions: the token of the job cannot push\.\nGit refused it with:\n.+\nFix: give the release job write access in your workflow:\n\n {2}permissions:\n {4}contents: write\n\n/,
     )
   })
@@ -311,9 +382,17 @@ describe('Given a run of a pull request', () => {
   })
 
   it('Then explains that an outdated run of a pull request needs no fix', () => {
-    expect(getPullRequestOutdatedWarning({ upstream: 'origin/feat', missingCommits: 2, env: { GITHUB_ACTIONS: 'true' } }))
+    expect(getPullRequestOutdatedWarning({
+      upstream: 'origin/feat',
+      missingCommits: 2,
+      env: { GITHUB_ACTIONS: 'true' },
+    }))
       .toBe('This run is outdated: 2 new commit(s) were pushed to the pull request ("origin/feat") after it started.\n'
         + 'Nothing to fix: the run of the latest commit previews the release with them, and the release checks the branch again.')
-    expect(getPullRequestOutdatedWarning({ upstream: 'origin/feat', missingCommits: 1, env: { GITLAB_CI: 'true' } })).toContain('pushed to the merge request')
+    expect(getPullRequestOutdatedWarning({
+      upstream: 'origin/feat',
+      missingCommits: 1,
+      env: { GITLAB_CI: 'true' },
+    })).toContain('pushed to the merge request')
   })
 })

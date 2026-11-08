@@ -8,7 +8,11 @@ import { fileURLToPath } from 'node:url'
  * does not load the schema of the bundle (zod is only loaded by `relizy mcp`).
  */
 export function defaultBundleDir(from: string = dirname(fileURLToPath(import.meta.url))): string {
-  const candidates = [resolve(from, '../agent-docs'), resolve(from, '../../agent-docs'), resolve(from, '../../../agent-docs')]
+  const candidates = [
+    resolve(from, '../agent-docs'),
+    resolve(from, '../../agent-docs'),
+    resolve(from, '../../../agent-docs'),
+  ]
 
   return candidates.find(candidate => existsSync(join(candidate, 'manifest.json'))) ?? candidates[0]!
 }

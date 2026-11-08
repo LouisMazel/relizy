@@ -31,7 +31,9 @@ export function getNpmRegistry(cwd: string = process.cwd()): string {
       stdio: ['ignore', 'pipe', 'ignore'],
     }).trim()
 
-    return output && output !== 'undefined' ? output : DEFAULT_REGISTRY
+    return output && output !== 'undefined'
+      ? output
+      : DEFAULT_REGISTRY
   }
   catch {
     return DEFAULT_REGISTRY
@@ -55,7 +57,9 @@ export function detectPackageManager(cwd: string = process.cwd()): PackageManage
         }
       }
       catch (e) {
-        const errorString = e instanceof Error ? e.message : String(e)
+        const errorString = e instanceof Error
+          ? e.message
+          : String(e)
         logger.debug(`Failed to parse package.json: ${errorString}`)
       }
     }
@@ -139,7 +143,9 @@ export function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): Registr
   return {
     name: 'default',
     // Left unset by resolveConfig when `registries` are declared
-    registry: config.publish.registry || (config.publish.registries?.length ? getNpmrcRegistry(config) : ''),
+    registry: config.publish.registry || (config.publish.registries?.length
+      ? getNpmrcRegistry(config)
+      : ''),
     token: config.tokens.registry,
     tag: config.publish.tag,
     access: config.publish.access,
@@ -154,7 +160,9 @@ export function buildLegacyRegistryTarget(config: ResolvedRelizyConfig): Registr
  * original, non-normalized URL is still what gets published to.
  */
 export function normalizeRegistryKey(registry: string): string {
-  return registry.endsWith('/') ? registry.slice(0, -1) : registry
+  return registry.endsWith('/')
+    ? registry.slice(0, -1)
+    : registry
 }
 
 /**
@@ -205,7 +213,11 @@ export function resolveRegistryTargetsForPackage(
   const skipUndeclaredDefault = !config.publish.registry && applicableTargets.length > 0
 
   return dedupRegistryTargets([
-    ...(skipForExclusive || skipUndeclaredDefault ? [] : [buildLegacyRegistryTarget(config)]),
+    ...(skipForExclusive || skipUndeclaredDefault
+      ? []
+      : [
+          buildLegacyRegistryTarget(config),
+        ]),
     ...applicableTargets,
   ])
 }
@@ -333,7 +345,9 @@ export async function withRegistryNpmrc<T>({
 
   const npmrcPath = join(config.cwd, '.npmrc')
   const existed = existsSync(npmrcPath)
-  const original = existed ? readFileSync(npmrcPath, 'utf8') : ''
+  const original = existed
+    ? readFileSync(npmrcPath, 'utf8')
+    : ''
 
   const managedKeys = new Set(entries.map(entry => entry.key))
   const preservedLines = original.split('\n').filter((line) => {
@@ -341,7 +355,10 @@ export async function withRegistryNpmrc<T>({
     return !key || !managedKeys.has(key)
   })
 
-  const nextContent = `${[...preservedLines, ...entries.map(entry => entry.line)].filter(Boolean).join('\n')}\n`
+  const nextContent = `${[
+    ...preservedLines,
+    ...entries.map(entry => entry.line),
+  ].filter(Boolean).join('\n')}\n`
 
   let restored = false
   const restore = () => {

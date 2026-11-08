@@ -15,7 +15,10 @@ const CANCEL = Symbol('cancel')
  * The notes shown by init, without their colors (on in CI)
  */
 function notes() {
-  return vi.mocked(note).mock.calls.map(([text, title]) => [stripVTControlCharacters(String(text)), title])
+  return vi.mocked(note).mock.calls.map(([text, title]) => [
+    stripVTControlCharacters(String(text)),
+    title,
+  ])
 }
 
 vi.mock('@clack/prompts', () => ({
@@ -23,7 +26,13 @@ vi.mock('@clack/prompts', () => ({
   confirm: vi.fn(),
   intro: vi.fn(),
   isCancel: (value: unknown) => value === CANCEL,
-  log: { info: vi.fn(), message: vi.fn(), step: vi.fn(), success: vi.fn(), warn: vi.fn() },
+  log: {
+    info: vi.fn(),
+    message: vi.fn(),
+    step: vi.fn(),
+    success: vi.fn(),
+    warn: vi.fn(),
+  },
   multiselect: vi.fn(),
   note: vi.fn(),
   outro: vi.fn(),
@@ -71,8 +80,18 @@ describe('Given init command', () => {
   beforeEach(() => {
     cwd = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-init-command-')))
     execFileSync('git', ['init', '--initial-branch=main'], { cwd })
-    execFileSync('git', ['remote', 'add', 'origin', 'git@github.com:acme/mono.git'], { cwd })
-    writePackage('.', { name: 'mono', private: true, packageManager: 'pnpm@9.0.0', scripts: { build: 'turbo build' } })
+    execFileSync('git', [
+      'remote',
+      'add',
+      'origin',
+      'git@github.com:acme/mono.git',
+    ], { cwd })
+    writePackage('.', {
+      name: 'mono',
+      private: true,
+      packageManager: 'pnpm@9.0.0',
+      scripts: { build: 'turbo build' },
+    })
     write('pnpm-workspace.yaml', 'packages:\n  - packages/*\n  - tools/*\n')
     writePackage('packages/core', { name: '@acme/core', version: '1.0.0' })
     writePackage('packages/ui', { name: '@acme/ui', version: '0.2.0' })
@@ -88,7 +107,11 @@ describe('Given init command', () => {
     it('Then writes the config, completes the package.json and installs the hook without asking', async () => {
       const result = await init({ cwd, yes: true })
 
-      expect(result).toEqual(expect.objectContaining({ written: true, scripts: ['release'], configFile: join(cwd, 'relizy.config.ts') }))
+      expect(result).toEqual(expect.objectContaining({
+        written: true,
+        scripts: ['release'],
+        configFile: join(cwd, 'relizy.config.ts'),
+      }))
       expect(read('relizy.config.ts')).toBe([
         `import { defineConfig } from 'relizy'`,
         '',
@@ -104,7 +127,10 @@ describe('Given init command', () => {
         '})',
         '',
       ].join('\n'))
-      expect(readJson('package.json')).toEqual(expect.objectContaining({ version: '0.0.0', scripts: { build: 'turbo build', release: 'relizy release' } }))
+      expect(readJson('package.json')).toEqual(expect.objectContaining({
+        version: '0.0.0',
+        scripts: { build: 'turbo build', release: 'relizy release' },
+      }))
       expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint --edit')
       expect(result.hook?.status).toBe('created')
       expect(vi.mocked(confirm)).not.toHaveBeenCalled()
@@ -159,7 +185,12 @@ describe('Given init command', () => {
 
       const result = await init({ cwd, yes: true })
 
-      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, configFile: join(cwd, 'relizy.config.mjs'), scripts: ['release'] }))
+      expect(result).toEqual(expect.objectContaining({
+        kept: true,
+        written: false,
+        configFile: join(cwd, 'relizy.config.mjs'),
+        scripts: ['release'],
+      }))
       expect(read('relizy.config.mjs')).toBe(config)
       expect(existsSync(join(cwd, 'relizy.config.ts'))).toBe(false)
       expect(vi.mocked(log.info)).toHaveBeenCalledWith('A relizy config already exists (relizy.config.mjs): kept, run with --force to replace it')
@@ -225,10 +256,17 @@ describe('Given init command', () => {
 
       const result = await init({ cwd })
 
-      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, workflow: { file: '.github/workflows/release.yml' } }))
+      expect(result).toEqual(expect.objectContaining({
+        kept: true,
+        written: false,
+        workflow: { file: '.github/workflows/release.yml' },
+      }))
       expect(existsSync(join(cwd, '.github/workflows/merge-preview.yml'))).toBe(false)
       expect(read('relizy.config.ts')).toBe('export default {}')
-      expect(notes()).toContainEqual([expect.stringContaining('keep     relizy.config.ts'), 'Changes'])
+      expect(notes()).toContainEqual([
+        expect.stringContaining('keep     relizy.config.ts'),
+        'Changes',
+      ])
       expect(readJson('package.json').scripts.release).toBe('relizy release')
     })
 
@@ -255,7 +293,9 @@ describe('Given init command', () => {
 
     it('Then writes nothing when the changes are not applied', async () => {
       answer(select, ['publish', 'independent'])
-      answer(multiselect, [['packages/*']])
+      answer(multiselect, [
+        ['packages/*'],
+      ])
       answer(confirm, [false, true, true, false])
 
       const result = await init({ cwd })
@@ -268,23 +308,61 @@ describe('Given init command', () => {
     })
 
     it('Then writes the basic and advanced answers', async () => {
-      answer(select, ['publish', 'selective', 'restricted', 'append'])
-      answer(multiselect, [['packages/*'], ['dependencies', 'devDependencies'], typesExcept('chore'), ['slack'], ['providerRelease']])
+      answer(select, [
+        'publish',
+        'selective',
+        'restricted',
+        'append',
+      ])
+      answer(multiselect, [
+        ['packages/*'],
+        ['dependencies', 'devDependencies'],
+        typesExcept('chore'),
+        ['slack'],
+        ['providerRelease'],
+      ])
       // advanced, capZeroMajor, rootChangelog, hook, script, workflow, apply
-      answer(confirm, [true, false, false, true, false, false, true])
-      answer(text, ['', 'https://npm.acme.dev', 'pnpm build', '#releases', 'https://acme.dev/changelog', 'fr'])
+      answer(confirm, [
+        true,
+        false,
+        false,
+        true,
+        false,
+        false,
+        true,
+      ])
+      answer(text, [
+        '',
+        'https://npm.acme.dev',
+        'pnpm build',
+        '#releases',
+        'https://acme.dev/changelog',
+        'fr',
+      ])
 
       const result = await init({ cwd })
 
       expect(result.config).toEqual({
-        monorepo: { versionMode: 'selective', packages: ['packages/*'] },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
         types: { chore: false },
-        bump: { dependencyTypes: ['dependencies', 'devDependencies'], capZeroMajor: false },
+        bump: {
+          dependencyTypes: ['dependencies', 'devDependencies'],
+          capZeroMajor: false,
+        },
         changelog: { rootChangelog: false },
         publish: { access: 'restricted', registry: 'https://npm.acme.dev', buildCmd: 'pnpm build' },
-        social: { slack: { enabled: true, channel: '#releases' }, changelogUrl: 'https://acme.dev/changelog' },
+        social: {
+          slack: { enabled: true, channel: '#releases' },
+          changelogUrl: 'https://acme.dev/changelog',
+        },
         prComment: { mode: 'append' },
-        ai: { language: 'fr', providerRelease: { enabled: true } },
+        ai: {
+          language: 'fr',
+          providerRelease: { enabled: true },
+        },
       })
       // The root takes the highest package version in selective mode
       expect(readJson('package.json')).toEqual(expect.objectContaining({ version: '1.0.0' }))
@@ -296,14 +374,20 @@ describe('Given init command', () => {
     it('Then replaces an existing commit-msg hook when confirmed', async () => {
       write('.git/hooks/commit-msg', '#!/bin/sh\nnpx commitlint --edit "$1"\n')
       answer(select, ['version', 'selective'])
-      answer(multiselect, [['packages/*', 'tools/*']])
+      answer(multiselect, [
+        ['packages/*', 'tools/*'],
+      ])
       // advanced, hook, script, workflow, apply, replace the hook
       answer(confirm, [false, true, true, false, true, true])
 
       const result = await init({ cwd })
 
       expect(result.config).toEqual({
-        monorepo: { versionMode: 'selective', packages: ['packages/*', 'tools/*'], privatePackages: 'release' },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*', 'tools/*'],
+          privatePackages: 'release',
+        },
         release: { publish: false },
       })
       expect(result.hook?.status).toBe('replaced')
@@ -325,7 +409,10 @@ describe('Given init command', () => {
       expect(workflow).toContain('          npm-token: ${{ secrets.NPM_TOKEN }}\n')
       expect(workflow).toContain('      pull-requests: write\n')
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('.github/workflows/release.yml'), 'Changes')
-      expect(notes()).toContainEqual([expect.stringMatching(/Add the secrets +NPM_TOKEN/), 'Next steps'])
+      expect(notes()).toContainEqual([
+        expect.stringMatching(/Add the secrets +NPM_TOKEN/),
+        'Next steps',
+      ])
     })
 
     it('Then keeps an existing workflow without asking', async () => {
@@ -350,11 +437,18 @@ describe('Given init command', () => {
     })
 
     it('Then puts the GitLab CI job aside an existing .gitlab-ci.yml, released at each push, with the include to add', async () => {
-      execFileSync('git', ['remote', 'set-url', 'origin', 'git@gitlab.com:acme/mono.git'], { cwd })
+      execFileSync('git', [
+        'remote',
+        'set-url',
+        'origin',
+        'git@gitlab.com:acme/mono.git',
+      ], { cwd })
       write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
       write('.nvmrc', 'v24.11.0\n')
       answer(select, ['publish', 'selective', 'push'])
-      answer(multiselect, [['packages/*']])
+      answer(multiselect, [
+        ['packages/*'],
+      ])
       // advanced, hook, script, workflow, merge preview, apply
       answer(confirm, [false, false, false, true, true, true])
 
@@ -368,7 +462,10 @@ describe('Given init command', () => {
       expect(job).toContain('  - component: gitlab.com/relizy/relizy/release@2\n    inputs:\n      when: on_success\n      image: node:24\n')
       expect(job).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:24\n')
       expect(job).not.toContain('RELEASE_TYPE')
-      expect(notes()).toContainEqual([expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/), 'Next steps'])
+      expect(notes()).toContainEqual([
+        expect.stringMatching(/Add the CI\/CD variables GITLAB_TOKEN, NPM_TOKEN/),
+        'Next steps',
+      ])
     })
   })
 
@@ -388,7 +485,9 @@ describe('Given init command', () => {
     it('Then keeps an existing release script and does not ask to install relizy', async () => {
       const result = await init({ cwd, yes: true, logLevel: 'debug' })
 
-      expect(result.config).toEqual({ release: { providerRelease: false, prComment: false } })
+      expect(result.config).toEqual({
+        release: { providerRelease: false, prComment: false },
+      })
       expect(result.scripts).toEqual([])
       expect(readJson('package.json').scripts.release).toBe('relizy release --yes')
       expect(vi.mocked(logger.setLevel)).toHaveBeenCalledWith('debug')
@@ -406,7 +505,11 @@ describe('Given init command', () => {
     })
 
     it('Then warns to remove the relizy key of the package.json it replaces', async () => {
-      writePackage('.', { name: 'lib', version: '1.0.0', relizy: { types: {} } })
+      writePackage('.', {
+        name: 'lib',
+        version: '1.0.0',
+        relizy: { types: {} },
+      })
 
       await init({ cwd, yes: true, force: true })
 
@@ -428,8 +531,18 @@ describe('Given init command', () => {
       it('Then only asks the questions relevant to a standalone package', async () => {
         answer(select, ['publish', 'restricted'])
         answer(confirm, [true, true, false, true])
-        answer(multiselect, [typesExcept(), ['twitter'], ['twitter']])
-        answer(text, ['prettier -w CHANGELOG.md', '', '', '', ''])
+        answer(multiselect, [
+          typesExcept(),
+          ['twitter'],
+          ['twitter'],
+        ])
+        answer(text, [
+          'prettier -w CHANGELOG.md',
+          '',
+          '',
+          '',
+          '',
+        ])
 
         const result = await init({ cwd })
 
@@ -437,19 +550,36 @@ describe('Given init command', () => {
           changelog: { formatCmd: 'prettier -w CHANGELOG.md' },
           publish: { access: 'restricted' },
           release: { providerRelease: false, prComment: false },
-          social: { twitter: { enabled: true } },
-          ai: { social: { twitter: { enabled: true } } },
+          social: {
+            twitter: { enabled: true },
+          },
+          ai: {
+            social: {
+              twitter: { enabled: true },
+            },
+          },
         })
         expect(vi.mocked(select)).toHaveBeenCalledWith(expect.objectContaining({ message: 'Access of the published packages:', initialValue: 'restricted' }))
-        expect(vi.mocked(text)).toHaveBeenCalledWith(expect.objectContaining({ initialValue: expect.stringContaining('run format') }))
+        expect(vi.mocked(text)).toHaveBeenCalledWith(expect.objectContaining({
+          initialValue: expect.stringContaining('run format'),
+        }))
         expect(result.hook).toBeUndefined()
       })
 
       it('Then leaves the formatting of the changelogs to the formatter detected', async () => {
-        writePackage('.', { name: 'lib', version: '0.4.0', scripts: { format: 'prettier -w .' }, devDependencies: { prettier: '^3.0.0' } })
+        writePackage('.', {
+          name: 'lib',
+          version: '0.4.0',
+          scripts: { format: 'prettier -w .' },
+          devDependencies: { prettier: '^3.0.0' },
+        })
         answer(select, ['publish', 'public'])
         answer(confirm, [true, true, false, true])
-        answer(multiselect, [typesExcept(), ['twitter'], ['twitter']])
+        answer(multiselect, [
+          typesExcept(),
+          ['twitter'],
+          ['twitter'],
+        ])
         answer(text, ['', '', '', '', ''])
 
         const result = await init({ cwd })
@@ -468,7 +598,9 @@ describe('Given init command', () => {
 
         const result = await init({ cwd })
 
-        expect(result.config).toEqual({ release: { publish: false, providerRelease: false, prComment: false } })
+        expect(result.config).toEqual({
+          release: { publish: false, providerRelease: false, prComment: false },
+        })
         expect(result.hook).toBeUndefined()
         expect(read('.git/hooks/commit-msg')).toBe('#!/bin/sh\nnpx commitlint --edit "$1"\n')
       })

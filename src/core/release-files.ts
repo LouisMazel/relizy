@@ -21,14 +21,18 @@ export function recordReleaseFile(filePath: string): void {
     return
   }
 
-  originalContents.set(absolutePath, existsSync(absolutePath) ? readFileSync(absolutePath, 'utf8') : null)
+  originalContents.set(absolutePath, existsSync(absolutePath)
+    ? readFileSync(absolutePath, 'utf8')
+    : null)
 }
 
 /**
  * The files written by the current run, relative to `cwd`.
  */
 export function getReleaseFiles(cwd: string): string[] {
-  return [...originalContents.keys()].map(filePath => relative(cwd, filePath))
+  return [
+    ...originalContents.keys(),
+  ].map(filePath => relative(cwd, filePath))
 }
 
 /**

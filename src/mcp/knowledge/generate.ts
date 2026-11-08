@@ -56,11 +56,15 @@ interface Frontmatter {
 function unquote(value: string): string {
   const quote = value[0]
 
-  return value.length > 1 && (quote === '"' || quote === '\'') && value.at(-1) === quote ? value.slice(1, -1) : value
+  return value.length > 1 && (quote === '"' || quote === '\'') && value.at(-1) === quote
+    ? value.slice(1, -1)
+    : value
 }
 
 export function parseFrontmatter(markdown: string): { data: Frontmatter, body: string } {
-  const end = markdown.startsWith('---\n') ? markdown.indexOf('\n---\n', 3) : -1
+  const end = markdown.startsWith('---\n')
+    ? markdown.indexOf('\n---\n', 3)
+    : -1
 
   if (end === -1) {
     return { data: {}, body: markdown }
@@ -77,7 +81,10 @@ export function parseFrontmatter(markdown: string): { data: Frontmatter, body: s
     }
   }
 
-  return { data, body: markdown.slice(end + '\n---\n'.length) }
+  return {
+    data,
+    body: markdown.slice(end + '\n---\n'.length),
+  }
 }
 
 /** Doc id of a link to another page (`/cli/release#x`, `../config/bump.md`), `undefined` for the other links */
@@ -89,10 +96,14 @@ function linkToDocId(link: string, pageId: string): string | undefined {
     return undefined
   }
 
-  const resolved = path.startsWith('/') ? path.slice(1) : posix.join(posix.dirname(pageId), path)
+  const resolved = path.startsWith('/')
+    ? path.slice(1)
+    : posix.join(posix.dirname(pageId), path)
   const id = resolved.replace(/\.md$/, '').replace(/\/index$/, '').replace(/\/$/, '')
 
-  return anchor ? `${id}#${anchor}` : id
+  return anchor
+    ? `${id}#${anchor}`
+    : id
 }
 
 /** Markdown of a page for the agents: frontmatter variables replaced, `v-pre` removed, links to the other pages as doc ids */
@@ -104,7 +115,9 @@ export function cleanMarkdown(body: string, data: Frontmatter, pageId: string): 
     .replaceAll(/\]\(([^)\s]+)\)/g, (match, link: string) => {
       const id = linkToDocId(link, pageId)
 
-      return id ? `](${id})` : match
+      return id
+        ? `](${id})`
+        : match
     })
     .trim()
 }
@@ -114,10 +127,16 @@ function listMarkdownFiles(directory: string, base = directory): string[] {
     const path = join(directory, entry.name)
 
     if (entry.isDirectory()) {
-      return entry.name === 'typedoc' || entry.name.startsWith('.') ? [] : listMarkdownFiles(path, base)
+      return entry.name === 'typedoc' || entry.name.startsWith('.')
+        ? []
+        : listMarkdownFiles(path, base)
     }
 
-    return entry.name.endsWith('.md') ? [relative(base, path).split('\\').join('/')] : []
+    return entry.name.endsWith('.md')
+      ? [
+          relative(base, path).split('\\').join('/'),
+        ]
+      : []
   })
 }
 
@@ -141,20 +160,22 @@ function readPages(docsDir: string): { entry: DocEntry, content: string }[] {
       const { data, body } = parseFrontmatter(resolveIncludes(readFileSync(join(docsDir, file), 'utf8'), join(docsDir, file)))
       const content = cleanMarkdown(body, data, id)
 
-      return [{
-        entry: {
-          id,
-          category,
-          title: data.title || id,
-          description: data.description ?? '',
-          keywords: (data.keywords ?? '').split(',').map(keyword => keyword.trim()).filter(Boolean),
-          headings: content.split('\n').filter(line => /^#{2,3} /.test(line)).map(line => line.replace(/^#+ /, '').trim()),
-          file: `pages/${id}.md`,
-          url: `${HOMEPAGE}/${id}`,
-          chars: content.length,
+      return [
+        {
+          entry: {
+            id,
+            category,
+            title: data.title || id,
+            description: data.description ?? '',
+            keywords: (data.keywords ?? '').split(',').map(keyword => keyword.trim()).filter(Boolean),
+            headings: content.split('\n').filter(line => /^#{2,3} /.test(line)).map(line => line.replace(/^#+ /, '').trim()),
+            file: `pages/${id}.md`,
+            url: `${HOMEPAGE}/${id}`,
+            chars: content.length,
+          },
+          content,
         },
-        content,
-      }]
+      ]
     })
 }
 
@@ -171,7 +192,9 @@ export function parseJsDoc(comment: string): JsDoc {
 
   for (const line of lines) {
     const trimmed = line.trim()
-    const name = trimmed.startsWith('@') ? /^@(\w+)/.exec(trimmed)?.[1] : undefined
+    const name = trimmed.startsWith('@')
+      ? /^@(\w+)/.exec(trimmed)?.[1]
+      : undefined
 
     if (name) {
       current = name
@@ -185,7 +208,10 @@ export function parseJsDoc(comment: string): JsDoc {
     }
   }
 
-  return { description: description.join('\n').trim(), tags }
+  return {
+    description: description.join('\n').trim(),
+    tags,
+  }
 }
 
 type AstNode = Record<string, any>
@@ -206,7 +232,9 @@ export function extractConfigReference(source: string): ConfigOption[] {
   const declarations = new Map<string, AstNode>()
 
   for (const statement of program.body as AstNode[]) {
-    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : statement
+    const declaration = statement.type === 'ExportNamedDeclaration'
+      ? statement.declaration
+      : statement
 
     if (declaration?.type === 'TSInterfaceDeclaration' || declaration?.type === 'TSTypeAliasDeclaration') {
       declarations.set(declaration.id.name, declaration)
@@ -216,9 +244,13 @@ export function extractConfigReference(source: string): ConfigOption[] {
   // The members of the inline objects are separated by line breaks: they become `;`
   function textOf(node: AstNode): string {
     return source.slice(node.start, node.end).split('\n').map(line => line.trim()).filter(Boolean).reduce((text, line) => {
-      const separator = !text || /[{(,;|&]$/.test(text) || /^[})|&]/.test(line) ? ' ' : '; '
+      const separator = !text || /[{(,;|&]$/.test(text) || /^[})|&]/.test(line)
+        ? ' '
+        : '; '
 
-      return text ? `${text}${separator}${line}` : line
+      return text
+        ? `${text}${separator}${line}`
+        : line
     }, '')
   }
 
@@ -229,7 +261,11 @@ export function extractConfigReference(source: string): ConfigOption[] {
   function literalValues(node: AstNode | undefined, seen: Set<string> = new Set()): string[] | undefined {
     switch (node?.type) {
       case 'TSLiteralType':
-        return node.literal?.value === undefined ? undefined : [JSON.stringify(node.literal.value)]
+        return node.literal?.value === undefined
+          ? undefined
+          : [
+              JSON.stringify(node.literal.value),
+            ]
       case 'TSBooleanKeyword':
         return ['true', 'false']
       case 'TSParenthesizedType':
@@ -238,7 +274,11 @@ export function extractConfigReference(source: string): ConfigOption[] {
         return literalValues(node.elementType, seen)
       case 'TSUnionType': {
         const values = node.types.map((type: AstNode) => literalValues(type, seen))
-        return values.every(Boolean) ? [...new Set<string>(values.flat())] : undefined
+        return values.every(Boolean)
+          ? [
+              ...new Set<string>(values.flat()),
+            ]
+          : undefined
       }
       case 'TSTypeReference':
         return referenceValues(node, seen)
@@ -255,7 +295,9 @@ export function extractConfigReference(source: string): ConfigOption[] {
       return literalValues(node.typeArguments?.params?.[0], seen)
     }
 
-    const declaration = name ? declarations.get(name) : undefined
+    const declaration = name
+      ? declarations.get(name)
+      : undefined
 
     return name && !seen.has(name) && declaration?.type === 'TSTypeAliasDeclaration'
       ? literalValues(declaration.typeAnnotation, new Set([...seen, name]))
@@ -267,13 +309,17 @@ export function extractConfigReference(source: string): ConfigOption[] {
     const values = literalValues(node)
     const shown = (value: string) => text.includes(value) || text.includes(value.replaceAll('"', '\'')) || ((value === 'true' || value === 'false') && /\bboolean\b/.test(text))
 
-    return values && !values.every(shown) ? values : undefined
+    return values && !values.every(shown)
+      ? values
+      : undefined
   }
 
   function jsDocOf(member: AstNode): JsDoc | undefined {
     const comment = comments.filter(candidate => candidate.type === 'Block' && candidate.value.startsWith('*') && candidate.end <= member.start).at(-1)
 
-    return comment && source.slice(comment.end, member.start).trim() === '' ? parseJsDoc(comment.value) : undefined
+    return comment && source.slice(comment.end, member.start).trim() === ''
+      ? parseJsDoc(comment.value)
+      : undefined
   }
 
   function membersOfReference(name: string | undefined, seen: Set<string>): AstNode[] {
@@ -288,7 +334,10 @@ export function extractConfigReference(source: string): ConfigOption[] {
   function membersOf(node: AstNode | undefined, seen: Set<string>): AstNode[] {
     switch (node?.type) {
       case 'TSInterfaceDeclaration':
-        return [...(node.extends ?? []).flatMap((parent: AstNode) => membersOfReference(parent.expression?.name, seen)), ...node.body.body]
+        return [
+          ...(node.extends ?? []).flatMap((parent: AstNode) => membersOfReference(parent.expression?.name, seen)),
+          ...node.body.body,
+        ]
       case 'TSTypeAliasDeclaration':
         return membersOf(node.typeAnnotation, seen)
       case 'TSTypeLiteral':
@@ -311,12 +360,18 @@ export function extractConfigReference(source: string): ConfigOption[] {
     }
 
     if (name === 'Pick') {
-      const keys = (picked.type === 'TSUnionType' ? picked.types : [picked]).map((key: AstNode) => key.literal?.value).filter(Boolean)
+      const keys = (picked.type === 'TSUnionType'
+        ? picked.types
+        : [picked]).map((key: AstNode) => key.literal?.value).filter(Boolean)
 
       return nestedTypes(argument).map(nested => ({ ...nested, keys }))
     }
 
-    return declarations.has(name) && membersOf(declarations.get(name), new Set()).length > 0 ? [{ node, array: false }] : []
+    return declarations.has(name) && membersOf(declarations.get(name), new Set()).length > 0
+      ? [
+          { node, array: false },
+        ]
+      : []
   }
 
   /** Object types to document under a property: `BumpConfig`, `VersionGroup[]`, `boolean | TwitterConfig`, `Partial<X>`, `Pick<X, 'a'>`, inline objects */
@@ -327,7 +382,9 @@ export function extractConfigReference(source: string): ConfigOption[] {
       case 'TSUnionType':
         return node.types.flatMap(nestedTypes)
       case 'TSTypeLiteral':
-        return [{ node, array: false }]
+        return [
+          { node, array: false },
+        ]
       case 'TSTypeReference':
         return nestedReference(node)
       default:
@@ -340,17 +397,27 @@ export function extractConfigReference(source: string): ConfigOption[] {
     const doc = jsDocOf(member)
     const tags = doc?.tags ?? {}
 
-    const type = typeNode?.type === 'TSTypeLiteral' ? 'object' : textOf(typeNode)
+    const type = typeNode?.type === 'TSTypeLiteral'
+      ? 'object'
+      : textOf(typeNode)
     const values = hiddenValues(typeNode, type)
 
     return {
       path,
       type,
-      ...(values ? { values } : {}),
+      ...(values
+        ? { values }
+        : {}),
       description: doc?.description ?? '',
-      ...(tags.default === undefined ? {} : { default: tags.default }),
-      ...(tags.deprecated === undefined ? {} : { deprecated: tags.deprecated || 'Deprecated' }),
-      ...(tags.see ? { see: tags.see } : {}),
+      ...(tags.default === undefined
+        ? {}
+        : { default: tags.default }),
+      ...(tags.deprecated === undefined
+        ? {}
+        : { deprecated: tags.deprecated || 'Deprecated' }),
+      ...(tags.see
+        ? { see: tags.see }
+        : {}),
       docId: CONFIG_DOC_IDS[path.split('.')[0]!] ?? 'config/overview',
     }
   }
@@ -363,7 +430,9 @@ export function extractConfigReference(source: string): ConfigOption[] {
         continue
       }
 
-      const path = prefix ? `${prefix}.${member.key.name}` : member.key.name
+      const path = prefix
+        ? `${prefix}.${member.key.name}`
+        : member.key.name
 
       options.push(toOption(member, path))
 
@@ -380,7 +449,11 @@ export function extractConfigReference(source: string): ConfigOption[] {
       if (!name || !seen.has(name)) {
         const members = membersOf(node, new Set(seen)).filter(nestedMember => !keys || keys.includes(nestedMember.key?.name))
 
-        visit(members, array ? `${path}[]` : path, depth + 1, name ? new Set([...seen, name]) : seen)
+        visit(members, array
+          ? `${path}[]`
+          : path, depth + 1, name
+          ? new Set([...seen, name])
+          : seen)
       }
     }
   }
@@ -402,7 +475,11 @@ function renderReadme(manifest: Manifest): string {
   const sections = docCategories.map((category) => {
     const docs = manifest.docs.filter(doc => doc.category === category)
 
-    return [`## ${category}`, '', ...docs.map(doc => `- [${doc.title}](${doc.file}): ${doc.description}`)].join('\n')
+    return [
+      `## ${category}`,
+      '',
+      ...docs.map(doc => `- [${doc.title}](${doc.file}): ${doc.description}`),
+    ].join('\n')
   })
 
   return [

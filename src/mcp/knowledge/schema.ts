@@ -6,7 +6,13 @@ import { z } from 'zod'
  */
 export const SCHEMA_VERSION = 1
 
-export const docCategories = ['guide', 'config', 'cli', 'commitlint', 'api'] as const
+export const docCategories = [
+  'guide',
+  'config',
+  'cli',
+  'commitlint',
+  'api',
+] as const
 
 export type DocCategory = typeof docCategories[number]
 

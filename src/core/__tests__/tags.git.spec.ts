@@ -59,7 +59,10 @@ describe('Given resolveTags function on a real git repository', () => {
   }
 
   function createConfig(versionMode: 'unified' | 'selective' | 'independent', tagBody?: string): ResolvedRelizyConfig {
-    const config = createMockConfig({ bump: { type: 'release' }, monorepo: { versionMode } })
+    const config = createMockConfig({
+      bump: { type: 'release' },
+      monorepo: { versionMode },
+    })
     config.cwd = cwd
     config.logLevel = 'silent'
 
@@ -86,7 +89,12 @@ describe('Given resolveTags function on a real git repository', () => {
     step?: Step
   }) {
     const pkg = createMockPackageInfo({ name, version, path })
-    const { from } = await resolveTags({ config, step, pkg, newVersion: newVersion as any })
+    const { from } = await resolveTags({
+      config,
+      step,
+      pkg,
+      newVersion: newVersion as any,
+    })
 
     return from
   }
@@ -120,8 +128,21 @@ describe('Given resolveTags function on a real git repository', () => {
     it('Then the selective release starts at its last repository tag in every step', async () => {
       const config = createConfig('selective')
 
-      for (const step of ['bump', 'changelog', 'publish', 'provider-release', 'social'] as const) {
-        expect(await resolveFrom({ config, version: '6.18.0', newVersion: step === 'bump' ? undefined : '6.19.0', step })).toBe('v6.18.0')
+      for (const step of [
+        'bump',
+        'changelog',
+        'publish',
+        'provider-release',
+        'social',
+      ] as const) {
+        expect(await resolveFrom({
+          config,
+          version: '6.18.0',
+          newVersion: step === 'bump'
+            ? undefined
+            : '6.19.0',
+          step,
+        })).toBe('v6.18.0')
       }
     })
 
@@ -129,32 +150,65 @@ describe('Given resolveTags function on a real git repository', () => {
       // `relizy release` writes 6.19.0 in the package.json files, then generates the changelogs before tagging
       writeRootVersion('6.19.0')
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.19.0', newVersion: '6.19.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.19.0',
+        newVersion: '6.19.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then the changelog previewed without bump starts at the tag of the current version', async () => {
       // `relizy changelog` alone: the version on disk is the last released one
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0', newVersion: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+        newVersion: '6.18.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then a sub-package starts at the last repository tag, even when it was not bumped since an older release', async () => {
       const config = createConfig('selective')
 
       for (const version of ['6.18.0', '6.10.0']) {
-        expect(await resolveFrom({ config, version, name: '@scope/core', path: join(cwd, 'packages/core') })).toBe('v6.18.0')
+        expect(await resolveFrom({
+          config,
+          version,
+          name: '@scope/core',
+          path: join(cwd, 'packages/core'),
+        })).toBe('v6.18.0')
       }
     })
 
     it('Then the unified release ignores the package tags too', async () => {
-      expect(await resolveFrom({ config: createConfig('unified'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('unified'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then the independent release starts at the last tag of its package in every step', async () => {
       const config = createConfig('independent')
-      const navigation = { name: '@scope/navigation', path: join(cwd, 'packages/navigation') }
+      const navigation = {
+        name: '@scope/navigation',
+        path: join(cwd, 'packages/navigation'),
+      }
 
-      for (const step of ['bump', 'changelog', 'publish', 'provider-release', 'social'] as const) {
-        expect(await resolveFrom({ config, ...navigation, version: '1.0.0', newVersion: step === 'bump' ? undefined : '1.1.0', step })).toBe('@scope/navigation@1.0.0')
+      for (const step of [
+        'bump',
+        'changelog',
+        'publish',
+        'provider-release',
+        'social',
+      ] as const) {
+        expect(await resolveFrom({
+          config,
+          ...navigation,
+          version: '1.0.0',
+          newVersion: step === 'bump'
+            ? undefined
+            : '1.1.0',
+          step,
+        })).toBe('@scope/navigation@1.0.0')
       }
     })
 
@@ -163,19 +217,30 @@ describe('Given resolveTags function on a real git repository', () => {
 
       const config = createConfig('independent')
 
-      expect(await resolveFrom({ config, name: '@scope/navigation', path: join(cwd, 'packages/navigation'), version: '1.0.0' })).toBe('@scope/navigation@1.0.0')
+      expect(await resolveFrom({
+        config,
+        name: '@scope/navigation',
+        path: join(cwd, 'packages/navigation'),
+        version: '1.0.0',
+      })).toBe('@scope/navigation@1.0.0')
     })
 
     it('Then the selective release ignores the tags of many packages released since', async () => {
       tag(...Array.from({ length: 60 }, (_, index) => [`@scope/package-${index}@1.0.${index}`, `vue-package-${index}@1.0.${index}`]).flat())
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then the selective release ignores an unscoped package tag matching `v*`', async () => {
       tag('vue-utils@1.0.0', 'v-next@2.0.0')
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
   })
 
@@ -191,7 +256,10 @@ describe('Given resolveTags function on a real git repository', () => {
       tag('v6.17.1')
       git('checkout', '-q', '-')
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then ignores a release above the current version', async () => {
@@ -202,7 +270,10 @@ describe('Given resolveTags function on a real git repository', () => {
       git('checkout', '-q', '-')
       commit('feat: main')
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
   })
 
@@ -217,15 +288,26 @@ describe('Given resolveTags function on a real git repository', () => {
     })
 
     it('Then a prerelease starts at the previous prerelease', async () => {
-      expect(await resolveFrom({ config: createConfig('selective'), version: '7.0.0-beta.1', newVersion: '7.0.0-beta.2' })).toBe('v7.0.0-beta.1')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '7.0.0-beta.1',
+        newVersion: '7.0.0-beta.2',
+      })).toBe('v7.0.0-beta.1')
     })
 
     it('Then the graduation starts at the last stable release, not a more recent stable package tag', async () => {
-      expect(await resolveFrom({ config: createConfig('selective'), version: '7.0.0-beta.1', newVersion: '7.0.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '7.0.0-beta.1',
+        newVersion: '7.0.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then a stable release ignores the prereleases of the next major', async () => {
-      expect(await resolveFrom({ config: createConfig('selective'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
   })
 
@@ -237,7 +319,11 @@ describe('Given resolveTags function on a real git repository', () => {
       commit('feat: b')
       tag('@scope/navigation@0.5.0')
 
-      expect(await resolveFrom({ config: createConfig('unified'), version: '1.0.0', newVersion: '1.0.1' })).toBe('v1.0.0-beta.1')
+      expect(await resolveFrom({
+        config: createConfig('unified'),
+        version: '1.0.0',
+        newVersion: '1.0.1',
+      })).toBe('v1.0.0-beta.1')
     })
   })
 
@@ -249,7 +335,10 @@ describe('Given resolveTags function on a real git repository', () => {
       commit('feat: b')
       tag('@scope/navigation@1.0.0')
 
-      expect(await resolveFrom({ config: createConfig('selective', 'release-{{newVersion}}'), version: '6.18.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective', 'release-{{newVersion}}'),
+        version: '6.18.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then the next release starts at the tag of the new template', async () => {
@@ -258,7 +347,10 @@ describe('Given resolveTags function on a real git repository', () => {
       tag('release-6.19.0')
       commit('feat: b')
 
-      expect(await resolveFrom({ config: createConfig('selective', 'release-{{newVersion}}'), version: '6.19.0' })).toBe('release-6.19.0')
+      expect(await resolveFrom({
+        config: createConfig('selective', 'release-{{newVersion}}'),
+        version: '6.19.0',
+      })).toBe('release-6.19.0')
     })
 
     it('Then the graduation starts at the last stable release of the default template', async () => {
@@ -267,13 +359,20 @@ describe('Given resolveTags function on a real git repository', () => {
       tag('release-7.0.0-beta.0')
       commit('feat: b')
 
-      expect(await resolveFrom({ config: createConfig('selective', 'release-{{newVersion}}'), version: '7.0.0-beta.0', newVersion: '7.0.0' })).toBe('v6.18.0')
+      expect(await resolveFrom({
+        config: createConfig('selective', 'release-{{newVersion}}'),
+        version: '7.0.0-beta.0',
+        newVersion: '7.0.0',
+      })).toBe('v6.18.0')
     })
 
     it('Then prefers the tag of the template for the same version', async () => {
       tag('6.18.0', 'v6.18.0', 'release/6.18.0-final')
 
-      expect(await resolveFrom({ config: createConfig('selective', 'release/{{newVersion}}-final'), version: '6.18.0' })).toBe('release/6.18.0-final')
+      expect(await resolveFrom({
+        config: createConfig('selective', 'release/{{newVersion}}-final'),
+        version: '6.18.0',
+      })).toBe('release/6.18.0-final')
     })
 
     it('Then warns when the previous tags follow another custom template', async () => {
@@ -299,11 +398,19 @@ describe('Given resolveTags function on a real git repository', () => {
     })
 
     it('Then starts from the first commit for the root package', async () => {
-      expect(await resolveFrom({ config: createConfig('selective'), version: '1.0.0' })).toBe(getFirstCommit(cwd))
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '1.0.0',
+      })).toBe(getFirstCommit(cwd))
     })
 
     it('Then marks a sub-package as new', async () => {
-      expect(await resolveFrom({ config: createConfig('selective'), version: '1.0.0', name: '@scope/core', path: join(cwd, 'packages/core') })).toBe(NEW_PACKAGE_MARKER)
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '1.0.0',
+        name: '@scope/core',
+        path: join(cwd, 'packages/core'),
+      })).toBe(NEW_PACKAGE_MARKER)
     })
   })
 
@@ -321,7 +428,12 @@ describe('Given resolveTags function on a real git repository', () => {
     }
 
     function resolveNavigation({ version = '6.18.0', path = navigation.path, config = createConfig('independent') } = {}) {
-      return resolveFrom({ config, name: navigation.name, path, version })
+      return resolveFrom({
+        config,
+        name: navigation.name,
+        path,
+        version,
+      })
     }
 
     beforeEach(() => {
@@ -346,7 +458,9 @@ describe('Given resolveTags function on a real git repository', () => {
         git('mv', 'packages/navigation', 'packages/ah-navigation')
         commit('chore(navigation): move the package')
 
-        expect(await resolveNavigation({ path: join(cwd, 'packages/ah-navigation') })).toBe('v6.18.0')
+        expect(await resolveNavigation({
+          path: join(cwd, 'packages/ah-navigation'),
+        })).toBe('v6.18.0')
       })
 
       it('Then starts at its package tag once released by the independent group', async () => {
@@ -357,13 +471,25 @@ describe('Given resolveTags function on a real git repository', () => {
 
       it('Then follows a move declared in monorepo.movedPackages', async () => {
         git('rm', '-q', '-r', 'packages/navigation')
-        writePackage('packages/ah-navigation', { version: '6.18.0', description: 'A navigation rewritten from scratch', type: 'module', exports: { '.': './dist/index.js' }, files: ['dist'] })
+        writePackage('packages/ah-navigation', {
+          version: '6.18.0',
+          description: 'A navigation rewritten from scratch',
+          type: 'module',
+          exports: { '.': './dist/index.js' },
+          files: ['dist'],
+        })
         commit('feat(navigation): rewrite the navigation')
 
         const config = createConfig('independent')
-        config.monorepo = { ...config.monorepo!, movedPackages: { 'packages/navigation': 'packages/ah-navigation' } }
+        config.monorepo = {
+          ...config.monorepo!,
+          movedPackages: { 'packages/navigation': 'packages/ah-navigation' },
+        }
 
-        expect(await resolveNavigation({ path: join(cwd, 'packages/ah-navigation'), config })).toBe('v6.18.0')
+        expect(await resolveNavigation({
+          path: join(cwd, 'packages/ah-navigation'),
+          config,
+        })).toBe('v6.18.0')
       })
     })
 
@@ -392,7 +518,13 @@ describe('Given resolveTags function on a real git repository', () => {
         const config = createConfig('independent')
 
         for (const step of ['changelog', 'publish'] as const) {
-          expect(await resolveFrom({ config, ...navigation, version: '1.1.0', newVersion: '1.1.0', step })).toBe('@scope/navigation@1.0.0')
+          expect(await resolveFrom({
+            config,
+            ...navigation,
+            version: '1.1.0',
+            newVersion: '1.1.0',
+            step,
+          })).toBe('@scope/navigation@1.0.0')
         }
       })
 
@@ -407,7 +539,12 @@ describe('Given resolveTags function on a real git repository', () => {
         tag('@scope/navigation@1.0.0')
         commitPackageVersion('packages/navigation', '2.0.0-beta.0', 'feat(navigation)!: b')
 
-        expect(await resolveFrom({ config: createConfig('independent'), ...navigation, version: '2.0.0-beta.0', newVersion: '2.0.0' })).toBe('@scope/navigation@1.0.0')
+        expect(await resolveFrom({
+          config: createConfig('independent'),
+          ...navigation,
+          version: '2.0.0-beta.0',
+          newVersion: '2.0.0',
+        })).toBe('@scope/navigation@1.0.0')
       })
     })
 
@@ -428,7 +565,12 @@ describe('Given resolveTags function on a real git repository', () => {
       commit('feat: new package')
       writeRootVersion('6.18.0')
 
-      expect(await resolveFrom({ config: createConfig('selective'), version: '0.0.0', name: '@scope/new', path: join(cwd, 'packages/new') })).toBe(NEW_PACKAGE_MARKER)
+      expect(await resolveFrom({
+        config: createConfig('selective'),
+        version: '0.0.0',
+        name: '@scope/new',
+        path: join(cwd, 'packages/new'),
+      })).toBe(NEW_PACKAGE_MARKER)
     })
   })
 })

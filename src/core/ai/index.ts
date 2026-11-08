@@ -66,7 +66,9 @@ function assemblePrompt(
 
   const parts = [BASE_PROMPT, PLATFORM_PROMPTS[target]]
   if (target === 'slack') {
-    parts.push(SLACK_FORMAT_PROMPTS[getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full' ? 'full' : 'summary'])
+    parts.push(SLACK_FORMAT_PROMPTS[getSocialChangelog(config.social?.slack?.changelog, 'summary') === 'full'
+      ? 'full'
+      : 'summary'])
   }
   if (maxLength !== undefined) {
     parts.push(MAX_LENGTH_PROMPT)
@@ -111,7 +113,9 @@ export function isAIRunInRelease(config: ResolvedRelizyConfig, target: AIPromptT
 }
 
 function isAIOnlyStable(config: ResolvedRelizyConfig, target: AIPromptTarget): boolean {
-  const targetConfig = target === 'providerRelease' ? config.ai?.providerRelease : config.ai?.social?.[target]
+  const targetConfig = target === 'providerRelease'
+    ? config.ai?.providerRelease
+    : config.ai?.social?.[target]
 
   return targetConfig?.onlyStable ?? config.ai?.onlyStable ?? true
 }
@@ -163,10 +167,19 @@ async function rewrite({ subject, config, request }: {
   const { text, usage = {} } = await provider.generate(config, request)
 
   const durationMs = Date.now() - started
-  const details = [formatDuration(durationMs), ...describeAIUsage(usage)].join(', ')
+  const details = [
+    formatDuration(durationMs),
+    ...describeAIUsage(usage),
+  ].join(', ')
   logger.info(`✨ ${upperFirst(subject)} rewritten by AI in ${details}`)
   reportStepNote(`${upperFirst(subject)} rewritten by AI (${provider.name}) in ${details}`, { ai: true })
-  recordAIRewrite({ subject, provider: provider.name, simulated: false, durationMs, ...usage })
+  recordAIRewrite({
+    subject,
+    provider: provider.name,
+    simulated: false,
+    durationMs,
+    ...usage,
+  })
 
   return text
 }
@@ -187,7 +200,9 @@ export async function generateAIProviderReleaseBody({ config, rawBody, label, co
   }
 
   const provider = getAIProvider(config)
-  const subject = label ? `the notes of ${label}` : 'the release notes'
+  const subject = label
+    ? `the notes of ${label}`
+    : 'the release notes'
 
   const systemPrompt = assemblePrompt(config, 'providerRelease')
 
@@ -200,7 +215,11 @@ export async function generateAIProviderReleaseBody({ config, rawBody, label, co
   }
 
   try {
-    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
+    const output = await rewrite({
+      subject,
+      config,
+      request: { systemPrompt, prompt: rawBody, context },
+    })
     logger.verbose('AI output body:', output)
     return output
   }
@@ -241,7 +260,11 @@ export async function generateAISocialChangelog({ config, rawBody, fallbackBody,
   }
 
   try {
-    const output = await rewrite({ subject, config, request: { systemPrompt, prompt: rawBody, context } })
+    const output = await rewrite({
+      subject,
+      config,
+      request: { systemPrompt, prompt: rawBody, context },
+    })
     logger.verbose(`AI output body (${platform}):`, output)
     return output
   }
@@ -298,11 +321,15 @@ export async function generateAISocialReleases({ config, releases, platform, max
   const provider = getAIProvider(config)
   const subject = `the ${PLATFORM_NAMES[platform]} post of ${plural(input.length, 'version')}`
 
-  const releasesPrompt = platform === 'twitter' ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}` : RELEASES_PROMPT
+  const releasesPrompt = platform === 'twitter'
+    ? `${RELEASES_PROMPT}\n${TWITTER_RELEASES_PROMPT}`
+    : RELEASES_PROMPT
   const systemPrompt = `${assemblePrompt(config, platform, maxLength)}\n\n${releasesPrompt}`
   const prompt = input
     .map((release) => {
-      const highlights = release.highlights ? ` highlights="${release.highlights}"` : ''
+      const highlights = release.highlights
+        ? ` highlights="${release.highlights}"`
+        : ''
       return `<release id="${escapeAttribute(release.id)}" title="${escapeAttribute(release.title)}"${highlights}>\n${release.body}\n</release>`
     })
     .join('\n\n')
@@ -316,8 +343,17 @@ export async function generateAISocialReleases({ config, releases, platform, max
   }
 
   try {
-    const output = await rewrite({ subject, config, request: { systemPrompt, prompt } })
-    const rewritten = new Map([...output.matchAll(RELEASE_OUTPUT_REGEX)].map(([, id, body]) => [id!, body!.trim()]))
+    const output = await rewrite({
+      subject,
+      config,
+      request: { systemPrompt, prompt },
+    })
+    const rewritten = new Map([
+      ...output.matchAll(RELEASE_OUTPUT_REGEX),
+    ].map(([, id, body]) => [
+      id!,
+      body!.trim(),
+    ]))
     const missing = input.filter(release => !rewritten.get(release.id))
 
     logger.verbose(`AI output body (${platform}):`, output)
@@ -336,7 +372,9 @@ export async function generateAISocialReleases({ config, releases, platform, max
 
 function handleFallback(config: ResolvedRelizyConfig, rawBody: string, error: unknown): string {
   const fallback = config.ai?.fallback ?? 'raw'
-  const message = error instanceof Error ? error.message : String(error)
+  const message = error instanceof Error
+    ? error.message
+    : String(error)
 
   if (fallback === 'fail') {
     throw new Error(`AI generation failed: ${message}`, { cause: error })

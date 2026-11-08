@@ -9,10 +9,31 @@ import { isVersionPublished } from '../../core/npm-versions'
 import { MERGE_PREVIEW_MARKER } from '../../core/pr-comment'
 import { mergePreview, MergePreviewError } from '../merge-preview'
 
-vi.mock('../../core/npm-versions', async importOriginal => ({ ...await importOriginal<typeof import('../../core/npm-versions')>(), isVersionPublished: vi.fn() }))
+vi.mock('../../core/npm-versions', async importOriginal => ({
+  ...await importOriginal<typeof import('../../core/npm-versions')>(),
+  isVersionPublished: vi.fn(),
+}))
 
 /** The variables telling relizy it runs in a CI, cleared so the tests run the same locally and in CI */
-const CI_VARIABLES = ['CI', 'CONTINUOUS_INTEGRATION', 'GITHUB_ACTIONS', 'GITHUB_WORKFLOW', 'GITLAB_CI', 'BUILD_ID', 'JENKINS_URL', 'JENKINS_HOME', 'GITHUB_BASE_REF', 'GITHUB_HEAD_REF', 'GITHUB_EVENT_PATH', 'GITHUB_EVENT_NAME', 'CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'GITHUB_SERVER_URL', 'GITHUB_REPOSITORY', 'GITHUB_RUN_ID', 'CI_JOB_URL']
+const CI_VARIABLES = [
+  'CI',
+  'CONTINUOUS_INTEGRATION',
+  'GITHUB_ACTIONS',
+  'GITHUB_WORKFLOW',
+  'GITLAB_CI',
+  'BUILD_ID',
+  'JENKINS_URL',
+  'JENKINS_HOME',
+  'GITHUB_BASE_REF',
+  'GITHUB_HEAD_REF',
+  'GITHUB_EVENT_PATH',
+  'GITHUB_EVENT_NAME',
+  'CI_MERGE_REQUEST_TARGET_BRANCH_NAME',
+  'GITHUB_SERVER_URL',
+  'GITHUB_REPOSITORY',
+  'GITHUB_RUN_ID',
+  'CI_JOB_URL',
+]
 
 describe('Given the merge preview of a GitHub pull request', () => {
   let origin: GitRepository
@@ -22,7 +43,17 @@ describe('Given the merge preview of a GitHub pull request', () => {
   let headSha: string
 
   function git(...args: string[]) {
-    return execFileSync('git', ['-c', 'user.name=Dev', '-c', 'user.email=dev@example.com', ...args], { cwd, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }).trim()
+    return execFileSync('git', [
+      '-c',
+      'user.name=Dev',
+      '-c',
+      'user.email=dev@example.com',
+      ...args,
+    ], {
+      cwd,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    }).trim()
   }
 
   /** Answers the API calls of the pull request #7: merge methods, comments, statuses */
@@ -31,7 +62,9 @@ describe('Given the merge preview of a GitHub pull request', () => {
       const url = String(input)
       const json = url.endsWith('/repos/test/repo')
         ? { allow_squash_merge: false, allow_merge_commit: true }
-        : url.endsWith('/comments?per_page=100') ? [] : {}
+        : url.endsWith('/comments?per_page=100')
+          ? []
+          : {}
       return Promise.resolve(new Response(JSON.stringify(json), { status: 200 }))
     })
   }
@@ -56,7 +89,12 @@ describe('Given the merge preview of a GitHub pull request', () => {
 
     dir = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-merge-preview-command-clone-')))
     cwd = join(dir, 'clone')
-    execFileSync('git', ['clone', '--quiet', `file://${origin.cwd}`, cwd])
+    execFileSync('git', [
+      'clone',
+      '--quiet',
+      `file://${origin.cwd}`,
+      cwd,
+    ])
     git('checkout', '--quiet', '-b', 'feature')
     writeFileSync(join(cwd, 'index.js'), 'api')
     git('add', '-A')
@@ -64,7 +102,13 @@ describe('Given the merge preview of a GitHub pull request', () => {
     headSha = git('rev-parse', 'HEAD')
 
     const eventPath = join(dir, 'event.json')
-    writeFileSync(eventPath, JSON.stringify({ pull_request: { number: 7, title: 'feat: the api', head: { sha: headSha } } }))
+    writeFileSync(eventPath, JSON.stringify({
+      pull_request: {
+        number: 7,
+        title: 'feat: the api',
+        head: { sha: headSha },
+      },
+    }))
     vi.stubEnv('CI', 'true')
     vi.stubEnv('GITHUB_ACTIONS', 'true')
     vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
@@ -90,13 +134,26 @@ describe('Given the merge preview of a GitHub pull request', () => {
 
     const report = await mergePreview()
 
-    expect(report).toMatchObject({ status: 'released', released: false, dryRun: true, version: '1.1.0', mergePreview: { pullRequest: 7, squash: 'commits', problems: [], warnings: [] } })
+    expect(report).toMatchObject({
+      status: 'released',
+      released: false,
+      dryRun: true,
+      version: '1.1.0',
+      mergePreview: {
+        pullRequest: 7,
+        squash: 'commits',
+        problems: [],
+        warnings: [],
+      },
+    })
 
     const [comment] = calls(fetch, 'POST', '/issues/7/comments')
     expect(comment.body).toContain(MERGE_PREVIEW_MARKER)
     expect(comment.body).toContain('| app | `1.0.0` → `1.1.0` | feat (this PR) ⭐ |')
 
-    expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([{ state: 'success', context: 'relizy/merge-preview', description: 'Releases app@1.1.0' }])
+    expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
+      { state: 'success', context: 'relizy/merge-preview', description: 'Releases app@1.1.0' },
+    ])
 
     expect(JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')).version).toBe('1.0.0')
     expect(git('status', '--porcelain')).toBe('')
@@ -111,7 +168,10 @@ describe('Given the merge preview of a GitHub pull request', () => {
     await expect(mergePreview()).rejects.toThrow(MergePreviewError)
 
     const [status] = calls(fetch, 'POST', `/statuses/${headSha}`)
-    expect(status).toMatchObject({ state: 'failure', description: expect.stringContaining('The tag v1.1.0 already exists on the remote') })
+    expect(status).toMatchObject({
+      state: 'failure',
+      description: expect.stringContaining('The tag v1.1.0 already exists on the remote'),
+    })
     expect(calls(fetch, 'POST', '/issues/7/comments')[0].body).toContain('#### ❌ The release of the merge would fail')
   })
 
@@ -140,6 +200,8 @@ describe('Given the merge preview of a GitHub pull request', () => {
 
     await mergePreview({ comment: false })
 
-    expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([expect.objectContaining({ target_url: 'https://github.com/test/repo/actions/runs/42' })])
+    expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
+      expect.objectContaining({ target_url: 'https://github.com/test/repo/actions/runs/42' }),
+    ])
   })
 })

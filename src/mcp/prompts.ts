@@ -3,12 +3,23 @@ import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { z } from 'zod'
 
 function userMessage(text: string) {
-  return { messages: [{ role: 'user' as const, content: { type: 'text' as const, text } }] }
+  return {
+    messages: [
+      {
+        role: 'user' as const,
+        content: { type: 'text' as const, text },
+      },
+    ],
+  }
 }
 
 function prepareReleaseMessage(type: string | undefined) {
-  const asType = type ? ` as a ${type}` : ''
-  const args = type ? `{ type: "${type}" }` : '{}'
+  const asType = type
+    ? ` as a ${type}`
+    : ''
+  const args = type
+    ? `{ type: "${type}" }`
+    : '{}'
 
   return userMessage(`Prepare the next release of this project${asType}, without releasing anything.
 
@@ -26,7 +37,9 @@ export function registerPrompts(server: McpServer): void {
     argsSchema: {
       intent: z.string().optional().describe('What the change does, when the diff does not say it'),
     },
-  }, ({ intent }) => userMessage(`Write the commit message of the staged changes${intent ? ' ('.concat(intent, ')') : ''}.
+  }, ({ intent }) => userMessage(`Write the commit message of the staged changes${intent
+    ? ' ('.concat(intent, ')')
+    : ''}.
 
 1. Read the staged diff (\`git diff --cached\`) and the files it touches. If it mixes several concerns or packages, propose to split it first.
 2. Write a Conventional Commit: \`type(scope): subject\`, the type matching the effect on the users (it decides the bump), a body for the users of the package when the change needs it, \`BREAKING CHANGE:\` only for a real breaking change.
@@ -69,10 +82,18 @@ export function registerPrompts(server: McpServer): void {
     argsSchema: {
       provider: z.enum(['github', 'gitlab']).describe('CI of the project'),
     },
-  }, ({ provider }) => userMessage(`Add a CI workflow that releases this project with relizy on ${provider === 'github' ? 'GitHub Actions' : 'GitLab CI'}.
+  }, ({ provider }) => userMessage(`Add a CI workflow that releases this project with relizy on ${provider === 'github'
+    ? 'GitHub Actions'
+    : 'GitLab CI'}.
 
 1. Call \`get_project()\` for the config and the steps of the release.
-2. Read \`get_doc({ id: "${provider === 'github' ? 'guide/github-actions' : 'guide/gitlab-ci'}" })\` and \`get_doc({ id: "guide/ci-cd" })\`.
-3. Write the workflow with ${provider === 'github' ? 'the official action \`relizy/action@v2\`' : 'the component \`gitlab.com/relizy/relizy/release@2\` of the CI/CD catalog (a self-managed GitLab writes the job out)'}, as \`relizy init\` does: full git history and tags, the tokens (npm, ${provider === 'github' ? 'GITHUB_TOKEN' : 'GitLab token'}) from the CI secrets. Never write a token in a file.
+2. Read \`get_doc({ id: "${provider === 'github'
+  ? 'guide/github-actions'
+  : 'guide/gitlab-ci'}" })\` and \`get_doc({ id: "guide/ci-cd" })\`.
+3. Write the workflow with ${provider === 'github'
+  ? 'the official action \`relizy/action@v2\`'
+  : 'the component \`gitlab.com/relizy/relizy/release@2\` of the CI/CD catalog (a self-managed GitLab writes the job out)'}, as \`relizy init\` does: full git history and tags, the tokens (npm, ${provider === 'github'
+  ? 'GITHUB_TOKEN'
+  : 'GitLab token'}) from the CI secrets. Never write a token in a file.
 4. List the secrets the user must create, and validate the workflow with \`relizy release --dry-run\`.`))
 }

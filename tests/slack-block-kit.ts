@@ -43,7 +43,9 @@ function validateInline(elements: any[], path: string, errors: string[]): void {
         errors.push(`${at}: invalid style ${key}`)
       }
     }
-    const allowed = element.type === 'text' ? ['type', 'text', 'style'] : ['type', 'url', 'text', 'style']
+    const allowed = element.type === 'text'
+      ? ['type', 'text', 'style']
+      : ['type', 'url', 'text', 'style']
     for (const key of Object.keys(element)) {
       if (!allowed.includes(key)) {
         errors.push(`${at}: invalid additional property ${key}`)

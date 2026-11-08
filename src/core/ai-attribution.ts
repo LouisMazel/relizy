@@ -73,7 +73,12 @@ function parseAuthor(value: string): { name: string, email: string } {
 
   return start === -1
     ? { name: value, email: '' }
-    : { name: value.slice(0, start), email: value.slice(start + 1, end === -1 ? undefined : end) }
+    : {
+        name: value.slice(0, start),
+        email: value.slice(start + 1, end === -1
+          ? undefined
+          : end),
+      }
 }
 
 /**
@@ -87,7 +92,10 @@ export function isAIAttributionLine(line: string, options?: AIAttributionOptions
   }
 
   const token = TRAILER_REGEX.exec(trimmed)?.groups?.token?.toLowerCase()
-  if (token && [...AI_TRAILERS, ...(options?.trailers ?? []).map(trailer => trailer.toLowerCase())].includes(token)) {
+  if (token && [
+    ...AI_TRAILERS,
+    ...(options?.trailers ?? []).map(trailer => trailer.toLowerCase()),
+  ].includes(token)) {
     return true
   }
 

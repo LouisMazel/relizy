@@ -18,7 +18,12 @@ describe('Given the relizy CLI', () => {
     repository.git('remote', 'add', 'origin', 'https://github.com/acme/app.git')
     repository.commit('chore: init', {
       'package.json': JSON.stringify({ name: 'app', version: '1.0.0' }),
-      'relizy.config.json': JSON.stringify({ logLevel: 'silent', social: { twitter: { enabled: true } } }),
+      'relizy.config.json': JSON.stringify({
+        logLevel: 'silent',
+        social: {
+          twitter: { enabled: true },
+        },
+      }),
     })
     repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
     repository.commit('feat: add the parser', { 'parser.js': 'export {}\n' })
@@ -31,7 +36,10 @@ describe('Given the relizy CLI', () => {
   function run(...args: string[]) {
     const env = Object.fromEntries(Object.entries(process.env).filter(([name]) => !IGNORED_VARIABLES.test(name)))
 
-    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [join(process.cwd(), 'src/cli.ts'), ...args], {
+    return spawnSync(join(process.cwd(), 'node_modules/.bin/tsx'), [
+      join(process.cwd(), 'src/cli.ts'),
+      ...args,
+    ], {
       cwd,
       encoding: 'utf8',
       env: { ...env, NO_COLOR: '1' },

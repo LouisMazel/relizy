@@ -17,7 +17,9 @@ export interface ProviderApi {
  */
 export function getProviderApi(config: ResolvedRelizyConfig, provider: 'github' | 'gitlab'): ProviderApi | undefined {
   const repo = config.repo?.repo
-  const token = provider === 'github' ? config.tokens.github : config.tokens.gitlab
+  const token = provider === 'github'
+    ? config.tokens.github
+    : config.tokens.gitlab
   if (!repo || !token) {
     return undefined
   }
@@ -34,8 +36,17 @@ export function getProviderApi(config: ResolvedRelizyConfig, provider: 'github' 
     async request<T>(method: 'GET' | 'POST', path: string, body?: unknown): Promise<T> {
       const response = await fetch(`${base}${path}`, {
         method,
-        headers: { ...headers, ...(body === undefined ? {} : { 'Content-Type': 'application/json' }) },
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }),
+        headers: {
+          ...headers,
+          ...(body === undefined
+            ? {}
+            : { 'Content-Type': 'application/json' }),
+        },
+        ...(body === undefined
+          ? {}
+          : {
+              body: JSON.stringify(body),
+            }),
       })
 
       if (!response.ok) {
