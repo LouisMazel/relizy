@@ -58,7 +58,7 @@ A self-hosted instance is reached on the domain of `repo` (`https://<domain>/api
 
 With `relizy release`, the comment is the **summary of the release**, the same as the end of the terminal output and the summary of the GitHub Actions run (see [`release.report`](./../config/release.md#report)):
 
-- a title: `🚀 Released <name> <version>` (up to 2 versions, else `🚀 Released 13 versions of <projectName>`), `🧪 Dry run: <name> <version>`, `ℹ️ Nothing to release` or `❌ Release failed` with the error;
+- a title: `🚀 Released <name> <version>` (up to 2 versions, else the count of the released packages: `🚀 Released 13 packages of <projectName>`), `🧪 Dry run: <name> <version>`, `ℹ️ Nothing to release` or `❌ Release failed` with the error;
 - a short recap: what the release contains (`3 features · 2 fixes · 1 contributor`), each step with its status and the links of what it created (npm pages, provider releases, tweet; counted beyond 2), the AI rewrites and the install command. The versions and the tags are in the tables of the packages;
 - the packages and their versions: one table, or one per [version group](./version-groups.md) titled with its `title`, its version and its version mode, the `unified`/`selective` group first;
 - a footer: the branch, the date, and a link to Relizy.

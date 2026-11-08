@@ -392,17 +392,20 @@ function formatMarkdownLink({ label, url }: { label: string, url: string }): str
 }
 
 /**
- * The released versions: `relizy 2.0.0, @scope/nav 1.3.0`, or their count
- * beyond 2 (`13 versions of acme`): the tables of the summary list them
+ * The released versions: `relizy 2.0.0, @scope/nav 1.3.0`, or the count of the
+ * released packages beyond 2 versions (`13 packages of acme`, a version can ship
+ * several packages): the tables of the summary list them
  */
 export function getReleaseName(report: ReleaseReport): string {
   const release = report.release ?? { projectName: '', groups: [] }
   const lines = getReleaseLines(release)
 
   if (lines.length > RELEASE_NAME_MAX_VERSIONS) {
+    const packages = new Set(release.groups.flatMap(group => group.packages.map(pkg => pkg.name))).size || lines.length
+
     return release.projectName
-      ? `${plural(lines.length, 'version')} of ${release.projectName}`
-      : plural(lines.length, 'version')
+      ? `${plural(packages, 'package')} of ${release.projectName}`
+      : plural(packages, 'package')
   }
 
   return lines.map(line => `${line.name} ${line.version}`).join(', ')
