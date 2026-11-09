@@ -569,7 +569,8 @@ export function getPrepareScript(detection: ProjectDetection): Record<string, st
 }
 
 /**
- * Add fields and scripts to the root package.json, keeping its indentation.
+ * Add fields and scripts to the root package.json, keeping its indentation
+ * and the order of its fields.
  */
 export function updateRootPackageJson({ cwd, fields = {}, scripts = {} }: {
   cwd: string
@@ -579,13 +580,26 @@ export function updateRootPackageJson({ cwd, fields = {}, scripts = {} }: {
   const path = join(cwd, 'package.json')
   const content = readFileSync(path, 'utf8')
   const indent = /^([ \t]+)"/m.exec(content)?.[1] ?? '  '
-  const { name, version, ...json } = JSON.parse(content)
+  const json: Record<string, any> = JSON.parse(content)
 
-  // name and version first, as written by the package managers
-  const updated = {
-    ...((fields.name ?? name) !== undefined && { name: fields.name ?? name }),
-    ...((fields.version ?? version) !== undefined && { version: fields.version ?? version }),
-    ...json,
+  // A missing name goes first and a missing version after the name, as written by the package managers
+  const updated: Record<string, any> = {}
+  const addMissing = (key: 'name' | 'version') => {
+    if (!(key in json) && fields[key] !== undefined) {
+      updated[key] = fields[key]
+    }
+  }
+  if (!('name' in json)) {
+    addMissing('name')
+    addMissing('version')
+  }
+  for (const [key, value] of Object.entries(json)) {
+    updated[key] = key === 'name' || key === 'version'
+      ? fields[key] ?? value
+      : value
+    if (key === 'name') {
+      addMissing('version')
+    }
   }
   if (Object.keys(scripts).length > 0) {
     updated.scripts = {

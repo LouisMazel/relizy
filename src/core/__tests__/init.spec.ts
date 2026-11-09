@@ -439,6 +439,33 @@ describe('Given the init helpers', () => {
       ].join('\n'))
       expect(getScriptsToAdd(detectProject({ cwd }))).toEqual({})
     })
+
+    it('Then keeps the order of the fields, the missing version after the name', () => {
+      write('package.json', '{\n  "name": "mono",\n  "type": "module",\n  "private": true\n}\n')
+
+      updateRootPackageJson({
+        cwd,
+        fields: { version: '1.0.0' },
+        scripts: { release: 'relizy release' },
+      })
+
+      expect(Object.keys(JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')))).toEqual([
+        'name',
+        'version',
+        'type',
+        'private',
+        'scripts',
+      ])
+
+      write('package.json', '{\n  "name": "mono",\n  "type": "module",\n  "version": "1.0.0",\n  "scripts": {}\n}\n')
+
+      updateRootPackageJson({
+        cwd,
+        scripts: { release: 'relizy release' },
+      })
+
+      expect(Object.keys(JSON.parse(readFileSync(join(cwd, 'package.json'), 'utf8')))).toEqual(['name', 'type', 'version', 'scripts'])
+    })
   })
 
   describe('When adding the prepare script of the agent rules', () => {
