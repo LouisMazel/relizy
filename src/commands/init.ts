@@ -255,7 +255,7 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
   log.step(c.bold('Versions & changelog'))
   if (isMonorepo) {
     result.dependencyTypes = await answer(multiselect({
-      message: 'When a package is released, also bump the workspace packages depending on it through:',
+      message: 'Also bump the packages depending on a released package, through:',
       required: false,
       initialValues: answers.dependencyTypes,
       options: [
@@ -267,7 +267,7 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
   }
   if (versions.some(version => version?.startsWith('0.'))) {
     result.capZeroMajor = await answer(confirm({
-      message: 'Keep breaking changes on 0.x versions as minor bumps (0.4.0 → 0.5.0 instead of 1.0.0)?',
+      message: 'Release breaking changes on 0.x as minor? (0.4.0 → 0.5.0, not 1.0.0)',
       initialValue: answers.capZeroMajor,
     }))
   }
@@ -294,7 +294,7 @@ async function askChangelog(detection: ProjectDetection, answers: InitAnswers): 
   result.formatCmd = await askText({
     message: formatter
       ? `Command formatting the changelogs once written (leave empty to use ${formatter}, detected):`
-      : 'Command formatting the changelogs once written (leave empty to skip):',
+      : 'Command formatting the changelogs once written (optional):',
     placeholder: 'e.g. eslint --fix {{files}}',
     initialValue: !formatter && detection.root.scripts.format
       ? getRunCommand(detection.packageManager, 'format')
@@ -322,7 +322,7 @@ async function askPublish(detection: ProjectDetection, answers: InitAnswers): Pr
       initialValue: detected.registry ?? 'https://registry.npmjs.org',
     }),
     buildCmd: await askText({
-      message: 'Command building the packages before publishing (leave empty to skip):',
+      message: 'Build command run before publishing (optional):',
       placeholder: `e.g. ${getRunCommand(detection.packageManager, 'build')}`,
       initialValue: answers.buildCmd,
     }),
@@ -334,7 +334,7 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
 
   log.step(c.bold('Announcements'))
   const socials = await answer(multiselect({
-    message: 'Announce the releases on (leave empty to skip):',
+    message: 'Announce the releases on (optional):',
     required: false,
     options: [
       { value: 'twitter', label: 'Twitter / X', hint: 'needs Twitter API keys in your CI' },
@@ -349,7 +349,7 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
     result.slackChannel = await askText({ message: 'Slack channel (name or ID):', placeholder: '#releases', initialValue: '#releases' })
   }
   if (socials.length > 0) {
-    result.changelogUrl = await askText({ message: 'URL of the full changelog, linked in the posts (leave empty to skip):', placeholder: 'https://acme.dev/changelog' })
+    result.changelogUrl = await askText({ message: 'URL of the changelog linked in the posts (optional):', placeholder: 'https://acme.dev/changelog' })
   }
   if (supportsProviderRelease(detection.provider)) {
     result.prCommentMode = await answer(select({
@@ -396,7 +396,7 @@ async function askAI(detection: ProjectDetection, answers: InitAnswers): Promise
 
   log.step(c.bold('AI'))
   const ai = await answer(multiselect({
-    message: 'Rewrite with Claude, from the changelog (leave empty to skip):',
+    message: 'Rewrite with Claude, from the changelog (optional):',
     required: false,
     options: targets,
   }))
@@ -467,6 +467,8 @@ interface PlannedWorkflow {
   mergePreviewIncluded?: boolean
   /** The CI name: `GitHub Actions` */
   ci: string
+  /** The default branch, which the merge requests of the merge preview target */
+  branch: string
   /** Secrets (GitHub) or CI/CD variables (GitLab) to create */
   secrets: string[]
 }
@@ -511,9 +513,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   }
   const preview = plan.workflow?.mergePreviewFile
   if (preview) {
-    const detail = plan.workflow!.ci === CI_NAMES.gitlab
-      ? 'what the merge of each merge request releases'
-      : 'what the merge of each pull request releases'
+    const requests = plan.workflow!.ci === CI_NAMES.gitlab
+      ? 'merge requests'
+      : 'pull requests'
+    const detail = `merge preview of the ${requests} into ${plan.workflow!.branch}`
     rows.push(`${getFileAction(preview.replace)}${preview.path} ${c.dim(detail)}`)
   }
   if (plan.agents.length > 0) {
@@ -550,14 +553,14 @@ async function askHook(cwd: string, interactive: boolean, kept: KeptStep[]): Pro
   const other = findOtherCommitMsgHook(cwd)
   if (!other) {
     const install = await ask(interactive, true, () => confirm({
-      message: 'Check the commit messages at each commit with relizy commitlint? (types, scopes, changelog preview)',
+      message: 'Lint each commit message with relizy commitlint? (commit-msg hook)',
       initialValue: true,
     }))
     return { install, force: false }
   }
 
   const replace = await ask(interactive, false, () => confirm({
-    message: `A commit-msg hook already exists (${other}), replace it with relizy commitlint? (types, scopes, changelog preview)`,
+    message: `Replace the commit-msg hook (${other}) with relizy commitlint?`,
     initialValue: false,
   }))
   if (!replace) {
@@ -600,8 +603,8 @@ async function askAgents(cwd: string, interactive: boolean, kept: KeptStep[]): P
   const update = changes?.every(file => existsSync(join(cwd, file)))
   const wanted = await ask(interactive, true, () => confirm({
     message: update
-      ? `Update the relizy MCP server and rules of your AI agents? (${changes!.join(', ')} differ from the ones of this relizy)`
-      : `Add the relizy MCP server and rules to your AI agents (${targets.join(', ')})? (release preview, commit linting, config reference)`,
+      ? 'Update the relizy MCP and rules for your AI agents?'
+      : 'Set up relizy MCP and rules for your AI agents?',
     initialValue: true,
   }))
   return {
@@ -649,7 +652,7 @@ async function planWorkflowFile({ cwd, file, label, interactive }: {
   if (!exists) {
     return { ...file, replace: false }
   }
-  if (await ask(interactive, false, () => confirm({ message: `${file.path} already exists, replace it?`, initialValue: false }))) {
+  if (await ask(interactive, false, () => confirm({ message: `${file.path} already exists and does not run relizy, replace it?`, initialValue: false }))) {
     return { ...file, replace: true }
   }
 
@@ -726,7 +729,7 @@ async function askExistingWorkflow({ existing, label, interactive, kept }: {
     return 'ask'
   }
   if (existing.state === 'outdated' && await ask(interactive, false, () => confirm({
-    message: `${existing.path} differs from ${label} relizy init generates (edited, or by an older relizy), replace it?`,
+    message: `${existing.path} was edited or generated by an older relizy, replace it?`,
     initialValue: false,
   }))) {
     return 'replace'
@@ -795,15 +798,17 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
       })
     : 'keep'
   const wantRelease = releaseAction === 'replace' || (releaseAction === 'ask' && await ask(interactive, true, () => confirm({
-    message: `Generate the release workflow of ${ci}? (installs, the tokens it needs, the outputs of the release)`,
+    message: `Generate the ${ci} ${provider === 'gitlab'
+      ? 'job'
+      : 'workflow'} that releases from ${base.branch}?`,
     initialValue: true,
   })))
   const trigger = wantRelease
     ? await ask<WorkflowTrigger>(interactive, 'manual', () => select<WorkflowTrigger>({
-        message: 'When does the workflow release?',
+        message: 'When should the CI release?',
         options: [
           { value: 'manual', label: 'On demand', hint: 'run it from the CI, choosing the release type (auto, patch, minor, major)' },
-          { value: 'push', label: 'At each push on the default branch', hint: 'releases as soon as a commit bumps a version' },
+          { value: 'push', label: `At each push to ${base.branch}`, hint: 'releases as soon as a commit bumps a version' },
         ],
         initialValue: 'manual',
       }))
@@ -826,9 +831,9 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
         kept,
       })
   const mergePreview = previewAction === 'replace' || (previewAction === 'ask' && await ask(interactive, true, () => confirm({
-    message: `Preview the release in each ${provider === 'gitlab'
+    message: `Preview the release in the ${provider === 'gitlab'
       ? 'merge'
-      : 'pull'} request? (a comment and a commit status: what the merge releases, red when its release would fail)`,
+      : 'pull'} requests into ${base.branch}? (a comment, and a check that fails when the release would fail)`,
     initialValue: true,
   })))
   if (!wantRelease && !mergePreview) {
@@ -879,6 +884,7 @@ async function askWorkflow({ detection, answers, commitMessage, interactive, rel
     ...(mergePreviewFile && { mergePreviewFile }),
     ...(mergePreviewIncluded && { mergePreviewIncluded }),
     ci,
+    branch: base.branch,
     // The secrets of the release, the merge preview alone uses the token of the job
     secrets: file
       ? getWorkflowSecrets(options)
@@ -1027,7 +1033,7 @@ async function askConfig({ detection, options, interactive, keep }: {
   }
 
   const advanced = await ask(interactive, false, () => confirm({
-    message: 'Customize the changelog, publishing, announcements and AI? (you can edit the config later)',
+    message: 'Customize the changelog, publishing, announcements and AI?',
     initialValue: false,
   }))
   if (advanced) {
@@ -1076,7 +1082,7 @@ async function runInit({ options, detection, configFile, interactive }: {
     ? getPrepareScript(detection)
     : {}
   const withPrepare = Object.keys(prepareScript).length > 0 && await ask(interactive, true, () => confirm({
-    message: `Keep the agent rules up to date at each install? (adds "relizy mcp update" to the prepare script of the package.json)`,
+    message: 'Update the agent rules at each install? (adds "relizy mcp update" to the prepare script)',
     initialValue: true,
   }))
 
