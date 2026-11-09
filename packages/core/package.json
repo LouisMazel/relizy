@@ -1,0 +1,72 @@
+{
+  "name": "@relizy/core",
+  "type": "module",
+  "version": "2.2.0",
+  "description": "Generic building blocks of Relizy: workspaces, catalogs, package managers, registries, git and CI helpers, commit parsing and linting, GitHub/GitLab providers",
+  "author": "Louis Mazel <me@loicmazuel.com>",
+  "license": "MIT",
+  "homepage": "https://relizy.dev",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LouisMazel/relizy.git",
+    "directory": "packages/core"
+  },
+  "bugs": "https://github.com/LouisMazel/relizy/issues",
+  "keywords": [
+    "relizy",
+    "monorepo",
+    "workspaces",
+    "catalogs",
+    "git",
+    "ci",
+    "commits",
+    "commitlint"
+  ],
+  "sideEffects": false,
+  "publishConfig": {
+    "access": "public"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.mjs"
+    }
+  },
+  "main": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "LICENSE",
+    "README.md",
+    "dist"
+  ],
+  "engines": {
+    "node": "^22.23.4 || ^24.22.1 || >=26.12.1"
+  },
+  "scripts": {
+    "build": "unbuild",
+    "dev": "unbuild --stub",
+    "typecheck": "tsc --noEmit --skipLibCheck",
+    "test:unit": "vitest run"
+  },
+  "dependencies": {
+    "@maz-ui/node": "^5.6.0",
+    "@maz-ui/utils": "^5.5.0",
+    "confbox": "^0.3.2",
+    "convert-gitmoji": "^0.1.5",
+    "fast-glob": "^3.3.3",
+    "mdast-util-from-markdown": "^2.1.0",
+    "mdast-util-gfm": "^3.1.0",
+    "micromark-extension-gfm": "^3.0.0",
+    "micromatch": "^4.0.8",
+    "semver": "^7.8.6"
+  },
+  "devDependencies": {
+    "@types/mdast": "^4.0.4",
+    "@types/micromatch": "^4.0.10",
+    "@types/node": "^26.6.6",
+    "@types/semver": "^7.8.0",
+    "typescript": "^6.0.3",
+    "unbuild": "^3.6.1",
+    "vitest": "^5.1.0"
+  }
+}

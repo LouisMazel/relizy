@@ -1,0 +1,170 @@
+import { describe, expect, it } from 'vitest'
+import { redactSecrets } from '../redact'
+
+describe('Given redactSecrets function', () => {
+  describe('When values live under the tokens container', () => {
+    it('Then masks every token value but keeps a recognizable extract', () => {
+      const result = redactSecrets({
+        tokens: {
+          registry: 'npm_ZJLIEE5NB9oDZIqNrHqAbST62Hwk',
+          github: 'github_pat_11ACYEURI0Az3sxaTxp0Ia',
+        },
+      })
+
+      // long secrets keep their known prefix and their last 4 chars
+      expect(result.tokens.registry).toBe('npm_***2Hwk')
+      expect(result.tokens.github).toBe('github_pat_***p0Ia')
+    })
+
+    it('Then reveals no character of a secret without known prefix but its last 4', () => {
+      const result = redactSecrets({
+        tokens: {
+          twitter: { apiKey: 'Xq81bZr0aT5mKe9LwYv3', accessToken: '1234567890-AbCdEfGhIjKlMnOp' },
+          slack: 'sk-ant-oat01-abcdefghij1234',
+        },
+      })
+
+      expect(result.tokens.twitter.apiKey).toBe('***wYv3')
+      expect(result.tokens.twitter.accessToken).toBe('***MnOp')
+      expect(result.tokens.slack).toBe('sk-ant-oat***1234')
+    })
+
+    it('Then fully masks short secrets (no extract revealed)', () => {
+      const result = redactSecrets({
+        tokens: {
+          twitter: { apiKey: 'tw-key', apiKeySecret: 'short-secret' },
+        },
+      })
+
+      expect(result.tokens.twitter.apiKey).toBe('***')
+      expect(result.tokens.twitter.apiKeySecret).toBe('***')
+    })
+  })
+
+  describe('When sensitive keys appear outside the tokens container', () => {
+    it('Then masks them by key name', () => {
+      const result = redactSecrets({
+        publish: { token: 'npm_FAKE000ZJLIEE5NB9oDZIqNr', registry: 'https://registry.npmjs.org/' },
+        repo: { token: 'short', repo: 'owner/name' },
+        social: {
+          slack: {
+            credentials: { token: 'xoxb-secret' },
+            webhookUrl: 'https://hooks.slack.com/services/AAAA/BBBB/CCCC',
+          },
+        },
+        ai: {
+          providers: {
+            'claude-code': { oauthToken: 'sk-ant-oat01-abcdefghij', apiKey: 'ai-key' },
+          },
+        },
+      })
+
+      expect(result.publish.token).not.toContain('FAKE000ZJLIEE5NB9oDZIqNr')
+      expect(result.publish.token).toBe('npm_***IqNr')
+      expect(result.repo.token).toBe('***')
+      expect(result.social.slack.credentials.token).toBe('***')
+      expect(result.social.slack.webhookUrl).toBe('https://hooks.slack.com/***')
+      expect(result.ai.providers['claude-code'].oauthToken).not.toContain('abcdefghij')
+      expect(result.ai.providers['claude-code'].apiKey).toBe('***')
+    })
+  })
+
+  describe('When tokens live inside the publish.registries array', () => {
+    it('Then masks each registry entry token but keeps the registry URL', () => {
+      const result = redactSecrets({
+        publish: {
+          registry: 'https://registry.npmjs.org/',
+          registries: [
+            { name: 'nexus', registry: 'https://nexus.internal/repo/', token: 'nexus-secret-token-abcdefgh' },
+            {
+              name: 'jfrog',
+              registry: 'https://jfrog.internal/repo/',
+              packageFilter: ['@scope/*'],
+            },
+          ],
+        },
+      })
+
+      expect(result.publish.registries[0].token).not.toContain('secret-token-abcdefgh')
+      expect(result.publish.registries[0].registry).toBe('https://nexus.internal/repo/')
+      expect(result.publish.registries[1].token).toBeUndefined()
+      expect(result.publish.registries[1].packageFilter).toEqual(['@scope/*'])
+    })
+  })
+
+  describe('When values are not sensitive', () => {
+    it('Then leaves them untouched', () => {
+      const result = redactSecrets({
+        publish: { registry: 'https://registry.npmjs.org/', access: 'public' },
+        repo: { repo: 'owner/name', provider: 'github' },
+        version: '1.2.0',
+      })
+
+      expect(result.publish.registry).toBe('https://registry.npmjs.org/')
+      expect(result.publish.access).toBe('public')
+      expect(result.repo.repo).toBe('owner/name')
+      expect(result.version).toBe('1.2.0')
+    })
+  })
+
+  describe('When given an object', () => {
+    it('Then does not mutate the original', () => {
+      const original = {
+        tokens: { github: 'github_pat_secret' },
+      }
+
+      redactSecrets(original)
+
+      expect(original.tokens.github).toBe('github_pat_secret')
+    })
+  })
+
+  describe('When an object references one of its ancestors', () => {
+    it('Then replaces the reference instead of recursing forever, and the result is serializable', () => {
+      // e.g. a model instance of ai.providers['ai-sdk'] whose client points back to it
+      const model: Record<string, any> = {
+        modelId: 'gpt-5-mini',
+        config: { provider: 'openai', apiKey: 'sk-1234567890abcdef' },
+      }
+      model.config.client = model
+
+      const result = redactSecrets({
+        ai: {
+          providers: {
+            'ai-sdk': { model },
+          },
+        },
+      }) as any
+
+      expect(result.ai.providers['ai-sdk'].model.config.client).toBe('[Circular]')
+      expect(result.ai.providers['ai-sdk'].model.config.apiKey).toBe('sk-***cdef')
+      expect(() => JSON.stringify(result)).not.toThrow()
+    })
+
+    it('Then keeps an object referenced twice without a cycle', () => {
+      const shared = { url: 'https://example.com' }
+
+      expect(redactSecrets({
+        a: shared,
+        b: [shared],
+      })).toEqual({
+        a: shared,
+        b: [shared],
+      })
+    })
+  })
+
+  describe('When empty or nullish values are present', () => {
+    it('Then keeps them as-is', () => {
+      const result = redactSecrets({
+        tokens: { registry: '', github: undefined, twitter: {} },
+        publish: { token: null },
+      })
+
+      expect(result.tokens.registry).toBe('')
+      expect(result.tokens.github).toBeUndefined()
+      expect(result.tokens.twitter).toEqual({})
+      expect(result.publish.token).toBeNull()
+    })
+  })
+})
