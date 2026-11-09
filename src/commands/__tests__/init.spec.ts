@@ -187,7 +187,10 @@ describe('Given init command', () => {
       await init({ cwd, yes: true, force: true })
 
       // Not set up again
-      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('AI agents (claude) relizy rules and MCP server already set up'), 'Changes')
+      expect(notes()).toContainEqual([
+        expect.stringContaining('AI agents (claude) relizy rules and MCP server already set up'),
+        'Changes',
+      ])
       expect(vi.mocked(log.success)).not.toHaveBeenCalledWith(expect.stringContaining('AI agents'))
 
       rmSync(join(cwd, 'CLAUDE.md'))
