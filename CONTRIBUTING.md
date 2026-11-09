@@ -147,7 +147,7 @@ pnpm test:unit:watch
 pnpm test:unit:coverage
 
 # Run a single spec file
-pnpm vitest run src/core/__tests__/version.spec.ts
+pnpm vitest run packages/relizy/src/core/__tests__/version.spec.ts
 ```
 
 #### Linting Commands
@@ -163,7 +163,7 @@ pnpm lint:fix
 #### Testing the CLI Locally
 
 ```bash
-# Run the CLI from the sources (tsx src/cli.ts)
+# Run the CLI from the sources, from the root of the repository (tsx packages/relizy/src/cli.ts)
 pnpm relizy <command> [options]
 # or
 pnpm rly <command> [options]
@@ -182,31 +182,29 @@ Understanding the project structure will help you navigate the codebase:
 
 ```text
 relizy/
-├── src/
-│   ├── cli.ts                  # CLI entry point with Commander.js
-│   ├── index.ts                # Public API (an explicit list, see src/__tests__/index.spec.ts)
-│   ├── types.ts                # Types of the config, the options and the results
-│   ├── commands/               # One file per command
-│   │   ├── bump.ts             # Versions
-│   │   ├── changelog.ts        # Changelogs
-│   │   ├── commitlint.ts       # Commit message linter
-│   │   ├── init.ts             # relizy init (config, CI workflow, AI agents)
-│   │   ├── pr-comment.ts       # Comment of the pull request
-│   │   ├── provider-release.ts # GitHub/GitLab releases
-│   │   ├── publish.ts          # npm publishing
-│   │   ├── release.ts          # The whole release
-│   │   └── social.ts           # Twitter (X) and Slack posts
-│   ├── core/                   # Logic of the commands (git, tags, versions, npm, AI, commitlint...)
-│   ├── mcp/                    # MCP server for the AI agents (relizy mcp)
-│   └── **/__tests__/           # Specs, *.git.spec.ts on real git repositories
-├── agent-docs/                 # Docs bundle of the MCP server, generated (gitignored, published)
-├── bin/
-│   └── relizy.mjs              # CLI executable entry point
-├── scripts/                    # Generation of agent-docs, AI evaluations, peer dependency check
+├── packages/
+│   ├── relizy/                 # The relizy package (CLI and API)
+│   │   ├── src/
+│   │   │   ├── cli.ts          # CLI entry point with Commander.js
+│   │   │   ├── index.ts        # Public API (an explicit list, see src/__tests__/index.spec.ts)
+│   │   │   ├── types.ts        # Types of the config, the options and the results
+│   │   │   ├── commands/       # One file per command (bump, changelog, commitlint, init, pr-comment,
+│   │   │   │                   #   provider-release, publish, release, social)
+│   │   │   ├── core/           # Logic of the commands (git, tags, versions, npm, AI, commitlint...)
+│   │   │   ├── mcp/            # MCP server for the AI agents (relizy mcp)
+│   │   │   └── **/__tests__/   # Specs, *.git.spec.ts on real git repositories
+│   │   ├── agent-docs/         # Docs bundle of the MCP server, generated (gitignored, published)
+│   │   ├── bin/relizy.mjs      # CLI executable entry point
+│   │   ├── scripts/            # Generation of agent-docs, AI evaluations, peer dependency check
+│   │   └── tests/              # Mocks and test helpers of relizy
+│   └── core/                   # @relizy/core: the generic building blocks (workspaces, catalogs,
+│       └── src/                #   registries, git helpers, GitHub/GitLab providers)
 ├── .github/                    # GitHub templates and workflows
 ├── docs/                       # VitePress documentation
-└── tests/                      # Shared mocks and test helpers
+└── tests/                      # Test helper shared by the packages (git repository)
 ```
+
+The paths below are relative to `packages/relizy/`.
 
 ### Key Files to Know
 
@@ -215,13 +213,13 @@ relizy/
 - **`src/core/config.ts`**: Default configuration (`getDefaultConfig()`) and config loading
 - **`src/types.ts`**: All the types, with the JSDoc read by the API reference and the MCP server
 - **`CLAUDE.md`**: Architecture of the codebase
-- **`vitest.config.ts`**: Test configuration and coverage thresholds
+- **`vitest.config.ts`** (root): Test configuration and coverage thresholds of both packages
 
 ## Testing
 
 ### Unit Tests
 
-Tests are written using [Vitest](https://vitest.dev/), next to the code in `src/**/__tests__/`. The coverage covers `src/`, with the thresholds of `vitest.config.ts`. The specs named `*.git.spec.ts` run on real git repositories, created in a temporary directory.
+Tests are written using [Vitest](https://vitest.dev/), next to the code in `src/**/__tests__/`. The coverage covers the `src/` of both packages, with the thresholds of the root `vitest.config.ts`. The specs named `*.git.spec.ts` run on real git repositories, created in a temporary directory.
 
 ```bash
 # Run all tests

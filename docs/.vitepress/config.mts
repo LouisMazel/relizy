@@ -4,7 +4,7 @@ import { resolve } from 'node:path'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
-import packageJson from '../../package.json' with { type: 'json' }
+import packageJson from '../../packages/relizy/package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 import { writeAgentSkills, writeAiCatalog } from './agents'
 

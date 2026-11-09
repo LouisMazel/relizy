@@ -6,7 +6,9 @@
 version: 2
 updates:
   - package-ecosystem: npm # See documentation for possible values
-    directory: / # Location of package manifests
+    directories: # Locations of package manifests
+      - /
+      - /packages/*
     target-branch: develop
     schedule:
       interval: weekly # Check for updates every week

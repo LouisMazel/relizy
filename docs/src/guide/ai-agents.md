@@ -32,8 +32,8 @@ Install Relizy as a devDependency of the project: the agents then start the inst
 | `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                                                                                                     |
 | `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                                                                                                 |
 | `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                                                                                                   |
-| `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                                                                                       |
-| `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                                                                                                    |
+| `search_docs`       | Search in the guides, the config, the CLI, the commitlint docs and the API of `@relizy/core`                                                                                                                                                        |
+| `get_doc`           | Read a page of the docs (`core/<domain>` for `@relizy/core`: each export with its signature, options and example), or some of its sections                                                                                                          |
 | `check_migration`   | What to change to upgrade from Relizy 1: the dependency, the removed and renamed options, the social templates, the version groups, the hooks, the CLI calls of the scripts and the CI, and the code calling the API, file by file and line by line |
 
 It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy`, `migrate-to-v2` and `setup-ci`. To upgrade from Relizy 1, ask your agent for `migrate-to-v2`: it reads the [migration guide](./migration-v2.md), runs `check_migration` and proposes the changes.
@@ -124,7 +124,7 @@ Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.
 
 The rules written by `relizy mcp init`:
 
-<!--@include: ./../../../src/mcp/content/rules.md-->
+<!--@include: ./../../../packages/relizy/src/mcp/content/rules.md-->
 
 ## Troubleshooting
 

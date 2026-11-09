@@ -7,7 +7,9 @@ minimumReleaseAgeExclude:
 packages:
   - .
   - docs
+  - packages/*
 
 allowBuilds:
   esbuild: true
+  nx: true
   vue-demi: true
