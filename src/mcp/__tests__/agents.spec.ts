@@ -1,9 +1,16 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { isInCI } from '../../core/ci-env'
 import { addAgentRulesCommand, findOutdatedRules, formatAgentsChanges, getDefaultAgentTargets, mcpInit, mcpUpdate, readOwnAgentDocs, RELIZY_AGENTS_TOOL, setupPrepareScript, setupRelizyAgents } from '../agents'
 import { readOwnVersion } from '../version'
 import { cleanTempDirs, createTempDir, getBundleDir, writeOutdatedRules } from './helpers'
+
+// The CI running these tests must not turn mcpUpdate into a no-op
+vi.mock('../../core/ci-env', async importActual => ({
+  ...await importActual<typeof import('../../core/ci-env')>(),
+  isInCI: vi.fn(() => false),
+}))
 
 let cwd: string
 
@@ -183,6 +190,16 @@ describe('Given mcpUpdate', () => {
       expect(findOutdatedRules(cwd)).toEqual([])
 
       log.mockRestore()
+    })
+  })
+
+  describe('When it runs in CI', () => {
+    it('Then an outdated rule is not rewritten, as nobody commits it there', () => {
+      vi.mocked(isInCI).mockReturnValueOnce(true)
+      writeOutdatedRules(cwd)
+
+      expect(mcpUpdate({ cwd })).toEqual([])
+      expect(read('.claude/rules/relizy.md')).toContain('A rule of an older relizy.')
     })
   })
 

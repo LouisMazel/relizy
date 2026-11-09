@@ -106,6 +106,7 @@ What it does not do, unlike `relizy mcp init`:
 - It never touches the MCP config of the agents.
 - It never rewrites rules edited by hand.
 - It does not fail on a project without rules.
+- It does nothing in CI, where the `prepare` script also runs at each install: nobody would commit the rewritten files there.
 
 The global `--dry-run` lists the files it would update without writing them:
 

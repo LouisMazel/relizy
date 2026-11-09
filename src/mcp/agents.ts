@@ -4,6 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { AGENT_TARGETS, detectAgentTargets, logger, setupAgents } from '@maz-ui/node'
+import { isInCI } from '../core/ci-env'
 import { defaultBundleDir } from './knowledge/paths'
 import { readOwnVersion } from './version'
 
@@ -135,8 +136,13 @@ const RULE_FILE_TARGETS: Record<string, AgentTarget> = {
  * `relizy mcp update`: rewrite the rule files of relizy that already exist and whose content changed.
  * Never creates a file, never touches the MCP config nor a file edited by hand. Silent when everything is up to date.
  * Never throws: a project without rules has nothing to update.
+ * Does nothing in CI, where the `prepare` script also runs: nobody commits the files it would rewrite there.
  */
 export function mcpUpdate({ cwd = process.cwd(), dryRun = false }: McpUpdateOptions = {}): SetupAgentsChange[] {
+  if (isInCI()) {
+    return []
+  }
+
   try {
     const targets = [
       ...new Set(findOutdatedRules(cwd).map(file => RULE_FILE_TARGETS[file]).filter((target): target is AgentTarget => !!target)),
