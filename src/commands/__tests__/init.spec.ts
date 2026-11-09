@@ -3,7 +3,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync,
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { stripVTControlCharacters } from 'node:util'
-import { cancel, confirm, log, multiselect, note, select, text } from '@clack/prompts'
+import { cancel, confirm, log, multiselect, note, outro, select, text } from '@clack/prompts'
 import { logger } from '@maz-ui/node'
 import { setInteractiveTerminal } from '../../../tests/mocks'
 import { getDefaultConfig } from '../../core'
@@ -100,7 +100,8 @@ describe('Given init command', () => {
 
   afterEach(() => {
     rmSync(cwd, { recursive: true, force: true })
-    vi.clearAllMocks()
+    // Also drops the answers a test did not use
+    vi.resetAllMocks()
   })
 
   describe('When accepting the detected values', () => {
@@ -181,10 +182,13 @@ describe('Given init command', () => {
     it('Then reports the AI agents already set up, and does not set up a project without agent', async () => {
       write('CLAUDE.md', '# mono')
       await init({ cwd, yes: true })
+      vi.mocked(log.success).mockClear()
 
       await init({ cwd, yes: true, force: true })
 
-      expect(vi.mocked(log.success)).toHaveBeenCalledWith('The AI agents are already set up for relizy')
+      // Not set up again
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('AI agents (claude) relizy rules and MCP server already set up'), 'Changes')
+      expect(vi.mocked(log.success)).not.toHaveBeenCalledWith(expect.stringContaining('AI agents'))
 
       rmSync(join(cwd, 'CLAUDE.md'))
       rmSync(join(cwd, '.claude'), { recursive: true })
@@ -431,14 +435,13 @@ describe('Given init command', () => {
       answer(multiselect, [
         ['packages/*', 'tools/*'],
       ])
-      // advanced, hook, script, workflow, merge preview, apply, replace the hook
+      // advanced, replace the hook, script, workflow, merge preview, apply
       answer(confirm, [
         false,
         true,
         true,
         false,
         false,
-        true,
         true,
       ])
 
@@ -589,6 +592,101 @@ describe('Given init command', () => {
     })
   })
 
+  describe('When parts of relizy are already set up', () => {
+    let restoreTerminal: () => void
+
+    beforeEach(() => {
+      restoreTerminal = setInteractiveTerminal(true)
+    })
+
+    afterEach(() => {
+      restoreTerminal()
+    })
+
+    it('Then asks nothing again on a project already set up, and changes nothing', async () => {
+      write('CLAUDE.md', '# mono')
+      await init({ cwd, yes: true })
+      // The config written imports relizy, not installed in the temporary project
+      write('relizy.config.ts', 'export default {}')
+      vi.mocked(note).mockClear()
+      answer(select, ['keep'])
+
+      const result = await init({ cwd })
+
+      expect(vi.mocked(confirm)).not.toHaveBeenCalled()
+      expect(vi.mocked(select)).toHaveBeenCalledTimes(1)
+      expect(result).toEqual(expect.objectContaining({ kept: true, written: false, scripts: [] }))
+      expect(vi.mocked(outro)).toHaveBeenCalledWith(expect.stringContaining('relizy is already set up, nothing to change'))
+      const [changes] = notes().find(([, title]) => title === 'Changes')!
+      expect(changes).toContain('keep     commit-msg hook already runs relizy commitlint')
+      expect(changes).toContain('keep     AI agents (claude) relizy rules and MCP server already set up')
+      expect(changes).toContain('keep     .github/workflows/release.yml the release workflow, up to date')
+      expect(changes).toContain('keep     .github/workflows/merge-preview.yml the merge preview workflow, up to date')
+    })
+
+    it('Then offers to replace a workflow written by relizy init and edited since', async () => {
+      await init({ cwd, yes: true })
+      write('relizy.config.ts', 'export default {}')
+      write('.github/workflows/release.yml', `${read('.github/workflows/release.yml')}      - run: echo edited\n`)
+      answer(select, ['keep', 'manual', 'integration'])
+      // replace the release workflow, apply
+      answer(confirm, [true, true])
+
+      const result = await init({ cwd })
+
+      expect(vi.mocked(confirm)).toHaveBeenCalledWith(expect.objectContaining({
+        message: '.github/workflows/release.yml differs from the release workflow relizy init generates (edited, or by an older relizy), replace it?',
+      }))
+      expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
+      expect(read('.github/workflows/release.yml')).not.toContain('echo edited')
+    })
+
+    it('Then keeps a release job of the project, and writes the merge preview alone on a self-managed GitLab', async () => {
+      write('relizy.config.ts', 'export default {}')
+      execFileSync('git', [
+        'remote',
+        'set-url',
+        'origin',
+        'git@gitlab.acme.net:acme/mono.git',
+      ], { cwd })
+      write('.gitlab-ci.yml', 'include:\n  - local: .gitlab/ci/release.yml\n')
+      write('.gitlab/ci/release.yml', 'release:\n  script:\n    # Releases the packages\n    - pnpm relizy release --yes\n')
+      answer(select, ['keep'])
+      // hook, script, merge preview, apply
+      answer(confirm, [false, false, true, true])
+
+      const result = await init({ cwd })
+
+      expect(vi.mocked(confirm)).not.toHaveBeenCalledWith(expect.objectContaining({
+        message: expect.stringContaining('Generate the release workflow'),
+      }))
+      expect(result.workflow).toBeUndefined()
+      expect(result.mergePreview).toEqual({ file: '.gitlab/ci/relizy-merge-preview.yml' })
+      expect(read('.gitlab/ci/relizy-merge-preview.yml')).toContain('merge-preview:\n  stage: test\n')
+      expect(read('.gitlab-ci.yml')).toBe('include:\n  - local: .gitlab/ci/release.yml\n')
+      const [changes] = notes().find(([, title]) => title === 'Changes')!
+      expect(changes).toContain('create   .gitlab/ci/relizy-merge-preview.yml what the merge of each merge request releases')
+      expect(changes).toContain('keep     .gitlab/ci/release.yml the release workflow, already set up')
+      expect(notes()).toContainEqual([
+        expect.stringContaining('Include the preview   include:   - local: .gitlab/ci/relizy-merge-preview.yml in .gitlab-ci.yml'),
+        'Next steps',
+      ])
+    })
+
+    it('Then writes the merge preview alone on GitHub when the release workflow is declined', async () => {
+      write('relizy.config.ts', 'export default {}')
+      answer(select, ['keep', 'integration'])
+      // hook, script, release workflow, merge preview, apply
+      answer(confirm, [false, false, false, true, true])
+
+      const result = await init({ cwd })
+
+      expect(result.workflow).toBeUndefined()
+      expect(result.mergePreview).toEqual({ file: '.github/workflows/merge-preview.yml' })
+      expect(existsSync(join(cwd, '.github/workflows/release.yml'))).toBe(false)
+    })
+  })
+
   describe('When initializing a standalone package', () => {
     beforeEach(() => {
       rmSync(join(cwd, 'pnpm-workspace.yaml'))
@@ -714,7 +812,8 @@ describe('Given init command', () => {
       it('Then keeps an existing commit-msg hook when the replacement is declined', async () => {
         write('.git/hooks/commit-msg', '#!/bin/sh\nnpx commitlint --edit "$1"\n')
         answer(select, ['version'])
-        answer(confirm, [false, true, true, false])
+        // advanced, replace the hook, apply
+        answer(confirm, [false, false, true])
 
         const result = await init({ cwd })
 

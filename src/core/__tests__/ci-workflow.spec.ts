@@ -1,5 +1,8 @@
 import type { WorkflowOptions } from '../ci-workflow'
-import { getGitlabMergePreviewSnippet, getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets } from '../ci-workflow'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { dirname, join } from 'node:path'
+import { findCiSetup, getInstallDependenciesCommand, getMergePreviewWorkflowFile, getRelizyCommand, getWorkflowFile, getWorkflowSecrets, isGeneratedWorkflow } from '../ci-workflow'
 
 const options: WorkflowOptions = {
   provider: 'github',
@@ -179,12 +182,12 @@ describe('Given the commands of a package manager', () => {
 
 describe('Given the merge preview of the release workflow', () => {
   it('When it is not wanted, Then there is no merge preview workflow', () => {
-    expect(getMergePreviewWorkflowFile(options)).toBeUndefined()
+    expect(getMergePreviewWorkflowFile(options, '/nonexistent')).toBeUndefined()
     expect(getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true }, '/nonexistent').content).not.toContain('merge-preview')
   })
 
   it('When it is wanted on GitHub, Then runs the action with merge-preview on the pull requests into the default branch', () => {
-    const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true })!
+    const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true }, '/nonexistent')!
 
     expect(file.path).toBe('.github/workflows/merge-preview.yml')
     expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n    # edited: a new title (the commit of a squash merge) or a new base\n    types: [opened, synchronize, reopened, edited]\n')
@@ -200,24 +203,29 @@ describe('Given the merge preview of the release workflow', () => {
       mergePreview: true,
       publish: true,
       registryNeedsToken: true,
-    })!
+    }, '/nonexistent')!
 
     // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
     expect(file.content).toContain('          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
   })
 
-  it('When it is added by hand to .gitlab-ci.yml, Then gives the include of the component on gitlab.com, else the job', () => {
+  it('When the GitLab release job is kept, Then writes the merge preview in its own file: the include of the component on gitlab.com, else the job', () => {
     const gitlab = { ...options, provider: 'gitlab' as const, mergePreview: true }
+    const component = getMergePreviewWorkflowFile({ ...gitlab, gitlabCom: true }, '/nonexistent')!
 
-    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('include:\n  # What the merge')
-    expect(getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true })).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n')
-    for (const snippet of [
-      getGitlabMergePreviewSnippet(gitlab),
-      getGitlabMergePreviewSnippet({ ...gitlab, gitlabCom: true, integration: false }),
+    // Without .gitlab-ci.yml, it is .gitlab-ci.yml
+    expect(component.path).toBe('.gitlab-ci.yml')
+    expect(component.include).toBeUndefined()
+    expect(isGeneratedWorkflow(component.content)).toBe(true)
+    expect(component.content).toContain('include:\n  # What the merge')
+    expect(component.content).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n')
+    for (const file of [
+      getMergePreviewWorkflowFile(gitlab, '/nonexistent')!,
+      getMergePreviewWorkflowFile({ ...gitlab, gitlabCom: true, integration: false }, '/nonexistent')!,
     ]) {
-      expect(snippet).not.toContain('component:')
-      expect(snippet).toContain('merge-preview:\n  stage: test\n')
-      expect(snippet).toContain('    - pnpm exec relizy merge-preview\n')
+      expect(file.content).not.toContain('component:')
+      expect(file.content).toContain('merge-preview:\n  stage: test\n')
+      expect(file.content).toContain('    - pnpm exec relizy merge-preview\n')
     }
   })
 
@@ -231,7 +239,6 @@ describe('Given the merge preview of the release workflow', () => {
     }, '/nonexistent')
 
     expect(content).toContain('  - component: gitlab.com/relizy/relizy/merge-preview@2\n    inputs:\n      image: node:22\n')
-    expect(getMergePreviewWorkflowFile({ ...options, provider: 'gitlab', mergePreview: true })).toBeUndefined()
   })
 
   it('When it is wanted on a GitLab instance, Then writes the merge-preview job on the merge requests into the default branch', () => {
@@ -281,7 +288,7 @@ describe('Given the workflows run with the relizy CLI', () => {
   })
 
   it('When the merge preview is wanted on GitHub, Then runs relizy merge-preview', () => {
-    const file = getMergePreviewWorkflowFile({ ...cli, mergePreview: true })
+    const file = getMergePreviewWorkflowFile({ ...cli, mergePreview: true }, '/nonexistent')
 
     expect(file?.content).not.toContain('relizy/action')
     expect(file?.content).toContain('        run: pnpm exec relizy merge-preview\n')
@@ -298,5 +305,58 @@ describe('Given the workflows run with the relizy CLI', () => {
     expect(content).not.toContain('component:')
     expect(content).toContain('    - pnpm exec relizy release --yes $RELEASE_FLAG --report-dotenv relizy.env\n')
     expect(content).toContain('    - pnpm exec relizy merge-preview\n')
+  })
+})
+
+describe('Given the CI files of a project', () => {
+  let cwd: string
+
+  function write(path: string, content: string) {
+    mkdirSync(dirname(join(cwd, path)), { recursive: true })
+    writeFileSync(join(cwd, path), content)
+  }
+
+  beforeEach(() => {
+    cwd = mkdtempSync(join(tmpdir(), 'relizy-ci-setup-'))
+  })
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true })
+  })
+
+  it('When a GitLab file runs relizy, Then finds the release and the merge preview, skipping the comments', () => {
+    write('.gitlab-ci.yml', 'include:\n  - local: .gitlab/ci/release.yml\n')
+    write('.gitlab/ci/release.yml', 'release:\n  script:\n    - pnpm relizy release --yes\n')
+    write('.gitlab/ci/test.yml', '# relizy merge-preview later\ntest:\n  script: [pnpm test]\n')
+
+    expect(findCiSetup(cwd, 'gitlab')).toEqual({ release: '.gitlab/ci/release.yml' })
+
+    write('.gitlab/ci/relizy-merge-preview.yml', 'include:\n  - component: gitlab.com/relizy/relizy/merge-preview@2\n')
+
+    expect(findCiSetup(cwd, 'gitlab')).toEqual({ release: '.gitlab/ci/release.yml', mergePreview: '.gitlab/ci/relizy-merge-preview.yml' })
+  })
+
+  it('When the GitHub workflows use the relizy action, Then tells the release from the merge preview', () => {
+    write('.github/workflows/merge-preview.yml', getMergePreviewWorkflowFile({ ...options, mergePreview: true }, cwd)!.content)
+    write('.github/workflows/release.yml', getWorkflowFile(options, cwd).content)
+    write('.github/workflows/ci.yml', 'jobs:\n  test:\n    steps:\n      - run: pnpm test\n')
+
+    expect(findCiSetup(cwd, 'github')).toEqual({ release: '.github/workflows/release.yml', mergePreview: '.github/workflows/merge-preview.yml' })
+    expect(findCiSetup(cwd, 'gitlab')).toEqual({})
+  })
+
+  it('When .gitlab-ci.yml exists, Then puts the job in its own file, with the include unless .gitlab-ci.yml has it', () => {
+    write('.gitlab-ci.yml', 'test:\n  script: [pnpm test]\n')
+    const gitlab = { ...options, provider: 'gitlab' as const, mergePreview: true }
+
+    expect(getMergePreviewWorkflowFile(gitlab, cwd)).toEqual(expect.objectContaining({
+      path: '.gitlab/ci/relizy-merge-preview.yml',
+      include: 'include:\n  - local: .gitlab/ci/relizy-merge-preview.yml',
+    }))
+
+    write('.gitlab-ci.yml', 'include:\n  - local: .gitlab/ci/relizy-merge-preview.yml\n')
+
+    expect(getMergePreviewWorkflowFile(gitlab, cwd)!.include).toBeUndefined()
+    expect(getWorkflowFile(gitlab, cwd, '.gitlab-ci.yml')).toEqual(expect.objectContaining({ path: '.gitlab-ci.yml' }))
   })
 })

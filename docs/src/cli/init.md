@@ -84,11 +84,13 @@ On GitLab, `init` writes the `release` job in `.gitlab-ci.yml`, or in `.gitlab/c
 - corepack (pnpm, Yarn) or Bun, the install of the dependencies, the `claude` CLI for the AI rewrites, `relizy release --yes --report-dotenv relizy.env`;
 - the outputs of the release as a `dotenv` artifact (`RELIZY_RELEASED`, `RELIZY_VERSION`, `RELIZY_TAGS`...), for the next jobs.
 
-`init` also offers the [merge preview](./../guide/merge-preview.md) of the pull requests, on its own (yes by default, and with `--yes`), even when the release workflow is not generated or already exists: `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; the `merge-preview` component (or its job written out) in the same file on GitLab. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
+`init` also offers the [merge preview](./../guide/merge-preview.md) of the pull requests, on its own (yes by default, and with `--yes`), even when the release workflow is not generated or already exists: `.github/workflows/merge-preview.yml` on GitHub, which runs the action with `merge-preview: true` (`relizy merge-preview`) on the pull requests into the default branch; on GitLab, the `merge-preview` component (or its job written out) in the file of the release job when `init` generates it, else in `.gitlab/ci/relizy-merge-preview.yml` (or `.gitlab-ci.yml` when the project has none), with the `include:` to add. It comments what the merge releases and sets the commit status `relizy/merge-preview`.
 
 `init` asks how the CI runs relizy (on GitHub and gitlab.com): with the relizy action or component (the default, and with `--yes`), or with the relizy CLI, whose steps are written out in the workflow. The choice applies to the release and to the merge preview.
 
 The generated files are explained in [GitHub Actions](./../guide/github-actions.md) and [GitLab CI](./../guide/gitlab-ci.md). An existing workflow file is only replaced once confirmed.
+
+`init` does not ask again what is already set up, and lists it as kept in the changes: a commit-msg hook running `relizy commitlint` (husky, lefthook, simple-git-hooks, the hooks of git), the AI agents set up for relizy, a CI file already running `relizy release` or `relizy merge-preview` (the action, the component or the CLI). A workflow written by `init` and edited since, or by an older relizy, is replaced once confirmed; another commit-msg hook too. When nothing is left to do, `init` changes nothing.
 
 ## Options
 

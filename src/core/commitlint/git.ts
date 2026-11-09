@@ -240,14 +240,13 @@ export interface InstalledHook {
   status: 'created' | 'replaced' | 'unchanged'
 }
 
-const HOOK_COMMAND = 'npx --no -- relizy commitlint --edit "$1"'
+export const COMMIT_MSG_HOOK_COMMAND = 'npx --no -- relizy commitlint --edit "$1"'
 
 /**
- * Write the `commit-msg` hook running `relizy commitlint`: in `.husky/` when
- * husky is set up, otherwise in the hooks directory of git. An existing hook is
- * only replaced with `force`.
+ * The `commit-msg` hook written by relizy: in `.husky/` when husky is set up,
+ * otherwise in the hooks directory of git
  */
-export function installCommitMsgHook({ cwd, force = false }: { cwd: string, force?: boolean }): InstalledHook {
+function getCommitMsgHookPath(cwd: string): { root: string, path: string, husky: boolean } {
   const root = runGitSync(['rev-parse', '--show-toplevel'], { cwd })
   const husky = join(root, '.husky')
   const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
@@ -256,12 +255,46 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
         ? hooksPath
         : join(root, hooksPath))
     : getGitPath('hooks', cwd)
-  const path = join(existsSync(husky)
-    ? husky
-    : hooksDirectory, 'commit-msg')
-  const content = path.startsWith(husky)
-    ? `${HOOK_COMMAND}\n`
-    : `#!/bin/sh\n${HOOK_COMMAND}\n`
+  return existsSync(husky)
+    ? {
+        root,
+        path: join(husky, 'commit-msg'),
+        husky: true,
+      }
+    : {
+        root,
+        path: join(hooksDirectory, 'commit-msg'),
+        husky: false,
+      }
+}
+
+/**
+ * The `commit-msg` hook that relizy would replace, relative to the root of the
+ * repository: `undefined` without hook, outside a git repository, or when the
+ * hook already runs `relizy commitlint`
+ */
+export function findOtherCommitMsgHook(cwd: string): string | undefined {
+  try {
+    const { root, path } = getCommitMsgHookPath(cwd)
+    return existsSync(path) && !readFileSync(path, 'utf8').includes('relizy commitlint')
+      ? relative(root, path)
+      : undefined
+  }
+  catch {
+    return undefined
+  }
+}
+
+/**
+ * Write the `commit-msg` hook running `relizy commitlint`: in `.husky/` when
+ * husky is set up, otherwise in the hooks directory of git. An existing hook is
+ * only replaced with `force`.
+ */
+export function installCommitMsgHook({ cwd, force = false }: { cwd: string, force?: boolean }): InstalledHook {
+  const { root, path, husky } = getCommitMsgHookPath(cwd)
+  const content = husky
+    ? `${COMMIT_MSG_HOOK_COMMAND}\n`
+    : `#!/bin/sh\n${COMMIT_MSG_HOOK_COMMAND}\n`
 
   let status: InstalledHook['status'] = 'created'
   if (existsSync(path)) {
@@ -270,7 +303,7 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
       return { path, status: 'unchanged' }
     }
     if (!force) {
-      throw new Error(`A commit-msg hook already exists (${relative(root, path)}). Add "${HOOK_COMMAND}" to it, or run with --force to replace it`)
+      throw new Error(`A commit-msg hook already exists (${relative(root, path)}). Add "${COMMIT_MSG_HOOK_COMMAND}" to it, or run with --force to replace it`)
     }
     status = 'replaced'
   }
@@ -286,15 +319,24 @@ export function installCommitMsgHook({ cwd, force = false }: { cwd: string, forc
  * directory of git, lefthook or simple-git-hooks
  */
 export function hasRelizyCommitMsgHook(cwd: string): boolean {
-  const root = tryGitSync(['rev-parse', '--show-toplevel'], { cwd }) ?? cwd
+  const gitRoot = tryGitSync(['rev-parse', '--show-toplevel'], { cwd })
+  const root = gitRoot ?? cwd
   const hooksPath = tryGitSync(['config', 'core.hooksPath'], { cwd })
   const files = [
     join(root, '.husky', 'commit-msg'),
-    hooksPath
-      ? join(isAbsolute(hooksPath)
-          ? hooksPath
-          : join(root, hooksPath), 'commit-msg')
-      : getGitPath(join('hooks', 'commit-msg'), cwd),
+    ...(hooksPath
+      ? [
+          join(isAbsolute(hooksPath)
+            ? hooksPath
+            : join(root, hooksPath), 'commit-msg'),
+        ]
+      : []),
+    // Outside a git repository, no hooks directory
+    ...(!hooksPath && gitRoot
+      ? [
+          getGitPath(join('hooks', 'commit-msg'), cwd),
+        ]
+      : []),
     ...[
       'lefthook.yml',
       'lefthook.yaml',
