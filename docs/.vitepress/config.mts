@@ -1,12 +1,14 @@
 import type { HeadConfig, PageData, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
+import { CSS_ID, generateCSS } from '@maz-ui/themes/utils'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
 import packageJson from '../../packages/relizy/package.json' with { type: 'json' }
 import typedocSidebar from '../src/typedoc/typedoc-sidebar.json' with { type: 'json' }
 import { writeAgentSkills, writeAiCatalog } from './agents'
+import { relizyTheme } from './theme/preset'
 
 const SITE_URL = 'https://relizy.dev'
 const CLI_COMMAND_PAGE = /^(?:cli\/(?!commands\.md)[\w-]+|commitlint\/cli)\.md$/
@@ -198,6 +200,17 @@ export default defineConfig({
   description: 'Seamless and automated release manager with elegant changelog generation based on Conventional Commits, supporting both monorepos and single packages. Handles version bumping, changelog generation, Git tagging, and publishing to npm, GitHub & GitLab effortlessly.',
 
   head: [
+    // The CSS of the maz-ui preset in the static pages, see `relizyTheme`
+    [
+      'style',
+      { id: CSS_ID },
+      generateCSS(relizyTheme.preset, {
+        mode: 'both',
+        darkSelectorStrategy: relizyTheme.darkModeStrategy,
+        darkClass: 'dark',
+        lightClass: 'light',
+      }),
+    ],
     [
       'meta',
       { name: 'author', content: 'Louis Mazel' },
