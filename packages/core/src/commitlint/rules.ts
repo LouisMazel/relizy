@@ -296,7 +296,7 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
     },
   },
   'scope-matches-files': {
-    severity: 'warn',
+    severity: 'error',
     conventionalOnly: true,
     check: ({ commit, packages }) => {
       const pkg = commit.scope

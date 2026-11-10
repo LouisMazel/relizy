@@ -482,16 +482,16 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When matching the scope with the files', () => {
-    it('Then warns when the scope designates an untouched package', async () => {
+    it('Then fails when the scope designates an untouched package', async () => {
       const result = await lint('fix(nuxt): correct the options', {
         files: ['packages/core/index.ts'],
       })
 
-      expect(result.valid).toBe(true)
+      expect(result.valid).toBe(false)
       expect(result.problems).toEqual([
         {
           rule: 'scope-matches-files',
-          severity: 'warn',
+          severity: 'error',
           message: 'The scope "nuxt" designates packages/nuxt, but it touches core',
           fix: 'use the scope of the touched package, or split the commit per package',
           url: 'https://relizy.dev/commitlint/rules#scope-matches-files',

@@ -51,7 +51,7 @@ export interface CommitlintBuiltInRules {
   'scope-required': 'always' | 'never' | 'when-bumping'
   /**
    * The scope designates a package touched by the commit.
-   * @default 'warn'
+   * @default 'error'
    */
   'scope-matches-files': never
   /**

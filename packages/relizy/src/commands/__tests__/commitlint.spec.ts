@@ -160,16 +160,18 @@ describe('Given commitlint command', () => {
         config: createConfig(),
       })
 
-      expect(result).toEqual(expect.objectContaining({ errorCount: 0, warningCount: 1 }))
+      expect(result).toEqual(expect.objectContaining({ errorCount: 1, warningCount: 0 }))
       expect(output).toEqual([
-        '✔ fix(nuxt) → patch bump, 🩹 Fixes',
+        '✖ fix(nuxt): correct the module options',
         '',
-        '  ⚠ scope-matches-files  The scope "nuxt" designates packages/nuxt, but it touches @maz-ui/core',
+        '  ✖ scope-matches-files  The scope "nuxt" designates packages/nuxt, but it touches @maz-ui/core',
         '                         → use the scope of the touched package, or split the commit per package',
         '',
         '─'.repeat(72),
-        '⚠ The commit message is valid, with 1 warning',
+        '✖ The commit message is invalid: 1 error, 0 warnings',
         '  Rules: scope-matches-files  https://relizy.dev/commitlint/rules#scope-matches-files',
+        '  Fix:   edit the message and commit again, it is kept in .git/COMMIT_EDITMSG:',
+        '           $ git commit --edit --file .git/COMMIT_EDITMSG',
       ])
     })
 
@@ -373,7 +375,7 @@ describe('Given commitlint command', () => {
         config: createConfig(),
       })
 
-      expect(result.warningCount).toBe(1)
+      expect(result.errorCount).toBe(1)
       expect(result.results[0]?.commit.packages).toEqual(['@maz-ui/core'])
     })
 
