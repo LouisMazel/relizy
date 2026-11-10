@@ -1,7 +1,7 @@
 {
   "name": "@relizy/core",
   "type": "module",
-  "version": "2.2.0",
+  "version": "2.3.0-beta.0",
   "description": "Generic building blocks of Relizy: workspaces, catalogs, package managers, registries, git and CI helpers, commit parsing and linting, GitHub/GitLab providers",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
