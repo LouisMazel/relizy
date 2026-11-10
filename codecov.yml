@@ -12,7 +12,7 @@ coverage:
 
   # Status checks configuration
   status:
-    # Project-level coverage (overall codebase)
+    # Project-level coverage (overall codebase), the components below add one status each
     project:
       default:
         # Target coverage percentage
@@ -30,7 +30,7 @@ coverage:
         flags:
           - unit
         paths:
-          - src
+          - packages/*/src
         # Coverage must increase or stay same
 
     # Patch-level coverage (new code only)
@@ -50,6 +50,31 @@ coverage:
     default:
       # Only show changes if >0.5% difference
       threshold: 0.5%
+
+# One upload (flag unit) split by package: a status and a line in the PR comment for each
+component_management:
+  individual_components:
+    - component_id: core
+      name: '@relizy/core'
+      paths:
+        - packages/core/src/**
+      statuses:
+        - type: project
+          # The public API consumed by other projects: stricter than relizy
+          target: 95%
+          threshold: 0.5%
+          if_ci_failed: error
+          informational: false
+    - component_id: relizy
+      name: relizy
+      paths:
+        - packages/relizy/src/**
+      statuses:
+        - type: project
+          target: auto
+          threshold: 0.5%
+          if_ci_failed: error
+          informational: false
 
 # Comment configuration for Pull Requests
 comment:
@@ -74,14 +99,14 @@ ignore:
   - '**/dist/**'
   - '**/coverage/**'
   - '**/*.d.ts'
-  - 'bin/**'
+  - 'packages/*/bin/**'
 
 # Flags configuration for categorizing coverage
 flags:
   unit:
     # All unit tests
     paths:
-      - src/
+      - packages/*/src/
     # Require at least 1 upload with this flag
     carryforward: false
 

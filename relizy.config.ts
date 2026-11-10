@@ -1,8 +1,32 @@
+import { join } from 'node:path'
 import process from 'node:process'
-import { defineConfig } from './src'
-import { generateAgentDocs } from './src/mcp/knowledge/generate'
+import { defineConfig } from './packages/relizy/src'
+import { generateAgentDocs } from './packages/relizy/src/mcp/knowledge/generate'
 
 export default defineConfig({
+  // The name of the published package, not the one of the private root of the repository
+  projectName: 'relizy',
+
+  monorepo: {
+    groups: [
+      // relizy owns the root version, the `v*` tags and the root CHANGELOG.md
+      {
+        name: 'relizy',
+        title: 'relizy',
+        versionMode: 'selective',
+        packages: ['packages/relizy'],
+      },
+      // @relizy/core has its own version line and its own `@relizy/core@x.y.z` tags
+      {
+        name: 'core',
+        title: '@relizy/core',
+        versionMode: 'independent',
+        packages: ['packages/core'],
+        changelog: { rootChangelog: false },
+      },
+    ],
+  },
+
   types: {
     feat: { title: '🚀 Features', semver: 'minor' },
     perf: { title: '🔥 Performance', semver: 'patch' },
@@ -56,7 +80,7 @@ export default defineConfig({
     // The CI builds before the bump: the docs bundle of the MCP server (agent-docs/) gets the new version
     'success:bump': () => {
       generateAgentDocs({
-        rootDir: process.cwd(),
+        rootDir: join(process.cwd(), 'packages/relizy'),
       })
     },
   },

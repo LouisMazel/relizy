@@ -8,14 +8,22 @@ jobs:
     name: build-and-typecheck
     runs-on: ubuntu-latest
 
+    # Nx runs only what the pull request touches, compared to its base branch
+    env:
+      NX_BASE: origin/${{ github.base_ref }}
+      NX_HEAD: HEAD
+
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The history is needed to compare with the base branch
+          fetch-depth: 0
 
       - name: Setup Node.js and pnpm
         uses: ./.github/actions/setup
 
       - name: Build packages
-        run: pnpm typecheck && pnpm build
+        run: pnpm exec nx affected -t typecheck build --exclude=docs
 
       - name: Build docs
-        run: pnpm -F docs typecheck && pnpm -F docs build
+        run: pnpm exec nx affected -t typecheck build --exclude='*,!docs'

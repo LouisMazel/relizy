@@ -1,3 +1,4 @@
+import type { MazUiThemeOptions } from '@maz-ui/themes'
 import { definePreset } from '@maz-ui/themes'
 import { nova } from '@maz-ui/themes/presets/nova'
 
@@ -61,3 +62,16 @@ export const relizyPreset = definePreset({
     },
   },
 })
+
+/**
+ * The theme options, shared by the app (`theme/index.ts`) and the CSS of the
+ * preset baked into the static pages (`config.mts`): with the buildtime
+ * strategy, the plugin injects nothing and the first paint is styled.
+ */
+export const relizyTheme = {
+  preset: relizyPreset,
+  // The `.dark` class of VitePress drives the color mode
+  darkModeStrategy: 'class',
+  strategy: 'buildtime',
+  persistPreset: false,
+} satisfies MazUiThemeOptions

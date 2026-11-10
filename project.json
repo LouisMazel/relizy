@@ -1,0 +1,64 @@
+{
+  "$schema": "./node_modules/nx/schemas/project-schema.json",
+  "name": "relizy-monorepo",
+  "targets": {
+    "lint": {
+      "command": "eslint .",
+      "options": {
+        "env": {
+          "NODE_ENV": "production"
+        }
+      },
+      "inputs": [
+        "{workspaceRoot}/**/*",
+        {
+          "externalDependencies": [
+            "eslint"
+          ]
+        }
+      ]
+    },
+    "lint:fix": {
+      "command": "eslint . --fix",
+      "options": {
+        "env": {
+          "NODE_ENV": "production"
+        }
+      }
+    },
+    "test:unit:coverage": {
+      "command": "vitest run --coverage",
+      "dependsOn": [
+        "relizy:generate:agent-docs"
+      ],
+      "inputs": [
+        "default",
+        "{workspaceRoot}/vitest.config.ts",
+        {
+          "env": "TZ"
+        },
+        {
+          "env": "CI"
+        },
+        {
+          "externalDependencies": [
+            "vitest",
+            "@vitest/coverage-v8"
+          ]
+        }
+      ],
+      "outputs": [
+        "{workspaceRoot}/coverage"
+      ],
+      "cache": true
+    },
+    "test:unit:watch": {
+      "command": "vitest watch",
+      "dependsOn": [
+        "relizy:generate:agent-docs"
+      ],
+      "continuous": true,
+      "cache": false
+    }
+  }
+}

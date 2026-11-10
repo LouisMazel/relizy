@@ -19,7 +19,7 @@ Set the level (`'error'`, `'warn'`, `'off'`) and the value of a rule in [`commit
 | [`type-enum`](#type-enum)                       | `error` | Extra types                      |                           |
 | [`scope-enum`](#scope-enum)                     | `error` |                                  |                           |
 | [`scope-required`](#scope-required)             | `off`   | `'always'`                       |                           |
-| [`scope-matches-files`](#scope-matches-files)   | `warn`  |                                  |                           |
+| [`scope-matches-files`](#scope-matches-files)   | `error` |                                  |                           |
 | [`subject-case`](#subject-case)                 | `off`   |                                  |                           |
 | [`subject-full-stop`](#subject-full-stop)       | `error` |                                  |                           |
 | [`subject-meaningful`](#subject-meaningful)     | `error` | `{ minWords: 2, minLength: 15 }` |                           |
@@ -114,12 +114,12 @@ The bump is the one Relizy computes for your release (see [semver convention](./
 
 ### `scope-matches-files`
 
-Warns when the scope designates a package that the commit does not touch. Relizy links a commit to a package by its changed files, not by its scope: a wrong scope gives a misleading changelog entry.
+Fails when the scope designates a package that the commit does not touch. Relizy links a commit to a package by its changed files, not by its scope: a wrong scope gives a misleading changelog entry.
 
 ```text
-✔ fix(nuxt) → patch bump, 🩹 Fixes
+✖ fix(nuxt): correct the module options
 
-  ⚠ scope-matches-files  The scope "nuxt" designates packages/nuxt, but it touches @maz-ui/core
+  ✖ scope-matches-files  The scope "nuxt" designates packages/nuxt, but it touches @maz-ui/core
                          → use the scope of the touched package, or split the commit per package
 ```
 
