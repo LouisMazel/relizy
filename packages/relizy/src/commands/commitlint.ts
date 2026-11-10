@@ -4,8 +4,8 @@ import type { CommitlintReport, CommitlintSummary, InstalledHook, ReportEntry, R
 import { relative } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { assertRefAvailable, ensureFullHistory, getCommentChar, getCommitMessageFile, getCommitsInRange, getPullRequestTitle, getStagedFiles, readCommitMessageFile, resolveDefaultRangeStart, stripGitComments } from '@relizy/core'
-import { formatGithubAnnotations, formatJsonReport, formatTextReport, getWorkspacePackages, installCommitMsgHook, lintCommitMessage, loadRelizyConfig, renderChangelogEntry, shouldUseColors, summarizeResults } from '../core'
+import { assertRefAvailable, ensureFullHistory, getCommentChar, getCommitMessageFile, getCommitsInRange, getPullRequestTitle, getStagedFiles, readCommitMessageFile, resolveDefaultRangeStart, stripGitComments, tryGitSync } from '@relizy/core'
+import { COMMIT_MSG_HOOK_COMMAND, formatGithubAnnotations, formatJsonReport, formatTextReport, getWorkspacePackages, installCommitMsgHook, lintCommitMessage, loadRelizyConfig, renderChangelogEntry, shouldUseColors, summarizeResults } from '../core'
 
 export interface CommitlintOptions {
   /**
@@ -164,6 +164,37 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
 }
 
 /**
+ * Write the commit-msg hook. Run by the prepare script, also where there is no
+ * repository (a Docker build, a tarball): nothing to install, without failing
+ */
+function installHook(cwd: string, force?: boolean): CommitlintRunResult {
+  const result = {
+    results: [],
+    errorCount: 0,
+    warningCount: 0,
+  }
+  if (!tryGitSync(['rev-parse', '--show-toplevel'], { cwd })) {
+    print(['Not a git repository: commit-msg hook not installed'])
+    return result
+  }
+
+  const hook = installCommitMsgHook({ cwd, force })
+  const messages: Record<InstalledHook['status'], string> = {
+    unchanged: `The commit-msg hook already runs relizy commitlint (${hook.path})`,
+    kept: `A commit-msg hook already exists (${hook.path}): kept, add "${COMMIT_MSG_HOOK_COMMAND}" to it, or run with --force to replace it`,
+    created: `✔ commit-msg hook created: ${hook.path}`,
+    replaced: `✔ commit-msg hook replaced: ${hook.path}`,
+  }
+  print([
+    messages[hook.status],
+    ...(hook.removed
+      ? [`✔ Removed the old commit-msg hook, no longer run: ${hook.removed}`]
+      : []),
+  ])
+  return { ...result, hook }
+}
+
+/**
  * Lint commit messages with the relizy config: the commit being created
  * (`edit`), a message, or a range of commits. Errors make `errorCount` positive.
  */
@@ -174,18 +205,7 @@ export async function commitlint(options: CommitlintOptions = {}): Promise<Commi
   })
 
   if (options.install) {
-    const hook = installCommitMsgHook({ cwd: config.cwd, force: options.force })
-    print([
-      hook.status === 'unchanged'
-        ? `The commit-msg hook already runs relizy commitlint (${hook.path})`
-        : `✔ commit-msg hook ${hook.status}: ${hook.path}`,
-    ])
-    return {
-      results: [],
-      errorCount: 0,
-      warningCount: 0,
-      hook,
-    }
+    return installHook(config.cwd, options.force)
   }
 
   const report = await lintMessages(options, config)

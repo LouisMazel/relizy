@@ -7,7 +7,7 @@ import process from 'node:process'
 import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, text } from '@clack/prompts'
 import { detectAgentTargets, logger } from '@maz-ui/node'
 import { isInCI } from '@relizy/core'
-import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
+import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
 import { setupRelizyAgents } from '../mcp/agents'
 
 /**
@@ -417,6 +417,8 @@ interface InitPlan {
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
   hook: boolean
+  /** The hook is written in `.git/hooks`, and at each install by the prepare script */
+  localHook: boolean
   agents: AgentTarget[]
   workflow?: PlannedWorkflow
   kept: KeptStep[]
@@ -467,7 +469,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
     rows.push(`${c.yellow('update')}   package.json`, ...packageChanges.map(change => `         ${change}`))
   }
   if (plan.hook) {
-    rows.push(`${c.cyan('install')}  commit-msg hook ${c.dim('runs relizy commitlint at each commit')}`)
+    const detail = plan.localHook
+      ? 'runs relizy commitlint at each commit, in .git/hooks and at each install for the other clones'
+      : 'runs relizy commitlint at each commit'
+    rows.push(`${c.cyan('install')}  commit-msg hook ${c.dim(detail)}`)
   }
   if (plan.workflow?.file) {
     const description = plan.workflow.mergePreviewIncluded
@@ -1042,13 +1047,13 @@ async function runInit({ options, detection, configFile, interactive }: {
     : { targets: [], setUp: false }
 
   // Also offered when the agents were already set up without it
-  const prepareScript = agents.setUp
-    ? getPrepareScript(detection)
-    : {}
-  const withPrepare = Object.keys(prepareScript).length > 0 && await ask(interactive, true, () => confirm({
+  const withAgentRules = agents.setUp && Object.keys(getPrepareScript(detection)).length > 0 && await ask(interactive, true, () => confirm({
     message: 'Update the agent rules at each install? (adds "relizy mcp update" to the prepare script)',
     initialValue: true,
   }))
+  // A hook of .git/hooks is not versioned: the prepare script writes it on each clone, also when it is already installed
+  const localHook = steps.has('commitlint') && isLocalCommitMsgHook(cwd) && (hook.install || hasLocalRelizyCommitMsgHook(cwd))
+  const prepareScript = getPrepareScript(detection, { agents: withAgentRules, hook: localHook })
 
   const scriptsToAdd = getScriptsToAdd(detection)
   const withScripts = steps.has('scripts') && Object.keys(scriptsToAdd).length > 0 && await ask(interactive, true, () => confirm({
@@ -1112,10 +1117,11 @@ async function runInit({ options, detection, configFile, interactive }: {
       : getMissingRootFields(detection, answers),
     scripts: {
       ...(withScripts && scriptsToAdd),
-      // keeps the rules of the agents up to date at each install
-      ...(withPrepare && prepareScript),
+      // writes the hook and keeps the rules of the agents up to date at each install
+      ...prepareScript,
     },
     hook: hook.install,
+    localHook,
     agents: agents.targets,
     workflow,
     kept,
@@ -1165,6 +1171,9 @@ async function runInit({ options, detection, configFile, interactive }: {
       : `${installedHook.status === 'replaced'
         ? 'Replaced'
         : 'Installed'} the commit-msg hook (${relative(cwd, installedHook.path)})`)
+    if (installedHook.removed) {
+      log.success(`Removed the old commit-msg hook, no longer run (${relative(cwd, installedHook.removed)})`)
+    }
   }
 
   const agentsResult = plan.agents.length > 0

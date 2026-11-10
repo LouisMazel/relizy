@@ -110,7 +110,7 @@ describe('Given init command', () => {
 
       expect(result).toEqual(expect.objectContaining({
         written: true,
-        scripts: ['release'],
+        scripts: ['release', 'prepare'],
         configFile: join(cwd, 'relizy.config.ts'),
       }))
       expect(read('relizy.config.ts')).toBe([
@@ -130,10 +130,15 @@ describe('Given init command', () => {
       ].join('\n'))
       expect(readJson('package.json')).toEqual(expect.objectContaining({
         version: '0.0.0',
-        scripts: { build: 'turbo build', release: 'relizy release' },
+        // .git/hooks is not versioned: the prepare script writes the hook on the other clones
+        scripts: { build: 'turbo build', release: 'relizy release', prepare: 'relizy commitlint --install' },
       }))
       expect(read('.git/hooks/commit-msg')).toContain('relizy commitlint --edit')
       expect(result.hook?.status).toBe('created')
+      expect(notes()).toContainEqual([
+        expect.stringContaining('commit-msg hook runs relizy commitlint at each commit, in .git/hooks and at each install for the other clones'),
+        'Changes',
+      ])
       expect(vi.mocked(confirm)).not.toHaveBeenCalled()
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('pnpm add -D -w relizy'), 'Next steps')
     })
@@ -148,8 +153,8 @@ describe('Given init command', () => {
       expect(readJson('.mcp.json').mcpServers.relizy.args).toContain('mcp')
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('AI agents (claude)'), 'Changes')
       expect(vi.mocked(log.success)).toHaveBeenCalledWith('Set up the AI agents (.claude/rules/relizy.md, .mcp.json)')
-      expect(readJson('package.json').scripts.prepare).toBe('relizy mcp update')
-      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('add the script "prepare": "relizy mcp update"'), 'Changes')
+      expect(readJson('package.json').scripts.prepare).toBe('relizy commitlint --install && relizy mcp update')
+      expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('add the script "prepare": "relizy commitlint --install && relizy mcp update"'), 'Changes')
     })
 
     it('Then appends the rules to an existing prepare script, and leaves one that already runs relizy mcp update or init', async () => {
@@ -162,11 +167,11 @@ describe('Given init command', () => {
 
       await init({ cwd, yes: true })
 
-      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp update')
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy commitlint --install && relizy mcp update')
 
       await init({ cwd, yes: true, force: true })
 
-      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp update')
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy commitlint --install && relizy mcp update')
 
       write('package.json', JSON.stringify({
         name: 'mono',
@@ -176,7 +181,8 @@ describe('Given init command', () => {
 
       await init({ cwd, yes: true, force: true })
 
-      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp init --no-mcp')
+      // The hook installed by the first run is written at each install too
+      expect(readJson('package.json').scripts.prepare).toBe('husky && relizy mcp init --no-mcp && relizy commitlint --install')
     })
 
     it('Then reports the AI agents already set up, and does not set up a project without agent', async () => {
@@ -225,7 +231,7 @@ describe('Given init command', () => {
         kept: true,
         written: false,
         configFile: join(cwd, 'relizy.config.mjs'),
-        scripts: ['release'],
+        scripts: ['release', 'prepare'],
       }))
       expect(read('relizy.config.mjs')).toBe(config)
       expect(existsSync(join(cwd, 'relizy.config.ts'))).toBe(false)
@@ -255,6 +261,25 @@ describe('Given init command', () => {
       expect(result.hook).toBeUndefined()
       expect(read('.git/hooks/commit-msg')).toBe('#!/bin/sh\nnpx commitlint --edit "$1"\n')
       expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringContaining('A commit-msg hook already exists'))
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
+    })
+
+    it('Then adds the prepare script for a hook of .git/hooks already installed', async () => {
+      write('.git/hooks/commit-msg', '#!/bin/sh\nnpx --no -- relizy commitlint --edit "$1"\n')
+
+      const result = await init({ cwd, yes: true })
+
+      expect(result.hook).toBeUndefined()
+      expect(readJson('package.json').scripts.prepare).toBe('relizy commitlint --install')
+    })
+
+    it('Then does not add the hook to the prepare script with husky, the hook being versioned', async () => {
+      mkdirSync(join(cwd, '.husky'))
+
+      await init({ cwd, yes: true })
+
+      expect(read('.husky/commit-msg')).toContain('relizy commitlint --edit')
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
     })
 
     it('Then writes nothing in dry run', async () => {
@@ -306,6 +331,19 @@ describe('Given init command', () => {
       expect(readJson('package.json').scripts.release).toBe('relizy release')
     })
 
+    it('Then adds nothing to the prepare script when the hook is declined', async () => {
+      write('relizy.config.ts', 'export default {}')
+      answer(select, ['keep', 'manual', 'integration'])
+      // hook, script, workflow, merge preview, apply
+      answer(confirm, [false, true, true, false, true])
+
+      const result = await init({ cwd })
+
+      expect(result.hook).toBeUndefined()
+      expect(existsSync(join(cwd, '.git/hooks/commit-msg'))).toBe(false)
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
+    })
+
     it('Then asks before adding the prepare script of the agent rules', async () => {
       write('relizy.config.ts', 'export default {}')
       write('CLAUDE.md', '# mono')
@@ -327,7 +365,8 @@ describe('Given init command', () => {
         message: expect.stringContaining('Update the agent rules at each install?'),
       }))
       expect(read('.claude/rules/relizy.md')).toContain('Managed by relizy')
-      expect(readJson('package.json').scripts.prepare).toBeUndefined()
+      // Only the hook, without the agent rules
+      expect(readJson('package.json').scripts.prepare).toBe('relizy commitlint --install')
     })
 
     it('Then cancels from the existing config, nothing written', async () => {
@@ -428,7 +467,7 @@ describe('Given init command', () => {
       // The root takes the highest package version in selective mode
       expect(readJson('package.json')).toEqual(expect.objectContaining({ version: '1.0.0' }))
       expect(readJson('package.json').scripts.release).toBeUndefined()
-      expect(result.scripts).toEqual([])
+      expect(result.scripts).toEqual(['prepare'])
       expect(vi.mocked(note)).toHaveBeenCalledWith(expect.stringContaining('SLACK_TOKEN'), 'Next steps')
     })
 
@@ -712,7 +751,7 @@ describe('Given init command', () => {
       expect(result.config).toEqual({
         release: { providerRelease: false, prComment: false },
       })
-      expect(result.scripts).toEqual([])
+      expect(result.scripts).toEqual(['prepare'])
       expect(readJson('package.json').scripts.release).toBe('relizy release --yes')
       expect(vi.mocked(logger.setLevel)).toHaveBeenCalledWith('debug')
       expect(vi.mocked(note)).not.toHaveBeenCalledWith(expect.stringContaining('Install relizy'), 'Next steps')

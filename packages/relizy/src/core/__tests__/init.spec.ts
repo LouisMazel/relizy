@@ -482,6 +482,15 @@ describe('Given the init helpers', () => {
       write('package.json', '{ "name": "lib", "scripts": { "prepare": "husky && relizy mcp update" } }')
       expect(getPrepareScript(detectProject({ cwd }))).toEqual({})
     })
+
+    it('Then adds the install of the commit-msg hook once, before the agent rules', () => {
+      write('package.json', '{ "name": "lib" }')
+      expect(getPrepareScript(detectProject({ cwd }), { hook: true })).toEqual({ prepare: 'relizy commitlint --install && relizy mcp update' })
+      expect(getPrepareScript(detectProject({ cwd }), { agents: false, hook: true })).toEqual({ prepare: 'relizy commitlint --install' })
+
+      write('package.json', '{ "name": "lib", "scripts": { "prepare": "relizy commitlint --install" } }')
+      expect(getPrepareScript(detectProject({ cwd }), { agents: false, hook: true })).toEqual({})
+    })
   })
 
   describe('When installing relizy', () => {

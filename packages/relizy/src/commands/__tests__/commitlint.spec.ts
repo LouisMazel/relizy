@@ -1,5 +1,5 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
-import { mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
@@ -478,15 +478,33 @@ describe('Given commitlint command', () => {
       mkdirSync(join(cwd, '.husky'))
       write('.husky/commit-msg', 'npx --no-install commitlint --edit "$1"\n')
 
-      await expect(commitlint({
+      expect((await commitlint({
         install: true,
         config: createConfig(),
-      })).rejects.toThrow('A commit-msg hook already exists')
+      })).hook?.status).toBe('kept')
+      expect(output).toEqual([`A commit-msg hook already exists (${join(cwd, '.husky/commit-msg')}): kept, add "npx --no -- relizy commitlint --edit "$1"" to it, or run with --force to replace it`])
       expect((await commitlint({
         install: true,
         force: true,
         config: createConfig(),
       })).hook?.status).toBe('replaced')
+    })
+
+    it('Then installs nothing outside a git repository, without failing', async () => {
+      const outside = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-commitlint-outside-')))
+
+      try {
+        const result = await commitlint({
+          install: true,
+          config: createConfig({ cwd: outside }),
+        })
+
+        expect(result.hook).toBeUndefined()
+        expect(output).toEqual(['Not a git repository: commit-msg hook not installed'])
+      }
+      finally {
+        rmSync(outside, { recursive: true, force: true })
+      }
     })
 
     it('Then says when the hook is already installed', async () => {

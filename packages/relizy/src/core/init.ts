@@ -8,6 +8,7 @@ import fastGlob from 'fast-glob'
 import * as semver from 'semver'
 import { addAgentRulesCommand } from '../mcp/agents'
 import { findChangelogFormatter } from './changelog-format'
+import { HOOK_INSTALL_COMMAND } from './commitlint'
 import { getDefaultConfig } from './config'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { detectPackageManager } from './npm-registry'
@@ -555,13 +556,23 @@ export function getScriptsToAdd(detection: ProjectDetection): Record<string, str
 }
 
 /**
- * The `prepare` script keeping the agent rules up to date at each install (existing rules only: nothing is created, and the MCP config of the user is never touched).
- * An existing `prepare` script is extended, or left as is when it already runs `relizy mcp update` or `relizy mcp init`.
+ * The `prepare` script run at each install: `relizy commitlint --install` with `hook` (the commit-msg hook of `.git/hooks`, not versioned, written on each clone),
+ * and `relizy mcp update` with `agents` (existing rules only: nothing is created, and the MCP config of the user is never touched).
+ * An existing `prepare` script is extended, or left as is when it already runs these commands (`relizy mcp init` for the rules).
  */
-export function getPrepareScript(detection: ProjectDetection): Record<string, string> {
-  const prepare = addAgentRulesCommand(detection.root.scripts.prepare)
+export function getPrepareScript(detection: ProjectDetection, { agents = true, hook = false }: { agents?: boolean, hook?: boolean } = {}): Record<string, string> {
+  const existing = detection.root.scripts.prepare
+  let prepare = existing
+  if (hook && !prepare?.includes(HOOK_INSTALL_COMMAND)) {
+    prepare = prepare
+      ? `${prepare} && ${HOOK_INSTALL_COMMAND}`
+      : HOOK_INSTALL_COMMAND
+  }
+  if (agents) {
+    prepare = addAgentRulesCommand(prepare) ?? prepare
+  }
 
-  return prepare
+  return prepare && prepare !== existing
     ? { prepare }
     : {}
 }

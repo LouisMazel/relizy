@@ -41,7 +41,7 @@ The changed files, used by the [scope rules](./rules.md#scope-matches-files), ar
 | `--quiet`             | Only print the commits with problems, and the summary (text format)                                                                                                                                  |
 | `--format <format>`   | `text` (default) for people, `json` for programs and AI agents. See [JSON output](#json-output)                                                                                                      |
 | `--install`           | Write the `commit-msg` hook running `relizy commitlint --edit "$1"`: in `.husky/` when husky is set up, otherwise in the hooks directory of git                                                      |
-| `--force`             | With `--install`, replace an existing `commit-msg` hook                                                                                                                                              |
+| `--force`             | With `--install`, replace an existing `commit-msg` hook (kept otherwise)                                                                                                                             |
 
 Global options: `--config <name>` loads `<name>.config.<ext>` (`--config relizy.standalone` for `relizy.standalone.config.ts`), `--log-level debug` shows how the range is resolved.
 
@@ -85,6 +85,6 @@ An error that prevents the lint (e.g. a missing ref) prints `{ "valid": false, "
 ## Exit codes
 
 - `0`: no error. Warnings never fail.
-- `1`: a linted message has an error, or the command failed (missing ref, existing hook with `--install` and without `--force`...).
+- `1`: a linted message has an error, or the command failed (missing ref...).
 
 To lint from Node.js, see [`commitlint()` and `lintCommitMessage()`](./../api/commitlint.md).
