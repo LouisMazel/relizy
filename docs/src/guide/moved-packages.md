@@ -122,7 +122,17 @@ export default defineConfig({
 Remove the entries once a release includes the move, so that the new commits
 use the new scope.
 
-Linting the whole range since the last tag may also warn on the commits made
+Linting the whole range since the last tag may also fail on the commits made
 before the move (`scope-matches-files`): their files are outside the current
-directory of their package. It is only a warning, and these commits leave the
-range once the move is released.
+directory of their package. These commits leave the range once the move is
+released; until then, lower the rule to a warning:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    rules: { 'scope-matches-files': 'warn' },
+  },
+})
+```

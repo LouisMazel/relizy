@@ -5,15 +5,16 @@
       "command": "npx",
       "args": [
         "-y",
-        "@maz-ui/mcp@5.2.0"
+        "@maz-ui/mcp@latest"
       ]
     },
     "relizy": {
       "type": "stdio",
-      "command": "npx",
+      "command": "pnpm",
       "args": [
-        "-y",
-        "relizy",
+        "exec",
+        "tsx",
+        "src/cli.ts",
         "mcp"
       ]
     }

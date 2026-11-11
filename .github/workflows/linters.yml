@@ -8,6 +8,11 @@ jobs:
     name: linters
     runs-on: ubuntu-latest
 
+    # Nx lints only what the pull request touches, compared to its base branch
+    env:
+      NX_BASE: origin/${{ github.base_ref }}
+      NX_HEAD: HEAD
+
     steps:
       - uses: actions/checkout@v7
         with:
@@ -18,7 +23,7 @@ jobs:
         uses: ./.github/actions/setup
 
       - name: Run linters
-        run: pnpm lint:all
+        run: pnpm exec nx affected -t lint
 
       - name: Lint commit messages
         run: pnpm relizy commitlint

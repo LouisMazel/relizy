@@ -1,7 +1,8 @@
 /** @type {Partial<import("typedoc").TypeDocOptions>} */
 export default {
-  entryPoints: ['./../src/index.ts'],
-  exclude: ['./../src/**/*.spec.ts'],
+  entryPoints: ['./../packages/relizy/src/index.ts'],
+  tsconfig: './../packages/relizy/tsconfig.json',
+  exclude: ['./../packages/relizy/src/**/*.spec.ts'],
   // Only the return type of `getDefaultConfig()` is public, through `ResolvedConfig`
   intentionallyNotExported: ['getDefaultConfig'],
   // The README is the guide of the docs, not the API reference

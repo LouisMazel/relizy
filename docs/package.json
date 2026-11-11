@@ -16,8 +16,8 @@
     "dev": "pnpm predocs && vitepress dev",
     "preview": "vitepress preview",
     "predocs": "typedoc",
-    "lint": "eslint .",
-    "lint:fix": "eslint . --fix",
+    "lint": "cross-env NODE_ENV=production eslint .",
+    "lint:fix": "cross-env NODE_ENV=production eslint . --fix",
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
@@ -42,5 +42,23 @@
     "*.{js,jsx,ts,tsx,mjs,mts,cjs,md,yml,json}": [
       "eslint --fix"
     ]
+  },
+  "nx": {
+    "implicitDependencies": [
+      "relizy"
+    ],
+    "targets": {
+      "build": {
+        "dependsOn": [],
+        "inputs": [
+          "default",
+          "{workspaceRoot}/packages/relizy/src/**/*"
+        ],
+        "outputs": [
+          "{projectRoot}/.vitepress/dist",
+          "{projectRoot}/src/typedoc"
+        ]
+      }
+    }
   }
 }

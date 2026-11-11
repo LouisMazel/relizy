@@ -7,7 +7,7 @@ import DefaultTheme from 'vitepress/theme'
 // https://vitepress.dev/guide/custom-theme
 import { h } from 'vue'
 import Layout from './components/Layout.vue'
-import { relizyPreset } from './preset'
+import { relizyTheme } from './preset'
 import { registerWebMcpTools } from './webmcp'
 import 'maz-ui/style.css'
 import './style.css'
@@ -22,13 +22,7 @@ export default {
     }
 
     app.use(MazUi, {
-      theme: {
-        preset: relizyPreset,
-        // The `.dark` class of VitePress drives the color mode
-        darkModeStrategy: 'class',
-        strategy: 'runtime',
-        persistPreset: false,
-      },
+      theme: relizyTheme,
       translations: {
         locale: 'en',
         messages: {

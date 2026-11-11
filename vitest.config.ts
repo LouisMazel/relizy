@@ -7,28 +7,30 @@ export default defineConfig({
   test: {
     globals: true,
     silent: process.env.CI ? 'passed-only' : false,
-    setupFiles: ['./vitest.setup.ts'],
+    // The tests of the packages run together, so the coverage thresholds cover all of them
+    projects: ['./packages/*'],
     coverage: {
       provider: 'v8',
       reporter: process.env.CI
         ? ['lcov']
         : ['html', 'lcov', 'text', 'text-summary'],
-      include: ['src/**/*'],
+      include: ['packages/*/src/**/*'],
       exclude: [
         ...coverageConfigDefaults.exclude,
         '.claude/**',
-        'src/cli.ts',
+        'packages/relizy/src/cli.ts',
+        'packages/core/src/types.ts',
         '**/*/index.ts',
-        'src/types.ts',
-        'src/commands/__tests__/*',
-        'src/**/*.md',
+        'packages/relizy/src/types.ts',
+        'packages/relizy/src/commands/__tests__/*',
+        'packages/*/src/**/*.md',
       ],
       thresholds: {
         autoUpdate: !process.env.CI,
-        statements: 96.62,
-        functions: 98.78,
-        branches: 91.07,
-        lines: 96.52,
+        statements: 97.04,
+        functions: 98.97,
+        branches: 91.52,
+        lines: 96.91,
       },
     },
     exclude: [...defaultExclude, '.claude/**'],

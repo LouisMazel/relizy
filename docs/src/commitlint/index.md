@@ -36,7 +36,19 @@ Every rule can be tuned or disabled, and you can write your own: see [Rules](./r
 npx relizy commitlint --install
 ```
 
-It writes a `commit-msg` hook running `relizy commitlint --edit "$1"`: in `.husky/` when [husky](https://typicode.github.io/husky) is set up, otherwise in the hooks directory of git (`core.hooksPath` or `.git/hooks`). An existing hook is never replaced unless you add `--force`. [`relizy init`](./../cli/init.md) offers to install it too.
+It writes a `commit-msg` hook running `relizy commitlint --edit "$1"`: in `.husky/` when [husky](https://typicode.github.io/husky) is set up, otherwise in the hooks directory of git (`core.hooksPath` or `.git/hooks`). An existing hook is kept (with a warning) unless you add `--force`. [`relizy init`](./../cli/init.md) offers to install it too.
+
+`.git/hooks` is not versioned: the hook only exists on the clone that wrote it, and the commits go through while relizy is not installed. To set it up on every clone, run the command at each install (`relizy init` adds it when it writes the hook there):
+
+```json
+{
+  "scripts": {
+    "prepare": "relizy commitlint --install"
+  }
+}
+```
+
+Outside a git repository (a Docker build), it installs nothing and does not fail. With husky, the hook is in `.husky/`, versioned with the project, and the one relizy wrote in `.git/hooks` before husky is removed.
 
 To write it by hand:
 

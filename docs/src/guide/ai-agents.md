@@ -32,8 +32,8 @@ Install Relizy as a devDependency of the project: the agents then start the inst
 | `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                                                                                                     |
 | `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                                                                                                 |
 | `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                                                                                                   |
-| `search_docs`       | Search in the guides, the config, the CLI and commitlint docs                                                                                                                                                                                       |
-| `get_doc`           | Read a page of the docs, or some of its sections                                                                                                                                                                                                    |
+| `search_docs`       | Search in the guides, the config, the CLI, the commitlint docs and the API of `@relizy/core`                                                                                                                                                        |
+| `get_doc`           | Read a page of the docs (`core/<domain>` for `@relizy/core`: each export with its signature, options and example), or some of its sections                                                                                                          |
 | `check_migration`   | What to change to upgrade from Relizy 1: the dependency, the removed and renamed options, the social templates, the version groups, the hooks, the CLI calls of the scripts and the CI, and the code calling the API, file by file and line by line |
 
 It also provides prompts: `write-commit`, `prepare-release`, `setup-relizy`, `migrate-to-v2` and `setup-ci`. To upgrade from Relizy 1, ask your agent for `migrate-to-v2`: it reads the [migration guide](./migration-v2.md), runs `check_migration` and proposes the changes.
@@ -104,7 +104,7 @@ Without Relizy in the dependencies of the project, use `npx -y relizy@<version> 
 
 The MCP server always serves the installed Relizy: upgrading Relizy upgrades the tools and the docs. The rules of the project are files in the repository, so they are updated by [`relizy mcp update`](./../cli/mcp.md#relizy-mcp-update) (or `relizy mcp init`, which also writes the missing files). When their content is older than the installed Relizy, `get_project` and the instructions of the MCP server tell the agent to propose it, and the CLI prints one line outside the CI.
 
-To update them at each install, add a `prepare` script to the root `package.json` (`relizy init` adds it when you accept the agents step):
+To update them at each install, the root `package.json` runs `relizy mcp update` in its `prepare` script: `relizy mcp init` adds it (except with `--no-prepare`), and `relizy init` asks before adding it. To add it by hand:
 
 ```json
 {
@@ -124,7 +124,7 @@ Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.
 
 The rules written by `relizy mcp init`:
 
-<!--@include: ./../../../src/mcp/content/rules.md-->
+<!--@include: ./../../../packages/relizy/src/mcp/content/rules.md-->
 
 ## Troubleshooting
 
