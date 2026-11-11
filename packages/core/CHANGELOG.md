@@ -1,5 +1,11 @@
 # Changelog
 
+## @relizy/core@2.3.0 (2026-11-11)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.3.0-beta.0...@relizy/core@2.3.0)
+
+No relevant changes since last release
+
 ## @relizy/core@2.3.0-beta.0 (2026-11-10)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/51c1ef18bda9171550303c11b1bae9d7c9a40571...@relizy/core@2.3.0-beta.0)
