@@ -219,8 +219,8 @@ importers:
         version: 3.5.44(typescript@6.0.3)
     devDependencies:
       '@maz-ui/translations':
-        specifier: ^5.5.0
-        version: 5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+        specifier: ^5.6.0
+        version: 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -1231,8 +1231,8 @@ packages:
     peerDependencies:
       vue: '>=3.5.0 <4.0.0'
 
-  '@maz-ui/translations@5.5.0':
-    resolution: {integrity: sha512-KeXY0v5Pk1dY1iKK3lRdftW+zaXoSUAVGDYmaZivipwygAj1E9YM48YeH5gF9aHFSiD4t4crJnzS4zcZ9dBoZA==}
+  '@maz-ui/translations@5.6.0':
+    resolution: {integrity: sha512-EC0FZOAC0fFb6sOBv1zxZWjQYtQorjN+iDxB+86J547egs3YZb144X3fBcd0J8wbZ4IxPnNMaAuVsu5y42ph7w==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       vue: '>=3.5.0 <4.0.0'
@@ -1248,6 +1248,18 @@ packages:
 
   '@maz-ui/utils@5.5.0':
     resolution: {integrity: sha512-C+rRSW32O1d2JN4OfLqIq2E9yqymGybei2kT68b4yrZxrr9bkmsASokraDmZB/vZARxZCw8CX/7iYUo76qPDrg==}
+    engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
+    peerDependencies:
+      libphonenumber-js: '>= 1 < 2'
+      vue: '>=3.5.0 <4.0.0'
+    peerDependenciesMeta:
+      libphonenumber-js:
+        optional: true
+      vue:
+        optional: true
+
+  '@maz-ui/utils@5.6.0':
+    resolution: {integrity: sha512-pDe0USOImOdvvQHi8NhBLrllSpNpZU3zDPopLZsmErXyRX3Trb0VO37Xx4QnQVxlpb6pmFxG2kG3aH/u4xKasg==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       libphonenumber-js: '>= 1 < 2'
@@ -6027,9 +6039,9 @@ snapshots:
     transitivePeerDependencies:
       - libphonenumber-js
 
-  '@maz-ui/translations@5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
+  '@maz-ui/translations@5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
     dependencies:
-      '@maz-ui/utils': 5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/utils': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
       vue: 3.5.44(typescript@6.0.3)
     transitivePeerDependencies:
       - libphonenumber-js
@@ -6039,6 +6051,11 @@ snapshots:
       libphonenumber-js: 1.13.15
 
   '@maz-ui/utils@5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
+    optionalDependencies:
+      libphonenumber-js: 1.13.15
+      vue: 3.5.44(typescript@6.0.3)
+
+  '@maz-ui/utils@5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
     optionalDependencies:
       libphonenumber-js: 1.13.15
       vue: 3.5.44(typescript@6.0.3)
@@ -8411,7 +8428,7 @@ snapshots:
       '@floating-ui/vue': 2.0.1(vue@3.5.44(typescript@6.0.3))
       '@maz-ui/icons': 5.5.0(vue@3.5.44(typescript@6.0.3))
       '@maz-ui/themes': 5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
-      '@maz-ui/translations': 5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/translations': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
       '@maz-ui/utils': 5.5.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
       '@tanstack/vue-virtual': 3.13.52(vue@3.5.44(typescript@6.0.3))
       chart.js: 4.6.1
