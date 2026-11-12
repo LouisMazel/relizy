@@ -364,7 +364,7 @@ function buildFailedComment({ branch, date, releaseContext }: CommentBodyParams)
   ]
 
   if (errorMsg) {
-    lines.push('', `**Error**: \`${errorMsg}\``)
+    lines.push('', '```text', errorMsg.trim(), '```')
   }
 
   lines.push(

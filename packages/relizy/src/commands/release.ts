@@ -288,6 +288,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           error: error instanceof Error
             ? error.message
             : String(error),
+          failedStep: currentStep,
         }),
   })
   // Before the release commit: after a merge, its pull request is the one commented

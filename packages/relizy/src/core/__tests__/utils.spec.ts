@@ -28,6 +28,21 @@ describe('Given executeHook function', () => {
     })
   })
 
+  describe('When the hook fails', () => {
+    it('Then the error names the hook', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      config.hooks = {
+        'before:publish': () => {
+          throw new Error('Published files missing after the build:\nmaz-ui: dist/index.js')
+        },
+      }
+
+      await expect(executeHook('before:publish', config, false)).rejects.toThrow('before:publish hook failed: Published files missing after the build:\nmaz-ui: dist/index.js')
+    })
+  })
+
   describe('When hook is a function', () => {
     it('Then executes function hook and returns result', async () => {
       const hookFn = vi.fn().mockResolvedValue('hook-result')
