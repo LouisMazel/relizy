@@ -157,9 +157,8 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
   prComment: 'PR comment',
 }
 
-const STATUS_ICONS: Record<ReleaseStepReport['status'], string> = {
+const STATUS_ICONS: Record<Exclude<ReleaseStepReport['status'], 'skipped'>, string> = {
   done: '✅',
-  skipped: '⏭️',
   // A failed step does not stop the release (social posts, provider release)
   failed: '⚠️',
 }
@@ -515,10 +514,11 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
     : getMarkdownPackages(report)
   const summary = failed
     ? report.steps.filter(step => step.status === 'done' && LASTING_STEPS.has(step.name)).map(step => getStepEntry(step, report))
-    : getReleaseSummary(report, { versions: packages.length === 0 })
+    // A skipped step is left out: a project that only versions would get a table of skipped steps
+    : getReleaseSummary(report, { versions: packages.length === 0 }).filter(entry => entry.status !== 'skipped')
   // The tables of the packages give the versions and the tags: the summary tells what the release did
   const rows = summary.map(({ label, value, code, status, links = [] }) => {
-    const icon = status
+    const icon = status && status !== 'skipped'
       ? `${STATUS_ICONS[status]} `
       : label === 'AI'
         ? '✨ '

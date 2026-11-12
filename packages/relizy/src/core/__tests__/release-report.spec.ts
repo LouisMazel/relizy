@@ -170,7 +170,7 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).not.toContain('**Tags**')
     // A failed step does not stop the release
     expect(markdown).toContain('| ⚠️ **Social media** | slack: down |')
-    expect(markdown).toContain('| ⏭️ **PR comment** | skipped |')
+    expect(markdown).not.toContain('PR comment')
     expect(markdown).toContain('| Step | Result |\n| --- | --- |')
   })
 
@@ -249,15 +249,21 @@ describe('Given the renderers of the release report', () => {
     expect(formatReleaseReportMarkdown(report(3))).toContain('| ✅ **Provider release** | 3 releases on github |')
   })
 
-  it('Then gives why a step did nothing: the social posts of a prerelease', () => {
+  it('Then gives why a step did nothing in the terminal, and leaves it out of the markdown', () => {
     const report = {
       ...released,
       steps: [
+        { name: 'publish', status: 'done' },
         { name: 'social', status: 'skipped', detail: 'twitter: prerelease' },
+        { name: 'prComment', status: 'skipped' },
       ],
     } satisfies ReleaseReport
 
-    expect(formatReleaseReportMarkdown(report)).toContain('| ⏭️ **Social media** | skipped (twitter: prerelease) |')
+    const markdown = formatReleaseReportMarkdown(report)
+    expect(markdown).toContain('| ✅ **Publish** |')
+    expect(markdown).not.toContain('Social media')
+    expect(markdown).not.toContain('PR comment')
+    expect(markdown).not.toContain('skipped')
     expect(formatReleaseReportText(report)).toContain('Social media: Skipped (twitter: prerelease)')
   })
 
