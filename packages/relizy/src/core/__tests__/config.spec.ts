@@ -793,7 +793,7 @@ describe('Given loadRelizyConfig function', () => {
 
       const result = await loadRelizyConfig()
 
-      expect(resolveRepoConfig).toHaveBeenCalledWith('/project')
+      expect(resolveRepoConfig).toHaveBeenCalledWith('/project', { logger })
       expect(result.repo).toEqual({
         provider: 'github',
         domain: 'github.com',

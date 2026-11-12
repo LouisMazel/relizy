@@ -265,7 +265,7 @@ async function resolveConfig(
 ) {
   if (!config.repo) {
     // Undefined without a `repository` field nor an `origin` remote (a local repository)
-    const resolvedRepoConfig = await resolveRepoConfig(cwd)
+    const resolvedRepoConfig = await resolveRepoConfig(cwd, { logger })
 
     if (resolvedRepoConfig) {
       config.repo = resolvedRepoConfig

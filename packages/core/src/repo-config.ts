@@ -1,4 +1,4 @@
-import type { GitProvider, Reference, RepoConfig } from './types'
+import type { CoreLogger, GitProvider, Reference, RepoConfig } from './types'
 import { existsSync, readFileSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { parseJSON, parseJSONC } from 'confbox'
@@ -39,8 +39,8 @@ function getHostProvider(host: string): GitProvider | undefined {
   return (['github', 'gitlab', 'bitbucket'] as const).find(provider => host.includes(provider))
 }
 
-// https://regex101.com/r/NA4Io6/1
-const PROVIDER_URL_REGEX = /^(?:(?<user>[\w-]+)@)?(?:(?<provider>[^/:]+):)?(?<repo>[\w-]+\/(?:\w|\.(?!git$)|-)+)(?:\.git)?$/
+// Based on https://regex101.com/r/NA4Io6/1, with the nested paths of the GitLab subgroups (`group/sub/project`)
+const PROVIDER_URL_REGEX = /^(?:(?<user>[\w-]+)@)?(?:(?<provider>[^/:]+):)?(?<repo>(?:[\w.-]+\/)+(?:\w|\.(?!git$)|-)+)(?:\.git)?$/
 
 function baseUrl(config: RepoConfig) {
   return `https://${config.domain}/${config.repo}`
@@ -131,6 +131,15 @@ function getGitRemoteURL(cwd: string, remote = 'origin'): string {
   ], { cwd })
 }
 
+/** Parses a repository URL found in the project, warns when nothing is recognized in it */
+function parseFoundRepoUrl(url: string, source: string, logger?: CoreLogger): RepoConfig {
+  const config = getRepoConfig(url)
+  if (!config.repo) {
+    logger?.warn?.(`The repository could not be read from ${source} (${url}): set \`repo\` in the config`)
+  }
+  return config
+}
+
 /**
  * Repository of the project, from the `repository` field of the closest
  * `package.json` (in `cwd` or a parent), else from the `origin` remote.
@@ -138,6 +147,8 @@ function getGitRemoteURL(cwd: string, remote = 'origin'): string {
  * in `cwd` when the `package.json` has no `repository`. Never throws.
  *
  * @param cwd - The directory to start from
+ * @param options - The options
+ * @param options.logger - Warned when a `repository` field or a remote is found but not recognized
  * @returns The repository parsed with `getRepoConfig`, or undefined
  * @example
  * ```ts
@@ -147,7 +158,7 @@ function getGitRemoteURL(cwd: string, remote = 'origin'): string {
  */
 // Async for the callers of the public API
 // eslint-disable-next-line require-await
-export async function resolveRepoConfig(cwd: string): Promise<RepoConfig | undefined> {
+export async function resolveRepoConfig(cwd: string, { logger }: { logger?: CoreLogger } = {}): Promise<RepoConfig | undefined> {
   let pkg: ReturnType<typeof readClosestPackageJson>
   try {
     pkg = readClosestPackageJson(cwd)
@@ -160,13 +171,13 @@ export async function resolveRepoConfig(cwd: string): Promise<RepoConfig | undef
     const url = typeof pkg.repository === 'string'
       ? pkg.repository
       : pkg.repository.url
-    return getRepoConfig(url)
+    return parseFoundRepoUrl(url ?? '', 'the `repository` field of package.json', logger)
   }
 
   try {
     const gitRemote = getGitRemoteURL(cwd)
     if (gitRemote) {
-      return getRepoConfig(gitRemote)
+      return parseFoundRepoUrl(gitRemote, 'the `origin` remote', logger)
     }
   }
   catch {
@@ -177,14 +188,15 @@ export async function resolveRepoConfig(cwd: string): Promise<RepoConfig | undef
 }
 
 /**
- * Provider, domain and `owner/name` of a repository URL (`https://`, `git@`,
- * `github:owner/name` or `owner/name`). A bare `owner/name` is a GitHub
+ * Provider, domain and path of a repository URL (`https://`, `git@`,
+ * `github:owner/name` or `owner/name`), the path keeps the subgroups
+ * (`group/sub/project`). A bare `owner/name` is a GitHub
  * repository; the provider of a self-hosted host is read from its name
  * (`gitlab.example.com` is `gitlab`), undefined when it names none. Never throws:
  * unparsable input gives undefined fields.
  *
  * @param repoUrl - The repository URL or shorthand, empty by default
- * @returns The provider, the `owner/name` path and the domain, each undefined when not found
+ * @returns The provider, the path (`owner/name`, or with subgroups) and the domain, each undefined when not found
  * @example
  * ```ts
  * getRepoConfig('git@gitlab.com:group/project.git')
@@ -225,7 +237,8 @@ export function getRepoConfig(repoUrl = ''): RepoConfig {
       .replace(/\.git$/, '')
     provider = domainToProvider[domain] ?? getHostProvider(domain)
   }
-  else if (m.repo) {
+  // A bare shorthand is `owner/name`, GitHub has no subgroups
+  else if (m.repo && m.repo.split('/').length === 2) {
     repo = m.repo
     provider = 'github'
     domain = providerToDomain[provider]
