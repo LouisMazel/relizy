@@ -2,10 +2,10 @@ import type { ToolDefinition } from '../tools/types'
 
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js'
+import { readOwnVersion } from '../../own-version'
 import { buildInstructions, MAX_INSTRUCTIONS_LENGTH } from '../instructions'
 import { createRelizyMcpServer, runTool, TOOLS } from '../server'
 import { ToolInputError } from '../tools/types'
-import { readOwnVersion } from '../version'
 import { cleanTempDirs, createTempDir, createTestContext, getKnowledge, writeOutdatedRules } from './helpers'
 
 vi.mock('@maz-ui/node', importActual => importActual())

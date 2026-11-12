@@ -188,10 +188,10 @@ relizy/
 │   │   │   ├── cli.ts          # CLI entry point with Commander.js
 │   │   │   ├── index.ts        # Public API (an explicit list, see src/__tests__/index.spec.ts)
 │   │   │   ├── types.ts        # Types of the config, the options and the results
-│   │   │   ├── commands/       # One file per command (bump, changelog, commitlint, init, pr-comment,
-│   │   │   │                   #   provider-release, publish, release, social)
-│   │   │   ├── core/           # Logic of the commands (git, tags, versions, npm, AI, commitlint...)
-│   │   │   ├── mcp/            # MCP server for the AI agents (relizy mcp)
+│   │   │   ├── commands/       # One file per command (bump, changelog, commitlint, init, mcp, merge-preview,
+│   │   │   │                   #   pr-comment, provider-release, publish, release, social)
+│   │   │   ├── core/           # Logic of the commands (git, tags, versions, npm, AI, commitlint...),
+│   │   │   │                   #   with core/mcp/, the MCP server for the AI agents (relizy mcp)
 │   │   │   └── **/__tests__/   # Specs, *.git.spec.ts on real git repositories
 │   │   ├── agent-docs/         # Docs bundle of the MCP server, generated (gitignored, published)
 │   │   ├── bin/relizy.mjs      # CLI executable entry point
@@ -241,7 +241,7 @@ When adding new functionality:
 3. Ensure tests are deterministic and isolated
 4. Aim for meaningful coverage, not just high percentages
 
-The docs are checked too, by `src/mcp/__tests__/knowledge.spec.ts`: it fails when a page cited by the code or the MCP server is renamed, when a CLI flag or a config option is missing from its page, or when a documented default differs from `getDefaultConfig()`. The links between the pages of the docs are relative (`./../config/bump.md`).
+The docs are checked too, by `src/core/mcp/__tests__/knowledge.spec.ts`: it fails when a page cited by the code or the MCP server is renamed, when a CLI flag or a config option is missing from its page, or when a documented default differs from `getDefaultConfig()`. The links between the pages of the docs are relative (`./../config/bump.md`).
 
 **Example test:**
 

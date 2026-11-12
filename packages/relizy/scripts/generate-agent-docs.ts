@@ -1,6 +1,6 @@
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { generateAgentDocs } from '../src/mcp/knowledge/generate'
+import { generateAgentDocs } from '../src/core/mcp/knowledge/generate'
 
 const manifest = generateAgentDocs({
   rootDir: process.cwd(),

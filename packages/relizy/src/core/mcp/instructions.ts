@@ -1,6 +1,6 @@
 import type { ServerContext } from './context'
 
-import { findOutdatedRules } from './agents'
+import { findOutdatedRules } from '../agents'
 
 /** Claude Code truncates the instructions of a server to 4096 characters */
 export const MAX_INSTRUCTIONS_LENGTH = 4096

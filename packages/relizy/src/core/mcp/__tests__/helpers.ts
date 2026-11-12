@@ -1,4 +1,4 @@
-import type { GitRepository } from '../../../../../tests/git-repository'
+import type { GitRepository } from '../../../../../../tests/git-repository'
 import type { ServerContext } from '../context'
 import type { Knowledge } from '../knowledge/load'
 
@@ -6,13 +6,13 @@ import { cpSync, mkdtempSync, readFileSync, realpathSync, rmSync, writeFileSync 
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { createGitRepository } from '../../../../../tests/git-repository'
-import { setupRelizyAgents } from '../agents'
+import { createGitRepository } from '../../../../../../tests/git-repository'
+import { setupRelizyAgents } from '../../agents'
 import { createContext } from '../context'
 import { generateAgentDocs } from '../knowledge/generate'
 import { loadKnowledge } from '../knowledge/load'
 
-export const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
+export const ROOT_DIR = resolve(dirname(fileURLToPath(import.meta.url)), '../../../..')
 
 const tempDirs: string[] = []
 

@@ -1,10 +1,10 @@
-import type { BumpResult } from '../../types'
+import type { BumpResult } from '../../../types'
 import type { ServerContext } from '../context'
 import type { PackageSet } from './project'
 import type { ReleasePlan, ReleasePlanArgs } from './release-plan'
 
 import { z } from 'zod'
-import { getReleaseTagNames } from '../../core'
+import { getReleaseTagNames } from '../..'
 import { code, codeList, tableCell } from '../markdown'
 import { formatNotes, withCapturedLogs } from '../runtime'
 import { relativePath } from './project'

@@ -1,4 +1,4 @@
-import type { GitRepository } from '../../../../../tests/git-repository'
+import type { GitRepository } from '../../../../../../tests/git-repository'
 
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'

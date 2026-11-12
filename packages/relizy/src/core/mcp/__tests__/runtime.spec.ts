@@ -2,8 +2,8 @@ import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
+import { readOwnVersion } from '../../own-version'
 import { captureLogs, formatNotes, listConfigNames, loadProjectConfig, redirectConsoleToStderr, withCapturedLogs } from '../runtime'
-import { readOwnVersion } from '../version'
 import { cleanTempDirs, createRepository, createTempDir, ROOT_DIR } from './helpers'
 
 vi.mock('@maz-ui/node', importActual => importActual())

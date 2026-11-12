@@ -1,13 +1,13 @@
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
-import type { ResolvedRelizyConfig } from '../core'
-import type { RelizyConfig } from '../types'
+import type { ResolvedRelizyConfig } from '..'
+import type { RelizyConfig } from '../../types'
 
 import { AsyncLocalStorage } from 'node:async_hooks'
 import { readdirSync } from 'node:fs'
 import process from 'node:process'
 import { format, stripVTControlCharacters } from 'node:util'
 import { logger } from '@maz-ui/node'
-import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache } from '../core'
+import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache } from '..'
 import { ToolInputError } from './tools/types'
 
 /**

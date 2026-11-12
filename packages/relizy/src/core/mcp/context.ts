@@ -1,9 +1,9 @@
 import type { Knowledge } from './knowledge/load'
 
 import process from 'node:process'
+import { readOwnVersion } from '../own-version'
 import { loadKnowledge } from './knowledge/load'
 import { DocSearch } from './search'
-import { readOwnVersion } from './version'
 
 export interface ServerContext {
   /** Version of the running relizy */

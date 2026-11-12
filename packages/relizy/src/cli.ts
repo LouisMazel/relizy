@@ -6,10 +6,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { logger, printBanner } from '@maz-ui/node'
+import { AGENT_TARGETS, logger, printBanner } from '@maz-ui/node'
 import { getCIName, isInCI } from '@relizy/core'
 import { Command, InvalidArgumentError, Option } from 'commander'
-import { bump, changelog, commitlint, init, INIT_STEPS, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
@@ -63,7 +63,7 @@ async function warnOutdatedAgentRules(command: Command): Promise<void> {
       return
     }
 
-    const { findOutdatedRules } = await import('./mcp/agents')
+    const { findOutdatedRules } = await import('./core/agents')
     const outdated = findOutdatedRules(process.cwd())
 
     if (outdated.length > 0) {
@@ -445,7 +445,7 @@ mcp
         process.chdir(options.cwd)
       }
 
-      const { startStdioServer } = await import('./mcp')
+      const { startStdioServer } = await import('./core/mcp')
       await startStdioServer({
         cwd: process.cwd(),
       })
@@ -460,17 +460,15 @@ mcp
 
 mcp
   .command('init')
-  .description('Configure the AI agents of the project for relizy: rules (Claude Code, AGENTS.md) and MCP server (.mcp.json, Cursor, VS Code)')
-  .option('--targets <agents>', 'Comma-separated agents: claude, agents-md, cursor, vscode (default: the detected ones, else claude,agents-md)', parseGroupNames)
+  .description('Configure the AI agents of the project for relizy: rules (Claude Code rule, AGENTS.md) and MCP server')
+  .option('--targets <agents>', `Comma-separated agents: ${AGENT_TARGETS.join(', ')} (default: asked in a terminal, else the detected ones, else claude,agents-md)`, parseGroupNames)
   .option('--no-rules', 'Only register the MCP server, without the rules')
   .option('--no-mcp', 'Only write the rules, without the MCP server')
   .option('--no-prepare', 'Do not add relizy mcp update to the prepare script of the package.json')
   .option('--remove', 'Remove what relizy mcp init added')
   .action(async (options) => {
     try {
-      const { mcpInit } = await import('./mcp')
-
-      mcpInit({
+      await mcpInit({
         targets: options.targets,
         rules: options.rules,
         mcp: options.mcp,
@@ -490,10 +488,8 @@ mcp
 mcp
   .command('update')
   .description('Update the relizy rules of the AI agents already set up in the project, when they changed (used in the prepare script)')
-  .action(async () => {
+  .action(() => {
     try {
-      const { mcpUpdate } = await import('./mcp')
-
       mcpUpdate({
         dryRun: program.opts().dryRun,
       })

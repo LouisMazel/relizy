@@ -3,7 +3,7 @@ import type { ReleasePlanArgs } from './release-plan'
 
 import { aggregateIndependentChangelogs } from '@relizy/core'
 import { z } from 'zod'
-import { generateChangelog, readPackageJson } from '../../core'
+import { generateChangelog, readPackageJson } from '../..'
 import { codeList } from '../markdown'
 import { formatNotes, withCapturedLogs } from '../runtime'
 import { relativePath } from './project'

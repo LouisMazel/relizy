@@ -19,7 +19,7 @@ An agent cannot guess what the next release will do: which packages, which versi
 npx relizy mcp init
 ```
 
-It writes the Relizy rules for your agents and registers the MCP server in their configs: see [`relizy mcp init`](./../cli/mcp.md#relizy-mcp-init) for the files and the options. `relizy init` offers the same step when the project already uses an AI agent.
+It writes the Relizy rules for your agents and registers the MCP server in their configs: see [`relizy mcp init`](./../cli/mcp.md#relizy-mcp-init) for the files and the options. `relizy init` offers the same step.
 
 Install Relizy as a devDependency of the project: the agents then start the installed version in about a second, at the version of your lockfile.
 
@@ -124,7 +124,7 @@ Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.
 
 The rules written by `relizy mcp init`:
 
-<!--@include: ./../../../packages/relizy/src/mcp/content/rules.md-->
+<!--@include: ./../../../packages/relizy/src/core/mcp/content/rules.md-->
 
 ## Troubleshooting
 

@@ -18,7 +18,7 @@ function write(outDir: string, path: string, content: string) {
  * `relizy mcp init` writes in the projects, published as a skill
  */
 export function writeAgentSkills(outDir: string, siteUrl: string) {
-  const rules = readFileSync(new URL('../../packages/relizy/src/mcp/content/rules.md', import.meta.url), 'utf8').trim()
+  const rules = readFileSync(new URL('../../packages/relizy/src/core/mcp/content/rules.md', import.meta.url), 'utf8').trim()
   const skill = [
     '---',
     `name: ${SKILL.name}`,

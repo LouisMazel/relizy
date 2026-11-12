@@ -504,7 +504,7 @@ function renderReadme(manifest: Manifest): string {
 
 export function generateAgentDocs({ rootDir, outDir = join(rootDir, 'agent-docs'), docsDir = join(rootDir, '../../docs/src'), coreDir = join(rootDir, '../core/src') }: GenerateAgentDocsOptions): Manifest {
   const { version } = JSON.parse(readFileSync(join(rootDir, 'package.json'), 'utf8')) as { version: string }
-  const rules = renderAgentRules(readFileSync(join(rootDir, 'src/mcp/content/rules.md'), 'utf8'))
+  const rules = renderAgentRules(readFileSync(join(rootDir, 'src/core/mcp/content/rules.md'), 'utf8'))
   const coreVersion = (JSON.parse(readFileSync(join(coreDir, '../package.json'), 'utf8')) as { version: string }).version
   const coreEntries = extractCoreApi(coreDir)
   const corePages = renderCoreApiPages(coreEntries, coreVersion).map(page => ({

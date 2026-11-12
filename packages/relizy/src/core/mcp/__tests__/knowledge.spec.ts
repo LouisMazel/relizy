@@ -2,11 +2,11 @@ import type { Knowledge } from '../knowledge/load'
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
-import { getDefaultConfig } from '../../core'
+import { getDefaultConfig } from '../..'
+import { defaultBundleDir } from '../../agent-docs'
 import { CORE_DOMAINS, extractCoreApi, parseJsDocTags, renderCoreApiPages } from '../knowledge/core-api'
 import { cleanMarkdown, CONFIG_DOC_IDS, extractConfigReference, parseFrontmatter, parseJsDoc } from '../knowledge/generate'
 import { loadKnowledge } from '../knowledge/load'
-import { defaultBundleDir } from '../knowledge/paths'
 import { createCoreResolver } from '../knowledge/source'
 import { cleanTempDirs, createTempDir, getBundleDir, getKnowledge, ROOT_DIR } from './helpers'
 
@@ -23,8 +23,8 @@ function listFiles(directory: string): string[] {
 /** Doc ids cited by the MCP server: tool descriptions, instructions, prompts and rules */
 function citedDocIds(): string[] {
   const files = [
-    ...listFiles(join(ROOT_DIR, 'src/mcp')).filter(file => file.endsWith('.ts') && !file.includes('__tests__')),
-    join(ROOT_DIR, 'src/mcp/content/rules.md'),
+    ...listFiles(join(ROOT_DIR, 'src/core/mcp')).filter(file => file.endsWith('.ts') && !file.includes('__tests__')),
+    join(ROOT_DIR, 'src/core/mcp/content/rules.md'),
   ]
   const ids = files.flatMap(file => [
     ...readFileSync(file, 'utf8').matchAll(/["`]((?:guide|config|cli|commitlint|api)\/[a-z-]+)[#"`]/g),
@@ -233,7 +233,7 @@ describe('Given the docs bundle generated from the sources', () => {
     })
 
     it('Then the pages named in the description of get_doc exist too', () => {
-      const description = readFileSync(join(ROOT_DIR, 'src/mcp/tools/get-doc.ts'), 'utf8')
+      const description = readFileSync(join(ROOT_DIR, 'src/core/mcp/tools/get-doc.ts'), 'utf8')
       const names = [
         ...description.matchAll(/\b(guide|config|cli|commitlint) \(([^)]+)\)/g),
       ]
@@ -804,7 +804,7 @@ describe('Given loadKnowledge', () => {
 describe('Given defaultBundleDir', () => {
   describe('When it runs from the sources', () => {
     it('Then it finds the agent-docs folder at the root of the repository, or falls back to the package folder', () => {
-      const directory = defaultBundleDir(join(ROOT_DIR, 'src/mcp/knowledge'))
+      const directory = defaultBundleDir(join(ROOT_DIR, 'src/core'))
 
       expect([
         join(ROOT_DIR, 'agent-docs'),

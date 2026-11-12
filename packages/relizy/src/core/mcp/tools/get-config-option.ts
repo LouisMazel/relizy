@@ -3,7 +3,7 @@ import type { ConfigOption } from '../knowledge/schema'
 import { redactSecrets } from '@relizy/core'
 
 import { z } from 'zod'
-import { getDefaultConfig } from '../../core'
+import { getDefaultConfig } from '../..'
 import { code, firstParagraph, tableCell, truncateText } from '../markdown'
 import { defineTool, ToolInputError } from './types'
 

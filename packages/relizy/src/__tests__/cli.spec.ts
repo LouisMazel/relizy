@@ -5,7 +5,7 @@ import { delimiter, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 import { createGitRepository } from '../../../../tests/git-repository'
-import { writeOutdatedRules } from '../mcp/__tests__/helpers'
+import { writeOutdatedRules } from '../core/mcp/__tests__/helpers'
 
 const PACKAGE_DIR = fileURLToPath(new URL('../..', import.meta.url))
 

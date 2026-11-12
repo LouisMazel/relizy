@@ -3,7 +3,7 @@ import type { ConfigOption, CoreExport, DocEntry, Manifest } from './schema'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
-import { defaultBundleDir } from './paths'
+import { defaultBundleDir } from '../../agent-docs'
 import { manifestSchema } from './schema'
 
 /** Docs bundle shipped with relizy (`agent-docs/`), read on demand */

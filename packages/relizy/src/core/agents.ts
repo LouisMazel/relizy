@@ -3,10 +3,10 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
 import { join } from 'node:path'
 import process from 'node:process'
-import { AGENT_TARGETS, detectAgentTargets, logger, setupAgents } from '@maz-ui/node'
-import { isInCI } from '@relizy/core'
-import { defaultBundleDir } from './knowledge/paths'
-import { readOwnVersion } from './version'
+import { multiselect } from '@clack/prompts'
+import { AGENT_TARGETS, detectAgentTargets, setupAgents } from '@maz-ui/node'
+import { defaultBundleDir } from './agent-docs'
+import { readOwnVersion } from './own-version'
 
 /** relizy for `setupAgents` of `@maz-ui/node`: `.claude/rules/relizy.md`, the `relizy` section of `AGENTS.md` and MCP server */
 export const RELIZY_AGENTS_TOOL: AgentsTool = {
@@ -38,7 +38,7 @@ export function readOwnAgentDocs(directory: string = process.env.RELIZY_AGENT_DO
   }
 }
 
-export interface McpInitOptions {
+export interface SetupRelizyAgentsOptions {
   cwd?: string
   /** Agents to configure, default: the agents detected in the project, else Claude Code and `AGENTS.md` */
   targets?: AgentTarget[]
@@ -46,8 +46,6 @@ export interface McpInitOptions {
   rules?: boolean
   /** Register the MCP server, default `true` */
   mcp?: boolean
-  /** Add `relizy mcp update` to the `prepare` script of the root package.json (with the rules only), default `true` */
-  prepare?: boolean
   dryRun?: boolean
   /** Remove what `relizy mcp init` added */
   remove?: boolean
@@ -55,7 +53,7 @@ export interface McpInitOptions {
   docsDir?: string
 }
 
-/** Default agents of a project: the detected ones, else Claude Code and `AGENTS.md` (read by Codex, Cursor, Copilot...) */
+/** Default agents of a project: the detected ones, else Claude Code and `AGENTS.md` (read by Codex, Cline, Zed...) */
 export function getDefaultAgentTargets(cwd: string): AgentTarget[] {
   const detected = detectAgentTargets(cwd)
 
@@ -64,17 +62,63 @@ export function getDefaultAgentTargets(cwd: string): AgentTarget[] {
     : ['claude', 'agents-md']
 }
 
-/** Configure the AI coding agents of a project for relizy: rules and MCP server */
-export function setupRelizyAgents({ cwd = process.cwd(), targets, rules = true, mcp = true, dryRun = false, remove = false, docsDir }: McpInitOptions = {}): SetupAgentsResult {
+/** Agents offered by `relizy init` and `relizy mcp init`, in the order of the question */
+const AGENT_LABELS: Record<AgentTarget, string> = {
+  'claude': 'Claude Code',
+  'vscode': 'GitHub Copilot (VS Code)',
+  'cursor': 'Cursor',
+  'gemini': 'Gemini CLI',
+  'opencode': 'OpenCode',
+  'junie': 'JetBrains Junie',
+  'windsurf': 'Windsurf / Devin',
+  'warp': 'Warp',
+  'kiro': 'Kiro',
+  'roo': 'Roo Code',
+  'agents-md': 'Codex, Cline, Zed or another agent',
+}
+
+/** The agents with `AGENTS.md` as soon as one is not Claude Code: it holds their rules */
+function withAgentsMd(targets: AgentTarget[]): AgentTarget[] {
+  return targets.some(target => target !== 'claude')
+    ? AGENT_TARGETS.filter(target => target === 'agents-md' || targets.includes(target))
+    : targets
+}
+
+/** Ask which agents to configure, the detected ones checked, with `AGENTS.md` (see `withAgentsMd`). The symbol of clack when cancelled */
+export async function askAgentTargets(cwd: string): Promise<AgentTarget[] | symbol> {
+  const selected = await multiselect({
+    message: 'Which AI agents do you use?',
+    options: (Object.keys(AGENT_LABELS) as AgentTarget[]).map(target => ({
+      value: target,
+      label: AGENT_LABELS[target],
+      hint: target === 'agents-md'
+        ? 'AGENTS.md'
+        : undefined,
+    })),
+    initialValues: detectAgentTargets(cwd),
+    required: true,
+  })
+
+  return typeof selected === 'symbol'
+    ? selected
+    : withAgentsMd(selected)
+}
+
+/** Configure the AI coding agents of a project for relizy: rules and MCP server, with `AGENTS.md` for the rules of the agents other than Claude Code */
+export function setupRelizyAgents({ cwd = process.cwd(), targets, rules = true, mcp = true, dryRun = false, remove = false, docsDir }: SetupRelizyAgentsOptions = {}): SetupAgentsResult {
   const invalid = (targets ?? []).filter(target => !AGENT_TARGETS.includes(target))
 
   if (invalid.length > 0) {
     throw new Error(`Unknown agent target(s): ${invalid.join(', ')}. Available: ${AGENT_TARGETS.join(', ')}.`)
   }
 
+  const configured = targets ?? getDefaultAgentTargets(cwd)
+
   return setupAgents({
     rootDir: cwd,
-    targets: targets ?? getDefaultAgentTargets(cwd),
+    targets: remove || !rules
+      ? configured
+      : withAgentsMd(configured),
     rules,
     mcp,
     dryRun,
@@ -97,68 +141,6 @@ export function findOutdatedRules(cwd: string): string[] {
 
   try {
     return setupRelizyAgents({ cwd, mcp: false, dryRun: true }).changes.filter(change => change.action === 'update' && readFileSync(join(cwd, change.file), 'utf8').includes(marker)).map(change => change.file)
-  }
-  catch {
-    return []
-  }
-}
-
-export function formatAgentsChanges(changes: SetupAgentsChange[], dryRun: boolean): string[] {
-  const labels: Record<SetupAgentsChange['action'], string> = {
-    create: dryRun ? 'would create' : 'created',
-    update: dryRun ? 'would update' : 'updated',
-    remove: dryRun ? 'would remove' : 'removed',
-    unchanged: 'up to date',
-    skip: 'skipped',
-  }
-
-  return changes.map((change) => {
-    const reason = change.reason
-      ? ` (${change.reason})`
-      : ''
-
-    return `${labels[change.action].padEnd(13)} ${change.file}${reason}`
-  })
-}
-
-export interface McpUpdateOptions {
-  cwd?: string
-  dryRun?: boolean
-}
-
-/** Agent owning each rule file */
-const RULE_FILE_TARGETS: Record<string, AgentTarget> = {
-  '.claude/rules/relizy.md': 'claude',
-  'AGENTS.md': 'agents-md',
-}
-
-/**
- * `relizy mcp update`: rewrite the rule files of relizy that already exist and whose content changed.
- * Never creates a file, never touches the MCP config nor a file edited by hand. Silent when everything is up to date.
- * Never throws: a project without rules has nothing to update.
- * Does nothing in CI, where the `prepare` script also runs: nobody commits the files it would rewrite there.
- */
-export function mcpUpdate({ cwd = process.cwd(), dryRun = false }: McpUpdateOptions = {}): SetupAgentsChange[] {
-  if (isInCI()) {
-    return []
-  }
-
-  try {
-    const targets = [
-      ...new Set(findOutdatedRules(cwd).map(file => RULE_FILE_TARGETS[file]).filter((target): target is AgentTarget => !!target)),
-    ]
-
-    if (targets.length === 0) {
-      return []
-    }
-
-    const changes = setupRelizyAgents({ cwd, mcp: false, targets, dryRun }).changes.filter(change => change.action === 'update')
-
-    for (const line of formatAgentsChanges(changes, dryRun)) {
-      logger.log(line)
-    }
-
-    return changes
   }
   catch {
     return []
@@ -251,37 +233,4 @@ export function setupPrepareScript({ cwd = process.cwd(), dryRun = false, remove
   }
 
   return { file: 'package.json', action: 'update', reason: `prepare script: ${next}` }
-}
-
-/** `relizy mcp init`: configure the agents and the `prepare` script of the rules, then print the changes */
-export function mcpInit(options: McpInitOptions = {}): SetupAgentsResult {
-  const dryRun = options.dryRun ?? false
-  const result = setupRelizyAgents(options)
-
-  // keeps the rules of the agents up to date at each install
-  if (options.rules !== false && options.prepare !== false) {
-    const prepare = setupPrepareScript({ cwd: options.cwd, dryRun, remove: options.remove })
-
-    if (prepare) {
-      result.changes.push(prepare)
-    }
-  }
-
-  const command = [result.mcpServer.command, ...result.mcpServer.args].join(' ')
-
-  logger.info(`relizy ${readOwnVersion()} agents setup (${result.targets.join(', ')})${dryRun ? ' - dry run' : ''}`)
-
-  for (const line of formatAgentsChanges(result.changes, dryRun)) {
-    logger.log(`  ${line}`)
-  }
-
-  if (!options.remove && options.mcp !== false && !result.localMcpServer) {
-    logger.info(`The MCP server runs through \`${command}\`: add relizy to the devDependencies of the project to start the installed version, then run \`relizy mcp init\` again.`)
-  }
-
-  if (!options.remove && options.rules !== false && result.targets.includes('agents-md')) {
-    logger.info(`Codex and Windsurf read AGENTS.md: to give them the MCP server too, add \`${command}\` to their MCP config.`)
-  }
-
-  return result
 }

@@ -1,6 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { setupRelizyAgents } from '../agents'
+import { setupRelizyAgents } from '../../agents'
+import { readOwnVersion } from '../../own-version'
 import { createContext } from '../context'
 import { startStdioServer } from '../server'
 import { getConfigOption, stringifyConfigValue } from '../tools/get-config-option'
@@ -10,7 +11,6 @@ import { lintCommit } from '../tools/lint-commit'
 import { MAX_CHANGELOGS_CHARS, previewChangelog } from '../tools/preview-changelog'
 import { previewRelease } from '../tools/preview-release'
 import { searchDocs } from '../tools/search-docs'
-import { readOwnVersion } from '../version'
 import { cleanTempDirs, createRepository, createTempDir, createTestContext, getBundleDir, writeOutdatedRules } from './helpers'
 
 vi.mock('@maz-ui/node', importActual => importActual())

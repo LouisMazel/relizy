@@ -1,9 +1,9 @@
-import type { ResolvedRelizyConfig } from '../../core'
-import type { ReadPackage, VersionGroup, VersionMode } from '../../types'
+import type { ResolvedRelizyConfig } from '../..'
+import type { ReadPackage, VersionGroup, VersionMode } from '../../../types'
 
 import { relative } from 'node:path'
 import { z } from 'zod'
-import { hasVersionGroups, readPackages, resolveVersionGroups } from '../../core'
+import { hasVersionGroups, readPackages, resolveVersionGroups } from '../..'
 
 export const configArgSchema = z.string().optional().describe('Name of the relizy config, as `--config`: "relizy.standalone" for relizy.standalone.config.ts. Default: relizy.config')
 

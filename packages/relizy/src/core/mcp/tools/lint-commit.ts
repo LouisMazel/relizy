@@ -1,11 +1,11 @@
 import type { CommitlintResult } from '@relizy/core'
-import type { ResolvedRelizyConfig } from '../../core'
+import type { ResolvedRelizyConfig } from '../..'
 import type { ServerContext } from '../context'
 import { logger } from '@maz-ui/node'
 import { getCommitsInRange, getLastTag, getStagedFiles } from '@relizy/core'
 
 import { z } from 'zod'
-import { getWorkspacePackages, lintCommitMessage, renderChangelogEntry, summarizeResults } from '../../core'
+import { getWorkspacePackages, lintCommitMessage, renderChangelogEntry, summarizeResults } from '../..'
 import { code, codeList } from '../markdown'
 import { formatNotes, loadProjectConfig, withCapturedLogs } from '../runtime'
 import { configArgSchema } from './project'
