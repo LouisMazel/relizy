@@ -1,6 +1,7 @@
 import { execPromise, logger } from '@maz-ui/node'
 import { vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { RelizyCancelError } from '../errors'
 import { executeBuildCmd, executeHook, getHookContext, getPackagesOrBumpedPackages } from '../utils'
 
 vi.mock('../repo', () => ({
@@ -40,6 +41,21 @@ describe('Given executeHook function', () => {
       }
 
       await expect(executeHook('before:publish', config, false)).rejects.toThrow('before:publish hook failed: Published files missing after the build:\nmaz-ui: dist/index.js')
+    })
+
+    it('Then the error of a command names the hook, and a cancellation is kept', async () => {
+      const config = createMockConfig({
+        bump: { type: 'patch' },
+      })
+      const cancel = new RelizyCancelError('Cancelled')
+      config.hooks = {
+        'before:publish': 'pnpm build',
+        'before:bump': () => Promise.reject(cancel),
+      }
+      vi.mocked(execPromise).mockRejectedValueOnce('build failed')
+
+      await expect(executeHook('before:publish', config, false)).rejects.toThrow('before:publish hook failed: build failed')
+      await expect(executeHook('before:bump', config, false)).rejects.toBe(cancel)
     })
   })
 
