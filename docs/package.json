@@ -21,7 +21,7 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
-    "@maz-ui/icons": "^5.5.0",
+    "@maz-ui/icons": "^5.6.0",
     "@maz-ui/themes": "^5.5.0",
     "maz-ui": "^5.5.0",
     "vue": "^3.5.44"
