@@ -208,7 +208,7 @@ const ciFeatures = [
         </div>
 
         <div class="mt-6 animate-rise [animation-delay:320ms]">
-          <HomeCopyCommand command="pnpm add -D relizy" />
+          <HomeCopyCommand command="npx relizy init" />
         </div>
       </div>
     </section>
@@ -475,7 +475,7 @@ const ciFeatures = [
               <code class="text-primary">relizy init</code> detects your setup. <code class="text-primary">relizy release</code> does the rest.
             </p>
             <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <HomeCopyCommand command="pnpm dlx relizy init" />
+              <HomeCopyCommand command="npx relizy init" />
               <MazBtn href="/guide/getting-started" size="lg" :end-icon="MazArrowRight">
                 Read the guide
               </MazBtn>

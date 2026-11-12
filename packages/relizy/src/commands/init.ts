@@ -4,11 +4,12 @@ import type { RelizyConfig, VersionMode } from '../types'
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { dirname, join, relative } from 'node:path'
 import process from 'node:process'
-import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, text } from '@clack/prompts'
-import { detectAgentTargets, logger } from '@maz-ui/node'
-import { isInCI } from '@relizy/core'
-import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
-import { setupRelizyAgents } from '../mcp/agents'
+import { cancel, confirm, intro, isCancel, log, multiselect, note, outro, select, spinner, text } from '@clack/prompts'
+import { detectAgentTargets, execPromise, logger } from '@maz-ui/node'
+import { isInCI, tryGitSync } from '@relizy/core'
+import { buildInitConfig, COMMIT_MSG_HOOK_COMMAND, createStyles, detectProject, findCiSetup, findOtherCommitMsgHook, getAnswersFromConfig, getCandidateWorkspaces, getCustomCommitMessage, getDefaultAnswers, getDefaultConfig, getDetectedPublishConfig, getInstallCommand, getMergePreviewWorkflowFile, getMissingRootFields, getNpmRegistry, getPrepareScript, getReleasedPackages, getRunCommand, getScriptsToAdd, getWorkflowFile, getWorkflowOptions, getWorkflowSecrets, hasLocalRelizyCommitMsgHook, hasRelizyCommitMsgHook, installCommitMsgHook, isGeneratedWorkflow, isLocalCommitMsgHook, isMonorepoProject, isReleasablePackage, loadRelizyConfig, renderConfigFile, shouldUseColors, suggestGoal, suggestPatterns, suggestVersionMode, supportsProviderRelease, updateRootPackageJson } from '../core'
+import { askAgentTargets, setupRelizyAgents } from '../core/agents'
+import { readOwnVersion } from '../core/own-version'
 
 /**
  * A step of `relizy init`: the config, the commit-msg hook, the `release`
@@ -283,7 +284,8 @@ async function askPublish(detection: ProjectDetection, answers: InitAnswers): Pr
     })),
     registry: await askText({
       message: 'Registry:',
-      initialValue: detected.registry ?? 'https://registry.npmjs.org',
+      // The registry of the .npmrc, else the public one
+      initialValue: detected.registry ?? getNpmRegistry(detection.cwd),
     }),
     buildCmd: await askText({
       message: 'Build command run before publishing (optional):',
@@ -417,6 +419,8 @@ interface InitPlan {
   rootFields: { name?: string, version?: string }
   scripts: Record<string, string>
   hook: boolean
+  /** The command adding relizy to the devDependencies, when it is not a dependency yet */
+  install?: string
   /** The hook is written in `.git/hooks`, and at each install by the prepare script */
   localHook: boolean
   agents: AgentTarget[]
@@ -468,6 +472,10 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
   if (packageChanges.length > 0) {
     rows.push(`${c.yellow('update')}   package.json`, ...packageChanges.map(change => `         ${change}`))
   }
+  if (plan.install) {
+    const detail = `in the devDependencies (${plan.install})`
+    rows.push(`${c.cyan('install')}  relizy ${c.dim(detail)}`)
+  }
   if (plan.hook) {
     const detail = plan.localHook
       ? 'runs relizy commitlint at each commit, in .git/hooks and at each install for the other clones'
@@ -495,6 +503,31 @@ function showPlan(plan: InitPlan, answers: InitAnswers, cwd: string) {
     rows.push(`${c.dim('keep')}     ${step.target} ${c.dim(step.detail)}`)
   }
   note(rows.join('\n'), 'Changes')
+}
+
+/** Never throws: a failed install tells the command to run */
+async function installRelizy(cwd: string, command: string): Promise<void> {
+  // Without terminal (CI), a spinner writes each of its frames
+  const progress = process.stdout.isTTY
+    ? spinner()
+    : { start: log.step, stop: log.success, error: log.warn }
+  progress.start(`Installing relizy (${command})`)
+
+  try {
+    await execPromise(command, {
+      cwd,
+      noStdout: true,
+      noStderr: true,
+      noSuccess: true,
+    })
+    progress.stop('Installed relizy')
+  }
+  catch (error) {
+    const message = error instanceof Error
+      ? error.message
+      : String(error)
+    progress.error(`relizy not installed - ${message} (run ${command})`)
+  }
 }
 
 function installHook(cwd: string, force: boolean): InstalledHook | undefined {
@@ -552,35 +585,41 @@ function getAgentsChanges(cwd: string, targets: AgentTarget[]): string[] | undef
 }
 
 /**
- * Set up the AI agents: not asked when they are already set up for relizy,
- * an update of the existing setup is asked as such
+ * Set up the AI agents: always asked in a terminal, then which agents (the detected ones checked). Not asked
+ * when the detected agents are already set up for relizy, an update of their setup is asked as such. Without
+ * questions, only the detected agents are set up.
+ * `targets`: the agents to set up, `setUp`: the agents use relizy once done
  */
-/** `targets`: the agents to set up, `setUp`: the agents use relizy once done */
 async function askAgents(cwd: string, interactive: boolean, kept: KeptStep[]): Promise<{ targets: AgentTarget[], setUp: boolean }> {
-  // Only offered to the projects that already use an AI agent (CLAUDE.md, AGENTS.md, .cursor...)
-  const targets = detectAgentTargets(cwd)
-  if (targets.length === 0) {
-    return { targets, setUp: false }
+  const detected = detectAgentTargets(cwd)
+  if (!interactive && detected.length === 0) {
+    return { targets: [], setUp: false }
   }
 
-  const changes = getAgentsChanges(cwd, targets)
+  const changes = detected.length > 0
+    ? getAgentsChanges(cwd, detected)
+    : undefined
   if (changes?.length === 0) {
-    kept.push({ target: `AI agents (${targets.join(', ')})`, detail: 'relizy rules and MCP server already set up' })
+    kept.push({ target: `AI agents (${detected.join(', ')})`, detail: 'relizy rules and MCP server already set up' })
     return { targets: [], setUp: true }
   }
 
-  const update = changes?.every(file => existsSync(join(cwd, file)))
+  const update = detected.length > 0 && changes?.every(file => existsSync(join(cwd, file)))
   const wanted = await ask(interactive, true, () => confirm({
     message: update
       ? 'Update the relizy MCP and rules for your AI agents?'
       : 'Set up relizy MCP and rules for your AI agents?',
     initialValue: true,
   }))
+  if (!wanted) {
+    return { targets: [], setUp: false }
+  }
+
   return {
-    targets: wanted
-      ? targets
-      : [],
-    setUp: wanted,
+    targets: interactive && !update
+      ? await answer(askAgentTargets(cwd))
+      : detected,
+    setUp: true,
   }
 }
 
@@ -920,15 +959,33 @@ function getWrittenMergePreview(workflow: PlannedWorkflow): Pick<InitResult, 'me
     : {}
 }
 
+/** A token to set for a local release, with the login that replaces it when there is one */
+const LOCAL_TOKEN_ALTERNATIVES: Record<string, string> = {
+  NPM_TOKEN: '(or npm login)',
+  GITHUB_TOKEN: '(or gh auth login)',
+}
+
 function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workflow?: PlannedWorkflow) {
-  const tokens = workflow?.secrets ?? getRequiredTokens(detection, answers)
+  // The CI gives GITHUB_TOKEN to the jobs, a local release needs every token
+  const localTokens = getRequiredTokens(detection, answers)
+  const ciTokens = workflow?.secrets ?? localTokens
   const secretsLabel = detection.provider === 'gitlab'
     ? 'Add the CI/CD variables'
     : 'Add the secrets      '
+  // `git check-ignore` prints the ignored path, nothing when it is not ignored
+  const envIgnored = tryGitSync(['check-ignore', '.env'], { cwd: detection.cwd }) !== undefined
+  const envTokens = localTokens.map(token => LOCAL_TOKEN_ALTERNATIVES[token]
+    ? `${c.cyan(token)} ${c.dim(LOCAL_TOKEN_ALTERNATIVES[token])}`
+    : c.cyan(token)).join(', ')
   const steps = [
-    ...(detection.root.hasRelizy
-      ? []
-      : [`Install relizy        ${c.cyan(getInstallCommand(detection))}`]),
+    ...(localTokens.length > 0
+      ? [
+          `Set in .env           ${envTokens}`,
+          ...(envIgnored
+            ? []
+            : [`                      ${c.dim('add .env to .gitignore')}`]),
+        ]
+      : []),
     `Preview the release   ${c.cyan('npx relizy release --dry-run')}`,
     ...(workflow?.file?.include
       ? [`Include the workflow  ${c.cyan(workflow.file.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`]
@@ -936,8 +993,8 @@ function showNextSteps(detection: ProjectDetection, answers: InitAnswers, workfl
     ...(workflow?.mergePreviewFile?.include
       ? [`Include the preview   ${c.cyan(workflow.mergePreviewFile.include.replace('\n', ' '))} ${c.dim('in .gitlab-ci.yml')}`]
       : []),
-    ...(tokens.length > 0
-      ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${tokens.map(token => c.cyan(token)).join(', ')}`]
+    ...(ciTokens.length > 0
+      ? [`${workflow ? secretsLabel : 'Set in your CI       '} ${ciTokens.map(token => c.cyan(token)).join(', ')}`]
       : []),
     ...(answers.goal === 'publish'
       ? [`Publish without token ${c.cyan('https://relizy.dev/guide/trusted-publishing')} ${c.dim('(trusted publishing, after a first publish)')}`]
@@ -1121,6 +1178,10 @@ async function runInit({ options, detection, configFile, interactive }: {
       ...prepareScript,
     },
     hook: hook.install,
+    // The config imports relizy, the prepare script and the CI run it
+    ...(!detection.root.hasRelizy && {
+      install: getInstallCommand(detection, readOwnVersion()),
+    }),
     localHook,
     agents: agents.targets,
     workflow,
@@ -1129,7 +1190,7 @@ async function runInit({ options, detection, configFile, interactive }: {
   showPlan(plan, answers, cwd)
 
   const scripts = Object.keys(plan.scripts)
-  if (!config && Object.keys(plan.rootFields).length === 0 && scripts.length === 0 && !plan.hook && plan.agents.length === 0 && !workflow) {
+  if (!config && Object.keys(plan.rootFields).length === 0 && scripts.length === 0 && !plan.hook && !plan.install && plan.agents.length === 0 && !workflow) {
     outro(c.green('relizy is already set up, nothing to change'))
     return {
       configFile: plan.configFile,
@@ -1174,6 +1235,11 @@ async function runInit({ options, detection, configFile, interactive }: {
     if (installedHook.removed) {
       log.success(`Removed the old commit-msg hook, no longer run (${relative(cwd, installedHook.removed)})`)
     }
+  }
+
+  // Before the agents: their MCP server starts the installed relizy
+  if (plan.install) {
+    await installRelizy(cwd, plan.install)
   }
 
   const agentsResult = plan.agents.length > 0

@@ -52,11 +52,10 @@ Relizy reads your [Conventional Commits](https://www.conventionalcommits.org) an
 Relizy requires Node.js `^22.23.4 || ^24.22.1 || >=26.12.1`.
 
 ```bash
-pnpm add -D relizy
-pnpm exec relizy init
+npx relizy init
 ```
 
-`relizy init` detects your packages, package manager and git provider, asks a few questions and writes `relizy.config.ts`. It also offers the release workflow of your CI (GitHub Actions or GitLab CI, with the relizy action or component), the commit-msg hook and the setup of your AI agents.
+`relizy init` adds relizy to your devDependencies, detects your packages, package manager and git provider, asks a few questions and writes `relizy.config.ts`. It also offers the release workflow of your CI (GitHub Actions or GitLab CI, with the relizy action or component), the commit-msg hook and the setup of your AI agents.
 
 Then preview the next release and run it:
 

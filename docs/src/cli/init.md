@@ -28,7 +28,7 @@ npx relizy init [options]
 - **Package manager**: the `packageManager` field, then the lockfile.
 - **Git provider**: GitHub, GitLab or other, from the `origin` remote. For the others, the provider releases and the PR comments are turned off, and no workflow is offered.
 - **Build command**: a `build` script becomes `publish.buildCmd`.
-- **Publish settings**: `publishConfig.access` and `publishConfig.registry` of the packages, the defaults of the advanced options.
+- **Publish settings**: `publishConfig.access` and `publishConfig.registry` of the packages (else the registry of the npm config, `.npmrc` included), the defaults of the advanced options.
 - **Existing config**: a `relizy.config.*` file or a `relizy` key in the `package.json`.
 
 ### Asked to you
@@ -40,11 +40,13 @@ Every question has a default deduced from the repository. When a config already 
 3. **Version mode** (monorepo): `independent` when the packages are already on different versions, `selective` otherwise. See [version modes](./../guide/version-modes.md).
 4. **Advanced options** (optional): dependency bumps, `0.x` breaking changes, root changelog, listed commit types, changelog format command, npm access, registry, build command, Twitter and Slack posts, PR comment mode and AI rewrites.
 5. **Commit linting**: install the `commit-msg` hook running [`relizy commitlint`](./../commitlint/cli.md) (in `.husky/` when husky is set up). Written in `.git/hooks`, which is not versioned, it is also added to the `prepare` script (`relizy commitlint --install`), so every clone gets it at install.
-6. **AI agents** (only when the project already uses one: `CLAUDE.md`, `AGENTS.md`, `.cursor/`...): give them the relizy rules and the [relizy MCP server](./../guide/ai-agents.md), as [`relizy mcp init`](./mcp.md#relizy-mcp-init) does. A second question then offers a `prepare` script ([`relizy mcp update`](./mcp.md#relizy-mcp-update), appended to an existing one) in the root `package.json`, so the rules are kept up to date at each install (a rule you deleted is not recreated).
+6. **AI agents**: give them the relizy rules and the [relizy MCP server](./../guide/ai-agents.md), as [`relizy mcp init`](./mcp.md#relizy-mcp-init) does, then pick the agents you use (the ones detected in the project, `CLAUDE.md`, `AGENTS.md`, `.cursor/`..., are checked). Another question then offers a `prepare` script ([`relizy mcp update`](./mcp.md#relizy-mcp-update), appended to an existing one) in the root `package.json`, so the rules are kept up to date at each install (a rule you deleted is not recreated).
 7. **Release script**: add `"release": "relizy release"` to the `package.json`, when it has no `release` script.
 8. **Release workflow** (GitHub or GitLab): generate the workflow releasing from the CI, run on demand or at each push on the default branch. See [Release workflow](#release-workflow).
 
 Then `init` shows the config and the list of changes (files created or replaced, `package.json` updates, hook, workflow, AI agents), and asks for a single confirmation.
+
+When Relizy is not a dependency of the project yet, the changes also add it to the devDependencies of the root `package.json`, at the version running `init`, with the package manager of the project (`pnpm add -D relizy@^<version>`...): the config imports it, the `prepare` script and the CI run it. A failed install does not stop `init`, which prints the command to run.
 
 When the root `package.json` has no `name` or `version`, they are part of these changes: Relizy reads both. In `unified` and `selective` modes, the version is the highest version of the packages, the shared version bumped at each release. In `independent` mode, it is `0.0.0` and never bumped.
 
@@ -66,7 +68,7 @@ export default defineConfig({
 })
 ```
 
-At the end, `init` prints the next steps: install Relizy when it is not a dependency yet, preview the release, the `include:` to add on GitLab, and the secrets (GitHub) or CI/CD variables (GitLab) to create.
+At the end, `init` prints the next steps: the tokens to set in a `.env` file at the root for a local release (Relizy loads it; `npm login` and `gh auth login` replace `NPM_TOKEN` and `GITHUB_TOKEN`, and keep `.env` out of git), preview the release, the `include:` to add on GitLab, and the secrets (GitHub) or CI/CD variables (GitLab) to create.
 
 ### Release workflow
 
@@ -102,7 +104,7 @@ Accept the detected values without asking, for scripts and AI agents:
 npx relizy init --yes
 ```
 
-The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up, and the release workflow is written, run on demand (an existing one is kept). An existing config is kept, and the other steps follow it. `init` also runs without questions when there is no terminal, or in CI.
+The advanced options are skipped, the `commit-msg` hook is installed (an existing hook is kept), the `release` script is added, the AI agents detected in the project are set up (none when no agent is detected), and the release workflow is written, run on demand (an existing one is kept). An existing config is kept, and the other steps follow it. `init` also runs without questions when there is no terminal, or in CI.
 
 ### --force
 
