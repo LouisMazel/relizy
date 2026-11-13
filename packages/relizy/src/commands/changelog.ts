@@ -3,6 +3,7 @@ import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase }
 import { logger } from '@maz-ui/node'
 import { aggregateIndependentChangelogs, plural, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
+import { runWithEvents } from '../core/events'
 import { showPreview } from '../core/progress'
 import { runCommand } from './run-command'
 
@@ -231,7 +232,7 @@ async function generateChangelogs({
 
 export function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runChangelog(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runChangelog(options)))
 }
 
 function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
@@ -265,6 +266,7 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
       await executeHook('before:changelog', config, dryRun, hookContext)
 
       const generatedCount = await ui.step({
+        name: 'changelog',
         running: 'Writing the changelogs',
         done: count => count === 0
           ? 'No changelog to write'

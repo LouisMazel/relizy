@@ -9,6 +9,7 @@ import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { collectContributorNames, filterOutPrivatePackages, isBumpedPackage, isPrerelease, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkTeamsWebhookUrl, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getKnownReleaseVersions, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isExcludedLine, isPrereleaseOnlyRelease, isStepLeftOutByEveryGroup, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAIRunInRelease, isAISocialEnabled } from '../core/ai'
+import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { runCommand } from './run-command'
 
@@ -1324,7 +1325,7 @@ function toSlackPackages(overview: ReleaseOverview): PackageBumpEntry[] {
 
 export function social(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runSocial(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runSocial(options)))
 }
 
 function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> {
@@ -1375,6 +1376,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
         : 'standalone')}`)
 
       const result = await ui.step({
+        name: 'social',
         running: 'Posting the release',
         done: describeSocialResult,
         failed: result => result.hasErrors,

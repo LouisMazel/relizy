@@ -175,7 +175,7 @@ program
   .name('relizy')
   .description('Release management tool for monorepos and standalone packages')
   .version(version)
-  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
+  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test), or the path of the config file (absolute, or relative to the project, with its extension)')
   .option('--profile <name>', 'Release profile of the config (`profiles`): its options come over the config file and under the flags (e.g. beta, canary)')
   .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose), instead of the logLevel of the config')

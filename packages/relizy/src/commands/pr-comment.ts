@@ -1,9 +1,10 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { ReleaseOverview, ResolvedRelizyConfig } from '../core'
+import type { ReleaseOverview, RelizyEventListener, ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PrCommentMode, ReleaseContext } from '../types'
 import { logger } from '@maz-ui/node'
 import { extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesUnlessIncluded, formatUtcDate, getCurrentGitBranch, getHeadCommit, withGitCache } from '@relizy/core'
 import { collectPackageBumps, detectPullRequest, formatReleaseReportMarkdown, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
+import { runWithEvents } from '../core/events'
 import { recordLink, showPreview } from '../core/progress'
 import { runCommand } from './run-command'
 
@@ -14,6 +15,8 @@ export interface PrCommentOptions {
   configName?: string
   /** Profile of `profiles` to apply, as `--profile` */
   profile?: string
+  /** Called with each event of the run, see `ReleaseOptions.onProgress` */
+  onProgress?: RelizyEventListener
   /** Pre-loaded config to avoid redundant config loading when called from release flow */
   config?: ResolvedRelizyConfig
   /** Release context passed from the release flow. When absent, standalone mode is used. */
@@ -396,7 +399,7 @@ export function buildCommentBody(params: CommentBodyParams): string {
 
 export function prComment(options: PrCommentOptions = {}): Promise<boolean> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runPrComment(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runPrComment(options)))
 }
 
 function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
@@ -413,6 +416,7 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
     }),
     run: async ({ config, dryRun, ui }) => {
       const { posted, pr } = await ui.step({
+        name: 'pr-comment',
         running: 'Commenting the pull request',
         done: ({ posted, pr }) => posted
           ? `Pull request${formatPrNumber(pr)} commented`

@@ -1,11 +1,12 @@
 import type { VersionChange } from '@relizy/core'
 import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage } from '../core'
 import type { BumpOptions, BumpResult, BumpResultTruthy, PackageBase, SemverBumpType, VersionGroup } from '../types'
-
 import { logger } from '@maz-ui/node'
+
 import { capReleaseTypeForZeroMajor, checkGitStatusIfDirty, determineReleaseType, determineSemverChange, fetchGitTags, getCanaryVersion, getCIName, getDependencyReleaseType, getOutOfRangePeers, getPackageDependencies, getPackageNewVersion, getShortCommitSha, isBreakingVersionChange, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
+import { runWithEvents } from '../core/events'
 import { runCommand } from './run-command'
 
 interface BumpStrategyInput {
@@ -1155,7 +1156,7 @@ export async function planBumps({
 
 export function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runBump(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runBump(options)))
 }
 
 function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
@@ -1199,6 +1200,7 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
       await executeHook('before:bump', config, dryRun)
 
       const result = await ui.step({
+        name: 'bump',
         running: 'Computing the versions',
         done: describeBumpResult,
         details: result => getBumpResultDetails(result, config.bump.yes),

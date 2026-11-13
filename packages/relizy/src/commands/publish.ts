@@ -4,6 +4,7 @@ import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, Re
 import { execPromise, logger } from '@maz-ui/node'
 import { assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getTrustedPublishing, isInCI, isNpmjsRegistry, isPackageOnRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, normalizeRegistryKey, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
+import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
@@ -286,7 +287,7 @@ function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<strin
 
 export function publish(options: Partial<PublishOptions> = {}) {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runPublish(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)))
 }
 
 function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishResponse | undefined> {
@@ -333,6 +334,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       await executeHook('before:publish', config, dryRun, hookContext)
 
       const { toPublish, publishedPackages } = await ui.step({
+        name: 'publish',
         running: 'Checking the packages to publish',
         done: ({ toPublish, publishedPackages }) => publishedPackages.length === 0
           ? 'No package to publish'
@@ -348,6 +350,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
 
       if (config.publish.buildCmd) {
         await ui.step({
+          name: 'publish',
           running: 'Building the packages',
           done: () => 'Packages built',
           run: () => executeBuildCmd({ config, dryRun }),
@@ -358,6 +361,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
         ? ` (${config.publish.tag})`
         : ''
       await ui.step({
+        name: 'publish',
         running: 'Publishing the packages',
         done: () => `Published ${describePackages(toPublish)}${distTag}`,
         run: async () => {

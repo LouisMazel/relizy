@@ -1,4 +1,5 @@
 import { logger } from '@maz-ui/node'
+import { emitEvent } from './events'
 
 /**
  * What a long step is doing, for the output of `relizy release`
@@ -70,10 +71,12 @@ export function setProgressHandlers(value: ProgressHandlers | undefined): void {
 }
 
 export function reportProgress(message: string, options: ProgressOptions = {}): void {
+  emitEvent({ type: 'progress', message, ai: options.ai ?? false })
   handlers?.progress(message, options)
 }
 
 export function reportStepNote(message: string, options: ProgressOptions = {}): void {
+  emitEvent({ type: 'note', message, ai: options.ai ?? false })
   handlers?.note(message, options)
 }
 
@@ -91,6 +94,13 @@ export function showPreview(preview: Preview): void {
     logger.verbose(`[dry-run] ${preview.title}\n\n${meta}${preview.content}`)
     return
   }
+
+  emitEvent({
+    type: 'preview',
+    title: preview.title,
+    meta: preview.meta ?? [],
+    content: preview.content,
+  })
 
   if (handlers) {
     handlers.preview(preview)
@@ -171,6 +181,12 @@ const facts = { links: [] as ReleaseLink[], aiRewrites: [] as AIRewrite[] }
 
 export function recordLink(link: ReleaseLink): void {
   facts.links.push(link)
+  emitEvent({
+    type: 'link',
+    step: link.step,
+    label: link.label,
+    url: link.url,
+  })
 }
 
 export function recordAIRewrite(rewrite: AIRewrite): void {

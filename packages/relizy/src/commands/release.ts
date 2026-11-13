@@ -3,10 +3,11 @@ import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
-import { createCommandUi, createCommitAndTags, describeBumpResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, isFancyUi, isRelizyCancelError, loadRelizyConfig, pushCommitAndTags, rollbackModifiedFiles, writeReleaseReport } from '../core'
+import { createCommandUi, createCommitAndTags, describeBumpResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess } from '../core/ci'
+import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
@@ -59,8 +60,10 @@ export async function getReleaseConfig(options: Partial<ReleaseOptions> = {}): P
 function loadReleaseConfig(options: Partial<ReleaseOptions>) {
   return loadRelizyConfig({
     configFile: options.configName,
+    baseConfig: options.config,
     profile: options.profile,
-    overrides: {
+    // The options of the call over `overrides`
+    overrides: mergeConfig({
       logLevel: options.logLevel,
       from: options.from,
       to: options.to,
@@ -115,7 +118,7 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
         ? { privatePackages: options.privatePackages }
         : undefined,
       safetyCheck: options.safetyCheck,
-    },
+    }, options.overrides),
   })
 }
 
@@ -238,7 +241,7 @@ function describePublished(packages: PublishResponse['publishedPackages']): stri
 
 export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runRelease(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)))
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -342,6 +345,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     if (config.safetyCheck) {
       await ui.step({
+        name: 'checks',
         running: 'Checking the release',
         done: () => 'Ready to release (tokens, registry, branch)',
         run: () => releaseSafetyCheck({
@@ -353,13 +357,19 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Safety checks', label: 'Checks', reason: '--no-safety-check' })
+      ui.skip({
+        name: 'checks',
+        title: 'Safety checks',
+        label: 'Checks',
+        reason: '--no-safety-check',
+      })
     }
 
     await executeHook('before:release', config, dryRun)
 
     currentStep = 'Bump'
     const bumpResult = await ui.step({
+      name: 'bump',
       title: [
         'Bump versions',
         `- type: ${config.bump.type}`,
@@ -394,6 +404,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
       if (config.release.prComment) {
         await ui.step({
+          name: 'pr-comment',
           title: 'Post PR comment',
           running: 'Commenting the pull request',
           done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
@@ -436,6 +447,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       }
       const count = files.size
       await ui.step({
+        name: 'changelog',
         title: 'Generate changelogs',
         running: 'Writing the changelogs',
         done: () => `${plural(count, 'changelog')} written`,
@@ -451,7 +463,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Generate changelogs', label: 'Changelogs', reason: '--no-changelog' })
+      ui.skip({
+        name: 'changelog',
+        title: 'Generate changelogs',
+        label: 'Changelogs',
+        reason: '--no-changelog',
+      })
     }
     addStep('changelog', Boolean(config.release.changelog))
 
@@ -460,6 +477,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     if (config.release.publish) {
       publishResponse = await ui.step({
+        name: 'publish',
         title: 'Publish packages to registry',
         running: 'Publishing the packages',
         done: (response) => {
@@ -517,7 +535,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           guard: () => checkBranchUpToDate({ config, dryRun }),
         })
       }
-      ui.skip({ title: 'Publish packages to registry', label: 'Publish', reason: '--no-publish' })
+      ui.skip({
+        name: 'publish',
+        title: 'Publish packages to registry',
+        label: 'Publish',
+        reason: '--no-publish',
+      })
 
       // A canary is never committed: its versions are restored, as after its publish
       if (isCanary) {
@@ -533,6 +556,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Commit'
     if (config.release.commit) {
       createdTags = await ui.step({
+        name: 'commit-and-tag',
         title: 'Commit changes and create tag',
         running: 'Committing and tagging',
         done: tags => `Committed and tagged ${tags.join(', ')}`,
@@ -547,7 +571,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Commit changes and create tag', label: 'Commit and tags', reason: '--no-commit' })
+      ui.skip({
+        name: 'commit-and-tag',
+        title: 'Commit changes and create tag',
+        label: 'Commit and tags',
+        reason: '--no-commit',
+      })
     }
     committed = Boolean(config.release.commit)
     addStep('commit', committed, committed
@@ -557,6 +586,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Push'
     if (config.release.push && config.release.commit) {
       await ui.step({
+        name: 'push',
         title: 'Push changes and tags',
         running: 'Pushing',
         done: () => 'Pushed the commit and the tags',
@@ -580,6 +610,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     }
     else {
       ui.skip({
+        name: 'push',
         title: 'Push changes and tags',
         label: 'Push',
         reason: config.release.commit ? '--no-push' : '--no-commit',
@@ -596,6 +627,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       logger.debug(`Provider from config: ${provider}`)
 
       const response = await ui.step({
+        name: 'provider-release',
         title: 'Publish Git release',
         running: 'Creating the releases',
         done: describeProviderReleaseResult,
@@ -619,7 +651,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       links.push(...getProviderReleaseLinks({ config, postedReleases }))
     }
     else {
-      ui.skip({ title: 'Publish Git release', label: 'GitHub/GitLab release', reason: '--no-provider-release' })
+      ui.skip({
+        name: 'provider-release',
+        title: 'Publish Git release',
+        label: 'GitHub/GitLab release',
+        reason: '--no-provider-release',
+      })
     }
     if (providerError) {
       steps.push({ name: 'providerRelease', status: 'failed', detail: providerError })
@@ -633,6 +670,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
     if (config.release.social && isAnySocialPlatformEnabled(config)) {
       socialResults = await ui.step({
+        name: 'social',
         title: 'Post release to social media',
         running: 'Posting the release',
         done: describeSocialResult,
@@ -650,6 +688,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     }
     else {
       ui.skip({
+        name: 'social',
         title: 'Post release to social media',
         label: 'Social posts',
         reason: config.release.social ? 'no platform enabled' : '--no-social',
@@ -683,6 +722,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       await collectFacts()
       const reportSoFar = reportOf('released')
       prCommentPosted = await ui.step({
+        name: 'pr-comment',
         title: 'Post PR comment',
         running: 'Commenting the pull request',
         done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
@@ -695,7 +735,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     else {
-      ui.skip({ title: 'Post PR comment', label: 'PR comment', reason: '--no-pr-comment' })
+      ui.skip({
+        name: 'pr-comment',
+        title: 'Post PR comment',
+        label: 'PR comment',
+        reason: '--no-pr-comment',
+      })
     }
     addStep('prComment', prCommentPosted, dryRun ? 'previewed' : 'posted')
 

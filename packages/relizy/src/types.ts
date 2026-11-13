@@ -1,6 +1,7 @@
 import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
+import type { RelizyEventListener } from './core/events'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 
@@ -451,7 +452,8 @@ export interface BumpOptions extends BumpConfig {
    */
   force?: boolean
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -460,6 +462,12 @@ export interface BumpOptions extends BumpConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Publish a canary release from the current commit
    * @default false
@@ -523,7 +531,8 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -532,6 +541,12 @@ export interface ChangelogOptions extends ChangelogConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Generate changelog for all packages even if there are no commits
    * @default false
@@ -570,7 +585,8 @@ export interface ProviderReleaseOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -579,6 +595,12 @@ export interface ProviderReleaseOptions {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Git provider
    * @default 'github'
@@ -637,7 +659,8 @@ export interface SocialOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -646,6 +669,12 @@ export interface SocialOptions {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Bump result (contains release information)
    */
@@ -791,7 +820,8 @@ export interface PublishOptions extends PublishConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -800,6 +830,12 @@ export interface PublishOptions extends PublishConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -937,6 +973,22 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
+   * (the profile, the `overrides` and the options of the call still apply over it)
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Options applied over the config file (or over `config`), under the options of the call:
+   * a local overlay without writing a file. The hooks of the overlay run after those of the config.
+   */
+  overrides?: RelizyConfigOverrides
   /**
    * Bump even if there are no commits
    * @default false

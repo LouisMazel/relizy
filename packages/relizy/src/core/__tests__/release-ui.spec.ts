@@ -461,6 +461,115 @@ describe('Given the CI output', () => {
   })
 })
 
+describe('Given the JSON output', () => {
+  const events = () => lines().map(line => JSON.parse(line) as Record<string, unknown>)
+
+  it('Then writes one JSON event per line on stdout and nothing else, the logs as events', async () => {
+    const { ui, progress } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
+    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd })
+
+    await commandUi.step({
+      name: 'publish',
+      running: 'Publishing the packages',
+      done: () => 'Published relizy@2.0.0',
+      details: () => ['relizy 1.0.0 → 2.0.0'],
+      run: () => {
+        log('info', 'Publishing relizy@2.0.0')
+        log('debug', 'a detail')
+        progress.reportProgress('Publishing relizy@2.0.0')
+        progress.recordLink({ step: 'publish', label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' })
+        return Promise.resolve()
+      },
+    })
+    commandUi.skip({
+      name: 'social',
+      title: 'Post release to social media',
+      label: 'Social posts',
+      reason: '--no-social',
+    })
+    commandUi.finish(releaseReport)
+
+    const written = events()
+    expect(written.map(event => event.type)).toEqual([
+      'command:start',
+      'step:start',
+      'log',
+      'progress',
+      'link',
+      'step:done',
+      'step:skipped',
+      'release:finish',
+    ])
+    expect(written[0]).toMatchObject({ command: 'release', title: 'relizy release', dryRun: true })
+    expect(written[1]).toMatchObject({ step: 'publish', label: 'Publishing the packages' })
+    expect(written[2]).toMatchObject({ level: 'info', message: 'Publishing relizy@2.0.0' })
+    expect(written[4]).toMatchObject({ url: 'https://www.npmjs.com/package/relizy/v/2.0.0' })
+    expect(written[5]).toMatchObject({
+      step: 'publish',
+      message: 'Published relizy@2.0.0',
+      details: ['relizy 1.0.0 → 2.0.0'],
+      durationMs: expect.any(Number),
+    })
+    expect(written[6]).toMatchObject({ step: 'social', reason: '--no-social' })
+    expect(written[7]).toMatchObject({
+      report: { status: 'released', version: '2.0.0' },
+    })
+    expect(output.join('')).not.toContain('\u001B')
+  })
+
+  it('Then tells a step that failed without stopping the command, and the error that ends one', async () => {
+    const { ui } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
+    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+
+    await commandUi.step({
+      name: 'social',
+      running: 'Posting',
+      done: () => 'slack failed',
+      failed: () => true,
+      run: () => Promise.resolve(),
+    })
+    await expect(commandUi.step({
+      name: 'bump',
+      running: 'Computing',
+      done: () => '',
+      run: () => Promise.reject(new Error('boom')),
+    })).rejects.toThrow('boom')
+    commandUi.fail(new Error('boom'), 'Bump')
+
+    expect(events().slice(1).map(event => [event.type, event.fatal ?? event.cancelled ?? null])).toEqual([
+      ['step:start', null],
+      ['step:failed', false],
+      ['step:start', null],
+      ['step:failed', true],
+      ['command:error', false],
+    ])
+    expect(events().at(-1)).toMatchObject({ message: 'boom', failedStep: 'Bump' })
+  })
+
+  it('Then stops writing once the command ends', async () => {
+    const { ui, progress } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
+    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+
+    commandUi.complete({
+      message: 'Bumped',
+      links: [
+        { label: 'a', url: 'https://example.com' },
+      ],
+    })
+    progress.reportProgress('later')
+
+    expect(events().map(event => event.type)).toEqual(['command:start', 'command:complete'])
+    expect(events()[1]).toMatchObject({
+      message: 'Bumped',
+      nothing: false,
+      failed: false,
+      links: [
+        { label: 'a', url: 'https://example.com' },
+      ],
+    })
+  })
+})
+
 describe('Given a command run by another one', () => {
   it('Then shows its steps as the progress of the running step, and lets the parent end', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })

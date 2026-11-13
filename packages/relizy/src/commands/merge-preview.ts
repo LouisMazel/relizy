@@ -3,6 +3,7 @@ import type { MergePreviewConfig, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { fetchGitTags, getCurrentGitBranch, getPublishTag, plural, prepareCiRepository, tryGitSync, withGitCache } from '@relizy/core'
 import { checkMergePreview, createCommandUi, detectPullRequest, formatMergePreviewMarkdown, getMergePreviewPullRequest, getMergePreviewStatusDescription, getMergePreviewTerminalOutput, markErrorReported, MERGE_PREVIEW_MARKER, planMergePreview, postPrComment, prepareMergePreviewContext, resolveMergePreviewSquash, setMergePreviewStatus, writeReleaseReport } from '../core'
+import { runWithEvents } from '../core/events'
 import { planBumps } from './bump'
 import { getReleaseConfig } from './release'
 
@@ -12,7 +13,7 @@ import { getReleaseConfig } from './release'
  * outputs of the preview
  */
 export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'preid' | 'suffix' | 'from' | 'to' | 'force' | 'publish' | 'commit' | 'gitTag' | 'providerRelease'
-  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'groups' | 'report'> {
+  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'config' | 'overrides' | 'onProgress' | 'groups' | 'report'> {
   /**
    * Override of `mergePreview.comment` for this run
    */
@@ -88,6 +89,7 @@ async function computePreview({ config, options, settings, ui }: {
     const pullRequest = getMergePreviewPullRequest()
     if (pullRequest) {
       computed.context = await ui.step({
+        name: 'merge-preview',
         running: `Merging ${pullRequest.targetBranch}, as the merge will`,
         done: result => result.merged
           ? `Computed on ${pullRequest.targetBranch} + this ${pullRequest.kind}`
@@ -113,6 +115,7 @@ async function computePreview({ config, options, settings, ui }: {
 
     const subject = context ? 'The merge' : 'The next release'
     const plan = await ui.step({
+      name: 'merge-preview',
       running: context ? 'Computing the release of the merge' : 'Computing the next release',
       done: result => result.outcome.packages.length > 0
         ? `${subject} releases ${plural(result.outcome.packages.length, 'package')}`
@@ -134,6 +137,7 @@ async function computePreview({ config, options, settings, ui }: {
     computed.plan = plan
 
     computed.checks = await ui.step({
+      name: 'merge-preview',
       running: 'Checking what would make the release fail',
       done: result => result.problems.length > 0
         ? `${plural(result.problems.length, 'problem')} would make the release fail`
@@ -189,6 +193,7 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   if (settings.comment) {
     const label = getPullRequestLabel(context)
     await ui.step({
+      name: 'merge-preview',
       running: `Commenting the ${context.pullRequest.kind}`,
       done: posted => posted
         ? `${label} commented`
@@ -205,6 +210,7 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
 
   if (settings.check) {
     await ui.step({
+      name: 'merge-preview',
       running: 'Setting the commit status',
       done: set => set
         ? `Commit status ${failed ? 'failed' : 'success'}`
@@ -278,7 +284,7 @@ function getOutcomeMessage(result: MergePreviewResult): string {
  */
 export function mergePreview(options: MergePreviewOptions = {}): Promise<ReleaseReport> {
   // One git cache for the run, as a release
-  return withGitCache(() => runMergePreview(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runMergePreview(options)))
 }
 
 /** The branch of the preview, also in a repository without commit (`git rev-parse` fails there) */
