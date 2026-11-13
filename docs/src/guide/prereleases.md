@@ -128,9 +128,11 @@ relizy release --canary --yes
 
 `--canary` (or [`release.canary`](./../config/release.md#canary), set by a [profile](./../config/profiles.md)) forces these settings of `relizy release`, whatever the other flags and the config:
 
-- the type is `prerelease` and the preid `canary` (unless `--preid`);
-- the dist-tag is `canary` (unless `--tag`), whatever `--preid`;
+- the type is `prerelease` and the preid `canary` (unless `--preid`, or the `bump.preid` of a canary profile);
+- the dist-tag is `canary` (unless `--tag`, or the `publish.tag` of a canary profile), whatever `--preid`;
 - no changelog, commit, git tag, push, provider release nor social post.
+
+A canary profile is one that sets `release: { canary: true }`: its `bump.preid` and `publish.tag` name its canaries. `--canary` with another profile keeps the canary preid and dist-tag: `relizy release --profile beta --canary` publishes `1.3.0-0.canary-a3f4b2c` under `canary`, not under the `beta` dist-tag of the profile.
 
 The other steps run as usual: the safety checks, the check of uncommitted changes (`--no-clean` skips it), the bump confirmation (`--yes` in CI), the publish (`--no-publish` skips it) and the PR comment (`--no-pr-comment` skips it).
 

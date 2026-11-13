@@ -1038,6 +1038,48 @@ describe('Given release command', () => {
       expect(config.publish.tag).toBe('snapshots')
       expect(changelog).not.toHaveBeenCalled()
     })
+
+    it('Then --canary with a profile that is not a canary one keeps the canary preid and tag, not the ones of the profile', async () => {
+      const config = setupCanaryConfig({
+        profiles: {
+          beta: {
+            bump: { type: 'prerelease', preid: 'beta' },
+            publish: { tag: 'beta' },
+          },
+        },
+      })
+      config.profile = 'beta'
+      config.bump.preid = 'beta'
+      config.publish.tag = 'beta'
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
+
+      await release({ profile: 'beta', canary: true })
+
+      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'canary' })
+      expect(config.publish.tag).toBe('canary')
+    })
+
+    it('Then --canary with a profile still takes the preid and the tag of the run', async () => {
+      const config = setupCanaryConfig({
+        profiles: {
+          beta: {
+            publish: { tag: 'beta' },
+          },
+        },
+      })
+      config.profile = 'beta'
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.pr-abc1234', bumpedPackages: [], bumped: true })
+
+      await release({
+        profile: 'beta',
+        canary: true,
+        preid: 'pr',
+        tag: 'pr',
+      })
+
+      expect(config.bump.preid).toBe('pr')
+      expect(config.publish.tag).toBe('pr')
+    })
   })
 })
 

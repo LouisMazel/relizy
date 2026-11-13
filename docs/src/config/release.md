@@ -47,7 +47,7 @@ Each option is a `boolean`, and a CLI flag disables it for a run (`--no-verify` 
 - **Default:** `false`
 - **CLI:** `--canary`
 
-Release a canary version of the current commit instead of a release, as `relizy release --canary`: `{nextVersion}-0.{preid}-{sha}`, published with the `canary` dist-tag (`publish.tag`, or the tag of the [profile](./profiles.md)), without changelog, commit, git tag, push, provider release nor social post. Set it in a profile (`profiles: { canary: { release: { canary: true } } }`) to make `relizy release --profile canary` a canary release. See [Canary Releases](./../guide/prereleases.md#canary-releases).
+Release a canary version of the current commit instead of a release, as `relizy release --canary`: `{nextVersion}-0.{preid}-{sha}`, published with the `canary` dist-tag (`--tag`, or `publish.tag` of a canary [profile](./profiles.md), one that sets `release.canary`), without changelog, commit, git tag, push, provider release nor social post. Set it in a profile (`profiles: { canary: { release: { canary: true } } }`) to make `relizy release --profile canary` a canary release. See [Canary Releases](./../guide/prereleases.md#canary-releases).
 
 ## report
 

@@ -84,7 +84,7 @@ From the lowest to the highest:
 3. the profile;
 4. the options of the run: the CLI flags, the options given to the API.
 
-A flag given with a profile wins over it: `relizy release --profile beta --preid rc` publishes with the preid `rc` and the other options of `beta`. The options of the profile are merged key by key as the config file is: `publish: { tag: 'beta' }` keeps the `access` and the other `publish` options of the config file. An array replaces the one of the config file.
+A flag given with a profile wins over it: `relizy release --profile beta --preid rc` publishes with the preid `rc` and the other options of `beta`. `--canary` with a profile that is not a canary one (no `release.canary`) publishes a canary with the `canary` preid and dist-tag, not the ones of the profile (see [Canary Releases](./../guide/prereleases.md#what-canary-does)). The options of the profile are merged key by key as the config file is: `publish: { tag: 'beta' }` keeps the `access` and the other `publish` options of the config file. An array replaces the one of the config file.
 
 A profile that is not defined fails with the list of the profiles available:
 

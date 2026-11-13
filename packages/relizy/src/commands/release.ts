@@ -21,11 +21,16 @@ import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyC
 /**
  * Canary mode (`release.canary`, `--canary`): a prerelease published under its own
  * tag, never committed nor pushed, and without changelog, provider release, tag nor
- * social post. The tag and the preid are the ones of the run or of the profile, `canary` otherwise.
+ * social post. The tag and the preid are the ones of the run, else the ones of the
+ * profile when the profile itself is a canary one (`release.canary`), `canary` otherwise:
+ * `--profile beta --canary` publishes a canary under `canary`, not under the tag of `beta`.
  */
-function applyCanaryMode(config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>): void {
+export function applyCanaryMode(config: ResolvedRelizyConfig, options: Pick<ReleaseOptions, 'preid' | 'tag'> = {}): void {
   const profile = config.profile
     ? config.profiles?.[config.profile]
+    : undefined
+  const canaryProfile = profile?.release?.canary === true
+    ? profile
     : undefined
 
   config.release.commit = false
@@ -36,8 +41,8 @@ function applyCanaryMode(config: ResolvedRelizyConfig, options: Partial<ReleaseO
   config.release.gitTag = false
 
   config.bump.type = 'prerelease'
-  config.bump.preid = options.preid || profile?.bump?.preid || 'canary'
-  config.publish.tag = options.tag || profile?.publish?.tag || 'canary'
+  config.bump.preid = options.preid || canaryProfile?.bump?.preid || 'canary'
+  config.publish.tag = options.tag || canaryProfile?.publish?.tag || 'canary'
 }
 
 /** The config of a release run: the config file and the profile, with the options of the run */
