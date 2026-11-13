@@ -21,7 +21,9 @@ export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'prei
   comment?: boolean
   /**
    * Override of `mergePreview.check` for this run. With `comment: false` too, the preview is
-   * only computed: nothing is posted on the pull request
+   * only computed: nothing is posted on the pull request. The report is still written where
+   * `release.report` says (in GitHub Actions: the outputs and the summary of the job, unless
+   * `release.report.github: false`)
    */
   check?: boolean
   /**

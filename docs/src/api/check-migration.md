@@ -18,10 +18,10 @@ It runs the checks of the `check_migration` tool of the [MCP server](./../cli/mc
 
 ## Options
 
-| Option       | Description                                                                                       |
-| ------------ | ------------------------------------------------------------------------------------------------- |
-| `cwd`        | Root of the project. Default: the current directory                                               |
-| `configName` | Name of the config (`'relizy.standalone'` for `relizy.standalone.config.ts`). Throws when missing |
+| Option       | Description                                                                                                                                                                        |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `cwd`        | Root of the project. Default: the current directory                                                                                                                                |
+| `configName` | The config: its name (`'relizy.standalone'` for `relizy.standalone.config.ts`) or its path (`'./configs/relizy.config.ts'`, relative to `cwd`), as `--config`. Throws when missing |
 
 ## Result
 
@@ -52,6 +52,8 @@ interface MigrationFinding {
   blocking?: boolean
 }
 ```
+
+The config is loaded silently: the level of the logger is back to the one of before once the check ends.
 
 A config that relizy 2 cannot load (an option it refuses, a config that throws) gives a `blocking` finding first, with the checks that do not read the config (the dependency, the code, the CLI calls): fix it, then check again for the others.
 

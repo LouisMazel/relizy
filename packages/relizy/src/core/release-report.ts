@@ -130,7 +130,8 @@ export interface ReleaseReport {
 
 export interface ReleaseMergePreview {
   /**
-   * Number of the pull/merge request, none outside a pull request pipeline
+   * Number of the pull/merge request, none outside a pull request pipeline. The same as
+   * `pullRequestDetails.number`, which also has its branches, its kind and how the merge was computed
    */
   pullRequest?: number
   /**
@@ -147,7 +148,8 @@ export interface ReleaseMergePreview {
    */
   markdown: string
   /**
-   * The pull/merge request detected from the CI job, and how the merge was computed. None outside a pull request pipeline
+   * The pull/merge request detected from the CI job (its `number` is `pullRequest`), and how the
+   * merge was computed. None outside a pull request pipeline
    */
   pullRequestDetails?: MergePreviewPullRequest & {
     /** HEAD holds the target branch: the preview is the release of the merge */
@@ -660,7 +662,7 @@ function writeFile(path: string, content: string): void {
  * Write the report where it is expected: the outputs and the summary of the
  * GitHub Actions run (`release.report.github`), and the files of
  * `release.report.json` and `release.report.dotenv`. Written in dry-run too,
- * where `released` is `false`.
+ * where `released` is `false`, and by a merge preview only computed (nothing posted).
  */
 export function writeReleaseReport({ config, report }: { config: ResolvedRelizyConfig, report: ReleaseReport }): void {
   const reportConfig: ReleaseReportConfig = config.release.report ?? {}

@@ -15,7 +15,9 @@ function previewRelease(options?: PreviewReleaseOptions): Promise<ReleasePreview
 function previewChangelog(options?: PreviewChangelogOptions): Promise<PreviewChangelog[]>
 ```
 
-They give the data behind the `preview_release` and `preview_changelog` tools of the [MCP server](./../cli/mcp.md), for a program that shows the release before it runs (an app, a dashboard). They write nothing, run no hook, ask nothing, and only use the network when you ask: `fetchTags`, `checks`, `changelog.contributors`. The [profile](./../config/profiles.md), the config and the overrides apply as in [`release()`](./release.md).
+They are the implementation of the `preview_release` and `preview_changelog` tools of the [MCP server](./../cli/mcp.md), for a program that shows the release before it runs (an app, a dashboard). They write nothing, run no hook, ask nothing, and only use the network when you ask: `fetchTags`, `checks`, `changelog.contributors`. The [profile](./../config/profiles.md), the config and the overrides apply as in [`release()`](./release.md).
+
+They print nothing: the warnings of the computation are in `warnings` (with the `default` level of the logger, or the `logLevel` of `overrides`), and the level of the logger is back to the one of before once they end. Several previews can run at the same time (several projects of an application): each one gets its own warnings.
 
 ## Options
 
@@ -82,6 +84,16 @@ interface PreviewStep {
   disabledBy?: string // `release.social`, `release.canary`
 }
 
+interface PreviewCommit {
+  hash?: string // the full hash (none for the squash commit simulated by a merge preview)
+  shortHash: string
+  type: string // `feat`, `fix`...
+  scope: string // empty without scope
+  description: string
+  breaking: boolean
+  author?: string
+}
+
 interface PreviewChangelog {
   label: string
   file: string // `packages/core/CHANGELOG.md`
@@ -119,7 +131,7 @@ const changelogs = await previewChangelog({ profile: 'beta', package: 'root' })
 console.log(changelogs[0]?.content)
 ```
 
-The same preview as the MCP tools: `previewRelease({ changelog: true })` for the versions and the changelogs in one computation.
+The same preview as the MCP tools: `previewRelease({ changelog: true })` for the versions and the changelogs in one computation. `previewChangelog({ package })` throws when the release does not release this package: the message lists the released ones.
 
 ## See Also
 

@@ -22,7 +22,7 @@ interface ConfigOptionNode {
   key: string // the last segment of the path
   type: string // `boolean`, `string[]`, `VersionMode`, `BumpConfig`...
   values?: string[] // the values the type accepts: `['unified', 'selective', 'independent']`
-  default?: unknown // none when it depends on the project (`cwd`, `repo`, `tokens`)
+  default?: unknown // none when it depends on the project (`cwd`, `repo`, `tokens`); a secret read from the environment is masked
   description: string // markdown
   summary: string // its first paragraph, on one line
   deprecated?: string

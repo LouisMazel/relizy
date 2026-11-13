@@ -541,7 +541,9 @@ export interface BumpOptions extends BumpConfig {
   /**
    * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
    * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
-   * nothing written). Unused with `yes`. For an application asking in its own interface
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
    */
   onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   /**
@@ -1065,7 +1067,9 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   /**
    * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
    * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
-   * nothing written). Unused with `yes`. For an application asking in its own interface
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
    */
   onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   /**
