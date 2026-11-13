@@ -1,4 +1,4 @@
-import type { ConfirmPlan, OtpRequest } from '../types'
+import type { ConfirmPlan, GitProvider, OtpRequest } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -36,10 +36,148 @@ export interface StepStartEvent extends ProgressEventBase {
   label: string
 }
 
-/** A step is done */
-export interface StepDoneEvent extends ProgressEventBase {
+/** A safety check of the release: a token, the registry, the branch... */
+export interface StepCheck {
+  /** `provider-release` (its token), `publish` (the registry), `social` (the credentials), `branch` (up to date with its remote), `push` (the access to the remote) */
+  name: string
+  status: 'passed' | 'failed' | 'skipped'
+  /** Why it failed or is skipped */
+  message?: string
+}
+
+/** What the safety checks checked */
+export interface ChecksStepData {
+  checks: StepCheck[]
+}
+
+/** What the bump bumps, every version group together */
+export interface BumpStepData {
+  packages: Array<{
+    name: string
+    oldVersion: string
+    newVersion: string
+    /** Its version group, with `monorepo.groups` */
+    group?: string
+  }>
+}
+
+/** The changelog entries written (previewed in dry-run) */
+export interface ChangelogStepData {
+  files: Array<{
+    /** The file, relative to the project: `packages/core/CHANGELOG.md` */
+    file: string
+    packageName: string
+    /** The entry added at the top of the file, in markdown */
+    content: string
+  }>
+}
+
+/** A package of the publish */
+export interface PublishStepPackage {
+  name: string
+  version: string
+  /** `skipped`: the version is already on the registry (`publish.skipExistingVersions`) */
+  status: 'published' | 'skipped' | 'failed'
+  /** Its page on npmjs.com, once published */
+  url?: string
+  /** Why it is skipped or failed */
+  reason?: string
+}
+
+/** What the publish published, in publish order */
+export interface PublishStepData {
+  /** The registry of the packages without their own (`publish.registry`, else the one of the npmrc) */
+  registry: string
+  /** The dist-tag: `latest`, `next`, `canary`... */
+  tag: string
+  packages: PublishStepPackage[]
+}
+
+/** The release commit and its tags */
+export interface CommitAndTagStepData {
+  /** The release commit: its hash, none in dry-run */
+  commit?: { hash?: string, message: string }
+  tags: string[]
+}
+
+/** Where the release commit was pushed */
+export interface PushStepData {
+  /** The remote of the branch, `origin` without upstream */
+  remote: string
+  branch: string
+  /** The tags of the release were pushed with it */
+  tags: boolean
+}
+
+/** The releases created on GitHub or GitLab */
+export interface ProviderReleaseStepData {
+  provider: GitProvider
+  releases: Array<{
+    tag: string
+    name?: string
+    /** Its page, when the repository is known */
+    url?: string
+  }>
+}
+
+/** A post of the release on a platform */
+export interface SocialStepPost {
+  /** `twitter`, `slack`, `teams` */
+  platform: string
+  status: 'posted' | 'skipped' | 'failed'
+  /** The post, when the platform gives it (Twitter) */
+  url?: string
+  /** Why it is skipped (`prerelease`) or failed */
+  reason?: string
+}
+
+/** The posts of the release */
+export interface SocialStepData {
+  posts: SocialStepPost[]
+}
+
+/** The comment of the pull request */
+export interface PrCommentStepData {
+  posted: boolean
+  /** The pull request commented, when detected */
+  number?: number
+  url?: string
+}
+
+/** The data of each step, by name of the step */
+export interface StepDataMap {
+  'checks': ChecksStepData
+  'bump': BumpStepData
+  'changelog': ChangelogStepData
+  'publish': PublishStepData
+  'commit-and-tag': CommitAndTagStepData
+  'push': PushStepData
+  'provider-release': ProviderReleaseStepData
+  'social': SocialStepData
+  'pr-comment': PrCommentStepData
+}
+
+/** The data of a step, whatever the step */
+export type StepData = StepDataMap[keyof StepDataMap]
+
+/**
+ * An event of a step with the data of the step: `data` is typed by `step`
+ * (`if (event.step === 'publish') event.data?.packages`)
+ */
+export type WithStepData<Event> = {
+  [Step in keyof StepDataMap]: Event & {
+    step: Step
+    /** What the step did, as data: see `StepDataMap` */
+    data?: StepDataMap[Step]
+  }
+}[keyof StepDataMap] | (Event & {
+  /** A step without data: `merge-preview`, or a step that has no equivalent hook */
+  step?: Exclude<ProgressStep, keyof StepDataMap>
+  data?: undefined
+})
+
+interface StepDoneEventBase extends ProgressEventBase {
   type: 'step:done'
-  step?: ProgressStep
   label: string
   /** What it did: `Published relizy@2.0.0 to npm` */
   message: string
@@ -48,10 +186,11 @@ export interface StepDoneEvent extends ProgressEventBase {
   details: string[]
 }
 
-/** A step fails: `fatal` when it stops the command, not when the release goes on (a post that failed) */
-export interface StepFailedEvent extends ProgressEventBase {
+/** A step is done, with what it did as data (`data`, typed by `step`) */
+export type StepDoneEvent = WithStepData<StepDoneEventBase>
+
+interface StepFailedEventBase extends ProgressEventBase {
   type: 'step:failed'
-  step?: ProgressStep
   label: string
   /** The step did not stop the command (a provider release, a post) */
   fatal: boolean
@@ -60,6 +199,30 @@ export interface StepFailedEvent extends ProgressEventBase {
   message: string
   /** The prompt was refused or cancelled: nothing failed */
   cancelled: boolean
+}
+
+/**
+ * A step fails: `fatal` when it stops the command, not when the release goes on (a post that failed).
+ * `data` tells what it did before failing, when it knows (the packages published before the one that failed)
+ */
+export type StepFailedEvent = WithStepData<StepFailedEventBase>
+
+/** One thing of a running step, live: a package of the publish, a platform of the posts */
+export interface StepItem {
+  /** `relizy@2.0.0`, `slack` */
+  name: string
+  status: 'running' | 'done' | 'failed' | 'skipped'
+  /** Why it failed or is skipped */
+  detail?: string
+  /** What it created */
+  url?: string
+}
+
+/** A step starts or ends one of its things: `running`, then `done`, `failed` or `skipped` */
+export interface StepItemEvent extends ProgressEventBase {
+  type: 'step:item'
+  step: ProgressStep
+  item: StepItem
 }
 
 /** A step is left out: `--no-publish`, `release.social: false` */
@@ -146,6 +309,7 @@ export type RelizyEvent
     | StepDoneEvent
     | StepFailedEvent
     | StepSkippedEvent
+    | StepItemEvent
     | ProgressMessageEvent
     | NoteEvent
     | LinkEvent

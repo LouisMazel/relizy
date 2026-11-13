@@ -160,7 +160,7 @@ async function publishToRegistryTarget({
   registryTarget: RegistryTarget
   packageNameAndVersion: string
   registryLabel: string
-}): Promise<void> {
+}): Promise<PublishTargetStatus> {
   // A registry-specific `tag` wins; otherwise fall back to the global
   // `publish.tag` (also set by `--tag`, and by canary mode to `canary`) so the
   // resolved tag is consistent across every target, not just the default one.
@@ -183,14 +183,15 @@ async function publishToRegistryTarget({
     })
     if (alreadyPublished) {
       logger.warn(`Skipping ${packageNameAndVersion}${registryLabel}: version already exists on the registry (publish.skipExistingVersions enabled)`)
-      return
+      return 'skipped'
     }
   }
 
   let dynamicOtp: string | undefined
   const maxAttempts = 2
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  // Each attempt publishes, throws, or retries with an OTP before the last one
+  for (let attempt = 0; ; attempt++) {
     try {
       await publishToRegistry({
         pkg,
@@ -215,7 +216,7 @@ async function publishToRegistryTarget({
         logger.debug('OTP stored for session')
       }
 
-      return
+      return 'published'
     }
     catch (error) {
       // Check if it's an OTP error and we haven't exhausted retries
@@ -230,7 +231,7 @@ async function publishToRegistryTarget({
       else if (isVersionAlreadyPublishedError(error)) {
         if (config.publish.skipExistingVersions) {
           logger.warn(`Skipping ${packageNameAndVersion}${registryLabel}: version already exists on the registry (publish.skipExistingVersions enabled)`)
-          return
+          return 'skipped'
         }
 
         throw new Error(
@@ -254,6 +255,12 @@ async function publishToRegistryTarget({
   }
 }
 
+/**
+ * What the publish of a package did on a registry: `skipped` when the
+ * version is already there (`publish.skipExistingVersions`)
+ */
+export type PublishTargetStatus = 'published' | 'skipped'
+
 export async function publishPackage({
   pkg,
   config,
@@ -264,7 +271,7 @@ export async function publishPackage({
   config: ResolvedRelizyConfig
   packageManager: PackageManager
   dryRun: boolean
-}): Promise<void> {
+}): Promise<PublishTargetStatus[]> {
   const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
   const registryTargets = resolveRegistryTargetsForPackage(pkg, config)
 
@@ -296,13 +303,14 @@ export async function publishPackage({
     // Only label the registry in logs when there is more than one target -
     // keeps single-registry output identical to before this feature existed.
     const showRegistryLabel = registryTargets.length > 1
+    const statuses: PublishTargetStatus[] = []
 
     for (const registryTarget of registryTargets) {
       const registryLabel = showRegistryLabel
         ? ` [${registryTarget.name ?? registryTarget.registry ?? 'default'}]`
         : ''
 
-      await publishToRegistryTarget({
+      statuses.push(await publishToRegistryTarget({
         pkg,
         config,
         packageManager,
@@ -310,8 +318,10 @@ export async function publishPackage({
         registryTarget,
         packageNameAndVersion,
         registryLabel,
-      })
+      }))
     }
+
+    return statuses
   }
   finally {
     if (originalContent !== undefined) {

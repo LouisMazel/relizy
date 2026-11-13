@@ -9,6 +9,7 @@ import { assertBumpConfirmable } from '../core/bump-prompt'
 import { RelizyCancelError } from '../core/errors'
 import { getAppHandlers, runWithEvents } from '../core/events'
 import { relativePath } from '../core/package-sets'
+import { getBumpStepData } from '../core/step-data'
 import { runCommand } from './run-command'
 
 interface BumpStrategyInput {
@@ -40,6 +41,9 @@ export interface BumpPlan {
   display?: () => void
   write?: () => void
 }
+
+/** A plan that bumps */
+type BumpedPlan = BumpPlan & { result: BumpResultTruthy }
 
 const NOT_BUMPED: BumpPlan = {
   result: { bumped: false },
@@ -840,22 +844,16 @@ function planBump({
 /**
  * The packages of the plans, as the application validating them gets them
  */
-function getConfirmPlanPackages({ plans, config }: { plans: BumpPlan[], config: ResolvedRelizyConfig }): ConfirmPlanPackage[] {
+function getConfirmPlanPackages({ plans, config }: { plans: BumpedPlan[], config: ResolvedRelizyConfig }): ConfirmPlanPackage[] {
   return plans.flatMap(({ result, group }) => {
-    if (!result.bumped) {
-      return []
-    }
-
     const independent = (group?.versionMode ?? config.monorepo?.versionMode) === 'independent'
 
     return result.bumpedPackages.map((pkg) => {
-      const newVersion = pkg.newVersion ?? pkg.version
-      const tagVersion = independent
-        ? newVersion
-        : result.newVersion ?? newVersion
+      // Set on every bumped package, and on the result of a unified/selective bump
+      const newVersion = pkg.newVersion!
       const tag = independent
         ? getIndependentTag({ name: pkg.name, version: newVersion })
-        : formatRepoTag(config.templates.tagBody, tagVersion)
+        : formatRepoTag(config.templates.tagBody, result.newVersion!)
 
       return {
         name: pkg.name,
@@ -869,9 +867,7 @@ function getConfirmPlanPackages({ plans, config }: { plans: BumpPlan[], config: 
         ...(group
           ? { group: group.name }
           : {}),
-        ...(pkg.reason
-          ? { reason: pkg.reason }
-          : {}),
+        reason: pkg.reason,
       }
     })
   })
@@ -887,7 +883,7 @@ async function applyBumpPlans({ plans, config, dryRun }: {
   config: ResolvedRelizyConfig
   dryRun: boolean
 }): Promise<void> {
-  const bumpedPlans = plans.filter(plan => plan.result.bumped)
+  const bumpedPlans = plans.filter((plan): plan is BumpedPlan => plan.result.bumped)
   const { onConfirm, command = 'bump' } = getAppHandlers()
 
   const display = () => {
@@ -917,9 +913,7 @@ async function applyBumpPlans({ plans, config, dryRun }: {
   }
   else {
     await confirmBump({
-      packages: bumpedPlans.flatMap(plan => plan.result.bumped
-        ? plan.result.bumpedPackages
-        : []),
+      packages: bumpedPlans.flatMap(plan => plan.result.bumpedPackages),
       display,
       dryRun,
     })
@@ -935,7 +929,7 @@ async function applyBumpPlans({ plans, config, dryRun }: {
  */
 async function confirmWithApplication({ onConfirm, plans, config, dryRun, command }: {
   onConfirm: (plan: ConfirmPlan) => boolean | Promise<boolean>
-  plans: BumpPlan[]
+  plans: BumpedPlan[]
   config: ResolvedRelizyConfig
   dryRun: boolean
   command: ConfirmPlan['command']
@@ -1286,6 +1280,7 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
         name: 'bump',
         running: 'Computing the versions',
         done: describeBumpResult,
+        data: getBumpStepData,
         details: result => getBumpResultDetails(result, config.bump.yes || Boolean(getAppHandlers().onConfirm)),
         run: async () => {
           logger.start('Start bumping versions')

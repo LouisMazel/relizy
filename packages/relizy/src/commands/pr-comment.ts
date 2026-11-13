@@ -6,6 +6,7 @@ import { extractVersionFromTag, filterOutPrivatePackages, filterPrivatePackagesU
 import { collectPackageBumps, detectPullRequest, formatReleaseReportMarkdown, getMonorepoPackagePatterns, getPrivatePackagesMode, getReleaseOverview, hasRepositoryVersion, loadRelizyConfig, postPrComment, PR_COMMENT_MARKER, readPackageJson, readPackages, withoutPrivatePackages } from '../core'
 import { runWithEvents } from '../core/events'
 import { recordLink, showPreview } from '../core/progress'
+import { recordPrComment, takePrCommentStepData } from '../core/step-data'
 import { runCommand } from './run-command'
 
 export interface PrCommentOptions {
@@ -421,6 +422,7 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
         done: ({ posted, pr }) => posted
           ? `Pull request${formatPrNumber(pr)} commented`
           : 'No pull request to comment',
+        data: ({ posted }) => takePrCommentStepData(posted),
         run: () => commentPullRequest({ config, options, dryRun }),
       })
 
@@ -496,6 +498,7 @@ async function commentPullRequest({ config, options, dryRun }: {
     sha: options.releaseContext?.sha ?? getHeadCommit(config.cwd),
   })
 
+  recordPrComment(pr)
   if (pr) {
     recordLink({ step: 'prComment', label: `#${pr.number}`, url: pr.url })
   }

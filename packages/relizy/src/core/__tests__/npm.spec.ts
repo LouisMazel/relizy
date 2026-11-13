@@ -1123,13 +1123,14 @@ describe('Given publishPackage function', () => {
         .mockRejectedValueOnce(new Error('OTP required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
 
-      await publishPackage({
+      const statuses = await publishPackage({
         pkg,
         config,
         packageManager: 'npm',
         dryRun: false,
       })
 
+      expect(statuses).toEqual(['published'])
       expect(askText).toHaveBeenCalled()
       expect(execPromise).toHaveBeenCalledTimes(2)
     })
@@ -1301,7 +1302,7 @@ describe('Given publishPackage function', () => {
         config,
         packageManager: 'npm',
         dryRun: false,
-      })).resolves.toBeUndefined()
+      })).resolves.toEqual(['skipped'])
 
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('version already exists on the registry'),
@@ -1337,7 +1338,7 @@ describe('Given publishPackage function', () => {
         config,
         packageManager: 'npm',
         dryRun: false,
-      })).resolves.toBeUndefined()
+      })).resolves.toEqual(['skipped'])
 
       expect(execPromise).not.toHaveBeenCalledWith(
         expect.stringContaining('publish'),

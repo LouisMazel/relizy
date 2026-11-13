@@ -11,6 +11,7 @@ import { assertVersionGroupsOption, checkTeamsWebhookUrl, executeHook, extractCh
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAIRunInRelease, isAISocialEnabled } from '../core/ai'
 import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
+import { emitStepItem, getSocialStepData, toSocialStepPost } from '../core/step-data'
 import { runCommand } from './run-command'
 
 type SocialNetworkResponse<T> = { success: true, response?: T, skipped?: string } | { success: false, error: string }
@@ -1380,6 +1381,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
         running: 'Posting the release',
         done: describeSocialResult,
         failed: result => result.hasErrors,
+        data: getSocialStepData,
         run: () => postRelease({ config, options, dryRun }),
       })
 
@@ -1449,6 +1451,33 @@ function toNetworkResult(platform: string, response: SocialNetworkResponse<unkno
       ? { url: `https://x.com/i/web/status/${tweetId}` }
       : {}),
   }
+}
+
+/**
+ * The post on an enabled platform, followed live (`step:item`)
+ */
+async function followPost<T>(platform: 'twitter' | 'slack' | 'teams', enabled: boolean | undefined, post: () => Promise<SocialNetworkResponse<T>>): Promise<SocialNetworkResponse<T>> {
+  if (!enabled) {
+    return post()
+  }
+
+  emitStepItem('social', { name: platform, status: 'running' })
+  const response = await post()
+  const { status, url, reason } = toSocialStepPost(toNetworkResult(platform, response))
+  emitStepItem('social', {
+    name: platform,
+    status: status === 'posted'
+      ? 'done'
+      : status,
+    ...(url
+      ? { url }
+      : {}),
+    ...(reason
+      ? { detail: reason }
+      : {}),
+  })
+
+  return response
 }
 
 /**
@@ -1527,7 +1556,7 @@ async function postRelease({ config, options, dryRun }: {
     ? { ...slackPost.variables, releaseTitle: `${slackSingleAnnouncement.title} ${slackPost.versions[0]!.line.version} is out!` }
     : slackPost.variables
 
-  const twitterResponse = await handleTwitterPost({
+  const twitterResponse = await followPost('twitter', config.social?.twitter?.enabled, async () => handleTwitterPost({
     config,
     changelog: config.social?.twitter?.enabled && twitterPost.versions.length > 0
       ? await getTweetChangelog({
@@ -1544,9 +1573,9 @@ async function postRelease({ config, options, dryRun }: {
     prerelease: twitterPost.prerelease,
     notAnnounced: twitterPost.notAnnounced,
     hookContext: getPostHookContext(twitterPost.overview),
-  })
+  }))
 
-  const slackResponse = await handleSlackPost({
+  const slackResponse = await followPost('slack', config.social?.slack?.enabled, async () => handleSlackPost({
     config,
     changelog: config.social?.slack?.enabled && slackPost.versions.length > 0
       ? await getSlackChangelog({
@@ -1566,9 +1595,9 @@ async function postRelease({ config, options, dryRun }: {
     notAnnounced: slackPost.notAnnounced,
     announcement: slackSingleAnnouncement && { message: slackSingleAnnouncement.message, links: slackSingleAnnouncement.links },
     hookContext: getPostHookContext(slackPost.overview),
-  })
+  }))
 
-  const teamsResponse = await handleTeamsPost({
+  const teamsResponse = await followPost('teams', config.social?.teams?.enabled, () => handleTeamsPost({
     config,
     versions: teamsPost.versions,
     overview: teamsPost.overview,
@@ -1577,7 +1606,7 @@ async function postRelease({ config, options, dryRun }: {
     prerelease: teamsPost.prerelease,
     dryRun,
     hookContext: getPostHookContext(teamsPost.overview),
-  })
+  }))
 
   // The results of the enabled platforms
   const results: SocialNetworkResult[] = ([

@@ -1,5 +1,6 @@
 import type { SpinnerResult } from '@clack/prompts'
 import type { BumpResult, PackageBase } from '../types'
+import type { RelizyEventInput, StepData } from './events'
 import type { Preview, ProgressOptions } from './progress'
 import type { ReleaseReport, ReleaseSummaryEntry } from './release-report'
 import type { CommandStepId } from './steps'
@@ -241,6 +242,14 @@ export interface ReleaseStep<T> {
    * The step did not stop the release but failed (a provider release, a post)
    */
   failed?: (result: T) => boolean
+  /**
+   * What the step did as data, the `data` of its `step:done` (or `step:failed`) event
+   */
+  data?: (result: T) => StepData
+  /**
+   * What the step did before failing, the `data` of its `step:failed` event
+   */
+  failedData?: (error: unknown) => StepData | undefined
   run: () => Promise<T>
 }
 
@@ -1151,6 +1160,13 @@ export function createCommandUi({ title, dryRun, logLevel, cwd }: { title: strin
   return ui
 }
 
+/** The `data` of a step event, when the step gives some */
+function withData(data: StepData | undefined): { data?: StepData } {
+  return data
+    ? { data }
+    : {}
+}
+
 /**
  * The events of a command (`events.ts`) from what its output shows: its start, each step, its end.
  * The end is emitted before the output closes, the JSON output stops writing then.
@@ -1180,8 +1196,9 @@ function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
       try {
         const result = await ui.step(step)
         const durationMs = Date.now() - startedAt
+        const data = withData(step.data?.(result))
 
-        emitEvent(step.failed?.(result)
+        emitEvent((step.failed?.(result)
           ? {
               type: 'step:failed',
               step: step.name,
@@ -1190,6 +1207,7 @@ function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
               durationMs,
               message: step.done(result),
               cancelled: false,
+              ...data,
             }
           : {
               type: 'step:done',
@@ -1198,7 +1216,8 @@ function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
               message: step.done(result),
               durationMs,
               details: step.details?.(result) ?? [],
-            })
+              ...data,
+            }) as RelizyEventInput)
 
         return result
       }
@@ -1213,7 +1232,8 @@ function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
             ? error.message
             : String(error),
           cancelled: error instanceof RelizyCancelError,
-        })
+          ...withData(step.failedData?.(error)),
+        } as RelizyEventInput)
         throw error
       }
     },

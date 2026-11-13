@@ -1,7 +1,9 @@
 import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig } from '../core'
+import type { StepCheck } from '../core/events'
 import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
 import { createCommandUi, createCommitAndTags, describeBumpResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
@@ -11,6 +13,7 @@ import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
+import { getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
@@ -183,16 +186,43 @@ async function checkBranchUpToDate({ config, dryRun }: { config: ResolvedRelizyC
   }
 }
 
+/**
+ * A safety check of the release, as data: skipped when its step does not run,
+ * passed or failed once it has run
+ */
+async function runCheck(checks: StepCheck[], { name, skippedBy, check }: { name: string, skippedBy?: string, check: () => Promise<void> }): Promise<void> {
+  const entry: StepCheck = { name, status: 'passed' }
+  checks.push(entry)
+
+  if (skippedBy) {
+    entry.status = 'skipped'
+    entry.message = skippedBy
+    return
+  }
+
+  try {
+    await check()
+  }
+  catch (error) {
+    entry.status = 'failed'
+    entry.message = getErrorMessage(error)
+    throw error
+  }
+}
+
 async function releaseSafetyCheck({
   config,
   provider,
   ai,
   dryRun,
+  checks = [],
 }: {
   config: ResolvedRelizyConfig
   provider?: GitProvider
   ai?: boolean
   dryRun: boolean
+  /** Filled with each check and its status */
+  checks?: StepCheck[]
 }) {
   if (!config.safetyCheck) {
     return
@@ -201,35 +231,48 @@ async function releaseSafetyCheck({
   logger.box('Safety checks')
   logger.start('Start safety checks')
 
-  try {
-    await Promise.all([
-      providerReleaseSafetyCheck({ config, provider, ai }),
-      // The release only publishes with release.publish (disabled by --no-publish)
-      ...(config.release.publish
-        ? [
-            publishSafetyCheck({ config }),
-          ]
-        : []),
-      // The release only posts with release.social (disabled by --no-social and --canary)
-      ...(config.release.social
-        ? [
-            socialSafetyCheck({ config }),
-          ]
-        : []),
-      ...(shouldPushReleaseCommit(config)
-        ? [
-            checkBranchUpToDate({ config, dryRun }),
-            checkPushAccess({ config, dryRun }),
-          ]
-        : []),
-    ])
+  const pushSkippedBy = config.release.commit
+    ? '--no-push'
+    : '--no-commit'
+  const pushes = shouldPushReleaseCommit(config)
+  // Every check runs to the end, so each one has its status: the first failure is thrown
+  const results = await Promise.allSettled([
+    runCheck(checks, {
+      name: 'provider-release',
+      skippedBy: config.release.providerRelease ? undefined : '--no-provider-release',
+      check: () => providerReleaseSafetyCheck({ config, provider, ai }),
+    }),
+    // The release only publishes with release.publish (disabled by --no-publish)
+    runCheck(checks, {
+      name: 'publish',
+      skippedBy: config.release.publish ? undefined : '--no-publish',
+      check: () => publishSafetyCheck({ config }),
+    }),
+    // The release only posts with release.social (disabled by --no-social and --canary)
+    runCheck(checks, {
+      name: 'social',
+      skippedBy: config.release.social ? undefined : '--no-social',
+      check: () => socialSafetyCheck({ config }),
+    }),
+    runCheck(checks, {
+      name: 'branch',
+      skippedBy: pushes ? undefined : pushSkippedBy,
+      check: () => checkBranchUpToDate({ config, dryRun }),
+    }),
+    runCheck(checks, {
+      name: 'push',
+      skippedBy: pushes ? undefined : pushSkippedBy,
+      check: () => checkPushAccess({ config, dryRun }),
+    }),
+  ])
+  const failure = results.find(result => result.status === 'rejected')
 
-    logger.success('Safety checks passed')
-  }
-  catch (error) {
+  if (failure) {
     logger.error('Safety checks failed')
-    throw error
+    throw failure.reason
   }
+
+  logger.success('Safety checks passed')
 }
 
 /** The published versions: `relizy@2.0.0`, or their count */
@@ -349,15 +392,19 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     prepareCiRepository(config.cwd, { logger })
 
     if (config.safetyCheck) {
+      const checks: StepCheck[] = []
       await ui.step({
         name: 'checks',
         running: 'Checking the release',
         done: () => 'Ready to release (tokens, registry, branch)',
+        data: () => ({ checks }),
+        failedData: () => ({ checks }),
         run: () => releaseSafetyCheck({
           config,
           provider: options.provider,
           ai: options.ai,
           dryRun,
+          checks,
         }),
       })
     }
@@ -384,6 +431,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       ],
       running: 'Computing the versions',
       done: describeBumpResult,
+      data: getBumpStepData,
       // Already listed before the confirmation
       details: result => getBumpResultDetails(result, config.bump.yes || Boolean(options.onConfirm)),
       run: () => bump({
@@ -413,6 +461,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           title: 'Post PR comment',
           running: 'Commenting the pull request',
           done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
+          data: takePrCommentStepData,
           run: () => postPrComment({
             status: 'no-release',
             report: reportOf('nothing'),
@@ -456,6 +505,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         title: 'Generate changelogs',
         running: 'Writing the changelogs',
         done: () => `${plural(count, 'changelog')} written`,
+        data: takeChangelogFiles,
+        failedData: takeChangelogFiles,
         run: () => changelog({
           dryRun,
           bumpResult,
@@ -494,6 +545,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
             ? `Published ${packages}${tag}`
             : 'Nothing to publish'
         },
+        data: () => takePublishStepData(config),
+        failedData: () => takePublishStepData(config),
         run: async () => {
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
@@ -565,6 +618,9 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         title: 'Commit changes and create tag',
         running: 'Committing and tagging',
         done: tags => `Committed and tagged ${tags.join(', ')}`,
+        data: takeCommitAndTagStepData,
+        // The commit made before the tags failed
+        failedData: () => takeCommitAndTagStepData([]),
         run: () => createCommitAndTags({
           config,
           noVerify: config.release.noVerify,
@@ -595,9 +651,14 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         title: 'Push changes and tags',
         running: 'Pushing',
         done: () => 'Pushed the commit and the tags',
+        data: target => ({
+          ...target,
+          tags: Boolean(config.release.gitTag) && createdTags.length > 0,
+        }),
         run: async () => {
           try {
             await executeHook('before:push', config, dryRun, hookContext)
+            const target = await getPushTarget(config.cwd)
             await pushCommitAndTags({
               config,
               dryRun,
@@ -605,6 +666,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
               tags: createdTags,
             })
             await executeHook('success:push', config, dryRun, hookContext)
+            return target
           }
           catch (error) {
             await executeHook('error:push', config, dryRun, hookContext)
@@ -637,6 +699,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Creating the releases',
         done: describeProviderReleaseResult,
         failed: result => Boolean(result.error),
+        data: result => getProviderReleaseStepData(config, result),
         run: () => providerRelease({
           provider,
           dryRun,
@@ -680,6 +743,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Posting the release',
         done: describeSocialResult,
         failed: result => result.hasErrors,
+        data: getSocialStepData,
         run: () => social({
           config,
           configName: options.configName,
@@ -731,6 +795,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         title: 'Post PR comment',
         running: 'Commenting the pull request',
         done: posted => posted ? 'Pull request commented' : 'No pull request to comment',
+        data: takePrCommentStepData,
         run: () => postPrComment({
           status: 'success',
           bumpResult,

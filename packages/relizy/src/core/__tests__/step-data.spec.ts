@@ -1,0 +1,172 @@
+import type { GitRepository } from '../../../../../tests/git-repository'
+import type { RelizyEvent } from '../events'
+import { createGitRepository } from '../../../../../tests/git-repository'
+import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
+import { runWithEvents } from '../events'
+import { emitStepItem, getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, recordPrComment, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../step-data'
+
+describe('Given the data of the steps', () => {
+  describe('When a bump bumps nothing', () => {
+    it('Then has no package', () => {
+      expect(getBumpStepData({ bumped: false })).toEqual({ packages: [] })
+    })
+  })
+
+  describe('When a bump has version groups', () => {
+    it('Then gives the group of each package', () => {
+      const core = {
+        ...createMockPackageInfo({ name: '@relizy/core', version: '1.0.0', newVersion: '1.1.0' }),
+        oldVersion: '1.0.0',
+      }
+      const cli = {
+        ...createMockPackageInfo({ name: 'relizy', version: '2.0.0', newVersion: '2.1.0' }),
+        oldVersion: '2.0.0',
+      }
+
+      expect(getBumpStepData({
+        bumped: true,
+        bumpedPackages: [core, cli],
+        groups: [
+          {
+            name: 'core',
+            title: 'Core',
+            versionMode: 'independent',
+            bumped: true,
+            bumpedPackages: [core],
+          },
+        ],
+      })).toEqual({
+        packages: [
+          {
+            name: '@relizy/core',
+            oldVersion: '1.0.0',
+            newVersion: '1.1.0',
+            group: 'core',
+          },
+          { name: 'relizy', oldVersion: '2.0.0', newVersion: '2.1.0' },
+        ],
+      })
+    })
+  })
+
+  describe('When provider releases are posted', () => {
+    it('Then gives their page when the repository is known', () => {
+      const release = {
+        name: 'v2.0.0',
+        tag: 'v2.0.0',
+        prerelease: false,
+        version: '2.0.0',
+      }
+      const known = createMockConfig({
+        repo: { provider: 'github', domain: 'github.com', repo: 'acme/app' },
+      })
+      const unknown = createMockConfig({
+        repo: { provider: 'github' },
+      })
+
+      expect(getProviderReleaseStepData(known, {
+        detectedProvider: 'github',
+        postedReleases: [release],
+      })).toEqual({
+        provider: 'github',
+        releases: [
+          { tag: 'v2.0.0', name: 'v2.0.0', url: 'https://github.com/acme/app/releases/tag/v2.0.0' },
+        ],
+      })
+      expect(getProviderReleaseStepData(unknown, {
+        detectedProvider: 'github',
+        postedReleases: [release],
+      }).releases).toEqual([
+        { tag: 'v2.0.0', name: 'v2.0.0' },
+      ])
+    })
+  })
+
+  describe('When the posts are done', () => {
+    it('Then gives the status of each platform', () => {
+      expect(getSocialStepData({
+        hasErrors: true,
+        results: [
+          { platform: 'twitter', success: true, url: 'https://x.com/i/web/status/1' },
+          { platform: 'slack', success: true, skipped: 'prerelease' },
+          { platform: 'teams', success: false, error: 'timeout' },
+        ],
+      })).toEqual({
+        posts: [
+          { platform: 'twitter', status: 'posted', url: 'https://x.com/i/web/status/1' },
+          { platform: 'slack', status: 'skipped', reason: 'prerelease' },
+          { platform: 'teams', status: 'failed', reason: 'timeout' },
+        ],
+      })
+    })
+  })
+
+  describe('When a pull request is commented', () => {
+    it('Then gives it once, then nothing', () => {
+      recordPrComment({ number: 12, url: 'https://github.com/acme/app/pull/12' })
+
+      expect(takePrCommentStepData(true)).toEqual({ posted: true, number: 12, url: 'https://github.com/acme/app/pull/12' })
+      expect(takePrCommentStepData(false)).toEqual({ posted: false })
+
+      recordPrComment({ number: 13, url: 'https://github.com/acme/app/pull/13' })
+      recordPrComment(null)
+      expect(takePrCommentStepData(false)).toEqual({ posted: false })
+    })
+  })
+
+  describe('When no release commit was made', () => {
+    it('Then gives only the tags', () => {
+      expect(takeCommitAndTagStepData(['v1.0.0'])).toEqual({
+        tags: ['v1.0.0'],
+      })
+    })
+  })
+
+  describe('When nothing was published and the config has no registry', () => {
+    it('Then gives the registry of the npmrc and the default dist-tag', () => {
+      const config = createMockConfig({
+        publish: { registry: undefined },
+      })
+
+      expect(takePublishStepData(config)).toEqual({
+        registry: expect.stringMatching(/^https?:\/\//),
+        tag: 'latest',
+        packages: [],
+      })
+    })
+  })
+
+  describe('When a step follows one of its things', () => {
+    it('Then emits a step:item event', () => {
+      const events: RelizyEvent[] = []
+
+      runWithEvents(event => events.push(event), () => emitStepItem('publish', { name: 'relizy@2.0.0', status: 'running' }))
+
+      expect(events).toEqual([
+        {
+          type: 'step:item',
+          step: 'publish',
+          item: { name: 'relizy@2.0.0', status: 'running' },
+          time: expect.any(Number),
+        },
+      ])
+    })
+  })
+
+  describe('When the branch has no upstream', () => {
+    let repository: GitRepository
+
+    beforeEach(() => {
+      repository = createGitRepository('relizy-push-target-')
+      repository.commit('chore: init')
+    })
+
+    afterEach(() => {
+      repository.remove()
+    })
+
+    it('Then pushes the current branch to origin', async () => {
+      expect(await getPushTarget(repository.cwd)).toEqual({ remote: 'origin', branch: 'main' })
+    })
+  })
+})

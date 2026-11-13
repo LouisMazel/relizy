@@ -7,6 +7,7 @@ import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled, isAIRunInRe
 import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
+import { getProviderReleaseStepData } from '../core/step-data'
 import { runCommand } from './run-command'
 
 /**
@@ -231,6 +232,7 @@ function runProviderRelease(
         running: 'Creating the releases',
         done: describeProviderReleaseResult,
         failed: result => Boolean(result.error),
+        data: result => getProviderReleaseStepData(config, result),
         run: async (): Promise<ProviderReleaseResult> => {
           detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
           reportProgress('Checking the release')

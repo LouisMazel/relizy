@@ -4,8 +4,36 @@ import { logger } from '@maz-ui/node'
 import { aggregateIndependentChangelogs, plural, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
 import { runWithEvents } from '../core/events'
+import { relativePath } from '../core/package-sets'
 import { showPreview } from '../core/progress'
+import { clearChangelogFiles, recordChangelogFile, takeChangelogFiles } from '../core/step-data'
 import { runCommand } from './run-command'
+
+/**
+ * Write the changelog entry of a package (only shown in dry-run), recorded for
+ * the data of the step: its path
+ */
+function writeChangelog({ config, pkg, changelog, dryRun }: {
+  config: ResolvedRelizyConfig
+  pkg: Parameters<typeof writeChangelogToFile>[0]['pkg']
+  changelog: string
+  dryRun: boolean
+}): string {
+  const path = writeChangelogToFile({
+    cwd: config.cwd,
+    pkg,
+    changelog,
+    dryRun,
+  })
+
+  recordChangelogFile({
+    file: relativePath(config.cwd, path),
+    packageName: pkg.name,
+    content: changelog,
+  })
+
+  return path
+}
 
 async function generateIndependentRootChangelog({
   packages,
@@ -47,8 +75,8 @@ async function generateIndependentRootChangelog({
     throw new Error('Failed to read root package.json')
   }
 
-  const changelogPath = writeChangelogToFile({
-    cwd: config.cwd,
+  const changelogPath = writeChangelog({
+    config,
     pkg: rootPackageRead,
     changelog: aggregatedChangelog,
     dryRun,
@@ -120,8 +148,8 @@ async function generateSimpleRootChangelog({
     newVersion,
   })
 
-  const changelogPath = writeChangelogToFile({
-    cwd: config.cwd,
+  const changelogPath = writeChangelog({
+    config,
     changelog: rootChangelog,
     pkg: rootPackage,
     dryRun,
@@ -212,8 +240,8 @@ async function generateChangelogs({
 
     const changelog = await getPackageChangelog(pkg)
 
-    written.push(writeChangelogToFile({
-      cwd: config.cwd,
+    written.push(writeChangelog({
+      config,
       pkg,
       changelog,
       dryRun,
@@ -271,6 +299,8 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
         done: count => count === 0
           ? 'No changelog to write'
           : `${plural(count, 'changelog')} written`,
+        data: takeChangelogFiles,
+        failedData: takeChangelogFiles,
         run: () => writeChangelogs({ config, options, dryRun }),
       })
 
@@ -295,6 +325,7 @@ async function writeChangelogs({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<number> {
   logger.start('Start generating changelogs')
+  clearChangelogFiles()
 
   assertVersionGroupsOption({ config, groups: options.groups })
 

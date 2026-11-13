@@ -2,11 +2,13 @@ import type { TrustedPublishingProvider } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
+import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getTrustedPublishing, isInCI, isNpmjsRegistry, isPackageOnRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, normalizeRegistryKey, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
 import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { getNpmLinks } from '../core/release-facts'
+import { clearPublishedPackages, emitStepItem, recordPublishedPackage, takePublishStepData } from '../core/step-data'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 import { runCommand } from './run-command'
 
@@ -364,7 +366,11 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
         name: 'publish',
         running: 'Publishing the packages',
         done: () => `Published ${describePackages(toPublish)}${distTag}`,
+        data: () => takePublishStepData(config),
+        failedData: () => takePublishStepData(config),
         run: async () => {
+          clearPublishedPackages()
+
           for await (const [index, pkg] of toPublish.entries()) {
             const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
             const position = toPublish.length > 1
@@ -372,12 +378,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
               : ''
             logger.debug(`Publishing ${tag}...`)
             reportProgress(`Publishing ${tag}${position}`)
-            await publishPackage({
-              pkg,
-              config,
-              packageManager: config.publish.packageManager,
-              dryRun,
-            })
+            await publishAndRecord({ pkg, config, dryRun })
           }
         },
       })
@@ -400,6 +401,66 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       } satisfies PublishResponse
     },
   })
+}
+
+/**
+ * Publish a package, followed live (`step:item`) and recorded for the data of the step
+ */
+async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, config: ResolvedRelizyConfig, dryRun: boolean }): Promise<void> {
+  const version = pkg.newVersion || pkg.version
+  const name = getIndependentTag({ name: pkg.name, version })
+  emitStepItem('publish', { name, status: 'running' })
+
+  try {
+    const statuses = await publishPackage({
+      pkg,
+      config,
+      packageManager: config.publish.packageManager,
+      dryRun,
+    })
+    // Already on every registry
+    const skipped = statuses.length > 0 && statuses.every(status => status === 'skipped')
+    const url = dryRun || skipped
+      ? undefined
+      : getNpmLinks({
+        config,
+        packages: [pkg],
+      })[0]?.url
+    const reason = 'version already on the registry'
+
+    recordPublishedPackage({
+      name: pkg.name,
+      version,
+      status: skipped ? 'skipped' : 'published',
+      ...(url
+        ? { url }
+        : {}),
+      ...(skipped
+        ? { reason }
+        : {}),
+    })
+    emitStepItem('publish', {
+      name,
+      status: skipped ? 'skipped' : 'done',
+      ...(url
+        ? { url }
+        : {}),
+      ...(skipped
+        ? { detail: reason }
+        : {}),
+    })
+  }
+  catch (error) {
+    const reason = getErrorMessage(error)
+    recordPublishedPackage({
+      name: pkg.name,
+      version,
+      status: 'failed',
+      reason,
+    })
+    emitStepItem('publish', { name, status: 'failed', detail: reason })
+    throw error
+  }
 }
 
 /** The published versions: `relizy@2.0.0`, up to 3, else their count */

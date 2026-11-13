@@ -1,6 +1,7 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
 import type { RelizyEvent } from '../../core/events'
-import { writeFileSync } from 'node:fs'
+import { mkdtempSync, realpathSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import process from 'node:process'
 import { createGitRepository } from '../../../../../tests/git-repository'
@@ -118,6 +119,175 @@ describe('Given a repository with a commit to release', () => {
       })).rejects.toThrow('Unknown profile')
 
       expect(events).toEqual([])
+    })
+  })
+})
+
+describe('Given a repository with a remote and a commit to release', () => {
+  let repository: GitRepository
+  let remote: string
+  let initialCwd: string
+
+  const stepData = (events: RelizyEvent[], step: string) => events.find(event => (event.type === 'step:done' || event.type === 'step:failed') && event.step === step)
+
+  beforeEach(() => {
+    initialCwd = process.cwd()
+    repository = createGitRepository('relizy-step-data-')
+    remote = realpathSync(mkdtempSync(join(tmpdir(), 'relizy-step-data-remote-')))
+    process.chdir(repository.cwd)
+    repository.git('init', '--quiet', '--bare', remote)
+    repository.writeJson('.', { name: 'app', version: '1.0.0' })
+    writeFileSync(join(repository.cwd, 'relizy.config.mjs'), `export default {
+  logLevel: 'silent',
+  noAuthors: true,
+  release: { publish: false, providerRelease: false, social: false, prComment: false },
+}\n`)
+    repository.commit('chore: init')
+    repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
+    repository.git('remote', 'add', 'origin', remote)
+    repository.git('push', '--quiet', '-u', 'origin', 'main', '--follow-tags')
+    repository.commit('feat: a new thing', { 'index.js': 'feat' })
+  })
+
+  afterEach(() => {
+    process.chdir(initialCwd)
+    repository.remove()
+    rmSync(remote, { recursive: true, force: true })
+  })
+
+  describe('When releasing with onProgress', () => {
+    it('Then gives what each step did as data: the checks, the versions, the changelogs, the commit, the tags and the push', async () => {
+      const events: RelizyEvent[] = []
+
+      await release({
+        yes: true,
+        onProgress: event => events.push(event),
+      })
+
+      expect(stepData(events, 'checks')).toMatchObject({
+        type: 'step:done',
+        data: {
+          checks: [
+            { name: 'provider-release', status: 'skipped', message: '--no-provider-release' },
+            { name: 'publish', status: 'skipped', message: '--no-publish' },
+            { name: 'social', status: 'skipped', message: '--no-social' },
+            { name: 'branch', status: 'passed' },
+            { name: 'push', status: 'passed' },
+          ],
+        },
+      })
+      expect(stepData(events, 'bump')).toMatchObject({
+        data: {
+          packages: [
+            { name: 'app', oldVersion: '1.0.0', newVersion: '1.1.0' },
+          ],
+        },
+      })
+      expect(stepData(events, 'changelog')).toMatchObject({
+        data: {
+          files: [
+            {
+              file: 'CHANGELOG.md',
+              packageName: 'app',
+              content: expect.stringContaining('- A new thing'),
+            },
+          ],
+        },
+      })
+      expect(stepData(events, 'commit-and-tag')).toMatchObject({
+        data: {
+          commit: {
+            hash: repository.git('rev-parse', 'HEAD'),
+            message: 'chore(release): bump version to 1.1.0',
+          },
+          tags: ['v1.1.0'],
+        },
+      })
+      expect(stepData(events, 'push')).toMatchObject({
+        data: { remote: 'origin', branch: 'main', tags: true },
+      })
+      expect(repository.git('--git-dir', remote, 'tag')).toContain('v1.1.0')
+    })
+
+    it('Then gives the commit without hash in dry-run', async () => {
+      const events: RelizyEvent[] = []
+
+      await release({
+        yes: true,
+        dryRun: true,
+        onProgress: event => events.push(event),
+      })
+
+      const commit = stepData(events, 'commit-and-tag')
+      expect(commit).toMatchObject({
+        data: {
+          commit: { message: 'chore(release): bump version to 1.1.0' },
+        },
+      })
+      expect(commit).not.toHaveProperty('data.commit.hash')
+    })
+
+    it('Then gives the release commit made before the step failed', async () => {
+      repository.commit('chore: hook', {
+        'relizy.config.mjs': `export default {
+  logLevel: 'silent',
+  safetyCheck: false,
+  release: { push: false, publish: false, providerRelease: false, social: false, prComment: false, changelog: false },
+  hooks: { 'success:commit-and-tag': () => { throw new Error('hook failed') } },
+}\n`,
+      })
+      const events: RelizyEvent[] = []
+
+      await expect(release({
+        yes: true,
+        onProgress: event => events.push(event),
+      })).rejects.toThrow('hook failed')
+
+      expect(stepData(events, 'commit-and-tag')).toMatchObject({
+        type: 'step:failed',
+        data: {
+          commit: {
+            hash: repository.git('rev-parse', 'HEAD'),
+            message: 'chore(release): bump version to 1.1.0',
+          },
+          tags: [],
+        },
+      })
+    })
+
+    it('Then gives the status of each check when one fails', async () => {
+      const events: RelizyEvent[] = []
+      // The remote moves on: the branch is behind it
+      const other = createGitRepository('relizy-step-data-other-')
+      try {
+        other.git('remote', 'add', 'origin', remote)
+        other.git('fetch', '--quiet', 'origin')
+        other.git('reset', '--quiet', '--hard', 'origin/main')
+        other.commit('fix: elsewhere', { 'other.js': 'fix' })
+        other.git('push', '--quiet', 'origin', 'HEAD:main')
+      }
+      finally {
+        other.remove()
+      }
+
+      await expect(release({
+        yes: true,
+        onProgress: event => events.push(event),
+      })).rejects.toThrow()
+
+      expect(stepData(events, 'checks')).toMatchObject({
+        type: 'step:failed',
+        fatal: true,
+        data: {
+          checks: expect.arrayContaining([
+            {
+              name: 'branch',
+              status: 'failed',
+              message: expect.any(String),
+            },
+          ]),
+        },
+      })
     })
   })
 })
