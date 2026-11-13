@@ -39,7 +39,7 @@ interface ProfileInfo {
   description?: string
   /** True when the profile releases a canary (`release.canary`) */
   canary: boolean
-  /** The config options the profile sets, over the config file */
+  /** The config options the profile sets, over the config file, secrets masked */
   options: Pick<RelizyConfig, 'bump' | 'changelog' | 'publish' | 'release' | 'social' | 'prComment' | 'ai' | 'safetyCheck'>
   /** The same options, one entry per leaf */
   settings: { path: string, value: unknown }[]

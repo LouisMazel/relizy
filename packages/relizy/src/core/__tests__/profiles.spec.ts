@@ -54,6 +54,51 @@ describe('Given the profiles of a config', () => {
     it('Then gives nothing without profiles', () => {
       expect(listProfiles({})).toEqual([])
     })
+
+    it('Then masks the secrets the profiles set, in the options and the settings', () => {
+      const [announced] = listProfiles({
+        profiles: {
+          announced: {
+            social: {
+              slack: {
+                enabled: true,
+                credentials: { token: 'xoxb-1234567890-abcdefghijkl' },
+              },
+              twitter: {
+                enabled: true,
+                credentials: {
+                  apiKey: 'twitter-api-key-0001',
+                  apiKeySecret: 'twitter-api-secret-0002',
+                  accessToken: 'twitter-access-token-0003',
+                  accessTokenSecret: 'twitter-access-secret-0004',
+                },
+              },
+            },
+            ai: {
+              providers: {
+                'claude-code': { apiKey: 'sk-ant-api03-abcdefghijklmnop', oauthToken: 'sk-ant-oat01-abcdefghijklmnop' },
+              },
+            },
+          },
+        },
+      })
+      const serialized = JSON.stringify(announced)
+
+      for (const secret of [
+        'xoxb-1234567890-abcdefghijkl',
+        'twitter-api-key-0001',
+        'twitter-api-secret-0002',
+        'twitter-access-token-0003',
+        'twitter-access-secret-0004',
+        'sk-ant-api03-abcdefghijklmnop',
+        'sk-ant-oat01-abcdefghijklmnop',
+      ]) {
+        expect(serialized).not.toContain(secret)
+      }
+      expect(announced!.options.social?.slack?.credentials?.token).toBe('xoxb-***ijkl')
+      expect(announced!.settings).toContainEqual({ path: 'social.slack.credentials.token', value: 'xoxb-***ijkl' })
+      expect(announced!.settings).toContainEqual({ path: 'social.slack.enabled', value: true })
+    })
   })
 
   describe('When getting a profile that does not exist', () => {

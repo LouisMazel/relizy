@@ -112,7 +112,7 @@ const config = await loadRelizyConfig({ profile: 'beta' })
 await release({ profile: 'beta', yes: true })
 ```
 
-`listProfiles()` also validates the profiles. See [`loadRelizyConfig()`](./../api/load-relizy-config.md#profiles) and [Shared Options](./../api/usage.md#shared-options).
+`listProfiles()` also validates the profiles, and masks the secrets they set (tokens, API keys, webhook URLs) in `options` and `settings`. See [`loadRelizyConfig()`](./../api/load-relizy-config.md#profiles) and [Shared Options](./../api/usage.md#shared-options).
 
 ## See Also
 

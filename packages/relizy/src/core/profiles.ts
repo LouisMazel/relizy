@@ -1,4 +1,5 @@
 import type { RelizyConfig, RelizyProfile } from '../types'
+import { redactSecrets } from '@relizy/core'
 
 /**
  * Config sections a profile can set: what the way of releasing changes, never
@@ -36,9 +37,9 @@ export interface ProfileInfo {
   description?: string
   /** True when the profile releases a canary (`release.canary`) */
   canary: boolean
-  /** The config options the profile sets, over the config file */
+  /** The config options the profile sets, over the config file, secrets masked (`redactSecrets` of `@relizy/core`) */
   options: ProfileOptions
-  /** The same options, one entry per leaf: `{ path: 'publish.tag', value: 'beta' }` */
+  /** The same options, one entry per leaf: `{ path: 'publish.tag', value: 'beta' }`, secrets masked */
   settings: ProfileSetting[]
 }
 
@@ -166,7 +167,8 @@ function flatten(value: unknown, path: string): ProfileSetting[] {
 /**
  * The profiles of a config (`profiles`): their name, description and what they
  * change, e.g. to show them as release workflows. Works on the config of
- * `loadRelizyConfig()`, or on a config file as written.
+ * `loadRelizyConfig()`, or on a config file as written. The secrets a profile
+ * sets (tokens, API keys, webhook URLs) are masked in `options` and `settings`.
  *
  * @example
  * const profiles = listProfiles(await loadRelizyConfig())
@@ -176,7 +178,7 @@ export function listProfiles(config: Pick<RelizyConfig, 'profiles'>): ProfileInf
   validateProfiles(config)
 
   return Object.entries(config.profiles ?? {}).map(([name, profile]) => {
-    const options = getProfileOptions(profile)
+    const options = redactSecrets(getProfileOptions(profile))
 
     return {
       name,
