@@ -14,6 +14,7 @@ import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { chainHooks } from './hook-chain'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
+import { getOwnEntry } from './own-version'
 import { getProfile, getProfileOptions, isPlainObject, validateProfiles } from './profiles'
 
 /**
@@ -487,6 +488,21 @@ export function isConfigFilePath(configFile: string): boolean {
     || CONFIG_FILE_EXTENSIONS.has(extname(configFile))
 }
 
+/**
+ * A config importing `relizy` (`import { defineConfig } from 'relizy'`) gets the
+ * running relizy: it loads even when the project does not have relizy in its
+ * `node_modules` (relizy installed elsewhere, run by an application)
+ */
+function getConfigJitiOptions(): { alias?: Record<string, string> } {
+  const entry = getOwnEntry()
+
+  return entry
+    ? {
+        alias: { relizy: entry },
+      }
+    : {}
+}
+
 /** The options of the config loader selecting the config file: a name, or the path of the file (the project stays `cwd`) */
 function getConfigFileOptions(configFile: string | undefined, cwd: string): { name: string, configFile?: string } {
   if (configFile && isConfigFilePath(configFile)) {
@@ -544,6 +560,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
       ? {}
       : mergeConfig(options?.overrides)) as ResolvedConfig,
     merger: mergeConfig,
+    jitiOptions: getConfigJitiOptions(),
   })
 
   validateProfiles(results.config)
