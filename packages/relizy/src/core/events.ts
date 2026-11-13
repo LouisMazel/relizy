@@ -252,7 +252,8 @@ export interface NoteEvent extends ProgressEventBase {
 /** What a step created: a GitHub release, an npm page, a tweet, the PR comment */
 export interface LinkEvent extends ProgressEventBase {
   type: 'link'
-  step: 'publish' | 'providerRelease' | 'social' | 'prComment'
+  /** The step that created it, named as `ProgressStep` */
+  step: 'publish' | 'provider-release' | 'social' | 'pr-comment'
   label: string
   url: string
 }

@@ -2,6 +2,7 @@ import type { RelizyEvent } from '../events'
 import process from 'node:process'
 import { describe, expect, it, vi } from 'vitest'
 import { addGlobalEventListener, emitEvent, getAppHandlers, getEventContext, getRunState, hasEventListeners, runWithEvents } from '../events'
+import { recordLink, takeReleaseFacts } from '../progress'
 
 describe('Given the events of a command', () => {
   describe('When a command runs with a listener', () => {
@@ -71,6 +72,20 @@ describe('Given the events of a command', () => {
 
       expect(unhandled).not.toHaveBeenCalled()
       expect(other).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then a link is named by the step as the other events (provider-release, pr-comment)', () => {
+      const events: RelizyEvent[] = []
+
+      runWithEvents(event => events.push(event), () => {
+        recordLink({ step: 'providerRelease', label: 'v1.0.0', url: 'https://github.com/acme/app/releases/tag/v1.0.0' })
+        recordLink({ step: 'prComment', label: 'PR #1', url: 'https://github.com/acme/app/pull/1' })
+
+        // The report keeps the names of its steps
+        expect(takeReleaseFacts().links.map(link => link.step)).toEqual(['providerRelease', 'prComment'])
+      })
+
+      expect(events.map(event => event.type === 'link' && event.step)).toEqual(['provider-release', 'pr-comment'])
     })
 
     it('Then each run has its own state, shared with the commands it runs', async () => {

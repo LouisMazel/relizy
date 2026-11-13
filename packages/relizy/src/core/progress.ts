@@ -1,3 +1,4 @@
+import type { LinkEvent } from './events'
 import { logger } from '@maz-ui/node'
 import { emitEvent, getRunState } from './events'
 
@@ -184,11 +185,19 @@ function getFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
   return getRunState(FACTS, () => ({ links: [], aiRewrites: [] }))
 }
 
+/** The steps of the report (`providerRelease`) as the events name them (`provider-release`) */
+const LINK_EVENT_STEPS: Record<ReleaseLink['step'], LinkEvent['step']> = {
+  publish: 'publish',
+  providerRelease: 'provider-release',
+  social: 'social',
+  prComment: 'pr-comment',
+}
+
 export function recordLink(link: ReleaseLink): void {
   getFacts().links.push(link)
   emitEvent({
     type: 'link',
-    step: link.step,
+    step: LINK_EVENT_STEPS[link.step],
     label: link.label,
     url: link.url,
   })
