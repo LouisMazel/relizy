@@ -1381,7 +1381,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
         running: 'Posting the release',
         done: describeSocialResult,
         failed: result => result.hasErrors,
-        data: getSocialStepData,
+        data: result => getSocialStepData(result, { dryRun }),
         run: () => postRelease({ config, options, dryRun }),
       })
 

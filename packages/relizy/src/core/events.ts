@@ -10,7 +10,13 @@ import { AsyncLocalStorage } from 'node:async_hooks'
  * stdout). Every event has `time`, its date in milliseconds since the epoch.
  */
 
-/** What a step of a command does, as the hooks name them: `bump`, `changelog`, `publish`, `commit-and-tag`, `push`, `provider-release`, `social`, `pr-comment` */
+/**
+ * What a step of a command does, as the hooks name them: `checks`, `bump`, `changelog`, `publish`,
+ * `commit-and-tag`, `push`, `provider-release`, `social`, `pr-comment`, and `merge-preview` for the
+ * steps of `relizy merge-preview`. A name can come with several steps: `relizy publish` alone runs
+ * three `publish` steps (the check of the packages, their build, their publish), the merge preview
+ * one `merge-preview` step per part of the preview
+ */
 export type ProgressStep = CommandStepId
 
 export interface ProgressEventBase {
@@ -76,7 +82,10 @@ export interface ChangelogStepData {
 export interface PublishStepPackage {
   name: string
   version: string
-  /** `skipped`: the version is already on the registry (`publish.skipExistingVersions`) */
+  /**
+   * `skipped`: the version is already on the registry (`publish.skipExistingVersions`).
+   * In dry-run, `published` is a simulated publish: see `dryRun` of `PublishStepData`
+   */
   status: 'published' | 'skipped' | 'failed'
   /** Its page on npmjs.com, once published */
   url?: string
@@ -90,6 +99,8 @@ export interface PublishStepData {
   registry: string
   /** The dist-tag: `latest`, `next`, `canary`... */
   tag: string
+  /** A simulation: nothing was published, `published` means it would be (and no `url`) */
+  dryRun: boolean
   packages: PublishStepPackage[]
 }
 
@@ -133,6 +144,8 @@ export interface SocialStepPost {
 
 /** The posts of the release */
 export interface SocialStepData {
+  /** A simulation: nothing was posted, `posted` means it would be */
+  dryRun: boolean
   posts: SocialStepPost[]
 }
 

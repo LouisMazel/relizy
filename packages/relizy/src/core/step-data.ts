@@ -1,6 +1,6 @@
 import type { BumpResult, ProviderReleaseResult, SocialNetworkResult, SocialResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, PushStepData, SocialStepPost, StepItem } from './events'
+import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, PushStepData, SocialStepData, SocialStepPost, StepItem } from './events'
 import { getCurrentGitBranch, getGitUpstream, getPublishTag } from '@relizy/core'
 import { emitEvent, getRunState } from './events'
 import { getNpmRegistry } from './npm-registry'
@@ -58,12 +58,13 @@ export function clearPublishedPackages(): void {
 }
 
 /** The packages published since the last call, with the registry and the dist-tag */
-export function takePublishStepData(config: ResolvedRelizyConfig): PublishStepData {
+export function takePublishStepData(config: ResolvedRelizyConfig, { dryRun }: { dryRun: boolean }): PublishStepData {
   const packages = getRecorded().published.splice(0)
 
   return {
     registry: config.publish.registry || getNpmRegistry(config.cwd),
     tag: getPublishTag(packages[0]?.version ?? '', config.publish.tag),
+    dryRun,
     packages,
   }
 }
@@ -177,8 +178,10 @@ export function toSocialStepPost(result: SocialNetworkResult): SocialStepPost {
   }
 }
 
-export function getSocialStepData(result: SocialResult): { posts: SocialStepPost[] } {
+/** The posts of a run, `dryRun` when nothing was posted for real */
+export function getSocialStepData(result: SocialResult, { dryRun }: { dryRun: boolean }): SocialStepData {
   return {
+    dryRun,
     posts: result.results.map(toSocialStepPost),
   }
 }

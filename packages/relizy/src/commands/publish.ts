@@ -366,8 +366,8 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
         name: 'publish',
         running: 'Publishing the packages',
         done: () => `Published ${describePackages(toPublish)}${distTag}`,
-        data: () => takePublishStepData(config),
-        failedData: () => takePublishStepData(config),
+        data: () => takePublishStepData(config, { dryRun }),
+        failedData: () => takePublishStepData(config, { dryRun }),
         run: async () => {
           clearPublishedPackages()
 

@@ -545,8 +545,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
             ? `Published ${packages}${tag}`
             : 'Nothing to publish'
         },
-        data: () => takePublishStepData(config),
-        failedData: () => takePublishStepData(config),
+        data: () => takePublishStepData(config, { dryRun }),
+        failedData: () => takePublishStepData(config, { dryRun }),
         run: async () => {
           // Packages are published before the push: make sure the release commit
           // will be pushable, as new commits may have landed while the release ran.
@@ -743,7 +743,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         running: 'Posting the release',
         done: describeSocialResult,
         failed: result => result.hasErrors,
-        data: getSocialStepData,
+        data: result => getSocialStepData(result, { dryRun }),
         run: () => social({
           config,
           configName: options.configName,

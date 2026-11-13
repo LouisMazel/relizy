@@ -92,7 +92,8 @@ describe('Given the data of the steps', () => {
           { platform: 'slack', success: true, skipped: 'prerelease' },
           { platform: 'teams', success: false, error: 'timeout' },
         ],
-      })).toEqual({
+      }, { dryRun: false })).toEqual({
+        dryRun: false,
         posts: [
           { platform: 'twitter', status: 'posted', url: 'https://x.com/i/web/status/1' },
           { platform: 'slack', status: 'skipped', reason: 'prerelease' },
@@ -129,10 +130,41 @@ describe('Given the data of the steps', () => {
         publish: { registry: undefined },
       })
 
-      expect(takePublishStepData(config)).toEqual({
+      expect(takePublishStepData(config, { dryRun: false })).toEqual({
         registry: expect.stringMatching(/^https?:\/\//),
         tag: 'latest',
+        dryRun: false,
         packages: [],
+      })
+    })
+  })
+
+  describe('When the publish and the posts are simulated', () => {
+    it('Then their data say it is a dry run', () => {
+      const config = createMockConfig({
+        publish: { registry: 'https://registry.npmjs.org/' },
+      })
+
+      runWithEvents(undefined, () => {
+        recordPublishedPackage({ name: 'relizy', version: '2.0.0', status: 'published' })
+
+        expect(takePublishStepData(config, { dryRun: true })).toMatchObject({
+          dryRun: true,
+          packages: [
+            { name: 'relizy', status: 'published' },
+          ],
+        })
+      })
+      expect(getSocialStepData({
+        hasErrors: false,
+        results: [
+          { platform: 'slack', success: true },
+        ],
+      }, { dryRun: true })).toEqual({
+        dryRun: true,
+        posts: [
+          { platform: 'slack', status: 'posted' },
+        ],
       })
     })
   })
@@ -152,7 +184,7 @@ describe('Given the data of the steps', () => {
 
         return {
           changelogs: takeChangelogFiles().files.map(file => file.packageName),
-          published: takePublishStepData(config).packages.map(pkg => pkg.name),
+          published: takePublishStepData(config, { dryRun: false }).packages.map(pkg => pkg.name),
           commit: takeCommitAndTagStepData([]).commit?.hash,
           pr: takePrCommentStepData(true).number,
         }
