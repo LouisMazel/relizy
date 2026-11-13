@@ -326,7 +326,11 @@ export type RelizyEventInput = RelizyEvent extends infer Event
     : never
   : never
 
-export type RelizyEventListener = (event: RelizyEvent) => void
+/**
+ * A listener of the events, sync or async (`void | Promise<void>`): an async one is not
+ * awaited, and its rejection is ignored as a throw (never an unhandled rejection)
+ */
+export type RelizyEventListener = ((event: RelizyEvent) => void) | ((event: RelizyEvent) => Promise<void>)
 
 /**
  * What an application answers instead of the prompts of the terminal (the
@@ -436,7 +440,8 @@ export function emitEvent(event: RelizyEventInput): void {
 
   for (const listener of listeners) {
     try {
-      listener(full)
+      // An async listener is not awaited: its rejection must not become an unhandled one
+      Promise.resolve(listener(full)).catch(() => {})
     }
     catch {}
   }

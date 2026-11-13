@@ -1,4 +1,5 @@
 import type { RelizyEvent } from '../events'
+import process from 'node:process'
 import { describe, expect, it, vi } from 'vitest'
 import { addGlobalEventListener, emitEvent, getAppHandlers, getEventContext, getRunState, hasEventListeners, runWithEvents } from '../events'
 
@@ -48,6 +49,28 @@ describe('Given the events of a command', () => {
       }))
 
       expect(other).toHaveBeenCalledWith(expect.objectContaining({ type: 'note', ai: true }))
+    })
+
+    it('Then an async listener that rejects never gives an unhandled rejection', async () => {
+      const unhandled = vi.fn()
+      process.on('unhandledRejection', unhandled)
+      const other = vi.fn()
+
+      try {
+        runWithEvents(async () => {
+          await Promise.resolve()
+          throw new Error('async listener failure')
+        }, () => runWithEvents(other, () => {
+          emitEvent({ type: 'note', message: 'x', ai: false })
+        }))
+        await new Promise(resolve => setTimeout(resolve, 10))
+      }
+      finally {
+        process.off('unhandledRejection', unhandled)
+      }
+
+      expect(unhandled).not.toHaveBeenCalled()
+      expect(other).toHaveBeenCalledTimes(1)
     })
 
     it('Then each run has its own state, shared with the commands it runs', async () => {
