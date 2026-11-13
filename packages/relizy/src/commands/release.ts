@@ -241,7 +241,11 @@ function describePublished(packages: PublishResponse['publishedPackages']): stri
 
 export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)), {
+    onConfirm: options.onConfirm,
+    onOtp: options.onOtp,
+    command: 'release',
+  })
 }
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
@@ -335,9 +339,10 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
   try {
     // A failed check also writes the report, comments the pull request and runs error:release
+    // The application confirms with onConfirm, without terminal
     assertBumpConfirmable({
       command: 'release',
-      yes: config.bump.yes,
+      yes: config.bump.yes || Boolean(options.onConfirm),
       ciName: getCIName(),
     })
     // The CI clone: full history, branch, identity
@@ -380,7 +385,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       running: 'Computing the versions',
       done: describeBumpResult,
       // Already listed before the confirmation
-      details: result => getBumpResultDetails(result, config.bump.yes),
+      details: result => getBumpResultDetails(result, config.bump.yes || Boolean(options.onConfirm)),
       run: () => bump({
         dryRun,
         config,

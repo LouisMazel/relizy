@@ -1,3 +1,4 @@
+import type { ConfirmPlan, OtpRequest } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -163,10 +164,22 @@ export type RelizyEventInput = RelizyEvent extends infer Event
 
 export type RelizyEventListener = (event: RelizyEvent) => void
 
+/**
+ * What an application answers instead of the prompts of the terminal (the
+ * `onConfirm` and `onOtp` options of the commands), and the command run first
+ */
+export interface AppHandlers {
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  onOtp?: (request: OtpRequest) => Promise<string>
+  /** The command the application ran: `release` for the bump run by a release */
+  command?: 'release' | 'bump'
+}
+
 interface EventContext {
   listeners: RelizyEventListener[]
   /** A command run by another one: its steps are the progress of the step of the parent */
   nested: boolean
+  handlers: AppHandlers
 }
 
 const storage = new AsyncLocalStorage<EventContext>()
@@ -183,8 +196,10 @@ export function getEventContext(): EventContext | undefined {
 /**
  * Run a command with its `onProgress` listener: the events of the command and
  * of the commands it runs go to it. A listener that throws never stops the command.
+ * The `handlers` of the application go to the commands it runs too, over the ones
+ * of a parent command; the command of the first run stays.
  */
-export function runWithEvents<T>(listener: RelizyEventListener | undefined, run: () => T): T {
+export function runWithEvents<T>(listener: RelizyEventListener | undefined, run: () => T, handlers: AppHandlers = {}): T {
   const parent = storage.getStore()
   const listeners = [
     ...parent?.listeners ?? [],
@@ -192,8 +207,22 @@ export function runWithEvents<T>(listener: RelizyEventListener | undefined, run:
       ? [listener]
       : [],
   ]
+  const inherited = parent?.handlers ?? {}
 
-  return storage.run({ listeners, nested: parent !== undefined }, run)
+  return storage.run({
+    listeners,
+    nested: parent !== undefined,
+    handlers: {
+      onConfirm: handlers.onConfirm ?? inherited.onConfirm,
+      onOtp: handlers.onOtp ?? inherited.onOtp,
+      command: inherited.command ?? handlers.command,
+    },
+  }, run)
+}
+
+/** The handlers of the application for the running command: none out of a command */
+export function getAppHandlers(): AppHandlers {
+  return storage.getStore()?.handlers ?? {}
 }
 
 /** Listen to every event of the process, whatever the command: what `RELIZY_REPORTER=json` uses */

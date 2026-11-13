@@ -86,6 +86,76 @@ export interface BumpResultFalsy {
 }
 export type BumpResult = BumpResultTruthy | BumpResultFalsy
 
+/**
+ * A package of the bump plan, as `onConfirm` receives it
+ */
+export interface ConfirmPlanPackage {
+  name: string
+  /**
+   * Directory of the package, relative to the project (`.` for the root)
+   */
+  path: string
+  /**
+   * A private package is versioned, never published
+   */
+  private: boolean
+  oldVersion: string
+  newVersion: string
+  /**
+   * The git tag the release creates for it: its own tag in an `independent` set, the one of the
+   * repository otherwise. None when the release creates no tag (`release.gitTag: false`, canary)
+   */
+  tag?: string
+  /**
+   * Name of its version group, with `monorepo.groups`
+   */
+  group?: string
+  /**
+   * Why it is bumped: its commits, a bumped dependency, the graduation of its prerelease
+   */
+  reason?: 'commits' | 'dependency' | 'graduation'
+}
+
+/**
+ * The versions a bump is about to write, computed with nothing written yet: what `onConfirm` validates
+ */
+export interface ConfirmPlan {
+  /**
+   * The command run: `release`, or `bump`
+   */
+  command: 'release' | 'bump'
+  /**
+   * Nothing will be written, whatever the answer
+   */
+  dryRun: boolean
+  /**
+   * The profile applied, none without one
+   */
+  profile?: string
+  /**
+   * A canary release: published under its own dist-tag, never committed
+   */
+  canary: boolean
+  /**
+   * Every package the run bumps, every version group together
+   */
+  packages: ConfirmPlanPackage[]
+}
+
+/**
+ * What the registry asks a one-time password for, as `onOtp` receives it
+ */
+export interface OtpRequest {
+  /**
+   * The registry asking for it (`https://registry.npmjs.org/`)
+   */
+  registry: string
+  /**
+   * The package being published
+   */
+  packageName?: string
+}
+
 export interface PostedRelease {
   /**
    * Release name
@@ -469,6 +539,12 @@ export interface BumpOptions extends BumpConfig {
    */
   onProgress?: RelizyEventListener
   /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). Unused with `yes`. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  /**
    * Publish a canary release from the current commit
    * @default false
    */
@@ -837,6 +913,11 @@ export interface PublishOptions extends PublishConfig {
    */
   onProgress?: RelizyEventListener
   /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => Promise<string>
+  /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
   suffix?: string
@@ -979,6 +1060,17 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * A listener that throws does not stop the run.
    */
   onProgress?: RelizyEventListener
+  /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). Unused with `yes`. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => Promise<string>
   /**
    * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
    * (the profile, the `overrides` and the options of the call still apply over it)

@@ -38,6 +38,38 @@ vi.mock('../../core/npm-versions', async (importActual) => {
 describe('Given a release with version groups on a real git repository', () => {
   useReleaseGroupsRepository()
 
+  describe('When an application validates the plan with onConfirm', () => {
+    it('Then gives every package of both groups with its group and the tag of its release', async () => {
+      const onConfirm = vi.fn().mockReturnValue(true)
+
+      await release({ dryRun: true, onConfirm })
+
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+      expect(onConfirm.mock.calls[0]![0].packages).toEqual([
+        {
+          name: '@scope/components',
+          path: 'packages/components',
+          private: false,
+          oldVersion: '6.19.1',
+          newVersion: '6.20.0',
+          tag: 'v6.20.0',
+          group: 'main',
+          reason: 'commits',
+        },
+        {
+          name: '@scope/nav',
+          path: 'shared/nav',
+          private: false,
+          oldVersion: '1.2.0',
+          newVersion: '2.0.0',
+          tag: '@scope/nav@2.0.0',
+          group: 'header',
+          reason: 'commits',
+        },
+      ])
+    })
+  })
+
   describe('When releasing stable versions', () => {
     it('Then bumps each group with its own version mode', async () => {
       await release({ yes: true })

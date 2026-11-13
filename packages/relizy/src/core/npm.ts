@@ -6,7 +6,8 @@ import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getAuthCommand as coreGetAuthCommand, getIndependentTag, getPublishTag, isInCI, isOtpError, isPaymentRequiredError, isPrerelease, isVersionAlreadyPublishedError, publishToRegistry } from '@relizy/core'
 import { isRelizyCancelError } from './errors'
-import { buildLegacyRegistryTarget, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
+import { getAppHandlers } from './events'
+import { buildLegacyRegistryTarget, getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
 import { isVersionPublished } from './npm-versions'
 import { askText, assertInteractivePrompt } from './prompts'
 
@@ -87,7 +88,18 @@ function getPublishFailure({
   return error
 }
 
-async function handleOtpError(): Promise<string> {
+/**
+ * The one-time password the registry asks for: from the `onOtp` of the
+ * application, else from the prompt of the terminal
+ */
+async function handleOtpError({ registry, packageName }: { registry: string, packageName: string }): Promise<string> {
+  const { onOtp } = getAppHandlers()
+
+  if (onOtp) {
+    logger.debug(`OTP required by ${registry}: asking the application`)
+    return onOtp({ registry, packageName })
+  }
+
   if (isInCI()) {
     logger.error('OTP required but running in CI environment. Please provide OTP via config or `--otp` flag')
     throw new Error('OTP required in CI environment')
@@ -208,7 +220,10 @@ async function publishToRegistryTarget({
     catch (error) {
       // Check if it's an OTP error and we haven't exhausted retries
       if (isOtpError(error) && attempt < maxAttempts - 1) {
-        dynamicOtp = await handleOtpError()
+        dynamicOtp = await handleOtpError({
+          registry: registryTarget.registry || getNpmRegistry(config.cwd),
+          packageName: pkg.name,
+        })
       }
       // The version is already on the registry (immutable asset). This makes a
       // retry safe - the artifact exists, so there is nothing left to publish.

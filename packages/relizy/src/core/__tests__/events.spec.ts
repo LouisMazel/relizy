@@ -1,6 +1,6 @@
 import type { RelizyEvent } from '../events'
 import { describe, expect, it, vi } from 'vitest'
-import { addGlobalEventListener, emitEvent, getEventContext, hasEventListeners, runWithEvents } from '../events'
+import { addGlobalEventListener, emitEvent, getAppHandlers, getEventContext, hasEventListeners, runWithEvents } from '../events'
 
 describe('Given the events of a command', () => {
   describe('When a command runs with a listener', () => {
@@ -83,6 +83,31 @@ describe('Given the events of a command', () => {
 
       expect(listener).toHaveBeenCalledTimes(1)
       expect(hasEventListeners()).toBe(false)
+    })
+  })
+
+  describe('When an application gives its handlers', () => {
+    it('Then the commands run by the command get them, over the ones of the parent, and keep the first command', () => {
+      const onConfirm = vi.fn()
+      const onOtp = vi.fn()
+      const otherOtp = vi.fn()
+      const seen: ReturnType<typeof getAppHandlers>[] = []
+
+      runWithEvents(undefined, () => {
+        seen.push(getAppHandlers())
+        runWithEvents(undefined, () => {
+          seen.push(getAppHandlers())
+        }, { onOtp: otherOtp, command: 'bump' })
+      }, { onConfirm, onOtp, command: 'release' })
+
+      expect(seen).toEqual([
+        { onConfirm, onOtp, command: 'release' },
+        { onConfirm, onOtp: otherOtp, command: 'release' },
+      ])
+    })
+
+    it('Then there is none out of a command', () => {
+      expect(getAppHandlers()).toEqual({})
     })
   })
 
