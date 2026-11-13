@@ -531,12 +531,12 @@ const FIELD_SEPARATOR = '\x1F'
  * @param from - The ref to start after (excluded); the whole history of `to` when undefined
  * @param to - The ref to read up to, `HEAD` by default
  * @param cwd - Directory of the repository, the current directory by default
- * @returns The raw commits with `message` (subject), `shortHash`, `author` (`name`, `email`) and `body`
+ * @returns The raw commits with `message` (subject), `shortHash`, `hash` (the full hash), `author` (`name`, `email`) and `body`
  * @throws The git error (secrets redacted) when `git log` fails, e.g. an unknown ref
  * @example
  * ```ts
  * const commits = getGitDiff('v1.0.0', 'HEAD', cwd)
- * // [{ message: 'feat: add x', shortHash: 'a1b2c3d', author: { name: 'Jane', email: 'jane@example.com' }, body: '...' }]
+ * // [{ message: 'feat: add x', shortHash: 'a1b2c3d', hash: 'a1b2c3d4e5f6...', author: { name: 'Jane', email: 'jane@example.com' }, body: '...' }]
  * ```
  */
 export function getGitDiff(from: string | undefined, to = 'HEAD', cwd?: string): RawGitCommit[] {
@@ -563,17 +563,20 @@ function readGitLog(range: string, cwd?: string): RawGitCommit[] {
     '--no-pager',
     'log',
     range,
-    '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b',
+    '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%x1F%H%n%b',
     '--name-status',
   ], { cwd })
 
   return output.split(COMMIT_SEPARATOR).slice(1).map((record) => {
     const [firstLine = '', ...body] = record.split('\n')
-    const [message = '', shortHash = '', authorName = '', authorEmail = ''] = firstLine.split(FIELD_SEPARATOR)
+    const [message = '', shortHash = '', authorName = '', authorEmail = '', hash = ''] = firstLine.split(FIELD_SEPARATOR)
 
     return {
       message,
       shortHash,
+      ...(hash
+        ? { hash }
+        : {}),
       author: { name: authorName, email: authorEmail },
       body: body.join('\n'),
     }
