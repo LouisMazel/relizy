@@ -1,4 +1,5 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
+import type { RelizyEvent } from '../../core/events'
 import type { ConfirmPlan } from '../../types'
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -164,6 +165,50 @@ describe('Given an application validating the bump plan with onConfirm', () => {
       })).rejects.toBeInstanceOf(RelizyCancelError)
 
       expect(readVersion()).toBe('1.0.0')
+    })
+  })
+
+  describe('When releasing and onConfirm throws', () => {
+    it('Then the release fails (not a cancellation) with the error of the application, without writing anything', async () => {
+      const events: RelizyEvent[] = []
+
+      const error = await release({
+        onConfirm: () => {
+          throw new Error('the application crashed')
+        },
+        onProgress: event => events.push(event),
+      }).catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(Error)
+      expect(error).not.toBeInstanceOf(RelizyCancelError)
+      expect((error as Error).message).toBe('the application crashed')
+      expect(events.find(event => event.type === 'step:failed')).toMatchObject({ step: 'bump', fatal: true, cancelled: false })
+      expect(events.find(event => event.type === 'command:error')).toMatchObject({ cancelled: false })
+      expect(readVersion()).toBe('1.0.0')
+    })
+
+    it('Then a RelizyCancelError of the application cancels the release', async () => {
+      const events: RelizyEvent[] = []
+
+      await expect(release({
+        onConfirm: () => Promise.reject(new RelizyCancelError('Closed by the user')),
+        onProgress: event => events.push(event),
+      })).rejects.toBeInstanceOf(RelizyCancelError)
+
+      expect(events.find(event => event.type === 'command:error')).toMatchObject({ cancelled: true })
+      expect(readVersion()).toBe('1.0.0')
+    })
+  })
+
+  describe('When bump.yes is in the config', () => {
+    it('Then onConfirm is not called', async () => {
+      writeFileSync(join(repository.cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', bump: { yes: true } }\n`)
+      repository.commit('chore: confirm in advance')
+      const onConfirm = vi.fn()
+
+      await bump({ dryRun: true, onConfirm })
+
+      expect(onConfirm).not.toHaveBeenCalled()
     })
   })
 
