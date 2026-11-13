@@ -9,7 +9,7 @@ branding:
 
 inputs:
   release-type:
-    description: 'Release type: auto (follows the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
+    description: 'Release type: auto (no type flag: bump.type of the config or of the profile, else the bump of the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
     required: false
     default: auto
   profile:

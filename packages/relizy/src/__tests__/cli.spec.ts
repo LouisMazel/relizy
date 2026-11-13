@@ -109,6 +109,45 @@ describe('Given the relizy CLI', () => {
     }, 30_000)
   })
 
+  describe('When bumping without a release type flag', () => {
+    beforeAll(() => {
+      writeFileSync(join(cwd, 'relizy.typed.config.json'), JSON.stringify({
+        logLevel: 'silent',
+        bump: { type: 'major' },
+        profiles: {
+          prepatch: {
+            bump: { type: 'prepatch', preid: 'rc' },
+          },
+        },
+      }))
+    })
+
+    afterAll(() => {
+      rmSync(join(cwd, 'relizy.typed.config.json'))
+    })
+
+    function bump(...args: string[]) {
+      const result = run('--config', 'relizy.typed', '--log-level', 'default', '--dry-run', 'bump', '--yes', '--no-clean', ...args)
+
+      return `${result.stdout}${result.stderr}`
+    }
+
+    it('Then bump.type of the config applies instead of the bump of the commits', () => {
+      expect(bump()).toContain('2.0.0')
+    }, 30_000)
+
+    it('Then bump.type of the profile applies over the one of the config', () => {
+      expect(bump('--profile', 'prepatch')).toContain('1.0.1-rc.0')
+    }, 30_000)
+
+    it('Then a release type flag wins over both', () => {
+      const output = bump('--profile', 'prepatch', '--minor')
+
+      expect(output).toContain('1.1.0')
+      expect(output).not.toContain('1.0.1-rc.0')
+    }, 30_000)
+  })
+
   describe('When linting a commit message', () => {
     it('Then exits with 0 on a valid message, without the banner', () => {
       const result = run('commitlint', '--message', 'feat: add the commitlint command')

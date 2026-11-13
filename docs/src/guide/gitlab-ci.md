@@ -31,7 +31,7 @@ include:
   - component: gitlab.com/relizy/relizy/release@2
 ```
 
-- **Release type**: choose it in the form of Build > Pipelines > Run pipeline (`RELEASE_TYPE`, `auto` releases the bump computed from the commits), or as a variable of the manual job before running it. With the push trigger, `init` gives `when: on_success` to the component, and no `RELEASE_TYPE`.
+- **Release type**: choose it in the form of Build > Pipelines > Run pipeline (`RELEASE_TYPE`, `auto` passes no type flag: [`bump.type`](./../config/bump.md#type) of the config or of the profile applies, else the bump computed from the commits), or as a variable of the manual job before running it. With the push trigger, `init` gives `when: on_success` to the component, and no `RELEASE_TYPE`.
 - **Rules**: only on the default branch, and never on the release commit pushed by Relizy (the `skip-commit` input follows your [`templates.commitMessage`](./../config/commit-templates.md)). The tag pipelines have no `CI_COMMIT_BRANCH`: the job does not run there either.
 - **Stage**: `deploy` is a default stage of GitLab. When your `.gitlab-ci.yml` declares its own `stages:`, add `deploy` to them, or change the `stage` input.
 - **Build**: `publish.buildCmd` builds the packages before publishing (set by `init` from your `build` script).
