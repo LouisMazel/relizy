@@ -28,7 +28,7 @@ export { defineConfig, loadRelizyConfig } from './core/config'
 export { isRelizyCancelError, RelizyCancelError } from './core/errors'
 export type { MergePreviewProblem, MergePreviewSquashMode } from './core/merge-preview'
 export type { ProfileInfo, ProfileOptions, ProfileSection, ProfileSetting } from './core/profiles'
-export { listProfiles, UnknownProfileError } from './core/profiles'
+export { listProfiles, ProfileConflictError, UnknownProfileError } from './core/profiles'
 export type { ReleaseLine, ReleaseOverview, ReleaseOverviewGroup, ReleaseOverviewPackage } from './core/release-overview'
 export type {
   ReleaseAI,

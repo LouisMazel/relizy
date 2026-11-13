@@ -12,7 +12,7 @@ import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
-import { getProfile, getProfileOptions, isPlainObject, validateProfiles } from './profiles'
+import { getProfile, getProfileOptions, isPlainObject, ProfileConflictError, validateProfiles } from './profiles'
 
 /**
  * @param cwd - Root of the project, where the package manager is detected
@@ -351,8 +351,8 @@ export interface LoadRelizyConfigOptions {
   configFile?: string
   /**
    * Profile of `profiles` to apply: its options come over the config file and
-   * under the `overrides`. With a `baseConfig` resolved with another profile, the
-   * options of that profile that this one does not set stay in the config.
+   * under the `overrides`. A `baseConfig` resolved with another profile throws a
+   * `ProfileConflictError`: load the config again with the new profile.
    */
   profile?: string
 }
@@ -392,7 +392,10 @@ export function isSetInUserConfig(config: ResolvedRelizyConfig, key: keyof Reliz
  * back into it.
  */
 function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides, profile?: string): ResolvedRelizyConfig {
-  // A profile that is not already the one of the base config: its options come over the base config
+  // The options of the profile of the base config cannot be taken out: a config never mixes two profiles
+  if (profile && baseConfig.profile && profile !== baseConfig.profile) {
+    throw new ProfileConflictError(profile, baseConfig.profile)
+  }
   const profileOptions = profile && profile !== baseConfig.profile
     ? getProfileOptions(getProfile(baseConfig, profile))
     : undefined

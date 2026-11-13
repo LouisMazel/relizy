@@ -62,6 +62,18 @@ export class UnknownProfileError extends Error {
   }
 }
 
+/**
+ * A profile asked over a config already resolved with another one: the options
+ * of the first profile could not be taken out of it, the config would mix both
+ */
+export class ProfileConflictError extends Error {
+  override name = 'ProfileConflictError'
+
+  constructor(readonly profile: string, readonly resolvedWith: string) {
+    super(`Cannot apply the profile "${profile}" over a config resolved with the profile "${resolvedWith}": load the config again with \`loadRelizyConfig({ profile: '${profile}' })\``)
+  }
+}
+
 /** True for an object literal (`{}`, `Object.create(null)`), false for an array, a class instance or a function */
 export function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (!value || typeof value !== 'object') {

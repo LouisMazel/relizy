@@ -6,6 +6,7 @@ describe('Given the public API of relizy', () => {
     it('Then only exports the commands, the config, the errors and the commit linter', () => {
       expect(Object.keys(relizy).sort()).toEqual([
         'MergePreviewError',
+        'ProfileConflictError',
         'RelizyCancelError',
         'UnknownProfileError',
         'bump',
