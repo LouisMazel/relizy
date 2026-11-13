@@ -351,7 +351,8 @@ export interface LoadRelizyConfigOptions {
   configFile?: string
   /**
    * Profile of `profiles` to apply: its options come over the config file and
-   * under the `overrides`
+   * under the `overrides`. With a `baseConfig` resolved with another profile, the
+   * options of that profile that this one does not set stay in the config.
    */
   profile?: string
 }
@@ -402,7 +403,10 @@ function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?
   setupLogger(overrides?.logLevel || config.logLevel)
   const userKeys = userConfigKeys.get(baseConfig)
   if (userKeys) {
-    userConfigKeys.set(config, userKeys)
+    userConfigKeys.set(config, new Set([
+      ...userKeys,
+      ...Object.keys(profileOptions ?? {}),
+    ]))
   }
 
   const groupName = getVersionGroupName(baseConfig)
@@ -410,6 +414,13 @@ function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?
   return groupName
     ? markVersionGroupConfig(config, groupName)
     : config
+}
+
+/** The top-level keys of the overrides that have a value */
+function getDefinedKeys(overrides?: RelizyConfigOverrides): string[] {
+  return Object.entries(overrides ?? {})
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key)
 }
 
 /**
@@ -497,6 +508,10 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set([
     ...(results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {})),
     ...profileKeys,
+    // With a profile, the overrides are merged by `applyProfile`, not by c12: they are not in its layers
+    ...(options?.profile
+      ? getDefinedKeys(options.overrides)
+      : []),
   ]))
 
   return resolvedConfig as ResolvedRelizyConfig

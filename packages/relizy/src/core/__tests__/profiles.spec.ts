@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { logger } from '@maz-ui/node'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { loadRelizyConfig } from '../config'
+import { isSetInUserConfig, loadRelizyConfig } from '../config'
 import { extractConfigReference } from '../mcp/knowledge/generate'
 import { createCoreResolver } from '../mcp/knowledge/source'
 import { getProfile, getProfileOptions, listProfiles, PROFILE_OPTIONS, UnknownProfileError, validateProfiles } from '../profiles'
@@ -388,6 +388,23 @@ describe('Given a config file with profiles', () => {
       expect(config.release.canary).toBe(false)
     })
 
+    it('Then the overrides still count as set by the user, as without profile', async () => {
+      const config = await loadRelizyConfig({
+        profile: 'beta',
+        overrides: {
+          cwd: dir,
+          commitlint: {
+            scopes: ['api'],
+          },
+          changelog: undefined,
+        },
+      })
+
+      expect(isSetInUserConfig(config, 'commitlint')).toBe(true)
+      expect(isSetInUserConfig(config, 'bump')).toBe(true)
+      expect(isSetInUserConfig(config, 'changelog')).toBe(false)
+    })
+
     it('Then fails with the profiles available when it does not exist', async () => {
       await expect(loadRelizyConfig({
         profile: 'nightly',
@@ -416,6 +433,39 @@ describe('Given a config file with profiles', () => {
       expect(config.publish.tag).toBe('next')
       // The base config is left as it was
       expect(base.bump.type).toBe('patch')
+    })
+
+    it('Then applies another profile over the base config, which keeps the options of its own profile', async () => {
+      const base = await loadRelizyConfig({
+        profile: 'beta',
+        overrides: { cwd: dir },
+      })
+      const config = await loadRelizyConfig({
+        baseConfig: base,
+        profile: 'latest',
+      })
+
+      expect(config.profile).toBe('latest')
+      expect(config.publish).toMatchObject({ tag: 'latest', access: 'public' })
+      expect(config.release.social).toBe(false)
+      // What `latest` does not set stays as the base config resolved it, with `beta`
+      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'beta' })
+      expect(base.profile).toBe('beta')
+      expect(base.publish.tag).toBe('beta')
+    })
+
+    it('Then the sections of the profile count as set by the user', async () => {
+      const base = await loadRelizyConfig({
+        overrides: { cwd: dir },
+      })
+      const config = await loadRelizyConfig({
+        baseConfig: base,
+        profile: 'latest',
+      })
+
+      expect(isSetInUserConfig(base, 'release')).toBe(false)
+      expect(isSetInUserConfig(config, 'release')).toBe(true)
+      expect(isSetInUserConfig(config, 'publish')).toBe(true)
     })
 
     it('Then keeps the profile it already has', async () => {
