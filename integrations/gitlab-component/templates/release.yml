@@ -16,6 +16,9 @@ spec:
       default: auto
       options: [auto, patch, minor, major, prerelease, prepatch, preminor, premajor]
       description: Release type (auto follows the commits), a RELEASE_TYPE variable of the pipeline takes precedence
+    profile:
+      default: ''
+      description: Release profile of the config (profiles of relizy.config.ts, e.g. beta or canary), its options come over the config file and under the release type and the args
     args:
       default: ''
       description: More arguments for relizy release, e.g. "--tag beta --preid beta"
@@ -43,6 +46,7 @@ release:
     # The changelogs need the history since the last release
     GIT_DEPTH: 0
     RELIZY_INPUT_RELEASE_TYPE: '$[[ inputs.release-type ]]'
+    RELIZY_INPUT_PROFILE: '$[[ inputs.profile ]]'
     RELIZY_INPUT_ARGS: '$[[ inputs.args ]]'
     RELIZY_INPUT_SETUP: '$[[ inputs.setup ]]'
     RELIZY_INPUT_PACKAGE_MANAGER: '$[[ inputs.package-manager ]]'
@@ -104,6 +108,12 @@ release:
         patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$release_type" ;;
         *) echo "Unknown release type \"$release_type\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
       esac
+      if [ -n "$RELIZY_INPUT_PROFILE" ]; then
+        case "$RELIZY_INPUT_PROFILE" in
+          *[!A-Za-z0-9._-]*) echo "Invalid profile \"$RELIZY_INPUT_PROFILE\": letters, digits, dots, dashes and underscores only"; exit 1 ;;
+        esac
+        flag="$flag --profile $RELIZY_INPUT_PROFILE"
+      fi
       # The relizy of the project, else the version of this component
       if [ -n "$RELIZY_INPUT_VERSION" ]; then
         relizy="npx --yes relizy@$RELIZY_INPUT_VERSION"

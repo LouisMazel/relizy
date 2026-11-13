@@ -12,6 +12,10 @@ inputs:
     description: 'Release type: auto (follows the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
     required: false
     default: auto
+  profile:
+    description: 'Release profile of the config (`profiles` of relizy.config.ts, e.g. beta or canary): its options come over the config file and under the release-type and the args'
+    required: false
+    default: ''
   args:
     description: 'More arguments for relizy release (relizy merge-preview with merge-preview: true), e.g. "--tag beta --preid beta" or "--config standalone"'
     required: false
@@ -218,6 +222,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         RELEASE_TYPE: ${{ inputs.release-type }}
+        RELEASE_PROFILE: ${{ inputs.profile }}
         RELEASE_ARGS: ${{ inputs.args }}
         MERGE_PREVIEW: ${{ inputs.merge-preview }}
         PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
@@ -240,6 +245,12 @@ runs:
           patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$RELEASE_TYPE" ;;
           *) echo "::error::Unknown release-type \"$RELEASE_TYPE\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
         esac
+        if [ -n "$RELEASE_PROFILE" ]; then
+          if [[ ! "$RELEASE_PROFILE" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid profile \"$RELEASE_PROFILE\": letters, digits, dots, dashes and underscores only"; exit 1
+          fi
+          flag="$flag --profile $RELEASE_PROFILE"
+        fi
         # The relizy of the project, else the version of this action
         if [ -n "$RELIZY_VERSION" ]; then
           relizy="npx --yes relizy@$RELIZY_VERSION"
