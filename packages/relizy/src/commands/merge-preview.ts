@@ -344,6 +344,7 @@ function getBranch(cwd: string): string {
 async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseReport> {
   const config = await getReleaseConfig(options)
   const ui = createCommandUi({
+    command: 'merge-preview',
     title: 'relizy merge-preview',
     // Not a dry run: nothing is written in the repository, but the comment and the commit status are posted
     dryRun: false,

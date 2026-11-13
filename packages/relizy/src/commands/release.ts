@@ -379,6 +379,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
   const ui = createCommandUi({
+    command: 'release',
     title: `relizy release${config.profile
       ? ` --profile ${config.profile}`
       : ''}${isCanary ? ' --canary' : ''}`,

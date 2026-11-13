@@ -298,7 +298,8 @@ export interface CommandOutcome {
 }
 
 export interface ReleaseUi {
-  start: (title: string) => void
+  /** `title`: what the output shows (`relizy release --profile beta`), `command`: the command run (`release`) */
+  start: (title: string, command: string) => void
   step: <T>(step: ReleaseStep<T>) => Promise<T>
   skip: (step: { name?: CommandStepId, title: string, label: string, reason: string }) => void
   /**
@@ -426,8 +427,8 @@ abstract class StepUi implements ReleaseUi {
     return relative(this.options.cwd, this.logFile)
   }
 
-  start(title: string): void {
-    this.command = title.split(' ')[1] ?? ''
+  start(title: string, command: string): void {
+    this.command = command
     setActiveUi(this)
 
     try {
@@ -1148,13 +1149,21 @@ class JsonUi extends StepUi {
  * The output of a command, started: `relizy bump`. The output of the parent
  * when the command is run by another one.
  */
-export function createCommandUi({ title, dryRun, logLevel, cwd }: { title: string, dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
+export function createCommandUi({ command, title, dryRun, logLevel, cwd }: {
+  /** The command run: `release`, `bump`, `merge-preview` */
+  command: string
+  /** What the output shows: `relizy release --profile beta` */
+  title: string
+  dryRun: boolean
+  logLevel?: string
+  cwd: string
+}): ReleaseUi {
   if (activeUi || getEventContext()?.nested) {
     return nestedUi
   }
 
   const ui = withEvents(createReleaseUi({ dryRun, logLevel, cwd }), dryRun)
-  ui.start(title)
+  ui.start(title, command)
   return ui
 }
 
@@ -1177,12 +1186,12 @@ function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
     ...prompt
       ? { prompt }
       : {},
-    start: (title) => {
+    start: (title, command) => {
       commandStartedAt = Date.now()
-      ui.start(title)
+      ui.start(title, command)
       emitEvent({
         type: 'command:start',
-        command: title.split(' ')[1] ?? '',
+        command,
         title,
         dryRun,
       })

@@ -185,7 +185,12 @@ describe('Given the renderer of the output', () => {
   it('Then keeps the logs of the logger out of the CLI (the programmatic API)', async () => {
     const { ui, logger } = await load()
 
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
     const result = await commandUi.step({
       title: 'Bump versions',
       running: 'Computing',
@@ -202,7 +207,12 @@ describe('Given the renderer of the output', () => {
   it('Then lets RELIZY_REPORTER force an output, out of the CLI too', async () => {
     const { ui } = await load({ RELIZY_REPORTER: 'ci', NO_COLOR: '1' })
 
-    ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Bumped relizy 2.0.0' })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    }).complete({ message: 'Bumped relizy 2.0.0' })
 
     expect(ui.isFancyUi()).toBe(true)
     expect(lines()[0]).toBe('relizy bump · ci')
@@ -211,7 +221,12 @@ describe('Given the renderer of the output', () => {
   it('Then shows the CI output in CI, the classic one when forced', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' })
     ui.enableCliUi()
-    ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Bumped' })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    }).complete({ message: 'Bumped' })
 
     expect(lines()[0]).toBe('relizy bump · github')
 
@@ -231,7 +246,12 @@ describe('Given the renderer of the output', () => {
 
     try {
       const { ui } = await load({ ...vars, NO_COLOR: '1' }, { cli: true })
-      ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Bumped' })
+      ui.createCommandUi({
+        command: 'bump',
+        title: 'relizy bump',
+        dryRun: false,
+        cwd,
+      }).complete({ message: 'Bumped' })
 
       expect(lines()[0]).toBe('relizy bump · ci')
     }
@@ -244,7 +264,12 @@ describe('Given the renderer of the output', () => {
 describe('Given the CI output', () => {
   it('Then shows each step in a collapsible group of GitHub Actions, its result after it', async () => {
     const { ui, progress } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Creating the releases',
@@ -292,7 +317,12 @@ describe('Given the CI output', () => {
 
   it('Then shows the sections of GitLab CI, the warnings as lines', async () => {
     const { ui } = await load({ GITLAB_CI: 'true', NO_COLOR: '1' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Computing the versions',
@@ -312,7 +342,12 @@ describe('Given the CI output', () => {
 
   it('Then tells a skipped step, a failed step and the error once, marked as reported', async () => {
     const { ui, errors } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
     const error = new Error('npm publish failed\nE403 Forbidden')
 
     commandUi.skip({ title: 'Publish', label: 'Publish', reason: '--no-publish' })
@@ -335,7 +370,12 @@ describe('Given the CI output', () => {
   it('Then ends a release with its summary, its links and a notice', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd }).finish(releaseReport)
+    ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    }).finish(releaseReport)
 
     expect(lines().slice(1)).toEqual([
       '    Version       2.0.0',
@@ -352,13 +392,23 @@ describe('Given the CI output', () => {
   it('Then ends another command with what it did, nothing without a notice', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy publish', dryRun: false, cwd }).complete({
+    ui.createCommandUi({
+      command: 'publish',
+      title: 'relizy publish',
+      dryRun: false,
+      cwd,
+    }).complete({
       message: 'Published relizy@2.0.0',
       links: [
         { label: 'relizy@2.0.0', url: 'https://www.npmjs.com/package/relizy/v/2.0.0' },
       ],
     })
-    ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd }).complete({ message: 'Nothing to bump', nothing: true })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    }).complete({ message: 'Nothing to bump', nothing: true })
 
     expect(lines()).toEqual([
       'relizy publish · github',
@@ -373,7 +423,12 @@ describe('Given the CI output', () => {
   it('Then ends a command with its notes, then its warnings', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy merge-preview', dryRun: false, cwd }).complete({
+    ui.createCommandUi({
+      command: 'merge-preview',
+      title: 'relizy merge-preview',
+      dryRun: false,
+      cwd,
+    }).complete({
       message: 'The release would fail',
       failed: true,
       notes: [
@@ -408,7 +463,12 @@ describe('Given the CI output', () => {
   it('Then ends a command whose every action failed as failed', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd }).complete({ message: 'twitter failed', failed: true })
+    ui.createCommandUi({
+      command: 'social',
+      title: 'relizy social',
+      dryRun: false,
+      cwd,
+    }).complete({ message: 'twitter failed', failed: true })
 
     expect(lines().at(-1)).toMatch(/^▲ twitter failed {2}\d+ms$/)
     expect(lines()).not.toContain('::notice title=relizy::twitter failed')
@@ -416,7 +476,12 @@ describe('Given the CI output', () => {
 
   it('Then marks a step that failed without stopping the command', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Posting the release',
@@ -430,7 +495,12 @@ describe('Given the CI output', () => {
 
   it('Then closes the group of a cancelled step, and never prompts itself', async () => {
     const { ui, errors } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
     const cancel = new errors.RelizyCancelError('Bump cancelled')
 
     await expect(commandUi.step({
@@ -446,7 +516,12 @@ describe('Given the CI output', () => {
   it('Then colors the output, unless NO_COLOR', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy bump', dryRun: true, cwd }).complete({ message: 'Bumped' })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: true,
+      cwd,
+    }).complete({ message: 'Bumped' })
 
     expect(output.join('')).toContain('\u001B[')
   })
@@ -454,7 +529,12 @@ describe('Given the CI output', () => {
   it('Then shows the dry-run badge in fixed colors, the base yellow being dark in the light theme of GitHub', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true' }, { cli: true })
 
-    ui.createCommandUi({ title: 'relizy bump', dryRun: true, cwd }).complete({ message: 'Bumped' })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: true,
+      cwd,
+    }).complete({ message: 'Bumped' })
 
     expect(output.join('')).toContain('\u001B[48;5;220m\u001B[38;5;16m\u001B[1m DRY RUN ')
     expect(output.join('')).not.toContain('\u001B[43m')
@@ -466,7 +546,12 @@ describe('Given the JSON output', () => {
 
   it('Then writes one JSON event per line on stdout and nothing else, the logs as events', async () => {
     const { ui, progress } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    })
 
     await commandUi.step({
       name: 'publish',
@@ -519,7 +604,12 @@ describe('Given the JSON output', () => {
 
   it('Then tells a step that failed without stopping the command, and the error that ends one', async () => {
     const { ui } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
 
     await commandUi.step({
       name: 'social',
@@ -548,7 +638,12 @@ describe('Given the JSON output', () => {
 
   it('Then stops writing once the command ends', async () => {
     const { ui, progress } = await load({ RELIZY_REPORTER: 'json' }, { cli: true })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
 
     commandUi.complete({
       message: 'Bumped',
@@ -573,13 +668,23 @@ describe('Given the JSON output', () => {
 describe('Given a command run by another one', () => {
   it('Then shows its steps as the progress of the running step, and lets the parent end', async () => {
     const { ui } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
-    const release = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    const release = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
 
     await release.step({
       running: 'Publishing the packages',
       done: () => 'Published relizy@2.0.0',
       run: async () => {
-        const publish = ui.createCommandUi({ title: 'relizy publish', dryRun: false, cwd })
+        const publish = ui.createCommandUi({
+          command: 'publish',
+          title: 'relizy publish',
+          dryRun: false,
+          cwd,
+        })
         await publish.step({
           running: 'Checking the packages to publish',
           done: () => 'checked',
@@ -607,7 +712,12 @@ describe('Given the log file and the level of the logger', () => {
     const { ui, progress, logger } = await load({ RELIZY_REPORTER: 'ci', NO_COLOR: '1' })
     const original = reporters[0]
     const setLevel = logger.setLevel
-    const commandUi = ui.createCommandUi({ title: 'relizy changelog', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'changelog',
+      title: 'relizy changelog',
+      dryRun: true,
+      cwd,
+    })
 
     expect(setLevel).toHaveBeenCalledWith('verbose')
     logger.setLevel('debug')
@@ -640,7 +750,12 @@ describe('Given the log file and the level of the logger', () => {
 describe('Given the terminal output', () => {
   it('Then shows a spinner per step, then its result, details, notes, previews and warnings', async () => {
     const { ui, progress, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Creating the releases',
@@ -680,7 +795,12 @@ describe('Given the terminal output', () => {
 
   it('Then styles the markdown of a preview, and tells a skipped step', async () => {
     const { ui, progress, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    })
 
     commandUi.skip({ title: 'Publish', label: 'Publish', reason: '--no-publish' })
     await commandUi.step({
@@ -699,6 +819,7 @@ describe('Given the terminal output', () => {
   it('Then shows the logs and the whole previews with --log-level verbose', async () => {
     const { ui, progress, clack } = await load({ RELIZY_REPORTER: 'pretty' })
     const commandUi = ui.createCommandUi({
+      command: 'changelog',
       title: 'relizy changelog',
       dryRun: true,
       logLevel: 'verbose',
@@ -725,7 +846,12 @@ describe('Given the terminal output', () => {
   it('Then shows the progress in the spinner, the AI one with its elapsed time', async () => {
     vi.useFakeTimers()
     const { ui, progress } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
 
     const running = commandUi.step({
       running: 'Creating the releases',
@@ -745,7 +871,12 @@ describe('Given the terminal output', () => {
 
   it('Then clears a cancelled step, and ends with the cancellation', async () => {
     const { ui, errors, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
     const cancel = new errors.RelizyCancelError('Bump cancelled')
 
     await expect(commandUi.step({
@@ -762,7 +893,12 @@ describe('Given the terminal output', () => {
 
   it('Then shows an error once, with the log file, then the summary and the end', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
     const error = new Error('push rejected')
 
     await expect(commandUi.step({
@@ -789,7 +925,12 @@ describe('Given the terminal output', () => {
       '--yes',
     ])
 
-    ui.createCommandUi({ title: 'relizy release', dryRun: true, cwd }).finish(releaseReport)
+    ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: true,
+      cwd,
+    }).finish(releaseReport)
 
     const [content, title] = vi.mocked(clack.note).mock.calls[0]!
     expect(title).toContain('Summary')
@@ -805,7 +946,12 @@ describe('Given the terminal output', () => {
   it('Then ends nothing to release without summary', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
 
-    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd }).finish({
+    ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    }).finish({
       status: 'nothing',
       released: false,
       dryRun: false,
@@ -820,7 +966,12 @@ describe('Given the terminal output', () => {
 
   it('Then shows a step that failed without stopping the command as a warning, and a failed end', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'social',
+      title: 'relizy social',
+      dryRun: false,
+      cwd,
+    })
 
     await commandUi.step({
       running: 'Posting the release',
@@ -838,7 +989,12 @@ describe('Given the terminal output', () => {
   it('Then ends another command with its details and links', async () => {
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
 
-    ui.createCommandUi({ title: 'relizy social', dryRun: false, cwd }).complete({
+    ui.createCommandUi({
+      command: 'social',
+      title: 'relizy social',
+      dryRun: false,
+      cwd,
+    }).complete({
       message: 'Posted on twitter',
       details: ['1 post'],
       links: [
@@ -874,7 +1030,12 @@ describe('Given the confirmation of a bump', () => {
 
   it('Then is asked by the terminal output, in its words, after the warnings', async () => {
     const { ui, bumpPrompt, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    const commandUi = ui.createCommandUi({ title: 'relizy bump', dryRun: true, cwd })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: true,
+      cwd,
+    })
     vi.mocked(clack.confirm).mockResolvedValueOnce(true)
 
     await commandUi.step({
@@ -902,7 +1063,12 @@ describe('Given the confirmation of a bump', () => {
 
   it('Then cancels the run when refused or cancelled', async () => {
     const { ui, errors, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
 
     vi.mocked(clack.confirm).mockResolvedValueOnce(false)
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow(new errors.RelizyCancelError('Release cancelled'))
@@ -914,7 +1080,12 @@ describe('Given the confirmation of a bump', () => {
   it('Then fails with what to do when nobody can answer, instead of cancelling the run', async () => {
     setInteractiveTerminal(false)
     const { ui, clack } = await load({ RELIZY_REPORTER: 'pretty' })
-    ui.createCommandUi({ title: 'relizy release', dryRun: false, cwd })
+    ui.createCommandUi({
+      command: 'release',
+      title: 'relizy release',
+      dryRun: false,
+      cwd,
+    })
 
     await expect(ui.confirmBumpInReleaseUi({ packages })).rejects.toThrow('"Release this version?" needs an answer, but the terminal is not interactive: run with --yes to confirm it in advance')
     expect(clack.confirm).not.toHaveBeenCalled()
@@ -922,7 +1093,12 @@ describe('Given the confirmation of a bump', () => {
 
   it('Then is left to the default prompt by the other outputs', async () => {
     const { ui } = await load({ RELIZY_REPORTER: 'ci' })
-    ui.createCommandUi({ title: 'relizy bump', dryRun: false, cwd })
+    ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
 
     expect(await ui.confirmBumpInReleaseUi({ packages })).toBeUndefined()
   })
