@@ -8,7 +8,7 @@ import { logger } from '@maz-ui/node'
 import { aggregateIndependentChangelogs, fetchGitTags } from '@relizy/core'
 import * as semver from 'semver'
 import { planBumps } from '../commands/bump'
-import { getReleaseConfig } from '../commands/release'
+import { CANARY_OFF_OPTIONS, getReleaseConfig } from '../commands/release'
 import { generateChangelog } from './changelog'
 import { getReleaseTags } from './git'
 import { keepLogLevel, withLogCapture } from './log-capture'
@@ -411,16 +411,6 @@ function collectTags(plan: ReleasePlan): Map<string, string> {
   return tags
 }
 
-/** The options `release.canary` turns off */
-const CANARY_OFF = new Set([
-  'changelog',
-  'commit',
-  'push',
-  'providerRelease',
-  'social',
-  'gitTag',
-])
-
 /** The steps of `relizy release` in its order, and what turns each one off */
 function getSteps(config: ResolvedRelizyConfig): PreviewStep[] {
   const { release } = config
@@ -433,7 +423,7 @@ function getSteps(config: ResolvedRelizyConfig): PreviewStep[] {
 
     return {
       enabled: false,
-      disabledBy: release.canary && CANARY_OFF.has(off)
+      disabledBy: release.canary && CANARY_OFF_OPTIONS.has(off)
         ? 'release.canary'
         : `release.${off}`,
     }

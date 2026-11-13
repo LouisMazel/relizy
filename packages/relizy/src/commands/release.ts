@@ -22,6 +22,51 @@ import { publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
+/** The options of `release` that canary mode turns off */
+export const CANARY_OFF_OPTIONS: ReadonlySet<string> = new Set([
+  'changelog',
+  'commit',
+  'push',
+  'providerRelease',
+  'social',
+  'gitTag',
+])
+
+type ReleaseStepOption = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'prComment'
+
+/**
+ * Why a step of the release is off: the flag of the run (`--no-social`), canary
+ * mode (`canary`), else the config or the profile (`release.social: false`)
+ */
+function getOffReason({ config, options, option, flag }: { config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>, option: ReleaseStepOption, flag: string }): string {
+  if (options[option] === false) {
+    return flag
+  }
+
+  if (config.release.canary && CANARY_OFF_OPTIONS.has(option)) {
+    return 'canary'
+  }
+
+  return `release.${option}: false`
+}
+
+/** Why the push is off: the release commit is off, or the push itself */
+function getPushOffReason(config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>): string {
+  return config.release.commit
+    ? getOffReason({
+        config,
+        options,
+        option: 'push',
+        flag: '--no-push',
+      })
+    : getOffReason({
+        config,
+        options,
+        option: 'commit',
+        flag: '--no-commit',
+      })
+}
+
 /**
  * Canary mode (`release.canary`, `--canary`): a prerelease published under its own
  * tag, never committed nor pushed, and without changelog, provider release, tag nor
@@ -212,12 +257,15 @@ async function runCheck(checks: StepCheck[], { name, skippedBy, check }: { name:
 
 async function releaseSafetyCheck({
   config,
+  options = {},
   provider,
   ai,
   dryRun,
   checks = [],
 }: {
   config: ResolvedRelizyConfig
+  /** The options of the run, for why a check is skipped */
+  options?: Partial<ReleaseOptions>
   provider?: GitProvider
   ai?: boolean
   dryRun: boolean
@@ -231,27 +279,46 @@ async function releaseSafetyCheck({
   logger.box('Safety checks')
   logger.start('Start safety checks')
 
-  const pushSkippedBy = config.release.commit
-    ? '--no-push'
-    : '--no-commit'
+  const pushSkippedBy = getPushOffReason(config, options)
   const pushes = shouldPushReleaseCommit(config)
   // Every check runs to the end, so each one has its status: the first failure is thrown
   const results = await Promise.allSettled([
     runCheck(checks, {
       name: 'provider-release',
-      skippedBy: config.release.providerRelease ? undefined : '--no-provider-release',
+      skippedBy: config.release.providerRelease
+        ? undefined
+        : getOffReason({
+            config,
+            options,
+            option: 'providerRelease',
+            flag: '--no-provider-release',
+          }),
       check: () => providerReleaseSafetyCheck({ config, provider, ai }),
     }),
     // The release only publishes with release.publish (disabled by --no-publish)
     runCheck(checks, {
       name: 'publish',
-      skippedBy: config.release.publish ? undefined : '--no-publish',
+      skippedBy: config.release.publish
+        ? undefined
+        : getOffReason({
+            config,
+            options,
+            option: 'publish',
+            flag: '--no-publish',
+          }),
       check: () => publishSafetyCheck({ config }),
     }),
     // The release only posts with release.social (disabled by --no-social and --canary)
     runCheck(checks, {
       name: 'social',
-      skippedBy: config.release.social ? undefined : '--no-social',
+      skippedBy: config.release.social
+        ? undefined
+        : getOffReason({
+            config,
+            options,
+            option: 'social',
+            flag: '--no-social',
+          }),
       check: () => socialSafetyCheck({ config }),
     }),
     runCheck(checks, {
@@ -401,6 +468,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         failedData: () => ({ checks }),
         run: () => releaseSafetyCheck({
           config,
+          options,
           provider: options.provider,
           ai: options.ai,
           dryRun,
@@ -413,7 +481,9 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'checks',
         title: 'Safety checks',
         label: 'Checks',
-        reason: '--no-safety-check',
+        reason: options.safetyCheck === false
+          ? '--no-safety-check'
+          : 'safetyCheck: false',
       })
     }
 
@@ -523,7 +593,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'changelog',
         title: 'Generate changelogs',
         label: 'Changelogs',
-        reason: '--no-changelog',
+        reason: getOffReason({
+          config,
+          options,
+          option: 'changelog',
+          flag: '--no-changelog',
+        }),
       })
     }
     addStep('changelog', Boolean(config.release.changelog))
@@ -597,7 +672,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'publish',
         title: 'Publish packages to registry',
         label: 'Publish',
-        reason: '--no-publish',
+        reason: getOffReason({
+          config,
+          options,
+          option: 'publish',
+          flag: '--no-publish',
+        }),
       })
 
       // A canary is never committed: its versions are restored, as after its publish
@@ -636,7 +716,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'commit-and-tag',
         title: 'Commit changes and create tag',
         label: 'Commit and tags',
-        reason: '--no-commit',
+        reason: getOffReason({
+          config,
+          options,
+          option: 'commit',
+          flag: '--no-commit',
+        }),
       })
     }
     committed = Boolean(config.release.commit)
@@ -680,7 +765,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'push',
         title: 'Push changes and tags',
         label: 'Push',
-        reason: config.release.commit ? '--no-push' : '--no-commit',
+        reason: getPushOffReason(config, options),
       })
     }
     addStep('push', Boolean(config.release.push && config.release.commit))
@@ -723,7 +808,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'provider-release',
         title: 'Publish Git release',
         label: 'GitHub/GitLab release',
-        reason: '--no-provider-release',
+        reason: getOffReason({
+          config,
+          options,
+          option: 'providerRelease',
+          flag: '--no-provider-release',
+        }),
       })
     }
     if (providerError) {
@@ -760,7 +850,14 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'social',
         title: 'Post release to social media',
         label: 'Social posts',
-        reason: config.release.social ? 'no platform enabled' : '--no-social',
+        reason: config.release.social
+          ? 'no platform enabled'
+          : getOffReason({
+              config,
+              options,
+              option: 'social',
+              flag: '--no-social',
+            }),
       })
     }
     if (socialResults?.hasErrors) {
@@ -809,7 +906,12 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         name: 'pr-comment',
         title: 'Post PR comment',
         label: 'PR comment',
-        reason: '--no-pr-comment',
+        reason: getOffReason({
+          config,
+          options,
+          option: 'prComment',
+          flag: '--no-pr-comment',
+        }),
       })
     }
     addStep('prComment', prCommentPosted, dryRun ? 'previewed' : 'posted')

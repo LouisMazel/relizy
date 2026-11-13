@@ -77,6 +77,37 @@ describe('Given a repository with a commit to release', () => {
     })
   })
 
+  describe('When steps are turned off by the run, by canary mode and by the config', () => {
+    it('Then each skipped step tells its own reason', async () => {
+      const events: RelizyEvent[] = []
+
+      await release({
+        yes: true,
+        dryRun: true,
+        canary: true,
+        publish: false,
+        onProgress: event => events.push(event),
+      })
+
+      const reasons = Object.fromEntries(events.flatMap(event => event.type === 'step:skipped'
+        ? [
+            [event.step, event.reason],
+          ]
+        : []))
+
+      expect(reasons).toEqual({
+        'checks': 'safetyCheck: false',
+        'changelog': 'canary',
+        'publish': '--no-publish',
+        'commit-and-tag': 'canary',
+        'push': 'canary',
+        'provider-release': 'canary',
+        'social': 'canary',
+        'pr-comment': 'release.prComment: false',
+      })
+    })
+  })
+
   describe('When releasing with onProgress', () => {
     it('Then gives each step of the release once, the skipped ones and the report, without the steps of the commands it runs', async () => {
       const events: RelizyEvent[] = []
@@ -168,9 +199,9 @@ describe('Given a repository with a remote and a commit to release', () => {
         type: 'step:done',
         data: {
           checks: [
-            { name: 'provider-release', status: 'skipped', message: '--no-provider-release' },
-            { name: 'publish', status: 'skipped', message: '--no-publish' },
-            { name: 'social', status: 'skipped', message: '--no-social' },
+            { name: 'provider-release', status: 'skipped', message: 'release.providerRelease: false' },
+            { name: 'publish', status: 'skipped', message: 'release.publish: false' },
+            { name: 'social', status: 'skipped', message: 'release.social: false' },
             { name: 'branch', status: 'passed' },
             { name: 'push', status: 'passed' },
           ],

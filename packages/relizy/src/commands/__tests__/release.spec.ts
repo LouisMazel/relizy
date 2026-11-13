@@ -1321,7 +1321,7 @@ describe('Given the output of release in CI', () => {
       expect.stringMatching(/^✔ Pushed the commit and the tags {2}\d+ms$/),
       expect.stringMatching(/^✔ 1 GitHub release created {2}\d+ms$/),
       expect.stringMatching(/^✔ Posted on twitter {2}\d+ms$/),
-      '○ PR comment skipped (--no-pr-comment)',
+      '○ PR comment skipped (release.prComment: false)',
       expect.stringMatching(/^ {2}✔ Publish +pkg-a@1\.0\.0 · latest · registry\.npmjs\.org$/),
       expect.stringMatching(/^ {2}✔ Commit and tags +a1b2c3d · v1\.0\.0$/),
       expect.stringMatching(/^ {2}✔ Push +main → origin\/main$/),
