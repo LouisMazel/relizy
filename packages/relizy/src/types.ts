@@ -914,9 +914,11 @@ export interface PublishOptions extends PublishConfig {
   onProgress?: RelizyEventListener
   /**
    * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
-   * asked once per registry, then reused for the next packages. For an application asking in its own interface
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
    */
-  onOtp?: (request: OtpRequest) => Promise<string>
+  onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -1068,9 +1070,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
   onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   /**
    * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
-   * asked once per registry, then reused for the next packages. For an application asking in its own interface
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
    */
-  onOtp?: (request: OtpRequest) => Promise<string>
+  onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
    * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
    * (the profile, the `overrides` and the options of the call still apply over it)

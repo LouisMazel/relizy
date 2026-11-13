@@ -339,7 +339,7 @@ export type RelizyEventListener = ((event: RelizyEvent) => void) | ((event: Reli
  */
 export interface AppHandlers {
   onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
-  onOtp?: (request: OtpRequest) => Promise<string>
+  onOtp?: (request: OtpRequest) => string | Promise<string>
   /** The command the application ran: `release` for the bump run by a release */
   command?: 'release' | 'bump'
 }

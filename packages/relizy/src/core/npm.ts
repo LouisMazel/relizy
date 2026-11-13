@@ -5,7 +5,7 @@ import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getAuthCommand as coreGetAuthCommand, getIndependentTag, getPublishTag, isInCI, isOtpError, isPaymentRequiredError, isPrerelease, isVersionAlreadyPublishedError, publishToRegistry } from '@relizy/core'
-import { isRelizyCancelError } from './errors'
+import { isRelizyCancelError, RelizyCancelError } from './errors'
 import { getAppHandlers } from './events'
 import { buildLegacyRegistryTarget, getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
 import { isVersionPublished } from './npm-versions'
@@ -97,7 +97,15 @@ async function handleOtpError({ registry, packageName }: { registry: string, pac
 
   if (onOtp) {
     logger.debug(`OTP required by ${registry}: asking the application`)
-    return onOtp({ registry, packageName })
+    // A JavaScript application may give anything
+    const otp: unknown = await onOtp({ registry, packageName })
+
+    // No password: the application cancelled, the packages published before stay published
+    if (typeof otp !== 'string' || !otp.trim()) {
+      throw new RelizyCancelError(`No one-time password given for ${packageName}: publish cancelled`)
+    }
+
+    return otp.trim()
   }
 
   if (isInCI()) {
