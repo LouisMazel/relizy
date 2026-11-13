@@ -920,10 +920,13 @@ describe('Given release command', () => {
   })
 
   describe('When running in canary mode', () => {
-    function setupCanaryConfig() {
+    // The mocked loadRelizyConfig returns what the real one resolves from `release.canary` (the flag, or a profile)
+    function setupCanaryConfig(overrides: Parameters<typeof createMockConfig>[0] = {}) {
       const config = createMockConfig({
         bump: { type: 'patch' },
+        ...overrides,
         release: {
+          canary: true,
           commit: false,
           changelog: false,
           publish: true,
@@ -937,6 +940,7 @@ describe('Given release command', () => {
         },
       })
       vi.mocked(loadRelizyConfig).mockResolvedValue(config)
+      return config
     }
 
     it('Then disables changelog, commit, push, providerRelease, social, and gitTag', async () => {
@@ -986,20 +990,53 @@ describe('Given release command', () => {
       )
     })
 
-    it('Then uses custom preid when provided', async () => {
-      setupCanaryConfig()
+    it('Then forces the prerelease type and takes the preid and the tag of the run', async () => {
+      const config = setupCanaryConfig()
       vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.snapshot-abc1234', bumpedPackages: [], bumped: true })
 
-      await release({ canary: true, preid: 'snapshot' })
+      await release({ canary: true, preid: 'snapshot', tag: 'next' })
 
-      // Canary sets type to 'prerelease' and passes preid through config
       expect(loadRelizyConfig).toHaveBeenCalledWith(
         expect.objectContaining({
           overrides: expect.objectContaining({
-            bump: expect.objectContaining({ type: 'prerelease', preid: 'snapshot' }),
+            release: expect.objectContaining({ canary: true }),
           }),
         }),
       )
+      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'snapshot' })
+      expect(config.publish.tag).toBe('next')
+    })
+
+    it('Then defaults the preid and the tag to canary', async () => {
+      const config = setupCanaryConfig()
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.canary-abc1234', bumpedPackages: [], bumped: true })
+
+      await release({ canary: true })
+
+      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'canary' })
+      expect(config.publish.tag).toBe('canary')
+    })
+
+    it('Then canary from a profile has the same effect, the tag and the preid of the profile first', async () => {
+      const config = setupCanaryConfig({
+        profiles: {
+          snapshot: {
+            release: { canary: true },
+            bump: { preid: 'snap' },
+            publish: { tag: 'snapshots' },
+          },
+        },
+      })
+      config.profile = 'snapshot'
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.1.0-0.snap-abc1234', bumpedPackages: [], bumped: true })
+
+      await release({ profile: 'snapshot' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({ profile: 'snapshot' }))
+      expect(bump).toHaveBeenCalledWith(expect.objectContaining({ canary: true }))
+      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'snap' })
+      expect(config.publish.tag).toBe('snapshots')
+      expect(changelog).not.toHaveBeenCalled()
     })
   })
 })

@@ -115,7 +115,7 @@ function postProviderReleases({
     logLevel: config.logLevel,
     bumpResult,
     force: options.force ?? false,
-    suffix: options.suffix,
+    suffix: options.suffix ?? config.bump.suffix,
   }
 
   if (provider === 'github') {
@@ -196,6 +196,7 @@ function runProviderRelease(
     loadConfig: async () => {
       const config = await loadRelizyConfig({
         configFile: options.configName,
+        profile: options.profile,
         baseConfig: options.config,
         overrides: {
           from: options.from,

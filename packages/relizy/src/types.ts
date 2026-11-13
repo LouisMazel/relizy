@@ -357,6 +357,10 @@ export interface BumpConfig {
    */
   preid?: string
   /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix), as `--suffix`
+   */
+  suffix?: string
+  /**
    * Check if there are any changes to commit before bumping.
    * @default true
    */
@@ -452,9 +456,10 @@ export interface BumpOptions extends BumpConfig {
    */
   configName?: string
   /**
-   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
    */
-  suffix?: string
+  profile?: string
   /**
    * Publish a canary release from the current commit
    * @default false
@@ -523,6 +528,11 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   configName?: string
   /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
    * Generate changelog for all packages even if there are no commits
    * @default false
    */
@@ -564,6 +574,11 @@ export interface ProviderReleaseOptions {
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
   /**
    * Git provider
    * @default 'github'
@@ -626,6 +641,11 @@ export interface SocialOptions {
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
   /**
    * Bump result (contains release information)
    */
@@ -776,6 +796,11 @@ export interface PublishOptions extends PublishConfig {
    */
   configName?: string
   /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
   suffix?: string
@@ -816,6 +841,14 @@ export interface ReleaseReportConfig {
 }
 
 export interface ReleaseConfig {
+  /**
+   * Publish a canary release from the current commit, as `--canary`: a prerelease
+   * version (`bump.preid`, `canary` by default) with the short sha of the commit,
+   * published under the `canary` npm tag (`publish.tag`), without commit, tag,
+   * push, changelog, provider release nor social post.
+   * @default false
+   */
+  canary?: boolean
   /**
    * Commit changes and create tag
    * @default true
@@ -900,6 +933,11 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   configName?: string
   /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
    * Bump even if there are no commits
    * @default false
    */
@@ -926,11 +964,6 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * Override PR/MR number for PR comment features
    */
   prNumber?: number
-  /**
-   * Publish a canary release from the current commit
-   * @default false
-   */
-  canary?: boolean
   /**
    * Override of `monorepo.privatePackages`: `release` releases the private packages too
    */
@@ -1807,6 +1840,52 @@ export interface CommitlintConfig {
  * Relizy configuration
  * @see https://relizy.dev/config/overview
  */
+/**
+ * A named way of releasing (`beta`, `canary`, `latest`...): config options applied over the
+ * config file when it is selected, with `--profile <name>` or the `profile` option.
+ *
+ * The precedence is: defaults, config file, profile, then the options of the run (the
+ * CLI flags, the options of the API).
+ */
+export interface RelizyProfile {
+  /**
+   * What the profile is for, shown by `relizy` consumers that list the profiles
+   */
+  description?: string
+  /**
+   * Bump options of the profile, e.g. `{ type: 'prerelease', preid: 'beta' }`
+   */
+  bump?: BumpConfig
+  /**
+   * Changelog options of the profile
+   */
+  changelog?: ChangelogConfig
+  /**
+   * Publish options of the profile, e.g. `{ tag: 'beta' }`
+   */
+  publish?: PublishConfig
+  /**
+   * Release options of the profile, e.g. `{ canary: true }` or `{ social: false }`
+   */
+  release?: ReleaseConfig
+  /**
+   * Social media options of the profile
+   */
+  social?: SocialConfig
+  /**
+   * PR comment options of the profile
+   */
+  prComment?: PrCommentConfig
+  /**
+   * AI options of the profile
+   */
+  ai?: AIConfig
+  /**
+   * Safety check of the profile
+   */
+  safetyCheck?: boolean
+}
+
 export type OnRewrittenTag = 'prompt' | 'ephemeral' | 'rebind' | 'error'
 
 export interface RelizyConfig {
@@ -1918,6 +1997,14 @@ export interface RelizyConfig {
    * Hooks config
    */
   hooks?: HookConfig
+  /**
+   * Named ways of releasing (`beta`, `canary`, `latest`...), selected with
+   * `relizy release --profile <name>` or the `profile` option of the API. A profile
+   * sets config options (`bump`, `publish`, `release`...) over the config file,
+   * the flags of the command still win over it.
+   * @example { beta: { description: 'Prerelease for testers', bump: { type: 'prerelease', preid: 'beta' }, publish: { tag: 'beta' } } }
+   */
+  profiles?: Record<string, RelizyProfile>
   /**
    * Commit message linter (`relizy commitlint`) config
    * @see https://relizy.dev/commitlint/

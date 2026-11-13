@@ -243,6 +243,7 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
     options,
     loadConfig: () => loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         from: options.from,
@@ -312,7 +313,7 @@ async function writeChangelogs({ config, options, dryRun }: {
       bumpResult: target.bumpResult,
       dryRun,
       force: options.force ?? false,
-      suffix: options.suffix,
+      suffix: options.suffix ?? target.config.bump.suffix,
     }))
   }
 

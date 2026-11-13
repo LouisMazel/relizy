@@ -12,7 +12,7 @@ import { getReleaseConfig } from './release'
  * outputs of the preview
  */
 export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'preid' | 'suffix' | 'from' | 'to' | 'force' | 'publish' | 'commit' | 'gitTag' | 'providerRelease'
-  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'groups' | 'report'> {
+  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'groups' | 'report'> {
   /**
    * Override of `mergePreview.comment` for this run
    */
@@ -125,7 +125,8 @@ async function computePreview({ config, options, settings, ui }: {
           config,
           dryRun: true,
           force: options.force,
-          suffix: options.suffix,
+          suffix: options.suffix ?? config.bump.suffix,
+          canary: config.release.canary ?? false,
           groups: options.groups,
         })).result,
       }),

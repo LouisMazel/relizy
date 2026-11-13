@@ -12,6 +12,8 @@ export interface PrCommentOptions {
   dryRun?: boolean
   logLevel?: LogLevel
   configName?: string
+  /** Profile of `profiles` to apply, as `--profile` */
+  profile?: string
   /** Pre-loaded config to avoid redundant config loading when called from release flow */
   config?: ResolvedRelizyConfig
   /** Release context passed from the release flow. When absent, standalone mode is used. */
@@ -404,6 +406,7 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
     options: { config: options.config, dryRun: options.dryRun },
     loadConfig: async () => options.config ?? await loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       overrides: {
         logLevel: options.logLevel,
       },

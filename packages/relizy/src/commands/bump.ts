@@ -1167,6 +1167,7 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
     options,
     loadConfig: () => loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         bump: {
@@ -1220,8 +1221,8 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
             config,
             dryRun,
             force,
-            suffix: options.suffix,
-            canary: options.canary ?? false,
+            suffix: options.suffix ?? config.bump.suffix,
+            canary: options.canary ?? config.release.canary ?? false,
             groups: options.groups,
           })
 

@@ -18,10 +18,43 @@ import { publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
-/** The config of a release run: the config file, with the options of the run */
-export function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
+/**
+ * Canary mode (`release.canary`, `--canary`): a prerelease published under its own
+ * tag, never committed nor pushed, and without changelog, provider release, tag nor
+ * social post. The tag and the preid are the ones of the run or of the profile, `canary` otherwise.
+ */
+function applyCanaryMode(config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>): void {
+  const profile = config.profile
+    ? config.profiles?.[config.profile]
+    : undefined
+
+  config.release.commit = false
+  config.release.push = false
+  config.release.changelog = false
+  config.release.providerRelease = false
+  config.release.social = false
+  config.release.gitTag = false
+
+  config.bump.type = 'prerelease'
+  config.bump.preid = options.preid || profile?.bump?.preid || 'canary'
+  config.publish.tag = options.tag || profile?.publish?.tag || 'canary'
+}
+
+/** The config of a release run: the config file and the profile, with the options of the run */
+export async function getReleaseConfig(options: Partial<ReleaseOptions> = {}): Promise<ResolvedRelizyConfig> {
+  const config = await loadReleaseConfig(options)
+
+  if (config.release.canary) {
+    applyCanaryMode(config, options)
+  }
+
+  return config
+}
+
+function loadReleaseConfig(options: Partial<ReleaseOptions>) {
   return loadRelizyConfig({
     configFile: options.configName,
+    profile: options.profile,
     overrides: {
       logLevel: options.logLevel,
       from: options.from,
@@ -66,6 +99,7 @@ export function getReleaseConfig(options: Partial<ReleaseOptions> = {}) {
         publish: options.publish,
         noVerify: options.noVerify,
         providerRelease: options.providerRelease,
+        canary: options.canary,
         clean: options.clean,
         gitTag: options.gitTag,
         social: options.social,
@@ -204,22 +238,6 @@ export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseR
 
 // eslint-disable-next-line sonarjs/cognitive-complexity, complexity
 async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<ReleaseReport> {
-  const isCanary = options.canary ?? false
-
-  if (isCanary) {
-    logger.info('Canary mode enabled')
-    options.commit = false
-    options.push = false
-    options.changelog = false
-    options.providerRelease = false
-    options.social = false
-    options.gitTag = false
-
-    options.type = 'prerelease'
-    options.preid = options.preid || 'canary'
-    options.tag = options.tag || 'canary'
-  }
-
   const dryRun = options.dryRun ?? false
   logger.debug(`Dry run: ${dryRun}`)
 
@@ -227,6 +245,11 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   logger.debug(`Force bump: ${force}`)
 
   const config = await getReleaseConfig(options)
+  const isCanary = config.release.canary === true
+
+  if (isCanary) {
+    logger.info('Canary mode enabled')
+  }
 
   applyAIOverride(config, options.ai)
 
@@ -234,7 +257,9 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   logger.debug(`Push: ${config.release.push}, Publish: ${config.release.publish}, Provider Release: ${config.release.providerRelease}`)
 
   const ui = createCommandUi({
-    title: `relizy release${isCanary ? ' --canary' : ''}`,
+    title: `relizy release${config.profile
+      ? ` --profile ${config.profile}`
+      : ''}${isCanary ? ' --canary' : ''}`,
     dryRun,
     logLevel: config.logLevel,
     cwd: config.cwd,

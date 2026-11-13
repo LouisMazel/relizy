@@ -259,7 +259,7 @@ async function getGroupsPackagesToPublish({
     const { publishedPackages: groupPackages } = await getPackagesToPublish({
       config: groupConfig,
       bumpResult,
-      suffix: options.suffix,
+      suffix: options.suffix ?? groupConfig.bump.suffix,
       force: options.force ?? false,
       dryRun,
     })
@@ -298,6 +298,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
     options,
     loadConfig: () => loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         publish: {
@@ -426,7 +427,7 @@ async function getCheckedPackagesToPublish({ config, options, dryRun }: {
     : await getPackagesToPublish({
         config,
         bumpResult: options.bumpResult,
-        suffix: options.suffix,
+        suffix: options.suffix ?? config.bump.suffix,
         force: options.force ?? false,
         dryRun,
       })

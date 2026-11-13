@@ -473,7 +473,7 @@ async function collectIndependentRelease({ config, options, bumpResult, dryRun }
   const packages = filterOutPrivatePackages(await getPackagesOrBumpedPackages({
     config,
     bumpResult,
-    suffix: options.suffix,
+    suffix: options.suffix ?? config.bump.suffix,
     force: options.force ?? false,
     dryRun,
   }))
@@ -1337,6 +1337,7 @@ function runSocial(options: Partial<SocialOptions> = {}): Promise<SocialResult> 
     loadConfig: async () => {
       const config = await loadRelizyConfig({
         configFile: options.configName,
+        profile: options.profile,
         baseConfig: options.config,
         overrides: {
           from: options.from,

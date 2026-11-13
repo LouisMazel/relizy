@@ -12,6 +12,7 @@ import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
+import { getProfile, getProfileOptions, validateProfiles } from './profiles'
 
 /**
  * @param cwd - Root of the project, where the package manager is detected
@@ -54,7 +55,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       capZeroMajor: true,
       outOfRangePeers: 'bump',
       dependents: 'out-of-range',
-    } as Required<Omit<BumpConfig, 'preid'>>,
+    } as Required<Omit<BumpConfig, 'preid' | 'suffix'>>,
     changelog: {
       rootChangelog: true,
       includeCommitBody: true,
@@ -127,7 +128,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       social: true,
       prComment: true,
       report: { github: true },
-    } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
+    } as Required<Omit<ReleaseConfig, 'report' | 'canary'>> & Pick<ReleaseConfig, 'report' | 'canary'>,
     commitlint: {
       packages: [],
       scopes: [],
@@ -347,6 +348,11 @@ export interface LoadRelizyConfigOptions {
    * @default 'relizy'
    */
   configFile?: string
+  /**
+   * Profile of `profiles` to apply: its options come over the config file and
+   * under the `overrides`
+   */
+  profile?: string
 }
 
 function isPlainObject(value: unknown): value is Record<string, unknown> {
@@ -392,8 +398,15 @@ export function isSetInUserConfig(config: ResolvedRelizyConfig, key: keyof Reliz
  * `resolveVersionGroups`) stays one, a reload would bring `monorepo.groups`
  * back into it.
  */
-function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
-  const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides, profile?: string): ResolvedRelizyConfig {
+  // A profile that is not already the one of the base config: its options come over the base config
+  const profileOptions = profile && profile !== baseConfig.profile
+    ? getProfileOptions(getProfile(baseConfig, profile))
+    : undefined
+  const config = mergeConfig(overrides, profileOptions, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+  if (profileOptions) {
+    config.profile = profile
+  }
   setupLogger(overrides?.logLevel || config.logLevel)
   const userKeys = userConfigKeys.get(baseConfig)
   if (userKeys) {
@@ -407,9 +420,29 @@ function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?
     : config
 }
 
+/**
+ * Merge the profile asked (`options.profile`) between the config file and the
+ * overrides, and name it in the config. Returns the sections the profile sets.
+ */
+function applyProfile(results: { config: ResolvedConfig }, options?: LoadRelizyConfigOptions): string[] {
+  if (!options?.profile) {
+    return []
+  }
+
+  const profileOptions = getProfileOptions(getProfile(results.config, options.profile))
+  const keys = Object.keys(profileOptions)
+
+  logger.debug(`Profile "${options.profile}": ${keys.join(', ') || 'no option'}`)
+
+  results.config = mergeConfig(options.overrides, profileOptions, results.config) as ResolvedConfig
+  results.config.profile = options.profile
+
+  return keys
+}
+
 export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
   if (options?.baseConfig) {
-    return applyOverridesToBaseConfig(options.baseConfig, options.overrides)
+    return applyOverridesToBaseConfig(options.baseConfig, options.overrides, options.profile)
   }
 
   const cwd = options?.overrides?.cwd ?? process.cwd()
@@ -429,9 +462,16 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
     name: configFile,
     packageJson: true,
     defaults: defaultsWithoutTypes as ResolvedConfig,
-    overrides: mergeConfig(options?.overrides) as ResolvedConfig,
+    // With a profile, the overrides are merged after it (below): defaults < config file < profile < overrides
+    overrides: (options?.profile
+      ? {}
+      : mergeConfig(options?.overrides)) as ResolvedConfig,
     merger: mergeConfig,
   })
+
+  validateProfiles(results.config)
+
+  const profileKeys = applyProfile(results, options)
 
   // Merge types: user entries replace defaults entirely (no deep merge)
   results.config.types = mergeTypes(
@@ -462,12 +502,18 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   logger.debug('Resolved config:', formatJson(redactSecrets(resolvedConfig)))
 
-  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set((results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {}))))
+  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set([
+    ...(results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {})),
+    ...profileKeys,
+  ]))
 
   return resolvedConfig as ResolvedRelizyConfig
 }
 
-export type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig>
+export type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig> & {
+  /** Name of the profile applied (`--profile`, `profile` option), none without one */
+  profile?: string
+}
 export type ResolvedRelizyConfig = ResolvedConfig & {
   output: string
 }
