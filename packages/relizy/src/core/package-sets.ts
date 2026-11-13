@@ -1,6 +1,6 @@
 import type { ReadPackage, VersionGroup, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import { relative } from 'node:path'
+import { getPosixRelativePath } from '@relizy/core'
 import { hasVersionGroups, resolveVersionGroups } from './groups'
 import { readPackages } from './repo'
 
@@ -48,5 +48,5 @@ export function readPackageSets(config: ResolvedRelizyConfig): PackageSet[] {
 }
 
 export function relativePath(cwd: string, path: string): string {
-  return relative(cwd, path).split('\\').join('/') || '.'
+  return getPosixRelativePath(cwd, path) || '.'
 }

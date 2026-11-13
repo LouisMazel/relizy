@@ -3,10 +3,9 @@ import type { TweetV2PostTweetResult } from 'twitter-api-v2'
 import type { PackageBumpEntry, ReleaseLine, ReleaseOverview, ResolvedRelizyConfig, TeamsCard, TeamsVersion } from '../core'
 import type { AIReleaseContext, AISocialPlatform } from '../core/ai'
 import type { BumpResultTruthy, GitCommit, GroupBumpResult, HookContext, SlackChangelogFormat, SlackOptions, SlackReleaseSection, SocialLink, SocialNetworkResult, SocialOptions, SocialResult, SocialTemplateVariables, TweetSection } from '../types'
-import { relative } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { collectContributorNames, filterOutPrivatePackages, isBumpedPackage, isPrerelease, withGitCache } from '@relizy/core'
+import { collectContributorNames, filterOutPrivatePackages, getPosixRelativePath, isBumpedPackage, isPrerelease, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkTeamsWebhookUrl, executeHook, extractChangelogHighlights, fillAnnouncementText, fillSocialTemplate, generateChangelog, getAnnouncementLinks, getAnnouncementVariables, getHookContext, getKnownReleaseVersions, getPackageCommits, getPackagesOrBumpedPackages, getReleaseLines, getReleaseOverview, getReleaseTag, getReleaseTargets, getReleaseTitle, getReleaseUrl, getRootPackage, getSlackToken, getSlackWebhookUrl, getSocialChangelog, getSocialTemplateVariables, getTeamsCardSection, getTeamsWebhookUrl, getTweetLength, getTwitterCredentials, getVersionGroupTitle, hasVersionGroups, isExcludedLine, isPrereleaseOnlyRelease, isStepLeftOutByEveryGroup, keepReleaseLines, loadRelizyConfig, postReleaseToSlack, postReleaseToTeams, postReleaseToTwitter, readPackageJson, resolveAnnouncement, resolveSlackPostMaxLength, resolveTags, resolveTeamsAnnouncements, withoutPrivatePackages } from '../core'
 import { aiSafetyCheck, applyAIOverride, generateAISocialChangelog, generateAISocialReleases, isAIRewritingVersion, isAIRunInRelease, isAISocialEnabled } from '../core/ai'
 import { runWithEvents } from '../core/events'
@@ -634,7 +633,7 @@ function getChangelogDir({ config, line, released }: { config: ResolvedRelizyCon
     const pkg = released.bumpedPackages.find(({ name }) => name === line.name)
 
     return pkg?.path
-      ? relative(config.cwd, pkg.path).split('\\').join('/')
+      ? getPosixRelativePath(config.cwd, pkg.path)
       : undefined
   }
 

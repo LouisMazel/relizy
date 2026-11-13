@@ -1,10 +1,8 @@
-import type { GitRepository } from '../../../../../tests/git-repository'
 import type { RelizyEvent } from '../events'
 import { setTimeout as sleep } from 'node:timers/promises'
-import { createGitRepository } from '../../../../../tests/git-repository'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { runWithEvents } from '../events'
-import { emitStepItem, getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, recordChangelogFile, recordPrComment, recordPublishedPackage, recordReleaseCommit, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../step-data'
+import { emitStepItem, getBumpStepData, getProviderReleaseStepData, getSocialStepData, recordChangelogFile, recordPrComment, recordPublishedPackage, recordReleaseCommit, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../step-data'
 
 describe('Given the data of the steps', () => {
   describe('When a bump bumps nothing', () => {
@@ -232,23 +230,6 @@ describe('Given the data of the steps', () => {
           time: expect.any(Number),
         },
       ])
-    })
-  })
-
-  describe('When the branch has no upstream', () => {
-    let repository: GitRepository
-
-    beforeEach(() => {
-      repository = createGitRepository('relizy-push-target-')
-      repository.commit('chore: init')
-    })
-
-    afterEach(() => {
-      repository.remove()
-    })
-
-    it('Then pushes the current branch to origin', async () => {
-      expect(await getPushTarget(repository.cwd)).toEqual({ remote: 'origin', branch: 'main' })
     })
   })
 })

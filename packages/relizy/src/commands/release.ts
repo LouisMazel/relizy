@@ -4,7 +4,7 @@ import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
+import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
 import { createCommandUi, createCommitAndTags, describeBumpResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
@@ -13,7 +13,7 @@ import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
-import { getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
+import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
@@ -744,7 +744,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         run: async () => {
           try {
             await executeHook('before:push', config, dryRun, hookContext)
-            const target = await getPushTarget(config.cwd)
+            const target = await getGitPushTarget(config.cwd)
             await pushCommitAndTags({
               config,
               dryRun,

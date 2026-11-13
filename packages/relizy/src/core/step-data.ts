@@ -1,7 +1,7 @@
 import type { BumpResult, ProviderReleaseResult, SocialNetworkResult, SocialResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, PushStepData, SocialStepData, SocialStepPost, StepItem } from './events'
-import { getCurrentGitBranch, getGitUpstream, getPublishTag } from '@relizy/core'
+import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, SocialStepData, SocialStepPost, StepItem } from './events'
+import { getPublishTag } from '@relizy/core'
 import { emitEvent, getRunState } from './events'
 import { getNpmRegistry } from './npm-registry'
 import { getReleaseUrl } from './social'
@@ -124,21 +124,6 @@ export function getBumpStepData(result: BumpResult): BumpStepData {
       }
     }),
   }
-}
-
-/** Where `git push` pushes: the upstream of the branch, else `origin` */
-export async function getPushTarget(cwd: string): Promise<Omit<PushStepData, 'tags'>> {
-  const upstream = await getGitUpstream(cwd)
-
-  return upstream
-    ? {
-        remote: upstream.remote,
-        branch: upstream.mergeRef.replace(/^refs\/heads\//, ''),
-      }
-    : {
-        remote: 'origin',
-        branch: getCurrentGitBranch(cwd),
-      }
 }
 
 /** The releases created on GitHub or GitLab, with their page */
