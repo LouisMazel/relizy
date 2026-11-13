@@ -60,7 +60,7 @@ Each key is the name of a profile. A profile sets these options, all optional:
 | `ai`          | The [AI](./ai.md) options                                                                   |
 | `safetyCheck` | The global [safety check](./overview.md#safetycheck)                                        |
 
-A profile changes how to release, never the project: `monorepo`, `repo`, `tokens`, `hooks`, `templates`, `types` and the other options are not profile options, and the config fails to load when a profile sets one.
+A profile changes how to release, never the project: `monorepo`, `repo`, `tokens`, `hooks`, `templates`, `types` and the other options are not profile options, and the config fails to load when a profile sets one. Inside a section, an unknown option (`bump: { typo: 'beta' }`) is a warning, and an invalid value (`bump: { type: 'beta' }`, `release: { canary: 'yes' }`) fails with the values expected.
 
 ### Equivalent of the flags
 

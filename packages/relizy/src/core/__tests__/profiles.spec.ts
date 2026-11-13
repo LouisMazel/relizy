@@ -1,10 +1,14 @@
 import type { RelizyConfig } from '../../types'
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { fileURLToPath } from 'node:url'
+import { logger } from '@maz-ui/node'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadRelizyConfig } from '../config'
-import { getProfile, getProfileOptions, listProfiles, UnknownProfileError, validateProfiles } from '../profiles'
+import { extractConfigReference } from '../mcp/knowledge/generate'
+import { createCoreResolver } from '../mcp/knowledge/source'
+import { getProfile, getProfileOptions, listProfiles, PROFILE_OPTIONS, UnknownProfileError, validateProfiles } from '../profiles'
 
 const profiles: NonNullable<RelizyConfig['profiles']> = {
   beta: {
@@ -98,6 +102,121 @@ describe('Given the profiles of a config', () => {
       expect(announced!.options.social?.slack?.credentials?.token).toBe('xoxb-***ijkl')
       expect(announced!.settings).toContainEqual({ path: 'social.slack.credentials.token', value: 'xoxb-***ijkl' })
       expect(announced!.settings).toContainEqual({ path: 'social.slack.enabled', value: true })
+    })
+  })
+
+  describe('When a profile sets an option of a section that does not exist', () => {
+    it('Then warns naming the option and the options of the section', () => {
+      const warn = vi.spyOn(logger, 'warn').mockImplementation(() => {})
+
+      try {
+        validateProfiles({
+          profiles: {
+            beta: {
+              bump: { typo: 'prerelease' } as any,
+            },
+          },
+        })
+
+        expect(warn).toHaveBeenCalledWith(expect.stringContaining('profiles.beta.bump.typo is not a bump option, it is ignored (bump options: type, preid'))
+      }
+      finally {
+        warn.mockRestore()
+      }
+    })
+  })
+
+  describe('When a profile sets an invalid value', () => {
+    it('Then fails with the values or the type expected', () => {
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            bump: { type: 'beta' } as any,
+          },
+        },
+      })).toThrow('profiles.beta.bump.type must be one of "release", "major", "minor", "patch", "prerelease", "premajor", "preminor", "prepatch", got "beta"')
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            publish: { access: 'private' } as any,
+          },
+        },
+      })).toThrow('profiles.beta.publish.access must be one of "public", "restricted"')
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            release: { canary: 'yes' } as any,
+          },
+        },
+      })).toThrow('profiles.beta.release.canary must be a boolean, got "yes"')
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            bump: { preid: 1 } as any,
+          },
+        },
+      })).toThrow('profiles.beta.bump.preid must be a string, got 1')
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            publish: { safetyCheckTimeout: '10' } as any,
+          },
+        },
+      })).toThrow('profiles.beta.publish.safetyCheckTimeout must be a number')
+    })
+
+    it('Then accepts the valid ones, the options it does not check included', () => {
+      expect(() => validateProfiles({
+        profiles: {
+          beta: {
+            bump: {
+              type: 'prerelease',
+              preid: 'beta',
+              dependencyTypes: ['dependencies'],
+              dependents: 'always',
+            },
+            changelog: { formatCmd: false },
+            publish: { tag: 'beta', access: 'public', registries: [] },
+            release: {
+              canary: false,
+              report: { github: false },
+            },
+            prComment: { mode: 'update' },
+            ai: { provider: 'claude-code', fallback: 'raw' },
+          },
+        },
+      })).not.toThrow()
+    })
+  })
+
+  describe('When the options a profile can set are compared to the types of the config', () => {
+    it('Then they are the options of each section, with the values of their enums', () => {
+      const typesFile = fileURLToPath(new URL('../../types.ts', import.meta.url))
+      const coreDir = fileURLToPath(new URL('../../../../core/src', import.meta.url))
+      const reference = extractConfigReference(readFileSync(typesFile, 'utf8'), createCoreResolver(coreDir))
+
+      for (const [section, options] of Object.entries(PROFILE_OPTIONS)) {
+        const documented = reference.filter(option => option.path.split('.').length === 2 && option.path.startsWith(`${section}.`))
+
+        expect(Object.keys(options).sort(), section).toEqual(documented.map(option => option.path.split('.')[1]).sort())
+
+        for (const option of documented) {
+          const check = options[option.path.split('.')[1]!]
+          const literals = option.values ?? (/^(?:'[^']+'(?: \| |$))+$/.test(option.type)
+            ? option.type.split(' | ').map(value => `"${value.slice(1, -1)}"`)
+            : undefined)
+
+          if (literals) {
+            expect(Array.isArray(check) && check.map(value => `"${value}"`).sort(), option.path).toEqual(literals.sort())
+          }
+          else if (['boolean', 'string', 'number'].includes(option.type)) {
+            expect(check, option.path).toBe(option.type)
+          }
+          else {
+            expect(check, option.path).toBeNull()
+          }
+        }
+      }
     })
   })
 

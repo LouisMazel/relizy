@@ -1,4 +1,5 @@
 import type { RelizyConfig, RelizyProfile } from '../types'
+import { logger } from '@maz-ui/node'
 import { redactSecrets } from '@relizy/core'
 
 /**
@@ -17,6 +18,9 @@ export const PROFILE_SECTIONS = [
 ] as const
 
 export type ProfileSection = typeof PROFILE_SECTIONS[number]
+
+/** The sections of a profile that are objects of options */
+type ProfileOptionsSection = Exclude<ProfileSection, 'safetyCheck'>
 
 /** The config options of a profile, as they are applied over the config file */
 export type ProfileOptions = Pick<RelizyConfig, ProfileSection>
@@ -64,6 +68,130 @@ export function isPlainObject(value: unknown): value is Record<string, unknown> 
   return prototype === Object.prototype || prototype === null
 }
 
+/**
+ * What a profile option accepts: a type, the values of an enum, or `null` when
+ * its value is not checked here (an object, an array, a union of types)
+ */
+type OptionCheck = 'boolean' | 'string' | 'number' | readonly string[] | null
+
+/**
+ * The options of each section a profile can set, with the check of their
+ * value. Kept in sync with `types.ts` by the tests of the profiles.
+ */
+export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, OptionCheck>> = {
+  bump: {
+    type: [
+      'release',
+      'major',
+      'minor',
+      'patch',
+      'prerelease',
+      'premajor',
+      'preminor',
+      'prepatch',
+    ],
+    preid: 'string',
+    suffix: 'string',
+    clean: 'boolean',
+    dependencyTypes: null,
+    dependents: ['out-of-range', 'always'],
+    yes: 'boolean',
+    capZeroMajor: 'boolean',
+    outOfRangePeers: ['bump', 'warn', 'error'],
+  },
+  changelog: {
+    formatCmd: null,
+    rootChangelog: 'boolean',
+    includeCommitBody: 'boolean',
+  },
+  publish: {
+    args: null,
+    packageManager: ['npm', 'yarn', 'pnpm', 'bun'],
+    registry: 'string',
+    tag: 'string',
+    access: ['public', 'restricted'],
+    otp: 'string',
+    buildCmd: 'string',
+    safetyCheck: 'boolean',
+    safetyCheckTimeout: 'number',
+    registries: null,
+    skipExistingVersions: 'boolean',
+    checkWorkspaceDependencies: 'boolean',
+  },
+  release: {
+    canary: 'boolean',
+    commit: 'boolean',
+    push: 'boolean',
+    changelog: 'boolean',
+    providerRelease: 'boolean',
+    publish: 'boolean',
+    noVerify: 'boolean',
+    clean: 'boolean',
+    gitTag: 'boolean',
+    social: 'boolean',
+    prComment: 'boolean',
+    report: null,
+  },
+  social: {
+    twitter: null,
+    slack: null,
+    teams: null,
+    changelogUrl: 'string',
+  },
+  prComment: {
+    mode: ['append', 'update'],
+  },
+  ai: {
+    provider: ['claude-code', 'ai-sdk'],
+    providers: null,
+    language: 'string',
+    fallback: ['raw', 'fail'],
+    extraGuidelines: null,
+    systemPromptOverrides: null,
+    onlyStable: 'boolean',
+    providerRelease: null,
+    social: null,
+  },
+}
+
+/** What the value of an option must be, as the error says it, none when it is valid */
+function describeInvalidValue(check: OptionCheck, value: unknown): string | undefined {
+  if (check === null || value === undefined) {
+    return undefined
+  }
+
+  if (typeof check === 'string') {
+    const type: string = typeof value
+    return type === check
+      ? undefined
+      : `a ${check}`
+  }
+
+  return check.includes(value as string)
+    ? undefined
+    : `one of ${check.map(entry => JSON.stringify(entry)).join(', ')}`
+}
+
+/** Check the options of a section of a profile: an unknown one is a warning, an invalid value an error */
+function validateSectionOptions(name: string, section: ProfileOptionsSection, options: Record<string, unknown>): void {
+  const known = PROFILE_OPTIONS[section]
+
+  for (const [key, value] of Object.entries(options)) {
+    const path = `profiles.${name}.${section}.${key}`
+
+    if (!Object.hasOwn(known, key)) {
+      logger.warn(`${path} is not a ${section} option, it is ignored (${section} options: ${Object.keys(known).join(', ')})`)
+      continue
+    }
+
+    const expected = describeInvalidValue(known[key]!, value)
+
+    if (expected) {
+      throw new Error(`${path} must be ${expected}, got ${JSON.stringify(value)}`)
+    }
+  }
+}
+
 /** The type of the value of a profile option, as the error says it */
 function describeInvalidOption(key: string, value: unknown): string | undefined {
   if (value === undefined) {
@@ -108,12 +236,17 @@ function validateProfile(name: string, profile: unknown): void {
     if (expected) {
       throw new Error(`profiles.${name}.${key} must be ${expected}`)
     }
+
+    if (key !== 'description' && key !== 'safetyCheck' && isPlainObject(value)) {
+      validateSectionOptions(name, key as ProfileOptionsSection, value)
+    }
   }
 }
 
 /**
  * Check the `profiles` of a config: each profile is an object that only sets
- * the sections a profile can set
+ * the sections a profile can set, with valid values for the options of these
+ * sections (an unknown option is a warning)
  */
 export function validateProfiles(config: Pick<RelizyConfig, 'profiles'>): void {
   const { profiles } = config
