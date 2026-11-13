@@ -21,7 +21,8 @@ import { RELEASE_STEP_LABELS } from './steps'
 
 /** A commit that explains a bump */
 export interface PreviewCommit {
-  hash: string
+  /** The full hash, none for the squash commit simulated by the merge preview */
+  hash?: string
   shortHash: string
   /** `feat`, `fix`... */
   type: string
@@ -244,7 +245,9 @@ export function generateBumpChangelogs({ config, result, groups }: { config: Res
 
 function toPreviewCommit(commit: GitCommit): PreviewCommit {
   return {
-    hash: commit.shortHash,
+    ...(commit.hash
+      ? { hash: commit.hash }
+      : {}),
     shortHash: commit.shortHash,
     type: commit.type,
     scope: commit.scope,

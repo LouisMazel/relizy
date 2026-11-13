@@ -80,6 +80,16 @@ describe('Given an application previewing two projects at the same time', () => 
     })
   })
 
+  describe('When previewing a commit', () => {
+    it('Then gives its full hash with its short one', async () => {
+      const preview = await previewRelease({ cwd: quiet.cwd })
+      const [commit] = preview.sets[0]!.packages.find(pkg => pkg.name === 'quiet-lib')!.commits
+
+      expect(commit!.hash).toBe(quiet.git('rev-parse', 'HEAD'))
+      expect(commit!.hash!.startsWith(commit!.shortHash)).toBe(true)
+    })
+  })
+
   describe('When the changelog of a package the release does not release is asked', () => {
     it('Then tells the released ones', async () => {
       const error = await previewChangelog({ cwd: quiet.cwd, package: 'nope' }).catch((caught: unknown) => caught)
