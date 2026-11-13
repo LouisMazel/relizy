@@ -209,6 +209,65 @@ describe('Given preview_release on a standalone package', () => {
   })
 })
 
+describe('Given preview_release with release profiles', () => {
+  let repository: GitRepository
+
+  beforeAll(() => {
+    repository = createRepository()
+    repository.writeJson('.', { name: 'standalone', version: '1.0.0' })
+    repository.write('relizy.config.mjs', `export default { ${BASE_CONFIG}
+  profiles: {
+    beta: {
+      description: 'Prerelease for testers',
+      bump: { type: 'prerelease', preid: 'beta' },
+      publish: { tag: 'beta' },
+      social: { slack: { enabled: true, credentials: { token: 'xoxb-abcdefghijklmnopqrstuvwxyz' } } },
+    },
+    canary: { release: { canary: true } },
+  },
+}
+`)
+    repository.commit('chore: init')
+    repository.git('tag', '-a', 'v1.0.0', '-m', 'v1.0.0')
+    repository.commit('feat: add the export command', { 'export.js': 'export {}' })
+  })
+
+  describe('When the project is read', () => {
+    it('Then it lists the profiles with what they set, the secrets masked', async () => {
+      const text = await getProject(createTestContext(repository.cwd), {})
+
+      expect(text).toContain('## Profiles')
+      expect(text).toContain('| `beta` | Prerelease for testers | bump.type: "prerelease", bump.preid: "beta", publish.tag: "beta", social.slack.enabled: true, social.slack.credentials.token: "xoxb-***wxyz" |')
+      expect(text).toContain('| `canary` (canary) |  | release.canary: true |')
+      expect(text).not.toContain('xoxb-abcdefghijklmnopqrstuvwxyz')
+    })
+  })
+
+  describe('When a profile is given', () => {
+    it('Then the release and the changelog follow it', async () => {
+      const context = createTestContext(repository.cwd)
+
+      expect(await previewRelease(context, {})).toContain('1.0.0 → 1.1.0 (')
+      expect(await previewRelease(context, { profile: 'beta' })).toContain('1.0.0 → 1.1.0-beta.0')
+      expect(await previewRelease(context, { profile: 'beta', type: 'major' })).toContain('1.0.0 → 2.0.0')
+      expect(await previewChangelog(context, { profile: 'beta' })).toContain('v1.0.0...v1.1.0-beta.0')
+    })
+
+    it('Then a canary profile previews a canary version', async () => {
+      const context = createTestContext(repository.cwd)
+
+      expect(await previewRelease(context, { profile: 'canary' })).toMatch(/1\.0\.0 → 1\.1\.0-0\.canary-[0-9a-f]+/)
+      // The canary of a profile that is not a canary one keeps the canary preid
+      expect(await previewRelease(context, { profile: 'beta', canary: true })).toMatch(/1\.0\.0 → 1\.1\.0-0\.canary-[0-9a-f]+/)
+    })
+
+    it('Then an unknown profile is reported with the available ones', async () => {
+      await expect(previewRelease(createTestContext(repository.cwd), { profile: 'nightly' })).rejects.toThrow(ToolInputError)
+      await expect(previewRelease(createTestContext(repository.cwd), { profile: 'nightly' })).rejects.toThrow('Unknown profile "nightly". Available profiles: beta, canary')
+    })
+  })
+})
+
 describe('Given preview_release on a monorepo', () => {
   describe('When it is in selective mode', () => {
     it('Then it explains the bump of each package and lists the packages not released', async () => {

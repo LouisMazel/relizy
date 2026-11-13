@@ -7,7 +7,7 @@ import { readdirSync } from 'node:fs'
 import process from 'node:process'
 import { format, stripVTControlCharacters } from 'node:util'
 import { logger } from '@maz-ui/node'
-import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache } from '..'
+import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache, UnknownProfileError } from '..'
 import { ToolInputError } from './tools/types'
 
 /**
@@ -113,8 +113,10 @@ export function listConfigNames(cwd: string): string[] {
  * rewritten tags use the reachable equivalent commit for this run only) and no
  * hook (the hooks are removed from the resolved config).
  */
-export async function loadProjectConfig({ config, overrides, cwd = process.cwd() }: {
+export async function loadProjectConfig({ config, profile, overrides, cwd = process.cwd() }: {
   config?: string
+  /** Profile of `profiles` to apply, as `--profile` */
+  profile?: string
   overrides?: DeepPartial<RelizyConfig>
   cwd?: string
 } = {}): Promise<ResolvedRelizyConfig> {
@@ -130,6 +132,7 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
 
   const resolved = await loadRelizyConfig({
     configFile: config,
+    profile,
     // The logs are captured for the agent whatever the log level of the project (the debug ones are left out)
     overrides: mergeConfig(overrides, {
       cwd,
@@ -137,6 +140,11 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
       bump: { yes: true },
       onRewrittenTag: 'ephemeral',
     } satisfies DeepPartial<RelizyConfig>),
+  }).catch((error: unknown) => {
+    // A profile that is not in the config is a wrong argument of the tool
+    throw error instanceof UnknownProfileError
+      ? new ToolInputError(error.message)
+      : error
   })
 
   resolved.hooks = {}

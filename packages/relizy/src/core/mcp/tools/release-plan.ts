@@ -9,6 +9,7 @@ import { logger } from '@maz-ui/node'
 import { describeOutOfRange, fetchGitTags } from '@relizy/core'
 import { z } from 'zod'
 import { planBumps } from '../../../commands/bump'
+import { applyCanaryMode } from '../../../commands/release'
 import { code } from '../markdown'
 import { loadProjectConfig } from '../runtime'
 import { configArgSchema, readPackageSets } from './project'
@@ -26,7 +27,8 @@ const RELEASE_TYPES = [
 
 export const releasePlanSchema = {
   config: configArgSchema,
-  type: z.enum(RELEASE_TYPES).optional().describe('Release type, as the CLI flags (`--minor`, `--prerelease`...). Default: `release`, the bump computed from the commits'),
+  profile: z.string().optional().describe('Release profile of the config (`profiles`: beta, canary...), as `--profile`: its options come over the config, the other arguments over it. `get_project` lists the profiles'),
+  type: z.enum(RELEASE_TYPES).optional().describe('Release type, as the CLI flags (`--minor`, `--prerelease`...). Default: `bump.type` of the config or of the profile, `release` (the bump computed from the commits) without one'),
   preid: z.string().optional().describe('Prerelease identifier (beta, alpha, rc), as `--preid`'),
   groups: z.array(z.string()).optional().describe('Only these version groups of `monorepo.groups`, as `--group`'),
   from: z.string().optional().describe('Start ref of the commits, as `--from`. Default: the last release tag'),
@@ -38,6 +40,7 @@ export const releasePlanSchema = {
 
 export interface ReleasePlanArgs {
   config?: string
+  profile?: string
   type?: ReleaseType
   preid?: string
   groups?: string[]
@@ -61,13 +64,20 @@ export interface ReleasePlan {
 export async function planRelease(context: ServerContext, args: ReleasePlanArgs): Promise<ReleasePlan> {
   const config = await loadProjectConfig({
     config: args.config,
+    profile: args.profile,
     cwd: context.cwd,
     overrides: {
       bump: { type: args.type, preid: args.preid },
+      release: { canary: args.canary },
       from: args.from,
       to: args.to,
     },
   })
+
+  // As `relizy release`: a canary (`canary`, or a canary profile) takes its preid from the run or the profile
+  if (config.release.canary) {
+    applyCanaryMode(config, { preid: args.preid })
+  }
 
   if (args.fetchTags) {
     await fetchGitTags({ cwd: config.cwd, logger })
@@ -77,7 +87,7 @@ export async function planRelease(context: ServerContext, args: ReleasePlanArgs)
     config,
     dryRun: true,
     force: args.force,
-    canary: args.canary,
+    canary: config.release.canary === true,
     groups: args.groups,
   })
   const sets = readPackageSets(config).filter(set => !set.group || !args.groups?.length || args.groups.includes(set.group.name))

@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, getCurrentGitBranch, getLastTag, redactSecrets } from '@relizy/core'
-import { readPackageJson } from '../..'
+import { listProfiles, readPackageJson } from '../..'
 import { findOutdatedRules } from '../../agents'
 import { code, codeList, tableCell } from '../markdown'
 import { listConfigNames, loadProjectConfig } from '../runtime'
@@ -82,6 +82,31 @@ function describeSet(set: PackageSet, cwd: string): string[] {
   ]
 }
 
+function describeProfiles(config: ResolvedRelizyConfig): string[] {
+  const profiles = listProfiles(config)
+
+  if (profiles.length === 0) {
+    return []
+  }
+
+  return [
+    '## Profiles',
+    '',
+    'Named ways of releasing, selected with `--profile <name>` (the `profile` argument of `preview_release` and `preview_changelog`). Secrets are masked.',
+    '',
+    '| Profile | Description | Options |',
+    '| --- | --- | --- |',
+    ...profiles.map((profile) => {
+      const name = profile.canary
+        ? `${code(profile.name)} (canary)`
+        : code(profile.name)
+      const settings = profile.settings.map(setting => `${setting.path}: ${stringifyConfigValue(setting.value)}`).join(', ')
+
+      return `| ${name} | ${tableCell(profile.description ?? '')} | ${tableCell(settings || 'none')} |`
+    }),
+  ]
+}
+
 function describeAgents(cwd: string): string[] {
   const outdated = findOutdatedRules(cwd)
 
@@ -107,6 +132,7 @@ export async function getProject(context: ServerContext, { config: configName }:
     ? `${code(set.group.name)} group in ${set.versionMode} mode`
     : set.versionMode).join(', ')
   const agents = describeAgents(config.cwd)
+  const profiles = describeProfiles(config)
 
   return [
     `# relizy project (relizy ${context.version})`,
@@ -120,6 +146,9 @@ export async function getProject(context: ServerContext, { config: configName }:
       '',
       ...describeSet(set, config.cwd),
     ]),
+    ...(profiles.length > 0
+      ? ['', ...profiles]
+      : []),
     ...(agents.length > 0
       ? ['', ...agents]
       : []),
@@ -143,7 +172,7 @@ export async function getProject(context: ServerContext, { config: configName }:
 export const getProjectTool = defineTool({
   name: 'get_project',
   title: 'Read the relizy project',
-  description: 'Describe how relizy releases this project: its config files, the version mode or the version groups, the packages released by each group with their current version, the git branch and last tag, the steps of `relizy release`, and the resolved config (defaults merged, secrets masked). Read-only: no hook runs.',
+  description: 'Describe how relizy releases this project: its config files, the version mode or the version groups, the packages released by each group with their current version, the git branch and last tag, the steps of `relizy release`, the release profiles (`profiles`, for `--profile`), and the resolved config (defaults merged, secrets masked). Read-only: no hook runs.',
   inputSchema: {
     config: configArgSchema,
   },
