@@ -152,4 +152,36 @@ describe('Given an application validating the bump plan with onConfirm', () => {
       expect(readVersion()).toBe('1.0.0')
     })
   })
+
+  describe('When RELIZY_REPORTER=json without yes nor onConfirm', () => {
+    afterEach(() => {
+      delete process.env.RELIZY_REPORTER
+    })
+
+    it('Then the bump and the release fail at once, before any prompt writes on stdout', async () => {
+      process.env.RELIZY_REPORTER = 'json'
+      const write = vi.spyOn(process.stdout, 'write')
+
+      await expect(bump({ dryRun: true })).rejects.toThrow('RELIZY_REPORTER=json keeps stdout for the events: run "relizy bump --yes"')
+      await expect(release({ dryRun: true })).rejects.toThrow('run "relizy release --yes"')
+
+      const written = write.mock.calls.map(([chunk]) => String(chunk)).join('')
+      write.mockRestore()
+      expect(written).not.toContain('Release this version?')
+      expect(written).not.toContain('Bump this version?')
+      expect(readVersion()).toBe('1.0.0')
+    })
+
+    it('Then onConfirm answers instead', async () => {
+      // The output writes its log file in node_modules
+      repository.commit('chore: ignore', { '.gitignore': 'node_modules\n' })
+      process.env.RELIZY_REPORTER = 'json'
+      const onConfirm = vi.fn().mockReturnValue(true)
+
+      const result = await bump({ dryRun: true, onConfirm })
+
+      expect(result.bumped).toBe(true)
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+    })
+  })
 })
