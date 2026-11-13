@@ -18,12 +18,12 @@ function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRe
 
 ## Options
 
-| Option       | Description                                                                                                                                                                                      |
-| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`. Default: `'relizy'`                                                                                |
-| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory                                      |
-| `profile`    | Name of a [profile](./../config/profiles.md) of the config, as `--profile`: its options come over the config file and under the `overrides`. Throws `UnknownProfileError` when it is not defined |
-| `baseConfig` | A `ResolvedRelizyConfig`, merged under the overrides and over the config file and the defaults: the file is still read                                                                           |
+| Option       | Description                                                                                                                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`; or the path of the file, absolute or relative to the project with its extension (`'/configs/relizy.config.ts'`). Default: `'relizy'`                   |
+| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory. The `hooks` of the overrides run after the ones of the config instead of replacing them |
+| `profile`    | Name of a [profile](./../config/profiles.md) of the config, as `--profile`: its options come over the config file and under the `overrides`. Throws `UnknownProfileError` when it is not defined                                                     |
+| `baseConfig` | A `ResolvedRelizyConfig`, used instead of the config file: the profile and the overrides are applied over it, the file is not read again                                                                                                             |
 
 See [LoadRelizyConfigOptions](./../typedoc/interfaces/LoadRelizyConfigOptions.md) and [ResolvedRelizyConfig](./../typedoc/type-aliases/ResolvedRelizyConfig.md).
 
@@ -86,7 +86,7 @@ const config = await loadRelizyConfig({
 await bump({ config, configName: 'relizy.standalone', yes: true })
 ```
 
-A command given a `config` still loads its config file under it (see [Shared Options](./usage.md#shared-options)): pass the same `configName`.
+A command given a `config` uses it as it is, without loading the config file (see [Shared Options](./usage.md#shared-options)).
 
 `defineConfig()` only types the object of `relizy.config.ts`, see [Configuration](./../config/overview.md).
 

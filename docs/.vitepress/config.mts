@@ -150,6 +150,9 @@ const apiSidebar = [
       { text: 'mergePreview()', link: '/api/merge-preview' },
       { text: 'commitlint()', link: '/api/commitlint' },
       { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
+      { text: 'previewRelease()', link: '/api/preview-release' },
+      { text: 'getConfigOptions()', link: '/api/config-options' },
+      { text: 'Progress events', link: '/api/progress-events' },
     ],
   },
 ]
