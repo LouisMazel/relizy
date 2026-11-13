@@ -3,21 +3,25 @@ import { logger } from '@maz-ui/node'
 import { redactSecrets } from '@relizy/core'
 
 /**
- * Config sections a profile can set: what the way of releasing changes, never
+ * A config section a profile can set: what the way of releasing changes, never
  * the project (repository, tokens, hooks, monorepo, commit types...)
  */
-export const PROFILE_SECTIONS = [
-  'bump',
-  'changelog',
-  'publish',
-  'release',
-  'social',
-  'prComment',
-  'ai',
-  'safetyCheck',
-] as const
+export type ProfileSection = Exclude<keyof RelizyProfile, 'description'>
 
-export type ProfileSection = typeof PROFILE_SECTIONS[number]
+/** Every section of `RelizyProfile`, checked by the type: a new section must be listed here */
+const SECTIONS: Record<ProfileSection, true> = {
+  bump: true,
+  changelog: true,
+  publish: true,
+  release: true,
+  social: true,
+  prComment: true,
+  ai: true,
+  safetyCheck: true,
+}
+
+/** The config sections a profile can set */
+export const PROFILE_SECTIONS = Object.keys(SECTIONS) as ProfileSection[]
 
 /** The sections of a profile that are objects of options */
 type ProfileOptionsSection = Exclude<ProfileSection, 'safetyCheck'>
