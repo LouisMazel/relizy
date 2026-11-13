@@ -86,6 +86,8 @@ From the lowest to the highest:
 
 A flag given with a profile wins over it: `relizy release --profile beta --preid rc` publishes with the preid `rc` and the other options of `beta`. `--canary` with a profile that is not a canary one (no `release.canary`) publishes a canary with the `canary` preid and dist-tag, not the ones of the profile (see [Canary Releases](./../guide/prereleases.md#what-canary-does)). The options of the profile are merged key by key as the config file is: `publish: { tag: 'beta' }` keeps the `access` and the other `publish` options of the config file. An array replaces the one of the config file.
 
+With [version groups](./../guide/version-groups.md), the options of a group (`monorepo.groups[].bump`, `changelog`, `release`, `ai`) come last for the packages of the group, over the profile and the flags: a group with `release: { providerRelease: false }` creates no provider release, even with a profile or a flag that turns it on.
+
 A profile that is not defined fails with the list of the profiles available:
 
 ```text

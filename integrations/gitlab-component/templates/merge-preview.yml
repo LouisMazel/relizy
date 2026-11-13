@@ -14,7 +14,7 @@ spec:
       description: Release type of the release job (auto passes no type flag, bump.type of the config or of the profile applies, else the bump of the commits)
     profile:
       default: ''
-      description: Release profile of the config (profiles of relizy.config.ts, e.g. beta or canary), its options come over the config file and under the release type and the args
+      description: Release profile of the config (profiles of relizy.config.ts, e.g. beta or canary), its options come over the config file and under the release type and the args, needs relizy 2.3.0 or later
     args:
       default: ''
       description: The options of the release job that change the release, for relizy merge-preview, e.g. "--tag beta --preid beta"

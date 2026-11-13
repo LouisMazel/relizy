@@ -18,7 +18,7 @@ spec:
       description: Release type (auto passes no type flag, bump.type of the config or of the profile applies, else the bump of the commits), a RELEASE_TYPE variable of the pipeline takes precedence
     profile:
       default: ''
-      description: Release profile of the config (profiles of relizy.config.ts, e.g. beta or canary), its options come over the config file and under the release type and the args
+      description: Release profile of the config (profiles of relizy.config.ts, e.g. beta or canary), its options come over the config file and under the release type and the args, needs relizy 2.3.0 or later
     args:
       default: ''
       description: More arguments for relizy release, e.g. "--tag beta --preid beta"

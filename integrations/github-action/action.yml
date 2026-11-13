@@ -13,7 +13,7 @@ inputs:
     required: false
     default: auto
   profile:
-    description: 'Release profile of the config (`profiles` of relizy.config.ts, e.g. beta or canary): its options come over the config file and under the release-type and the args'
+    description: 'Release profile of the config (`profiles` of relizy.config.ts, e.g. beta or canary): its options come over the config file and under the release-type and the args. Needs relizy 2.3.0 or later'
     required: false
     default: ''
   args:
@@ -21,7 +21,7 @@ inputs:
     required: false
     default: ''
   merge-preview:
-    description: 'true on a pull_request event: previews what the merge releases (comment and commit status relizy/merge-preview on the pull request), writes nothing, fails when the release of the merge would fail. Runs relizy merge-preview instead of relizy release: give it the release-type of the release job and, in args, its options that change the release (--preid, --tag, --no-publish...)'
+    description: 'true on a pull_request event: previews what the merge releases (comment and commit status relizy/merge-preview on the pull request), writes nothing, fails when the release of the merge would fail. Runs relizy merge-preview instead of relizy release: give it the release-type and the profile of the release job and, in args, its options that change the release (--preid, --tag, --no-publish...)'
     required: false
     default: 'false'
   github-token:

@@ -56,19 +56,19 @@ include:
       args: --tag beta --preid beta
 ```
 
-| Input               | Default                | Description                                                                                      |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------ |
-| `stage`             | `deploy`               | Stage of the job                                                                                 |
-| `image`             | `node:lts`             | Node.js image of the job                                                                         |
-| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                              |
-| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)             |
-| `profile`           |                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...), as `--profile` |
-| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`                      |
-| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                       |
-| `setup`             | `true`                 | Install the package manager and the dependencies                                                 |
-| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                   |
-| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                 |
-| `working-directory` | `.`                    | Directory of the project                                                                         |
+| Input               | Default                | Description                                                                                                              |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `stage`             | `deploy`               | Stage of the job                                                                                                         |
+| `image`             | `node:lts`             | Node.js image of the job                                                                                                 |
+| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                      |
+| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                     |
+| `profile`           |                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later) |
+| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`                                              |
+| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                               |
+| `setup`             | `true`                 | Install the package manager and the dependencies                                                                         |
+| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                           |
+| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                         |
+| `working-directory` | `.`                    | Directory of the project                                                                                                 |
 
 `@2` follows the latest relizy 2, `@2.3.0` stays on a version. The job is named `release`: a `release:` job of your `.gitlab-ci.yml` changes its other keys (`tags`, `cache`, `artifacts`...).
 
