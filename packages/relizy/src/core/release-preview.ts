@@ -112,7 +112,7 @@ export interface ReleasePreview {
   profile?: string
   /** A canary release (`release.canary`) */
   canary: boolean
-  /** The config as the release resolves it (no hook, no token) */
+  /** The version mode of the project, `groups` with `monorepo.groups` (each set has its own) */
   versionMode: VersionMode | 'standalone' | 'groups'
   /** True when at least one package is released */
   released: boolean
@@ -158,6 +158,15 @@ async function captureWarnings<T>(run: () => Promise<T>): Promise<{ value: T, wa
   }, run))
 
   return { value, warnings }
+}
+
+/** Thrown by `previewChangelog({ package })` for a package the release does not release */
+export class UnreleasedPackageError extends Error {
+  override name = 'UnreleasedPackageError'
+
+  constructor(readonly packageName: string, readonly released: string[], readonly root: boolean) {
+    super(`"${packageName}" is not released by this release. Released: ${released.join(', ') || 'nothing'}${root ? ' (and root)' : ''}`)
+  }
 }
 
 interface ReleasePlan {
@@ -613,7 +622,7 @@ async function generateChangelogs(plan: ReleasePlan, { package: only, contributo
     : targets
 
   if (only && selected.length === 0) {
-    throw new Error(`"${only}" is not released by this release. Released: ${targets.map(target => target.packageName).join(', ') || 'nothing'}`)
+    throw new UnreleasedPackageError(only, targets.map(target => target.packageName), targets.some(target => target.file === 'CHANGELOG.md'))
   }
 
   const changelogs: PreviewChangelog[] = []

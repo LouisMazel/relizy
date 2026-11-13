@@ -1,6 +1,6 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
 import { createGitRepository } from '../../../../../tests/git-repository'
-import { previewRelease } from '../release-preview'
+import { previewChangelog, previewRelease, UnreleasedPackageError } from '../release-preview'
 
 vi.mock('@maz-ui/node', importActual => importActual())
 
@@ -77,6 +77,15 @@ describe('Given an application previewing two projects at the same time', () => 
       })
 
       expect(preview.warnings).toEqual([])
+    })
+  })
+
+  describe('When the changelog of a package the release does not release is asked', () => {
+    it('Then tells the released ones', async () => {
+      const error = await previewChangelog({ cwd: quiet.cwd, package: 'nope' }).catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(UnreleasedPackageError)
+      expect((error as Error).message).toBe('"nope" is not released by this release. Released: quiet, quiet-lib (and root)')
     })
   })
 })
