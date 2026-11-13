@@ -65,25 +65,78 @@ A prompt cannot be answered, so pass `--yes` to `release` and `bump`. The exit c
 
 Every event has `type` and `time` (milliseconds since the epoch).
 
-| `type`             | When                                                                | Fields                                                                                                                        |
-| ------------------ | ------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| `command:start`    | The command starts                                                  | `command` (`release`, `bump`...), `title`, `dryRun`                                                                           |
-| `step:start`       | A step starts                                                       | `step`, `label` (what it does)                                                                                                |
-| `step:done`        | A step succeeded                                                    | `step`, `label`, `message` (what it did), `durationMs`, `details`                                                             |
-| `step:failed`      | A step failed                                                       | `step`, `label`, `message`, `durationMs`, `fatal` (`false` when the release goes on: a post, a provider release), `cancelled` |
-| `step:skipped`     | A step is left out                                                  | `step`, `label`, `reason` (`--no-publish`)                                                                                    |
-| `progress`         | What the running step does now                                      | `message`, `ai` (done by AI)                                                                                                  |
-| `note`             | What a step did, shown under its result                             | `message`, `ai`                                                                                                               |
-| `link`             | What a step created: a release, an npm page, a post, the PR comment | `step` (`publish`, `providerRelease`, `social`, `prComment`), `label`, `url`                                                  |
-| `preview`          | What a dry run generated (changelog, release notes, post)           | `title`, `meta`, `content`                                                                                                    |
-| `log`              | A log of relizy (the CLI renderers only, not the debug ones)        | `level`, `message`                                                                                                            |
-| `release:finish`   | `release` is over                                                   | `report`: the [report of the release](./../config/release.md#report)                                                          |
-| `command:complete` | Another command is over                                             | `message`, `nothing`, `failed`, `warnings`, `links`, `durationMs`                                                             |
-| `command:error`    | The command failed, or its prompt was refused                       | `message`, `failedStep`, `cancelled`, `report` (a release that failed)                                                        |
+| `type`             | When                                                                | Fields                                                                                                                                                                         |
+| ------------------ | ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `command:start`    | The command starts                                                  | `command` (`release`, `bump`...), `title`, `dryRun`                                                                                                                            |
+| `step:start`       | A step starts                                                       | `step`, `label` (what it does)                                                                                                                                                 |
+| `step:done`        | A step succeeded                                                    | `step`, `label`, `message` (what it did), `durationMs`, `details`, `data` (what it did, see [Step data](#step-data))                                                           |
+| `step:failed`      | A step failed                                                       | `step`, `label`, `message`, `durationMs`, `fatal` (`false` when the release goes on: a post, a provider release), `cancelled`, `data` (what it did before failing, when known) |
+| `step:skipped`     | A step is left out                                                  | `step`, `label`, `reason` (`--no-publish`)                                                                                                                                     |
+| `step:item`        | A thing of the running step starts or ends: a package, a platform   | `step` (`publish`, `social`), `item`: `name`, `status` (`running`, `done`, `failed`, `skipped`), `detail`, `url`                                                               |
+| `progress`         | What the running step does now                                      | `message`, `ai` (done by AI)                                                                                                                                                   |
+| `note`             | What a step did, shown under its result                             | `message`, `ai`                                                                                                                                                                |
+| `link`             | What a step created: a release, an npm page, a post, the PR comment | `step` (`publish`, `providerRelease`, `social`, `prComment`), `label`, `url`                                                                                                   |
+| `preview`          | What a dry run generated (changelog, release notes, post)           | `title`, `meta`, `content`                                                                                                                                                     |
+| `log`              | A log of relizy (the CLI renderers only, not the debug ones)        | `level`, `message`                                                                                                                                                             |
+| `release:finish`   | `release` is over                                                   | `report`: the [report of the release](./../config/release.md#report)                                                                                                           |
+| `command:complete` | Another command is over                                             | `message`, `nothing`, `failed`, `warnings`, `links`, `durationMs`                                                                                                              |
+| `command:error`    | The command failed, or its prompt was refused                       | `message`, `failedStep`, `cancelled`, `report` (a release that failed)                                                                                                         |
 
 `step` is the name of the step as the [hooks](./../config/hooks.md) name it: `checks`, `bump`, `changelog`, `publish`, `commit-and-tag`, `push`, `provider-release`, `social`, `pr-comment`. It is missing for a step that has no hook. The steps of the other commands (`relizy publish` alone: `publish`) use the same names.
 
-The types are exported: `RelizyEvent` (the union), `RelizyEventListener`, and one interface per event (`StepDoneEvent`...).
+The types are exported: `RelizyEvent` (the union), `RelizyEventListener`, one type per event (`StepDoneEvent`, `StepItemEvent`...), and the data of each step (`StepDataMap`, `PublishStepData`...).
+
+## Step data
+
+`step:done` (and `step:failed` when the step knows what it did before failing) carries `data`, what the step did as data, typed by `step`: an interface renders each step without parsing its `message`.
+
+| `step`             | `data`                                                                                                                                                                           |
+| ------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `checks`           | `checks`: `{ name, status, message? }` per safety check (`provider-release`, `publish`, `social`, `branch`, `push`), `status` `passed`, `failed` or `skipped`                    |
+| `bump`             | `packages`: `{ name, oldVersion, newVersion, group? }`                                                                                                                           |
+| `changelog`        | `files`: `{ file, packageName, content }`, the file relative to the project and the entry added (previewed in dry-run)                                                           |
+| `publish`          | `registry`, `tag` (the dist-tag), `packages`: `{ name, version, status, url?, reason? }` in publish order, `status` `published`, `skipped` (already on the registry) or `failed` |
+| `commit-and-tag`   | `commit`: `{ hash?, message }` (no hash in dry-run), `tags`                                                                                                                      |
+| `push`             | `remote`, `branch`, `tags` (the tags were pushed)                                                                                                                                |
+| `provider-release` | `provider`, `releases`: `{ tag, name?, url? }`                                                                                                                                   |
+| `social`           | `posts`: `{ platform, status, url?, reason? }`, `status` `posted`, `skipped` or `failed`                                                                                         |
+| `pr-comment`       | `posted`, `number?`, `url?`                                                                                                                                                      |
+
+```ts
+import { release } from 'relizy'
+
+await release({
+  onProgress(event) {
+    if (event.type === 'step:item') {
+      console.log(event.step, event.item.name, event.item.status)
+    }
+
+    if (event.type === 'step:done' && event.step === 'publish') {
+      for (const pkg of event.data?.packages ?? []) {
+        console.log(pkg.name, pkg.version, pkg.status, pkg.url)
+      }
+    }
+  },
+})
+```
+
+## Answering from the application
+
+The prompts of the terminal have their option, for an application asking in its own interface:
+
+- `onConfirm(plan)` ([`release()`](./release.md), [`bump()`](./bump.md)) validates the computed versions before anything is written; `false` cancels the run as a refused prompt. Without `onConfirm` nor `yes`, the terminal asks
+- `onOtp({ registry, packageName })` ([`release()`](./release.md), [`publish()`](./publish.md)) gives the one-time password the registry asks for
+
+```ts
+import { release } from 'relizy'
+
+await release({
+  // Asked once the versions are computed, nothing written yet
+  onConfirm: plan => showPlanInTheApp(plan.packages),
+  onOtp: ({ registry }) => askTheOtpInTheApp(registry),
+  onProgress: event => renderInTheApp(event),
+})
+```
 
 ## See Also
 

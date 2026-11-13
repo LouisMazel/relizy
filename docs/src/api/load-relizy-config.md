@@ -16,6 +16,8 @@ function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRe
 
 `loadRelizyConfig()` reads the config file of the current directory (and its `.env`), merges it with the defaults, and returns the resolved config, with the defaults and the `types`. It throws when `configFile` is given and the file does not exist, when the [version groups](./../guide/version-groups.md) are invalid, or when the config sets an option removed in relizy 2 (`monorepo.ignorePackageNames`, see [the migration guide](./../guide/migration-v2.md#removed-ignorepackagenames)).
 
+A config importing relizy (`import { defineConfig } from 'relizy'`) gets the running relizy: it loads even when the project does not install relizy (relizy installed elsewhere, run by an application).
+
 ## Options
 
 | Option       | Description                                                                                                                                                                                                                                          |

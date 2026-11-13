@@ -27,8 +27,9 @@ The options are the flags of [`relizy release`](./../cli/release.md#options), ca
 - **Provider release**: `providerRelease`, `provider`, `token` (the token of the git provider), `ai` (also for the social posts)
 - **Social and PR comment**: `social`, `slackFormat`, `prComment`, `prNumber`
 - **Run**: `report`, `safetyCheck`, `configName` (a name or a path), `profile`, `config`, `overrides`, `onProgress`, `dryRun`, `logLevel`, `groups`
+- **Application**: `onConfirm` (validates the versions instead of the prompt, see [`bump()`](./bump.md#confirm-from-an-application)), `onOtp` (gives the one-time password of the registry, see [`publish()`](./publish.md))
 
-`config` and `overrides` give a config already resolved, or a local overlay applied over the config file, without writing a file: see [Shared Options](./usage.md#shared-options). `onProgress` receives the [events](./progress-events.md) of the run.
+`config` and `overrides` give a config already resolved, or a local overlay applied over the config file, without writing a file: see [Shared Options](./usage.md#shared-options). `onProgress` receives the [events](./progress-events.md) of the run, with what each step did as [data](./progress-events.md#step-data).
 
 See [ReleaseOptions](./../typedoc/interfaces/ReleaseOptions.md) and [ReleaseReport](./../typedoc/interfaces/ReleaseReport.md) for the types.
 

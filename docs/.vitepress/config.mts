@@ -152,6 +152,7 @@ const apiSidebar = [
       { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
       { text: 'previewRelease()', link: '/api/preview-release' },
       { text: 'getConfigOptions()', link: '/api/config-options' },
+      { text: 'checkMigration()', link: '/api/check-migration' },
       { text: 'Progress events', link: '/api/progress-events' },
     ],
   },
