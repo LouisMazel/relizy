@@ -291,6 +291,7 @@ describe('Given release command', () => {
         bump: { type: 'patch' },
       })
       config.release = {
+        canary: false,
         commit: true,
         changelog: false,
         publish: true,
@@ -314,6 +315,7 @@ describe('Given release command', () => {
         bump: { type: 'patch' },
       })
       config.release = {
+        canary: false,
         commit: true,
         changelog: true,
         publish: false,
@@ -337,6 +339,7 @@ describe('Given release command', () => {
         bump: { type: 'patch' },
       })
       config.release = {
+        canary: false,
         commit: true,
         changelog: true,
         publish: true,
@@ -360,6 +363,7 @@ describe('Given release command', () => {
         bump: { type: 'patch' },
       })
       config.release = {
+        canary: false,
         commit: true,
         changelog: true,
         publish: true,
@@ -383,6 +387,7 @@ describe('Given release command', () => {
         bump: { type: 'patch' },
       })
       config.release = {
+        canary: false,
         commit: true,
         changelog: true,
         publish: true,

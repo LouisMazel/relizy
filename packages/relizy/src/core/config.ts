@@ -117,6 +117,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
     },
     scopeMap: {},
     release: {
+      canary: false,
       commit: true,
       publish: true,
       changelog: true,
@@ -128,7 +129,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       social: true,
       prComment: true,
       report: { github: true },
-    } as Required<Omit<ReleaseConfig, 'report' | 'canary'>> & Pick<ReleaseConfig, 'report' | 'canary'>,
+    } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
     commitlint: {
       packages: [],
       scopes: [],
