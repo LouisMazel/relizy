@@ -53,8 +53,14 @@ export class UnknownProfileError extends Error {
   }
 }
 
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null && !Array.isArray(value)
+/** True for an object literal (`{}`, `Object.create(null)`), false for an array, a class instance or a function */
+export function isPlainObject(value: unknown): value is Record<string, unknown> {
+  if (!value || typeof value !== 'object') {
+    return false
+  }
+
+  const prototype = Object.getPrototypeOf(value)
+  return prototype === Object.prototype || prototype === null
 }
 
 /** The type of the value of a profile option, as the error says it */

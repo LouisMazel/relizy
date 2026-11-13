@@ -12,7 +12,7 @@ import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
-import { getProfile, getProfileOptions, validateProfiles } from './profiles'
+import { getProfile, getProfileOptions, isPlainObject, validateProfiles } from './profiles'
 
 /**
  * @param cwd - Root of the project, where the package manager is detected
@@ -353,15 +353,6 @@ export interface LoadRelizyConfigOptions {
    * under the `overrides`
    */
   profile?: string
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
 }
 
 /**
