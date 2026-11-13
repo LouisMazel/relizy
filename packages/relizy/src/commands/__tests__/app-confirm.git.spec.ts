@@ -138,7 +138,7 @@ describe('Given an application validating the bump plan with onConfirm', () => {
         canary: true,
       })
       expect(plan.packages[0]).not.toHaveProperty('tag')
-      expect(plan.packages[0]!.newVersion).toMatch(/^1\.1\.0-0\.beta-/)
+      expect(plan.packages[0]!.newVersion).toMatch(/^1\.1\.0-0\.canary-/)
       expect(report.dryRun).toBe(true)
     })
   })
