@@ -69,7 +69,7 @@ export type { MergePreviewCommit, MergePreviewPackage, MergePreviewProblem, Merg
 export type { CheckMigrationOptions, MigrationFinding, MigrationReport } from './core/migration'
 export { checkMigration } from './core/migration'
 export type { ProfileInfo, ProfileOptions, ProfileSection, ProfileSetting } from './core/profiles'
-export { listProfiles, UnknownProfileError } from './core/profiles'
+export { listProfiles, ProfileConflictError, UnknownProfileError } from './core/profiles'
 export type { ReleaseLine, ReleaseOverview, ReleaseOverviewGroup, ReleaseOverviewPackage } from './core/release-overview'
 export type { PreviewBumpType, PreviewChangelog, PreviewChangelogOptions, PreviewCommit, PreviewPackage, PreviewReleaseOptions, PreviewSet, PreviewStep, ReleasePreview } from './core/release-preview'
 export { previewChangelog, previewRelease } from './core/release-preview'

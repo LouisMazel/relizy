@@ -63,7 +63,7 @@ const config = await loadRelizyConfig({ profile: 'beta' })
 console.log(config.profile, config.bump.preid, config.publish.tag) // beta beta beta
 ```
 
-The precedence is the defaults, the config file, the profile, then the `overrides`. `config.profile` is the name of the profile applied. `UnknownProfileError` has the `profile` asked and the `available` names; the config also fails to load when a profile sets an option a profile cannot set.
+The precedence is the defaults, the config file, the profile, then the `overrides`. `config.profile` is the name of the profile applied. `UnknownProfileError` has the `profile` asked and the `available` names; the config also fails to load when a profile sets an option a profile cannot set. A `baseConfig` already resolved with a profile takes no other one: `loadRelizyConfig({ baseConfig, profile: 'latest' })` over a config of `beta` throws `ProfileConflictError` (with `profile` and `resolvedWith`), since the options of `beta` could not be taken out; load the config again with the new profile.
 
 ## Examples
 

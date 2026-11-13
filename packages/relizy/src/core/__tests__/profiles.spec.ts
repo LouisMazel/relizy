@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { isSetInUserConfig, loadRelizyConfig } from '../config'
 import { extractConfigReference } from '../mcp/knowledge/generate'
 import { createCoreResolver } from '../mcp/knowledge/source'
-import { getProfile, getProfileOptions, listProfiles, PROFILE_OPTIONS, UnknownProfileError, validateProfiles } from '../profiles'
+import { getProfile, getProfileOptions, listProfiles, PROFILE_OPTIONS, ProfileConflictError, UnknownProfileError, validateProfiles } from '../profiles'
 
 const profiles: NonNullable<RelizyConfig['profiles']> = {
   beta: {
@@ -435,23 +435,19 @@ describe('Given a config file with profiles', () => {
       expect(base.bump.type).toBe('patch')
     })
 
-    it('Then applies another profile over the base config, which keeps the options of its own profile', async () => {
+    it('Then refuses another profile over a config resolved with one, which would mix both', async () => {
       const base = await loadRelizyConfig({
         profile: 'beta',
         overrides: { cwd: dir },
       })
-      const config = await loadRelizyConfig({
+
+      await expect(loadRelizyConfig({
         baseConfig: base,
         profile: 'latest',
-      })
-
-      expect(config.profile).toBe('latest')
-      expect(config.publish).toMatchObject({ tag: 'latest', access: 'public' })
-      expect(config.release.social).toBe(false)
-      // What `latest` does not set stays as the base config resolved it, with `beta`
-      expect(config.bump).toMatchObject({ type: 'prerelease', preid: 'beta' })
+      }))
+        .rejects
+        .toThrow(ProfileConflictError)
       expect(base.profile).toBe('beta')
-      expect(base.publish.tag).toBe('beta')
     })
 
     it('Then the sections of the profile count as set by the user', async () => {
