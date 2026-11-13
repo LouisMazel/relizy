@@ -131,6 +131,34 @@ describe('Given checkMigration on a relizy 1 project', () => {
     })
   })
 
+  describe('When the config is given by its path', () => {
+    it('Then reads and loads this file, as --config does', async () => {
+      const cwd = writeProject({
+        'package.json': V1_PACKAGE,
+        'configs/relizy.config.mjs': `export default {\n  social: { slack: { enabled: true, template: '*v{{version}}*' } },\n}\n`,
+      })
+
+      const report = await checkMigration({ cwd, configName: './configs/relizy.config.mjs' })
+
+      expect(report).toMatchObject({
+        configLoaded: true,
+        configFiles: ['configs/relizy.config.mjs'],
+      })
+      expect(report.findings).toEqual(expect.arrayContaining([
+        expect.objectContaining({
+          section: 'Version Placeholder',
+          locations: ['configs/relizy.config.mjs:2'],
+        }),
+      ]))
+    })
+
+    it('Then fails when the file does not exist', async () => {
+      const cwd = writeProject({ 'package.json': V1_PACKAGE })
+
+      await expect(checkMigration({ cwd, configName: './configs/missing.config.ts' })).rejects.toThrow('No config "./configs/missing.config.ts"')
+    })
+  })
+
   describe('When the application logs at its own level', () => {
     it('Then its level is back after the check, which loads the config silently', async () => {
       const cwd = writeProject({ 'package.json': V1_PACKAGE, 'relizy.config.mjs': 'export default {}\n' })

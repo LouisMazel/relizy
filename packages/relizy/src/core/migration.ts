@@ -1,13 +1,13 @@
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import process from 'node:process'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { GLOB_IGNORE } from '@relizy/core'
+import { getPosixRelativePath, GLOB_IGNORE } from '@relizy/core'
 import fastGlob from 'fast-glob'
 import * as publicApi from '../index'
 import { resolveFormatCommand } from './changelog-format'
-import { ConfigOptionError, loadRelizyConfig } from './config'
+import { ConfigOptionError, isConfigFilePath, loadRelizyConfig } from './config'
 import { hasVersionGroups } from './groups'
 import { keepLogLevel } from './log-capture'
 import { code, codeList } from './mcp/markdown'
@@ -55,7 +55,10 @@ export interface MigrationReport {
 export interface CheckMigrationOptions {
   /** Root of the project, `process.cwd()` by default */
   cwd?: string
-  /** Name of the relizy config (`relizy.standalone` for `relizy.standalone.config.ts`), `relizy` by default */
+  /**
+   * The relizy config: its name (`relizy.standalone` for `relizy.standalone.config.ts`), or its path
+   * (`./configs/relizy.config.ts`, relative to `cwd`), as `--config`. `relizy` by default
+   */
   configName?: string
 }
 
@@ -131,6 +134,19 @@ function locate(file: string, lines: number[]): string[] {
 
 /** The config files of the project for a config name (`relizy` by default) */
 function readConfigFiles(cwd: string, configName = 'relizy'): { file: string, text: string }[] {
+  if (isConfigFilePath(configName)) {
+    const path = resolve(cwd, configName)
+
+    return existsSync(path)
+      ? [
+          {
+            file: getPosixRelativePath(cwd, path),
+            text: readFileSync(path, 'utf8'),
+          },
+        ]
+      : []
+  }
+
   const pattern = new RegExp(`^${configName.replaceAll('.', '\\.')}\\.config\\.(?:[cm]?[jt]s|json|ya?ml|toml)$`)
 
   return readdirSync(cwd)
