@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, realpathSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
+import { logger } from '@maz-ui/node'
 import { checkMigration } from '../migration'
 
 const directories: string[] = []
@@ -127,6 +128,18 @@ describe('Given checkMigration on a relizy 1 project', () => {
       const cwd = writeProject({ 'package.json': V1_PACKAGE })
 
       await expect(checkMigration({ cwd, configName: 'relizy.nope' })).rejects.toThrow('No config "relizy.nope"')
+    })
+  })
+
+  describe('When the application logs at its own level', () => {
+    it('Then its level is back after the check, which loads the config silently', async () => {
+      const cwd = writeProject({ 'package.json': V1_PACKAGE, 'relizy.config.mjs': 'export default {}\n' })
+      vi.mocked(logger.getLevel).mockReturnValue(1)
+
+      await checkMigration({ cwd })
+
+      expect(logger.setLevel).toHaveBeenCalledWith('silent')
+      expect(logger.setLevel).toHaveBeenLastCalledWith('warning')
     })
   })
 

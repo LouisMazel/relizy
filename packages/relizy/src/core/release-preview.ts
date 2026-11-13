@@ -11,6 +11,7 @@ import { planBumps } from '../commands/bump'
 import { getReleaseConfig } from '../commands/release'
 import { generateChangelog } from './changelog'
 import { getReleaseTags } from './git'
+import { keepLogLevel, withLogCapture } from './log-capture'
 import { checkMergePreview } from './merge-preview/problems'
 import { readPackageSets, relativePath } from './package-sets'
 import { getReleaseOverview } from './release-overview'
@@ -147,28 +148,16 @@ export type PreviewChangelogOptions = Omit<PreviewReleaseOptions, 'changelog' | 
   contributors?: boolean
 }
 
-interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
-
-/** Run a function keeping the logs of relizy instead of printing them (the previews are quiet) */
-async function captureLogs<T>(run: () => Promise<T>): Promise<{ value: T, warnings: string[] }> {
-  const instance = (logger.removeReporter as unknown as (reporter: unknown) => { options: { reporters: Reporter[] } })({})
-  const reporters = instance.options.reporters
-  const original = reporters.splice(0)
+/** Run a function keeping the logs of relizy instead of printing them (the previews are quiet): the warnings are returned */
+async function captureWarnings<T>(run: () => Promise<T>): Promise<{ value: T, warnings: string[] }> {
   const warnings: string[] = []
-  reporters.push({
-    log: (logObj) => {
-      if (logObj.type === 'warn') {
-        warnings.push(String(logObj.args[0] ?? '').trim().split('\n')[0]!)
-      }
-    },
-  })
+  const value = await keepLogLevel(() => withLogCapture(({ type, message }) => {
+    if (type === 'warn') {
+      warnings.push(message.split('\n')[0]!)
+    }
+  }, run))
 
-  try {
-    return { value: await run(), warnings }
-  }
-  finally {
-    reporters.splice(0, reporters.length, ...original)
-  }
+  return { value, warnings }
 }
 
 interface ReleasePlan {
@@ -188,7 +177,8 @@ async function planRelease(options: PreviewReleaseOptions): Promise<ReleasePlan>
     to: options.to,
     canary: options.canary,
     yes: true,
-    logLevel: 'default',
+    // The warnings are kept for `warnings`, unless the overrides ask for another level
+    logLevel: options.overrides?.logLevel ?? 'default',
     overrides: {
       // Nothing runs nor asks
       onRewrittenTag: 'ephemeral',
@@ -499,7 +489,7 @@ function getVersionModeOf(plan: ReleasePlan): ReleasePreview['versionMode'] {
  * }
  */
 export async function previewRelease(options: PreviewReleaseOptions = {}): Promise<ReleasePreview> {
-  const { value, warnings } = await captureLogs(async () => {
+  const { value, warnings } = await captureWarnings(async () => {
     const plan = await planRelease(options)
     const tags = collectTags(plan)
     const bumpResult = plan.result
@@ -651,7 +641,7 @@ async function generateChangelogs(plan: ReleasePlan, { package: only, contributo
  */
 export async function previewChangelog(options: PreviewChangelogOptions = {}): Promise<PreviewChangelog[]> {
   const { package: only, contributors, ...rest } = options
-  const { value } = await captureLogs(async () => generateChangelogs(await planRelease(rest), { package: only, contributors }))
+  const { value } = await captureWarnings(async () => generateChangelogs(await planRelease(rest), { package: only, contributors }))
 
   return value
 }

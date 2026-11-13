@@ -9,6 +9,7 @@ import * as publicApi from '../index'
 import { resolveFormatCommand } from './changelog-format'
 import { ConfigOptionError, loadRelizyConfig } from './config'
 import { hasVersionGroups } from './groups'
+import { keepLogLevel } from './log-capture'
 import { code, codeList } from './mcp/markdown'
 import { getVersionMode } from './package-sets'
 import { resetRewrittenTagCache } from './rewritten-tags'
@@ -955,7 +956,12 @@ function getLoadFinding(error: unknown, configFiles: { file: string, text: strin
  *   console.log(finding.severity, finding.title, finding.locations)
  * }
  */
-export async function checkMigration({ cwd = process.cwd(), configName }: CheckMigrationOptions = {}): Promise<MigrationReport> {
+export function checkMigration({ cwd = process.cwd(), configName }: CheckMigrationOptions = {}): Promise<MigrationReport> {
+  // The config is loaded silently: the level of the logger of the application stays
+  return keepLogLevel(() => runCheckMigration(cwd, configName))
+}
+
+async function runCheckMigration(cwd: string, configName: string | undefined): Promise<MigrationReport> {
   const configFiles = readConfigFiles(cwd, configName)
 
   if (configName && configFiles.length === 0) {

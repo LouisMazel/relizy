@@ -626,7 +626,12 @@ describe('Given the log file and the level of the logger', () => {
     const file = readFileSync(join(cwd, 'node_modules/.cache/relizy/release.log'), 'utf8')
     expect(file).toContain('[debug] Generating the changelog of relizy')
     expect(file).toContain('[preview] Changelog of relizy\n## v2.0.0')
-    expect(reporters).toEqual([original])
+    // The logs go to the reporters of before again
+    log('info', 'After the command')
+    expect(original!.log).toHaveBeenLastCalledWith({
+      type: 'info',
+      args: ['After the command'],
+    }, undefined)
     expect(logger.setLevel).toBe(setLevel)
     expect(setLevel).toHaveBeenLastCalledWith('debug')
   })

@@ -2,12 +2,11 @@ import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ResolvedRelizyConfig } from '..'
 import type { RelizyConfig } from '../../types'
 
-import { AsyncLocalStorage } from 'node:async_hooks'
 import { readdirSync } from 'node:fs'
 import process from 'node:process'
 import { format, stripVTControlCharacters } from 'node:util'
-import { logger } from '@maz-ui/node'
 import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache, UnknownProfileError } from '..'
+import { setLogReporters, withLogCapture } from '../log-capture'
 import { ToolInputError } from './tools/types'
 
 /**
@@ -30,13 +29,12 @@ const REPORTED_LOG_TYPES = new Set([
   'fatal',
 ])
 
-const storage = new AsyncLocalStorage<CapturedLog[]>()
 let capturing = false
 
 /**
  * Replace the reporters of the relizy logger (consola writes `info` and `log`
- * to stdout) with a reporter that keeps the logs of the running tool call.
- * Out of a tool call, only the warnings and errors are written, to stderr.
+ * to stdout): the logs of a tool call are kept for its result (`withCapturedLogs`),
+ * out of a tool call only the warnings and errors are written, to stderr.
  */
 export function captureLogs(): void {
   if (capturing) {
@@ -44,21 +42,15 @@ export function captureLogs(): void {
   }
 
   capturing = true
-  // Without a reporter, consola removes all of them
-  ;(logger.removeReporter as (reporter?: unknown) => unknown)()
-  logger.addReporter({
-    log: (logObj: { type: string, args: unknown[] }) => {
-      const message = stripVTControlCharacters(format(...logObj.args)).trim()
-      const logs = storage.getStore()
-
-      if (logs) {
-        logs.push({ type: logObj.type, message })
-      }
-      else if (['warn', 'error', 'fail', 'fatal'].includes(logObj.type)) {
-        process.stderr.write(`[relizy] ${message}\n`)
-      }
+  setLogReporters([
+    {
+      log: (logObj) => {
+        if (['warn', 'error', 'fail', 'fatal'].includes(logObj.type)) {
+          process.stderr.write(`[relizy] ${stripVTControlCharacters(format(...logObj.args)).trim()}\n`)
+        }
+      },
     },
-  })
+  ])
 }
 
 /** The `console` methods writing to stdout write to stderr: a dependency logging with `console.log` would corrupt the protocol */
@@ -68,7 +60,9 @@ export function redirectConsoleToStderr(): void {
 
 export async function withCapturedLogs<T>(run: () => Promise<T>): Promise<{ value: T, logs: CapturedLog[] }> {
   const logs: CapturedLog[] = []
-  const value = await storage.run(logs, run)
+  const value = await withLogCapture(({ type, message }) => {
+    logs.push({ type, message })
+  }, run)
 
   return { value, logs }
 }

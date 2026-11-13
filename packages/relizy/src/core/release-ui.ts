@@ -1,6 +1,7 @@
 import type { SpinnerResult } from '@clack/prompts'
 import type { BumpResult, PackageBase } from '../types'
 import type { RelizyEventInput, StepData } from './events'
+import type { LogReporter } from './log-capture'
 import type { Preview, ProgressOptions } from './progress'
 import type { ReleaseReport, ReleaseSummaryEntry } from './release-report'
 import type { CommandStepId } from './steps'
@@ -15,6 +16,7 @@ import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
 import { isRelizyCancelError, markErrorReported, RelizyCancelError } from './errors'
 import { addGlobalEventListener, emitEvent, getEventContext } from './events'
+import { setLogReporters } from './log-capture'
 import { reportProgress, setProgressHandlers } from './progress'
 import { assertInteractivePrompt, BUMP_NOT_INTERACTIVE } from './prompts'
 import { formatReleaseReportText, getReleaseName, getReleaseSummary } from './release-report'
@@ -41,8 +43,6 @@ interface CapturedLog {
   type: string
   message: string
 }
-
-interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
 
 const VERBOSE_LEVELS = new Set(['verbose', 'debug', 'trace'])
 const INFO_TYPES = new Set([
@@ -183,12 +183,13 @@ export function enableCliUi(): void {
 
 /** Stdout only carries the JSON events: the logs before the output starts go to stderr */
 function redirectLogsToStderr(): void {
-  const instance = (logger.removeReporter as unknown as (reporter: unknown) => { options: { reporters: Reporter[] } })({})
-  instance.options.reporters.splice(0, instance.options.reporters.length, {
-    log: ({ args }) => {
-      process.stderr.write(`${stripVTControlCharacters(format(...args))}\n`)
+  setLogReporters([
+    {
+      log: ({ args }) => {
+        process.stderr.write(`${stripVTControlCharacters(format(...args))}\n`)
+      },
     },
-  })
+  ])
   Object.assign(console, { log: console.error, info: console.error, debug: console.error })
 }
 
@@ -378,8 +379,7 @@ abstract class StepUi implements ReleaseUi {
   protected previews: Preview[] = []
   protected readonly startedAt = Date.now()
   protected currentStep = ''
-  private originalReporters: Reporter[] = []
-  private reporters: Reporter[] = []
+  private restoreReporters: (() => void) | undefined
   private originalSetLevel: typeof logger.setLevel | undefined
   private requestedLevel: Parameters<typeof logger.setLevel>[0] = 'default'
   private readonly logFile: string
@@ -390,7 +390,7 @@ abstract class StepUi implements ReleaseUi {
     this.logFile = join(options.cwd, 'node_modules/.cache/relizy/release.log')
   }
 
-  private readonly reporter: Reporter = {
+  private readonly reporter: LogReporter = {
     log: (logObj) => {
       const message = stripVTControlCharacters(format(...logObj.args)).trim()
 
@@ -436,10 +436,7 @@ abstract class StepUi implements ReleaseUi {
     }
     catch {}
 
-    // Removing a reporter that is not registered returns the consola instance, and its reporters
-    this.reporters = ((logger.removeReporter as unknown as (reporter: unknown) => { options: { reporters: Reporter[] } })({})).options.reporters
-    this.originalReporters = this.reporters.splice(0)
-    this.reporters.push(this.reporter)
+    this.restoreReporters = setLogReporters([this.reporter])
     // Every log goes to the log file, the renderer filters what it shows: the
     // level asked meanwhile (the config of each step sets it) applies afterwards
     this.originalSetLevel = logger.setLevel
@@ -451,7 +448,8 @@ abstract class StepUi implements ReleaseUi {
   }
 
   protected restore(): void {
-    this.reporters.splice(0, this.reporters.length, ...this.originalReporters)
+    this.restoreReporters?.()
+    this.restoreReporters = undefined
 
     if (this.originalSetLevel) {
       logger.setLevel = this.originalSetLevel
