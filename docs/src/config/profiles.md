@@ -10,7 +10,7 @@ tags: [config, profiles, prerelease, canary, ci]
 
 {{ $frontmatter.description }}
 
-A profile is a set of config options applied over the config file when it is selected. It replaces the flags repeated in each CI job (`--preid beta --tag beta`) by one definition shared by the CLI, the CI and the programmatic API.
+A profile is a ready-made command that overrides the config file: the flags you would type (`--prerelease --preid beta --tag beta`), written once with the names of the config options, and applied over the config file when it is selected. It only holds what differs from the config file, the rest comes from it. One definition, shared by the CLI, the CI and the programmatic API.
 
 ```ts
 // relizy.config.ts
