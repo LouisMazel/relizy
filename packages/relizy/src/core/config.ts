@@ -14,7 +14,7 @@ import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
 import { chainHooks } from './hook-chain'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
-import { getOwnEntry } from './own-version'
+import { getOwnImportAliases } from './own-version'
 import { getProfile, getProfileOptions, isPlainObject, validateProfiles } from './profiles'
 
 /**
@@ -490,16 +490,17 @@ export function isConfigFilePath(configFile: string): boolean {
 
 /**
  * A config importing `relizy` (`import { defineConfig } from 'relizy'`) gets the
- * running relizy: it loads even when the project does not have relizy in its
- * `node_modules` (relizy installed elsewhere, run by an application)
+ * running relizy, not the one of the project: it loads even when the project
+ * does not have relizy in its `node_modules` (relizy installed elsewhere, run by
+ * an application). Only `relizy` and the subpaths it exports (`relizy/cli`) are
+ * rewritten; without the running relizy (bundled in another program), the
+ * config gets the relizy of the project.
  */
-function getConfigJitiOptions(): { alias?: Record<string, string> } {
-  const entry = getOwnEntry()
+export function getConfigJitiOptions(from?: string): { alias?: Record<string, string> } {
+  const aliases = getOwnImportAliases(from)
 
-  return entry
-    ? {
-        alias: { relizy: entry },
-      }
+  return Object.keys(aliases).length > 0
+    ? { alias: aliases }
     : {}
 }
 

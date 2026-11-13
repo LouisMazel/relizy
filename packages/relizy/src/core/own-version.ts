@@ -57,3 +57,39 @@ export function getOwnEntry(from: string = HERE): string | undefined {
     ? join(root, 'src', 'index.ts')
     : join(root, 'dist', 'index.mjs')
 }
+
+type ExportTarget = string | { import?: string, default?: string } | null
+
+/**
+ * What a config importing relizy gets: `relizy` and each subpath its
+ * `package.json` exports (`relizy/cli`) point to the running relizy, whatever
+ * the project installs. None when the running relizy is not found, or its
+ * build is missing (relizy bundled in another program): the config then gets
+ * the relizy of the project, as any import.
+ */
+export function getOwnImportAliases(from: string = HERE): Record<string, string> {
+  const root = findOwnRoot(from)
+  const entry = getOwnEntry(from)
+
+  if (!root || !entry || !existsSync(entry)) {
+    return {}
+  }
+
+  const { exports = {} } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8')) as { exports?: Record<string, ExportTarget> }
+  const aliases: Record<string, string> = { relizy: entry }
+
+  for (const [subpath, target] of Object.entries(exports)) {
+    const file = typeof target === 'string'
+      ? target
+      : target?.import ?? target?.default
+
+    // `.` is the entry, a pattern (`./*`) has no single file
+    if (subpath === '.' || !subpath.startsWith('./') || subpath.includes('*') || !file || !existsSync(join(root, file))) {
+      continue
+    }
+
+    aliases[`relizy/${subpath.slice(2)}`] = join(root, file)
+  }
+
+  return aliases
+}
