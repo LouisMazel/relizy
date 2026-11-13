@@ -184,6 +184,73 @@ describe('Given the merge preview of a GitHub pull request', () => {
     expect(calls(fetch, 'POST', '/statuses/')).toEqual([])
   })
 
+  it('When an application only computes it with the changelogs, Then posts nothing and gives the preview as data', async () => {
+    const fetch = mockApi()
+
+    const report = await mergePreview({ comment: false, check: false, changelog: true })
+
+    expect(calls(fetch, 'POST', '/comments')).toEqual([])
+    expect(calls(fetch, 'POST', '/statuses/')).toEqual([])
+    expect(report.release?.groups).toEqual([
+      expect.objectContaining({ version: '1.1.0', tag: 'v1.1.0' }),
+    ])
+    expect(report.mergePreview).toMatchObject({
+      pullRequest: 7,
+      pullRequestDetails: {
+        provider: 'github',
+        kind: 'pull request',
+        number: 7,
+        title: 'feat: the api',
+        targetBranch: 'main',
+        merged: true,
+      },
+      branch: 'main',
+      packages: [
+        {
+          name: 'app',
+          oldVersion: '1.0.0',
+          newVersion: '1.1.0',
+          reason: 'commits',
+          fromPullRequest: true,
+          commits: [
+            expect.objectContaining({ type: 'feat', description: 'the api', fromPullRequest: true }),
+          ],
+        },
+      ],
+      publish: { enabled: true, distTag: 'latest' },
+      changelogs: [
+        {
+          file: 'CHANGELOG.md',
+          packageName: 'app',
+          content: expect.stringContaining('- The api'),
+        },
+      ],
+      posted: { comment: false, status: false },
+    })
+    expect(report.mergePreview).not.toHaveProperty('squashPackages')
+  })
+
+  it('When the release would fail, Then the error carries the report with the problems', async () => {
+    mockApi()
+    vi.mocked(isVersionPublished).mockResolvedValue(true)
+
+    const error = await mergePreview({ comment: false, check: false }).catch((error_: unknown) => error_)
+
+    expect(error).toBeInstanceOf(MergePreviewError)
+    expect((error as MergePreviewError).report?.mergePreview?.problems).toEqual([
+      expect.objectContaining({ kind: 'version-taken' }),
+    ])
+  })
+
+  it('When it comments and sets the status, Then the report tells what was posted', async () => {
+    mockApi()
+
+    const report = await mergePreview()
+
+    expect(report.mergePreview?.posted).toEqual({ comment: true, status: true })
+    expect(report.mergePreview).not.toHaveProperty('changelogs')
+  })
+
   it('When it runs with the release type of the release job, Then previews the versions of this release', async () => {
     mockApi()
 

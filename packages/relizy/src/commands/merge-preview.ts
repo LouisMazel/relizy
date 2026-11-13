@@ -1,9 +1,10 @@
-import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewResult, MergePreviewSquash, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
+import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewResult, MergePreviewSquash, ReleaseMergePreview, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
 import type { MergePreviewConfig, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { fetchGitTags, getCurrentGitBranch, getPublishTag, plural, prepareCiRepository, tryGitSync, withGitCache } from '@relizy/core'
 import { checkMergePreview, createCommandUi, detectPullRequest, formatMergePreviewMarkdown, getMergePreviewPullRequest, getMergePreviewStatusDescription, getMergePreviewTerminalOutput, markErrorReported, MERGE_PREVIEW_MARKER, planMergePreview, postPrComment, prepareMergePreviewContext, resolveMergePreviewSquash, setMergePreviewStatus, writeReleaseReport } from '../core'
 import { runWithEvents } from '../core/events'
+import { generateBumpChangelogs } from '../core/release-preview'
 import { planBumps } from './bump'
 import { getReleaseConfig } from './release'
 
@@ -19,14 +20,28 @@ export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'prei
    */
   comment?: boolean
   /**
-   * Override of `mergePreview.check` for this run
+   * Override of `mergePreview.check` for this run. With `comment: false` too, the preview is
+   * only computed: nothing is posted on the pull request
    */
   check?: boolean
+  /**
+   * Generate the changelog entries of the release (`mergePreview.changelogs` of the report), without the hooks
+   * @default false
+   */
+  changelog?: boolean
 }
 
 /** Thrown when the release of the merge would fail: the job of the merge preview fails */
 export class MergePreviewError extends Error {
   override name = 'MergePreviewError'
+
+  /** The report of the preview, with the problems (`report.mergePreview.problems`) */
+  report?: ReleaseReport
+
+  constructor(message: string, report?: ReleaseReport) {
+    super(message)
+    this.report = report
+  }
 }
 
 function describeProblems(checks: MergePreviewChecks, context?: MergePreviewContext): string {
@@ -132,6 +147,11 @@ async function computePreview({ config, options, settings, ui }: {
           canary: config.release.canary === true,
           groups: options.groups,
         })).result,
+        ...(options.changelog
+          ? {
+              planChangelogs: result => generateBumpChangelogs({ config, result, groups: options.groups }),
+            }
+          : {}),
       }),
     })
     computed.plan = plan
@@ -187,12 +207,13 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   settings: MergePreviewConfig
   prNumber?: number
   ui: ReleaseUi
-}): Promise<void> {
+}): Promise<ReleaseMergePreview['posted']> {
   const failed = result.checks.problems.length > 0
+  const posted = { comment: false, status: false }
 
   if (settings.comment) {
     const label = getPullRequestLabel(context)
-    await ui.step({
+    posted.comment = await ui.step({
       name: 'merge-preview',
       running: `Commenting the ${context.pullRequest.kind}`,
       done: posted => posted
@@ -209,7 +230,7 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   }
 
   if (settings.check) {
-    await ui.step({
+    posted.status = await ui.step({
       name: 'merge-preview',
       running: 'Setting the commit status',
       done: set => set
@@ -224,6 +245,8 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
       }),
     })
   }
+
+  return posted
 }
 
 function getReportStatus(result: MergePreviewResult): ReleaseReport['status'] {
@@ -235,7 +258,7 @@ function getReportStatus(result: MergePreviewResult): ReleaseReport['status'] {
 }
 
 /** The report of the run: nothing released, the merge preview in the summary of the CI job */
-function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig): ReleaseReport {
+function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig, posted: ReleaseMergePreview['posted']): ReleaseReport {
   const { context, plan, checks } = result
 
   return {
@@ -254,6 +277,27 @@ function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig): Re
       problems: checks.problems,
       warnings: checks.warnings,
       markdown: formatMergePreviewMarkdown(result),
+      ...(context
+        ? {
+            pullRequestDetails: {
+              ...context.pullRequest,
+              merged: context.merged,
+              ...(context.warning
+                ? { warning: context.warning }
+                : {}),
+            },
+          }
+        : {}),
+      branch: result.branch,
+      packages: plan?.outcome.packages ?? [],
+      ...(plan?.squashOutcome
+        ? { squashPackages: plan.squashOutcome.packages }
+        : {}),
+      publish: result.publish,
+      ...(plan?.outcome.changelogs
+        ? { changelogs: plan.outcome.changelogs }
+        : {}),
+      posted,
     },
     ...(checks.problems.length > 0
       ? {
@@ -338,18 +382,18 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
     branch: context?.pullRequest.targetBranch ?? getBranch(config.cwd),
   }
 
-  if (context) {
-    await postOnPullRequest({
-      config,
-      context,
-      result,
-      settings,
-      prNumber: options.prNumber,
-      ui,
-    })
-  }
+  const posted = context
+    ? await postOnPullRequest({
+        config,
+        context,
+        result,
+        settings,
+        prNumber: options.prNumber,
+        ui,
+      })
+    : { comment: false, status: false }
 
-  const report = getReport(result, config)
+  const report = getReport(result, config, posted)
   writeReleaseReport({ config, report })
 
   const failed = checks.problems.length > 0
@@ -361,7 +405,7 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
   })
 
   if (failed) {
-    const error = new MergePreviewError(describeProblems(checks, context))
+    const error = new MergePreviewError(describeProblems(checks, context), report)
     // Already shown by the output of the command
     markErrorReported(error)
     throw error

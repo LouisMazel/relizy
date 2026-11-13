@@ -214,16 +214,33 @@ async function planRelease(options: PreviewReleaseOptions): Promise<ReleasePlan>
     groups: options.groups,
   })
 
+  return toReleasePlan({ config, result: planned.result, groups: options.groups })
+}
+
+/** The sets of the release (the project, or each version group) with what each one bumps */
+function toReleasePlan({ config, result, groups }: { config: ResolvedRelizyConfig, result: BumpResult, groups?: string[] }): ReleasePlan {
   const sets = readPackageSets(config)
-    .filter(set => !set.group || !options.groups?.length || options.groups.includes(set.group.name))
+    .filter(set => !set.group || !groups?.length || groups.includes(set.group.name))
     .map(set => ({
       set,
       result: set.group
-        ? planned.groups?.find(({ group }) => group.name === set.group!.name)?.result ?? { bumped: false as const }
-        : planned.result,
+        ? (result.bumped && result.groups?.find(group => group.name === set.group!.name)) || { bumped: false as const }
+        : result,
     }))
 
-  return { config, result: planned.result, sets }
+  return { config, result, sets }
+}
+
+/**
+ * The changelog entries a bump adds, per file, without writing anything nor
+ * running the hooks: what the merge preview shows
+ */
+export function generateBumpChangelogs({ config, result, groups }: { config: ResolvedRelizyConfig, result: BumpResult, groups?: string[] }): Promise<PreviewChangelog[]> {
+  return generateChangelogs(toReleasePlan({
+    config: { ...config, hooks: {} },
+    result,
+    groups,
+  }), {})
 }
 
 function toPreviewCommit(commit: GitCommit): PreviewCommit {
