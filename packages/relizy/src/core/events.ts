@@ -189,7 +189,8 @@ export type WithStepData<Event> = {
   data?: undefined
 })
 
-interface StepDoneEventBase extends ProgressEventBase {
+/** The fields of a `step:done` event, without its data (see `StepDoneEvent`) */
+export interface StepDoneEventBase extends ProgressEventBase {
   type: 'step:done'
   label: string
   /** What it did: `Published relizy@2.0.0 to npm` */
@@ -202,7 +203,8 @@ interface StepDoneEventBase extends ProgressEventBase {
 /** A step is done, with what it did as data (`data`, typed by `step`) */
 export type StepDoneEvent = WithStepData<StepDoneEventBase>
 
-interface StepFailedEventBase extends ProgressEventBase {
+/** The fields of a `step:failed` event, without its data (see `StepFailedEvent`) */
+export interface StepFailedEventBase extends ProgressEventBase {
   type: 'step:failed'
   label: string
   /** The step did not stop the command (a provider release, a post) */

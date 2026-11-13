@@ -56,14 +56,16 @@ export type {
   StepData,
   StepDataMap,
   StepDoneEvent,
+  StepDoneEventBase,
   StepFailedEvent,
+  StepFailedEventBase,
   StepItem,
   StepItemEvent,
   StepSkippedEvent,
   StepStartEvent,
   WithStepData,
 } from './core/events'
-export type { MergePreviewProblem, MergePreviewSquashMode } from './core/merge-preview'
+export type { MergePreviewCommit, MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './core/merge-preview'
 export type { CheckMigrationOptions, MigrationFinding, MigrationReport } from './core/migration'
 export { checkMigration } from './core/migration'
 export type { ProfileInfo, ProfileOptions, ProfileSection, ProfileSetting } from './core/profiles'
@@ -82,6 +84,7 @@ export type {
   ReleaseStepReport,
 } from './core/release-report'
 export type { RootPackage } from './core/repo'
+export type { CommandStepId, ReleaseStepId } from './core/steps'
 export type * from './types'
 
 export type { CommitlintProblem, CommitlintResult, CommitlintSuggestion, WorkspacePackage } from '@relizy/core'
