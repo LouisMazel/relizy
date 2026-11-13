@@ -21,13 +21,13 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
-    "@maz-ui/icons": "^5.5.0",
-    "@maz-ui/themes": "^5.5.0",
-    "maz-ui": "^5.5.0",
+    "@maz-ui/icons": "^5.6.0",
+    "@maz-ui/themes": "^5.6.0",
+    "maz-ui": "^5.6.0",
     "vue": "^3.5.44"
   },
   "devDependencies": {
-    "@maz-ui/translations": "^5.5.0",
+    "@maz-ui/translations": "^5.6.0",
     "@tailwindcss/vite": "^4.3.4",
     "tailwindcss": "^4.3.4",
     "typedoc": "^0.28.20",
