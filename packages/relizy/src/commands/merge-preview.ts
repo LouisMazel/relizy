@@ -126,7 +126,7 @@ async function computePreview({ config, options, settings, ui }: {
           dryRun: true,
           force: options.force,
           suffix: options.suffix ?? config.bump.suffix,
-          canary: config.release.canary ?? false,
+          canary: config.release.canary === true,
           groups: options.groups,
         })).result,
       }),
@@ -229,14 +229,15 @@ function getReportStatus(result: MergePreviewResult): ReleaseReport['status'] {
 }
 
 /** The report of the run: nothing released, the merge preview in the summary of the CI job */
-function getReport(result: MergePreviewResult): ReleaseReport {
+function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig): ReleaseReport {
   const { context, plan, checks } = result
 
   return {
     status: getReportStatus(result),
     released: false,
     dryRun: true,
-    canary: false,
+    // The release previewed is a canary one (`release.canary` of a profile)
+    canary: config.release.canary === true,
     release: plan?.outcome.overview,
     version: plan?.outcome.overview?.groups.find(group => group.versionMode !== 'independent')?.version,
     tags: [],
@@ -342,7 +343,7 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
     })
   }
 
-  const report = getReport(result)
+  const report = getReport(result, config)
   writeReleaseReport({ config, report })
 
   const failed = checks.problems.length > 0

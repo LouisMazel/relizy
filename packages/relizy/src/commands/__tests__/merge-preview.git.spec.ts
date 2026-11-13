@@ -192,6 +192,42 @@ describe('Given the merge preview of a GitHub pull request', () => {
     expect(report).toMatchObject({ status: 'released', version: '2.0.0' })
   })
 
+  describe('When it runs with a profile', () => {
+    beforeEach(() => {
+      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default {
+  logLevel: 'silent',
+  noAuthors: true,
+  publish: { packageManager: 'npm' },
+  profiles: {
+    beta: { bump: { type: 'prerelease', preid: 'beta' }, publish: { tag: 'beta' } },
+    canary: { release: { canary: true } },
+  },
+}
+`)
+      git('add', '-A')
+      git('commit', '--quiet', '-m', 'chore: add the profiles')
+    })
+
+    it('Then previews the release of the profile', async () => {
+      mockApi()
+
+      const report = await mergePreview({ profile: 'beta', comment: false, check: false })
+
+      expect(report).toMatchObject({ status: 'released', canary: false, version: '1.1.0-beta.0' })
+      expect(report.mergePreview?.markdown).toContain('`beta`')
+    })
+
+    it('Then previews a canary release of a canary profile, and says it in the report', async () => {
+      mockApi()
+
+      const report = await mergePreview({ profile: 'canary', comment: false, check: false })
+
+      expect(report).toMatchObject({ status: 'released', canary: true })
+      expect(report.version).toMatch(/^1\.1\.0-0\.canary-[0-9a-f]+$/)
+      expect(report.mergePreview?.markdown).toContain('`canary`')
+    })
+  })
+
   it('When it runs in GitHub Actions, Then the status links to the run', async () => {
     const fetch = mockApi()
     vi.stubEnv('GITHUB_SERVER_URL', 'https://github.com')
