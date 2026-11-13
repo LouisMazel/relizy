@@ -1,5 +1,5 @@
 import { logger } from '@maz-ui/node'
-import { emitEvent } from './events'
+import { emitEvent, getRunState } from './events'
 
 /**
  * What a long step is doing, for the output of `relizy release`
@@ -177,10 +177,15 @@ export function describeAIUsage(usage: AIUsage): string[] {
   ].filter(Boolean)
 }
 
-const facts = { links: [] as ReleaseLink[], aiRewrites: [] as AIRewrite[] }
+const FACTS = Symbol('release facts')
+
+/** The facts of the running command: its own, two runs at the same time never mix */
+function getFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
+  return getRunState(FACTS, () => ({ links: [], aiRewrites: [] }))
+}
 
 export function recordLink(link: ReleaseLink): void {
-  facts.links.push(link)
+  getFacts().links.push(link)
   emitEvent({
     type: 'link',
     step: link.step,
@@ -190,13 +195,15 @@ export function recordLink(link: ReleaseLink): void {
 }
 
 export function recordAIRewrite(rewrite: AIRewrite): void {
-  facts.aiRewrites.push(rewrite)
+  getFacts().aiRewrites.push(rewrite)
 }
 
 /**
  * The facts recorded since the last call
  */
 export function takeReleaseFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
+  const facts = getFacts()
+
   return {
     links: facts.links.splice(0),
     aiRewrites: facts.aiRewrites.splice(0),

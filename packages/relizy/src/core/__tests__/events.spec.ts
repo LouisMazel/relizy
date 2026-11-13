@@ -1,6 +1,6 @@
 import type { RelizyEvent } from '../events'
 import { describe, expect, it, vi } from 'vitest'
-import { addGlobalEventListener, emitEvent, getAppHandlers, getEventContext, hasEventListeners, runWithEvents } from '../events'
+import { addGlobalEventListener, emitEvent, getAppHandlers, getEventContext, getRunState, hasEventListeners, runWithEvents } from '../events'
 
 describe('Given the events of a command', () => {
   describe('When a command runs with a listener', () => {
@@ -48,6 +48,25 @@ describe('Given the events of a command', () => {
       }))
 
       expect(other).toHaveBeenCalledWith(expect.objectContaining({ type: 'note', ai: true }))
+    })
+
+    it('Then each run has its own state, shared with the commands it runs', async () => {
+      const key = Symbol('test')
+      const run = (name: string, delay: number) => runWithEvents(undefined, async () => {
+        getRunState(key, () => [] as string[]).push(name)
+        await new Promise(resolve => setTimeout(resolve, delay))
+        runWithEvents(undefined, () => getRunState(key, () => [] as string[]).push(`${name} nested`))
+
+        return getRunState(key, () => [] as string[])
+      })
+
+      expect(await Promise.all([
+        run('a', 10),
+        run('b', 1),
+      ])).toEqual([
+        ['a', 'a nested'],
+        ['b', 'b nested'],
+      ])
     })
 
     it('Then the events of another run are not received', async () => {

@@ -344,10 +344,14 @@ interface EventContext {
   /** A command run by another one: its steps are the progress of the step of the parent */
   nested: boolean
   handlers: AppHandlers
+  /** What the run records while it runs (see `getRunState`), shared with the commands it runs */
+  state: Map<symbol, unknown>
 }
 
 const storage = new AsyncLocalStorage<EventContext>()
 const globalListeners = new Set<RelizyEventListener>()
+/** The state of what runs out of a command (a step function called directly) */
+const processState = new Map<symbol, unknown>()
 
 /**
  * The listeners of the running command. A command run inside another one
@@ -376,12 +380,29 @@ export function runWithEvents<T>(listener: RelizyEventListener | undefined, run:
   return storage.run({
     listeners,
     nested: parent !== undefined,
+    state: parent?.state ?? new Map(),
     handlers: {
       onConfirm: handlers.onConfirm ?? inherited.onConfirm,
       onOtp: handlers.onOtp ?? inherited.onOtp,
       command: inherited.command ?? handlers.command,
     },
   }, run)
+}
+
+/**
+ * What the running command records while it runs (the changelogs written, the
+ * packages published...), by key: each run has its own, so two runs of an
+ * application at the same time never mix, and a command run by another one
+ * shares the one of its parent. Out of a command, one state for the process.
+ */
+export function getRunState<T>(key: symbol, create: () => T): T {
+  const state = storage.getStore()?.state ?? processState
+
+  if (!state.has(key)) {
+    state.set(key, create())
+  }
+
+  return state.get(key) as T
 }
 
 /** The handlers of the application for the running command: none out of a command */

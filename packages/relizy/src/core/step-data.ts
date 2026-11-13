@@ -2,7 +2,7 @@ import type { BumpResult, ProviderReleaseResult, SocialNetworkResult, SocialResu
 import type { ResolvedRelizyConfig } from './config'
 import type { BumpStepData, ChangelogStepData, CommitAndTagStepData, PrCommentStepData, ProgressStep, ProviderReleaseStepData, PublishStepData, PublishStepPackage, PushStepData, SocialStepPost, StepItem } from './events'
 import { getCurrentGitBranch, getGitUpstream, getPublishTag } from '@relizy/core'
-import { emitEvent } from './events'
+import { emitEvent, getRunState } from './events'
 import { getNpmRegistry } from './npm-registry'
 import { getReleaseUrl } from './social'
 
@@ -10,14 +10,21 @@ import { getReleaseUrl } from './social'
  * The data of the steps of a command (the `data` of the `step:done` and
  * `step:failed` events) and the `step:item` events. What a command run by
  * another one did (the changelogs of `changelog()` in `release()`) is recorded
- * here while it runs, then taken by the step that ran it.
+ * in the state of the run while it runs, then taken by the step that ran it.
  */
 
-const recorded = {
-  changelogs: [] as ChangelogStepData['files'],
-  published: [] as PublishStepPackage[],
-  commit: undefined as CommitAndTagStepData['commit'],
-  prComment: undefined as Omit<PrCommentStepData, 'posted'> | undefined,
+interface RecordedSteps {
+  changelogs: ChangelogStepData['files']
+  published: PublishStepPackage[]
+  commit?: CommitAndTagStepData['commit']
+  prComment?: Omit<PrCommentStepData, 'posted'>
+}
+
+const RECORDED = Symbol('step data')
+
+/** What the running command recorded: its own, two runs at the same time never mix */
+function getRecorded(): RecordedSteps {
+  return getRunState<RecordedSteps>(RECORDED, () => ({ changelogs: [], published: [] }))
 }
 
 /** A step starts or ends one of its things, live */
@@ -26,33 +33,33 @@ export function emitStepItem(step: ProgressStep, item: StepItem): void {
 }
 
 export function recordChangelogFile(file: ChangelogStepData['files'][number]): void {
-  recorded.changelogs.push(file)
+  getRecorded().changelogs.push(file)
 }
 
 /** Forget what a previous run recorded */
 export function clearChangelogFiles(): void {
-  recorded.changelogs.splice(0)
+  getRecorded().changelogs.splice(0)
 }
 
 /** The changelogs written since the last call */
 export function takeChangelogFiles(): ChangelogStepData {
   return {
-    files: recorded.changelogs.splice(0),
+    files: getRecorded().changelogs.splice(0),
   }
 }
 
 export function recordPublishedPackage(pkg: PublishStepPackage): void {
-  recorded.published.push(pkg)
+  getRecorded().published.push(pkg)
 }
 
 /** Forget what a previous run recorded */
 export function clearPublishedPackages(): void {
-  recorded.published.splice(0)
+  getRecorded().published.splice(0)
 }
 
 /** The packages published since the last call, with the registry and the dist-tag */
 export function takePublishStepData(config: ResolvedRelizyConfig): PublishStepData {
-  const packages = recorded.published.splice(0)
+  const packages = getRecorded().published.splice(0)
 
   return {
     registry: config.publish.registry || getNpmRegistry(config.cwd),
@@ -62,11 +69,12 @@ export function takePublishStepData(config: ResolvedRelizyConfig): PublishStepDa
 }
 
 export function recordReleaseCommit(commit: NonNullable<CommitAndTagStepData['commit']>): void {
-  recorded.commit = commit
+  getRecorded().commit = commit
 }
 
 /** The release commit made since the last call, with the tags created */
 export function takeCommitAndTagStepData(tags: string[]): CommitAndTagStepData {
+  const recorded = getRecorded()
   const commit = recorded.commit
   recorded.commit = undefined
 
@@ -80,13 +88,14 @@ export function takeCommitAndTagStepData(tags: string[]): CommitAndTagStepData {
 
 /** The pull request about to be commented, none when not detected */
 export function recordPrComment(pr: { number: number, url: string } | null | undefined): void {
-  recorded.prComment = pr
+  getRecorded().prComment = pr
     ? { number: pr.number, url: pr.url }
     : undefined
 }
 
 /** The pull request commented since the last call */
 export function takePrCommentStepData(posted: boolean): PrCommentStepData {
+  const recorded = getRecorded()
   const pr = recorded.prComment
   recorded.prComment = undefined
 

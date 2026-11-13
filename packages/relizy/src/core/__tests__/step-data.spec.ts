@@ -1,9 +1,10 @@
 import type { GitRepository } from '../../../../../tests/git-repository'
 import type { RelizyEvent } from '../events'
+import { setTimeout as sleep } from 'node:timers/promises'
 import { createGitRepository } from '../../../../../tests/git-repository'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { runWithEvents } from '../events'
-import { emitStepItem, getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, recordPrComment, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../step-data'
+import { emitStepItem, getBumpStepData, getProviderReleaseStepData, getPushTarget, getSocialStepData, recordChangelogFile, recordPrComment, recordPublishedPackage, recordReleaseCommit, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../step-data'
 
 describe('Given the data of the steps', () => {
   describe('When a bump bumps nothing', () => {
@@ -132,6 +133,55 @@ describe('Given the data of the steps', () => {
         registry: expect.stringMatching(/^https?:\/\//),
         tag: 'latest',
         packages: [],
+      })
+    })
+  })
+
+  describe('When two runs record their steps at the same time', () => {
+    it('Then each run takes only what it recorded', async () => {
+      const config = createMockConfig({
+        publish: { registry: 'https://registry.npmjs.org/' },
+      })
+      const run = (name: string, delay: number) => runWithEvents(undefined, async () => {
+        recordChangelogFile({ file: `${name}/CHANGELOG.md`, packageName: name, content: name })
+        await sleep(delay)
+        recordPublishedPackage({ name, version: '1.0.0', status: 'published' })
+        recordReleaseCommit({ hash: name, message: `chore(release): ${name}` })
+        recordPrComment({ number: delay, url: `https://github.com/acme/${name}/pull/${delay}` })
+        await sleep(delay)
+
+        return {
+          changelogs: takeChangelogFiles().files.map(file => file.packageName),
+          published: takePublishStepData(config).packages.map(pkg => pkg.name),
+          commit: takeCommitAndTagStepData([]).commit?.hash,
+          pr: takePrCommentStepData(true).number,
+        }
+      })
+
+      const [first, second] = await Promise.all([
+        run('app-a', 20),
+        run('app-b', 5),
+      ])
+
+      expect(first).toEqual({
+        changelogs: ['app-a'],
+        published: ['app-a'],
+        commit: 'app-a',
+        pr: 20,
+      })
+      expect(second).toEqual({
+        changelogs: ['app-b'],
+        published: ['app-b'],
+        commit: 'app-b',
+        pr: 5,
+      })
+    })
+
+    it('Then a command run by another one shares the state of its parent', () => {
+      runWithEvents(undefined, () => {
+        runWithEvents(undefined, () => recordChangelogFile({ file: 'CHANGELOG.md', packageName: 'app', content: '' }))
+
+        expect(takeChangelogFiles().files.map(file => file.packageName)).toEqual(['app'])
       })
     })
   })
