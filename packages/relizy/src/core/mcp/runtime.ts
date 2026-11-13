@@ -108,6 +108,19 @@ export function listConfigNames(cwd: string): string[] {
   ].sort()
 }
 
+/** A config asked by name must exist: the error lists the configs of the project */
+export function assertConfigName({ config, cwd }: { config?: string, cwd: string }): void {
+  if (config && !listConfigNames(cwd).includes(config)) {
+    const names = listConfigNames(cwd)
+
+    const available = names.length > 0
+      ? `Available configs: ${names.join(', ')}.`
+      : 'This project has no relizy config file: relizy uses its defaults.'
+
+    throw new ToolInputError(`No config "${config}" in ${cwd}. ${available}`)
+  }
+}
+
 /**
  * Load the relizy config of the project without side effects: no prompt (the
  * rewritten tags use the reachable equivalent commit for this run only) and no
@@ -120,15 +133,7 @@ export async function loadProjectConfig({ config, profile, overrides, cwd = proc
   overrides?: DeepPartial<RelizyConfig>
   cwd?: string
 } = {}): Promise<ResolvedRelizyConfig> {
-  if (config && !listConfigNames(cwd).includes(config)) {
-    const names = listConfigNames(cwd)
-
-    const available = names.length > 0
-      ? `Available configs: ${names.join(', ')}.`
-      : 'This project has no relizy config file: relizy uses its defaults.'
-
-    throw new ToolInputError(`No config "${config}" in ${cwd}. ${available}`)
-  }
+  assertConfigName({ config, cwd })
 
   const resolved = await loadRelizyConfig({
     configFile: config,

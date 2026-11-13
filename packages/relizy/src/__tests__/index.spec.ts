@@ -10,6 +10,7 @@ describe('Given the public API of relizy', () => {
         'UnknownProfileError',
         'bump',
         'changelog',
+        'checkMigration',
         'commitlint',
         'defineConfig',
         'getConfigOptions',
