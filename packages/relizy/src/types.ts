@@ -103,7 +103,7 @@ export interface ConfirmPlanPackage {
   newVersion: string
   /**
    * The git tag the release creates for it: its own tag in an `independent` set, the one of the
-   * repository otherwise. None when the release creates no tag (`release.gitTag: false`, canary)
+   * repository otherwise. None when the run creates no tag (`relizy bump`, `release.gitTag: false`, canary)
    */
   tag?: string
   /**

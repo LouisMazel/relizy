@@ -844,7 +844,10 @@ function planBump({
 /**
  * The packages of the plans, as the application validating them gets them
  */
-function getConfirmPlanPackages({ plans, config }: { plans: BumpedPlan[], config: ResolvedRelizyConfig }): ConfirmPlanPackage[] {
+function getConfirmPlanPackages({ plans, config, command }: { plans: BumpedPlan[], config: ResolvedRelizyConfig, command: ConfirmPlan['command'] }): ConfirmPlanPackage[] {
+  // `relizy bump` creates no tag, the release only with its release commit and `release.gitTag`
+  const tagged = command === 'release' && Boolean(config.release.commit && config.release.gitTag)
+
   return plans.flatMap(({ result, group }) => {
     const independent = (group?.versionMode ?? config.monorepo?.versionMode) === 'independent'
 
@@ -861,7 +864,7 @@ function getConfirmPlanPackages({ plans, config }: { plans: BumpedPlan[], config
         private: pkg.private,
         oldVersion: pkg.oldVersion,
         newVersion,
-        ...(config.release.gitTag
+        ...(tagged
           ? { tag }
           : {}),
         ...(group
@@ -941,7 +944,7 @@ async function confirmWithApplication({ onConfirm, plans, config, dryRun, comman
       ? { profile: config.profile }
       : {}),
     canary: config.release.canary === true,
-    packages: getConfirmPlanPackages({ plans, config }),
+    packages: getConfirmPlanPackages({ plans, config, command }),
   })
 
   if (!confirmed) {

@@ -68,7 +68,6 @@ describe('Given an application validating the bump plan with onConfirm', () => {
                 private: false,
                 oldVersion: '1.0.0',
                 newVersion: '1.1.0',
-                tag: 'v1.1.0',
                 reason: 'commits',
               },
             ],
@@ -140,6 +139,21 @@ describe('Given an application validating the bump plan with onConfirm', () => {
       expect(plan.packages[0]).not.toHaveProperty('tag')
       expect(plan.packages[0]!.newVersion).toMatch(/^1\.1\.0-0\.canary-/)
       expect(report.dryRun).toBe(true)
+    })
+  })
+
+  describe('When releasing with the release commit and its tags', () => {
+    it('Then gives the tag of each package, which relizy bump does not create', async () => {
+      const onConfirm = vi.fn().mockReturnValue(false)
+
+      await expect(release({
+        dryRun: true,
+        commit: true,
+        gitTag: true,
+        onConfirm,
+      })).rejects.toBeInstanceOf(RelizyCancelError)
+
+      expect(onConfirm.mock.calls[0]![0].packages[0]).toMatchObject({ name: 'app', tag: 'v1.1.0' })
     })
   })
 
