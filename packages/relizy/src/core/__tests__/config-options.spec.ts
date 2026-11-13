@@ -1,6 +1,12 @@
 import type { ConfigOptionNode } from '../config-options'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
+import { getDefaultConfig } from '../config'
 import { getConfigOptions } from '../config-options'
+
+vi.mock('../config', async importActual => ({
+  ...await importActual<typeof import('../config')>(),
+  getDefaultConfig: vi.fn((await importActual<typeof import('../config')>()).getDefaultConfig),
+}))
 
 function find(nodes: ConfigOptionNode[], path: string): ConfigOptionNode | undefined {
   for (const node of nodes) {
@@ -93,6 +99,25 @@ describe('Given the catalog of the config options', () => {
       const options = await getConfigOptions()
 
       expect(find(options, 'bump.preid')!.path).toBe('bump.preid')
+    })
+  })
+
+  describe('When a default holds a secret (read from the environment)', () => {
+    it('Then it is masked', async () => {
+      const { getDefaultConfig: actual } = await vi.importActual<typeof import('../config')>('../config')
+      const defaults = actual()
+      vi.mocked(getDefaultConfig).mockReturnValueOnce({
+        ...defaults,
+        social: {
+          ...defaults.social,
+          slack: { ...defaults.social?.slack, webhookUrl: 'https://hooks.slack.com/services/T0000/B0000/abcdefghijklmnopqrstuvwx' },
+        },
+      } as ReturnType<typeof getDefaultConfig>)
+
+      const webhook = find(await getConfigOptions(), 'social.slack.webhookUrl')!
+
+      expect(webhook.default).toBeDefined()
+      expect(String(webhook.default)).not.toContain('abcdefghijklmnopqrstuvwx')
     })
   })
 })

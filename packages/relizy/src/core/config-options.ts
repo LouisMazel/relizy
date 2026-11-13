@@ -1,3 +1,4 @@
+import { redactSecrets } from '@relizy/core'
 import { getDefaultConfig } from './config'
 import { PROFILE_SECTIONS } from './profiles'
 
@@ -63,6 +64,17 @@ function runtimeDefault(defaults: object, path: string): unknown {
   }
 
   return path.split('.').reduce<unknown>((current, key) => (current as Record<string, unknown> | undefined)?.[key], defaults)
+}
+
+/**
+ * A default read from the environment (a token, a webhook) is masked: redacted
+ * at its place in the config, where its key and its section tell it is a secret
+ */
+function redactDefault(path: string, value: unknown): unknown {
+  const keys = path.split('.')
+  const tree = keys.reduceRight<unknown>((child, key) => ({ [key]: child }), value)
+
+  return keys.reduce<unknown>((current, key) => (current as Record<string, unknown>)[key], redactSecrets(tree))
 }
 
 function firstParagraph(value: string): string {
@@ -174,7 +186,9 @@ export async function getConfigOptions(options: GetConfigOptionsOptions = {}): P
         : {}),
       ...(defaultValue === undefined
         ? {}
-        : { default: defaultValue }),
+        : {
+            default: redactDefault(option.path, defaultValue),
+          }),
       description: option.description,
       summary: firstParagraph(option.description),
       ...(option.deprecated
