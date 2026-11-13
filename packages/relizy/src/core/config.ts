@@ -461,7 +461,7 @@ function applyProfileAndOverrides(results: { config: ResolvedConfig }, options?:
   // What the overrides set counts as set by the user, as when the config loader merges them
   return [
     ...keys,
-    ...Object.keys(options?.overrides ?? {}),
+    ...getDefinedKeys(options?.overrides),
   ]
 }
 
@@ -593,11 +593,8 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set([
     ...(results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {})),
+    // With a profile or hooks, the overrides are merged by `applyProfileAndOverrides`, not by c12: they are not in its layers
     ...profileKeys,
-    // With a profile, the overrides are merged by `applyProfile`, not by c12: they are not in its layers
-    ...(options?.profile
-      ? getDefinedKeys(options.overrides)
-      : []),
   ]))
 
   return resolvedConfig as ResolvedRelizyConfig
