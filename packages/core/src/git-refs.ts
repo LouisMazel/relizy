@@ -308,6 +308,32 @@ export async function getGitUpstream(cwd: string): Promise<GitUpstream | null> {
 }
 
 /**
+ * Where `git push` pushes the current branch: its upstream, else `origin` and
+ * the current branch
+ *
+ * @param cwd - Directory of the repository
+ * @returns The remote and the branch on it
+ * @example
+ * ```ts
+ * await getGitPushTarget(cwd)
+ * // { remote: 'origin', branch: 'main' }
+ * ```
+ */
+export async function getGitPushTarget(cwd: string): Promise<{ remote: string, branch: string }> {
+  const upstream = await getGitUpstream(cwd)
+
+  return upstream
+    ? {
+        remote: upstream.remote,
+        branch: upstream.mergeRef.replace(/^refs\/heads\//, ''),
+      }
+    : {
+        remote: 'origin',
+        branch: getCurrentGitBranch(cwd),
+      }
+}
+
+/**
  * The hash of the first commit of the repository, the root commit reachable
  * from HEAD. Throws when git fails. With several root commits, the hashes are
  * joined by newlines. Cached inside `withGitCache()`.
