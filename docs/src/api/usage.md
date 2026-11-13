@@ -61,6 +61,7 @@ The commands take the options of their CLI command, camelCased (`--format-cmd` i
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
 | `configName` | Config to load, as `--config`: `relizy.standalone` for `relizy.standalone.config.ts`                                       |
 | `config`     | A config resolved by [`loadRelizyConfig()`](./load-relizy-config.md), see below. Not an option of `release()`              |
+| `profile`    | A [profile](./../config/profiles.md) of the config to apply, as `--profile`. The options of the call still win over it     |
 | `dryRun`     | Write nothing, as `--dry-run`                                                                                              |
 | `logLevel`   | As `--log-level`                                                                                                           |
 | `groups`     | Only these [version groups](./../guide/version-groups.md), as `--group` (an array of names), for the commands of `--group` |

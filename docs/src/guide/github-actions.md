@@ -72,20 +72,21 @@ jobs:
 - **Relizy**: the version of your `package.json`, else the version of the action (`relizy-version` forces one).
 - **Release**: `relizy release --yes`, with the release type, the tokens and the `args` you give, and the [outputs](#outputs-and-summary) of the release.
 
-| Input                                                                                              | Default                                | Description                                                                                               |
-| -------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| `release-type`                                                                                     | `auto`                                 | `auto` (follows the commits), `patch`, `minor`, `major`, `prerelease`, `prepatch`, `preminor`, `premajor` |
-| `args`                                                                                             |                                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--config standalone`, `--dry-run`        |
-| `github-token`                                                                                     | <code v-pre>${{ github.token }}</code> | GitHub releases, push and PR comment                                                                      |
-| `npm-token`                                                                                        |                                        | npm publishing, not needed with trusted publishing                                                        |
-| `slack-token`, `teams-webhook-url`                                                                 |                                        | [Slack posts, Teams cards](./social-media.md)                                                             |
-| `twitter-api-key`, `twitter-api-key-secret`, `twitter-access-token`, `twitter-access-token-secret` |                                        | [Twitter posts](./social-media.md)                                                                        |
-| `claude-code-oauth-token`, `anthropic-api-key`                                                     |                                        | [AI rewrites](./ai-changelog.md)                                                                          |
-| `setup`                                                                                            | `true`                                 | Set up Node.js and the package manager, install the dependencies                                          |
-| `package-manager`                                                                                  | from the lockfile                      | `npm`, `pnpm`, `yarn` or `bun`                                                                            |
-| `node-version`                                                                                     | `.nvmrc`, else `lts/*`                 | Node version                                                                                              |
-| `relizy-version`                                                                                   | the one of the project                 | Version of relizy, else the one of the action                                                             |
-| `working-directory`                                                                                | `.`                                    | Directory of the project                                                                                  |
+| Input                                                                                              | Default                                | Description                                                                                                           |
+| -------------------------------------------------------------------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
+| `release-type`                                                                                     | `auto`                                 | `auto` (follows the commits), `patch`, `minor`, `major`, `prerelease`, `prepatch`, `preminor`, `premajor`             |
+| `profile`                                                                                          |                                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...): `profile: beta` is `--profile beta` |
+| `args`                                                                                             |                                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--config standalone`, `--dry-run`                    |
+| `github-token`                                                                                     | <code v-pre>${{ github.token }}</code> | GitHub releases, push and PR comment                                                                                  |
+| `npm-token`                                                                                        |                                        | npm publishing, not needed with trusted publishing                                                                    |
+| `slack-token`, `teams-webhook-url`                                                                 |                                        | [Slack posts, Teams cards](./social-media.md)                                                                         |
+| `twitter-api-key`, `twitter-api-key-secret`, `twitter-access-token`, `twitter-access-token-secret` |                                        | [Twitter posts](./social-media.md)                                                                                    |
+| `claude-code-oauth-token`, `anthropic-api-key`                                                     |                                        | [AI rewrites](./ai-changelog.md)                                                                                      |
+| `setup`                                                                                            | `true`                                 | Set up Node.js and the package manager, install the dependencies                                                      |
+| `package-manager`                                                                                  | from the lockfile                      | `npm`, `pnpm`, `yarn` or `bun`                                                                                        |
+| `node-version`                                                                                     | `.nvmrc`, else `lts/*`                 | Node version                                                                                                          |
+| `relizy-version`                                                                                   | the one of the project                 | Version of relizy, else the one of the action                                                                         |
+| `working-directory`                                                                                | `.`                                    | Directory of the project                                                                                              |
 
 `relizy/action@v2` follows the latest relizy 2, `relizy/action@v2.3.0` stays on a version. The other variables of the step (`env:`) reach relizy too: `RELIZY_GITHUB_TOKEN`, `RELIZY_SLACK_WEBHOOK_URL`...
 
@@ -257,6 +258,8 @@ jobs:
           args: --canary --pr-number ${{ github.event.pull_request.number }}
           npm-token: ${{ secrets.NPM_TOKEN }}
 ```
+
+With a `canary` [profile](./../config/profiles.md) (`release: { canary: true }`), the same step is `profile: canary`.
 
 ### Release When a Pull Request Is Merged
 

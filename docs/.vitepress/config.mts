@@ -90,6 +90,7 @@ const configSidebar = [
       { text: 'Bump', link: '/config/bump' },
       { text: 'Changelog', link: '/config/changelog' },
       { text: 'Publish', link: '/config/publish' },
+      { text: 'Profiles', link: '/config/profiles' },
       { text: 'Templates', link: '/config/commit-templates' },
       { text: 'Hooks', link: '/config/hooks' },
       { text: 'AI', link: '/config/ai' },

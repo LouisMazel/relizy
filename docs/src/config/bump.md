@@ -39,6 +39,14 @@ export default defineConfig({
 
 Prerelease identifier (`alpha`, `beta`, `rc`) of the `pre*` types. It needs a prerelease type: `release` with a `preid` is an error. It does not set the npm dist-tag (see [`publish.tag`](./publish.md#tag)). For canary versions, see [Canary Releases](./../guide/prereleases.md#canary-releases).
 
+## suffix
+
+- **Type:** `string`
+- **Default:** none
+- **CLI:** `--suffix <suffix>`
+
+Custom suffix of the prerelease versions: replaces the last `.X` with `.suffix` (`1.0.0-beta.0` gives `1.0.0-beta.suffix`). A [profile](./profiles.md) can set it.
+
 ## clean
 
 - **Type:** `boolean`

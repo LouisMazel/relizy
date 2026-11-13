@@ -18,13 +18,47 @@ function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRe
 
 ## Options
 
-| Option       | Description                                                                                                                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`. Default: `'relizy'`                                           |
-| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory |
-| `baseConfig` | A `ResolvedRelizyConfig`, merged under the overrides and over the config file and the defaults: the file is still read                                      |
+| Option       | Description                                                                                                                                                                                      |
+| ------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`. Default: `'relizy'`                                                                                |
+| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory                                      |
+| `profile`    | Name of a [profile](./../config/profiles.md) of the config, as `--profile`: its options come over the config file and under the `overrides`. Throws `UnknownProfileError` when it is not defined |
+| `baseConfig` | A `ResolvedRelizyConfig`, merged under the overrides and over the config file and the defaults: the file is still read                                                                           |
 
 See [LoadRelizyConfigOptions](./../typedoc/interfaces/LoadRelizyConfigOptions.md) and [ResolvedRelizyConfig](./../typedoc/type-aliases/ResolvedRelizyConfig.md).
+
+## Profiles
+
+The [profiles](./../config/profiles.md) of the config are listed by `listProfiles()`, which takes the resolved config (or a config as written):
+
+```ts
+function listProfiles(config: Pick<RelizyConfig, 'profiles'>): ProfileInfo[]
+
+interface ProfileInfo {
+  name: string
+  description?: string
+  /** True when the profile releases a canary (`release.canary`) */
+  canary: boolean
+  /** The config options the profile sets, over the config file */
+  options: Pick<RelizyConfig, 'bump' | 'changelog' | 'publish' | 'release' | 'social' | 'prComment' | 'ai' | 'safetyCheck'>
+  /** The same options, one entry per leaf */
+  settings: { path: string, value: unknown }[]
+}
+```
+
+```ts
+import { listProfiles, loadRelizyConfig } from 'relizy'
+
+const profiles = listProfiles(await loadRelizyConfig())
+// [{ name: 'beta', description: 'Prerelease for testers', canary: false, options: {...},
+//    settings: [{ path: 'bump.type', value: 'prerelease' }, { path: 'bump.preid', value: 'beta' }, { path: 'publish.tag', value: 'beta' }] }]
+
+// The config the profile resolves to, with the defaults and the config file under it
+const config = await loadRelizyConfig({ profile: 'beta' })
+console.log(config.profile, config.bump.preid, config.publish.tag) // beta beta beta
+```
+
+The precedence is the defaults, the config file, the profile, then the `overrides`. `config.profile` is the name of the profile applied. `UnknownProfileError` has the `profile` asked and the `available` names; the config also fails to load when a profile sets an option a profile cannot set.
 
 ## Examples
 

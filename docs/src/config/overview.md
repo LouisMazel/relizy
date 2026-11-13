@@ -42,6 +42,7 @@ An array of the config replaces the default one instead of being merged with it:
 | `bump`                                                                                                                                           | [Bump](./bump.md)                       |
 | `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                           | [Changelog](./changelog.md)             |
 | `publish`                                                                                                                                        | [Publish](./publish.md)                 |
+| `profiles`                                                                                                                                       | [Profiles](./profiles.md)               |
 | `release`                                                                                                                                        | [Release](./release.md)                 |
 | `templates`                                                                                                                                      | [Templates](./commit-templates.md)      |
 | `ai`                                                                                                                                             | [AI](./ai.md)                           |
