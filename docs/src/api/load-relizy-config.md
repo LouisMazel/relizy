@@ -40,10 +40,13 @@ interface ProfileInfo {
   /** True when the profile releases a canary (`release.canary`) */
   canary: boolean
   /** The config options the profile sets, over the config file, secrets masked */
-  options: Pick<RelizyConfig, 'bump' | 'changelog' | 'publish' | 'release' | 'social' | 'prComment' | 'ai' | 'safetyCheck'>
+  options: ProfileOptions
   /** The same options, one entry per leaf */
   settings: { path: string, value: unknown }[]
 }
+
+/** The sections a profile sets, exported by relizy */
+type ProfileOptions = Pick<RelizyConfig, 'bump' | 'changelog' | 'publish' | 'release' | 'social' | 'prComment' | 'ai' | 'safetyCheck'>
 ```
 
 ```ts
