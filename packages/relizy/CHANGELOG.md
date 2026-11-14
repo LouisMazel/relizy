@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.3.0-beta.2 (2026-11-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.1...v2.3.0-beta.2)
+
+### 🩹 Fixes
+
+- **relizy:** Pin the workspace dependencies of a canary to the exact version ([5478ed8](https://github.com/LouisMazel/relizy/commit/5478ed8))
+
+  A canary published `^2.3.0-0.canary-<sha>` ranges for its workspace dependencies, which also match older canaries (the sha compares as text), so installing a canary could pull an older canary of its dependencies. The workspace ranges of a canary are now published as the exact version, and restored after the release.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.1 (2026-11-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.0...v2.3.0-beta.1)
