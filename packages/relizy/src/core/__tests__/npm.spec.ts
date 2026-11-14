@@ -9,6 +9,7 @@ import { getIndependentTag, isInCI, isPrerelease } from '@relizy/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { RelizyCancelError } from '../errors'
+import { runWithEvents } from '../events'
 import { determinePublishTag, getAuthCommand, publishPackage } from '../npm'
 import { detectPackageManager, getNpmRegistry, resolveRegistryTargetsForPackage, withRegistryNpmrc } from '../npm-registry'
 import { askText } from '../prompts'
@@ -1122,13 +1123,14 @@ describe('Given publishPackage function', () => {
         .mockRejectedValueOnce(new Error('OTP required'))
         .mockResolvedValueOnce({ stdout: '', stderr: '' })
 
-      await publishPackage({
+      const statuses = await publishPackage({
         pkg,
         config,
         packageManager: 'npm',
         dryRun: false,
       })
 
+      expect(statuses).toEqual(['published'])
       expect(askText).toHaveBeenCalled()
       expect(execPromise).toHaveBeenCalledTimes(2)
     })
@@ -1300,7 +1302,7 @@ describe('Given publishPackage function', () => {
         config,
         packageManager: 'npm',
         dryRun: false,
-      })).resolves.toBeUndefined()
+      })).resolves.toEqual(['skipped'])
 
       expect(loggerWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('version already exists on the registry'),
@@ -1336,7 +1338,7 @@ describe('Given publishPackage function', () => {
         config,
         packageManager: 'npm',
         dryRun: false,
-      })).resolves.toBeUndefined()
+      })).resolves.toEqual(['skipped'])
 
       expect(execPromise).not.toHaveBeenCalledWith(
         expect.stringContaining('publish'),
@@ -1878,6 +1880,87 @@ describe('Given publishPackage function', () => {
 
       expect(execPromise).toHaveBeenNthCalledWith(1, expect.stringContaining('--tag canary'), expect.any(Object))
       expect(execPromise).toHaveBeenNthCalledWith(2, expect.stringContaining('--tag beta'), expect.any(Object))
+    })
+  })
+
+  describe('When the registry asks for an OTP and the application gives it with onOtp', () => {
+    function publishWithOtp(onOtp: (request: { registry: string, packageName?: string }) => string | Promise<string>) {
+      return runWithEvents(undefined, () => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }), { onOtp })
+    }
+
+    beforeEach(() => {
+      config.publish.registry = 'https://otp-app.internal/'
+      config.publish.registries = undefined
+    })
+
+    it('Then asks the application with the registry and the package, instead of the prompt, and retries with it', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      const onOtp = vi.fn().mockResolvedValue('424242')
+      vi.mocked(execPromise)
+        .mockRejectedValueOnce(new Error('OTP required'))
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+      await publishWithOtp(onOtp)
+
+      expect(onOtp).toHaveBeenCalledWith({ registry: 'https://otp-app.internal/', packageName: pkg.name })
+      expect(askText).not.toHaveBeenCalled()
+      expect(vi.mocked(execPromise).mock.calls[1]![0]).toContain('--otp 424242')
+    })
+
+    it('Then asks the application in CI too', async () => {
+      vi.mocked(isInCI).mockReturnValue(true)
+      const onOtp = vi.fn().mockResolvedValue('111111')
+      vi.mocked(execPromise)
+        .mockRejectedValueOnce(new Error('OTP required'))
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+      await publishWithOtp(onOtp)
+
+      expect(onOtp).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then accepts a password given synchronously', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      vi.mocked(execPromise)
+        .mockRejectedValueOnce(new Error('OTP required'))
+        .mockResolvedValueOnce({ stdout: '', stderr: '' })
+
+      await publishWithOtp(() => ' 333333 ')
+
+      expect(vi.mocked(execPromise).mock.calls[1]![0]).toContain('--otp 333333')
+    })
+
+    it.each([
+      ['an empty password', ''],
+      ['blank password', '   '],
+      ['no password', undefined],
+    ])('Then %s cancels the publish', async (_, otp) => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('OTP required'))
+
+      const error = await publishWithOtp(() => otp as string).catch((caught: unknown) => caught)
+
+      expect(error).toBeInstanceOf(RelizyCancelError)
+      expect((error as Error).message).toBe(`No one-time password given for ${pkg.name}: publish cancelled`)
+      expect(execPromise).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then gives the registry of the npmrc when the config sets none', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      config.publish.registry = undefined
+      const onOtp = vi.fn().mockRejectedValue(new Error('No OTP'))
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('OTP required'))
+
+      await expect(publishWithOtp(onOtp)).rejects.toThrow('No OTP')
+      expect(onOtp).toHaveBeenCalledWith({
+        registry: expect.any(String),
+        packageName: pkg.name,
+      })
     })
   })
 

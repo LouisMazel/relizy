@@ -59,7 +59,8 @@ jobs:
       - uses: relizy/action@v2
         with:
           merge-preview: true
-          # The release-type of the release job, and its options that change the release, e.g.:
+          # The release-type and the profile of the release job, and its options that change the release, e.g.:
+          # profile: beta
           # args: --config web
 ```
 
@@ -74,9 +75,12 @@ include:
   - component: gitlab.com/relizy/relizy/release@2
   - component: gitlab.com/relizy/relizy/merge-preview@2
     inputs:
-      # The release-type of the release job, and its options that change the release, e.g.:
+      # The release-type and the profile of the release job, and its options that change the release, e.g.:
+      profile: beta
       args: --config web
 ```
+
+Give the merge preview the [profile](./../config/profiles.md) of the release job (`profile` input of the action and of the component, `--profile` of the CLI, relizy 2.3.0 or later): it previews the versions and the dist-tag of that profile, and a canary profile previews a canary version (`canary: true` in the report).
 
 The comment and the commit status need `GITLAB_TOKEN` (an access token with the `api` scope): the `CI_JOB_TOKEN` of the job can do neither. When the merge request is behind its target branch (a pipeline that is not a merged results one), the target branch is merged into the clone of the job before the preview.
 

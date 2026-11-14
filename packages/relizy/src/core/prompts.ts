@@ -19,6 +19,11 @@ export function assertInteractivePrompt({ message, whenNotInteractive }: {
    */
   whenNotInteractive: string
 }): void {
+  // Stdout only carries the events of `RELIZY_REPORTER=json`: the prompt would write in them
+  if (process.env.RELIZY_REPORTER === 'json') {
+    throw new Error(`"${message}" needs an answer, but RELIZY_REPORTER=json keeps stdout for the events: ${whenNotInteractive}`)
+  }
+
   if (process.stdin.isTTY) {
     return
   }

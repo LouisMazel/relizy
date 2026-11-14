@@ -1,9 +1,9 @@
 import type { BumpResult, BumpResultTruthy, GroupBumpResult, VersionGroup, VersionMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { GLOB_IGNORE } from '@relizy/core'
+import { getPosixRelativePath, GLOB_IGNORE } from '@relizy/core'
 import fastGlob from 'fast-glob'
 
 const VERSION_MODES: VersionMode[] = ['unified', 'selective', 'independent']
@@ -135,7 +135,7 @@ function globDirectories(cwd: string, patterns: string[]): string[] {
 }
 
 function toPosixRelative(cwd: string, absolutePath: string): string {
-  return relative(cwd, absolutePath).split(sep).join('/')
+  return getPosixRelativePath(cwd, absolutePath)
 }
 
 /**

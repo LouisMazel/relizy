@@ -1,7 +1,10 @@
 import type { SpinnerResult } from '@clack/prompts'
 import type { BumpResult, PackageBase } from '../types'
+import type { RelizyEventInput, StepData } from './events'
+import type { LogReporter } from './log-capture'
 import type { Preview, ProgressOptions } from './progress'
 import type { ReleaseReport, ReleaseSummaryEntry } from './release-report'
+import type { CommandStepId } from './steps'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import process from 'node:process'
@@ -11,7 +14,9 @@ import { logger } from '@maz-ui/node'
 import { formatDuration, isInCI } from '@relizy/core'
 import * as semver from 'semver'
 import { setBumpConfirmation } from './bump-prompt'
-import { markErrorReported, RelizyCancelError } from './errors'
+import { isRelizyCancelError, markErrorReported, RelizyCancelError } from './errors'
+import { addGlobalEventListener, emitEvent, getEventContext } from './events'
+import { setLogReporters } from './log-capture'
 import { reportProgress, setProgressHandlers } from './progress'
 import { assertInteractivePrompt, BUMP_NOT_INTERACTIVE } from './prompts'
 import { formatReleaseReportText, getReleaseName, getReleaseSummary } from './release-report'
@@ -25,20 +30,19 @@ import { formatReleaseReportText, getReleaseName, getReleaseSummary } from './re
  * - `ci`: lines only (no cursor move), the logs of each step in a
  *   collapsible group of GitHub Actions or GitLab CI, the result after it
  * - `classic`: the logs of the logger, for the programmatic API
+ * - `json`: one JSON event per line on stdout (`RELIZY_REPORTER=json`), see `events.ts`
  *
  * A command run by another one (`bump` in `release`) shows its steps as the
  * progress of the running step.
  */
 
-type Renderer = 'pretty' | 'ci' | 'classic'
+type Renderer = 'pretty' | 'ci' | 'classic' | 'json'
 type CiProvider = 'github' | 'gitlab' | 'other'
 
 interface CapturedLog {
   type: string
   message: string
 }
-
-interface Reporter { log: (logObj: { type: string, args: unknown[] }) => void }
 
 const VERBOSE_LEVELS = new Set(['verbose', 'debug', 'trace'])
 const INFO_TYPES = new Set([
@@ -171,17 +175,33 @@ let cliUi = false
  */
 export function enableCliUi(): void {
   cliUi = true
+
+  if (process.env.RELIZY_REPORTER === 'json') {
+    redirectLogsToStderr()
+  }
+}
+
+/** Stdout only carries the JSON events: the logs before the output starts go to stderr */
+function redirectLogsToStderr(): void {
+  setLogReporters([
+    {
+      log: ({ args }) => {
+        process.stderr.write(`${stripVTControlCharacters(format(...args))}\n`)
+      },
+    },
+  ])
+  Object.assign(console, { log: console.error, info: console.error, debug: console.error })
 }
 
 /**
- * `RELIZY_REPORTER` (`pretty`, `ci`, `classic`) when set, else `classic` out
+ * `RELIZY_REPORTER` (`pretty`, `ci`, `classic`, `json`) when set, else `classic` out
  * of the CLI, else `ci` in CI (checked first: some runners fake a terminal),
  * else `pretty` in a terminal
  */
 function resolveRenderer(): Renderer {
   const forced = process.env.RELIZY_REPORTER
 
-  if (forced === 'pretty' || forced === 'ci' || forced === 'classic') {
+  if (forced === 'pretty' || forced === 'ci' || forced === 'classic' || forced === 'json') {
     return forced
   }
 
@@ -199,6 +219,10 @@ export function isFancyUi(): boolean {
 }
 
 export interface ReleaseStep<T> {
+  /**
+   * The step as the events and the hooks name it: `bump`, `publish`, `commit-and-tag`...
+   */
+  name?: CommandStepId
   /**
    * Lines of the box of the classic output, none when the step prints its own
    */
@@ -219,6 +243,14 @@ export interface ReleaseStep<T> {
    * The step did not stop the release but failed (a provider release, a post)
    */
   failed?: (result: T) => boolean
+  /**
+   * What the step did as data, the `data` of its `step:done` (or `step:failed`) event
+   */
+  data?: (result: T) => StepData
+  /**
+   * What the step did before failing, the `data` of its `step:failed` event
+   */
+  failedData?: (error: unknown) => StepData | undefined
   run: () => Promise<T>
 }
 
@@ -266,9 +298,10 @@ export interface CommandOutcome {
 }
 
 export interface ReleaseUi {
-  start: (title: string) => void
+  /** `title`: what the output shows (`relizy release --profile beta`), `command`: the command run (`release`) */
+  start: (title: string, command: string) => void
   step: <T>(step: ReleaseStep<T>) => Promise<T>
-  skip: (step: { title: string, label: string, reason: string }) => void
+  skip: (step: { name?: CommandStepId, title: string, label: string, reason: string }) => void
   /**
    * End of `release`, with its summary
    */
@@ -347,8 +380,7 @@ abstract class StepUi implements ReleaseUi {
   protected previews: Preview[] = []
   protected readonly startedAt = Date.now()
   protected currentStep = ''
-  private originalReporters: Reporter[] = []
-  private reporters: Reporter[] = []
+  private restoreReporters: (() => void) | undefined
   private originalSetLevel: typeof logger.setLevel | undefined
   private requestedLevel: Parameters<typeof logger.setLevel>[0] = 'default'
   private readonly logFile: string
@@ -359,7 +391,7 @@ abstract class StepUi implements ReleaseUi {
     this.logFile = join(options.cwd, 'node_modules/.cache/relizy/release.log')
   }
 
-  private readonly reporter: Reporter = {
+  private readonly reporter: LogReporter = {
     log: (logObj) => {
       const message = stripVTControlCharacters(format(...logObj.args)).trim()
 
@@ -371,6 +403,7 @@ abstract class StepUi implements ReleaseUi {
 
       if (logObj.type !== 'debug' && logObj.type !== 'trace' && logObj.type !== 'verbose') {
         this.logs.push({ type: logObj.type, message })
+        emitEvent({ type: 'log', level: logObj.type, message })
         this.onLog({ type: logObj.type, message })
       }
     },
@@ -394,8 +427,8 @@ abstract class StepUi implements ReleaseUi {
     return relative(this.options.cwd, this.logFile)
   }
 
-  start(title: string): void {
-    this.command = title.split(' ')[1] ?? ''
+  start(title: string, command: string): void {
+    this.command = command
     setActiveUi(this)
 
     try {
@@ -404,10 +437,7 @@ abstract class StepUi implements ReleaseUi {
     }
     catch {}
 
-    // Removing a reporter that is not registered returns the consola instance, and its reporters
-    this.reporters = ((logger.removeReporter as unknown as (reporter: unknown) => { options: { reporters: Reporter[] } })({})).options.reporters
-    this.originalReporters = this.reporters.splice(0)
-    this.reporters.push(this.reporter)
+    this.restoreReporters = setLogReporters([this.reporter])
     // Every log goes to the log file, the renderer filters what it shows: the
     // level asked meanwhile (the config of each step sets it) applies afterwards
     this.originalSetLevel = logger.setLevel
@@ -419,7 +449,8 @@ abstract class StepUi implements ReleaseUi {
   }
 
   protected restore(): void {
-    this.reporters.splice(0, this.reporters.length, ...this.originalReporters)
+    this.restoreReporters?.()
+    this.restoreReporters = undefined
 
     if (this.originalSetLevel) {
       logger.setLevel = this.originalSetLevel
@@ -1069,17 +1100,190 @@ class CiUi extends StepUi {
 }
 
 /**
+ * The output of `RELIZY_REPORTER=json`: nothing is shown, stdout carries the
+ * events of the command (`events.ts`), one JSON object per line. The logs are
+ * the `log` events, a prompt cannot be answered (run with `--yes`).
+ */
+class JsonUi extends StepUi {
+  private stopWriting: (() => void) | undefined
+
+  protected override restore(): void {
+    this.stopWriting?.()
+    this.stopWriting = undefined
+    super.restore()
+  }
+
+  progress(): void {}
+  skip(): void {}
+
+  finish(): void {
+    this.restore()
+  }
+
+  complete(): void {
+    this.restore()
+  }
+
+  prompt<T>(run: () => Promise<T>): Promise<T> {
+    return run()
+  }
+
+  protected onStart(): void {
+    this.stopWriting = addGlobalEventListener((event) => {
+      try {
+        process.stdout.write(`${JSON.stringify(event)}\n`)
+      }
+      catch {}
+    })
+  }
+
+  protected onLog(): void {}
+  protected onStepStart(): void {}
+  protected onStepDone(): void {}
+  protected onStepFailed(): void {}
+  protected onStepCancelled(): void {}
+  protected onFail(): void {}
+}
+
+/**
  * The output of a command, started: `relizy bump`. The output of the parent
  * when the command is run by another one.
  */
-export function createCommandUi({ title, dryRun, logLevel, cwd }: { title: string, dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
-  if (activeUi) {
+export function createCommandUi({ command, title, dryRun, logLevel, cwd }: {
+  /** The command run: `release`, `bump`, `merge-preview` */
+  command: string
+  /** What the output shows: `relizy release --profile beta` */
+  title: string
+  dryRun: boolean
+  logLevel?: string
+  cwd: string
+}): ReleaseUi {
+  if (activeUi || getEventContext()?.nested) {
     return nestedUi
   }
 
-  const ui = createReleaseUi({ dryRun, logLevel, cwd })
-  ui.start(title)
+  const ui = withEvents(createReleaseUi({ dryRun, logLevel, cwd }), dryRun)
+  ui.start(title, command)
   return ui
+}
+
+/** The `data` of a step event, when the step gives some */
+function withData(data: StepData | undefined): { data?: StepData } {
+  return data
+    ? { data }
+    : {}
+}
+
+/**
+ * The events of a command (`events.ts`) from what its output shows: its start, each step, its end.
+ * The end is emitted before the output closes, the JSON output stops writing then.
+ */
+function withEvents(ui: ReleaseUi, dryRun: boolean): ReleaseUi {
+  let commandStartedAt = Date.now()
+  const prompt = (ui as { prompt?: (run: () => Promise<unknown>) => Promise<unknown> }).prompt?.bind(ui)
+
+  return {
+    ...prompt
+      ? { prompt }
+      : {},
+    start: (title, command) => {
+      commandStartedAt = Date.now()
+      ui.start(title, command)
+      emitEvent({
+        type: 'command:start',
+        command,
+        title,
+        dryRun,
+      })
+    },
+    step: async (step) => {
+      const startedAt = Date.now()
+      emitEvent({ type: 'step:start', step: step.name, label: step.running })
+
+      try {
+        const result = await ui.step(step)
+        const durationMs = Date.now() - startedAt
+        const data = withData(step.data?.(result))
+
+        emitEvent((step.failed?.(result)
+          ? {
+              type: 'step:failed',
+              step: step.name,
+              label: step.running,
+              fatal: false,
+              durationMs,
+              message: step.done(result),
+              cancelled: false,
+              ...data,
+            }
+          : {
+              type: 'step:done',
+              step: step.name,
+              label: step.running,
+              message: step.done(result),
+              durationMs,
+              details: step.details?.(result) ?? [],
+              ...data,
+            }) as RelizyEventInput)
+
+        return result
+      }
+      catch (error) {
+        emitEvent({
+          type: 'step:failed',
+          step: step.name,
+          label: step.running,
+          fatal: true,
+          durationMs: Date.now() - startedAt,
+          message: error instanceof Error
+            ? error.message
+            : String(error),
+          cancelled: error instanceof RelizyCancelError,
+          ...withData(step.failedData?.(error)),
+        } as RelizyEventInput)
+        throw error
+      }
+    },
+    skip: (step) => {
+      emitEvent({
+        type: 'step:skipped',
+        step: step.name,
+        label: step.label,
+        reason: step.reason,
+      })
+      ui.skip(step)
+    },
+    finish: (report) => {
+      emitEvent({ type: 'release:finish', report })
+      ui.finish(report)
+    },
+    complete: (outcome) => {
+      emitEvent({
+        type: 'command:complete',
+        message: outcome.message,
+        nothing: outcome.nothing ?? false,
+        failed: outcome.failed ?? false,
+        warnings: outcome.warnings ?? [],
+        links: outcome.links ?? [],
+        durationMs: Date.now() - commandStartedAt,
+      })
+      ui.complete(outcome)
+    },
+    fail: (error, failedStep, report) => {
+      emitEvent({
+        type: 'command:error',
+        message: error instanceof Error
+          ? error.message
+          : String(error),
+        failedStep,
+        cancelled: isRelizyCancelError(error),
+        ...report
+          ? { report }
+          : {},
+      })
+      ui.fail(error, failedStep, report)
+    },
+  }
 }
 
 function createReleaseUi({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?: string, cwd: string }): ReleaseUi {
@@ -1092,6 +1296,10 @@ function createReleaseUi({ dryRun, logLevel, cwd }: { dryRun: boolean, logLevel?
 
   if (renderer === 'pretty') {
     return new PrettyUi(options)
+  }
+
+  if (renderer === 'json') {
+    return new JsonUi(options)
   }
 
   return renderer === 'ci'

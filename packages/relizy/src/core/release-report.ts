@@ -1,7 +1,8 @@
 import type { ReleaseReportConfig } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import type { MergePreviewProblem, MergePreviewSquashMode } from './merge-preview'
+import type { MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './merge-preview'
 import type { ReleaseOverview } from './release-overview'
+import type { PreviewChangelog } from './release-preview'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -129,7 +130,8 @@ export interface ReleaseReport {
 
 export interface ReleaseMergePreview {
   /**
-   * Number of the pull/merge request, none outside a pull request pipeline
+   * Number of the pull/merge request, none outside a pull request pipeline. The same as
+   * `pullRequestDetails.number`, which also has its branches, its kind and how the merge was computed
    */
   pullRequest?: number
   /**
@@ -145,6 +147,40 @@ export interface ReleaseMergePreview {
    * The comment of the pull request and the summary of the CI job
    */
   markdown: string
+  /**
+   * The pull/merge request detected from the CI job (its `number` is `pullRequest`), and how the
+   * merge was computed. None outside a pull request pipeline
+   */
+  pullRequestDetails?: MergePreviewPullRequest & {
+    /** HEAD holds the target branch: the preview is the release of the merge */
+    merged: boolean
+    /** Why HEAD does not hold the target branch */
+    warning?: string
+  }
+  /**
+   * Branch the release runs on: the target branch, the current one outside a pull request
+   */
+  branch: string
+  /**
+   * The released packages, with their versions, their reason and their commits (from the pull request or the target branch)
+   */
+  packages: MergePreviewPackage[]
+  /**
+   * The packages a squash merge would release, when the merge method is unknown and the squash releases other versions
+   */
+  squashPackages?: MergePreviewPackage[]
+  /**
+   * The release publishes the packages, with this dist-tag
+   */
+  publish: { enabled: boolean, distTag: string }
+  /**
+   * The changelog entries of the release, with the `changelog` option
+   */
+  changelogs?: PreviewChangelog[]
+  /**
+   * The pull request was commented (`comment`), and its commit status set (`check`)
+   */
+  posted: { comment: boolean, status: boolean }
 }
 
 const STEP_LABELS: Record<ReleaseStepName, string> = {
@@ -626,7 +662,7 @@ function writeFile(path: string, content: string): void {
  * Write the report where it is expected: the outputs and the summary of the
  * GitHub Actions run (`release.report.github`), and the files of
  * `release.report.json` and `release.report.dotenv`. Written in dry-run too,
- * where `released` is `false`.
+ * where `released` is `false`, and by a merge preview only computed (nothing posted).
  */
 export function writeReleaseReport({ config, report }: { config: ResolvedRelizyConfig, report: ReleaseReport }): void {
   const reportConfig: ReleaseReportConfig = config.release.report ?? {}

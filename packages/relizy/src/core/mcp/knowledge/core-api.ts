@@ -69,6 +69,7 @@ const MODULE_DOMAINS: Record<string, string> = {
   'peers': 'packages',
   'catalogs': 'packages',
   'glob': 'packages',
+  'paths': 'packages',
   'version': 'versions',
   'tags': 'tags',
   'rewritten-tags': 'tags',

@@ -1021,6 +1021,46 @@ describe('Given bump command', () => {
       expect(writeVersion).toHaveBeenCalledTimes(2)
     })
 
+    it('Then bumps a canary when the config asks for it (release.canary, e.g. from a profile)', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
+        cwd: mockCwd,
+        bump: { type: 'release', yes: true },
+        release: { clean: false, canary: true },
+        monorepo: {
+          versionMode: 'selective',
+          packages: ['packages/*'],
+        },
+        types: {
+          feat: { title: 'Features', semver: 'minor' },
+        },
+        templates: { tagBody: 'v{{newVersion}}' },
+        logLevel: 'default',
+      } as unknown as ResolvedRelizyConfig)
+      vi.mocked(getPackages).mockResolvedValueOnce([
+        {
+          name: 'pkg-a',
+          version: '1.0.0',
+          path: `${mockCwd}/packages/pkg-a`,
+          newVersion: '1.1.0',
+          reason: 'commits',
+          commits: [
+            createMockCommit('feat', 'add feature'),
+          ],
+          fromTag: 'v1.0.0',
+          dependencies: [],
+          private: false,
+        },
+      ])
+      vi.mocked(determineSemverChange).mockReturnValueOnce('minor')
+      vi.mocked(getShortCommitSha).mockReturnValueOnce('abc1234')
+      vi.mocked(getCanaryVersion).mockReturnValueOnce('1.1.0-0.canary-abc1234')
+
+      const result = await bump({ yes: true, profile: 'canary' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({ profile: 'canary' }))
+      expect(result.bumped && result.newVersion).toBe('1.1.0-0.canary-abc1234')
+    })
+
     it('Then uses custom preid when provided', async () => {
       vi.mocked(loadRelizyConfig).mockResolvedValueOnce({
         cwd: mockCwd,

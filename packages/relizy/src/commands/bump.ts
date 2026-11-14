@@ -1,11 +1,15 @@
 import type { VersionChange } from '@relizy/core'
 import type { ResolvedRelizyConfig, ResolvedVersionGroup, RootPackage } from '../core'
-import type { BumpOptions, BumpResult, BumpResultTruthy, PackageBase, SemverBumpType, VersionGroup } from '../types'
-
+import type { BumpOptions, BumpResult, BumpResultTruthy, ConfirmPlan, ConfirmPlanPackage, PackageBase, SemverBumpType, VersionGroup } from '../types'
 import { logger } from '@maz-ui/node'
-import { capReleaseTypeForZeroMajor, checkGitStatusIfDirty, determineReleaseType, determineSemverChange, fetchGitTags, getCanaryVersion, getCIName, getDependencyReleaseType, getOutOfRangePeers, getPackageDependencies, getPackageNewVersion, getShortCommitSha, isBreakingVersionChange, withGitCache } from '@relizy/core'
+
+import { capReleaseTypeForZeroMajor, checkGitStatusIfDirty, determineReleaseType, determineSemverChange, fetchGitTags, formatRepoTag, getCanaryVersion, getCIName, getDependencyReleaseType, getIndependentTag, getOutOfRangePeers, getPackageDependencies, getPackageNewVersion, getShortCommitSha, isBreakingVersionChange, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
+import { RelizyCancelError } from '../core/errors'
+import { getAppHandlers, runWithEvents } from '../core/events'
+import { relativePath } from '../core/package-sets'
+import { getBumpStepData } from '../core/step-data'
 import { runCommand } from './run-command'
 
 interface BumpStrategyInput {
@@ -37,6 +41,9 @@ export interface BumpPlan {
   display?: () => void
   write?: () => void
 }
+
+/** A plan that bumps */
+type BumpedPlan = BumpPlan & { result: BumpResultTruthy }
 
 const NOT_BUMPED: BumpPlan = {
   result: { bumped: false },
@@ -835,15 +842,52 @@ function planBump({
 }
 
 /**
- * Display the plans and ask once for their confirmation (unless `bump.yes`),
- * then write them: a refused confirmation leaves every file untouched.
+ * The packages of the plans, as the application validating them gets them
+ */
+function getConfirmPlanPackages({ plans, config, command }: { plans: BumpedPlan[], config: ResolvedRelizyConfig, command: ConfirmPlan['command'] }): ConfirmPlanPackage[] {
+  // `relizy bump` creates no tag, the release only with its release commit and `release.gitTag`
+  const tagged = command === 'release' && Boolean(config.release.commit && config.release.gitTag)
+
+  return plans.flatMap(({ result, group }) => {
+    const independent = (group?.versionMode ?? config.monorepo?.versionMode) === 'independent'
+
+    return result.bumpedPackages.map((pkg) => {
+      // Set on every bumped package, and on the result of a unified/selective bump
+      const newVersion = pkg.newVersion!
+      const tag = independent
+        ? getIndependentTag({ name: pkg.name, version: newVersion })
+        : formatRepoTag(config.templates.tagBody, result.newVersion!)
+
+      return {
+        name: pkg.name,
+        path: relativePath(config.cwd, pkg.path),
+        private: pkg.private,
+        oldVersion: pkg.oldVersion,
+        newVersion,
+        ...(tagged
+          ? { tag }
+          : {}),
+        ...(group
+          ? { group: group.name }
+          : {}),
+        reason: pkg.reason,
+      }
+    })
+  })
+}
+
+/**
+ * Display the plans and ask once for their confirmation (unless `bump.yes`):
+ * the `onConfirm` of the application, else the prompt. Then write them: a
+ * refused confirmation leaves every file untouched.
  */
 async function applyBumpPlans({ plans, config, dryRun }: {
   plans: BumpPlan[]
   config: ResolvedRelizyConfig
   dryRun: boolean
 }): Promise<void> {
-  const bumpedPlans = plans.filter(plan => plan.result.bumped)
+  const bumpedPlans = plans.filter((plan): plan is BumpedPlan => plan.result.bumped)
+  const { onConfirm, command = 'bump' } = getAppHandlers()
 
   const display = () => {
     for (const plan of bumpedPlans) {
@@ -859,11 +903,20 @@ async function applyBumpPlans({ plans, config, dryRun }: {
   if (config.bump.yes) {
     display()
   }
+  else if (onConfirm) {
+    if (bumpedPlans.length > 0) {
+      await confirmWithApplication({
+        onConfirm,
+        plans: bumpedPlans,
+        config,
+        dryRun,
+        command,
+      })
+    }
+  }
   else {
     await confirmBump({
-      packages: bumpedPlans.flatMap(plan => plan.result.bumped
-        ? plan.result.bumpedPackages
-        : []),
+      packages: bumpedPlans.flatMap(plan => plan.result.bumpedPackages),
       display,
       dryRun,
     })
@@ -871,6 +924,31 @@ async function applyBumpPlans({ plans, config, dryRun }: {
 
   for (const plan of bumpedPlans) {
     plan.write?.()
+  }
+}
+
+/**
+ * The bump plan validated by the application: refused, the run is cancelled as by a refused prompt
+ */
+async function confirmWithApplication({ onConfirm, plans, config, dryRun, command }: {
+  onConfirm: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  plans: BumpedPlan[]
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  command: ConfirmPlan['command']
+}): Promise<void> {
+  const confirmed = await onConfirm({
+    command,
+    dryRun,
+    ...(config.profile
+      ? { profile: config.profile }
+      : {}),
+    canary: config.release.canary === true,
+    packages: getConfirmPlanPackages({ plans, config, command }),
+  })
+
+  if (!confirmed) {
+    throw new RelizyCancelError('Bump refused')
   }
 }
 
@@ -1155,7 +1233,10 @@ export async function planBumps({
 
 export function bump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runBump(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runBump(options)), {
+    onConfirm: options.onConfirm,
+    command: 'bump',
+  })
 }
 
 function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
@@ -1167,6 +1248,7 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
     options,
     loadConfig: () => loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         bump: {
@@ -1185,10 +1267,10 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
         logLevel: options.logLevel,
       },
     }),
-    // Before preparing the CI clone: fails at once in a CI without --yes
+    // Before preparing the CI clone: fails at once in a CI without --yes, unless the application confirms
     check: config => assertBumpConfirmable({
       command: 'bump',
-      yes: config.bump.yes,
+      yes: config.bump.yes || Boolean(getAppHandlers().onConfirm),
       ciName: getCIName(),
     }),
     run: async ({ config, dryRun, ui }) => {
@@ -1198,9 +1280,11 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
       await executeHook('before:bump', config, dryRun)
 
       const result = await ui.step({
+        name: 'bump',
         running: 'Computing the versions',
         done: describeBumpResult,
-        details: result => getBumpResultDetails(result, config.bump.yes),
+        data: getBumpStepData,
+        details: result => getBumpResultDetails(result, config.bump.yes || Boolean(getAppHandlers().onConfirm)),
         run: async () => {
           logger.start('Start bumping versions')
 
@@ -1220,8 +1304,8 @@ function runBump(options: Partial<BumpOptions> = {}): Promise<BumpResult> {
             config,
             dryRun,
             force,
-            suffix: options.suffix,
-            canary: options.canary ?? false,
+            suffix: options.suffix ?? config.bump.suffix,
+            canary: options.canary ?? config.release.canary ?? false,
             groups: options.groups,
           })
 

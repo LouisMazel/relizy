@@ -212,6 +212,12 @@ describe('Given getDefaultConfig function', () => {
       expect(config.release.clean).toBe(true)
     })
 
+    it('Then releases no canary by default', () => {
+      const config = getDefaultConfig()
+
+      expect(config.release.canary).toBe(false)
+    })
+
     it('Then disables noVerify by default', () => {
       const config = getDefaultConfig()
 

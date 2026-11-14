@@ -1,11 +1,12 @@
 import type { CoreLogger, ReadPackage } from './types'
 import { readFileSync } from 'node:fs'
-import { join, posix, relative, sep } from 'node:path'
+import { join, posix } from 'node:path'
 import * as semver from 'semver'
 import { formatRepoTag } from './format'
 import { runGitSync } from './git-exec'
 import { getCurrentGitRef, getFirstCommit, listTags, parseNameStatus } from './git-refs'
 import { getPackageJsonHistory } from './moved-packages'
+import { getPosixRelativePath } from './paths'
 import { isPrerelease, isTagVersionCompatibleWithCurrent, shouldFilterPrereleaseTags } from './version'
 
 /**
@@ -555,7 +556,7 @@ async function resolveFromTagIndependent({
   const startsAtCurrentVersion = !(onlyStable && isPrerelease(pkg.version))
 
   if (startsAtCurrentVersion && lastPackageTag !== getIndependentTag({ name: pkg.name, version: pkg.version })) {
-    const packagePath = relative(cwd, pkg.path).split(sep).join('/')
+    const packagePath = getPosixRelativePath(cwd, pkg.path)
     const versionCommit = packagePath
       ? findVersionCommit({
           name: pkg.name,

@@ -2,12 +2,11 @@ import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ResolvedRelizyConfig } from '..'
 import type { RelizyConfig } from '../../types'
 
-import { AsyncLocalStorage } from 'node:async_hooks'
 import { readdirSync } from 'node:fs'
 import process from 'node:process'
 import { format, stripVTControlCharacters } from 'node:util'
-import { logger } from '@maz-ui/node'
-import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache } from '..'
+import { loadRelizyConfig, mergeConfig, resetRewrittenTagCache, UnknownProfileError } from '..'
+import { setLogReporters, withLogCapture } from '../log-capture'
 import { ToolInputError } from './tools/types'
 
 /**
@@ -30,13 +29,12 @@ const REPORTED_LOG_TYPES = new Set([
   'fatal',
 ])
 
-const storage = new AsyncLocalStorage<CapturedLog[]>()
 let capturing = false
 
 /**
  * Replace the reporters of the relizy logger (consola writes `info` and `log`
- * to stdout) with a reporter that keeps the logs of the running tool call.
- * Out of a tool call, only the warnings and errors are written, to stderr.
+ * to stdout): the logs of a tool call are kept for its result (`withCapturedLogs`),
+ * out of a tool call only the warnings and errors are written, to stderr.
  */
 export function captureLogs(): void {
   if (capturing) {
@@ -44,21 +42,15 @@ export function captureLogs(): void {
   }
 
   capturing = true
-  // Without a reporter, consola removes all of them
-  ;(logger.removeReporter as (reporter?: unknown) => unknown)()
-  logger.addReporter({
-    log: (logObj: { type: string, args: unknown[] }) => {
-      const message = stripVTControlCharacters(format(...logObj.args)).trim()
-      const logs = storage.getStore()
-
-      if (logs) {
-        logs.push({ type: logObj.type, message })
-      }
-      else if (['warn', 'error', 'fail', 'fatal'].includes(logObj.type)) {
-        process.stderr.write(`[relizy] ${message}\n`)
-      }
+  setLogReporters([
+    {
+      log: (logObj) => {
+        if (['warn', 'error', 'fail', 'fatal'].includes(logObj.type)) {
+          process.stderr.write(`[relizy] ${stripVTControlCharacters(format(...logObj.args)).trim()}\n`)
+        }
+      },
     },
-  })
+  ])
 }
 
 /** The `console` methods writing to stdout write to stderr: a dependency logging with `console.log` would corrupt the protocol */
@@ -68,7 +60,9 @@ export function redirectConsoleToStderr(): void {
 
 export async function withCapturedLogs<T>(run: () => Promise<T>): Promise<{ value: T, logs: CapturedLog[] }> {
   const logs: CapturedLog[] = []
-  const value = await storage.run(logs, run)
+  const value = await withLogCapture(({ type, message }) => {
+    logs.push({ type, message })
+  }, run)
 
   return { value, logs }
 }
@@ -108,16 +102,8 @@ export function listConfigNames(cwd: string): string[] {
   ].sort()
 }
 
-/**
- * Load the relizy config of the project without side effects: no prompt (the
- * rewritten tags use the reachable equivalent commit for this run only) and no
- * hook (the hooks are removed from the resolved config).
- */
-export async function loadProjectConfig({ config, overrides, cwd = process.cwd() }: {
-  config?: string
-  overrides?: DeepPartial<RelizyConfig>
-  cwd?: string
-} = {}): Promise<ResolvedRelizyConfig> {
+/** A config asked by name must exist: the error lists the configs of the project */
+export function assertConfigName({ config, cwd }: { config?: string, cwd: string }): void {
   if (config && !listConfigNames(cwd).includes(config)) {
     const names = listConfigNames(cwd)
 
@@ -127,9 +113,25 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
 
     throw new ToolInputError(`No config "${config}" in ${cwd}. ${available}`)
   }
+}
+
+/**
+ * Load the relizy config of the project without side effects: no prompt (the
+ * rewritten tags use the reachable equivalent commit for this run only) and no
+ * hook (the hooks are removed from the resolved config).
+ */
+export async function loadProjectConfig({ config, profile, overrides, cwd = process.cwd() }: {
+  config?: string
+  /** Profile of `profiles` to apply, as `--profile` */
+  profile?: string
+  overrides?: DeepPartial<RelizyConfig>
+  cwd?: string
+} = {}): Promise<ResolvedRelizyConfig> {
+  assertConfigName({ config, cwd })
 
   const resolved = await loadRelizyConfig({
     configFile: config,
+    profile,
     // The logs are captured for the agent whatever the log level of the project (the debug ones are left out)
     overrides: mergeConfig(overrides, {
       cwd,
@@ -137,6 +139,11 @@ export async function loadProjectConfig({ config, overrides, cwd = process.cwd()
       bump: { yes: true },
       onRewrittenTag: 'ephemeral',
     } satisfies DeepPartial<RelizyConfig>),
+  }).catch((error: unknown) => {
+    // A profile that is not in the config is a wrong argument of the tool
+    throw error instanceof UnknownProfileError
+      ? new ToolInputError(error.message)
+      : error
   })
 
   resolved.hooks = {}

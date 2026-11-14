@@ -26,6 +26,7 @@ export const CONFIG_DOC_IDS: Record<string, string> = {
   bump: 'config/bump',
   changelog: 'config/changelog',
   publish: 'config/publish',
+  profiles: 'config/profiles',
   release: 'config/release',
   social: 'config/social',
   prComment: 'config/pr-comment',

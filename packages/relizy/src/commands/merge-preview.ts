@@ -1,8 +1,10 @@
-import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewResult, MergePreviewSquash, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
+import type { MergePreviewChecks, MergePreviewContext, MergePreviewPlan, MergePreviewResult, MergePreviewSquash, ReleaseMergePreview, ReleaseReport, ReleaseUi, ResolvedRelizyConfig } from '../core'
 import type { MergePreviewConfig, ReleaseOptions } from '../types'
 import { logger } from '@maz-ui/node'
 import { fetchGitTags, getCurrentGitBranch, getPublishTag, plural, prepareCiRepository, tryGitSync, withGitCache } from '@relizy/core'
 import { checkMergePreview, createCommandUi, detectPullRequest, formatMergePreviewMarkdown, getMergePreviewPullRequest, getMergePreviewStatusDescription, getMergePreviewTerminalOutput, markErrorReported, MERGE_PREVIEW_MARKER, planMergePreview, postPrComment, prepareMergePreviewContext, resolveMergePreviewSquash, setMergePreviewStatus, writeReleaseReport } from '../core'
+import { runWithEvents } from '../core/events'
+import { generateBumpChangelogs } from '../core/release-preview'
 import { planBumps } from './bump'
 import { getReleaseConfig } from './release'
 
@@ -12,20 +14,36 @@ import { getReleaseConfig } from './release'
  * outputs of the preview
  */
 export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'preid' | 'suffix' | 'from' | 'to' | 'force' | 'publish' | 'commit' | 'gitTag' | 'providerRelease'
-  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'groups' | 'report'> {
+  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'config' | 'overrides' | 'onProgress' | 'groups' | 'report'> {
   /**
    * Override of `mergePreview.comment` for this run
    */
   comment?: boolean
   /**
-   * Override of `mergePreview.check` for this run
+   * Override of `mergePreview.check` for this run. With `comment: false` too, the preview is
+   * only computed: nothing is posted on the pull request. The report is still written where
+   * `release.report` says (in GitHub Actions: the outputs and the summary of the job, unless
+   * `release.report.github: false`)
    */
   check?: boolean
+  /**
+   * Generate the changelog entries of the release (`mergePreview.changelogs` of the report), without the hooks
+   * @default false
+   */
+  changelog?: boolean
 }
 
 /** Thrown when the release of the merge would fail: the job of the merge preview fails */
 export class MergePreviewError extends Error {
   override name = 'MergePreviewError'
+
+  /** The report of the preview, with the problems (`report.mergePreview.problems`) */
+  report?: ReleaseReport
+
+  constructor(message: string, report?: ReleaseReport) {
+    super(message)
+    this.report = report
+  }
 }
 
 function describeProblems(checks: MergePreviewChecks, context?: MergePreviewContext): string {
@@ -88,6 +106,7 @@ async function computePreview({ config, options, settings, ui }: {
     const pullRequest = getMergePreviewPullRequest()
     if (pullRequest) {
       computed.context = await ui.step({
+        name: 'merge-preview',
         running: `Merging ${pullRequest.targetBranch}, as the merge will`,
         done: result => result.merged
           ? `Computed on ${pullRequest.targetBranch} + this ${pullRequest.kind}`
@@ -113,6 +132,7 @@ async function computePreview({ config, options, settings, ui }: {
 
     const subject = context ? 'The merge' : 'The next release'
     const plan = await ui.step({
+      name: 'merge-preview',
       running: context ? 'Computing the release of the merge' : 'Computing the next release',
       done: result => result.outcome.packages.length > 0
         ? `${subject} releases ${plural(result.outcome.packages.length, 'package')}`
@@ -125,14 +145,21 @@ async function computePreview({ config, options, settings, ui }: {
           config,
           dryRun: true,
           force: options.force,
-          suffix: options.suffix,
+          suffix: options.suffix ?? config.bump.suffix,
+          canary: config.release.canary === true,
           groups: options.groups,
         })).result,
+        ...(options.changelog
+          ? {
+              planChangelogs: result => generateBumpChangelogs({ config, result, groups: options.groups }),
+            }
+          : {}),
       }),
     })
     computed.plan = plan
 
     computed.checks = await ui.step({
+      name: 'merge-preview',
       running: 'Checking what would make the release fail',
       done: result => result.problems.length > 0
         ? `${plural(result.problems.length, 'problem')} would make the release fail`
@@ -182,12 +209,14 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   settings: MergePreviewConfig
   prNumber?: number
   ui: ReleaseUi
-}): Promise<void> {
+}): Promise<ReleaseMergePreview['posted']> {
   const failed = result.checks.problems.length > 0
+  const posted = { comment: false, status: false }
 
   if (settings.comment) {
     const label = getPullRequestLabel(context)
-    await ui.step({
+    posted.comment = await ui.step({
+      name: 'merge-preview',
       running: `Commenting the ${context.pullRequest.kind}`,
       done: posted => posted
         ? `${label} commented`
@@ -203,7 +232,8 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
   }
 
   if (settings.check) {
-    await ui.step({
+    posted.status = await ui.step({
+      name: 'merge-preview',
       running: 'Setting the commit status',
       done: set => set
         ? `Commit status ${failed ? 'failed' : 'success'}`
@@ -217,6 +247,8 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
       }),
     })
   }
+
+  return posted
 }
 
 function getReportStatus(result: MergePreviewResult): ReleaseReport['status'] {
@@ -228,14 +260,15 @@ function getReportStatus(result: MergePreviewResult): ReleaseReport['status'] {
 }
 
 /** The report of the run: nothing released, the merge preview in the summary of the CI job */
-function getReport(result: MergePreviewResult): ReleaseReport {
+function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig, posted: ReleaseMergePreview['posted']): ReleaseReport {
   const { context, plan, checks } = result
 
   return {
     status: getReportStatus(result),
     released: false,
     dryRun: true,
-    canary: false,
+    // The release previewed is a canary one (`release.canary` of a profile)
+    canary: config.release.canary === true,
     release: plan?.outcome.overview,
     version: plan?.outcome.overview?.groups.find(group => group.versionMode !== 'independent')?.version,
     tags: [],
@@ -246,6 +279,27 @@ function getReport(result: MergePreviewResult): ReleaseReport {
       problems: checks.problems,
       warnings: checks.warnings,
       markdown: formatMergePreviewMarkdown(result),
+      ...(context
+        ? {
+            pullRequestDetails: {
+              ...context.pullRequest,
+              merged: context.merged,
+              ...(context.warning
+                ? { warning: context.warning }
+                : {}),
+            },
+          }
+        : {}),
+      branch: result.branch,
+      packages: plan?.outcome.packages ?? [],
+      ...(plan?.squashOutcome
+        ? { squashPackages: plan.squashOutcome.packages }
+        : {}),
+      publish: result.publish,
+      ...(plan?.outcome.changelogs
+        ? { changelogs: plan.outcome.changelogs }
+        : {}),
+      posted,
     },
     ...(checks.problems.length > 0
       ? {
@@ -276,7 +330,7 @@ function getOutcomeMessage(result: MergePreviewResult): string {
  */
 export function mergePreview(options: MergePreviewOptions = {}): Promise<ReleaseReport> {
   // One git cache for the run, as a release
-  return withGitCache(() => runMergePreview(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runMergePreview(options)))
 }
 
 /** The branch of the preview, also in a repository without commit (`git rev-parse` fails there) */
@@ -292,6 +346,7 @@ function getBranch(cwd: string): string {
 async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseReport> {
   const config = await getReleaseConfig(options)
   const ui = createCommandUi({
+    command: 'merge-preview',
     title: 'relizy merge-preview',
     // Not a dry run: nothing is written in the repository, but the comment and the commit status are posted
     dryRun: false,
@@ -330,18 +385,18 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
     branch: context?.pullRequest.targetBranch ?? getBranch(config.cwd),
   }
 
-  if (context) {
-    await postOnPullRequest({
-      config,
-      context,
-      result,
-      settings,
-      prNumber: options.prNumber,
-      ui,
-    })
-  }
+  const posted = context
+    ? await postOnPullRequest({
+        config,
+        context,
+        result,
+        settings,
+        prNumber: options.prNumber,
+        ui,
+      })
+    : { comment: false, status: false }
 
-  const report = getReport(result)
+  const report = getReport(result, config, posted)
   writeReleaseReport({ config, report })
 
   const failed = checks.problems.length > 0
@@ -353,7 +408,7 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
   })
 
   if (failed) {
-    const error = new MergePreviewError(describeProblems(checks, context))
+    const error = new MergePreviewError(describeProblems(checks, context), report)
     // Already shown by the output of the command
     markErrorReported(error)
     throw error

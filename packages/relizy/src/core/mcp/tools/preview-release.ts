@@ -1,107 +1,88 @@
-import type { BumpResult } from '../../../types'
+import type { PreviewSet, ReleasePreview } from '../../release-preview'
 import type { ServerContext } from '../context'
-import type { PackageSet } from './project'
-import type { ReleasePlan, ReleasePlanArgs } from './release-plan'
+import type { ReleasePlanArgs } from './release-plan'
 
 import { z } from 'zod'
-import { getReleaseTagNames } from '../..'
+import { previewRelease as previewNextRelease } from '../../release-preview'
 import { code, codeList, tableCell } from '../markdown'
 import { formatNotes, withCapturedLogs } from '../runtime'
-import { relativePath } from './project'
-import { explainBump, formatCommits, isBumped, planRelease, releasePlanSchema } from './release-plan'
+import { explainBump, formatCommits, releasePlanSchema, toPreviewOptions, toToolError } from './release-plan'
 import { defineTool } from './types'
 
 /** Below the 80,000 characters the server announces for a result, with room for the notes */
 const MAX_PREVIEW_LENGTH = 75_000
 
-/** The steps of `relizy release` after the bump, in its order: it publishes before the release commit */
-const RELEASE_STEPS: [string, string][] = [
-  ['changelog', 'write the changelogs'],
-  ['publish', 'publish to npm'],
-  ['commit', 'commit'],
-  ['gitTag', 'tag'],
-  ['push', 'push'],
-  ['providerRelease', 'create the GitHub/GitLab releases'],
-  ['social', 'post on the social networks'],
-  ['prComment', 'comment the pull request'],
-]
-
-/** The tags and the push need the release commit */
-const COMMIT_STEPS = new Set(['gitTag', 'push'])
+/** What each step of `relizy release` after the bump does, in its order: it publishes before the release commit */
+const STEP_TEXTS: Partial<Record<ReleasePreview['steps'][number]['name'], string>> = {
+  'changelog': 'write the changelogs',
+  'publish': 'publish to npm',
+  'commit-and-tag': 'commit',
+  'push': 'push',
+  'provider-release': 'create the GitHub/GitLab releases',
+  'social': 'post on the social networks',
+  'pr-comment': 'comment the pull request',
+}
 
 /** Steps of `relizy release` after the bump, as configured */
-function releaseSteps(release: object): string {
-  const enabled = (key: string) => (release as Record<string, unknown>)[key] !== false
-
-  return RELEASE_STEPS
-    .filter(([key]) => enabled(key) && (!COMMIT_STEPS.has(key) || enabled('commit')))
-    .map(([, label]) => label)
+function releaseSteps(preview: ReleasePreview): string {
+  return preview.steps
+    .filter(step => step.enabled && STEP_TEXTS[step.name])
+    .map(step => step.name === 'commit-and-tag' && preview.tags.length > 0
+      ? 'commit, tag'
+      : STEP_TEXTS[step.name])
     .join(', ')
 }
 
-function describeSet({ set, result }: { set: PackageSet, result: BumpResult }, plan: ReleasePlan, full: boolean): string[] {
+function describeSet(set: PreviewSet, { full, from }: { full: boolean, from?: string }): string[] {
   const title = set.group
-    ? `## Group ${code(set.group.name)} (${set.versionMode})`
+    ? `## Group ${code(set.group)} (${set.versionMode})`
     : `## ${set.versionMode} mode`
 
-  if (!isBumped(result)) {
+  if (!set.released) {
     const since = set.versionMode === 'independent'
       ? 'the last tag of each package'
-      : (plan.config.from && code(plan.config.from)) || 'the last release tag'
+      : (from && code(from)) || 'the last release tag'
 
     return [title, '', `Nothing to release: none of the commits since ${since} triggers a bump (see the \`types\` of the config), and no dependency was bumped.`]
   }
 
   const lines = [title, '']
-  const commits = result.rootPackage?.commits ?? []
 
-  if (result.newVersion && result.rootPackage) {
-    lines.push(`**Version:** ${result.oldVersion ?? result.rootPackage.version} → ${result.newVersion} (commits since ${code(result.fromTag ?? 'the first commit')})`, '')
+  if (set.newVersion) {
+    lines.push(`**Version:** ${set.oldVersion} → ${set.newVersion} (commits since ${code(set.fromTag ?? 'the first commit')})`, '')
 
-    if (commits.length > 0) {
-      lines.push(`Commits: ${formatCommits(commits, full ? undefined : 10)}`, '')
+    if (set.commits.length > 0) {
+      lines.push(`Commits: ${formatCommits(set.commits, full ? undefined : 10)}`, '')
     }
   }
 
-  if (set.packages.length > 1 || set.versionMode === 'independent' || set.group) {
+  if (set.packages.length + set.notReleased.length > 1 || set.versionMode === 'independent' || set.group) {
     lines.push(
       '| Package | Version | Why |',
       '| --- | --- | --- |',
-      ...result.bumpedPackages.map(pkg => `| ${code(pkg.name)} (${code(relativePath(plan.config.cwd, pkg.path))}) | ${pkg.oldVersion} → ${pkg.newVersion} | ${tableCell(explainBump(pkg, { set, plan, full }))} |`),
+      ...set.packages.map(pkg => `| ${code(pkg.name)} (${code(pkg.path)}) | ${pkg.oldVersion} → ${pkg.newVersion} | ${tableCell(explainBump(pkg, { set, full }))} |`),
       '',
     )
   }
 
-  const bumped = new Set(result.bumpedPackages.map(pkg => pkg.name))
-  const unchanged = set.packages.filter(pkg => !bumped.has(pkg.name)).map(pkg => pkg.name)
-
-  if (unchanged.length > 0 && set.versionMode !== 'unified') {
-    lines.push(`Not released (no relevant commit nor bumped dependency): ${codeList(unchanged)}`, '')
+  if (set.notReleased.length > 0) {
+    lines.push(`Not released (no relevant commit nor bumped dependency): ${codeList(set.notReleased)}`, '')
   }
 
   return lines
 }
 
-function describeNextSteps(plan: ReleasePlan): string[] {
-  const { result } = plan.planned
-
-  if (!isBumped(result)) {
+function describeNextSteps(preview: ReleasePreview): string[] {
+  if (!preview.released) {
     return ['No package would be released. `relizy release` would stop here: add commits whose type bumps (`feat`, `fix`...), or force a type (`type: "patch"` with `force: true`).']
   }
 
-  const tags = getReleaseTagNames({
-    config: plan.config,
-    bumpedPackages: result.bumpedPackages,
-    newVersion: result.newVersion,
-    groups: result.groups,
-  })
-
   return [
-    `**Tags:** ${tags.length > 0
-      ? codeList(tags)
+    `**Tags:** ${preview.tags.length > 0
+      ? codeList(preview.tags)
       : 'none (`release.gitTag` is off)'}`,
     '',
-    `\`relizy release\` would then ${releaseSteps(plan.config.release)}.`,
+    `\`relizy release\` would then ${releaseSteps(preview)}.`,
     '',
     'Next: `preview_changelog` with the same arguments for the changelogs. To release, ask the user first: `relizy release --dry-run` shows every step, then `relizy release` (usually run by the CI).',
   ]
@@ -124,15 +105,17 @@ export function fitPreview(text: string): string {
 }
 
 export async function previewRelease(context: ServerContext, { full = false, ...args }: ReleasePlanArgs & { full?: boolean }): Promise<string> {
-  const { value: plan, logs } = await withCapturedLogs(() => planRelease(context, args))
+  const { value: preview, logs } = await withCapturedLogs(() => previewNextRelease(toPreviewOptions(context, args)).catch((error: unknown) => {
+    throw toToolError(error)
+  }))
   const lines = [
     `# Release preview (relizy ${context.version})`,
     '',
-    ...plan.results.flatMap(entry => [
-      ...trimEnd(describeSet(entry, plan, full)),
+    ...preview.sets.flatMap(set => [
+      ...trimEnd(describeSet(set, { full, from: args.from })),
       '',
     ]),
-    ...describeNextSteps(plan),
+    ...describeNextSteps(preview),
   ]
   const notes = formatNotes(logs)
 

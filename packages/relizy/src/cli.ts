@@ -82,8 +82,9 @@ program.hook('preAction', async (_program, actionCommand) => {
   })
 })
 
+/** The release type of the flags, none without one: `bump.type` of the config (or of the profile) decides */
 function getReleaseType(options: any) {
-  let type: BumpOptions['type'] = 'release'
+  let type: BumpOptions['type']
 
   if (options.major)
     type = 'major'
@@ -174,7 +175,8 @@ program
   .name('relizy')
   .description('Release management tool for monorepos and standalone packages')
   .version(version)
-  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
+  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test), or the path of the config file (absolute, or relative to the project, with its extension)')
+  .option('--profile <name>', 'Release profile of the config (`profiles`): its options come over the config file and under the flags (e.g. beta, canary)')
   .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose), instead of the logLevel of the config')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
@@ -214,6 +216,7 @@ program
         yes: options.yes,
         suffix: options.suffix,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         canary: options.canary,
         privatePackages: options.privatePackages,
@@ -245,6 +248,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         privatePackages: options.privatePackages,
       })
@@ -277,6 +281,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -307,6 +312,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -344,6 +350,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -512,6 +519,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
       })
     }
     catch (error) {
@@ -582,6 +590,7 @@ mergePreviewCommand
         prNumber: program.opts().prNumber,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         report: getReportOverride(options),
       })
@@ -699,6 +708,7 @@ program
         force: options.force,
         yes: options.yes,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false

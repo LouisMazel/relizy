@@ -1,7 +1,8 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
+import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
@@ -11,7 +12,10 @@ import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from './format'
 import { getVersionGroupName, markVersionGroupConfig, validateVersionGroups } from './groups'
+import { chainHooks } from './hook-chain'
 import { detectPackageManager, getNpmRegistry } from './npm-registry'
+import { getOwnImportAliases } from './own-version'
+import { getProfile, getProfileOptions, isPlainObject, ProfileConflictError, validateProfiles } from './profiles'
 
 /**
  * @param cwd - Root of the project, where the package manager is detected
@@ -54,7 +58,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       capZeroMajor: true,
       outOfRangePeers: 'bump',
       dependents: 'out-of-range',
-    } as Required<Omit<BumpConfig, 'preid'>>,
+    } as Required<Omit<BumpConfig, 'preid' | 'suffix'>>,
     changelog: {
       rootChangelog: true,
       includeCommitBody: true,
@@ -116,6 +120,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
     },
     scopeMap: {},
     release: {
+      canary: false,
       commit: true,
       publish: true,
       changelog: true,
@@ -343,19 +348,18 @@ export interface LoadRelizyConfigOptions {
   /** Options applied over the config file */
   overrides?: RelizyConfigOverrides
   /**
-   * Name of the config, as `--config`: `relizy.standalone` loads `relizy.standalone.config.ts`
+   * Name of the config, as `--config`: `relizy.standalone` loads `relizy.standalone.config.ts`.
+   * A path loads that file: absolute, or relative to the project (`cwd`) with its extension
+   * (`/configs/relizy.config.ts`, `./release/relizy.config.mjs`); the project stays `cwd`.
    * @default 'relizy'
    */
   configFile?: string
-}
-
-function isPlainObject(value: unknown): value is Record<string, unknown> {
-  if (!value || typeof value !== 'object') {
-    return false
-  }
-
-  const prototype = Object.getPrototypeOf(value)
-  return prototype === Object.prototype || prototype === null
+  /**
+   * Profile of `profiles` to apply: its options come over the config file and
+   * under the `overrides`. A `baseConfig` resolved with another profile throws a
+   * `ProfileConflictError`: load the config again with the new profile.
+   */
+  profile?: string
 }
 
 /**
@@ -392,12 +396,29 @@ export function isSetInUserConfig(config: ResolvedRelizyConfig, key: keyof Reliz
  * `resolveVersionGroups`) stays one, a reload would bring `monorepo.groups`
  * back into it.
  */
-function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides): ResolvedRelizyConfig {
-  const config = mergeConfig(overrides, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?: RelizyConfigOverrides, profile?: string): ResolvedRelizyConfig {
+  // The options of the profile of the base config cannot be taken out: a config never mixes two profiles
+  if (profile && baseConfig.profile && profile !== baseConfig.profile) {
+    throw new ProfileConflictError(profile, baseConfig.profile)
+  }
+  const profileOptions = profile && profile !== baseConfig.profile
+    ? getProfileOptions(getProfile(baseConfig, profile))
+    : undefined
+  const config = mergeConfig(overrides, profileOptions, copyPlainObjects(baseConfig)) as ResolvedRelizyConfig
+  // The hooks of the overrides come after the ones of the config, they do not replace them
+  if (overrides?.hooks) {
+    config.hooks = chainHooks(baseConfig.hooks, overrides.hooks as HookConfig)
+  }
+  if (profileOptions) {
+    config.profile = profile
+  }
   setupLogger(overrides?.logLevel || config.logLevel)
   const userKeys = userConfigKeys.get(baseConfig)
   if (userKeys) {
-    userConfigKeys.set(config, userKeys)
+    userConfigKeys.set(config, new Set([
+      ...userKeys,
+      ...Object.keys(profileOptions ?? {}),
+    ]))
   }
 
   const groupName = getVersionGroupName(baseConfig)
@@ -407,31 +428,150 @@ function applyOverridesToBaseConfig(baseConfig: ResolvedRelizyConfig, overrides?
     : config
 }
 
+/** The top-level keys of the overrides that have a value */
+function getDefinedKeys(overrides?: RelizyConfigOverrides): string[] {
+  return Object.entries(overrides ?? {})
+    .filter(([, value]) => value !== undefined)
+    .map(([key]) => key)
+}
+
+/**
+ * Merge the profile asked (`options.profile`) and the overrides over the config
+ * file: defaults < config file < profile < overrides. The hooks of the
+ * overrides come after the ones of the file. Returns the options set by the profile and the overrides.
+ */
+function applyProfileAndOverrides(results: { config: ResolvedConfig }, options?: LoadRelizyConfigOptions): string[] {
+  const fileHooks = results.config.hooks
+  const profileOptions = options?.profile
+    ? getProfileOptions(getProfile(results.config, options.profile))
+    : undefined
+  const keys = Object.keys(profileOptions ?? {})
+
+  if (options?.profile) {
+    logger.debug(`Profile "${options.profile}": ${keys.join(', ') || 'no option'}`)
+  }
+
+  results.config = mergeConfig(options?.overrides, profileOptions, results.config) as ResolvedConfig
+
+  if (options?.profile) {
+    results.config.profile = options.profile
+  }
+
+  if (options?.overrides?.hooks) {
+    results.config.hooks = chainHooks(fileHooks, options.overrides.hooks as HookConfig)
+  }
+
+  // What the overrides set counts as set by the user, as when the config loader merges them
+  return [
+    ...keys,
+    ...getDefinedKeys(options?.overrides),
+  ]
+}
+
+const CONFIG_FILE_EXTENSIONS = new Set([
+  '.ts',
+  '.mts',
+  '.cts',
+  '.js',
+  '.mjs',
+  '.cjs',
+  '.json',
+  '.yaml',
+  '.yml',
+  '.toml',
+])
+
+/**
+ * A config given by path: absolute, relative to the project (`./configs/relizy.config.ts`),
+ * or a file name with its extension. A name (`relizy.standalone`) is not one.
+ */
+export function isConfigFilePath(configFile: string): boolean {
+  return isAbsolute(configFile)
+    || /[/\\]/.test(configFile)
+    || CONFIG_FILE_EXTENSIONS.has(extname(configFile))
+}
+
+/**
+ * A config importing `relizy` (`import { defineConfig } from 'relizy'`) gets the
+ * running relizy, not the one of the project: it loads even when the project
+ * does not have relizy in its `node_modules` (relizy installed elsewhere, run by
+ * an application). Only `relizy` and the subpaths it exports (`relizy/cli`) are
+ * rewritten; without the running relizy (bundled in another program), the
+ * config gets the relizy of the project.
+ */
+export function getConfigJitiOptions(from?: string): { alias?: Record<string, string> } {
+  const aliases = getOwnImportAliases(from)
+
+  return Object.keys(aliases).length > 0
+    ? { alias: aliases }
+    : {}
+}
+
+/** The options of the config loader selecting the config file: a name, or the path of the file (the project stays `cwd`) */
+function getConfigFileOptions(configFile: string | undefined, cwd: string): { name: string, configFile?: string } {
+  if (configFile && isConfigFilePath(configFile)) {
+    return {
+      name: 'relizy',
+      configFile: resolve(cwd, configFile),
+    }
+  }
+
+  return { name: configFile ?? 'relizy' }
+}
+
+/** A config asked by name or path that does not exist is an error, the default config may be missing */
+function assertConfigFileFound(found: unknown, configFile: string | undefined, cwd: string): void {
+  if (typeof found === 'string') {
+    return
+  }
+
+  const missing = configFile && isConfigFilePath(configFile)
+    ? `No config file found at "${resolve(cwd, configFile)}"`
+    : `No config file found with name "${configFile ?? 'relizy'}"`
+
+  logger.debug(missing)
+
+  if (configFile) {
+    logger.error(missing)
+    throw new Error(missing)
+  }
+}
+
 export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRelizyConfig> {
   if (options?.baseConfig) {
-    return applyOverridesToBaseConfig(options.baseConfig, options.overrides)
+    return applyOverridesToBaseConfig(options.baseConfig, options.overrides, options.profile)
   }
 
   const cwd = options?.overrides?.cwd ?? process.cwd()
 
   await setupDotenv({ cwd })
 
-  const configFile = options?.configFile ?? 'relizy'
-
   const defaultConfig = getDefaultConfig(cwd)
 
   // Extract types from defaults to handle them separately
   const { types: defaultTypes, ...defaultsWithoutTypes } = defaultConfig
 
+  const hasOverlay = Boolean(options?.profile || options?.overrides?.hooks)
+
   const results = await loadConfig<ResolvedConfig>({
     dotenv: true,
     cwd,
-    name: configFile,
+    ...getConfigFileOptions(options?.configFile, cwd),
     packageJson: true,
     defaults: defaultsWithoutTypes as ResolvedConfig,
-    overrides: mergeConfig(options?.overrides) as ResolvedConfig,
+    // With a profile or hooks, the overrides are merged after them (below): defaults < config file < profile < overrides
+    overrides: (hasOverlay
+      ? {}
+      : mergeConfig(options?.overrides)) as ResolvedConfig,
     merger: mergeConfig,
+    jitiOptions: getConfigJitiOptions(),
   })
+
+  validateProfiles(results.config)
+
+  const profileKeys = hasOverlay
+    ? applyProfileAndOverrides(results, options)
+    : []
 
   // Merge types: user entries replace defaults entirely (no deep merge)
   results.config.types = mergeTypes(
@@ -439,14 +579,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
     defaultTypes,
   )
 
-  if (typeof results._configFile !== 'string') {
-    logger.debug(`No config file found with name "${configFile}"`)
-
-    if (options?.configFile) {
-      logger.error(`No config file found with name "${configFile}"`)
-      throw new Error(`No config file found with name "${configFile}"`)
-    }
-  }
+  assertConfigFileFound(results._configFile, options?.configFile, cwd)
 
   setupLogger(options?.overrides?.logLevel || results.config.logLevel)
 
@@ -462,12 +595,19 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   logger.debug('Resolved config:', formatJson(redactSecrets(resolvedConfig)))
 
-  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set((results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {}))))
+  userConfigKeys.set(resolvedConfig as ResolvedRelizyConfig, new Set([
+    ...(results.layers ?? []).flatMap(layer => Object.keys(layer.config ?? {})),
+    // With a profile or hooks, the overrides are merged by `applyProfileAndOverrides`, not by c12: they are not in its layers
+    ...profileKeys,
+  ]))
 
   return resolvedConfig as ResolvedRelizyConfig
 }
 
-export type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig>
+export type ResolvedConfig = RelizyConfig & ReturnType<typeof getDefaultConfig> & {
+  /** Name of the profile applied (`--profile`, `profile` option), none without one */
+  profile?: string
+}
 export type ResolvedRelizyConfig = ResolvedConfig & {
   output: string
 }

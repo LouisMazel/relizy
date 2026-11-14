@@ -40,22 +40,23 @@ include:
   - component: gitlab.com/relizy/relizy/merge-preview@2
 ```
 
-Its inputs: `stage` (`test`), `image`, `release-type`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
+Its inputs: `stage` (`test`), `image`, `release-type`, `profile`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
 
 ## Inputs
 
-| Input               | Default                | Description                                                                          |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------ |
-| `stage`             | `deploy`               | Stage of the job                                                                     |
-| `image`             | `node:lts`             | Node.js image of the job                                                             |
-| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                  |
-| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence) |
-| `args`              |                        | More arguments for `relizy release`, e.g. `--tag beta --preid beta`                  |
-| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again           |
-| `setup`             | `true`                 | Install the package manager and the dependencies                                     |
-| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                       |
-| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                     |
-| `working-directory` | `.`                    | Directory of the project                                                             |
+| Input               | Default                | Description                                                                                                                         |
+| ------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`             | `deploy`               | Stage of the job                                                                                                                    |
+| `image`             | `node:lts`             | Node.js image of the job                                                                                                            |
+| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                                 |
+| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                                |
+| `profile`           |                        | A [release profile](https://relizy.dev/config/profiles) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later) |
+| `args`              |                        | More arguments for `relizy release`, e.g. `--tag beta --preid beta`                                                                 |
+| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                                          |
+| `setup`             | `true`                 | Install the package manager and the dependencies                                                                                    |
+| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                                      |
+| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                                    |
+| `working-directory` | `.`                    | Directory of the project                                                                                                            |
 
 ## Outputs
 

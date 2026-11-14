@@ -5,8 +5,9 @@ import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
 import { getAuthCommand as coreGetAuthCommand, getIndependentTag, getPublishTag, isInCI, isOtpError, isPaymentRequiredError, isPrerelease, isVersionAlreadyPublishedError, publishToRegistry } from '@relizy/core'
-import { isRelizyCancelError } from './errors'
-import { buildLegacyRegistryTarget, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
+import { isRelizyCancelError, RelizyCancelError } from './errors'
+import { getAppHandlers } from './events'
+import { buildLegacyRegistryTarget, getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
 import { isVersionPublished } from './npm-versions'
 import { askText, assertInteractivePrompt } from './prompts'
 
@@ -87,7 +88,26 @@ function getPublishFailure({
   return error
 }
 
-async function handleOtpError(): Promise<string> {
+/**
+ * The one-time password the registry asks for: from the `onOtp` of the
+ * application, else from the prompt of the terminal
+ */
+async function handleOtpError({ registry, packageName }: { registry: string, packageName: string }): Promise<string> {
+  const { onOtp } = getAppHandlers()
+
+  if (onOtp) {
+    logger.debug(`OTP required by ${registry}: asking the application`)
+    // A JavaScript application may give anything
+    const otp: unknown = await onOtp({ registry, packageName })
+
+    // No password: the application cancelled, the packages published before stay published
+    if (typeof otp !== 'string' || !otp.trim()) {
+      throw new RelizyCancelError(`No one-time password given for ${packageName}: publish cancelled`)
+    }
+
+    return otp.trim()
+  }
+
   if (isInCI()) {
     logger.error('OTP required but running in CI environment. Please provide OTP via config or `--otp` flag')
     throw new Error('OTP required in CI environment')
@@ -148,7 +168,7 @@ async function publishToRegistryTarget({
   registryTarget: RegistryTarget
   packageNameAndVersion: string
   registryLabel: string
-}): Promise<void> {
+}): Promise<PublishTargetStatus> {
   // A registry-specific `tag` wins; otherwise fall back to the global
   // `publish.tag` (also set by `--tag`, and by canary mode to `canary`) so the
   // resolved tag is consistent across every target, not just the default one.
@@ -171,14 +191,15 @@ async function publishToRegistryTarget({
     })
     if (alreadyPublished) {
       logger.warn(`Skipping ${packageNameAndVersion}${registryLabel}: version already exists on the registry (publish.skipExistingVersions enabled)`)
-      return
+      return 'skipped'
     }
   }
 
   let dynamicOtp: string | undefined
   const maxAttempts = 2
 
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+  // Each attempt publishes, throws, or retries with an OTP before the last one
+  for (let attempt = 0; ; attempt++) {
     try {
       await publishToRegistry({
         pkg,
@@ -203,19 +224,22 @@ async function publishToRegistryTarget({
         logger.debug('OTP stored for session')
       }
 
-      return
+      return 'published'
     }
     catch (error) {
       // Check if it's an OTP error and we haven't exhausted retries
       if (isOtpError(error) && attempt < maxAttempts - 1) {
-        dynamicOtp = await handleOtpError()
+        dynamicOtp = await handleOtpError({
+          registry: registryTarget.registry || getNpmRegistry(config.cwd),
+          packageName: pkg.name,
+        })
       }
       // The version is already on the registry (immutable asset). This makes a
       // retry safe - the artifact exists, so there is nothing left to publish.
       else if (isVersionAlreadyPublishedError(error)) {
         if (config.publish.skipExistingVersions) {
           logger.warn(`Skipping ${packageNameAndVersion}${registryLabel}: version already exists on the registry (publish.skipExistingVersions enabled)`)
-          return
+          return 'skipped'
         }
 
         throw new Error(
@@ -239,6 +263,12 @@ async function publishToRegistryTarget({
   }
 }
 
+/**
+ * What the publish of a package did on a registry: `skipped` when the
+ * version is already there (`publish.skipExistingVersions`)
+ */
+export type PublishTargetStatus = 'published' | 'skipped'
+
 export async function publishPackage({
   pkg,
   config,
@@ -249,7 +279,7 @@ export async function publishPackage({
   config: ResolvedRelizyConfig
   packageManager: PackageManager
   dryRun: boolean
-}): Promise<void> {
+}): Promise<PublishTargetStatus[]> {
   const packageNameAndVersion = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
   const registryTargets = resolveRegistryTargetsForPackage(pkg, config)
 
@@ -281,13 +311,14 @@ export async function publishPackage({
     // Only label the registry in logs when there is more than one target -
     // keeps single-registry output identical to before this feature existed.
     const showRegistryLabel = registryTargets.length > 1
+    const statuses: PublishTargetStatus[] = []
 
     for (const registryTarget of registryTargets) {
       const registryLabel = showRegistryLabel
         ? ` [${registryTarget.name ?? registryTarget.registry ?? 'default'}]`
         : ''
 
-      await publishToRegistryTarget({
+      statuses.push(await publishToRegistryTarget({
         pkg,
         config,
         packageManager,
@@ -295,8 +326,10 @@ export async function publishPackage({
         registryTarget,
         packageNameAndVersion,
         registryLabel,
-      })
+      }))
     }
+
+    return statuses
   }
   finally {
     if (originalContent !== undefined) {

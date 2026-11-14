@@ -124,6 +124,8 @@ export interface RawGitCommit {
   body: string
   /** The abbreviated commit hash */
   shortHash: string
+  /** The full commit hash, read by `getGitDiff`: none for a commit built by hand (the simulated squash commit) */
+  hash?: string
   /** The author of the commit */
   author: GitCommitAuthor
 }
