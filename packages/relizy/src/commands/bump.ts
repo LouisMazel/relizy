@@ -4,7 +4,7 @@ import type { BumpOptions, BumpResult, BumpResultTruthy, ConfirmPlan, ConfirmPla
 import { logger } from '@maz-ui/node'
 
 import { capReleaseTypeForZeroMajor, checkGitStatusIfDirty, determineReleaseType, determineSemverChange, fetchGitTags, formatRepoTag, getCanaryVersion, getCIName, getDependencyReleaseType, getIndependentTag, getOutOfRangePeers, getPackageDependencies, getPackageNewVersion, getShortCommitSha, isBreakingVersionChange, withGitCache } from '@relizy/core'
-import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, pinCanaryWorkspaceDependencies, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { RelizyCancelError } from '../core/errors'
 import { getAppHandlers, runWithEvents } from '../core/events'
@@ -724,6 +724,7 @@ async function planCanaryMode({
 
       for (const pkg of allPackages) {
         writeVersion(pkg.path, canaryVersion, dryRun)
+        pinCanaryWorkspaceDependencies(pkg.path, dryRun)
       }
 
       logger.info(`${dryRun ? '[dry-run] ' : ''}${allPackages.length} package(s) bumped to ${canaryVersion} (canary)`)
@@ -795,6 +796,7 @@ function planCanaryIndependentMode({
     write: () => {
       for (const pkg of packagesWithCanaryVersion) {
         writeVersion(pkg.path, pkg.newVersion, dryRun)
+        pinCanaryWorkspaceDependencies(pkg.path, dryRun)
       }
 
       logger.info(`${dryRun ? '[dry-run] ' : ''}${packagesWithCanaryVersion.length} package(s) bumped independently (canary)`)
