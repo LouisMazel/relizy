@@ -1,6 +1,6 @@
 import type { ResolvedRelizyConfig } from '../..'
+import type { PackageSet } from '../../package-sets'
 import type { ServerContext } from '../context'
-import type { PackageSet } from './project'
 import { existsSync } from 'node:fs'
 
 import { join } from 'node:path'
@@ -8,10 +8,11 @@ import { logger } from '@maz-ui/node'
 import { detectGitProvider, getCurrentGitBranch, getLastTag, redactSecrets } from '@relizy/core'
 import { listProfiles, readPackageJson } from '../..'
 import { findOutdatedRules } from '../../agents'
+import { readPackageSets, relativePath } from '../../package-sets'
 import { code, codeList, tableCell } from '../markdown'
 import { listConfigNames, loadProjectConfig } from '../runtime'
 import { stringifyConfigValue } from './get-config-option'
-import { configArgSchema, readPackageSets, relativePath } from './project'
+import { configArgSchema } from './project'
 import { defineTool } from './types'
 
 function safely<T>(read: () => T): T | undefined {

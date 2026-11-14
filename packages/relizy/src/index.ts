@@ -25,11 +25,54 @@ export type {
 export { lintCommitMessage } from './core/commitlint'
 export type { LoadRelizyConfigOptions, RelizyConfigOverrides, ResolvedConfig, ResolvedRelizyConfig } from './core/config'
 export { defineConfig, loadRelizyConfig } from './core/config'
+export type { ConfigOptionNode, GetConfigOptionsOptions } from './core/config-options'
+export { getConfigOptions } from './core/config-options'
 export { isRelizyCancelError, RelizyCancelError } from './core/errors'
-export type { MergePreviewProblem, MergePreviewSquashMode } from './core/merge-preview'
+export type {
+  BumpStepData,
+  ChangelogStepData,
+  ChecksStepData,
+  CommandCompleteEvent,
+  CommandErrorEvent,
+  CommandStartEvent,
+  CommitAndTagStepData,
+  LinkEvent,
+  LogEvent,
+  NoteEvent,
+  PrCommentStepData,
+  PreviewEvent,
+  ProgressMessageEvent,
+  ProgressStep,
+  ProviderReleaseStepData,
+  PublishStepData,
+  PublishStepPackage,
+  PushStepData,
+  ReleaseFinishEvent,
+  RelizyEvent,
+  RelizyEventListener,
+  SocialStepData,
+  SocialStepPost,
+  StepCheck,
+  StepData,
+  StepDataMap,
+  StepDoneEvent,
+  StepDoneEventBase,
+  StepFailedEvent,
+  StepFailedEventBase,
+  StepItem,
+  StepItemEvent,
+  StepSkippedEvent,
+  StepStartEvent,
+  WithStepData,
+} from './core/events'
+export type { MergePreviewCommit, MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './core/merge-preview'
+export type { CheckMigrationOptions, MigrationFinding, MigrationReport } from './core/migration'
+export { checkMigration } from './core/migration'
 export type { ProfileInfo, ProfileOptions, ProfileSection, ProfileSetting } from './core/profiles'
 export { listProfiles, ProfileConflictError, UnknownProfileError } from './core/profiles'
 export type { ReleaseLine, ReleaseOverview, ReleaseOverviewGroup, ReleaseOverviewPackage } from './core/release-overview'
+export type { PreviewBumpType, PreviewChangelog, PreviewChangelogOptions, PreviewCommit, PreviewPackage, PreviewReleaseOptions, PreviewSet, PreviewStep, ReleasePreview } from './core/release-preview'
+export { previewChangelog, previewRelease } from './core/release-preview'
 export type {
   ReleaseAI,
   ReleaseContent,
@@ -41,6 +84,7 @@ export type {
   ReleaseStepReport,
 } from './core/release-report'
 export type { RootPackage } from './core/repo'
+export type { CommandStepId, ReleaseStepId } from './core/steps'
 export type * from './types'
 
 export type { CommitlintProblem, CommitlintResult, CommitlintSuggestion, WorkspacePackage } from '@relizy/core'

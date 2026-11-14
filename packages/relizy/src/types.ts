@@ -1,6 +1,7 @@
 import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
+import type { RelizyEventListener } from './core/events'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 
@@ -84,6 +85,76 @@ export interface BumpResultFalsy {
   bumped: false
 }
 export type BumpResult = BumpResultTruthy | BumpResultFalsy
+
+/**
+ * A package of the bump plan, as `onConfirm` receives it
+ */
+export interface ConfirmPlanPackage {
+  name: string
+  /**
+   * Directory of the package, relative to the project (`.` for the root)
+   */
+  path: string
+  /**
+   * A private package is versioned, never published
+   */
+  private: boolean
+  oldVersion: string
+  newVersion: string
+  /**
+   * The git tag the release creates for it: its own tag in an `independent` set, the one of the
+   * repository otherwise. None when the run creates no tag (`relizy bump`, `release.gitTag: false`, canary)
+   */
+  tag?: string
+  /**
+   * Name of its version group, with `monorepo.groups`
+   */
+  group?: string
+  /**
+   * Why it is bumped: its commits, a bumped dependency, the graduation of its prerelease
+   */
+  reason?: 'commits' | 'dependency' | 'graduation'
+}
+
+/**
+ * The versions a bump is about to write, computed with nothing written yet: what `onConfirm` validates
+ */
+export interface ConfirmPlan {
+  /**
+   * The command run: `release`, or `bump`
+   */
+  command: 'release' | 'bump'
+  /**
+   * Nothing will be written, whatever the answer
+   */
+  dryRun: boolean
+  /**
+   * The profile applied, none without one
+   */
+  profile?: string
+  /**
+   * A canary release: published under its own dist-tag, never committed
+   */
+  canary: boolean
+  /**
+   * Every package the run bumps, every version group together
+   */
+  packages: ConfirmPlanPackage[]
+}
+
+/**
+ * What the registry asks a one-time password for, as `onOtp` receives it
+ */
+export interface OtpRequest {
+  /**
+   * The registry asking for it (`https://registry.npmjs.org/`)
+   */
+  registry: string
+  /**
+   * The package being published
+   */
+  packageName?: string
+}
 
 export interface PostedRelease {
   /**
@@ -451,7 +522,8 @@ export interface BumpOptions extends BumpConfig {
    */
   force?: boolean
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -460,6 +532,20 @@ export interface BumpOptions extends BumpConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   /**
    * Publish a canary release from the current commit
    * @default false
@@ -523,7 +609,8 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -532,6 +619,12 @@ export interface ChangelogOptions extends ChangelogConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Generate changelog for all packages even if there are no commits
    * @default false
@@ -570,7 +663,8 @@ export interface ProviderReleaseOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -579,6 +673,12 @@ export interface ProviderReleaseOptions {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Git provider
    * @default 'github'
@@ -637,7 +737,8 @@ export interface SocialOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -646,6 +747,12 @@ export interface SocialOptions {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Bump result (contains release information)
    */
@@ -791,7 +898,8 @@ export interface PublishOptions extends PublishConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
@@ -800,6 +908,19 @@ export interface PublishOptions extends PublishConfig {
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -937,6 +1058,37 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * come after the config file and before the options of this run
    */
   profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
+  /**
+   * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
+   * (the profile, the `overrides` and the options of the call still apply over it)
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Options applied over the config file (or over `config`), under the options of the call:
+   * a local overlay without writing a file. The hooks of the overlay run after those of the config.
+   */
+  overrides?: RelizyConfigOverrides
   /**
    * Bump even if there are no commits
    * @default false

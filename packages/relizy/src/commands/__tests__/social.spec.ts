@@ -1,3 +1,4 @@
+import type { RelizyEvent } from '../../core/events'
 import type { GroupBumpResult } from '../../types'
 import { logger } from '@maz-ui/node'
 import { collectContributorNames, isPrerelease } from '@relizy/core'
@@ -471,6 +472,52 @@ describe('Given social command', () => {
       })
 
       expect(postReleaseToTwitter).toHaveBeenCalled()
+    })
+  })
+
+  describe('When an application follows the posts', () => {
+    it('Then follows each platform live and gives the posts as the data of the step', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+        social: {
+          twitter: { enabled: true, onlyStable: true },
+          slack: { enabled: true, onlyStable: true, channel: '#releases' },
+        },
+      }))
+      vi.mocked(postReleaseToTwitter).mockResolvedValue({
+        data: { id: '42', text: 'v1.0.0' },
+      } as any)
+      vi.mocked(postReleaseToSlack).mockRejectedValue(new Error('channel_not_found'))
+      const events: RelizyEvent[] = []
+
+      await social({
+        bumpResult: { bumped: true, bumpedPackages: [] },
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.filter(event => event.type === 'step:item').map(event => event.item)).toEqual([
+        { name: 'twitter', status: 'running' },
+        { name: 'twitter', status: 'done', url: 'https://x.com/i/web/status/42' },
+        { name: 'slack', status: 'running' },
+        {
+          name: 'slack',
+          status: 'failed',
+          detail: expect.stringContaining('channel_not_found'),
+        },
+      ])
+      expect(events.find(event => event.type === 'step:failed' && event.step === 'social')).toMatchObject({
+        fatal: false,
+        data: {
+          posts: [
+            { platform: 'twitter', status: 'posted', url: 'https://x.com/i/web/status/42' },
+            {
+              platform: 'slack',
+              status: 'failed',
+              reason: expect.stringContaining('channel_not_found'),
+            },
+          ],
+        },
+      })
     })
   })
 

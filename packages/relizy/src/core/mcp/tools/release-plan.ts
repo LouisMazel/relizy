@@ -1,18 +1,13 @@
 import type { ReleaseType } from 'semver'
-import type { ResolvedRelizyConfig } from '../..'
-import type { PlannedBumps } from '../../../commands/bump'
-import type { BumpResult, BumpResultTruthy, GitCommit, PackageBase } from '../../../types'
+import type { PreviewCommit, PreviewPackage, PreviewReleaseOptions, PreviewSet } from '../../release-preview'
 import type { ServerContext } from '../context'
-import type { PackageSet } from './project'
-import { logger } from '@maz-ui/node'
-
-import { describeOutOfRange, fetchGitTags } from '@relizy/core'
+import { describeOutOfRange } from '@relizy/core'
 import { z } from 'zod'
-import { planBumps } from '../../../commands/bump'
-import { applyCanaryMode } from '../../../commands/release'
+import { UnknownProfileError } from '../../profiles'
 import { code } from '../markdown'
-import { loadProjectConfig } from '../runtime'
-import { configArgSchema, readPackageSets } from './project'
+import { assertConfigName } from '../runtime'
+import { configArgSchema } from './project'
+import { ToolInputError } from './types'
 
 const RELEASE_TYPES = [
   'release',
@@ -51,66 +46,46 @@ export interface ReleasePlanArgs {
   fetchTags?: boolean
 }
 
-export interface ReleasePlan {
-  config: ResolvedRelizyConfig
-  planned: PlannedBumps
-  /** Packages of each version group (a single set without groups) */
-  sets: PackageSet[]
-  /** The bump of each set, `{ bumped: false }` when the set does not release */
-  results: { set: PackageSet, result: BumpResult }[]
-}
+/**
+ * The options of `previewRelease()` and `previewChangelog()` for the arguments of a
+ * tool: the previews of the API are the ones of the tools, a wrong config name is
+ * a wrong argument
+ */
+export function toPreviewOptions(context: ServerContext, args: ReleasePlanArgs): PreviewReleaseOptions {
+  assertConfigName({ config: args.config, cwd: context.cwd })
 
-/** Plan the next release like `relizy release` does, without confirmation, hook, write nor network (unless `fetchTags`) */
-export async function planRelease(context: ServerContext, args: ReleasePlanArgs): Promise<ReleasePlan> {
-  const config = await loadProjectConfig({
-    config: args.config,
-    profile: args.profile,
+  return {
     cwd: context.cwd,
-    overrides: {
-      bump: { type: args.type, preid: args.preid },
-      release: { canary: args.canary },
-      from: args.from,
-      to: args.to,
-    },
-  })
-
-  // As `relizy release`: a canary (`canary`, or a canary profile) takes its preid from the run or the profile
-  if (config.release.canary) {
-    applyCanaryMode(config, { preid: args.preid })
-  }
-
-  if (args.fetchTags) {
-    await fetchGitTags({ cwd: config.cwd, logger })
-  }
-
-  const planned = await planBumps({
-    config,
-    dryRun: true,
-    force: args.force,
-    canary: config.release.canary === true,
+    configName: args.config,
+    profile: args.profile,
+    type: args.type,
+    preid: args.preid,
     groups: args.groups,
-  })
-  const sets = readPackageSets(config).filter(set => !set.group || !args.groups?.length || args.groups.includes(set.group.name))
-  const results = sets.map(set => ({
-    set,
-    result: set.group
-      ? planned.groups?.find(({ group }) => group.name === set.group!.name)?.result ?? { bumped: false as const }
-      : planned.result,
-  }))
-
-  return { config, planned, sets, results }
+    from: args.from,
+    to: args.to,
+    canary: args.canary,
+    force: args.force,
+    fetchTags: args.fetchTags,
+  }
 }
 
-function formatCommit(commit: GitCommit): string {
+/** A profile that is not in the config is a wrong argument of the tool */
+export function toToolError(error: unknown): unknown {
+  return error instanceof UnknownProfileError
+    ? new ToolInputError(error.message)
+    : error
+}
+
+function formatCommit(commit: PreviewCommit): string {
   const scope = commit.scope
     ? `(${commit.scope})`
     : ''
 
-  return `${commit.type}${scope}${commit.isBreaking ? '!' : ''}: ${commit.description} (${commit.shortHash})`
+  return `${commit.type}${scope}${commit.breaking ? '!' : ''}: ${commit.description} (${commit.shortHash})`
 }
 
 /** The first commits of a list (all of them without `max`), on one line */
-export function formatCommits(commits: GitCommit[], max = Infinity): string {
+export function formatCommits(commits: PreviewCommit[], max = Infinity): string {
   const more = commits.length > max
     ? `; and ${commits.length - max} more (\`full: true\` lists them all)`
     : ''
@@ -119,10 +94,9 @@ export function formatCommits(commits: GitCommit[], max = Infinity): string {
 }
 
 /** Why a package is released, in words */
-export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set: PackageSet, plan: ReleasePlan, full?: boolean }): string {
-  const commits = pkg.commits ?? []
-  const commitsText = commits.length > 0
-    ? `${commits.length} commit(s): ${formatCommits(commits, full ? undefined : 5)}`
+export function explainBump(pkg: PreviewPackage, { set, full = false }: { set: PreviewSet, full?: boolean }): string {
+  const commitsText = pkg.commits.length > 0
+    ? `${pkg.commits.length} commit(s): ${formatCommits(pkg.commits, full ? undefined : 5)}`
     : ''
 
   if (set.versionMode === 'unified') {
@@ -136,34 +110,28 @@ export function explainBump(pkg: PackageBase, { set, plan, full = false }: { set
   }
 
   if (pkg.reason === 'dependency') {
-    const dependency = pkg.dependencyChain?.[0]
-    const otherGroup = dependency
-      ? plan.sets.find(other => other !== set && other.packages.some(candidate => candidate.name === dependency))?.group
-      : undefined
+    const dependency = pkg.dependency?.chain[0]
+    const otherGroup = pkg.dependency?.group
 
-    if (pkg.outOfRangeDependency) {
-      const { name, ...outOfRange } = pkg.outOfRangeDependency
+    if (pkg.dependency?.outOfRange) {
+      const { name, ...outOfRange } = pkg.dependency.outOfRange
       const option = outOfRange.field === 'peerDependencies'
         ? 'bump.outOfRangePeers'
         : 'bump.dependents'
 
       const group = otherGroup
-        ? `, bumped by the \`${otherGroup.name}\` group`
+        ? `, bumped by the \`${otherGroup}\` group`
         : ''
 
       return `${describeOutOfRange({ dependency: name, ...outOfRange })}${group} (\`${option}\`)`
     }
 
     if (otherGroup) {
-      return `depends on \`${dependency}\`, bumped by the \`${otherGroup.name}\` group`
+      return `depends on \`${dependency}\`, bumped by the \`${otherGroup}\` group`
     }
 
-    return `depends on ${(pkg.dependencyChain ?? []).map(code).join(' → ')} (\`bump.dependencyTypes\`)`
+    return `depends on ${(pkg.dependency?.chain ?? []).map(code).join(' → ')} (\`bump.dependencyTypes\`)`
   }
 
   return commitsText || 'forced (`force`)'
-}
-
-export function isBumped(result: BumpResult): result is BumpResultTruthy {
-  return result.bumped
 }

@@ -4,8 +4,10 @@ import { logger } from '@maz-ui/node'
 import { detectGitProvider, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, executeHook, getKnownReleaseVersions, getReleaseTargets, github, gitlab, hasVersionGroups, isStepLeftOutByEveryGroup, loadRelizyConfig } from '../core'
 import { aiSafetyCheck, applyAIOverride, isAIProviderReleaseEnabled, isAIRunInRelease } from '../core/ai'
+import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
 import { getProviderReleaseLinks } from '../core/release-facts'
+import { getProviderReleaseStepData } from '../core/step-data'
 import { runCommand } from './run-command'
 
 /**
@@ -179,7 +181,7 @@ export function providerRelease(
   options: Partial<ProviderReleaseOptions> = {},
 ): Promise<ProviderReleaseResult> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runProviderRelease(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runProviderRelease(options)))
 }
 
 function runProviderRelease(
@@ -226,9 +228,11 @@ function runProviderRelease(
       logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
       const result = await ui.step({
+        name: 'provider-release',
         running: 'Creating the releases',
         done: describeProviderReleaseResult,
         failed: result => Boolean(result.error),
+        data: result => getProviderReleaseStepData(config, result),
         run: async (): Promise<ProviderReleaseResult> => {
           detectedProvider = options.provider || config.repo?.provider || detectGitProvider(config.cwd)
           reportProgress('Checking the release')

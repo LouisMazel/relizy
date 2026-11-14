@@ -22,7 +22,7 @@ vi.mock('../../core/npm', async (importActual) => {
   const actual = await importActual<typeof import('../../core/npm')>()
   return {
     ...actual,
-    publishPackage: vi.fn(),
+    publishPackage: vi.fn().mockResolvedValue(['published']),
   }
 })
 

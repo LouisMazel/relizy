@@ -56,6 +56,7 @@ export async function runCommand<T>({
     ? getHookContext(config, options.bumpResult)
     : undefined
   const ui = createCommandUi({
+    command: name,
     title: `relizy ${name}`,
     dryRun,
     logLevel: config.logLevel,

@@ -924,6 +924,32 @@ describe('Given release command', () => {
     })
   })
 
+  describe('When the call gives a resolved config and overrides', () => {
+    it('Then loads over the config, with the options of the call over the overrides', async () => {
+      const baseConfig = createMockConfig({
+        bump: { type: 'patch' },
+      }) as any
+      vi.mocked(bump).mockResolvedValue({ newVersion: '1.0.0', bumpedPackages: [], bumped: false } as any)
+
+      await release({
+        config: baseConfig,
+        overrides: {
+          bump: { preid: 'overlay', yes: true },
+          publish: { tag: 'overlay' },
+        },
+        tag: 'call',
+        yes: false,
+      })
+
+      const loadOptions = vi.mocked(loadRelizyConfig).mock.calls[0]![0]!
+      expect(loadOptions.baseConfig).toBe(baseConfig)
+      expect(loadOptions.overrides).toMatchObject({
+        bump: { preid: 'overlay', yes: false },
+        publish: { tag: 'call' },
+      })
+    })
+  })
+
   describe('When running in canary mode', () => {
     // The mocked loadRelizyConfig returns what the real one resolves from `release.canary` (the flag, or a profile)
     function setupCanaryConfig(overrides: Parameters<typeof createMockConfig>[0] = {}) {
@@ -1295,7 +1321,7 @@ describe('Given the output of release in CI', () => {
       expect.stringMatching(/^✔ Pushed the commit and the tags {2}\d+ms$/),
       expect.stringMatching(/^✔ 1 GitHub release created {2}\d+ms$/),
       expect.stringMatching(/^✔ Posted on twitter {2}\d+ms$/),
-      '○ PR comment skipped (--no-pr-comment)',
+      '○ PR comment skipped (release.prComment: false)',
       expect.stringMatching(/^ {2}✔ Publish +pkg-a@1\.0\.0 · latest · registry\.npmjs\.org$/),
       expect.stringMatching(/^ {2}✔ Commit and tags +a1b2c3d · v1\.0\.0$/),
       expect.stringMatching(/^ {2}✔ Push +main → origin\/main$/),
