@@ -1,7 +1,8 @@
 import type { ReleaseReportConfig } from '../types'
 import type { ResolvedRelizyConfig } from './config'
-import type { MergePreviewProblem, MergePreviewSquashMode } from './merge-preview'
+import type { MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './merge-preview'
 import type { ReleaseOverview } from './release-overview'
+import type { PreviewChangelog } from './release-preview'
 import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
@@ -121,11 +122,16 @@ export interface ReleaseReport {
    */
   mergePreview?: ReleaseMergePreview
   error?: string
+  /**
+   * The step where the release stopped: `Publish`
+   */
+  failedStep?: string
 }
 
 export interface ReleaseMergePreview {
   /**
-   * Number of the pull/merge request, none outside a pull request pipeline
+   * Number of the pull/merge request, none outside a pull request pipeline. The same as
+   * `pullRequestDetails.number`, which also has its branches, its kind and how the merge was computed
    */
   pullRequest?: number
   /**
@@ -141,6 +147,40 @@ export interface ReleaseMergePreview {
    * The comment of the pull request and the summary of the CI job
    */
   markdown: string
+  /**
+   * The pull/merge request detected from the CI job (its `number` is `pullRequest`), and how the
+   * merge was computed. None outside a pull request pipeline
+   */
+  pullRequestDetails?: MergePreviewPullRequest & {
+    /** HEAD holds the target branch: the preview is the release of the merge */
+    merged: boolean
+    /** Why HEAD does not hold the target branch */
+    warning?: string
+  }
+  /**
+   * Branch the release runs on: the target branch, the current one outside a pull request
+   */
+  branch: string
+  /**
+   * The released packages, with their versions, their reason and their commits (from the pull request or the target branch)
+   */
+  packages: MergePreviewPackage[]
+  /**
+   * The packages a squash merge would release, when the merge method is unknown and the squash releases other versions
+   */
+  squashPackages?: MergePreviewPackage[]
+  /**
+   * The release publishes the packages, with this dist-tag
+   */
+  publish: { enabled: boolean, distTag: string }
+  /**
+   * The changelog entries of the release, with the `changelog` option
+   */
+  changelogs?: PreviewChangelog[]
+  /**
+   * The pull request was commented (`comment`), and its commit status set (`check`)
+   */
+  posted: { comment: boolean, status: boolean }
 }
 
 const STEP_LABELS: Record<ReleaseStepName, string> = {
@@ -153,12 +193,22 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
   prComment: 'PR comment',
 }
 
-const STATUS_ICONS: Record<ReleaseStepReport['status'], string> = {
+const STATUS_ICONS: Record<Exclude<ReleaseStepReport['status'], 'skipped'>, string> = {
   done: '✅',
-  skipped: '⏭️',
   // A failed step does not stop the release (social posts, provider release)
   failed: '⚠️',
 }
+
+/** The steps whose effect stays after a failed release: the rest is rolled back or not done */
+const LASTING_STEPS = new Set<ReleaseStepName>([
+  'publish',
+  'push',
+  'providerRelease',
+  'social',
+])
+
+/** Beyond them, the error of a failed release is cut in the markdown: the log of the job has it */
+const ERROR_MAX_LINES = 20
 
 /** Beyond it, the summary counts the versions instead of listing them: the tables list them */
 const RELEASE_NAME_MAX_VERSIONS = 2
@@ -286,6 +336,17 @@ function describeStep(step: ReleaseStepReport, report: ReleaseReport): string {
     : 'failed')
 }
 
+function getStepEntry(step: ReleaseStepReport, report: ReleaseReport): ReleaseSummaryEntry {
+  return {
+    label: STEP_LABELS[step.name],
+    value: describeStep(step, report),
+    status: step.status,
+    ...(step.links?.length
+      ? { links: step.links }
+      : {}),
+  }
+}
+
 /**
  * The tags of a release: `v2.0.0, @scope/nav@1.3.0`, or their count beyond 2
  */
@@ -324,14 +385,7 @@ export function getReleaseSummary(report: ReleaseReport, { versions = true }: { 
     })
   }
 
-  entries.push(...report.steps.map(step => ({
-    label: STEP_LABELS[step.name],
-    value: describeStep(step, report),
-    status: step.status,
-    ...(step.links?.length
-      ? { links: step.links }
-      : {}),
-  })))
+  entries.push(...report.steps.map(step => getStepEntry(step, report)))
 
   if (report.ai) {
     entries.push({
@@ -413,11 +467,22 @@ export function getReleaseName(report: ReleaseReport): string {
 
 function getMarkdownHeadline(report: ReleaseReport): string[] {
   if (report.status === 'failed') {
+    const step = report.failedStep
+      ? ` at the ${report.failedStep} step`
+      : ''
+    const lines = report.error?.trim().split('\n') ?? []
+    const error = lines.length > ERROR_MAX_LINES
+      ? [
+          ...lines.slice(0, ERROR_MAX_LINES),
+          `... ${plural(lines.length - ERROR_MAX_LINES, 'more line')} in the log`,
+        ]
+      : lines
+
     return [
-      `## ❌ Release failed${report.dryRun ? ' (dry run)' : ''}`,
+      `## ❌ Release failed${step}${report.dryRun ? ' (dry run)' : ''}`,
       '',
-      ...(report.error
-        ? [`> ${report.error.split('\n')[0]}`, '']
+      ...(error.length > 0
+        ? ['```text', ...error, '```', '']
         : []),
     ]
   }
@@ -478,10 +543,18 @@ export function formatReleaseReportMarkdown(report: ReleaseReport): string {
     return `${report.mergePreview.markdown}\n`
   }
 
-  const packages = getMarkdownPackages(report)
+  const failed = report.status === 'failed'
+  // A failed release only tells its error, and what already left the machine (published packages, pushed commit)
+  const packages = failed
+    ? []
+    : getMarkdownPackages(report)
+  const summary = failed
+    ? report.steps.filter(step => step.status === 'done' && LASTING_STEPS.has(step.name)).map(step => getStepEntry(step, report))
+    // A skipped step is left out: a project that only versions would get a table of skipped steps
+    : getReleaseSummary(report, { versions: packages.length === 0 }).filter(entry => entry.status !== 'skipped')
   // The tables of the packages give the versions and the tags: the summary tells what the release did
-  const rows = getReleaseSummary(report, { versions: packages.length === 0 }).map(({ label, value, code, status, links = [] }) => {
-    const icon = status
+  const rows = summary.map(({ label, value, code, status, links = [] }) => {
+    const icon = status && status !== 'skipped'
       ? `${STATUS_ICONS[status]} `
       : label === 'AI'
         ? '✨ '
@@ -589,7 +662,7 @@ function writeFile(path: string, content: string): void {
  * Write the report where it is expected: the outputs and the summary of the
  * GitHub Actions run (`release.report.github`), and the files of
  * `release.report.json` and `release.report.dotenv`. Written in dry-run too,
- * where `released` is `false`.
+ * where `released` is `false`, and by a merge preview only computed (nothing posted).
  */
 export function writeReleaseReport({ config, report }: { config: ResolvedRelizyConfig, report: ReleaseReport }): void {
   const reportConfig: ReleaseReportConfig = config.release.report ?? {}

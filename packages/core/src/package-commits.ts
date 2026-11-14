@@ -1,10 +1,10 @@
 import type { CoreLogger, GitCommit, PrivatePackages, ReadPackage, SemverBumpType } from './types'
-import { relative, sep } from 'node:path'
 import { getCommitCatalogChanges, prefetchCatalogChanges, referencesCatalogEntries } from './catalogs'
 import { parseCommits } from './commits'
 import { runGitSync } from './git-exec'
 import { getGitDiff, parseNameStatus } from './git-refs'
 import { getPackageJsonHistory, getPreviousPackagePaths } from './moved-packages'
+import { getPosixRelativePath } from './paths'
 import { NEW_PACKAGE_MARKER } from './tags'
 import { readPackageJson, readPackages } from './workspace'
 
@@ -116,7 +116,7 @@ export function isAllowedCommit({
  * when using the first commit of the entire repo.
  */
 function getFirstPackageCommitHash(packagePath: string, cwd: string, movedPackages?: Record<string, string>, logger?: CoreLogger): string | null {
-  const relativePath = relative(cwd, packagePath).split(sep).join('/')
+  const relativePath = getPosixRelativePath(cwd, packagePath)
   const previousPaths = relativePath
     ? getPreviousPackagePaths({
         packagePath: relativePath,
@@ -247,7 +247,7 @@ export function resolveReleasedPackagePaths({
 
   return packages
     .filter(pkg => pkg.version)
-    .map(pkg => relative(cwd, pkg.path).split(sep).join('/'))
+    .map(pkg => getPosixRelativePath(cwd, pkg.path))
     .filter(Boolean)
 }
 
@@ -375,7 +375,7 @@ export async function getPackageCommits({
     cwd,
   })
 
-  const packageRelativePath = relative(cwd, pkg.path).split(sep).join('/')
+  const packageRelativePath = getPosixRelativePath(cwd, pkg.path)
 
   // The root of a monorepo gets the commits of its released packages only: a
   // commit changing no package (CI, scripts, an ignored or private app) releases

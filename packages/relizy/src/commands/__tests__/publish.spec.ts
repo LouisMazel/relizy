@@ -1,3 +1,4 @@
+import type { RelizyEvent } from '../../core/events'
 import { execPromise, logger } from '@maz-ui/node'
 import { assertTrustedPublishingNpm, sortPackagesForPublish } from '@relizy/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -25,7 +26,7 @@ vi.mock('../../core/npm', async (importActual) => {
   const actual = await importActual<typeof import('../../core/npm')>()
   return {
     ...actual,
-    publishPackage: vi.fn(),
+    publishPackage: vi.fn().mockResolvedValue(['published']),
   }
 })
 vi.mock('../../core/workspace', async (importActual) => {
@@ -555,7 +556,7 @@ describe('Given publish command', () => {
       publish: { packageManager: 'npm' },
     }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
-    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(publishPackage).mockResolvedValue(['published'])
     vi.mocked(sortPackagesForPublish).mockImplementation(pkgs => pkgs)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue([])
     vi.mocked(readPackageJson).mockReturnValue({
@@ -762,6 +763,123 @@ describe('Given publish command', () => {
   })
 })
 
+describe('Given publish command followed by an application', () => {
+  const packages = [
+    createMockPackageInfo({
+      name: 'pkg-a',
+      version: '1.0.0',
+      newVersion: '1.1.0',
+      path: '/pkg-a',
+      commits: [],
+      dependencies: [],
+    }),
+    createMockPackageInfo({
+      name: 'pkg-b',
+      version: '2.0.0',
+      newVersion: '2.1.0',
+      path: '/pkg-b',
+      commits: [],
+      dependencies: [],
+    }),
+  ]
+
+  beforeEach(() => {
+    vi.clearAllMocks()
+    vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+      bump: { type: 'patch' },
+      publish: { packageManager: 'npm', registry: 'https://registry.npmjs.org/', tag: 'beta' },
+    }))
+    vi.mocked(executeHook).mockResolvedValue(undefined)
+    vi.mocked(sortPackagesForPublish).mockImplementation(pkgs => pkgs)
+    vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(packages)
+    vi.mocked(readPackageJson).mockReturnValue({
+      name: 'test',
+      version: '1.0.0',
+      path: '/root',
+      private: false,
+    })
+  })
+
+  function publishedStep(events: RelizyEvent[]) {
+    return events.filter(event => (event.type === 'step:done' || event.type === 'step:failed') && event.step === 'publish').at(-1)
+  }
+
+  describe('When the packages are published, one already on the registry', () => {
+    it('Then follows each package live and gives them as the data of the step', async () => {
+      vi.mocked(publishPackage)
+        .mockResolvedValueOnce(['published'])
+        .mockResolvedValueOnce(['skipped'])
+      const events: RelizyEvent[] = []
+
+      await publish({
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.filter(event => event.type === 'step:item').map(event => event.item)).toEqual([
+        { name: 'pkg-a@1.1.0', status: 'running' },
+        { name: 'pkg-a@1.1.0', status: 'done', url: 'https://www.npmjs.com/package/pkg-a/v/1.1.0' },
+        { name: 'pkg-b@2.1.0', status: 'running' },
+        { name: 'pkg-b@2.1.0', status: 'skipped', detail: 'version already on the registry' },
+      ])
+      expect(publishedStep(events)).toMatchObject({
+        type: 'step:done',
+        data: {
+          registry: 'https://registry.npmjs.org/',
+          tag: 'beta',
+          packages: [
+            {
+              name: 'pkg-a',
+              version: '1.1.0',
+              status: 'published',
+              url: 'https://www.npmjs.com/package/pkg-a/v/1.1.0',
+            },
+            {
+              name: 'pkg-b',
+              version: '2.1.0',
+              status: 'skipped',
+              reason: 'version already on the registry',
+            },
+          ],
+        },
+      })
+    })
+  })
+
+  describe('When a package fails to publish', () => {
+    it('Then the failed step gives the packages published before it and the failure', async () => {
+      vi.mocked(publishPackage)
+        .mockResolvedValueOnce(['published'])
+        .mockRejectedValueOnce(new Error('E403 Forbidden'))
+      const events: RelizyEvent[] = []
+
+      await expect(publish({
+        dryRun: true,
+        onProgress: event => events.push(event),
+      })).rejects.toThrow('E403')
+
+      expect(publishedStep(events)).toMatchObject({
+        type: 'step:failed',
+        fatal: true,
+        data: {
+          packages: [
+            // No page in dry-run
+            { name: 'pkg-a', version: '1.1.0', status: 'published' },
+            {
+              name: 'pkg-b',
+              version: '2.1.0',
+              status: 'failed',
+              reason: 'E403 Forbidden',
+            },
+          ],
+        },
+      })
+      expect(events.filter(event => event.type === 'step:item').at(-1)).toMatchObject({
+        item: { name: 'pkg-b@2.1.0', status: 'failed', detail: 'E403 Forbidden' },
+      })
+    })
+  })
+})
+
 describe('Given publish command and the workspace dependencies', () => {
   const pkgA = createMockPackageInfo({
     name: 'pkg-a',
@@ -779,7 +897,7 @@ describe('Given publish command and the workspace dependencies', () => {
       publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' },
     }))
     vi.mocked(executeHook).mockResolvedValue(undefined)
-    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(publishPackage).mockResolvedValue(['published'])
     vi.mocked(sortPackagesForPublish).mockImplementation(pkgs => pkgs)
     vi.mocked(readPackageJson).mockReturnValue({
       name: 'test',
@@ -865,7 +983,7 @@ describe('Given the output of publish in CI', () => {
       publish: { packageManager: 'pnpm', buildCmd: 'pnpm build' },
       safetyCheck: false,
     }))
-    vi.mocked(publishPackage).mockResolvedValue(undefined)
+    vi.mocked(publishPackage).mockResolvedValue(['published'])
     vi.mocked(sortPackagesForPublish).mockImplementation(pkgs => pkgs)
     vi.mocked(getPackagesOrBumpedPackages).mockResolvedValue(packages)
     vi.mocked(readPackageJson).mockReturnValue({

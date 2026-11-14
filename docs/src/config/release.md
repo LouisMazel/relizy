@@ -39,7 +39,15 @@ Each option is a `boolean`, and a CLI flag disables it for a run (`--no-verify` 
 | `prComment`       | `true`  | `--no-pr-comment`       | Comment the pull request with the outcome of the release, see [PR Comment](./pr-comment.md)                                                                          |
 | `clean`           | `true`  | `--no-clean`            | With [`bump.clean`](./bump.md#clean), fail on uncommitted changes; otherwise keep them, with a confirmation when they touch the files the release commits            |
 
-`--canary` turns off `changelog`, `commit`, `gitTag`, `push`, `providerRelease` and `social`, whatever the config: see [Canary Releases](./../guide/prereleases.md#canary-releases).
+`--canary` (or [`canary`](#canary)) turns off `changelog`, `commit`, `gitTag`, `push`, `providerRelease` and `social`, whatever the config: see [Canary Releases](./../guide/prereleases.md#canary-releases).
+
+## canary
+
+- **Type:** `boolean`
+- **Default:** `false`
+- **CLI:** `--canary`
+
+Release a canary version of the current commit instead of a release, as `relizy release --canary`: `{nextVersion}-0.{preid}-{sha}`, published with the `canary` dist-tag (`--tag`, or `publish.tag` of a canary [profile](./profiles.md), one that sets `release.canary`), without changelog, commit, git tag, push, provider release nor social post. Set it in a profile (`profiles: { canary: { release: { canary: true } } }`) to make `relizy release --profile canary` a canary release. See [Canary Releases](./../guide/prereleases.md#canary-releases).
 
 ## report
 

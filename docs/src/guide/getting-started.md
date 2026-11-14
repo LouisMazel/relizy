@@ -16,32 +16,6 @@ tags: [guide, getting-started, installation, tutorial, quickstart]
 - **pnpm**, **npm**, **Yarn** or **Bun**
 - A **git** repository
 
-## Install
-
-Install Relizy as a development dependency, at the root of the project:
-
-::: code-group
-
-```bash [pnpm]
-pnpm add -D relizy
-```
-
-```bash [npm]
-npm install -D relizy
-```
-
-```bash [yarn]
-yarn add -D relizy
-```
-
-```bash [bun]
-bun add -D relizy
-```
-
-:::
-
-Check the installation with `npx relizy --version`. The package also installs the `rly` alias of the `relizy` binary. A global installation works too, but a dev dependency gives everyone, and the CI, the same version.
-
 ## Set Up the Project
 
 Run [`relizy init`](./../cli/init.md) at the root of the project:
@@ -49,6 +23,8 @@ Run [`relizy init`](./../cli/init.md) at the root of the project:
 ```bash
 npx relizy init
 ```
+
+It adds Relizy to the devDependencies with your package manager (`pnpm add -D relizy`...), so everyone, and the CI, run the same version. The package also installs the `rly` alias of the `relizy` binary.
 
 It detects the package manager, the git provider and the workspace packages, asks what a release should do (publish to npm, or only version for an app or a private project) and how to version the packages, then writes `relizy.config.ts`. It also offers the release workflow of the CI, a commit-msg hook running [`relizy commitlint`](./../commitlint/index.md), the setup of your AI agents and a `release` script. Add `--yes` to accept the detected values without questions.
 

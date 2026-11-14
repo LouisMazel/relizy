@@ -31,6 +31,8 @@ export default defineConfig({
 
 `release` computes the bump from the commits (see [Semver Convention](./../guide/semver-convention.md)) and graduates a prerelease to its stable version. The other types force the bump, except `prerelease`: from a stable version, it computes the bump from the commits and makes it a prerelease (`1.0.0` with a `feat` gives `1.1.0-beta.0`); from a prerelease, it increments it (`1.1.0-beta.0` to `1.1.0-beta.1`). See [Prereleases](./../guide/prereleases.md#prerelease-versions).
 
+Without a type flag, the CLI uses `bump.type` of the config, or of the [profile](./profiles.md), as the API does (before relizy 2.3.0, the CLI always used `release`): a config with `type: 'prerelease'` releases a prerelease on every `relizy release`, and `release-type: auto` of the [GitHub Action](./../guide/github-actions.md) and of the GitLab component no longer follows the commits alone. A flag (`--minor`, `--prerelease`...) still wins over it.
+
 ## preid
 
 - **Type:** `string`
@@ -38,6 +40,14 @@ export default defineConfig({
 - **CLI:** `--preid <id>`
 
 Prerelease identifier (`alpha`, `beta`, `rc`) of the `pre*` types. It needs a prerelease type: `release` with a `preid` is an error. It does not set the npm dist-tag (see [`publish.tag`](./publish.md#tag)). For canary versions, see [Canary Releases](./../guide/prereleases.md#canary-releases).
+
+## suffix
+
+- **Type:** `string`
+- **Default:** none
+- **CLI:** `--suffix <suffix>`
+
+Custom suffix of the prerelease versions: replaces the last `.X` with `.suffix` (`1.0.0-beta.0` gives `1.0.0-beta.suffix`). A [profile](./profiles.md) can set it.
 
 ## clean
 

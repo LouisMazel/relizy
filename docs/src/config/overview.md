@@ -42,6 +42,7 @@ An array of the config replaces the default one instead of being merged with it:
 | `bump`                                                                                                                                           | [Bump](./bump.md)                       |
 | `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                           | [Changelog](./changelog.md)             |
 | `publish`                                                                                                                                        | [Publish](./publish.md)                 |
+| `profiles`                                                                                                                                       | [Profiles](./profiles.md)               |
 | `release`                                                                                                                                        | [Release](./release.md)                 |
 | `templates`                                                                                                                                      | [Templates](./commit-templates.md)      |
 | `ai`                                                                                                                                             | [AI](./ai.md)                           |
@@ -185,6 +186,6 @@ export default defineConfig({
 })
 ```
 
-The programmatic API takes the same name in `configName` (`release({ configName: 'relizy.standalone' })`), and `relizy commitlint --config <name>` lints with the scopes of that config. A missing config file given with `--config` is an error.
+`--config` also takes the path of a config file, absolute or relative to the project with its extension (`--config ./release/relizy.config.ts`, `--config /configs/relizy.config.mjs`): the project stays the current directory, only the file is read from elsewhere, e.g. a config kept out of the repository. The programmatic API takes the same name or path in `configName` (`release({ configName: 'relizy.standalone' })`), and `relizy commitlint --config <name>` lints with the scopes of that config. A missing config file given with `--config` is an error.
 
 To release packages with different version modes (a `selective` set and an `independent` one) from the same repository, use [version groups](./../guide/version-groups.md) instead of two configs: a single run bumps, publishes and tags every package with the right dependency versions.

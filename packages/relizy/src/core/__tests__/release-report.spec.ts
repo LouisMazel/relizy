@@ -170,7 +170,7 @@ describe('Given the renderers of the release report', () => {
     expect(markdown).not.toContain('**Tags**')
     // A failed step does not stop the release
     expect(markdown).toContain('| ⚠️ **Social media** | slack: down |')
-    expect(markdown).toContain('| ⏭️ **PR comment** | skipped |')
+    expect(markdown).not.toContain('PR comment')
     expect(markdown).toContain('| Step | Result |\n| --- | --- |')
   })
 
@@ -249,15 +249,21 @@ describe('Given the renderers of the release report', () => {
     expect(formatReleaseReportMarkdown(report(3))).toContain('| ✅ **Provider release** | 3 releases on github |')
   })
 
-  it('Then gives why a step did nothing: the social posts of a prerelease', () => {
+  it('Then gives why a step did nothing in the terminal, and leaves it out of the markdown', () => {
     const report = {
       ...released,
       steps: [
+        { name: 'publish', status: 'done' },
         { name: 'social', status: 'skipped', detail: 'twitter: prerelease' },
+        { name: 'prComment', status: 'skipped' },
       ],
     } satisfies ReleaseReport
 
-    expect(formatReleaseReportMarkdown(report)).toContain('| ⏭️ **Social media** | skipped (twitter: prerelease) |')
+    const markdown = formatReleaseReportMarkdown(report)
+    expect(markdown).toContain('| ✅ **Publish** |')
+    expect(markdown).not.toContain('Social media')
+    expect(markdown).not.toContain('PR comment')
+    expect(markdown).not.toContain('skipped')
     expect(formatReleaseReportText(report)).toContain('Social media: Skipped (twitter: prerelease)')
   })
 
@@ -280,7 +286,39 @@ describe('Given the renderers of the release report', () => {
   it('Then tells a dry run, nothing to release and a failure apart', () => {
     expect(formatReleaseReportMarkdown({ ...detailed, dryRun: true, released: false })).toContain('## 🧪 Dry run: relizy 2.0.0\n\nNothing was written nor published.')
     expect(formatReleaseReportMarkdown(nothing)).toContain('## ℹ️ Nothing to release\n\nNo commit since the last release triggers a new version.')
-    expect(formatReleaseReportMarkdown({ ...nothing, status: 'failed', error: 'npm publish failed\nat line 2' })).toContain('## ❌ Release failed\n\n> npm publish failed\n')
+    expect(formatReleaseReportMarkdown({ ...nothing, status: 'failed', error: 'npm publish failed\nat line 2' })).toContain('## ❌ Release failed\n\n```text\nnpm publish failed\nat line 2\n```\n')
+  })
+
+  it('Then a failure gives its step and its whole error, without the versions of the release', () => {
+    const markdown = formatReleaseReportMarkdown({
+      ...detailed,
+      status: 'failed',
+      released: false,
+      steps: detailed.steps.filter(step => step.name === 'changelog'),
+      failedStep: 'Publish',
+      error: 'before:publish hook failed: Published files missing after the build:\nmaz-ui: dist/index.js',
+    })
+
+    expect(markdown).toContain('## ❌ Release failed at the Publish step\n\n```text\nbefore:publish hook failed: Published files missing after the build:\nmaz-ui: dist/index.js\n```\n')
+    expect(markdown).not.toContain('| Package |')
+    expect(markdown).not.toContain('Changelog')
+    expect(markdown).not.toContain('Content')
+  })
+
+  it('Then a failure after the publication tells what already left the machine', () => {
+    const markdown = formatReleaseReportMarkdown({
+      ...detailed,
+      status: 'failed',
+      released: false,
+      steps: detailed.steps.filter(step => ['changelog', 'publish', 'commit'].includes(step.name)),
+      failedStep: 'Push',
+      error: Array.from({ length: 25 }, (_, index) => `line ${index + 1}`).join('\n'),
+    })
+
+    expect(markdown).toContain('| ✅ **Publish** | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |')
+    expect(markdown).not.toContain('Commit and tags')
+    expect(markdown).not.toContain('Install')
+    expect(markdown).toContain('line 20\n... 5 more lines in the log\n```')
   })
 
   it('Then gives the summary as label and value pairs', () => {

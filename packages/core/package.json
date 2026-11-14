@@ -1,7 +1,7 @@
 {
   "name": "@relizy/core",
   "type": "module",
-  "version": "2.3.0",
+  "version": "2.4.0-beta.0",
   "description": "Generic building blocks of Relizy: workspaces, catalogs, package managers, registries, git and CI helpers, commit parsing and linting, GitHub/GitLab providers",
   "author": "Louis Mazel <me@loicmazuel.com>",
   "license": "MIT",
@@ -29,7 +29,8 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "import": "./dist/index.mjs"
+      "import": "./dist/index.mjs",
+      "default": "./dist/index.mjs"
     }
   },
   "main": "./dist/index.mjs",
@@ -49,8 +50,8 @@
     "test:unit": "vitest run"
   },
   "dependencies": {
-    "@maz-ui/node": "^5.6.0",
-    "@maz-ui/utils": "^5.5.0",
+    "@maz-ui/node": "5.7.0-beta.0",
+    "@maz-ui/utils": "^5.6.0",
     "confbox": "^0.3.2",
     "convert-gitmoji": "^0.1.5",
     "fast-glob": "^3.3.3",

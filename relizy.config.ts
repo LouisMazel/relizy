@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import process from 'node:process'
 import { defineConfig } from './packages/relizy/src'
-import { generateAgentDocs } from './packages/relizy/src/mcp/knowledge/generate'
+import { generateAgentDocs } from './packages/relizy/src/core/mcp/knowledge/generate'
 
 export default defineConfig({
   // The name of the published package, not the one of the private root of the repository

@@ -15,11 +15,11 @@ pnpm monorepo, two published packages and the docs:
 
 In `packages/relizy/`:
 
-- `src/commands/` - one file per CLI command (`init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `pr-comment`, `commitlint`)
-- `src/core/` - orchestration (see `src/core/CLAUDE.md`); package discovery is `getPackages()` in `repo.ts`, the defaults are `getDefaultConfig()` in `config.ts`. Modules moved to `@relizy/core` are imported from it directly, with no re-exporting file; adapters bind it to the config and the logger (`npm-registry.ts`, `gitlab.ts`, `ci.ts`...), and `vi.mock` of a function called inside core must target the core file
-- `src/mcp/` - MCP server for AI agents, `relizy mcp` and `relizy mcp init` (see `src/mcp/CLAUDE.md`)
+- `src/commands/` - one file per CLI command (`init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `pr-comment`, `commitlint`, `merge-preview`, `mcp`)
+- `src/core/` - orchestration; package discovery is `getPackages()` in `repo.ts`, the defaults are `getDefaultConfig()` in `config.ts`. Modules moved to `@relizy/core` are imported from it directly, with no re-exporting file; adapters bind it to the config and the logger (`npm-registry.ts`, `gitlab.ts`, `ci.ts`...), and `vi.mock` of a function called inside core must target the core file
+- `src/core/mcp/` - MCP server for AI agents, `relizy mcp`
 - `src/cli.ts` - Commander.js setup; `getReleaseType()` converts the CLI flags to semver bump types
-- `src/types.ts` - types of all configuration and option objects, and the source of the config reference of the docs; a type is declared once: the ones core also uses (`RepoConfig`, `RegistryTarget`, `PackageManager`...) are declared in core and re-exported from here, the extractor of the reference (`src/mcp/knowledge/generate.ts`) reads them from the sources of core
+- `src/types.ts` - types of all configuration and option objects, and the source of the config reference of the docs; a type is declared once: the ones core also uses (`RepoConfig`, `RegistryTarget`, `PackageManager`...) are declared in core and re-exported from here, the extractor of the reference (`src/core/mcp/knowledge/generate.ts`) reads them from the sources of core
 - `bin/relizy.mjs` - executable entry of the published package, it must keep its `#!/usr/bin/env node` shebang
 
 ## Commands
@@ -39,8 +39,6 @@ In `packages/relizy/`:
 3. `independent` - each package has its own version; the root version stays separate
 
 `monorepo.groups` (replaces `versionMode` and `packages`) releases several sets of packages, each with its own mode, in one run.
-
-The details of the orchestration (groups, peer dependencies, git cache use, release overview and social posts, CLI output, changelog and tags) are in `src/core/CLAUDE.md`, loaded when you read files of `src/core/`. Read it before changing a command in `src/commands/` that uses them.
 
 ## Public API
 

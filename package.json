@@ -1,7 +1,7 @@
 {
   "name": "relizy-monorepo",
   "type": "module",
-  "version": "2.2.1",
+  "version": "2.3.0-beta.2",
   "private": true,
   "packageManager": "pnpm@12.18.0",
   "description": "Monorepo of relizy and @relizy/core",
@@ -30,7 +30,7 @@
     "pre-commit": "lint-staged"
   },
   "devDependencies": {
-    "@maz-ui/eslint-config": "^5.4.0",
+    "@maz-ui/eslint-config": "^5.5.0",
     "@types/node": "^26.6.6",
     "@vitest/coverage-v8": "^5.1.0",
     "cross-env": "10.1.0",

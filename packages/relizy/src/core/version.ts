@@ -4,7 +4,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
-import { writeVersion as coreWriteVersion, hasLernaJson, isPrerelease, isPrereleaseReleaseType } from '@relizy/core'
+import { writeVersion as coreWriteVersion, hasLernaJson, isPrerelease, isPrereleaseReleaseType, parseWorkspaceProtocol, PUBLISH_DEPENDENCY_FIELDS } from '@relizy/core'
 import { recordReleaseFile } from './release-files'
 import { readPackageJson } from './repo'
 
@@ -14,6 +14,46 @@ import { readPackageJson } from './repo'
  */
 export function writeVersion(pkgPath: string, newVersion: string, dryRun = false): void {
   coreWriteVersion(pkgPath, newVersion, { dryRun, beforeWrite: recordReleaseFile, logger })
+}
+
+/**
+ * Pin the internal dependencies of a canary to the exact version: the package
+ * manager publishes `workspace:^` as `^<version>`, and a canary range also
+ * accepts the previous canaries (`2.4.0-0.canary-8202232` is greater than
+ * `2.4.0-0.canary-4c5ce99`, the hashes compare as text), so `workspace:^` and
+ * `workspace:~` become `workspace:*`. The file is recorded as written by the
+ * release, restored with the versions of the canary.
+ *
+ * @returns The dependencies pinned
+ */
+export function pinCanaryWorkspaceDependencies(pkgPath: string, dryRun = false): string[] {
+  const packageJsonPath = join(pkgPath, 'package.json')
+  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>
+  const pinned: string[] = []
+
+  for (const field of PUBLISH_DEPENDENCY_FIELDS) {
+    const dependencies = packageJson[field] as Record<string, string> | undefined
+
+    for (const [name, specifier] of Object.entries(dependencies ?? {})) {
+      const workspace = parseWorkspaceProtocol(name, specifier)
+
+      if (!workspace || (workspace.range !== '^' && workspace.range !== '~')) {
+        continue
+      }
+
+      dependencies![name] = workspace.target === name
+        ? 'workspace:*'
+        : `workspace:${workspace.target}@*`
+      pinned.push(name)
+    }
+  }
+
+  if (pinned.length > 0 && !dryRun) {
+    recordReleaseFile(packageJsonPath)
+    writeFileSync(packageJsonPath, `${formatJson(packageJson)}\n`, 'utf8')
+  }
+
+  return pinned
 }
 
 export function updateLernaVersion({

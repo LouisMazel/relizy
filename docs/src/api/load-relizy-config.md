@@ -16,15 +16,54 @@ function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promise<ResolvedRe
 
 `loadRelizyConfig()` reads the config file of the current directory (and its `.env`), merges it with the defaults, and returns the resolved config, with the defaults and the `types`. It throws when `configFile` is given and the file does not exist, when the [version groups](./../guide/version-groups.md) are invalid, or when the config sets an option removed in relizy 2 (`monorepo.ignorePackageNames`, see [the migration guide](./../guide/migration-v2.md#removed-ignorepackagenames)).
 
+A config importing relizy (`import { defineConfig } from 'relizy'`) gets the running relizy, the one loading the config, not the one the project installs: it loads even when the project does not install relizy (relizy installed elsewhere, run by an application), and an application running its own relizy gives its version to every config. Only `relizy` and the subpaths it exports (`relizy/cli`) are rewritten. When the running relizy cannot be found (bundled in another program), the config gets the relizy of the project, as any import.
+
 ## Options
 
-| Option       | Description                                                                                                                                                 |
-| ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`. Default: `'relizy'`                                           |
-| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory |
-| `baseConfig` | A `ResolvedRelizyConfig`, merged under the overrides and over the config file and the defaults: the file is still read                                      |
+| Option       | Description                                                                                                                                                                                                                                          |
+| ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `configFile` | Name of the config, as `--config`: `'relizy.standalone'` loads `relizy.standalone.config.ts`; or the path of the file, absolute or relative to the project with its extension (`'/configs/relizy.config.ts'`). Default: `'relizy'`                   |
+| `overrides`  | `RelizyConfigOverrides`, options applied over the config file (each one partial: `{ bump: { type: 'minor' } }`). `overrides.cwd` sets the project directory. The `hooks` of the overrides run after the ones of the config instead of replacing them |
+| `profile`    | Name of a [profile](./../config/profiles.md) of the config, as `--profile`: its options come over the config file and under the `overrides`. Throws `UnknownProfileError` when it is not defined                                                     |
+| `baseConfig` | A `ResolvedRelizyConfig`, used instead of the config file: the profile and the overrides are applied over it, the file is not read again                                                                                                             |
 
 See [LoadRelizyConfigOptions](./../typedoc/interfaces/LoadRelizyConfigOptions.md) and [ResolvedRelizyConfig](./../typedoc/type-aliases/ResolvedRelizyConfig.md).
+
+## Profiles
+
+The [profiles](./../config/profiles.md) of the config are listed by `listProfiles()`, which takes the resolved config (or a config as written):
+
+```ts
+function listProfiles(config: Pick<RelizyConfig, 'profiles'>): ProfileInfo[]
+
+interface ProfileInfo {
+  name: string
+  description?: string
+  /** True when the profile releases a canary (`release.canary`) */
+  canary: boolean
+  /** The config options the profile sets, over the config file, secrets masked */
+  options: ProfileOptions
+  /** The same options, one entry per leaf */
+  settings: { path: string, value: unknown }[]
+}
+
+/** The sections a profile sets, exported by relizy */
+type ProfileOptions = Pick<RelizyConfig, 'bump' | 'changelog' | 'publish' | 'release' | 'social' | 'prComment' | 'ai' | 'safetyCheck'>
+```
+
+```ts
+import { listProfiles, loadRelizyConfig } from 'relizy'
+
+const profiles = listProfiles(await loadRelizyConfig())
+// [{ name: 'beta', description: 'Prerelease for testers', canary: false, options: {...},
+//    settings: [{ path: 'bump.type', value: 'prerelease' }, { path: 'bump.preid', value: 'beta' }, { path: 'publish.tag', value: 'beta' }] }]
+
+// The config the profile resolves to, with the defaults and the config file under it
+const config = await loadRelizyConfig({ profile: 'beta' })
+console.log(config.profile, config.bump.preid, config.publish.tag) // beta beta beta
+```
+
+The precedence is the defaults, the config file, the profile, then the `overrides`. `config.profile` is the name of the profile applied. `UnknownProfileError` has the `profile` asked and the `available` names; the config also fails to load when a profile sets an option a profile cannot set. A `baseConfig` already resolved with a profile takes no other one: `loadRelizyConfig({ baseConfig, profile: 'latest' })` over a config of `beta` throws `ProfileConflictError` (with `profile` and `resolvedWith`), since the options of `beta` could not be taken out; load the config again with the new profile.
 
 ## Examples
 
@@ -49,7 +88,7 @@ const config = await loadRelizyConfig({
 await bump({ config, configName: 'relizy.standalone', yes: true })
 ```
 
-A command given a `config` still loads its config file under it (see [Shared Options](./usage.md#shared-options)): pass the same `configName`.
+A command given a `config` uses it as it is, without loading the config file (see [Shared Options](./usage.md#shared-options)).
 
 `defineConfig()` only types the object of `relizy.config.ts`, see [Configuration](./../config/overview.md).
 

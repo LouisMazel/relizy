@@ -244,6 +244,11 @@ const NPMRC_SIGNALS = ['SIGINT', 'SIGTERM', 'SIGHUP'] as const
  * every other line of the `.npmrc` is preserved. When there is nothing to
  * inject, the `.npmrc` is left as is and `fn` runs against it.
  *
+ * Concurrent calls on the same `.npmrc` run one after the other, and the
+ * injected lines sit between `# relizy:start` and `# relizy:end` markers that
+ * are never taken for the original content: a block left by another relizy
+ * process (or a crash) is removed, the token is never written back.
+ *
  * @param options - Target, package and callback.
  * @param options.cwd - Directory of the `.npmrc` (root of the project).
  * @param options.registryTarget - Registry whose token and scope registry are injected.
@@ -291,10 +296,62 @@ export async function withRegistryNpmrc<T>({
   }
 
   const npmrcPath = join(cwd, '.npmrc')
-  const existed = existsSync(npmrcPath)
-  const original = existed
-    ? readFileSync(npmrcPath, 'utf8')
+  // One write of a `.npmrc` at a time in the process: two concurrent calls
+  // (the registry checks of several packages) would each take the file of the
+  // other for the original, and the last to restore would leave the token
+  return await withNpmrcLock(npmrcPath, () => withInjectedNpmrc(npmrcPath, entries, fn))
+}
+
+/**
+ * Lines written by `withRegistryNpmrc`, between these markers: they are never
+ * taken for the original content, so a block left by another process or a
+ * crash is removed instead of written back
+ */
+const NPMRC_BLOCK_START = '# relizy:start (temporary registry auth, removed after the command)'
+const NPMRC_BLOCK_END = '# relizy:end'
+
+/** The `.npmrc` without the temporary blocks of relizy */
+export function stripRelizyNpmrcBlocks(content: string): string {
+  const lines: string[] = []
+  let inBlock = false
+  for (const line of content.split('\n')) {
+    if (line.trim() === NPMRC_BLOCK_START) {
+      inBlock = true
+      continue
+    }
+    if (inBlock) {
+      inBlock = line.trim() !== NPMRC_BLOCK_END
+      continue
+    }
+    lines.push(line)
+  }
+  return lines.join('\n')
+}
+
+const npmrcLocks = new Map<string, Promise<unknown>>()
+
+async function withNpmrcLock<T>(npmrcPath: string, fn: () => Promise<T>): Promise<T> {
+  const previous = npmrcLocks.get(npmrcPath) ?? Promise.resolve()
+  const current = previous.catch(() => {}).then(fn)
+  const settled = current.catch(() => {})
+  npmrcLocks.set(npmrcPath, settled)
+  try {
+    return await current
+  }
+  finally {
+    if (npmrcLocks.get(npmrcPath) === settled) {
+      npmrcLocks.delete(npmrcPath)
+    }
+  }
+}
+
+async function withInjectedNpmrc<T>(npmrcPath: string, entries: Array<{ key: string, line: string }>, fn: () => Promise<T>): Promise<T> {
+  // The original is the file without any temporary block, so the token of a
+  // block left by another process is never written back
+  const original = existsSync(npmrcPath)
+    ? stripRelizyNpmrcBlocks(readFileSync(npmrcPath, 'utf8'))
     : ''
+  const existed = original.trim().length > 0
 
   const managedKeys = new Set(entries.map(entry => entry.key))
   const preservedLines = original.split('\n').filter((line) => {
@@ -303,9 +360,11 @@ export async function withRegistryNpmrc<T>({
   })
 
   const nextContent = `${[
-    ...preservedLines,
+    ...preservedLines.filter(Boolean),
+    NPMRC_BLOCK_START,
     ...entries.map(entry => entry.line),
-  ].filter(Boolean).join('\n')}\n`
+    NPMRC_BLOCK_END,
+  ].join('\n')}\n`
 
   let restored = false
   const restore = () => {

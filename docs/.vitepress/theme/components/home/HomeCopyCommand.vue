@@ -5,7 +5,7 @@ import MazBtn from 'maz-ui/components/MazBtn'
 import { ref } from 'vue'
 
 /**
- * A command to copy: `pnpm add -D relizy`
+ * A command to copy: `npx relizy init`
  */
 
 const props = defineProps<{
