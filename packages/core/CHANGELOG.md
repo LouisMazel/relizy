@@ -1,5 +1,52 @@
 # Changelog
 
+## @relizy/core@2.4.0-beta.0 (2026-11-14)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.3.1-beta.0...@relizy/core@2.4.0-beta.0)
+
+### 🚀 Features
+
+- **core:** Read the full hash of each commit ([daeff68](https://github.com/LouisMazel/relizy/commit/daeff68))
+
+  `getGitDiff` gives the full hash of each commit as `hash`, next to `shortHash`: a commit built by hand (the simulated squash commit) has none.
+
+- **core:** Add getGitPushTarget and getPosixRelativePath ([2fbefcc](https://github.com/LouisMazel/relizy/commit/2fbefcc))
+
+  `getGitPushTarget(cwd)` tells where `git push` pushes the current branch (its upstream, else `origin`), and `getPosixRelativePath(from, to)` gives a relative path with `/` separators on every platform.
+
+### 🩹 Fixes
+
+- Load a config importing relizy from a project that does not install it ([52bbfb9](https://github.com/LouisMazel/relizy/commit/52bbfb9))
+
+  A config importing relizy (`import { defineConfig } from "relizy"`) gets the running relizy, so it loads when relizy is installed elsewhere and run by an application. The packages also export a default condition, for the loaders resolving with require.
+
+- **core:** Never leave the registry token in the .npmrc of the project ([cdfef5f](https://github.com/LouisMazel/relizy/commit/cdfef5f))
+
+  withRegistryNpmrc wrote the token in the .npmrc of the project, then wrote back what it read before. Two calls at the same time (the registry checks of several packages in a merge preview, or two relizy processes in the same project) took the file of each other for the original, and the last one wrote the token back, for good.
+
+  The calls on the same .npmrc now run one after the other, and the injected lines sit between markers that are never taken for the original content: a block left by another process or a crash is removed instead.
+
+- **core:** Never leave the registry token in the .npmrc of the project ([88cc61b](https://github.com/LouisMazel/relizy/commit/88cc61b))
+
+  withRegistryNpmrc wrote the token in the .npmrc of the project, then wrote back what it read before. Two calls at the same time (the registry checks of several packages in a merge preview, or two relizy processes in the same project) took the file of each other for the original, and the last one wrote the token back, for good.
+
+  The calls on the same .npmrc now run one after the other, and the injected lines sit between markers that are never taken for the original content: a block left by another process or a crash is removed instead.
+
+### 📦 Build
+
+- **deps:** Update 6 of my packages ([a2506c5](https://github.com/LouisMazel/relizy/commit/a2506c5))
+
+  - @maz-ui/eslint-config ^5.4.0 -> ^5.5.0
+  - @maz-ui/icons ^5.5.0 -> ^5.6.0
+  - @maz-ui/themes ^5.5.0 -> ^5.6.0
+  - @maz-ui/translations ^5.5.0 -> ^5.6.0
+  - @maz-ui/utils ^5.5.0 -> ^5.6.0
+  - maz-ui ^5.5.0 -> ^5.6.0
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.3.1-beta.0 (2026-11-12)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.3.0...@relizy/core@2.3.1-beta.0)
