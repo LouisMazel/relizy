@@ -110,6 +110,7 @@ vi.mock('../../core', async () => ({
   resolveTags: vi.fn(() => ({ from: 'v1.0.0', to: 'HEAD' })),
   updateLernaVersion: vi.fn(),
   writeVersion: vi.fn(),
+  pinCanaryWorkspaceDependencies: vi.fn(),
   executeHook: vi.fn(() => {}),
 }))
 
