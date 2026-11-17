@@ -1,5 +1,21 @@
 # Changelog
 
+## @relizy/core@2.4.0-beta.2 (2026-11-17)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0-beta.1...@relizy/core@2.4.0-beta.2)
+
+### 🚀 Features
+
+- **core:** Merge a branch into another without checkout ([4215880](https://github.com/LouisMazel/relizy/commit/4215880))
+
+  `syncGitBranch` merges a branch into another one on the remote and pushes it: a fast-forward, or a merge commit computed in memory by `git merge-tree` (git 2.38 or later), without checkout. On a conflict, nothing is pushed and the result gives the files and the commands to merge by hand.
+
+  `remoteBranchExists`, `findGithubPullRequest`, `createGithubPullRequest`, `findGitlabMergeRequest` and `createGitlabMergeRequest` open the pull requests of a sync, and `ensurePushAccess` takes a `branch` to check the push to another branch.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.4.0-beta.1 (2026-11-17)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0-beta.0...@relizy/core@2.4.0-beta.1)

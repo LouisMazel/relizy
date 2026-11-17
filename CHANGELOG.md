@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.3.0-beta.5 (2026-11-17)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.4...v2.3.0-beta.5)
+
+### 🚀 Features
+
+- **relizy:** Sync the branches after the release ([259402f](https://github.com/LouisMazel/relizy/commit/259402f))
+
+  Right after the push, `relizy release` merges the released branch into the branches of the rules whose `from` matches it (a name or a glob such as `release/*`), with a push or a pull request (`mode: 'pull-request'`). The releases of the other branches and the canaries sync nothing, and a conflict never fails the release.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    sync: {
+      rules: [{ from: 'main', to: ['develop'] }],
+    },
+  })
+  ```
+
+  `relizy sync` syncs the branches alone, `--sync <branch...>` and `--no-sync` change the sync for one run. See [Branch Sync](https://relizy.dev/guide/branch-sync).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.4 (2026-11-17)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.3...v2.3.0-beta.4)
