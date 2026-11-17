@@ -135,6 +135,8 @@ relizy cannot push the release commit and tags to "origin" from GitLab CI: the j
 Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
 ```
 
+When `GITLAB_TOKEN` is set but cannot push either (expired, without the `write_repository` scope, or a role that cannot push), the error says so: check the token, not the job token.
+
 Instead of pushing with `GITLAB_TOKEN`, you can allow the job token to push (Settings > CI/CD > Job token permissions, Allow Git push requests to the repository): its push starts no pipeline. A push with `GITLAB_TOKEN` starts the pipelines of the release commit and of the tags, which the rules of the `release` job skip.
 
 The release commit and the tags are made by the person who started the pipeline (or the manual job), with their noreply email (`42-jdoe@users.noreply.gitlab.com`), not by the user of the token.

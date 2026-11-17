@@ -291,17 +291,88 @@ function getGitlabPushToken(token: string | undefined, env: Env): string | undef
 }
 
 /**
- * Push through `url` instead of the URL of `remote`, without changing the
- * remote: the `pushInsteadOf` of git, given by the environment, so the token
- * is in no command line nor log
+ * Push `remote` to `url`, without changing the remote: its `pushurl`, given by
+ * the environment, so the token is in no command line nor log. Not a
+ * `pushInsteadOf`: git matches it against the URL of the config, before the
+ * `insteadOf` rules, and the GitLab runner may add one putting the job token
+ * in the URL. With credentials, `url` matches no `insteadOf` of the host.
  */
-function pushThrough({ url, remoteUrl, env }: { url: string, remoteUrl: string, env: Env }): void {
-  const index = Number(env.GIT_CONFIG_COUNT) || 0
+function pushTo({ remote, url, env }: { remote: string, url: string, env: Env }): void {
+  const key = `remote.${remote}.pushurl`
+  const count = Number(env.GIT_CONFIG_COUNT) || 0
+  // The one of a previous release of the process is replaced: two pushurls would both be pushed
+  const existing = Array.from({ length: count }, (_, index) => index).find(index => env[`GIT_CONFIG_KEY_${index}`] === key)
+  const index = existing ?? count
   Object.assign(env, {
-    GIT_CONFIG_COUNT: String(index + 1),
-    [`GIT_CONFIG_KEY_${index}`]: `url.${url}.pushInsteadOf`,
-    [`GIT_CONFIG_VALUE_${index}`]: remoteUrl,
+    GIT_CONFIG_COUNT: String(Math.max(count, index + 1)),
+    [`GIT_CONFIG_KEY_${index}`]: key,
+    [`GIT_CONFIG_VALUE_${index}`]: url,
   })
+}
+
+/** What happened to the GitLab token when the remote could not push */
+interface GitlabTokenAttempt {
+  /** The push goes through the token */
+  pushed?: boolean
+  /** The push was tried with the token, and refused */
+  refused?: boolean
+  /** Why git refused the push with the token */
+  refusal?: string
+  /** Why the token could not be used */
+  unusable?: string
+}
+
+/**
+ * The URL pushing to the GitLab project with the token, or why the token
+ * cannot be used
+ */
+function getGitlabPushUrl({ token, remote, remoteUrl, cwd, env }: { token: string, remote: string, remoteUrl?: string, cwd: string, env: Env }): { url: string } | { unusable: string } {
+  if (!remoteUrl?.startsWith('http')) {
+    return { unusable: `the remote "${remote}" is not an http URL (${withoutCredentials(remoteUrl ?? 'none')})` }
+  }
+  if (!env.CI_SERVER_URL || !env.CI_PROJECT_PATH) {
+    return { unusable: 'CI_SERVER_URL or CI_PROJECT_PATH is not set' }
+  }
+  // A pushurl of the git config would be pushed too (the environment only holds the one of relizy)
+  if (tryGitSync(['config', '--get-all', `remote.${remote}.pushurl`], {
+    cwd,
+    env: { ...env, GIT_CONFIG_COUNT: '0' },
+  })) {
+    return { unusable: `the remote "${remote}" has its own pushurl in the git config` }
+  }
+
+  const url = new URL(env.CI_SERVER_URL)
+  url.username = 'oauth2'
+  url.password = token
+  url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
+
+  return {
+    url: url.toString(),
+  }
+}
+
+/**
+ * Route the push of `remote` through the GitLab token, and check it: the
+ * credentials of the remote cannot push
+ */
+function pushWithGitlabToken({ token, remote, remoteUrl, branch, cwd, env, logger }: { token: string, remote: string, remoteUrl?: string, branch: string, cwd: string, env: Env, logger?: CoreLogger }): GitlabTokenAttempt {
+  const target = getGitlabPushUrl({ token, remote, remoteUrl, cwd, env })
+  if ('unusable' in target) {
+    logger?.debug?.(`The GitLab token cannot be used to push: ${target.unusable}`)
+    return { unusable: target.unusable }
+  }
+
+  logger?.debug?.(`The credentials of "${remote}" cannot push, trying with the GitLab token: ${withoutCredentials(target.url)}`)
+  pushTo({ remote, url: target.url, env })
+
+  const refusal = getPushProblem({ remote, branch, cwd, env })
+  if (refusal === undefined) {
+    logger?.info?.('The release is pushed with the GitLab token (the job token cannot push)')
+    return { pushed: true }
+  }
+
+  logger?.debug?.(`The GitLab token cannot push either: ${refusal || 'git said nothing'}`)
+  return { refused: true, refusal }
 }
 
 /**
@@ -375,7 +446,7 @@ function getPushProblem({ remote, branch, cwd, env }: { remote: string, branch: 
  * The error of a release that cannot be pushed: why git refused it, and the
  * fix for where it runs
  */
-function getPushError({ remote, remoteUrl, env, refusal }: { remote: string, remoteUrl?: string, env: Env, refusal?: string }): string {
+function getPushError({ remote, remoteUrl, branch, env, refusal, gitlabToken }: { remote: string, remoteUrl?: string, branch: string, env: Env, refusal?: string, gitlabToken?: GitlabTokenAttempt }): string {
   const refusalLines = refusal
     ? refusal.split('\n').map(line => `  ${line}`).join('\n')
     : ''
@@ -383,6 +454,15 @@ function getPushError({ remote, remoteUrl, env, refusal }: { remote: string, rem
     ? `Git refused it with:\n${refusalLines}\n`
     : ''
 
+  if (env.GITLAB_CI === 'true' && gitlabToken?.refused) {
+    return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the GitLab token cannot push either (the job token cannot).\n${gitSaid}`
+      + 'Fix: check the GitLab token (GITLAB_TOKEN or RELIZY_GITLAB_TOKEN): not expired nor revoked, the "write_repository" scope, '
+      + `and a role of this project allowed to push (Developer at least, the role the branch "${branch}" requires when it is protected).`
+  }
+  if (env.GITLAB_CI === 'true' && gitlabToken?.unusable) {
+    return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push, and the GitLab token cannot be used: ${gitlabToken.unusable}.\n${gitSaid}`
+      + 'Fix: push to the GitLab project over https, or allow the job token to push in Settings > CI/CD > Job token permissions.'
+  }
   if (env.GITLAB_CI === 'true') {
     return `relizy cannot push the release commit and tags to "${remote}" from GitLab CI: the job token cannot push.\n${gitSaid}`
       + 'Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), '
@@ -469,7 +549,8 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
  * by the real push. Does nothing on a detached HEAD. Runs
  * `git push --dry-run` (nothing is pushed). A branch behind
  * its remote is not an error here. When the fallback applies, `env` gets the
- * `GIT_CONFIG_*` variables routing the push through the token.
+ * `GIT_CONFIG_*` variables setting the `pushurl` of the remote to the GitLab
+ * project with the token.
  *
  * @param options - The options
  * @param options.cwd - The directory of the repository
@@ -501,33 +582,38 @@ export function ensurePushAccess({ cwd, gitlabToken, env = process.env, logger }
       }
 
       const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
-      let refusal = getPushProblem({ remote, branch, cwd, env })
+      const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd, env })
+      logger?.debug?.(`Checking the push of the release to "${remote}" (${withoutCredentials(remoteUrl ?? 'no URL')})`)
+      const refusal = getPushProblem({ remote, branch, cwd, env })
       if (refusal === undefined) {
         logger?.debug?.(`The release can be pushed to "${remote}"`)
         return
       }
 
       const token = getGitlabPushToken(gitlabToken, env)
-      const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd })
-      if (token && remoteUrl?.startsWith('http') && env.CI_SERVER_URL && env.CI_PROJECT_PATH) {
-        const url = new URL(env.CI_SERVER_URL)
-        url.username = 'oauth2'
-        url.password = token
-        url.pathname = `${url.pathname.replace(/\/$/, '')}/${env.CI_PROJECT_PATH}.git`
-        pushThrough({
-          url: url.toString(),
-          remoteUrl,
-          env,
-        })
-
-        refusal = getPushProblem({ remote, branch, cwd, env })
-        if (refusal === undefined) {
-          logger?.info?.('The release is pushed with the GitLab token (the job token cannot push)')
-          return
-        }
+      const attempt = token
+        ? pushWithGitlabToken({
+            token,
+            remote,
+            remoteUrl,
+            branch,
+            cwd,
+            env,
+            logger,
+          })
+        : undefined
+      if (attempt?.pushed) {
+        return
       }
 
-      throw new Error(getPushError({ remote, remoteUrl, env, refusal }))
+      throw new Error(getPushError({
+        remote,
+        remoteUrl,
+        branch,
+        env,
+        refusal: attempt?.refusal ?? refusal,
+        gitlabToken: attempt,
+      }))
     }),
   })
 }
