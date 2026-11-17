@@ -9,6 +9,7 @@ import { aggregateIndependentChangelogs, fetchGitTags } from '@relizy/core'
 import * as semver from 'semver'
 import { planBumps } from '../commands/bump'
 import { CANARY_OFF_OPTIONS, getReleaseConfig } from '../commands/release'
+import { getSyncSource, getSyncTargets } from './branch-sync'
 import { generateChangelog } from './changelog'
 import { getReleaseTags } from './git'
 import { keepLogLevel, withLogCapture } from './log-capture'
@@ -412,7 +413,7 @@ function collectTags(plan: ReleasePlan): Map<string, string> {
 }
 
 /** The steps of `relizy release` in its order, and what turns each one off */
-function getSteps(config: ResolvedRelizyConfig): PreviewStep[] {
+function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): PreviewStep[] {
   const { release } = config
   const state = (key: keyof typeof release, ...needs: (keyof typeof release)[]): Pick<PreviewStep, 'enabled' | 'disabledBy'> => {
     const off = [key, ...needs].find(option => release[option] === false)
@@ -450,6 +451,14 @@ function getSteps(config: ResolvedRelizyConfig): PreviewStep[] {
       name: 'push',
       label: RELEASE_STEP_LABELS.push,
       ...state('push', 'commit'),
+    },
+    {
+      name: 'sync',
+      label: RELEASE_STEP_LABELS.sync,
+      // Only when a rule of sync matches the current branch
+      ...(syncs
+        ? state('sync', 'push', 'commit')
+        : { enabled: false, disabledBy: 'sync.rules' }),
     },
     {
       name: 'provider-release',
@@ -528,7 +537,9 @@ export async function previewRelease(options: PreviewReleaseOptions = {}): Promi
             groups: bumpResult.groups,
           }).map(tag => tag.name)
         : [],
-      steps: getSteps(plan.config),
+      steps: getSteps(plan.config, {
+        syncs: getSyncTargets(plan.config, await getSyncSource(plan.config.cwd)).length > 0,
+      }),
       problems: checks.problems,
       changelogs,
       checkWarnings: checks.warnings,

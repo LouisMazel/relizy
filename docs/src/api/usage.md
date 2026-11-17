@@ -36,6 +36,8 @@ import {
   release,
   RelizyCancelError,
   social,
+  sync,
+  SyncError,
   UnknownProfileError,
 } from 'relizy'
 ```
@@ -48,6 +50,7 @@ import {
 | [`publish()`](./publish.md)                                     | `Promise<PublishResponse \| undefined>` | [`relizy publish`](./../cli/publish.md)                         |
 | [`providerRelease()`](./provider-release.md)                    | `Promise<ProviderReleaseResult>`        | [`relizy provider-release`](./../cli/provider-release.md)       |
 | [`social()`](./social.md)                                       | `Promise<SocialResult>`                 | [`relizy social`](./../cli/social.md)                           |
+| [`sync()`](./sync.md)                                           | `Promise<SyncResult>`                   | [`relizy sync`](./../cli/sync.md)                               |
 | [`prComment()`](./pr-comment.md)                                | `Promise<boolean>`                      | [`relizy pr-comment`](./../cli/pr-comment.md)                   |
 | [`mergePreview()`](./merge-preview.md)                          | `Promise<ReleaseReport>`                | [`relizy merge-preview`](./../cli/merge-preview.md)             |
 | [`commitlint()`](./commitlint.md)                               | `Promise<CommitlintRunResult>`          | [`relizy commitlint`](./../commitlint/cli.md)                   |
@@ -62,6 +65,7 @@ import {
 | `RelizyCancelError`, `isRelizyCancelError()`                    | See [Errors](#errors)                   | -                                                               |
 | `UnknownProfileError`                                           | See [Errors](#errors)                   | -                                                               |
 | `MergePreviewError`                                             | See [Errors](#errors)                   | -                                                               |
+| `SyncError`                                                     | See [Errors](#errors)                   | -                                                               |
 
 The [typedoc](./../typedoc/index.md) lists every export and type.
 
@@ -148,6 +152,8 @@ catch (error) {
 ```
 
 `mergePreview()` throws a `MergePreviewError` when the release of the merge would fail, its message lists the problems.
+
+`sync()` throws a `SyncError` when a branch did not get the release (a conflict, a refused push), once the other branches are synced: its `result` tells what was done to each branch. In `release()`, such a branch never fails the release.
 
 `UnknownProfileError` is thrown by any command given a `profile` the config does not define: its `profile` is the name asked and `available` the names of the profiles.
 

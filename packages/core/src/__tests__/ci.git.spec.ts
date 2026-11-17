@@ -304,6 +304,19 @@ describe('Given the push of the release', () => {
     await expect(withGitCache(() => ensurePushAccess(config))).resolves.toBeUndefined()
   })
 
+  it('When the branch to push to is given, Then checks it even on a detached HEAD, apart from the push of the current branch', async () => {
+    const origin = createOrigin()
+    const cwd = clone(origin)
+    git(origin, 'checkout', '--quiet', '--detach')
+    git(cwd, 'checkout', '--quiet', '--detach')
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+
+    await withGitCache(async () => {
+      await expect(ensurePushAccess({ cwd })).resolves.toBeUndefined()
+      await expect(ensurePushAccess({ cwd, branch: 'develop' })).rejects.toThrow('cannot push')
+    })
+  })
+
   it('When the job token of GitLab cannot push, Then pushes with the GitLab token through the environment, and fails before publishing when it cannot either', async () => {
     const cwd = clone(createOrigin())
     // Refused at once: nothing listens on the port 9

@@ -130,7 +130,7 @@ relizy release --canary --yes
 
 - the type is `prerelease` and the preid `canary` (unless `--preid`, or the `bump.preid` of a canary profile);
 - the dist-tag is `canary` (unless `--tag`, or the `publish.tag` of a canary profile), whatever `--preid`;
-- no changelog, commit, git tag, push, provider release nor social post.
+- no changelog, commit, git tag, push, provider release, social post nor branch sync.
 
 A canary profile is one that sets `release: { canary: true }`: its `bump.preid` and `publish.tag` name its canaries. `--canary` with another profile keeps the canary preid and dist-tag: `relizy release --profile beta --canary` publishes `1.3.0-0.canary-a3f4b2c` under `canary`, not under the `beta` dist-tag of the profile.
 

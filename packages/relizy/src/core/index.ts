@@ -1,4 +1,5 @@
 export * from './announcements'
+export * from './branch-sync'
 export * from './bump-confirm'
 export * from './bump-plan'
 export * from './changelog'

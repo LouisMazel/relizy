@@ -1,11 +1,11 @@
-import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig } from '../core'
+import type { ReleaseReport, ReleaseStepReport, ResolvedRelizyConfig, SyncSource, SyncTarget } from '../core'
 import type { StepCheck } from '../core/events'
 import type { AIRewrite, ReleaseLink } from '../core/progress'
-import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult } from '../types'
+import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult, SyncResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
 import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
-import { createCommandUi, createCommitAndTags, describeBumpResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, writeReleaseReport } from '../core'
+import { createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess } from '../core/ci'
@@ -29,10 +29,11 @@ export const CANARY_OFF_OPTIONS: ReadonlySet<string> = new Set([
   'push',
   'providerRelease',
   'social',
+  'sync',
   'gitTag',
 ])
 
-type ReleaseStepOption = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'prComment'
+type ReleaseStepOption = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'sync' | 'prComment'
 
 /**
  * Why a step of the release is off: the flag of the run (`--no-social`), canary
@@ -87,6 +88,8 @@ export function applyCanaryMode(config: ResolvedRelizyConfig, options: Pick<Rele
   config.release.changelog = false
   config.release.providerRelease = false
   config.release.social = false
+  // A canary is not pushed: no branch gets it
+  config.release.sync = false
   config.release.gitTag = false
 
   config.bump.type = 'prerelease'
@@ -160,6 +163,7 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
         gitTag: options.gitTag,
         social: options.social,
         prComment: options.prComment,
+        sync: options.sync,
         report: options.report,
       },
       monorepo: options.privatePackages !== undefined
@@ -172,6 +176,55 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
 
 function shouldPushReleaseCommit(config: ResolvedRelizyConfig): boolean {
   return Boolean(config.release.push && config.release.commit)
+}
+
+/** The released branch and the branches to merge it into: none when no rule of `sync` matches it */
+interface ReleaseSync {
+  source: SyncSource
+  targets: SyncTarget[]
+}
+
+/** The sync of the release: the rules of `sync` for the released branch, or the branches of `--sync` */
+async function getReleaseSync(config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>): Promise<ReleaseSync> {
+  const source = await getSyncSource(config.cwd)
+
+  return {
+    source,
+    targets: getSyncTargets(config, source, { branches: options.syncBranches, mode: options.syncMode }),
+  }
+}
+
+/** Why the branches are not synced: the sync is off, or the release commit is not pushed */
+function getSyncOffReason(config: ResolvedRelizyConfig, options: Partial<ReleaseOptions>): string | undefined {
+  if (!config.release.sync) {
+    return getOffReason({
+      config,
+      options,
+      option: 'sync',
+      flag: '--no-sync',
+    })
+  }
+
+  return shouldPushReleaseCommit(config)
+    ? undefined
+    : getPushOffReason(config, options)
+}
+
+/**
+ * Check that the branches to sync can get the release. A dry run of a pull
+ * request only warns, as the check of the push
+ */
+async function checkSyncAccess({ config, dryRun, sync }: { config: ResolvedRelizyConfig, dryRun: boolean, sync: ReleaseSync }) {
+  try {
+    await syncSafetyCheck({ config, ...sync })
+  }
+  catch (error) {
+    if (!dryRun || !isPullRequestRun()) {
+      throw error
+    }
+
+    logger.warn(`The release job will not be able to sync the branches: ${getErrorMessage(error)}`)
+  }
 }
 
 /**
@@ -261,6 +314,7 @@ async function releaseSafetyCheck({
   provider,
   ai,
   dryRun,
+  sync,
   checks = [],
 }: {
   config: ResolvedRelizyConfig
@@ -269,6 +323,8 @@ async function releaseSafetyCheck({
   provider?: GitProvider
   ai?: boolean
   dryRun: boolean
+  /** The branches to sync after the release */
+  sync?: ReleaseSync
   /** Filled with each check and its status */
   checks?: StepCheck[]
 }) {
@@ -331,6 +387,16 @@ async function releaseSafetyCheck({
       skippedBy: pushes ? undefined : pushSkippedBy,
       check: () => checkPushAccess({ config, dryRun }),
     }),
+    // Only with branches to sync: the release of a branch no rule of sync matches has no such check
+    ...(sync?.targets.length
+      ? [
+          runCheck(checks, {
+            name: 'sync',
+            skippedBy: getSyncOffReason(config, options),
+            check: () => checkSyncAccess({ config, dryRun, sync }),
+          }),
+        ]
+      : []),
   ])
   const failure = results.find(result => result.status === 'rejected')
 
@@ -397,7 +463,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
   let createdTags: string[] = []
   const steps: ReleaseStepReport[] = []
   // What the release brings, for its summary and its report
-  const facts: Pick<ReleaseReport, 'content' | 'git' | 'publish' | 'ai'> = {}
+  const facts: Pick<ReleaseReport, 'content' | 'git' | 'publish' | 'ai' | 'sync'> = {}
   const links: ReleaseLink[] = []
   const aiRewrites: AIRewrite[] = []
   let committed = false
@@ -458,6 +524,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     })
     // The CI clone: full history, branch, identity
     prepareCiRepository(config.cwd, { logger })
+    // Once the branch of the CI job is checked out: the rules of sync match the released branch
+    const releaseSync = await getReleaseSync(config, options)
 
     if (config.safetyCheck) {
       const checks: StepCheck[] = []
@@ -473,6 +541,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           provider: options.provider,
           ai: options.ai,
           dryRun,
+          sync: releaseSync,
           checks,
         }),
       })
@@ -770,6 +839,55 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       })
     }
     addStep('push', Boolean(config.release.push && config.release.commit))
+
+    currentStep = 'Branch sync'
+    if (releaseSync.targets.length > 0) {
+      const syncSkippedBy = getSyncOffReason(config, options)
+
+      if (syncSkippedBy) {
+        ui.skip({
+          name: 'sync',
+          title: 'Sync the branches',
+          label: 'Branch sync',
+          reason: syncSkippedBy,
+        })
+        addStep('sync', false)
+      }
+      else {
+        const syncResult: SyncResult = await ui.step({
+          name: 'sync',
+          title: 'Sync the branches',
+          running: `Merging the release into ${releaseSync.targets.map(target => target.branch).join(', ')}`,
+          done: describeSyncResult,
+          failed: hasSyncFailures,
+          data: result => result,
+          // A branch that cannot get the release does not fail the release: it is in the result
+          run: async () => {
+            await executeHook('before:sync', config, dryRun, hookContext)
+            const result = await syncBranches({
+              config,
+              ...releaseSync,
+              tags: createdTags,
+              dryRun,
+              // The release commit of a dry run is not created: the branches get it all the same
+              pendingCommit: dryRun,
+            })
+            await executeHook(hasSyncFailures(result)
+              ? 'error:sync'
+              : 'success:sync', config, dryRun, hookContext)
+            return result
+          },
+        })
+        facts.sync = syncResult
+        steps.push({
+          name: 'sync',
+          status: hasSyncFailures(syncResult)
+            ? 'failed'
+            : 'done',
+          detail: describeSyncResult(syncResult),
+        })
+      }
+    }
 
     currentStep = 'Provider release'
     let provider = options.provider || config.repo?.provider

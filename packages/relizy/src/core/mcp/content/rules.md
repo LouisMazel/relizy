@@ -18,11 +18,12 @@ Never invent a config option nor a CLI flag: check it with `get_config_option` o
 ### Releasing
 
 - Preview, never guess: `preview_release` and `preview_changelog`, or `relizy release --dry-run`.
-- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `pr-comment` or `merge-preview` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish or comment the pull requests. Most projects release from their CI.
+- Never run `relizy release`, `bump`, `publish`, `changelog`, `provider-release`, `social`, `sync`, `pr-comment` or `merge-preview` without the explicit approval of the user: they write versions and changelogs, commit, tag, push, publish or comment the pull requests. Most projects release from their CI.
 - Never edit the versions of the `package.json` files, the `CHANGELOG.md` files nor the release tags by hand: relizy computes them from the commits and the tags.
 
 ### Configuration
 
 - `defineConfig` from `relizy` types `relizy.config.ts`. Several configs can coexist (`relizy.<name>.config.ts`, selected with `--config <name>`).
 - Monorepos: `monorepo.versionMode` is `unified`, `selective` (one version, only the changed packages) or `independent`; `monorepo.groups` releases several sets of packages, each with its own mode.
+- Git flow: `sync.rules` merges the released branch into others after the release, `{ from: 'main', to: ['develop'] }`: only the releases of a branch matched by a rule sync. Use it instead of a CI job of your own.
 - Set up a new project with `relizy init` (`--yes` without questions), and the AI agents with `relizy mcp init`.

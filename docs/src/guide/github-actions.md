@@ -229,6 +229,10 @@ A second workflow, on the pull requests, runs the action with `merge-preview: tr
     merge-preview: true
 ```
 
+### Merge the Release into develop
+
+With a git flow, add the rule `sync: { rules: [{ from: 'main', to: ['develop'] }] }`: the release job of `main` merges it into `develop` once pushed (`contents: write`), or opens a pull request with `mode: 'pull-request'` (`pull-requests: write`). See [Branch Sync](./branch-sync.md).
+
 ### Canary Release on Pull Requests
 
 Publish a test version of each pull request (`1.3.0-0.canary-a3f4b2c` on the `canary` dist-tag), and comment it on the pull request. Nothing is committed nor pushed (see [Canary Releases](./prereleases.md#canary-releases)).

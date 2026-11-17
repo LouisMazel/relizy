@@ -38,7 +38,7 @@ function getGithubApiUrl(domain: string | undefined): string {
     : `https://${domain}/api/v3`
 }
 
-async function githubFetch<T>(config: GithubApiConfig, path: string, init: { method: string, body: unknown }): Promise<T> {
+async function githubFetch<T>(config: GithubApiConfig, path: string, init: { method: string, body?: unknown }): Promise<T> {
   const url = `${getGithubApiUrl(config.repo.domain)}${path}`
   const token = config.tokens?.github
 
@@ -52,7 +52,9 @@ async function githubFetch<T>(config: GithubApiConfig, path: string, init: { met
         ? { authorization: `Bearer ${token}` }
         : {}),
     },
-    body: JSON.stringify(init.body),
+    body: init.body === undefined
+      ? undefined
+      : JSON.stringify(init.body),
   })
 
   if (!response.ok) {
@@ -85,6 +87,68 @@ async function githubFetch<T>(config: GithubApiConfig, path: string, init: { met
  */
 export async function createGithubRelease(config: GithubApiConfig, body: GithubRelease): Promise<GithubRelease> {
   return await githubFetch<GithubRelease>(config, `/repos/${config.repo.repo}/releases`, {
+    method: 'POST',
+    body,
+  })
+}
+
+/** A GitHub pull request, as returned by the API */
+export interface GithubPullRequest {
+  number: number
+  /** Its page on GitHub */
+  html_url: string
+  title: string
+}
+
+/** The pull request to create */
+export interface GithubPullRequestInput {
+  title: string
+  /** The branch to merge */
+  head: string
+  /** The branch to merge into */
+  base: string
+  /** The description, in markdown */
+  body?: string
+}
+
+/**
+ * The first open pull request from `head` into `base`
+ * (`GET /repos/{repo}/pulls?state=open`). Makes a network call.
+ *
+ * @param config - The repository and the GitHub token
+ * @param options - The branches
+ * @param options.head - The branch to merge, without its owner
+ * @param options.base - The branch to merge into
+ * @returns The pull request, undefined when there is none
+ * @throws When the response is not ok: `[GET] "<url>": <status> <statusText>` followed by the response text when there is one.
+ * @example
+ * ```ts
+ * const pr = await findGithubPullRequest(config, { head: 'main', base: 'develop' })
+ * ```
+ */
+export async function findGithubPullRequest(config: GithubApiConfig, { head, base }: { head: string, base: string }): Promise<GithubPullRequest | undefined> {
+  const owner = config.repo.repo?.split('/')[0]
+  const query = new URLSearchParams({ state: 'open', head: `${owner}:${head}`, base })
+  const pulls = await githubFetch<GithubPullRequest[]>(config, `/repos/${config.repo.repo}/pulls?${query}`, { method: 'GET' })
+
+  return pulls[0]
+}
+
+/**
+ * Creates a pull request with the GitHub API (`POST /repos/{repo}/pulls`).
+ * Makes a network call.
+ *
+ * @param config - The repository and the GitHub token
+ * @param body - The pull request to create
+ * @returns The pull request created, as returned by the API
+ * @throws When the response is not ok (`[POST] "<url>": <status> <statusText>` and the response text), e.g. a 422 when the branches have no difference or a pull request already exists
+ * @example
+ * ```ts
+ * const pr = await createGithubPullRequest(config, { title: 'chore(release): sync develop with main', head: 'main', base: 'develop' })
+ * ```
+ */
+export async function createGithubPullRequest(config: GithubApiConfig, body: GithubPullRequestInput): Promise<GithubPullRequest> {
+  return await githubFetch<GithubPullRequest>(config, `/repos/${config.repo.repo}/pulls`, {
     method: 'POST',
     body,
   })

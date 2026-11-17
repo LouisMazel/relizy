@@ -72,6 +72,15 @@ export default defineConfig({
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
   },
+  // A release of main (Release Latest) is merged into develop, with its tags
+  sync: {
+    rules: [
+      {
+        from: 'main',
+        to: ['develop'],
+      },
+    ],
+  },
   mergePreview: {
     // The pull requests are merged with a merge commit, never squashed
     squash: false,

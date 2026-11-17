@@ -48,17 +48,18 @@ relizy release --profile canary --yes
 
 Each key is the name of a profile. A profile sets these options, all optional:
 
-| Option        | Content                                                                                     |
-| ------------- | ------------------------------------------------------------------------------------------- |
-| `description` | What the profile is for, for the tools listing the profiles                                 |
-| `bump`        | The [bump](./bump.md) options: `type`, `preid`, `suffix`, `yes`, `dependents`...            |
-| `changelog`   | The [changelog](./changelog.md) options                                                     |
-| `publish`     | The [publish](./publish.md) options: `tag`, `access`, `registry`, `buildCmd`...             |
-| `release`     | The [release](./release.md) options: `canary`, and the steps to run (`social`, `commit`...) |
-| `social`      | The [social](./social.md) options                                                           |
-| `prComment`   | The [PR comment](./pr-comment.md) options                                                   |
-| `ai`          | The [AI](./ai.md) options                                                                   |
-| `safetyCheck` | The global [safety check](./overview.md#safetycheck)                                        |
+| Option        | Content                                                                                      |
+| ------------- | -------------------------------------------------------------------------------------------- |
+| `description` | What the profile is for, for the tools listing the profiles                                  |
+| `bump`        | The [bump](./bump.md) options: `type`, `preid`, `suffix`, `yes`, `dependents`...             |
+| `changelog`   | The [changelog](./changelog.md) options                                                      |
+| `publish`     | The [publish](./publish.md) options: `tag`, `access`, `registry`, `buildCmd`...              |
+| `release`     | The [release](./release.md) options: `canary`, and the steps to run (`social`, `commit`...)  |
+| `social`      | The [social](./social.md) options                                                            |
+| `prComment`   | The [PR comment](./pr-comment.md) options                                                    |
+| `sync`        | The [sync](./sync.md) options: the `rules` (which branch into which ones), `mode`, `message` |
+| `ai`          | The [AI](./ai.md) options                                                                    |
+| `safetyCheck` | The global [safety check](./overview.md#safetycheck)                                         |
 
 A profile changes how to release, never the project: `monorepo`, `repo`, `tokens`, `hooks`, `templates`, `types` and the other options are not profile options, and the config fails to load when a profile sets one. Inside a section, an unknown option (`bump: { typo: 'beta' }`) is a warning, and an invalid value (`bump: { type: 'beta' }`, `release: { canary: 'yes' }`) fails with the values expected.
 
@@ -96,7 +97,7 @@ Unknown profile "nightly". Available profiles: beta, canary, latest
 
 ### Commands
 
-`--profile` is a global option: it goes before or after the command, and applies to `release`, `bump`, `changelog`, `publish`, `provider-release`, `social`, `pr-comment` and `merge-preview`. In `relizy release`, the steps share the profile. `relizy merge-preview --profile beta` previews the release of that profile.
+`--profile` is a global option: it goes before or after the command, and applies to `release`, `bump`, `changelog`, `publish`, `provider-release`, `social`, `sync`, `pr-comment` and `merge-preview`. In `relizy release`, the steps share the profile. `relizy merge-preview --profile beta` previews the release of that profile.
 
 ### Use it from Node.js
 

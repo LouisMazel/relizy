@@ -158,6 +158,7 @@ describe('Given createCommitAndTags function', () => {
       noVerify: false,
       social: true,
       prComment: true,
+      sync: true,
     }
     config.signTags = false
     bumpedPackages = []
@@ -792,6 +793,7 @@ describe('Given pushCommitAndTags function', () => {
       noVerify: false,
       social: true,
       prComment: true,
+      sync: true,
     }
     vi.mocked(runGit).mockResolvedValue('')
   })

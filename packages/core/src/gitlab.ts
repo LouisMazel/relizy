@@ -138,3 +138,114 @@ export async function createGitlabRelease({
 
   return (await response.json()) as GitlabReleaseResponse
 }
+
+/** A GitLab merge request, as returned by the API */
+export interface GitlabMergeRequest {
+  /** Its number in the project */
+  iid: number
+  /** Its page on GitLab */
+  web_url: string
+  title: string
+}
+
+/** The merge request to create */
+export interface GitlabMergeRequestInput {
+  /** The branch to merge */
+  source_branch: string
+  /** The branch to merge into */
+  target_branch: string
+  title: string
+  /** The description, in markdown */
+  description?: string
+}
+
+function getGitlabMergeRequestsUrl({ repo, domain }: { repo: string, domain?: string }): string {
+  return `https://${domain || 'gitlab.com'}/api/v4/projects/${encodeURIComponent(repo)}/merge_requests`
+}
+
+async function gitlabFetch<T>({ url, token, method, body }: { url: string, token: string, method: string, body?: unknown }): Promise<T> {
+  const response = await fetch(url, {
+    method,
+    headers: {
+      'Content-Type': 'application/json',
+      ...getGitlabAuthHeader(token),
+    },
+    body: body === undefined
+      ? undefined
+      : JSON.stringify(body),
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    throw new Error(`GitLab API error (${response.status}): ${errorText}`)
+  }
+
+  return (await response.json()) as T
+}
+
+/**
+ * The first open merge request from `sourceBranch` into `targetBranch`.
+ * Makes a network call.
+ *
+ * @param options - The token, the project and the branches
+ * @param options.token - An access token with the api scope (the job token cannot read nor create merge requests)
+ * @param options.repo - The `owner/name` path of the project
+ * @param options.domain - The host of the instance, `gitlab.com` when omitted
+ * @param options.sourceBranch - The branch to merge
+ * @param options.targetBranch - The branch to merge into
+ * @returns The merge request, undefined when there is none
+ * @throws When the response is not ok: `GitLab API error (<status>): <response text>`.
+ * @example
+ * ```ts
+ * const mr = await findGitlabMergeRequest({ token, repo: 'group/project', sourceBranch: 'main', targetBranch: 'develop' })
+ * ```
+ */
+export async function findGitlabMergeRequest({ token, repo, domain, sourceBranch, targetBranch }: {
+  token: string
+  repo: string
+  domain?: string
+  sourceBranch: string
+  targetBranch: string
+}): Promise<GitlabMergeRequest | undefined> {
+  const query = new URLSearchParams({ state: 'opened', source_branch: sourceBranch, target_branch: targetBranch })
+  const mergeRequests = await gitlabFetch<GitlabMergeRequest[]>({
+    url: `${getGitlabMergeRequestsUrl({ repo, domain })}?${query}`,
+    token,
+    method: 'GET',
+  })
+
+  return mergeRequests[0]
+}
+
+/**
+ * Creates a merge request with the GitLab API. Makes a network call.
+ *
+ * @param options - The token, the project and the merge request
+ * @param options.token - An access token with the api scope
+ * @param options.repo - The `owner/name` path of the project
+ * @param options.domain - The host of the instance, `gitlab.com` when omitted
+ * @param options.mergeRequest - The merge request to create
+ * @returns The merge request created, as returned by the API
+ * @throws When the response is not ok: `GitLab API error (<status>): <response text>` (a 409 when a merge request of these branches is already open)
+ * @example
+ * ```ts
+ * const mr = await createGitlabMergeRequest({
+ *   token,
+ *   repo: 'group/project',
+ *   mergeRequest: { source_branch: 'main', target_branch: 'develop', title: 'chore(release): sync develop with main' },
+ * })
+ * ```
+ */
+export async function createGitlabMergeRequest({ token, repo, domain, mergeRequest }: {
+  token: string
+  repo: string
+  domain?: string
+  mergeRequest: GitlabMergeRequestInput
+}): Promise<GitlabMergeRequest> {
+  return await gitlabFetch<GitlabMergeRequest>({
+    url: getGitlabMergeRequestsUrl({ repo, domain }),
+    token,
+    method: 'POST',
+    body: mergeRequest,
+  })
+}

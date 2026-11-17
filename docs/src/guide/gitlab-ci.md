@@ -236,3 +236,7 @@ canary:
 ```
 
 The merge requests of forks run in the pipelines of the fork, without the variables of your project: they get no canary.
+
+### Merge the Release into develop
+
+With a git flow, add the rule `sync: { rules: [{ from: 'main', to: ['develop'] }] }`: the release job of `main` merges it into `develop` once pushed, with `GITLAB_TOKEN` when the job token cannot push. No job of your own: see [Branch Sync](./branch-sync.md).
