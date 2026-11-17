@@ -379,6 +379,7 @@ describe('Given the renderers of the release report', () => {
       dist_tags: '',
       urls: '',
       install: '',
+      synced_branches: '',
       failed_steps: 'social',
       group_main_version: '5.2.1',
       package_maz_ui_version: '5.2.1',
@@ -500,7 +501,7 @@ describe('Given writeReleaseReport function', () => {
     })
 
     expect(JSON.parse(readFileSync(join(cwd, 'reports/relizy.json'), 'utf8'))).toEqual(nothing)
-    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\nRELIZY_FAILED_STEPS=\n')
+    expect(readFileSync(join(cwd, 'relizy.env'), 'utf8')).toBe('RELIZY_RELEASED=false\nRELIZY_STATUS=nothing\nRELIZY_VERSION=\nRELIZY_TAGS=\nRELIZY_PACKAGES=\nRELIZY_BRANCH=\nRELIZY_COMMIT=\nRELIZY_DIST_TAGS=\nRELIZY_URLS=\nRELIZY_SYNCED_BRANCHES=\nRELIZY_FAILED_STEPS=\n')
     expect(readFileSync(join(cwd, 'reports/summary.md'), 'utf8')).toBe(formatReleaseReportMarkdown(nothing))
   })
 

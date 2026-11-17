@@ -10,10 +10,13 @@ export {
   publish,
   release,
   social,
+  sync,
+  SyncError,
 } from './commands'
 export type { CommitlintOptions, CommitlintRunResult } from './commands/commitlint'
 export type { MergePreviewOptions } from './commands/merge-preview'
 export type { PrCommentOptions } from './commands/pr-comment'
+export type { SyncOptions } from './commands/sync'
 
 export type {
   CommitlintReport,

@@ -20,7 +20,7 @@ export interface CoreDomain {
 }
 
 export const CORE_DOMAINS: CoreDomain[] = [
-  { id: 'git', title: 'git', description: 'Run git without a shell, read refs, commits and tags (with a cache), commit, tag and push, check that the branch and the tags are safe to release.' },
+  { id: 'git', title: 'git', description: 'Run git without a shell, read refs, commits and tags (with a cache), commit, tag and push, merge a released branch into another one, check that the branch and the tags are safe to release.' },
   { id: 'commits', title: 'commits', description: 'Parse conventional commits, find the commits of a package (moves, catalogs, private packages) and credit the authors.' },
   { id: 'commitlint', title: 'commitlint', description: 'Lint commit messages against the conventional commits rules, suggest a fix, read the commits and the scopes of a workspace.' },
   { id: 'packages', title: 'packages', description: 'Read the packages of a workspace, their dependencies, catalogs, peer dependency ranges and the package manager.' },
@@ -58,6 +58,7 @@ const MODULE_DOMAINS: Record<string, string> = {
   'git-cache': 'git',
   'git-refs': 'git',
   'squash-simulation': 'git',
+  'branch-sync': 'git',
   'commits': 'commits',
   'package-commits': 'commits',
   'moved-packages': 'commits',

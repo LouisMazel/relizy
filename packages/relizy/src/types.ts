@@ -269,6 +269,94 @@ export interface PrCommentConfig {
   mode?: PrCommentMode
 }
 
+/**
+ * How a branch gets the release: `push` merges and pushes it, `pull-request`
+ * opens a pull request (merge request on GitLab) from the released branch
+ */
+export type SyncMode = 'push' | 'pull-request'
+
+/** Where the releases of a branch are merged */
+export interface SyncRule {
+  /**
+   * The released branch: a name (`main`) or a glob (`release/*`, `*` stops at
+   * `/`, `**` does not)
+   */
+  from: string
+  /**
+   * The branches a release of `from` is merged into, by name, e.g. `['develop']`
+   */
+  to: string[]
+  /**
+   * Override of `sync.mode` for this rule
+   */
+  mode?: SyncMode
+  /**
+   * Override of `sync.message` for this rule
+   */
+  message?: string
+}
+
+export interface SyncConfig {
+  /**
+   * Where each released branch is merged after the release (`relizy release`,
+   * once the release commit is pushed) or with `relizy sync`: the rules whose
+   * `from` matches the released branch give the branches to merge it into, e.g.
+   * `[{ from: 'main', to: ['develop'] }]`. A release of a branch that no rule
+   * matches (a beta of `develop`, a canary of a feature branch) syncs nothing.
+   * The released branch is never merged into itself.
+   * @default []
+   */
+  rules?: SyncRule[]
+  /**
+   * How the branches get the release, unless their rule sets it.
+   * `push`: merge the released branch into each branch and push it (a fast-forward
+   * when the branch has nothing of its own), nothing is pushed on a conflict.
+   * `pull-request`: open a pull request (merge request on GitLab) from the released
+   * branch into each branch, or reuse the open one, for protected branches
+   * @default 'push'
+   */
+  mode?: SyncMode
+  /**
+   * Message of the merge commit (`push`), title of the pull request (`pull-request`),
+   * unless their rule sets it. Available variables: {{source}} (the released branch),
+   * {{target}} (the branch merged into), {{tags}} (the tags of the release, comma-separated)
+   * @default 'chore(release): sync {{target}} with {{source}}'
+   */
+  message?: string
+}
+
+/**
+ * What the sync did to a branch: `merged` (a merge commit), `fast-forward` (the branch
+ * had nothing of its own), `up-to-date` (it already has the release), `pull-request`
+ * (opened, or the open one reused), `conflict` (nothing pushed) or `failed`
+ */
+export type SyncBranchStatus = 'merged' | 'fast-forward' | 'up-to-date' | 'pull-request' | 'conflict' | 'failed'
+
+/** A branch the released branch is merged into */
+export interface SyncBranchResult {
+  branch: string
+  /** How the branch gets the release */
+  mode: SyncMode
+  status: SyncBranchStatus
+  /** The commit pushed to the branch (not in dry-run) */
+  commit?: string
+  /** The pull request (merge request on GitLab) */
+  pullRequest?: { number: number, url: string, existing: boolean }
+  /** The files in conflict */
+  conflicts?: string[]
+  /** Why it failed, or how to merge by hand after a conflict */
+  reason?: string
+}
+
+/** The outcome of the sync of the branches (`relizy sync`, the `sync` step of `relizy release`) */
+export interface SyncResult {
+  /** The released branch, merged into the others */
+  source: string
+  /** A simulation: the merges are computed, nothing is pushed nor opened */
+  dryRun: boolean
+  branches: SyncBranchResult[]
+}
+
 export type PrCommentStatus = 'success' | 'no-release' | 'failed'
 
 export interface ReleaseContext {
@@ -1027,6 +1115,13 @@ export interface ReleaseConfig {
    */
   prComment?: boolean
   /**
+   * Merge the released branch into the branches of the rules of `sync` that
+   * match it, once the release commit is pushed (nothing when no rule matches). A conflict or a refused
+   * push does not fail the release: the step fails and says how to merge by hand
+   * @default true
+   */
+  sync?: boolean
+  /**
    * Report of the release, to run something only when a release happens:
    * the outputs and the summary of GitHub Actions, a JSON file, a dotenv file
    * (GitLab CI). Written in dry-run too, where `released` is `false`.
@@ -1138,6 +1233,14 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default all groups
    */
   groups?: string[]
+  /**
+   * The branches the released branch is merged into for this run, instead of the rules of `sync`
+   */
+  syncBranches?: string[]
+  /**
+   * Override of `sync.mode` and of the modes of its rules for this run
+   */
+  syncMode?: SyncMode
 }
 
 export interface TwitterCredentials {
@@ -1848,7 +1951,7 @@ export interface TemplatesConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack' | 'teams'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'sync' | 'twitter' | 'slack' | 'teams'
 
 /**
  * API tokens configuration
@@ -2033,6 +2136,10 @@ export interface RelizyProfile {
    */
   prComment?: PrCommentConfig
   /**
+   * Branch sync options of the profile
+   */
+  sync?: SyncConfig
+  /**
    * AI options of the profile
    */
   ai?: AIConfig
@@ -2136,6 +2243,11 @@ export interface RelizyConfig {
    * PR comment configuration
    */
   prComment?: PrCommentConfig
+  /**
+   * Where each released branch is merged after the release (`release.sync`)
+   * and with `relizy sync`: `main` into `develop` with `{ rules: [{ from: 'main', to: ['develop'] }] }`
+   */
+  sync?: SyncConfig
   /**
    * Merge preview of a pull request (`relizy merge-preview`): what
    * its merge releases, posted before the merge

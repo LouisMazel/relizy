@@ -20,6 +20,7 @@ const STEP_TEXTS: Partial<Record<ReleasePreview['steps'][number]['name'], string
   'push': 'push',
   'provider-release': 'create the GitHub/GitLab releases',
   'social': 'post on the social networks',
+  'sync': 'merge the released branch into the branches of the rules of sync that match it',
   'pr-comment': 'comment the pull request',
 }
 

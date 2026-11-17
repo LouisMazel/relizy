@@ -1,4 +1,4 @@
-import type { ConfirmPlan, GitProvider, OtpRequest } from '../types'
+import type { ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -12,7 +12,7 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 /**
  * What a step of a command does, as the hooks name them: `checks`, `bump`, `changelog`, `publish`,
- * `commit-and-tag`, `push`, `provider-release`, `social`, `pr-comment`, and `merge-preview` for the
+ * `commit-and-tag`, `push`, `provider-release`, `social`, `sync`, `pr-comment`, and `merge-preview` for the
  * steps of `relizy merge-preview`. A name can come with several steps: `relizy publish` alone runs
  * three `publish` steps (the check of the packages, their build, their publish), the merge preview
  * one `merge-preview` step per part of the preview
@@ -44,7 +44,7 @@ export interface StepStartEvent extends ProgressEventBase {
 
 /** A safety check of the release: a token, the registry, the branch... */
 export interface StepCheck {
-  /** `provider-release` (its token), `publish` (the registry), `social` (the credentials), `branch` (up to date with its remote), `push` (the access to the remote) */
+  /** `provider-release` (its token), `publish` (the registry), `social` (the credentials), `branch` (up to date with its remote), `push` (the access to the remote), `sync` (the branches to merge into, the access to them) */
   name: string
   status: 'passed' | 'failed' | 'skipped'
   /** Why it failed or is skipped */
@@ -167,6 +167,7 @@ export interface StepDataMap {
   'push': PushStepData
   'provider-release': ProviderReleaseStepData
   'social': SocialStepData
+  'sync': SyncResult
   'pr-comment': PrCommentStepData
 }
 
@@ -268,7 +269,7 @@ export interface NoteEvent extends ProgressEventBase {
 export interface LinkEvent extends ProgressEventBase {
   type: 'link'
   /** The step that created it, named as `ProgressStep` */
-  step: 'publish' | 'provider-release' | 'social' | 'pr-comment'
+  step: 'publish' | 'provider-release' | 'social' | 'sync' | 'pr-comment'
   label: string
   url: string
 }

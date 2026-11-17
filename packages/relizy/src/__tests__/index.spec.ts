@@ -8,6 +8,7 @@ describe('Given the public API of relizy', () => {
         'MergePreviewError',
         'ProfileConflictError',
         'RelizyCancelError',
+        'SyncError',
         'UnknownProfileError',
         'bump',
         'changelog',
@@ -27,6 +28,7 @@ describe('Given the public API of relizy', () => {
         'publish',
         'release',
         'social',
+        'sync',
       ])
     })
   })

@@ -15,7 +15,7 @@ pnpm monorepo, two published packages and the docs:
 
 In `packages/relizy/`:
 
-- `src/commands/` - one file per CLI command (`init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `pr-comment`, `commitlint`, `merge-preview`, `mcp`)
+- `src/commands/` - one file per CLI command (`init`, `bump`, `changelog`, `publish`, `provider-release`, `release`, `social`, `sync`, `pr-comment`, `commitlint`, `merge-preview`, `mcp`)
 - `src/core/` - orchestration; package discovery is `getPackages()` in `repo.ts`, the defaults are `getDefaultConfig()` in `config.ts`. Modules moved to `@relizy/core` are imported from it directly, with no re-exporting file; adapters bind it to the config and the logger (`npm-registry.ts`, `gitlab.ts`, `ci.ts`...), and `vi.mock` of a function called inside core must target the core file
 - `src/core/mcp/` - MCP server for AI agents, `relizy mcp`
 - `src/cli.ts` - Commander.js setup; `getReleaseType()` converts the CLI flags to semver bump types

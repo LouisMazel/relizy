@@ -115,7 +115,7 @@ export function showPreview(preview: Preview): void {
  * What a release created, for its summary and its report: links and AI rewrites
  */
 export interface ReleaseLink {
-  step: 'publish' | 'providerRelease' | 'social' | 'prComment'
+  step: 'publish' | 'providerRelease' | 'social' | 'sync' | 'prComment'
   /**
    * What it points to: `v2.0.0`, `relizy@2.0.0`, `Tweet`
    */
@@ -190,6 +190,7 @@ const LINK_EVENT_STEPS: Record<ReleaseLink['step'], LinkEvent['step']> = {
   publish: 'publish',
   providerRelease: 'provider-release',
   social: 'social',
+  sync: 'sync',
   prComment: 'pr-comment',
 }
 

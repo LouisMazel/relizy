@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, SyncConfig, SyncRule, TeamsCardsMode } from '../types'
 import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
@@ -131,6 +131,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       gitTag: true,
       social: true,
       prComment: true,
+      sync: true,
       report: { github: true },
     } as Required<Omit<ReleaseConfig, 'report'>> & Pick<ReleaseConfig, 'report'>,
     commitlint: {
@@ -167,6 +168,11 @@ export function getDefaultConfig(cwd = process.cwd()) {
     prComment: {
       mode: 'update',
     } as Required<PrCommentConfig>,
+    sync: {
+      rules: [] as SyncRule[],
+      mode: 'push',
+      message: 'chore(release): sync {{target}} with {{source}}',
+    } as Required<SyncConfig>,
     mergePreview: {
       comment: true,
       check: 'auto',
@@ -255,6 +261,30 @@ function assertValidTagBody(config: ResolvedConfig): void {
   if (typeof tagBody === 'string' && tagBody.split('{{newVersion}}').length > 2) {
     throw new ConfigOptionError('templates.tagBody', `templates.tagBody must contain {{newVersion}} only once, to read the version back from the tags: "${tagBody}"`)
   }
+}
+
+/**
+ * Each rule of `sync.rules` names the released branch (`from`) and the
+ * branches to merge it into (`to`): a rule without them would sync nothing, or
+ * every branch
+ */
+function assertValidSyncRules(config: ResolvedConfig): void {
+  const rules: unknown = config.sync?.rules ?? []
+
+  if (!Array.isArray(rules)) {
+    throw new ConfigOptionError('sync.rules', 'sync.rules must be a list of rules: [{ from: \'main\', to: [\'develop\'] }]')
+  }
+
+  rules.forEach((rule: Partial<SyncRule>, index) => {
+    const path = `sync.rules[${index}]`
+
+    if (typeof rule?.from !== 'string' || !rule.from) {
+      throw new ConfigOptionError(`${path}.from`, `${path}.from must be the released branch, a name or a glob: { from: 'main', to: ['develop'] }`)
+    }
+    if (!Array.isArray(rule.to) || rule.to.length === 0 || rule.to.some(branch => typeof branch !== 'string' || !branch)) {
+      throw new ConfigOptionError(`${path}.to`, `${path}.to must list the branches to merge "${rule.from}" into: { from: '${rule.from}', to: ['develop'] }`)
+    }
+  })
 }
 
 function setupLogger(logLevel?: LogLevel) {
@@ -585,6 +615,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
 
   assertNoRemovedOptions(results.config)
   assertValidTagBody(results.config)
+  assertValidSyncRules(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

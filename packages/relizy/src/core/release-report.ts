@@ -1,4 +1,4 @@
-import type { ReleaseReportConfig } from '../types'
+import type { ReleaseReportConfig, SyncResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './merge-preview'
 import type { ReleaseOverview } from './release-overview'
@@ -11,7 +11,7 @@ import { formatDuration, formatUtcDate, plural } from '@relizy/core'
 import { describeAIUsage } from './progress'
 import { getReleaseLines } from './release-overview'
 
-export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'providerRelease' | 'social' | 'prComment'
+export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'sync' | 'providerRelease' | 'social' | 'prComment'
 
 export interface ReleaseStepReport {
   name: ReleaseStepName
@@ -118,6 +118,10 @@ export interface ReleaseReport {
   publish?: ReleasePublish
   ai?: ReleaseAI
   /**
+   * The branches the released branch was merged into (`sync.rules`, `--sync`)
+   */
+  sync?: SyncResult
+  /**
    * The merge preview of `relizy merge-preview`: what the merge of the pull request releases
    */
   mergePreview?: ReleaseMergePreview
@@ -193,6 +197,7 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
   publish: 'Publish',
   commit: 'Commit and tags',
   push: 'Push',
+  sync: 'Branch sync',
   providerRelease: 'Provider release',
   social: 'Social media',
   prComment: 'PR comment',
@@ -208,6 +213,7 @@ const STATUS_ICONS: Record<Exclude<ReleaseStepReport['status'], 'skipped'>, stri
 const LASTING_STEPS = new Set<ReleaseStepName>([
   'publish',
   'push',
+  'sync',
   'providerRelease',
   'social',
 ])
@@ -632,8 +638,9 @@ function toOutputName(name: string): string {
 /**
  * The outputs of the report: `released`, `status`, `version`, `tags`,
  * `packages` (comma-separated `name@version`), `branch`, `commit`,
- * `dist_tags`, `urls` (what the release created), `install` and
- * `failed_steps` (the steps that failed without stopping it). When the
+ * `dist_tags`, `urls` (what the release created), `install`,
+ * `synced_branches` (the branches that have the release, or its pull request,
+ * after the sync) and `failed_steps` (the steps that failed without stopping it). When the
  * release happened, also `group_<name>_version` for each `unified`/`selective`
  * version group and `package_<name>_version` for each released package
  */
@@ -663,6 +670,7 @@ export function getReleaseReportOutputs(report: ReleaseReport): Record<string, s
     dist_tags: report.publish?.tags.join(',') ?? '',
     urls: report.steps.flatMap(step => step.links ?? []).map(link => link.url).join(','),
     install: report.publish?.install ?? '',
+    synced_branches: report.sync?.branches.filter(branch => !['conflict', 'failed'].includes(branch.status)).map(branch => branch.branch).join(',') ?? '',
     failed_steps: report.steps.filter(step => step.status === 'failed').map(step => step.name).join(','),
     ...versions,
   }

@@ -102,14 +102,34 @@ describe('Given a selective monorepo with commits since its last release', () =>
         'publish',
         'commit-and-tag',
         'push',
+        'sync',
         'provider-release',
         'social',
         'pr-comment',
       ])
+      expect(steps.sync).toMatchObject({ enabled: false, disabledBy: 'sync.rules' })
       expect(steps.bump!.enabled).toBe(true)
       expect(steps.social).toMatchObject({ enabled: false, disabledBy: 'release.social' })
       expect(steps['commit-and-tag']).toMatchObject({ enabled: false, disabledBy: 'release.commit' })
       expect(steps.push).toMatchObject({ enabled: false, disabledBy: 'release.commit' })
+    })
+
+    it('Then turns the sync on only when a rule of sync matches the current branch', async () => {
+      const syncStep = async (from: string) => (await previewRelease({
+        overrides: {
+          sync: {
+            rules: [
+              {
+                from,
+                to: ['develop'],
+              },
+            ],
+          },
+        },
+      })).steps.find(step => step.name === 'sync')
+
+      expect(await syncStep('main')).toMatchObject({ enabled: true })
+      expect(await syncStep('release/*')).toMatchObject({ enabled: false, disabledBy: 'sync.rules' })
     })
 
     it('Then writes nothing and runs no hook', async () => {

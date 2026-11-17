@@ -48,6 +48,7 @@ export default defineConfig({
 | `twitter`          | The tweet                       | `relizy social`, `relizy release`           |
 | `slack`            | The Slack message               | `relizy social`, `relizy release`           |
 | `teams`            | The Teams cards                 | `relizy social`, `relizy release`           |
+| `sync`             | Sync of the branches            | `relizy sync`, `relizy release`             |
 | `release`          | The whole release               | `relizy release`                            |
 
 The PR comment has no hooks. A step disabled by the config or a flag (`--no-publish`) runs none of its hooks.
@@ -116,16 +117,17 @@ export default defineConfig({
 4. Publish: `before:publish`, `success:publish` or `error:publish`
 5. Commit and tag: `before:commit-and-tag`, `success:commit-and-tag` or `error:commit-and-tag`
 6. Push: `before:push`, `success:push` or `error:push`
-7. Provider release: `before:provider-release`, `success:provider-release` or `error:provider-release`
-8. Social posts: the hooks of `relizy social`
-9. PR comment (no hooks)
-10. `success:release`, or `error:release` when the release failed
+7. Branch sync: `before:sync`, `success:sync`, or `error:sync` when a branch did not get the release
+8. Provider release: `before:provider-release`, `success:provider-release` or `error:provider-release`
+9. Social posts: the hooks of `relizy social`
+10. PR comment (no hooks)
+11. `success:release`, or `error:release` when the release failed
 
 When nothing is released (no commit triggers a bump), `relizy release` stops after the bump: neither `success:release` nor `error:release` runs. A refused or cancelled prompt runs no `error:*` hook.
 
 ## Errors
 
-A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed provider release or social post does not stop `relizy release`: its `error:provider-release` hook runs (or `error:twitter`, `error:slack` or `error:teams`, then `error:social`), the step is marked as failed in the summary, and the release ends with `success:release`. A failed PR comment only warns.
+A function hook that throws, or a command exiting with a non-zero code, fails its step: the `error:<step>` hook runs and the command stops (in `relizy release`, `error:release` runs too). A failed provider release, social post or branch sync does not stop `relizy release`: its `error:provider-release` hook runs (or `error:twitter`, `error:slack` or `error:teams`, then `error:social`, or `error:sync`), the step is marked as failed in the summary, and the release ends with `success:release`. A failed PR comment only warns.
 
 ```ts
 export default defineConfig({

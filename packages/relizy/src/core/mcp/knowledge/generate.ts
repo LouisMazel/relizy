@@ -31,6 +31,7 @@ export const CONFIG_DOC_IDS: Record<string, string> = {
   social: 'config/social',
   prComment: 'config/pr-comment',
   mergePreview: 'config/merge-preview',
+  sync: 'config/sync',
   ai: 'config/ai',
   templates: 'config/commit-templates',
   hooks: 'config/hooks',

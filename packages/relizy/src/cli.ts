@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url'
 import { AGENT_TARGETS, logger, printBanner } from '@maz-ui/node'
 import { getCIName, isInCI } from '@relizy/core'
 import { Command, InvalidArgumentError, Option } from 'commander'
-import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, sync } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
@@ -145,6 +145,10 @@ function getReportOverride(options: { reportJson?: string, reportDotenv?: string
 
 function privatePackagesOption() {
   return new Option('--private-packages <mode>', 'What to do with the private packages, overrides monorepo.privatePackages (release: version them, never publish them)').choices(['ignore', 'release'])
+}
+
+function syncModeOption() {
+  return new Option('--sync-mode <mode>', 'How the branches get the release, overrides sync.mode: push them, or open a pull request').choices(['push', 'pull-request'])
 }
 
 function slackFormatOption() {
@@ -527,6 +531,32 @@ program
     }
   })
 
+program
+  .command('sync')
+  .description('Merge the released branch into the branches of the rules of sync that match it and push them, or open a pull request into each one (as relizy release does once pushed)')
+  .option('--to <branch...>', 'The branches to merge into, instead of the rules of sync')
+  .option('--from <branch>', 'The released branch, merged from its remote (default: the current branch)')
+  .addOption(syncModeOption())
+  .action(async (options) => {
+    try {
+      await sync({
+        branches: options.to,
+        mode: options.syncMode,
+        from: options.from,
+        dryRun: program.opts().dryRun,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        profile: program.opts().profile,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
+      })
+    }
+    catch (error) {
+      exitWithError('Failed to sync the branches -', error)
+    }
+  })
+
 const mergePreviewCommand = program
   .command('merge-preview')
   .description('Preview what the merge of the pull request releases: comment and commit status on the pull request (relizy merge-preview init adds its workflow)')
@@ -650,6 +680,9 @@ program
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--no-social', 'Skip social media posting')
   .option('--no-pr-comment', 'Skip PR comment posting')
+  .option('--sync <branch...>', 'Merge the released branch into these branches once pushed, instead of the rules of sync (e.g. --sync develop)')
+  .option('--no-sync', 'Do not merge the released branch into the branches of sync.rules')
+  .addOption(syncModeOption())
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
@@ -723,6 +756,13 @@ program
         prComment: hasCliFlag('--no-pr-comment')
           ? false
           : undefined,
+        sync: hasCliFlag('--no-sync')
+          ? false
+          : undefined,
+        syncBranches: Array.isArray(options.sync)
+          ? options.sync
+          : undefined,
+        syncMode: options.syncMode,
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai')
           ? true

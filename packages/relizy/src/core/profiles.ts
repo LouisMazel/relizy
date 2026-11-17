@@ -16,6 +16,7 @@ const SECTIONS: Record<ProfileSection, true> = {
   release: true,
   social: true,
   prComment: true,
+  sync: true,
   ai: true,
   safetyCheck: true,
 }
@@ -146,6 +147,7 @@ export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, Optio
     gitTag: 'boolean',
     social: 'boolean',
     prComment: 'boolean',
+    sync: 'boolean',
     report: null,
   },
   social: {
@@ -156,6 +158,11 @@ export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, Optio
   },
   prComment: {
     mode: ['append', 'update'],
+  },
+  sync: {
+    rules: null,
+    mode: ['push', 'pull-request'],
+    message: 'string',
   },
   ai: {
     provider: ['claude-code', 'ai-sdk'],
