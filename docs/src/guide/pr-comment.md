@@ -64,7 +64,7 @@ With `relizy release`, the comment is the **summary of the release**, the same a
 - a footer: the branch, the date, and a link to Relizy.
 
 ```markdown
-## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0
+## 🚀 Released maz-ui `5.2.1`, @maz-ui/eslint-config `5.1.0`
 
 ...
 

@@ -162,7 +162,7 @@ describe('Given the renderers of the release report', () => {
   it('Then renders a release as markdown, with a table per version group', () => {
     const markdown = formatReleaseReportMarkdown(released)
 
-    expect(markdown).toContain('## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0')
+    expect(markdown).toContain('## 🚀 Released maz-ui `5.2.1`, @maz-ui/eslint-config `5.1.0`')
     expect(markdown).toContain('### maz-ui `5.2.1` (selective)\n\n| Package | Version |\n| --- | --- |\n| `maz-ui` | `5.2.0` → `5.2.1` |')
     expect(markdown).toContain('### Tooling (independent)')
     // The tables of the groups give the versions and the tags: the summary does not repeat them
@@ -284,7 +284,7 @@ describe('Given the renderers of the release report', () => {
   })
 
   it('Then tells a dry run, nothing to release and a failure apart', () => {
-    expect(formatReleaseReportMarkdown({ ...detailed, dryRun: true, released: false })).toContain('## 🧪 Dry run: relizy 2.0.0\n\nNothing was written nor published.')
+    expect(formatReleaseReportMarkdown({ ...detailed, dryRun: true, released: false })).toContain('## 🧪 Dry run: relizy `2.0.0`\n\nNothing was written nor published.')
     expect(formatReleaseReportMarkdown(nothing)).toContain('## ℹ️ Nothing to release\n\nNo commit since the last release triggers a new version.')
     expect(formatReleaseReportMarkdown({ ...nothing, status: 'failed', error: 'npm publish failed\nat line 2' })).toContain('## ❌ Release failed\n\n```text\nnpm publish failed\nat line 2\n```\n')
   })

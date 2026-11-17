@@ -451,6 +451,10 @@ function formatMarkdownLink({ label, url }: { label: string, url: string }): str
  * several packages): the tables of the summary list them
  */
 export function getReleaseName(report: ReleaseReport): string {
+  return formatReleaseName(report, version => version)
+}
+
+function formatReleaseName(report: ReleaseReport, formatVersion: (version: string) => string): string {
   const release = report.release ?? { projectName: '', groups: [] }
   const lines = getReleaseLines(release)
 
@@ -462,7 +466,15 @@ export function getReleaseName(report: ReleaseReport): string {
       : plural(packages, 'package')
   }
 
-  return lines.map(line => `${line.name} ${line.version}`).join(', ')
+  return lines.map(line => `${line.name} ${formatVersion(line.version)}`).join(', ')
+}
+
+/**
+ * The release name of the markdown, its versions as code: GitLab would turn the
+ * sha of a canary (`1.3.0-0.canary-a3f4b2c`) into a link to the commit, with its own short sha
+ */
+function getMarkdownReleaseName(report: ReleaseReport): string {
+  return formatReleaseName(report, version => `\`${version}\``)
 }
 
 function getMarkdownHeadline(report: ReleaseReport): string[] {
@@ -498,12 +510,12 @@ function getMarkdownHeadline(report: ReleaseReport): string[] {
 
   return report.dryRun
     ? [
-        `## 🧪 Dry run: ${getReleaseName(report)}`,
+        `## 🧪 Dry run: ${getMarkdownReleaseName(report)}`,
         '',
         'Nothing was written nor published.',
         '',
       ]
-    : [`## 🚀 Released ${getReleaseName(report)}`, '']
+    : [`## 🚀 Released ${getMarkdownReleaseName(report)}`, '']
 }
 
 /**
