@@ -1,5 +1,21 @@
 # Changelog
 
+## @relizy/core@2.4.0-beta.1 (2026-11-17)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0-beta.0...@relizy/core@2.4.0-beta.1)
+
+### 🩹 Fixes
+
+- **core:** Push with the GitLab token when the runner rewrites the remote URL ([2c3d9da](https://github.com/LouisMazel/relizy/commit/2c3d9da))
+
+  On a GitLab runner putting the job token in the remote URL with an `insteadOf` rule, `ensurePushAccess` now really pushes with the GitLab token: the push no longer fails with the job token while `tokens.gitlab` can push.
+
+  When the GitLab token is set and cannot push either, the error says so and tells what to check on the token, instead of asking for a `GITLAB_TOKEN`. The debug logs show the push URL and the result of the attempt with the token, without the token.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.4.0-beta.0 (2026-11-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.3.1-beta.0...@relizy/core@2.4.0-beta.0)

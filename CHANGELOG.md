@@ -1,5 +1,27 @@
 # Changelog
 
+## v2.3.0-beta.4 (2026-11-17)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.3...v2.3.0-beta.4)
+
+### 🚀 Features
+
+- Add --no-commitlint to relizy merge-preview ([c1aaaf5](https://github.com/LouisMazel/relizy/commit/c1aaaf5))
+
+  `relizy merge-preview --no-commitlint` skips the lint of the commits of the pull request for a run, over `mergePreview.commitlint`. From the API: `mergePreview({ commitlint: false })`.
+
+### 🩹 Fixes
+
+- Stop failing the merge preview on the commitlint of the commits ([89062e3](https://github.com/LouisMazel/relizy/commit/89062e3))
+
+  The commits of the pull request failing the commitlint of the project no longer fail the merge preview: `relizy release` does not lint the commits, so `feat: 3.1.0` still releases a feature. They are warnings, in a "Commits not following the commit convention" section of the comment and of the terminal, and in `mergePreview.commitlint` of the report.
+
+  `mergePreview.check` now defaults to `auto`: the commit status `relizy/merge-preview` is only set on GitHub. On GitLab, the failed job already fails the pipeline: set `check: true` to keep the status there.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.3 (2026-11-17)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.2...v2.3.0-beta.3)
