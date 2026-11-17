@@ -10,7 +10,9 @@ import { isVersionPublished } from '../npm-versions'
 
 /**
  * What would make the release of the merge fail, or release a broken result.
- * A major bump or nothing to release are normal outcomes, not problems.
+ * A major bump or nothing to release are normal outcomes, not problems. A
+ * `commitlint` one is a commit failing the commitlint of the project, apart
+ * (`MergePreviewChecks.commitlint`): it does not fail the release.
  */
 export interface MergePreviewProblem {
   kind: 'version-taken' | 'tag-taken' | 'squash-title' | 'commitlint' | 'error'
@@ -19,6 +21,11 @@ export interface MergePreviewProblem {
 
 export interface MergePreviewChecks {
   problems: MergePreviewProblem[]
+  /**
+   * The commits failing the commitlint of the project: the release does not
+   * lint them, they never fail the check
+   */
+  commitlint: MergePreviewProblem[]
   /** What could not be checked (registry or remote unreachable), or computed as is */
   warnings: string[]
 }
@@ -183,24 +190,22 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
     })
     const errors = result.problems.filter(problem => problem.severity === 'error')
     if (errors.length > 0) {
-      const problem: MergePreviewProblem = {
+      // A merge commit or a rebase does not create the squash commit
+      const prefix = entry.squash && plan.squash.mode !== 'squash'
+        ? 'If you squash merge: '
+        : ''
+      checks.commitlint.push({
         kind: 'commitlint',
-        message: `${entry.label} "${entry.message.split('\n')[0]}": ${errors.map(problem => problem.message).join('; ')}`,
-      }
-      if (entry.squash) {
-        reportSquashProblem(plan, checks, problem)
-      }
-      else {
-        checks.problems.push(problem)
-      }
+        message: `${prefix}${entry.label} "${entry.message.split('\n')[0]}": ${errors.map(problem => problem.message).join('; ')}`,
+      })
     }
   }
 }
 
 /**
  * Check the release of the merge for what would make it fail: a version or a
- * tag already taken, a squash commit that is not a Conventional Commit, the
- * commitlint of the project
+ * tag already taken, a squash commit that is not a Conventional Commit. The
+ * commitlint of the project is apart: the release does not run it
  */
 export async function checkMergePreview({ config, plan, context, commitlint }: {
   config: ResolvedRelizyConfig
@@ -211,6 +216,7 @@ export async function checkMergePreview({ config, plan, context, commitlint }: {
 }): Promise<MergePreviewChecks> {
   const checks: MergePreviewChecks = {
     problems: [],
+    commitlint: [],
     warnings: context?.warning
       ? [context.warning]
       : [],

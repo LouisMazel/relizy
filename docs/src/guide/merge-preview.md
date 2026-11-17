@@ -17,8 +17,8 @@ tags: [guide, merge-preview, pull-request, merge-request, github, gitlab, ci]
 It then:
 
 - comments the pull request with what the merge releases, updated at each push (see [The Comment](#the-comment));
-- sets the commit status `relizy/merge-preview` on the last commit of the pull request: green with the versions, red when the release of the merge would fail (see [What Fails the Check](#what-fails-the-check));
-- writes the comment in the summary of the CI job, and prints the preview in the terminal: a box per version group with its packages, the problems and the warnings;
+- on GitHub, sets the commit status `relizy/merge-preview` on the last commit of the pull request: green with the versions, red when the release of the merge would fail (see [What Fails the Check](#what-fails-the-check)). On GitLab, the job itself fails the pipeline: no commit status by default, see [`mergePreview.check`](./../config/merge-preview.md#check);
+- writes the comment in the summary of the CI job, and prints the preview in the terminal: a box per version group with its packages, the problems, the commits not following the commit convention and the warnings;
 - exits with an error when the release of the merge would fail.
 
 Relizy does not guess which pipeline releases: the CI says it, by running the preview with the release type and the options of its release job. A preview of the release job `relizy release --minor --config web --yes` is `relizy merge-preview --minor --config web`.
@@ -82,7 +82,7 @@ include:
 
 Give the merge preview the [profile](./../config/profiles.md) of the release job (`profile` input of the action and of the component, `--profile` of the CLI, relizy 2.3.0 or later): it previews the versions and the dist-tag of that profile, and a canary profile previews a canary version (`canary: true` in the report).
 
-The comment and the commit status need `GITLAB_TOKEN` (an access token with the `api` scope): the `CI_JOB_TOKEN` of the job can do neither. When the merge request is behind its target branch (a pipeline that is not a merged results one), the target branch is merged into the clone of the job before the preview.
+The comment needs `GITLAB_TOKEN` (an access token with the `api` scope): the `CI_JOB_TOKEN` of the job cannot comment. When the merge request is behind its target branch (a pipeline that is not a merged results one), the target branch is merged into the clone of the job before the preview.
 
 ### Any CI
 
@@ -110,12 +110,20 @@ The check fails, and the job exits with an error, only when the release of the m
 - **A version already published**: the new version of a package is already on its registry, the publish would fail. The registry is checked with the token of the job; when it cannot tell (a private registry without token), the preview only warns.
 - **A tag already taken**: a tag of the release already exists on the remote, the push would fail.
 - **A squash commit that is not a Conventional Commit**: the release would ignore the changes of the pull request. Write its title as `type(scope): subject`.
-- **The commitlint of the project**: the commits of the pull request (and the squash commit) are linted with [`relizy commitlint`](./../commitlint/index.md) when [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint) is `true`, or `auto` and the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint` (husky, lefthook, simple-git-hooks, the hooks of git).
 - **An error**: an invalid config, or a bump that cannot be computed.
 
-The problems of the squash commit (its title, its commitlint) fail the check only when the merge squashes for sure: the repository only allows squash merges, or the auto-merge squashes. When the merge method is left open, they are warnings of the comment: a merge commit or a rebase does not have them. A project that never squashes sets [`mergePreview.squash`](./../config/merge-preview.md#squash) to `false`, or turns the squash merges off in the settings of the repository.
+A squash title that is not a Conventional Commit fails the check only when the merge squashes for sure: the repository only allows squash merges, or the auto-merge squashes. When the merge method is left open, they are warnings of the comment: a merge commit or a rebase does not have them. A project that never squashes sets [`mergePreview.squash`](./../config/merge-preview.md#squash) to `false`, or turns the squash merges off in the settings of the repository.
 
-To block the merge of a pull request whose release would fail, require the status `relizy/merge-preview` in the protection of the branch (GitHub: Settings > Branches, GitLab: Settings > Merge requests > Status checks).
+To block the merge of a pull request whose release would fail:
+
+- **GitHub**: require the status `relizy/merge-preview` in the protection of the branch or in a ruleset (Settings > Branches, or Settings > Rules);
+- **GitLab**: turn on _Pipelines must succeed_ (Settings > Merge requests > Merge checks). The failed job of the merge preview fails the pipeline, so it blocks the merge.
+
+## Commits Not Following the Commit Convention
+
+The commits of the pull request, and its squash commit, are linted with [`relizy commitlint`](./../commitlint/index.md) when [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint) is `true`, or `auto` and the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint` (husky, lefthook, simple-git-hooks, the hooks of git).
+
+The commits failing it are only warnings, in their own section of the comment and of the terminal: they never fail the check nor the job. `relizy release` does not lint the commits: a commit such as `feat: 3.1.0` breaks the convention of the project (its subject is too short), but it is a Conventional Commit, released as a feature. The ones of the squash commit start with _If you squash merge_ when the merge method is left open.
 
 ## The Comment
 

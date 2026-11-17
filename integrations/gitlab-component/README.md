@@ -32,7 +32,7 @@ The guide: [GitLab CI](https://relizy.dev/guide/gitlab-ci).
 
 ### Preview the release before the merge
 
-The `merge-preview` component adds a `merge-preview` job to the merge request pipelines: a comment tells what the merge releases (versions, tags, dist-tag, what the merge request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview): give it the `release-type` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...). `GITLAB_TOKEN` is needed: the `CI_JOB_TOKEN` cannot comment nor set a status.
+The `merge-preview` component adds a `merge-preview` job to the merge request pipelines: a comment tells what the merge releases (versions, tags, dist-tag, what the merge request brings), and the job fails when the release of the merge would fail: require a successful pipeline to block such a merge. Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview): give it the `release-type` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...). `GITLAB_TOKEN` is needed: the `CI_JOB_TOKEN` cannot comment.
 
 ```yaml
 include:

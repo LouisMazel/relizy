@@ -169,7 +169,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
     } as Required<PrCommentConfig>,
     mergePreview: {
       comment: true,
-      check: true,
+      check: 'auto',
       commitlint: 'auto',
       squash: 'auto',
     } as Required<MergePreviewConfig>,

@@ -489,7 +489,7 @@ function renderGitlabComponent(options: WorkflowOptions): string {
 /** The include of the merge preview component */
 function getGitlabMergePreviewInclude(options: WorkflowOptions): string[] {
   return [
-    '  # What the merge of each merge request releases: a comment and the commit status relizy/merge-preview',
+    '  # What the merge of each merge request releases: a comment, and the job fails when the release would fail',
     `  - component: ${GITLAB_MERGE_PREVIEW_COMPONENT}`,
     ...(options.nodeVersion
       ? ['    inputs:', `      image: node:${options.nodeVersion}`]
@@ -517,12 +517,12 @@ function renderGitlabMergePreview(options: WorkflowOptions): string {
 
 /**
  * The merge preview job written out: on each merge request into the default
- * branch, what its merge releases (a comment and the commit status
- * `relizy/merge-preview`)
+ * branch, what its merge releases (a comment), failing when the release of the
+ * merge would fail
  */
 function renderGitlabMergePreviewJob(options: WorkflowOptions): string[] {
   return [
-    '# What the merge of the merge request releases: a comment and the commit status relizy/merge-preview',
+    '# What the merge of the merge request releases: a comment, and the job fails when the release would fail',
     'merge-preview:',
     '  stage: test',
     `  image: node:${options.nodeVersion ?? 'lts'}`,

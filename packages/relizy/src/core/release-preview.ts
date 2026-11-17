@@ -505,7 +505,7 @@ export async function previewRelease(options: PreviewReleaseOptions = {}): Promi
           },
           commitlint: false,
         })
-      : { problems: [], warnings: [] }
+      : { problems: [], commitlint: [], warnings: [] }
     const changelogs = options.changelog
       ? await generateChangelogs(plan, typeof options.changelog === 'object'
           ? options.changelog

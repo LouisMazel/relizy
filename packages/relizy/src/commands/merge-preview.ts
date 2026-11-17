@@ -20,12 +20,12 @@ export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'prei
    */
   comment?: boolean
   /**
-   * Override of `mergePreview.check` for this run. With `comment: false` too, the preview is
+   * Override of `mergePreview.check` for this run (`auto`: on GitHub only). With `comment: false` too, the preview is
    * only computed: nothing is posted on the pull request. The report is still written where
    * `release.report` says (in GitHub Actions: the outputs and the summary of the job, unless
    * `release.report.github: false`)
    */
-  check?: boolean
+  check?: 'auto' | boolean
   /**
    * Generate the changelog entries of the release (`mergePreview.changelogs` of the report), without the hooks
    * @default false
@@ -88,7 +88,7 @@ async function computePreview({ config, options, settings, ui }: {
   ui: ReleaseUi
 }): Promise<ComputedPreview> {
   const computed: ComputedPreview = {
-    checks: { problems: [], warnings: [] },
+    checks: { problems: [], commitlint: [], warnings: [] },
   }
 
   try {
@@ -161,9 +161,15 @@ async function computePreview({ config, options, settings, ui }: {
     computed.checks = await ui.step({
       name: 'merge-preview',
       running: 'Checking what would make the release fail',
-      done: result => result.problems.length > 0
-        ? `${plural(result.problems.length, 'problem')} would make the release fail`
-        : 'Nothing blocks the release',
+      done: (result) => {
+        if (result.problems.length > 0) {
+          return `${plural(result.problems.length, 'problem')} would make the release fail`
+        }
+
+        return result.commitlint.length > 0
+          ? `Nothing blocks the release, ${plural(result.commitlint.length, 'commit')} not following the commit convention`
+          : 'Nothing blocks the release'
+      },
       failed: result => result.problems.length > 0,
       run: () => checkMergePreview({
         config,
@@ -201,6 +207,18 @@ async function commentPullRequest({ config, context, markdown, prNumber }: { con
   })
 }
 
+/**
+ * Whether the commit status is set: `auto` on GitHub only, the job of the
+ * merge preview already fails the pipeline of GitLab
+ */
+function shouldSetStatus(settings: MergePreviewConfig, context: MergePreviewContext): boolean {
+  const check = settings.check ?? 'auto'
+
+  return check === 'auto'
+    ? context.pullRequest.provider === 'github'
+    : check
+}
+
 /** The comment and the commit status of the pull request, as the settings ask */
 async function postOnPullRequest({ config, context, result, settings, prNumber, ui }: {
   config: ResolvedRelizyConfig
@@ -231,7 +249,7 @@ async function postOnPullRequest({ config, context, result, settings, prNumber, 
     })
   }
 
-  if (settings.check) {
+  if (shouldSetStatus(settings, context)) {
     posted.status = await ui.step({
       name: 'merge-preview',
       running: 'Setting the commit status',
@@ -277,6 +295,7 @@ function getReport(result: MergePreviewResult, config: ResolvedRelizyConfig, pos
       pullRequest: context?.pullRequest.number,
       squash: plan?.squash.mode,
       problems: checks.problems,
+      commitlint: checks.commitlint,
       warnings: checks.warnings,
       markdown: formatMergePreviewMarkdown(result),
       ...(context

@@ -175,6 +175,103 @@ describe('Given the merge preview of a GitHub pull request', () => {
     expect(calls(fetch, 'POST', '/issues/7/comments')[0].body).toContain('#### ❌ The release of the merge would fail')
   })
 
+  describe('When a commit of the pull request fails the commitlint of the project', () => {
+    beforeEach(() => {
+      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', noAuthors: true, publish: { packageManager: 'npm' }, commitlint: {} }\n`)
+      git('add', '-A')
+      git('commit', '--quiet', '-m', 'feat: 3.1.0')
+      headSha = git('rev-parse', 'HEAD')
+      writeFileSync(join(dir, 'event.json'), JSON.stringify({
+        pull_request: {
+          number: 7,
+          title: 'feat: the api',
+          head: { sha: headSha },
+        },
+      }))
+    })
+
+    it('Then warns apart, with a success status, without failing', async () => {
+      const fetch = mockApi()
+
+      const report = await mergePreview()
+
+      expect(report.status).toBe('released')
+      expect(report.mergePreview?.problems).toEqual([])
+      expect(report.mergePreview?.commitlint).toEqual([
+        {
+          kind: 'commitlint',
+          message: expect.stringMatching(/^[0-9a-f]{7} "feat: 3\.1\.0": The subject "3\.1\.0" is too short/),
+        },
+      ])
+      expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
+        expect.objectContaining({ state: 'success' }),
+      ])
+      const [comment] = calls(fetch, 'POST', '/issues/7/comments')
+      expect(comment.body).toContain('#### ⚠️ Commits not following the commit convention')
+      expect(comment.body).not.toContain('would fail')
+    })
+
+    it('Then a release problem still fails the check', async () => {
+      const fetch = mockApi()
+      origin.git('tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
+
+      const error = await mergePreview().catch((error_: unknown) => error_) as MergePreviewError
+
+      expect(error).toBeInstanceOf(MergePreviewError)
+      expect(error.report?.mergePreview?.problems).toEqual([
+        expect.objectContaining({ kind: 'tag-taken' }),
+      ])
+      expect(error.message).not.toContain('3.1.0" is too short')
+      expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
+        expect.objectContaining({ state: 'failure' }),
+      ])
+    })
+  })
+
+  describe('When it runs in the pipeline of a GitLab merge request', () => {
+    beforeEach(() => {
+      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', noAuthors: true, publish: { packageManager: 'npm' }, repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'test/repo' } }\n`)
+      git('add', '-A')
+      git('commit', '--quiet', '-m', 'chore: the gitlab repository')
+      headSha = git('rev-parse', 'HEAD')
+      for (const name of [
+        'GITHUB_ACTIONS',
+        'GITHUB_EVENT_NAME',
+        'GITHUB_BASE_REF',
+        'GITHUB_HEAD_REF',
+        'GITHUB_EVENT_PATH',
+        'RELIZY_GITHUB_TOKEN',
+      ]) {
+        vi.stubEnv(name, undefined)
+      }
+      vi.stubEnv('GITLAB_CI', 'true')
+      vi.stubEnv('CI_MERGE_REQUEST_IID', '7')
+      vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'feat: the api')
+      vi.stubEnv('CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'main')
+      vi.stubEnv('CI_MERGE_REQUEST_SOURCE_BRANCH_SHA', headSha)
+      vi.stubEnv('RELIZY_GITLAB_TOKEN', 'glpat-token')
+    })
+
+    it('Then sets no commit status by default: the job already fails the pipeline', async () => {
+      const fetch = mockApi()
+
+      const report = await mergePreview({ comment: false })
+
+      expect(calls(fetch, 'POST', '/statuses/')).toEqual([])
+      expect(report.mergePreview?.posted).toEqual({ comment: false, status: false })
+    })
+
+    it('Then sets the commit status when the check is asked', async () => {
+      const fetch = mockApi()
+
+      await mergePreview({ comment: false, check: true })
+
+      expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
+        expect.objectContaining({ state: 'success', name: 'relizy/merge-preview' }),
+      ])
+    })
+  })
+
   it('When the comment and the status are disabled, Then calls no API for them', async () => {
     const fetch = mockApi()
 

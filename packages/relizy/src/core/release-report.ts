@@ -142,6 +142,11 @@ export interface ReleaseMergePreview {
    * What would make the release of the merge fail
    */
   problems: MergePreviewProblem[]
+  /**
+   * The commits of the pull request (and its squash commit) failing the commitlint of the project:
+   * warnings, the release does not lint the commits
+   */
+  commitlint: MergePreviewProblem[]
   warnings: string[]
   /**
    * The comment of the pull request and the summary of the CI job

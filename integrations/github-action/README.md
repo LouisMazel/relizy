@@ -48,7 +48,7 @@ The guide: [GitHub Actions](https://relizy.dev/guide/github-actions).
 
 ### Preview the release before the merge
 
-The same action, with `merge-preview: true`, on the pull requests: a comment tells what the merge releases (versions, tags, dist-tag, what the pull request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail (a version or a tag already taken, a squash title that is not a Conventional Commit...). Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview) instead of `relizy release`: give it the `release-type` and the `profile` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...).
+The same action, with `merge-preview: true`, on the pull requests: a comment tells what the merge releases (versions, tags, dist-tag, what the pull request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail (a version or a tag already taken, a squash title that is not a Conventional Commit...; the commits failing the commitlint of the project are only warnings). Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview) instead of `relizy release`: give it the `release-type` and the `profile` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...).
 
 ```yaml
 name: Merge preview

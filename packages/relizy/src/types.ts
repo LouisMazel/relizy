@@ -236,14 +236,18 @@ export interface MergePreviewConfig {
   /**
    * Set the commit status `relizy/merge-preview` on the last commit of the
    * pull request: failed when the release of the merge would fail, to require
-   * it in the protection of the branch (`--no-check` disables it)
-   * @default true
+   * it in the protection of the branch (`--no-check` disables it). `auto` sets
+   * it on GitHub only: on GitLab, the job of the merge preview already fails
+   * the pipeline, a commit status would fail it a second time
+   * @default 'auto'
    */
-  check?: boolean
+  check?: 'auto' | boolean
   /**
    * Lint the commits of the pull request (and the commit of its squash merge)
    * with `relizy commitlint`: `auto` when the project uses it, a `commitlint`
-   * option in its config or a commit-msg hook running `relizy commitlint`
+   * option in its config or a commit-msg hook running `relizy commitlint`.
+   * The commits failing it are warnings, they never fail the check: the
+   * release does not lint the commits
    * @default 'auto'
    */
   commitlint?: 'auto' | boolean

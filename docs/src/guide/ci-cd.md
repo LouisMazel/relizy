@@ -21,7 +21,7 @@ On GitHub and GitLab, [`relizy init`](./../cli/init.md#release-workflow) writes 
 
 On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the install of the dependencies, the [tokens](#tokens), credentials allowed to push, and `npx relizy release --yes`. Relizy reads the branch of a detached HEAD from the variables of CircleCI, Bitbucket Pipelines, Buildkite, Drone, Travis CI, Azure Pipelines and Jenkins too.
 
-`relizy init` also offers the [merge preview](./merge-preview.md) of the pull requests: [`relizy merge-preview`](./../cli/merge-preview.md) runs in their pipeline, with the options of the release job, comments what the merge releases and sets a commit status that fails when the release of the merge would fail.
+`relizy init` also offers the [merge preview](./merge-preview.md) of the pull requests: [`relizy merge-preview`](./../cli/merge-preview.md) runs in their pipeline, with the options of the release job, comments what the merge releases and fails when the release of the merge would fail (with a commit status on GitHub).
 
 ## What Relizy Handles in CI
 

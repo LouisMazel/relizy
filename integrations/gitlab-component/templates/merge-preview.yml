@@ -1,6 +1,6 @@
 # Synced to gitlab.com/relizy/relizy at each release of relizy: edit it in github.com/LouisMazel/relizy
 spec:
-  description: 'Preview what the merge of a merge request releases: a comment and the commit status relizy/merge-preview, without writing anything'
+  description: 'Preview what the merge of a merge request releases: a comment, and the job fails when the release of the merge would fail, without writing anything'
   inputs:
     stage:
       default: test

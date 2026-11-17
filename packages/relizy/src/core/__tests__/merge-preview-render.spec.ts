@@ -106,7 +106,7 @@ function resultOf(overrides: Partial<MergePreviewResult> = {}): MergePreviewResu
       squash: { mode: 'commits', reason: 'the repository does not allow squash merges' },
       outcome,
     },
-    checks: { problems: [], warnings: [] },
+    checks: { problems: [], commitlint: [], warnings: [] },
     publish: { enabled: true, distTag: 'latest' },
     branch: 'main',
     ...overrides,
@@ -171,12 +171,28 @@ describe('Given the merge preview of a pull request', () => {
         problems: [
           { kind: 'tag-taken', message: 'The tag v1.1.0 already exists' },
         ],
+        commitlint: [],
         warnings: ['Could not check the registry'],
       },
     }))
 
     expect(markdown).toContain('#### ❌ The release of the merge would fail\n\n- The tag v1.1.0 already exists')
     expect(markdown).toContain('> ⚠️ Could not check the registry')
+  })
+
+  it('When commits fail the commitlint of the project, Then lists them apart, as warnings', () => {
+    const markdown = formatMergePreviewMarkdown(resultOf({
+      checks: {
+        problems: [],
+        commitlint: [
+          { kind: 'commitlint', message: '6148a2c "feat: 3.1.0": The subject "3.1.0" is too short' },
+        ],
+        warnings: [],
+      },
+    }))
+
+    expect(markdown).toContain('#### ⚠️ Commits not following the commit convention\n\nThey fail the commitlint of the project, not the release: they do not block the merge.\n\n- 6148a2c "feat: 3.1.0": The subject "3.1.0" is too short')
+    expect(markdown).not.toContain('would fail')
   })
 
   it('When it is a merge request of GitLab, Then names it so', () => {
@@ -219,6 +235,7 @@ describe('Given the merge preview of a pull request', () => {
         problems: [
           { kind: 'error', message: 'a@1.1.0 is already published' },
         ],
+        commitlint: [],
         warnings: ['a warning'],
       },
     }))
@@ -375,6 +392,7 @@ describe('Given the commit status of the merge preview', () => {
           },
           { kind: 'error', message: 'other' },
         ],
+        commitlint: [],
         warnings: [],
       },
     }))
