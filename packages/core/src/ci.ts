@@ -546,7 +546,7 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
  * without their commit nor their tags. On GitLab, when the remote cannot push
  * (the job token), the push goes through the GitLab token instead. Once per
  * repository and run. The rules of the protected branches are only checked
- * by the real push. Does nothing on a detached HEAD. Runs
+ * by the real push. Without `branch`, does nothing on a detached HEAD. Runs
  * `git push --dry-run` (nothing is pushed). A branch behind
  * its remote is not an error here. When the fallback applies, `env` gets the
  * `GIT_CONFIG_*` variables setting the `pushurl` of the remote to the GitLab
@@ -555,6 +555,7 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
  * @param options - The options
  * @param options.cwd - The directory of the repository
  * @param options.gitlabToken - The token of the GitLab project, used to push when the job token cannot
+ * @param options.branch - The branch to push to, the current branch by default (e.g. the branch a release is merged into)
  * @param options.env - The environment to read and to set the push config in, `process.env` by default
  * @param options.logger - Receives the debug and info messages, silent by default
  * @returns A promise resolved when the release can be pushed
@@ -564,24 +565,29 @@ export function getPullRequestOutdatedWarning({ upstream, missingCommits, env = 
  * await ensurePushAccess({ cwd: process.cwd(), gitlabToken: process.env.GITLAB_TOKEN })
  * ```
  */
-export function ensurePushAccess({ cwd, gitlabToken, env = process.env, logger }: {
+export function ensurePushAccess({ cwd, gitlabToken, branch: targetBranch, env = process.env, logger }: {
   cwd: string
   /** The token of the GitLab project, used to push when the job token cannot */
   gitlabToken?: string
+  /** The branch to push to, the current branch by default */
+  branch?: string
   env?: Env
   logger?: CoreLogger
 }): Promise<void> {
   return oncePerRun({
-    key: 'push-access',
+    key: targetBranch
+      ? `push-access:${targetBranch}`
+      : 'push-access',
     cwd,
     run: () => Promise.resolve().then(() => {
-      const branch = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
-      if (!branch || branch === 'HEAD') {
+      const currentBranch = tryGitSync(['rev-parse', '--abbrev-ref', 'HEAD'], { cwd })
+      if (!targetBranch && (!currentBranch || currentBranch === 'HEAD')) {
         logger?.debug?.('Detached HEAD: the push access is not checked')
         return
       }
 
-      const remote = tryGitSync(['config', `branch.${branch}.remote`], { cwd }) || 'origin'
+      const branch = targetBranch ?? currentBranch!
+      const remote = (currentBranch && tryGitSync(['config', `branch.${currentBranch}.remote`], { cwd })) || 'origin'
       const remoteUrl = tryGitSync(['remote', 'get-url', '--push', remote], { cwd, env })
       logger?.debug?.(`Checking the push of the release to "${remote}" (${withoutCredentials(remoteUrl ?? 'no URL')})`)
       const refusal = getPushProblem({ remote, branch, cwd, env })
