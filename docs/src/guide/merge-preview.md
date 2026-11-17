@@ -123,7 +123,7 @@ To block the merge of a pull request whose release would fail:
 
 The commits of the pull request, and its squash commit, are linted with [`relizy commitlint`](./../commitlint/index.md) when [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint) is `true`, or `auto` and the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint` (husky, lefthook, simple-git-hooks, the hooks of git).
 
-The commits failing it are only warnings, in their own section of the comment and of the terminal: they never fail the check nor the job. `relizy release` does not lint the commits: a commit such as `feat: 3.1.0` breaks the convention of the project (its subject is too short), but it is a Conventional Commit, released as a feature. The ones of the squash commit start with _If you squash merge_ when the merge method is left open.
+The commits failing it are only warnings, in their own section of the comment and of the terminal: they never fail the check nor the job. `relizy release` does not lint the commits: a commit such as `feat: 3.1.0` breaks the convention of the project (its subject is too short), but it is a Conventional Commit, released as a feature. The ones of the squash commit start with _If you squash merge_ when the merge method is left open. `--no-commitlint` turns the lint off for a run.
 
 ## The Comment
 

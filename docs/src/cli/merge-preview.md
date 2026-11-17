@@ -48,6 +48,7 @@ Give it the options of the release job that change the release: the preview of `
 | `--publish-token <token>`                                | Registry token, for the versions already published                                                               | [`tokens.registry`](./../config/overview.md#tokens)                   |
 | `--no-comment`                                           | Do not comment the pull request                                                                                  | [`mergePreview.comment`](./../config/merge-preview.md#comment)        |
 | `--no-check`                                             | Do not set the commit status `relizy/merge-preview` (set on GitHub only by default)                              | [`mergePreview.check`](./../config/merge-preview.md#check)            |
+| `--no-commitlint`                                        | Do not lint the commits of the pull request                                                                      | [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint)  |
 | `--report-json <file>`, `--report-markdown <file>`       | Write the report of the preview, or its markdown, to this file                                                   | [`release.report`](./../config/release.md#report)                     |
 
 The [global options](./commands.md) apply: `--config`, `--group`, `--pr-number` (the pull request to comment, when relizy cannot find it), `--log-level`.

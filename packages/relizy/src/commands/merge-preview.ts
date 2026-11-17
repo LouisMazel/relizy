@@ -27,6 +27,11 @@ export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'prei
    */
   check?: 'auto' | boolean
   /**
+   * Override of `mergePreview.commitlint` for this run: `false` does not lint
+   * the commits of the pull request
+   */
+  commitlint?: 'auto' | boolean
+  /**
    * Generate the changelog entries of the release (`mergePreview.changelogs` of the report), without the hooks
    * @default false
    */
@@ -68,6 +73,9 @@ function getSettings(config: ResolvedRelizyConfig, options: MergePreviewOptions)
     ...(options.check === undefined
       ? {}
       : { check: options.check }),
+    ...(options.commitlint === undefined
+      ? {}
+      : { commitlint: options.commitlint }),
   }
 }
 

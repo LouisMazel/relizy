@@ -16,7 +16,7 @@ tags: [api, merge-preview, pull-request, merge-request, typescript]
 function mergePreview(options?: MergePreviewOptions): Promise<ReleaseReport>
 ```
 
-Options: [`MergePreviewOptions`](./../typedoc/interfaces/MergePreviewOptions.md), the options of the release job that change the release (`type`, `preid`, `tag`, `publish`, `configName`, `groups`...), the outputs of the preview (`comment`, `check`), and `changelog: true` for the changelog entries of the release.
+Options: [`MergePreviewOptions`](./../typedoc/interfaces/MergePreviewOptions.md), the options of the release job that change the release (`type`, `preid`, `tag`, `publish`, `configName`, `groups`...), the outputs of the preview (`comment`, `check`), `commitlint: false` to skip the lint of the commits, and `changelog: true` for the changelog entries of the release.
 
 ## Behavior
 

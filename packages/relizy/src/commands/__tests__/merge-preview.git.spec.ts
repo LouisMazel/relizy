@@ -211,6 +211,15 @@ describe('Given the merge preview of a GitHub pull request', () => {
       expect(comment.body).not.toContain('would fail')
     })
 
+    it('Then the commitlint option turns the lint off for the run', async () => {
+      mockApi()
+
+      const report = await mergePreview({ comment: false, check: false, commitlint: false })
+
+      expect(report.mergePreview?.commitlint).toEqual([])
+      expect(report.mergePreview?.markdown).not.toContain('Commits not following the commit convention')
+    })
+
     it('Then a release problem still fails the check', async () => {
       const fetch = mockApi()
       origin.git('tag', '-a', 'v1.1.0', '-m', 'v1.1.0')

@@ -44,7 +44,7 @@ Set the commit status `relizy/merge-preview` on the last commit of the pull requ
 - **Type:** `'auto' | boolean`
 - **Default:** `'auto'`
 
-Lint the commits of the pull request, and the commit of its squash merge, with [`relizy commitlint`](./../commitlint/index.md). The commits failing it are warnings, in their own section of the comment: they never fail the check, `relizy release` does not lint the commits (see [Commits Not Following the Commit Convention](./../guide/merge-preview.md#commits-not-following-the-commit-convention)). `auto` lints when the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint`.
+Lint the commits of the pull request, and the commit of its squash merge, with [`relizy commitlint`](./../commitlint/index.md). The commits failing it are warnings, in their own section of the comment: they never fail the check, `relizy release` does not lint the commits (see [Commits Not Following the Commit Convention](./../guide/merge-preview.md#commits-not-following-the-commit-convention)). `auto` lints when the project uses it: a `commitlint` option in its config, or a commit-msg hook running `relizy commitlint`. `--no-commitlint` turns it off for a run.
 
 ## squash
 

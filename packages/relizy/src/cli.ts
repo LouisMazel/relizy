@@ -556,6 +556,7 @@ mergePreviewCommand
   .addOption(privatePackagesOption())
   .option('--no-comment', 'Do not comment the pull request')
   .option('--no-check', 'Do not set the commit status')
+  .option('--no-commitlint', 'Do not lint the commits of the pull request')
   .option('--report-json <file>', 'Write the report of the preview to this JSON file')
   .option('--report-markdown <file>', 'Write the preview to this markdown file, e.g. for an artifact of GitLab CI')
   .action(async (options) => {
@@ -585,6 +586,9 @@ mergePreviewCommand
           ? false
           : undefined,
         check: hasCliFlag('--no-check')
+          ? false
+          : undefined,
+        commitlint: hasCliFlag('--no-commitlint')
           ? false
           : undefined,
         prNumber: program.opts().prNumber,

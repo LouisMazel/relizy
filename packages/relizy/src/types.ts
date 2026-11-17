@@ -247,7 +247,7 @@ export interface MergePreviewConfig {
    * with `relizy commitlint`: `auto` when the project uses it, a `commitlint`
    * option in its config or a commit-msg hook running `relizy commitlint`.
    * The commits failing it are warnings, they never fail the check: the
-   * release does not lint the commits
+   * release does not lint the commits (`--no-commitlint` disables it)
    * @default 'auto'
    */
   commitlint?: 'auto' | boolean
