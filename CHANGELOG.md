@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.3.0-beta.3 (2026-11-17)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.2...v2.3.0-beta.3)
+
+### 🩹 Fixes
+
+- Keep the versions of the markdown report title as code ([7c8be3b](https://github.com/LouisMazel/relizy/commit/7c8be3b))
+
+  GitLab turned the sha of a canary version in the title of the release comment into a link to the commit, shown with its own short sha (`3.1.0-0.canary-407629b8` instead of `3.1.0-0.canary-407629b`). The versions of the title are now written as code, as in the tables of the packages.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.2 (2026-11-14)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.1...v2.3.0-beta.2)
