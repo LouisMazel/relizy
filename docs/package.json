@@ -21,14 +21,14 @@
     "typecheck": "vue-tsc --noEmit --skipLibCheck"
   },
   "dependencies": {
-    "@maz-ui/icons": "5.7.0-beta.7",
-    "@maz-ui/themes": "5.7.0-beta.7",
-    "maz-ui": "5.7.0-beta.7",
+    "@maz-ui/icons": "5.7.0",
+    "@maz-ui/themes": "5.7.0",
+    "maz-ui": "5.7.0",
     "vue": "^3.5.44"
   },
   "devDependencies": {
-    "@maz-ui/translations": "5.7.0-beta.7",
-    "@maz-ui/vite-plugin": "5.7.0-beta.7",
+    "@maz-ui/translations": "5.7.0",
+    "@maz-ui/vite-plugin": "5.7.0",
     "@tailwindcss/vite": "^4.3.4",
     "tailwindcss": "^4.3.4",
     "typedoc": "^0.28.20",
