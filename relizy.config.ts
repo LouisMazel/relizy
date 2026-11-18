@@ -67,7 +67,7 @@ export default defineConfig({
     twitter: { enabled: true },
   },
   prComment: {
-    mode: 'update',
+    mode: 'recreate',
   },
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
