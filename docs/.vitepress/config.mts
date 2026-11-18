@@ -223,7 +223,7 @@ export default defineConfig({
     ],
     [
       'meta',
-      { name: 'author', content: 'Louis Mazel' },
+      { name: 'author', content: 'Loïc Mazuel' },
     ],
     [
       'meta',
@@ -283,8 +283,9 @@ export default defineConfig({
         'description': 'Seamless and automated release manager for monorepos and single packages',
         'author': {
           '@type': 'Person',
-          'name': 'Louis Mazel',
-          'url': 'https://github.com/LouisMazel',
+          'name': 'Loïc Mazuel',
+          'url': 'https://www.loicmazuel.com/',
+          'sameAs': ['https://github.com/LouisMazel'],
         },
       }),
     ],
@@ -309,7 +310,8 @@ export default defineConfig({
         },
         'author': {
           '@type': 'Person',
-          'name': 'Louis Mazel',
+          'name': 'Loïc Mazuel',
+          'url': 'https://www.loicmazuel.com/',
         },
       }),
     ],
@@ -434,7 +436,7 @@ export default defineConfig({
         ],
         [
           'meta',
-          { property: 'article:author', content: 'Louis Mazel' },
+          { property: 'article:author', content: 'Loïc Mazuel' },
         ],
       )
     }

@@ -481,7 +481,10 @@ const ciFeatures = [
     <!-- Footer -->
     <footer class="border-t border-divider px-6 py-10">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted tab-m:flex-row">
-        <p>Released under the MIT License · © Louis Mazel</p>
+        <p>
+          Released under the MIT License · ©
+          <a href="https://www.loicmazuel.com/" target="_blank" class="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">Loïc Mazuel</a>
+        </p>
         <p>
           Designed with
           <a href="https://maz-ui.com" target="_blank" class="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">maz-ui</a>,
