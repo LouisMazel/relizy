@@ -1,5 +1,31 @@
 # Changelog
 
+## v2.3.0-beta.7 (2026-11-18)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.6...v2.3.0-beta.7)
+
+### 🚀 Features
+
+- **relizy:** Add the recreate mode to the PR comments ([2354778](https://github.com/LouisMazel/relizy/commit/2354778))
+
+  With `prComment.mode: 'recreate'`, Relizy posts a new comment on the pull request, then deletes its previous one: the pull request keeps a single Relizy comment, always at the bottom of the conversation instead of hidden among the collapsed comments. The merge preview follows it too.
+
+  `--pr-comment-mode <mode>` overrides the mode for a run, on `relizy release`, `relizy pr-comment` and `relizy merge-preview`.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    prComment: {
+      mode: 'recreate',
+    },
+  })
+  ```
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.6 (2026-11-18)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.5...v2.3.0-beta.6)
