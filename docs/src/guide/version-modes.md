@@ -37,7 +37,7 @@ export default defineConfig({
 
 In every mode:
 
-- the root version (`unified`, `selective`) is computed from the commits of the released packages: a commit changing no package (CI, scripts, an [ignored](./../config/monorepo.md#ignored) package, a private package left out by [`privatePackages`](./../config/monorepo.md#privatepackages)) releases nothing;
+- the root version (`unified`, `selective`) is computed from the commits of the released packages: a commit changing no package (CI, scripts, an [ignored](./../config/monorepo.md#ignored) package, a private package left out by [`privatePackages`](./../config/monorepo.md#privatepackages)) releases nothing. The commits changing files outside every package (CI, scripts, the lockfile) are still listed in the root changelog of a release;
 - a package gets the commits changing its directory (see [Moving & Renaming Packages](./moved-packages.md) for the moves), and the commits changing a [catalog](./dependency-management.md#catalogs) entry it uses;
 - the dependents follow [`bump.dependencyTypes`](./../config/bump.md#dependencytypes) and the [out-of-range peer dependencies](./../config/bump.md#outofrangepeers), see [Dependency Management](./dependency-management.md);
 - the tag format comes from [`templates.tagBody`](./../config/commit-templates.md#tagbody) for the repository tag, the package tags are always `<name>@<version>`.

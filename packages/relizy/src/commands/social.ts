@@ -602,6 +602,7 @@ async function collectRootRelease({ config, bumpResult, dryRun }: {
       to: 'HEAD',
       config,
       changelog: true,
+      repositoryCommits: true,
       dryRun,
     }),
     rootTag: to,

@@ -25,7 +25,9 @@ function isFullChangelogOutput(include: ChangelogInclude | undefined, minify?: b
  * - Fetches commits internally using `changelog: true`, so types that only
  *   declare a `title` (e.g. `docs: { title: '📖 Documentation' }`) are
  *   included even though they don't trigger a version bump. Callers must
- *   provide `pkg.path` - `pkg.commits` is no longer consumed.
+ *   provide `pkg.path` - `pkg.commits` is no longer consumed. The root of a
+ *   monorepo also lists the commits changing no package of the workspace
+ *   (CI, scripts, the lockfile).
  * - `include` toggles which sections appear in the output. `compareLink`
  *   and `contributors` are also skipped when `minify` is true.
  * - `transformBody` is invoked between body rendering and final assembly,
@@ -80,6 +82,7 @@ export async function generateChangelog(
       to: gitToRef,
       config: { ...config, from: gitFromRef, to: gitToRef },
       changelog: true,
+      repositoryCommits: true,
       dryRun,
     })
 
