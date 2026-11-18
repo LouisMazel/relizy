@@ -1,5 +1,21 @@
 # Changelog
 
+## @relizy/core@2.4.0-beta.3 (2026-11-18)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0-beta.2...@relizy/core@2.4.0-beta.3)
+
+### 🚀 Features
+
+- **core:** Keep the chore(deps) commits and the commits outside every package ([6755da6](https://github.com/LouisMazel/relizy/commit/6755da6))
+
+  `isAllowedCommit` and `getPackageCommits` take `includeDeps` to keep the `chore(deps)` commits, left out by default.
+
+  `getPackageCommits` takes `monorepo.workspacePaths`, the paths of every package of the workspace: the root of a monorepo then also gets the commits changing files outside all of them (CI, scripts, the lockfile).
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.4.0-beta.2 (2026-11-17)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0-beta.1...@relizy/core@2.4.0-beta.2)

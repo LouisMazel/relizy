@@ -1,5 +1,35 @@
 # Changelog
 
+## v2.3.0-beta.6 (2026-11-18)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.5...v2.3.0-beta.6)
+
+### 🚀 Features
+
+- **relizy:** Add includeDepsCommits to keep the chore(deps) commits ([b864aa7](https://github.com/LouisMazel/relizy/commit/b864aa7))
+
+  The `chore(deps)` commits, the dependency updates of Renovate or Dependabot, are left out of the release by default. `includeDepsCommits: true` keeps them like the other `chore` commits: listed in the changelogs, and bumping when `chore` has a `semver`.
+
+  ```ts
+  import { defineConfig } from 'relizy'
+
+  export default defineConfig({
+    includeDepsCommits: true,
+  })
+  ```
+
+### 🩹 Fixes
+
+- **relizy:** List the commits outside every package in the root changelog again ([2744245](https://github.com/LouisMazel/relizy/commit/2744245))
+
+  Since 2.1.0, the root changelog of a `unified` or `selective` monorepo only listed the commits of the released packages: a commit changing only the CI, the scripts or the lockfile was left out. It is listed again, and still releases nothing.
+
+  The commits of the ignored and private packages, and of the other version groups, stay out of the root changelog.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0-beta.5 (2026-11-17)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0-beta.4...v2.3.0-beta.5)
