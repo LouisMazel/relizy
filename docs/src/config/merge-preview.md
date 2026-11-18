@@ -30,7 +30,7 @@ export default defineConfig({
 - **Type:** `boolean`
 - **Default:** `true`
 
-Comment the pull request with what its merge releases, updated in place at each run (`<!-- relizy-merge-preview -->` marker). `--no-comment` turns it off for a run.
+Comment the pull request with what its merge releases, updated in place at each run (`<!-- relizy-merge-preview -->` marker), or posted again at the bottom with [`prComment.mode: 'recreate'`](./pr-comment.md#mode). `--no-comment` turns it off for a run.
 
 ## check
 

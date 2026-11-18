@@ -571,6 +571,20 @@ describe('Given release command', () => {
       )
     })
 
+    it('Then gives prCommentMode to the config as prComment.mode', async () => {
+      vi.mocked(bump).mockResolvedValue({ newVersion: '2.0.0', bumpedPackages: [], bumped: true })
+
+      await release({ prCommentMode: 'recreate' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrides: expect.objectContaining({
+            prComment: { mode: 'recreate' },
+          }),
+        }),
+      )
+    })
+
     it('Then gives privatePackages to the config the sub-commands get', async () => {
       const bumpResult = { newVersion: '2.0.0', bumpedPackages: [], bumped: true }
       vi.mocked(bump).mockResolvedValue(bumpResult)

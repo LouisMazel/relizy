@@ -22,6 +22,8 @@ export interface PrCommentOptions {
   config?: ResolvedRelizyConfig
   /** Release context passed from the release flow. When absent, standalone mode is used. */
   releaseContext?: ReleaseContext
+  /** Override of `prComment.mode` for this run, as `--pr-comment-mode` */
+  prCommentMode?: PrCommentMode
 }
 
 interface CommentBodyParams {
@@ -413,6 +415,9 @@ function runPrComment(options: PrCommentOptions = {}): Promise<boolean> {
       profile: options.profile,
       overrides: {
         logLevel: options.logLevel,
+        prComment: options.prCommentMode
+          ? { mode: options.prCommentMode }
+          : undefined,
       },
     }),
     run: async ({ config, dryRun, ui }) => {

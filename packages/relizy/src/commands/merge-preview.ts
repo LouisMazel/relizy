@@ -14,7 +14,7 @@ import { getReleaseConfig } from './release'
  * outputs of the preview
  */
 export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'preid' | 'suffix' | 'from' | 'to' | 'force' | 'publish' | 'commit' | 'gitTag' | 'providerRelease'
-  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'config' | 'overrides' | 'onProgress' | 'groups' | 'report'> {
+  | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'config' | 'overrides' | 'onProgress' | 'groups' | 'report' | 'prCommentMode'> {
   /**
    * Override of `mergePreview.comment` for this run
    */

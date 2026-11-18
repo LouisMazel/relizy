@@ -16,7 +16,7 @@ tags: [guide, pr-comment, github, gitlab, pull-request, merge-request]
 
 A comment that cannot be posted (no pull request, no token, an API error) is reported with a warning: it never fails the release.
 
-By default, Relizy edits its previous comment on the pull request instead of adding one: see [`prComment.mode`](./../config/pr-comment.md#mode).
+By default, Relizy edits its previous comment on the pull request instead of adding one. To keep it at the bottom of the conversation instead, where the collapsed comments cannot hide it, set [`prComment.mode`](./../config/pr-comment.md#mode) to `recreate`: Relizy posts a new comment and deletes the previous one.
 
 Before the merge, [`relizy merge-preview`](./merge-preview.md) posts its own comment, what the merge releases. The release of the merge, which finds the pull request from its commit, rewrites this comment with what it released; the releases of the open pull request (canary, prerelease) keep their own comment.
 

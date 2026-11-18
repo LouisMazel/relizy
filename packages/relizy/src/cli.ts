@@ -151,6 +151,10 @@ function syncModeOption() {
   return new Option('--sync-mode <mode>', 'How the branches get the release, overrides sync.mode: push them, or open a pull request').choices(['push', 'pull-request'])
 }
 
+function prCommentModeOption() {
+  return new Option('--pr-comment-mode <mode>', 'How the pull request is commented, overrides prComment.mode: update the comment, add one, or add one and delete the previous').choices(['update', 'append', 'recreate'])
+}
+
 function slackFormatOption() {
   return new Option('--slack-format <format>', 'Changelog of the Slack message, overrides social.slack.changelog').choices(['full', 'summary', 'none'])
 }
@@ -516,9 +520,11 @@ mcp
 program
   .command('pr-comment')
   .description('Post or re-post a PR comment with release information')
-  .action(async () => {
+  .addOption(prCommentModeOption())
+  .action(async (options) => {
     try {
       await prComment({
+        prCommentMode: options.prCommentMode,
         prNumber: program.opts().prNumber,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
@@ -585,6 +591,7 @@ mergePreviewCommand
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .addOption(privatePackagesOption())
   .option('--no-comment', 'Do not comment the pull request')
+  .addOption(prCommentModeOption())
   .option('--no-check', 'Do not set the commit status')
   .option('--no-commitlint', 'Do not lint the commits of the pull request')
   .option('--report-json <file>', 'Write the report of the preview to this JSON file')
@@ -615,6 +622,7 @@ mergePreviewCommand
         comment: hasCliFlag('--no-comment')
           ? false
           : undefined,
+        prCommentMode: options.prCommentMode,
         check: hasCliFlag('--no-check')
           ? false
           : undefined,
@@ -680,6 +688,7 @@ program
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--no-social', 'Skip social media posting')
   .option('--no-pr-comment', 'Skip PR comment posting')
+  .addOption(prCommentModeOption())
   .option('--sync <branch...>', 'Merge the released branch into these branches once pushed, instead of the rules of sync (e.g. --sync develop)')
   .option('--no-sync', 'Do not merge the released branch into the branches of sync.rules')
   .addOption(syncModeOption())
@@ -763,6 +772,7 @@ program
           ? options.sync
           : undefined,
         syncMode: options.syncMode,
+        prCommentMode: options.prCommentMode,
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai')
           ? true

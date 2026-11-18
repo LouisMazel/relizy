@@ -169,6 +169,9 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
       monorepo: options.privatePackages !== undefined
         ? { privatePackages: options.privatePackages }
         : undefined,
+      prComment: options.prCommentMode
+        ? { mode: options.prCommentMode }
+        : undefined,
       safetyCheck: options.safetyCheck,
     }, options.overrides),
   })

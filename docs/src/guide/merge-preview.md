@@ -127,7 +127,7 @@ The commits failing it are only warnings, in their own section of the comment an
 
 ## The Comment
 
-The comment has its own hidden marker, `<!-- relizy-merge-preview -->`: it is updated in place at each run, apart from the comments of the [releases of the pull request](./pr-comment.md) (canary, prerelease). After the merge, the release of the merge rewrites it with what was released: the prediction becomes the result.
+The comment has its own hidden marker, `<!-- relizy-merge-preview -->`: it is updated in place at each run (with [`prComment.mode: 'recreate'`](./../config/pr-comment.md#mode), posted again at the bottom of the pull request and the previous one deleted), apart from the comments of the [releases of the pull request](./pr-comment.md) (canary, prerelease). After the merge, the release of the merge rewrites it with what was released: the prediction becomes the result.
 
 ```markdown
 ### 🔮 If you merge this pull request

@@ -326,6 +326,7 @@ async function askAnnouncements(detection: ProjectDetection, answers: InitAnswer
       options: [
         { value: 'append' as const, label: 'New comment at each release' },
         { value: 'update' as const, label: 'Update a single comment' },
+        { value: 'recreate' as const, label: 'Replace the comment with a new one, at the bottom of the conversation' },
       ],
     }))
   }

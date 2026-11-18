@@ -224,7 +224,7 @@ export interface ProviderReleaseResult {
   error?: string
 }
 
-export type PrCommentMode = 'append' | 'update'
+export type PrCommentMode = 'append' | 'update' | 'recreate'
 
 export interface MergePreviewConfig {
   /**
@@ -263,7 +263,9 @@ export interface MergePreviewConfig {
 
 export interface PrCommentConfig {
   /**
-   * PR comment mode
+   * PR comment mode: `update` edits the previous comment, `append` adds one at
+   * each run, `recreate` adds one and deletes the previous, to keep a single
+   * comment at the bottom of the conversation
    * @default 'update'
    */
   mode?: PrCommentMode
@@ -1243,6 +1245,10 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * Override of `sync.mode` and of the modes of its rules for this run
    */
   syncMode?: SyncMode
+  /**
+   * Override of `prComment.mode` for this run
+   */
+  prCommentMode?: PrCommentMode
 }
 
 export interface TwitterCredentials {

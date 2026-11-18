@@ -104,6 +104,16 @@ describe('Given prComment command', () => {
       expect(readPackages).toHaveBeenCalled()
     })
 
+    it('Then gives prCommentMode to the config as prComment.mode', async () => {
+      await prComment({ prCommentMode: 'recreate' })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          prComment: { mode: 'recreate' },
+        }),
+      }))
+    })
+
     it('Then does not reload config when config is passed directly', async () => {
       const config = createMockConfig({
         prComment: { mode: 'append' },

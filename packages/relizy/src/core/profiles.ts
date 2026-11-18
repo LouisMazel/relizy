@@ -157,7 +157,7 @@ export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, Optio
     changelogUrl: 'string',
   },
   prComment: {
-    mode: ['append', 'update'],
+    mode: ['append', 'update', 'recreate'],
   },
   sync: {
     rules: null,
