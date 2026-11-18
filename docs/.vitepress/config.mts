@@ -553,6 +553,10 @@ export default defineConfig({
       // llms.txt, llms-full.txt and a .md file per page, read by the AI assistants
       llmstxt({ title: 'Relizy', domain: SITE_URL }),
     ],
+    optimizeDeps: {
+      exclude: ['@maz-ui/icons'],
+      include: ['maz-ui/**/*', '@maz-ui/themes/**/*', '@maz-ui/translations'],
+    },
     build: {
       target: 'esnext',
       minify: 'esbuild',

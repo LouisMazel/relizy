@@ -167,8 +167,8 @@ importers:
   .:
     devDependencies:
       '@maz-ui/eslint-config':
-        specifier: ^5.5.0
-        version: 5.5.0(@typescript-eslint/typescript-estree@8.72.1(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.44)(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.14.0)(supports-color@7.2.0)(tailwindcss@4.3.4)(typescript@6.0.3)(vitest@5.1.0)
+        specifier: 5.6.0-beta.0
+        version: 5.6.0-beta.0(@typescript-eslint/typescript-estree@8.72.1(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.44)(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.14.0)(supports-color@7.2.0)(tailwindcss@4.3.4)(typescript@6.0.3)(vitest@5.1.0)
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
@@ -206,21 +206,24 @@ importers:
   docs:
     dependencies:
       '@maz-ui/icons':
-        specifier: ^5.6.0
-        version: 5.6.0(vue@3.5.44(typescript@6.0.3))
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(vue@3.5.44(typescript@6.0.3))
       '@maz-ui/themes':
-        specifier: ^5.6.0
-        version: 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       maz-ui:
-        specifier: ^5.6.0
-        version: 5.6.0(shiki@4.6.0)(valibot@1.5.0(typescript@6.0.3))(vue-router@5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.4)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3)))(vue@3.5.44(typescript@6.0.3))(zod@4.6.7)
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(shiki@4.6.0)(valibot@1.5.0(typescript@6.0.3))(vue-router@5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.4)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3)))(vue@3.5.44(typescript@6.0.3))(zod@4.6.7)
       vue:
         specifier: ^3.5.44
         version: 3.5.44(typescript@6.0.3)
     devDependencies:
       '@maz-ui/translations':
-        specifier: ^5.6.0
-        version: 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/vite-plugin':
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
       '@tailwindcss/vite':
         specifier: ^4.3.4
         version: 4.3.4(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
@@ -252,11 +255,11 @@ importers:
   packages/core:
     dependencies:
       '@maz-ui/node':
-        specifier: 5.7.0-beta.0
-        version: 5.7.0-beta.0
+        specifier: 5.7.0-beta.1
+        version: 5.7.0-beta.1
       '@maz-ui/utils':
-        specifier: ^5.6.0
-        version: 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       confbox:
         specifier: ^0.3.2
         version: 0.3.2
@@ -310,11 +313,11 @@ importers:
         specifier: ^1.8.1
         version: 1.8.1
       '@maz-ui/node':
-        specifier: 5.7.0-beta.0
-        version: 5.7.0-beta.0
+        specifier: 5.7.0-beta.1
+        version: 5.7.0-beta.1
       '@maz-ui/utils':
-        specifier: ^5.6.0
-        version: 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+        specifier: 5.7.0-beta.7
+        version: 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       '@relizy/core':
         specifier: workspace:^
         version: link:../core
@@ -369,7 +372,7 @@ importers:
         version: 7.8.0
       '@yoloship/claude-sdk':
         specifier: 0.2.0-beta.9
-        version: 0.2.0-beta.9(libphonenumber-js@1.13.15)
+        version: 0.2.0-beta.9(libphonenumber-js@1.13.16)
       ai:
         specifier: ^7.0.163
         version: 7.0.163(zod@4.6.7)
@@ -1199,14 +1202,14 @@ packages:
   '@kurkle/color@0.3.4':
     resolution: {integrity: sha512-M5UknZPHRu3DEDWoipU6sE8PdkZ6Z/S+v4dD+Ke8IaNlpdSQah50lz1KtcFBa2vsdOnwbbnxJwVM4wty6udA5w==}
 
-  '@maz-ui/eslint-config@5.5.0':
-    resolution: {integrity: sha512-xmgJZMt7OyOA1Uk+jrJ3pu6MBwdV0M2oIB1bBTq0h0uoLHQOuWQWBLd/z2VsuTsdStfRX+MkLMgnc8oShbKEHw==}
+  '@maz-ui/eslint-config@5.6.0-beta.0':
+    resolution: {integrity: sha512-RtI9AJR2x5FkPRmJWRAAjEyU1MTZMDMl1+T+CnuVyykgwF0XFjNahW9UcvNa3BZuDzS7WHifBLJ9a/eaajl7ew==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       eslint: ^9.10.0 || ^10.0.0
 
-  '@maz-ui/icons@5.6.0':
-    resolution: {integrity: sha512-J7jF9u4xFjTj2jra+k0RJqF5OWlJAY/RF207zuyOU44Stf/RCEtAujmvNFNzSAvGNUKhQ4vc9738tVdGa56ucw==}
+  '@maz-ui/icons@5.7.0-beta.7':
+    resolution: {integrity: sha512-ig6QF0VL/oPrVoYrZzAf0m/6V8sV2TBVdR2GNJjVyTJXcypSd5Q/yuNAfjiNlG3/vvFSH/Ett8NnPXtJ+gs0DQ==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       unplugin-vue-components: '>=28.0.0 <33.0.0'
@@ -1221,18 +1224,18 @@ packages:
     resolution: {integrity: sha512-mXzK6uZMmUA8D97ewELuDte7vr1+Ao8JU3ihGTCr8SDio+7mD+oOlBYAA8zT0fzj0i+mbEbTojSMSxjgEcVyig==}
     engines: {node: '>=18.0.0'}
 
-  '@maz-ui/node@5.7.0-beta.0':
-    resolution: {integrity: sha512-qLwMIhWxyhlgfrGFMR/Ou9tuJdas7wNqVJQZqcseNgmOm216u1NZEuITr5X6/wF/xRUCwY8zSMBjA81umxjuxQ==}
+  '@maz-ui/node@5.7.0-beta.1':
+    resolution: {integrity: sha512-zoI8QGmdbd+GUh+TYvaoMZQPFkZuXBuN6C1u0LxV8BwGBDtsSS9jG654aibNwtpIwJPLD6Id15AvxCTwZCYW1w==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
 
-  '@maz-ui/themes@5.6.0':
-    resolution: {integrity: sha512-w64f5rgLjavLq6MNXhNelB7RNjq5sX0aWBOMboxveqA80bsSE060Ncl9Td5uAvNN/8dkLzruTw5HnqNG4Ee2UA==}
+  '@maz-ui/themes@5.7.0-beta.7':
+    resolution: {integrity: sha512-ghGPb26BMdpqs8iin4vModpONfzKLyNhtjI9EvAk4IqPmJESJPeGl6/qxKiWz2la68Vf+RUYzPzCkj15F6jAFQ==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       vue: '>=3.5.0 <4.0.0'
 
-  '@maz-ui/translations@5.6.0':
-    resolution: {integrity: sha512-EC0FZOAC0fFb6sOBv1zxZWjQYtQorjN+iDxB+86J547egs3YZb144X3fBcd0J8wbZ4IxPnNMaAuVsu5y42ph7w==}
+  '@maz-ui/translations@5.7.0-beta.7':
+    resolution: {integrity: sha512-QVJimhJ/Rl5anJSBxNSl+uVK1T/BcjX/nNqbK/pdzdHLIfFtNabrKnQT/06PihbeyFzFp/78hDpfHFWhmvO2bg==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       vue: '>=3.5.0 <4.0.0'
@@ -1246,8 +1249,8 @@ packages:
       libphonenumber-js:
         optional: true
 
-  '@maz-ui/utils@5.6.0':
-    resolution: {integrity: sha512-pDe0USOImOdvvQHi8NhBLrllSpNpZU3zDPopLZsmErXyRX3Trb0VO37Xx4QnQVxlpb6pmFxG2kG3aH/u4xKasg==}
+  '@maz-ui/utils@5.7.0-beta.7':
+    resolution: {integrity: sha512-RtIRmML9Lm0ZejSub63DaVZ/1CW2E5XaqPnXEROAv2YUjgwggMa+QlR/U6NSvynLmjazCeJZXwpjH6iQ3KydFQ==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       libphonenumber-js: '>= 1 < 2'
@@ -1257,6 +1260,19 @@ packages:
         optional: true
       vue:
         optional: true
+
+  '@maz-ui/vite-plugin@5.7.0-beta.7':
+    resolution: {integrity: sha512-6psftCVQCqD1Z5ymUuK6PDVwoLAaOcc7fuy8pXxSLYngNYxi4Os3OucTOJEkETSHa5vLzvwRedHiQx8nM30bVA==}
+    engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
+    peerDependencies:
+      vite: '>=6.0.0 <9.0.0'
+
+  '@maz-ui/vite-svg-loader@0.1.0-beta.0':
+    resolution: {integrity: sha512-+auFh7oHEtOYWupdH41stlOi6A7BM2O309hHYH2y9xoxlpVehVYDPE4zAjCSfSn4+bMcXAOE/VFwUKwr5eUJNQ==}
+    engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
+    peerDependencies:
+      vite: '>=6.0.0 <9.0.0'
+      vue: '>=3.5.0 <4.0.0'
 
   '@modelcontextprotocol/sdk@1.32.2':
     resolution: {integrity: sha512-SWsVtH/0vULSQStoZ6xxH2K09Li8fXYTMC64ZeogCdpZ3XSi1eCPOByV1OpuJxuI3OcmHhosDWYyii07tpPsLw==}
@@ -3388,6 +3404,9 @@ packages:
   functional-red-black-tree@1.0.1:
     resolution: {integrity: sha512-dsKNQNdj6xA3T+QlADDA7mOSlX0qiMINjn0cgr+eGHGsbSHzTabcIogz2+p/iqP1Xs6EP/sS2SbqH+brGTbq0g==}
 
+  fuzzysort@4.0.2:
+    resolution: {integrity: sha512-3c7yD6rK1EXIsqpcu1ZVzXJugODWNMzvUij6yTiziaAHrpNS8kzFOI9mJLE8pmG4K9JOaVgzQRgklfOEk8f4Tg==}
+
   get-caller-file@2.0.5:
     resolution: {integrity: sha512-DyFP3BM/3YHTQOCUL/w0OZHR0lpKeGrxotcHWcqNEdnltqFwXVfhEBQ94eIo34AfQpo0rGki4cyIiftY06h2Fg==}
     engines: {node: 6.* || 8.* || >= 10.*}
@@ -3674,8 +3693,8 @@ packages:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
     engines: {node: '>= 0.8.0'}
 
-  libphonenumber-js@1.13.15:
-    resolution: {integrity: sha512-AHdhEQeDFEJ4GKDAQ9AwxChy+v2kUILUB3TGQRpkXMkWePjXTU/WQEzWVQoIx/Gz8fE73Wr5SEuZCy2vk8jrMQ==}
+  libphonenumber-js@1.13.16:
+    resolution: {integrity: sha512-tIOCM9yx2Go6d5/ZANe0K+G4AZek1Ymx81HxQpf19Sri4zMP95eQbKdnUGHAvFQ4nx0PeLhFqvAfisTADXj3tQ==}
 
   lightningcss-android-arm64@1.33.0:
     resolution: {integrity: sha512-gEpRTalKdosp4Bb8qWtc2iOgE5SeIHlpS1up9bFq2wAyYhl1UdTObYiHe98zEM9SQvSoqQZ1IQD0JNpg3Ml5pg==}
@@ -3821,8 +3840,8 @@ packages:
     resolution: {integrity: sha512-MqIQVVkz+uGEHi3TsHx/czcxxCbRIL7sv5K5DnYw/tI+apY54IbPefV/cmgxp6LoJSEx/TqcHdLs/298afG5QQ==}
     engines: {node: '>=6'}
 
-  marked@18.1.3:
-    resolution: {integrity: sha512-9ChMH8EVVgjgID49nsL6IWxWk5c6GtAsq/xw7U1ggkjkU5AGuv68oLTVlFRtvcUYZtpbNyjyvGo3YDu0fGapiw==}
+  marked@18.2.1:
+    resolution: {integrity: sha512-ii4bxCTCqqwpT86XZWgJNs+ZnAIZksmLGYMViWA7PDIXYIeNo1x6cDdX3JOip9NM/cI6p8z57FxliACboTruMA==}
     engines: {node: '>= 20'}
     hasBin: true
 
@@ -3830,8 +3849,8 @@ packages:
     resolution: {integrity: sha512-/IXtbwEk5HTPyEwyKX6hGkYXxM9nbj64B+ilVJnC/R6B0pH5G4V3b0pVbL7DBj4tkhBAppbQUlf6F6Xl9LHu1g==}
     engines: {node: '>= 0.4'}
 
-  maz-ui@5.6.0:
-    resolution: {integrity: sha512-0WdL6rEHVI9cwI8bkEs8994CJ1/PpXV1cVvkqiuUCp/okmTWuWdSrQx9BVNiTjPxxVdBeX8PlhdAtkm91Mz6uw==}
+  maz-ui@5.7.0-beta.7:
+    resolution: {integrity: sha512-J+ATZfrYS3alfA545upILVMD9YeMYq5zKXwpbYgI5RKSm+5BhTRSVOf459CFhL7RdeaAQtuaTV5yX0tJmIN33w==}
     engines: {node: ^22.23.4 || ^24.22.1 || >=26.12.1}
     peerDependencies:
       arktype: '>=2.0.0 <3.0.0'
@@ -5962,7 +5981,7 @@ snapshots:
 
   '@kurkle/color@0.3.4': {}
 
-  '@maz-ui/eslint-config@5.5.0(@typescript-eslint/typescript-estree@8.72.1(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.44)(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.14.0)(supports-color@7.2.0)(tailwindcss@4.3.4)(typescript@6.0.3)(vitest@5.1.0)':
+  '@maz-ui/eslint-config@5.6.0-beta.0(@typescript-eslint/typescript-estree@8.72.1(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.44)(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.14.0)(supports-color@7.2.0)(tailwindcss@4.3.4)(typescript@6.0.3)(vitest@5.1.0)':
     dependencies:
       '@antfu/eslint-config': 10.0.0(@typescript-eslint/typescript-estree@8.72.1(supports-color@7.2.0)(typescript@6.0.3))(@typescript-eslint/utils@8.72.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3))(@vue/compiler-sfc@3.5.44)(eslint-plugin-format@2.0.1(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0)))(eslint-plugin-sonarjs@4.2.2(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0)))(eslint-plugin-vuejs-accessibility@2.6.3(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(globals@17.14.0)(supports-color@7.2.0))(eslint@10.14.0(jiti@2.7.0)(supports-color@7.2.0))(supports-color@7.2.0)(typescript@6.0.3)(vitest@5.1.0)
       consola: 3.4.2
@@ -6003,7 +6022,7 @@ snapshots:
       - typescript
       - vitest
 
-  '@maz-ui/icons@5.6.0(vue@3.5.44(typescript@6.0.3))':
+  '@maz-ui/icons@5.7.0-beta.7(vue@3.5.44(typescript@6.0.3))':
     optionalDependencies:
       vue: 3.5.44(typescript@6.0.3)
 
@@ -6013,34 +6032,54 @@ snapshots:
       consola: 3.4.2
       figlet: 1.12.0
 
-  '@maz-ui/node@5.7.0-beta.0':
+  '@maz-ui/node@5.7.0-beta.1':
     dependencies:
       colorette: 2.0.20
       consola: 3.4.2
       figlet: 1.12.0
       jsonc-parser: 3.3.1
 
-  '@maz-ui/themes@5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
+  '@maz-ui/themes@5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))':
     dependencies:
-      '@maz-ui/utils': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/utils': 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       vue: 3.5.44(typescript@6.0.3)
     transitivePeerDependencies:
       - libphonenumber-js
 
-  '@maz-ui/translations@5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
+  '@maz-ui/translations@5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))':
     dependencies:
-      '@maz-ui/utils': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/utils': 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       vue: 3.5.44(typescript@6.0.3)
     transitivePeerDependencies:
       - libphonenumber-js
 
-  '@maz-ui/utils@5.0.0-beta.28(libphonenumber-js@1.13.15)':
+  '@maz-ui/utils@5.0.0-beta.28(libphonenumber-js@1.13.16)':
     optionalDependencies:
-      libphonenumber-js: 1.13.15
+      libphonenumber-js: 1.13.16
 
-  '@maz-ui/utils@5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))':
+  '@maz-ui/utils@5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))':
+    dependencies:
+      fuzzysort: 4.0.2
     optionalDependencies:
-      libphonenumber-js: 1.13.15
+      libphonenumber-js: 1.13.16
+      vue: 3.5.44(typescript@6.0.3)
+
+  '@maz-ui/vite-plugin@5.7.0-beta.7(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
+    dependencies:
+      '@maz-ui/icons': 5.7.0-beta.7(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/vite-svg-loader': 0.1.0-beta.0(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))
+      magic-string: 0.30.21
+      postcss: 8.5.32
+      tinyglobby: 0.2.17
+      vite: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
+    transitivePeerDependencies:
+      - unplugin-vue-components
+      - vue
+
+  '@maz-ui/vite-svg-loader@0.1.0-beta.0(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3))':
+    dependencies:
+      svgo: 4.1.0
+      vite: 8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
       vue: 3.5.44(typescript@6.0.3)
 
   '@modelcontextprotocol/sdk@1.32.2(supports-color@7.2.0)(zod@4.6.7)':
@@ -6931,10 +6970,10 @@ snapshots:
 
   '@yarnpkg/lockfile@1.1.0': {}
 
-  '@yoloship/claude-sdk@0.2.0-beta.9(libphonenumber-js@1.13.15)':
+  '@yoloship/claude-sdk@0.2.0-beta.9(libphonenumber-js@1.13.16)':
     dependencies:
       '@maz-ui/node': 5.0.0-beta.26
-      '@maz-ui/utils': 5.0.0-beta.28(libphonenumber-js@1.13.15)
+      '@maz-ui/utils': 5.0.0-beta.28(libphonenumber-js@1.13.16)
       package-manager-detector: 1.9.0
       semver: 7.8.6
       zod: 4.6.7
@@ -8046,6 +8085,8 @@ snapshots:
 
   functional-red-black-tree@1.0.1: {}
 
+  fuzzysort@4.0.2: {}
+
   get-caller-file@2.0.5: {}
 
   get-intrinsic@1.3.0:
@@ -8277,7 +8318,7 @@ snapshots:
       prelude-ls: 1.2.1
       type-check: 0.4.0
 
-  libphonenumber-js@1.13.15: {}
+  libphonenumber-js@1.13.16: {}
 
   lightningcss-android-arm64@1.33.0:
     optional: true
@@ -8402,23 +8443,23 @@ snapshots:
 
   markdown-title@1.0.2: {}
 
-  marked@18.1.3: {}
+  marked@18.2.1: {}
 
   math-intrinsics@1.1.0: {}
 
-  maz-ui@5.6.0(shiki@4.6.0)(valibot@1.5.0(typescript@6.0.3))(vue-router@5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.4)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3)))(vue@3.5.44(typescript@6.0.3))(zod@4.6.7):
+  maz-ui@5.7.0-beta.7(shiki@4.6.0)(valibot@1.5.0(typescript@6.0.3))(vue-router@5.4.0(@vue/compiler-sfc@3.5.44)(esbuild@0.28.2)(rolldown@1.2.16)(rollup@4.67.4)(vite@8.3.5(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))(vue@3.5.44(typescript@6.0.3)))(vue@3.5.44(typescript@6.0.3))(zod@4.6.7):
     dependencies:
       '@floating-ui/vue': 2.0.1(vue@3.5.44(typescript@6.0.3))
-      '@maz-ui/icons': 5.6.0(vue@3.5.44(typescript@6.0.3))
-      '@maz-ui/themes': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
-      '@maz-ui/translations': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
-      '@maz-ui/utils': 5.6.0(libphonenumber-js@1.13.15)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/icons': 5.7.0-beta.7(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/themes': 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/translations': 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
+      '@maz-ui/utils': 5.7.0-beta.7(libphonenumber-js@1.13.16)(vue@3.5.44(typescript@6.0.3))
       '@tanstack/vue-virtual': 3.13.52(vue@3.5.44(typescript@6.0.3))
       chart.js: 4.6.1
       dayjs: 1.11.23
       dompurify: 3.4.17
-      libphonenumber-js: 1.13.15
-      marked: 18.1.3
+      libphonenumber-js: 1.13.16
+      marked: 18.2.1
       vue: 3.5.44(typescript@6.0.3)
     optionalDependencies:
       shiki: 4.6.0
