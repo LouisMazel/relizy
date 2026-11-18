@@ -289,6 +289,54 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
 
       expect(await getRootChangelogCommits(config)).toEqual([])
     })
+
+    it('Then the chore(deps) commits are listed with includeDepsCommits only', async () => {
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({
+          type: 'chore',
+          scope: 'deps',
+          description: 'update dependency vue',
+          body: '\nM\tpackages/pkg-a/package.json\n',
+        }),
+        makeCommit({
+          type: 'chore',
+          scope: 'deps',
+          description: 'lock file maintenance',
+          body: '\nM\tpnpm-lock.yaml\n',
+        }),
+        makeCommit({
+          type: 'chore',
+          scope: 'release',
+          description: 'bump version',
+          body: '\nM\tpackages/pkg-a/package.json\n',
+        }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+        types: {
+          chore: { title: '🏡 Chore', semver: 'patch' },
+        },
+      })
+
+      expect(await getRootChangelogCommits(config)).toEqual([])
+
+      config.includeDepsCommits = true
+
+      expect((await getRootChangelogCommits(config)).map(commit => commit.description)).toEqual(['update dependency vue', 'lock file maintenance'])
+      expect((await getPackageCommits({
+        pkg: makeRootPkg() as any,
+        from: 'v1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: false,
+      })).map(commit => commit.description)).toEqual(['update dependency vue'])
+    })
   })
 
   describe('When generating commits for a sub-package', () => {

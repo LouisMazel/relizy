@@ -2172,6 +2172,15 @@ export interface RelizyConfig {
   } | false>
 
   /**
+   * Keep the `chore(deps)` commits (the dependency updates of Renovate,
+   * Dependabot...) like the other `chore` commits: in the changelogs, and in
+   * the bump when `chore` has a `semver`. The `chore(release)` commits are
+   * always left out.
+   * @default false
+   */
+  includeDepsCommits?: boolean
+
+  /**
    * Current working directory
    * @default process.cwd()
    */

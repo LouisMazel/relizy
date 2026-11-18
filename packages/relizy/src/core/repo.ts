@@ -320,6 +320,7 @@ export function getPackageCommits({
     cwd: config.cwd,
     types: config.types,
     changelog,
+    includeDeps: config.includeDepsCommits,
     scopeMap: config.scopeMap,
     monorepo: {
       packages: config.monorepo?.packages,
