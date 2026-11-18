@@ -304,6 +304,19 @@ describe('Given the push of the release', () => {
     await expect(withGitCache(() => ensurePushAccess(config))).resolves.toBeUndefined()
   })
 
+  it('When the branch to push to is given, Then checks it even on a detached HEAD, apart from the push of the current branch', async () => {
+    const origin = createOrigin()
+    const cwd = clone(origin)
+    git(origin, 'checkout', '--quiet', '--detach')
+    git(cwd, 'checkout', '--quiet', '--detach')
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+
+    await withGitCache(async () => {
+      await expect(ensurePushAccess({ cwd })).resolves.toBeUndefined()
+      await expect(ensurePushAccess({ cwd, branch: 'develop' })).rejects.toThrow('cannot push')
+    })
+  })
+
   it('When the job token of GitLab cannot push, Then pushes with the GitLab token through the environment, and fails before publishing when it cannot either', async () => {
     const cwd = clone(createOrigin())
     // Refused at once: nothing listens on the port 9
@@ -316,12 +329,87 @@ describe('Given the push of the release', () => {
       CI_PROJECT_PATH: 'acme/lib',
     })
     const env: NodeJS.ProcessEnv = { ...process.env }
+    const logger = {
+      debug: vi.fn(),
+      info: vi.fn(),
+    }
 
-    await expect(ensurePushAccess({ cwd, gitlabToken: 'project-token', env })).rejects.toThrow(/^relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push\.\nGit refused it with:\n {2}fatal: unable to access .+\nFix: add a GITLAB_TOKEN CI\/CD variable/)
+    const error = await ensurePushAccess({
+      cwd,
+      gitlabToken: 'project-token',
+      env,
+      logger,
+    }).then(() => new Error('pushed'), (error: Error) => error)
+
+    expect(error.message).toMatch(/^relizy cannot push the release commit and tags to "origin" from GitLab CI: the GitLab token cannot push either \(the job token cannot\)\.\nGit refused it with:\n {2}fatal: unable to access .+\nFix: check the GitLab token .+ the role the branch "main" requires when it is protected\)\.$/)
+    expect(error.message).not.toContain('add a GITLAB_TOKEN')
+    expect(env.GIT_CONFIG_COUNT).toBe('1')
+    expect(env.GIT_CONFIG_KEY_0).toBe('remote.origin.pushurl')
+    expect(env.GIT_CONFIG_VALUE_0).toBe('http://oauth2:project-token@127.0.0.1:9/acme/lib.git')
+    // The URL of the push and the attempt with the token, without the tokens
+    const debug = logger.debug.mock.calls.map(([message]) => String(message))
+    expect(debug).toContain('Checking the push of the release to "origin" (http://127.0.0.1:9/acme/lib.git)')
+    expect(debug).toContain('The credentials of "origin" cannot push, trying with the GitLab token: http://127.0.0.1:9/acme/lib.git')
+    expect(debug).toContainEqual(expect.stringMatching(/^The GitLab token cannot push either: fatal: unable to access/))
+    expect(debug.join('\n')).not.toMatch(/project-token|job-token/)
+  })
+
+  it('When the GitLab runner puts the job token in the URL with an insteadOf rule, Then the push still goes through the GitLab token', async () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+    git(cwd, 'config', 'url.http://gitlab-ci-token:job-token@127.0.0.1:9/.insteadOf', 'http://127.0.0.1:9/')
+    inCI({
+      GITLAB_CI: 'true',
+      CI_JOB_TOKEN: 'job-token',
+      CI_SERVER_URL: 'http://127.0.0.1:9',
+      CI_PROJECT_PATH: 'acme/lib',
+    })
+    const env: NodeJS.ProcessEnv = { ...process.env }
+
+    await expect(ensurePushAccess({ cwd, gitlabToken: 'project-token', env })).rejects.toThrow('the GitLab token cannot push either')
+
+    // A pushInsteadOf would not apply: git matches it before the insteadOf of the runner
+    expect(execFileSync('git', [
+      'remote',
+      'get-url',
+      '--push',
+      'origin',
+    ], { cwd, env, encoding: 'utf8' }).trim()).toBe('http://oauth2:project-token@127.0.0.1:9/acme/lib.git')
+  })
+
+  it('When a release of the same process pushes again with the GitLab token, Then replaces its pushurl', async () => {
+    inCI({
+      GITLAB_CI: 'true',
+      CI_JOB_TOKEN: 'job-token',
+      CI_SERVER_URL: 'http://127.0.0.1:9',
+      CI_PROJECT_PATH: 'acme/lib',
+    })
+    const env: NodeJS.ProcessEnv = { ...process.env }
+    for (const token of ['first-token', 'second-token']) {
+      const cwd = clone(createOrigin())
+      git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+
+      await expect(ensurePushAccess({ cwd, gitlabToken: token, env })).rejects.toThrow('the GitLab token cannot push either')
+    }
 
     expect(env.GIT_CONFIG_COUNT).toBe('1')
-    expect(env.GIT_CONFIG_KEY_0).toBe('url.http://oauth2:project-token@127.0.0.1:9/acme/lib.git.pushInsteadOf')
-    expect(env.GIT_CONFIG_VALUE_0).toBe(remoteUrl)
+    expect(env.GIT_CONFIG_VALUE_0).toBe('http://oauth2:second-token@127.0.0.1:9/acme/lib.git')
+  })
+
+  it('When the GitLab token cannot be used, Then says why instead of asking for one', async () => {
+    const cwd = clone(createOrigin())
+    git(cwd, 'remote', 'set-url', 'origin', 'http://127.0.0.1:9/acme/lib.git')
+    git(cwd, 'config', 'remote.origin.pushurl', 'http://127.0.0.1:9/acme/lib.git')
+    inCI({
+      GITLAB_CI: 'true',
+      CI_JOB_TOKEN: 'job-token',
+      CI_SERVER_URL: 'http://127.0.0.1:9',
+      CI_PROJECT_PATH: 'acme/lib',
+    })
+    const env: NodeJS.ProcessEnv = { ...process.env }
+
+    await expect(ensurePushAccess({ cwd, gitlabToken: 'project-token', env })).rejects.toThrow('the job token cannot push, and the GitLab token cannot be used: the remote "origin" has its own pushurl in the git config.')
+    expect(env.GIT_CONFIG_COUNT).toBeUndefined()
   })
 
   it('When the token is the job token itself, Then does not retry with it', async () => {

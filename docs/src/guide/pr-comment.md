@@ -16,7 +16,7 @@ tags: [guide, pr-comment, github, gitlab, pull-request, merge-request]
 
 A comment that cannot be posted (no pull request, no token, an API error) is reported with a warning: it never fails the release.
 
-By default, Relizy edits its previous comment on the pull request instead of adding one: see [`prComment.mode`](./../config/pr-comment.md#mode).
+By default, Relizy edits its previous comment on the pull request instead of adding one. To keep it at the bottom of the conversation instead, where the collapsed comments cannot hide it, set [`prComment.mode`](./../config/pr-comment.md#mode) to `recreate`: Relizy posts a new comment and deletes the previous one.
 
 Before the merge, [`relizy merge-preview`](./merge-preview.md) posts its own comment, what the merge releases. The release of the merge, which finds the pull request from its commit, rewrites this comment with what it released; the releases of the open pull request (canary, prerelease) keep their own comment.
 
@@ -59,12 +59,12 @@ A self-hosted instance is reached on the domain of `repo` (`https://<domain>/api
 With `relizy release`, the comment is the **summary of the release**, the same as the end of the terminal output and the summary of the GitHub Actions run (see [`release.report`](./../config/release.md#report)):
 
 - a title: `🚀 Released <name> <version>` (up to 2 versions, else the count of the released packages: `🚀 Released 13 packages of <projectName>`), `🧪 Dry run: <name> <version>`, `ℹ️ Nothing to release` or `❌ Release failed` with the error;
-- a short recap: what the release contains (`3 features · 2 fixes · 1 contributor`), each step with its status and the links of what it created (npm pages, provider releases, tweet; counted beyond 2), the AI rewrites and the install command. The versions and the tags are in the tables of the packages;
+- a short recap: what the release contains (`3 features · 2 fixes · 1 contributor`), each step that ran with its status and the links of what it created (npm pages, provider releases, tweet; counted beyond 2), the skipped steps left out, the AI rewrites and the install command. The versions and the tags are in the tables of the packages;
 - the packages and their versions: one table, or one per [version group](./version-groups.md) titled with its `title`, its version and its version mode, the `unified`/`selective` group first;
 - a footer: the branch, the date, and a link to Relizy.
 
 ```markdown
-## 🚀 Released maz-ui 5.2.1, @maz-ui/eslint-config 5.1.0
+## 🚀 Released maz-ui `5.2.1`, @maz-ui/eslint-config `5.1.0`
 
 ...
 

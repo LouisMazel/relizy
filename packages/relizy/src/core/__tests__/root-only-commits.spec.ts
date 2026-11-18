@@ -1,8 +1,9 @@
 /**
- * The commits of the root package in a monorepo: the root version and changelog
- * come from the commits of the released packages, so a commit changing only
- * root-level files (CI config, scripts, lockfile, an app out of the release)
- * releases nothing. A project without workspace packages keeps every commit.
+ * The commits of the root package in a monorepo: the root version comes from
+ * the commits of the released packages, so a commit changing only root-level
+ * files (CI config, scripts, lockfile, an app out of the release) releases
+ * nothing. The root changelog also lists the commits changing no package of
+ * the workspace. A project without workspace packages keeps every commit.
  */
 import type { GitCommit } from '../../types'
 import { vol } from 'memfs'
@@ -25,7 +26,9 @@ vi.mock('fast-glob', () => ({
   default: {
     sync: vi.fn((_pattern: string, options: any) => {
       const cwd = options?.cwd || '/test-repo'
-      return [`${cwd}/packages/pkg-a`]
+      return options?.absolute
+        ? [`${cwd}/packages/pkg-a`]
+        : ['packages/pkg-a']
     }),
   },
 }))
@@ -228,6 +231,111 @@ describe('Given a commit touching only root-level files in a monorepo', () => {
       })
 
       expect(commits).toHaveLength(0)
+    })
+  })
+
+  describe('When generating the commits of the root changelog', () => {
+    const getRootChangelogCommits = (config: ReturnType<typeof createMockConfig>) => getPackageCommits({
+      pkg: makeRootPkg() as any,
+      from: 'v1.0.0',
+      to: 'HEAD',
+      config,
+      changelog: true,
+      repositoryCommits: true,
+    })
+
+    it('Then the commits changing no package of the workspace are listed, but do not bump', async () => {
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({ type: 'fix', description: 'fix the linters workflow', body: '\nM\t.github/workflows/linters.yml\n' }),
+        makeCommit({ type: 'chore', description: 'lock file maintenance', body: '\nM\tpnpm-lock.yaml\n' }),
+        makeCommit({ type: 'chore', description: 'empty commit', body: '' }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+      })
+
+      expect((await getRootChangelogCommits(config)).map(commit => commit.description)).toEqual(['fix the linters workflow', 'lock file maintenance'])
+      expect(await getPackageCommits({
+        pkg: makeRootPkg() as any,
+        from: 'v1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: false,
+      })).toEqual([])
+    })
+
+    it('Then the commits of a package left out of the release are not listed', async () => {
+      vol.fromJSON({
+        [`${PKG_PATH}/package.json`]: JSON.stringify({ name: 'pkg-a', version: '1.0.0', private: true }),
+      }, MOCK_CWD)
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({ type: 'fix', description: 'fix the app', body: '\nM\tpackages/pkg-a/src/index.ts\nM\t.github/workflows/app.yml\n' }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+      })
+
+      expect(await getRootChangelogCommits(config)).toEqual([])
+    })
+
+    it('Then the chore(deps) commits are listed with includeDepsCommits only', async () => {
+      vi.mocked(commitsModule.parseCommits).mockReturnValue([
+        makeCommit({
+          type: 'chore',
+          scope: 'deps',
+          description: 'update dependency vue',
+          body: '\nM\tpackages/pkg-a/package.json\n',
+        }),
+        makeCommit({
+          type: 'chore',
+          scope: 'deps',
+          description: 'lock file maintenance',
+          body: '\nM\tpnpm-lock.yaml\n',
+        }),
+        makeCommit({
+          type: 'chore',
+          scope: 'release',
+          description: 'bump version',
+          body: '\nM\tpackages/pkg-a/package.json\n',
+        }),
+      ])
+
+      const config = createMockConfig({
+        cwd: MOCK_CWD,
+        bump: { type: 'release' },
+        monorepo: {
+          versionMode: 'unified',
+          packages: ['packages/*'],
+        },
+        types: {
+          chore: { title: '🏡 Chore', semver: 'patch' },
+        },
+      })
+
+      expect(await getRootChangelogCommits(config)).toEqual([])
+
+      config.includeDepsCommits = true
+
+      expect((await getRootChangelogCommits(config)).map(commit => commit.description)).toEqual(['update dependency vue', 'lock file maintenance'])
+      expect((await getPackageCommits({
+        pkg: makeRootPkg() as any,
+        from: 'v1.0.0',
+        to: 'HEAD',
+        config,
+        changelog: false,
+      })).map(commit => commit.description)).toEqual(['update dependency vue'])
     })
   })
 

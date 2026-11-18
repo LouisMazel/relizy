@@ -1,6 +1,7 @@
 import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
-import type { ReleaseOverview, ReleaseReport, ResolvedRelizyConfig, RootPackage } from './core'
+import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
+import type { RelizyEventListener } from './core/events'
 
 export type VersionMode = 'unified' | 'independent' | 'selective'
 
@@ -85,6 +86,76 @@ export interface BumpResultFalsy {
 }
 export type BumpResult = BumpResultTruthy | BumpResultFalsy
 
+/**
+ * A package of the bump plan, as `onConfirm` receives it
+ */
+export interface ConfirmPlanPackage {
+  name: string
+  /**
+   * Directory of the package, relative to the project (`.` for the root)
+   */
+  path: string
+  /**
+   * A private package is versioned, never published
+   */
+  private: boolean
+  oldVersion: string
+  newVersion: string
+  /**
+   * The git tag the release creates for it: its own tag in an `independent` set, the one of the
+   * repository otherwise. None when the run creates no tag (`relizy bump`, `release.gitTag: false`, canary)
+   */
+  tag?: string
+  /**
+   * Name of its version group, with `monorepo.groups`
+   */
+  group?: string
+  /**
+   * Why it is bumped: its commits, a bumped dependency, the graduation of its prerelease
+   */
+  reason?: 'commits' | 'dependency' | 'graduation'
+}
+
+/**
+ * The versions a bump is about to write, computed with nothing written yet: what `onConfirm` validates
+ */
+export interface ConfirmPlan {
+  /**
+   * The command run: `release`, or `bump`
+   */
+  command: 'release' | 'bump'
+  /**
+   * Nothing will be written, whatever the answer
+   */
+  dryRun: boolean
+  /**
+   * The profile applied, none without one
+   */
+  profile?: string
+  /**
+   * A canary release: published under its own dist-tag, never committed
+   */
+  canary: boolean
+  /**
+   * Every package the run bumps, every version group together
+   */
+  packages: ConfirmPlanPackage[]
+}
+
+/**
+ * What the registry asks a one-time password for, as `onOtp` receives it
+ */
+export interface OtpRequest {
+  /**
+   * The registry asking for it (`https://registry.npmjs.org/`)
+   */
+  registry: string
+  /**
+   * The package being published
+   */
+  packageName?: string
+}
+
 export interface PostedRelease {
   /**
    * Release name
@@ -153,7 +224,7 @@ export interface ProviderReleaseResult {
   error?: string
 }
 
-export type PrCommentMode = 'append' | 'update'
+export type PrCommentMode = 'append' | 'update' | 'recreate'
 
 export interface MergePreviewConfig {
   /**
@@ -165,14 +236,18 @@ export interface MergePreviewConfig {
   /**
    * Set the commit status `relizy/merge-preview` on the last commit of the
    * pull request: failed when the release of the merge would fail, to require
-   * it in the protection of the branch (`--no-check` disables it)
-   * @default true
+   * it in the protection of the branch (`--no-check` disables it). `auto` sets
+   * it on GitHub only: on GitLab, the job of the merge preview already fails
+   * the pipeline, a commit status would fail it a second time
+   * @default 'auto'
    */
-  check?: boolean
+  check?: 'auto' | boolean
   /**
    * Lint the commits of the pull request (and the commit of its squash merge)
    * with `relizy commitlint`: `auto` when the project uses it, a `commitlint`
-   * option in its config or a commit-msg hook running `relizy commitlint`
+   * option in its config or a commit-msg hook running `relizy commitlint`.
+   * The commits failing it are warnings, they never fail the check: the
+   * release does not lint the commits (`--no-commitlint` disables it)
    * @default 'auto'
    */
   commitlint?: 'auto' | boolean
@@ -188,10 +263,100 @@ export interface MergePreviewConfig {
 
 export interface PrCommentConfig {
   /**
-   * PR comment mode
+   * PR comment mode: `update` edits the previous comment, `append` adds one at
+   * each run, `recreate` adds one and deletes the previous, to keep a single
+   * comment at the bottom of the conversation
    * @default 'update'
    */
   mode?: PrCommentMode
+}
+
+/**
+ * How a branch gets the release: `push` merges and pushes it, `pull-request`
+ * opens a pull request (merge request on GitLab) from the released branch
+ */
+export type SyncMode = 'push' | 'pull-request'
+
+/** Where the releases of a branch are merged */
+export interface SyncRule {
+  /**
+   * The released branch: a name (`main`) or a glob (`release/*`, `*` stops at
+   * `/`, `**` does not)
+   */
+  from: string
+  /**
+   * The branches a release of `from` is merged into, by name, e.g. `['develop']`
+   */
+  to: string[]
+  /**
+   * Override of `sync.mode` for this rule
+   */
+  mode?: SyncMode
+  /**
+   * Override of `sync.message` for this rule
+   */
+  message?: string
+}
+
+export interface SyncConfig {
+  /**
+   * Where each released branch is merged after the release (`relizy release`,
+   * once the release commit is pushed) or with `relizy sync`: the rules whose
+   * `from` matches the released branch give the branches to merge it into, e.g.
+   * `[{ from: 'main', to: ['develop'] }]`. A release of a branch that no rule
+   * matches (a beta of `develop`, a canary of a feature branch) syncs nothing.
+   * The released branch is never merged into itself.
+   * @default []
+   */
+  rules?: SyncRule[]
+  /**
+   * How the branches get the release, unless their rule sets it.
+   * `push`: merge the released branch into each branch and push it (a fast-forward
+   * when the branch has nothing of its own), nothing is pushed on a conflict.
+   * `pull-request`: open a pull request (merge request on GitLab) from the released
+   * branch into each branch, or reuse the open one, for protected branches
+   * @default 'push'
+   */
+  mode?: SyncMode
+  /**
+   * Message of the merge commit (`push`), title of the pull request (`pull-request`),
+   * unless their rule sets it. Available variables: {{source}} (the released branch),
+   * {{target}} (the branch merged into), {{tags}} (the tags of the release, comma-separated)
+   * @default 'chore(release): sync {{target}} with {{source}}'
+   */
+  message?: string
+}
+
+/**
+ * What the sync did to a branch: `merged` (a merge commit), `fast-forward` (the branch
+ * had nothing of its own), `up-to-date` (it already has the release), `pull-request`
+ * (opened, or the open one reused), `conflict` (nothing pushed) or `failed`
+ */
+export type SyncBranchStatus = 'merged' | 'fast-forward' | 'up-to-date' | 'pull-request' | 'conflict' | 'failed'
+
+/** A branch the released branch is merged into */
+export interface SyncBranchResult {
+  branch: string
+  /** How the branch gets the release */
+  mode: SyncMode
+  status: SyncBranchStatus
+  /** The commit pushed to the branch (not in dry-run) */
+  commit?: string
+  /** The pull request (merge request on GitLab) */
+  pullRequest?: { number: number, url: string, existing: boolean }
+  /** The files in conflict */
+  conflicts?: string[]
+  /** Why it failed, or how to merge by hand after a conflict */
+  reason?: string
+}
+
+/** The outcome of the sync of the branches (`relizy sync`, the `sync` step of `relizy release`) */
+export interface SyncResult {
+  /** The released branch, merged into the others */
+  source: string
+  /** A simulation: the merges are computed, nothing is pushed nor opened */
+  dryRun: boolean
+  branches: SyncBranchResult[]
 }
 
 export type PrCommentStatus = 'success' | 'no-release' | 'failed'
@@ -252,10 +417,12 @@ export interface MonorepoConfig {
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
    *
-   * In `unified`/`selective` mode, the root version bump and the root changelog
-   * only count the commits of the released packages: a commit changing only
-   * ignored packages, private packages left out by `privatePackages` or files
-   * outside every package (CI, scripts) does not bump the repository.
+   * In `unified`/`selective` mode, the root version bump only counts the
+   * commits of the released packages: a commit changing only ignored packages,
+   * private packages left out by `privatePackages` or files outside every
+   * package (CI, scripts) does not bump the repository. The root changelog
+   * lists the commits of the released packages and the ones changing files
+   * outside every package.
    * @default []
    */
   ignored?: string[]
@@ -357,6 +524,10 @@ export interface BumpConfig {
    */
   preid?: string
   /**
+   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix), as `--suffix`
+   */
+  suffix?: string
+  /**
    * Check if there are any changes to commit before bumping.
    * @default true
    */
@@ -447,14 +618,30 @@ export interface BumpOptions extends BumpConfig {
    */
   force?: boolean
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
   /**
-   * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
    */
-  suffix?: string
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   /**
    * Publish a canary release from the current commit
    * @default false
@@ -518,10 +705,22 @@ export interface ChangelogOptions extends ChangelogConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Generate changelog for all packages even if there are no commits
    * @default false
@@ -560,10 +759,22 @@ export interface ProviderReleaseOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Git provider
    * @default 'github'
@@ -622,10 +833,22 @@ export interface SocialOptions {
    */
   config?: ResolvedRelizyConfig
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
   /**
    * Bump result (contains release information)
    */
@@ -771,10 +994,29 @@ export interface PublishOptions extends PublishConfig {
    */
   logLevel?: RelizyLogLevel
   /**
-   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`)
+   * Custom config file name (e.g. `relizy.standalone` for `relizy.standalone.config.ts`), or the path of the
+   * config file: absolute, or relative to the project with its extension (`/configs/relizy.config.ts`)
    * @default 'relizy'
    */
   configName?: string
+  /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -816,6 +1058,14 @@ export interface ReleaseReportConfig {
 }
 
 export interface ReleaseConfig {
+  /**
+   * Publish a canary release from the current commit, as `--canary`: a prerelease
+   * version (`bump.preid`, `canary` by default) with the short sha of the commit,
+   * published under the `canary` npm tag (`publish.tag`), without commit, tag,
+   * push, changelog, provider release nor social post.
+   * @default false
+   */
+  canary?: boolean
   /**
    * Commit changes and create tag
    * @default true
@@ -869,6 +1119,13 @@ export interface ReleaseConfig {
    */
   prComment?: boolean
   /**
+   * Merge the released branch into the branches of the rules of `sync` that
+   * match it, once the release commit is pushed (nothing when no rule matches). A conflict or a refused
+   * push does not fail the release: the step fails and says how to merge by hand
+   * @default true
+   */
+  sync?: boolean
+  /**
    * Report of the release, to run something only when a release happens:
    * the outputs and the summary of GitHub Actions, a JSON file, a dotenv file
    * (GitLab CI). Written in dry-run too, where `released` is `false`.
@@ -900,6 +1157,42 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   configName?: string
   /**
+   * Release profile to apply (`profiles` of the config), as `--profile`: its options
+   * come after the config file and before the options of this run
+   */
+  profile?: string
+  /**
+   * Called with each event of the run (steps started, done, failed or skipped, progress, links,
+   * logs, the end): the same events as `RELIZY_REPORTER=json`, for a program following the run.
+   * A listener that throws does not stop the run.
+   */
+  onProgress?: RelizyEventListener
+  /**
+   * Validates the bump plan instead of the prompt of the terminal, once the versions are computed and
+   * before anything is written: `false` cancels the run as a refused prompt (a `RelizyCancelError`,
+   * nothing written). An error thrown by it fails the run (nothing written, the error as is): throw a
+   * `RelizyCancelError` to cancel instead. Not called with `yes`, nor with `bump.yes: true` in the
+   * config or the profile. For an application asking in its own interface
+   */
+  onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
+  /**
+   * Gives the one-time password the registry asks for, instead of the prompt of the terminal:
+   * asked once per registry, then reused for the next packages. An empty password (or none) cancels
+   * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
+   * by it fails the publish. For an application asking in its own interface
+   */
+  onOtp?: (request: OtpRequest) => string | Promise<string>
+  /**
+   * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
+   * (the profile, the `overrides` and the options of the call still apply over it)
+   */
+  config?: ResolvedRelizyConfig
+  /**
+   * Options applied over the config file (or over `config`), under the options of the call:
+   * a local overlay without writing a file. The hooks of the overlay run after those of the config.
+   */
+  overrides?: RelizyConfigOverrides
+  /**
    * Bump even if there are no commits
    * @default false
    */
@@ -927,11 +1220,6 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    */
   prNumber?: number
   /**
-   * Publish a canary release from the current commit
-   * @default false
-   */
-  canary?: boolean
-  /**
    * Override of `monorepo.privatePackages`: `release` releases the private packages too
    */
   privatePackages?: PrivatePackages
@@ -949,6 +1237,18 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * @default all groups
    */
   groups?: string[]
+  /**
+   * The branches the released branch is merged into for this run, instead of the rules of `sync`
+   */
+  syncBranches?: string[]
+  /**
+   * Override of `sync.mode` and of the modes of its rules for this run
+   */
+  syncMode?: SyncMode
+  /**
+   * Override of `prComment.mode` for this run
+   */
+  prCommentMode?: PrCommentMode
 }
 
 export interface TwitterCredentials {
@@ -1659,7 +1959,7 @@ export interface TemplatesConfig {
 }
 
 export type HookType = 'before' | 'success' | 'error'
-export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'twitter' | 'slack' | 'teams'
+export type HookStep = 'bump' | 'changelog' | 'commit-and-tag' | 'provider-release' | 'publish' | 'push' | 'release' | 'social' | 'sync' | 'twitter' | 'slack' | 'teams'
 
 /**
  * API tokens configuration
@@ -1807,6 +2107,56 @@ export interface CommitlintConfig {
  * Relizy configuration
  * @see https://relizy.dev/config/overview
  */
+/**
+ * A named way of releasing (`beta`, `canary`, `latest`...): config options applied over the
+ * config file when it is selected, with `--profile <name>` or the `profile` option.
+ *
+ * The precedence is: defaults, config file, profile, then the options of the run (the
+ * CLI flags, the options of the API).
+ */
+export interface RelizyProfile {
+  /**
+   * What the profile is for, shown by `relizy` consumers that list the profiles
+   */
+  description?: string
+  /**
+   * Bump options of the profile, e.g. `{ type: 'prerelease', preid: 'beta' }`
+   */
+  bump?: BumpConfig
+  /**
+   * Changelog options of the profile
+   */
+  changelog?: ChangelogConfig
+  /**
+   * Publish options of the profile, e.g. `{ tag: 'beta' }`
+   */
+  publish?: PublishConfig
+  /**
+   * Release options of the profile, e.g. `{ canary: true }` or `{ social: false }`
+   */
+  release?: ReleaseConfig
+  /**
+   * Social media options of the profile
+   */
+  social?: SocialConfig
+  /**
+   * PR comment options of the profile
+   */
+  prComment?: PrCommentConfig
+  /**
+   * Branch sync options of the profile
+   */
+  sync?: SyncConfig
+  /**
+   * AI options of the profile
+   */
+  ai?: AIConfig
+  /**
+   * Safety check of the profile
+   */
+  safetyCheck?: boolean
+}
+
 export type OnRewrittenTag = 'prompt' | 'ephemeral' | 'rebind' | 'error'
 
 export interface RelizyConfig {
@@ -1826,6 +2176,15 @@ export interface RelizyConfig {
     title: string
     semver?: SemverBumpType
   } | false>
+
+  /**
+   * Keep the `chore(deps)` commits (the dependency updates of Renovate,
+   * Dependabot...) like the other `chore` commits: in the changelogs, and in
+   * the bump when `chore` has a `semver`. The `chore(release)` commits are
+   * always left out.
+   * @default false
+   */
+  includeDepsCommits?: boolean
 
   /**
    * Current working directory
@@ -1902,6 +2261,11 @@ export interface RelizyConfig {
    */
   prComment?: PrCommentConfig
   /**
+   * Where each released branch is merged after the release (`release.sync`)
+   * and with `relizy sync`: `main` into `develop` with `{ rules: [{ from: 'main', to: ['develop'] }] }`
+   */
+  sync?: SyncConfig
+  /**
    * Merge preview of a pull request (`relizy merge-preview`): what
    * its merge releases, posted before the merge
    */
@@ -1918,6 +2282,14 @@ export interface RelizyConfig {
    * Hooks config
    */
   hooks?: HookConfig
+  /**
+   * Named ways of releasing (`beta`, `canary`, `latest`...), selected with
+   * `relizy release --profile <name>` or the `profile` option of the API. A profile
+   * sets config options (`bump`, `publish`, `release`...) over the config file,
+   * the flags of the command still win over it.
+   * @example { beta: { description: 'Prerelease for testers', bump: { type: 'prerelease', preid: 'beta' }, publish: { tag: 'beta' } } }
+   */
+  profiles?: Record<string, RelizyProfile>
   /**
    * Commit message linter (`relizy commitlint`) config
    * @see https://relizy.dev/commitlint/

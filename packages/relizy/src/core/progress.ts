@@ -1,4 +1,6 @@
+import type { LinkEvent } from './events'
 import { logger } from '@maz-ui/node'
+import { emitEvent, getRunState } from './events'
 
 /**
  * What a long step is doing, for the output of `relizy release`
@@ -70,10 +72,12 @@ export function setProgressHandlers(value: ProgressHandlers | undefined): void {
 }
 
 export function reportProgress(message: string, options: ProgressOptions = {}): void {
+  emitEvent({ type: 'progress', message, ai: options.ai ?? false })
   handlers?.progress(message, options)
 }
 
 export function reportStepNote(message: string, options: ProgressOptions = {}): void {
+  emitEvent({ type: 'note', message, ai: options.ai ?? false })
   handlers?.note(message, options)
 }
 
@@ -92,6 +96,13 @@ export function showPreview(preview: Preview): void {
     return
   }
 
+  emitEvent({
+    type: 'preview',
+    title: preview.title,
+    meta: preview.meta ?? [],
+    content: preview.content,
+  })
+
   if (handlers) {
     handlers.preview(preview)
     return
@@ -104,7 +115,7 @@ export function showPreview(preview: Preview): void {
  * What a release created, for its summary and its report: links and AI rewrites
  */
 export interface ReleaseLink {
-  step: 'publish' | 'providerRelease' | 'social' | 'prComment'
+  step: 'publish' | 'providerRelease' | 'social' | 'sync' | 'prComment'
   /**
    * What it points to: `v2.0.0`, `relizy@2.0.0`, `Tweet`
    */
@@ -167,20 +178,42 @@ export function describeAIUsage(usage: AIUsage): string[] {
   ].filter(Boolean)
 }
 
-const facts = { links: [] as ReleaseLink[], aiRewrites: [] as AIRewrite[] }
+const FACTS = Symbol('release facts')
+
+/** The facts of the running command: its own, two runs at the same time never mix */
+function getFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
+  return getRunState(FACTS, () => ({ links: [], aiRewrites: [] }))
+}
+
+/** The steps of the report (`providerRelease`) as the events name them (`provider-release`) */
+const LINK_EVENT_STEPS: Record<ReleaseLink['step'], LinkEvent['step']> = {
+  publish: 'publish',
+  providerRelease: 'provider-release',
+  social: 'social',
+  sync: 'sync',
+  prComment: 'pr-comment',
+}
 
 export function recordLink(link: ReleaseLink): void {
-  facts.links.push(link)
+  getFacts().links.push(link)
+  emitEvent({
+    type: 'link',
+    step: LINK_EVENT_STEPS[link.step],
+    label: link.label,
+    url: link.url,
+  })
 }
 
 export function recordAIRewrite(rewrite: AIRewrite): void {
-  facts.aiRewrites.push(rewrite)
+  getFacts().aiRewrites.push(rewrite)
 }
 
 /**
  * The facts recorded since the last call
  */
 export function takeReleaseFacts(): { links: ReleaseLink[], aiRewrites: AIRewrite[] } {
+  const facts = getFacts()
+
   return {
     links: facts.links.splice(0),
     aiRewrites: facts.aiRewrites.splice(0),

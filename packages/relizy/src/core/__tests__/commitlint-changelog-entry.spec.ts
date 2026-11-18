@@ -39,6 +39,26 @@ describe('Given renderChangelogEntry function', () => {
   it('Then renders nothing for a commit absent from the changelog', () => {
     expect(renderChangelogEntry(createCommit({ type: 'chore' }), config)).toBeUndefined()
   })
+
+  it('Then renders a chore(deps) commit with includeDepsCommits only', () => {
+    const choreConfig = createMockConfig({
+      types: {
+        chore: { title: '🏡 Chore' },
+      },
+    })
+    const commit = createCommit({
+      type: 'chore',
+      scope: 'deps',
+      description: 'update vue',
+      body: '',
+    })
+
+    expect(renderChangelogEntry(commit, choreConfig)).toBeUndefined()
+
+    choreConfig.includeDepsCommits = true
+
+    expect(renderChangelogEntry(commit, choreConfig)).toBe('### 🏡 Chore\n\n- **deps:** Update vue')
+  })
 })
 
 describe('Given getChangelogLinter function', () => {

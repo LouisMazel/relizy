@@ -1,14 +1,21 @@
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { relative, resolve } from 'node:path'
 import { logger } from '@maz-ui/node'
+import { getRunState } from './events'
 
 /**
  * The files written by the current run (versions in `package.json`, changelogs,
  * `lerna.json`), with their content before the first write (`null` when the run
  * created the file). The release only stages and restores these files, so the
  * uncommitted changes of the working directory are never committed nor lost.
+ * Each run has its own (`getRunState`): two runs at the same time never restore
+ * nor commit the files of the other.
  */
-const originalContents = new Map<string, string | null>()
+const ORIGINAL_CONTENTS = Symbol('release files')
+
+function getOriginalContents(): Map<string, string | null> {
+  return getRunState(ORIGINAL_CONTENTS, () => new Map<string, string | null>())
+}
 
 /**
  * Record a file before Relizy writes it. Only the content before the first
@@ -16,6 +23,7 @@ const originalContents = new Map<string, string | null>()
  */
 export function recordReleaseFile(filePath: string): void {
   const absolutePath = resolve(filePath)
+  const originalContents = getOriginalContents()
 
   if (originalContents.has(absolutePath)) {
     return
@@ -31,7 +39,7 @@ export function recordReleaseFile(filePath: string): void {
  */
 export function getReleaseFiles(cwd: string): string[] {
   return [
-    ...originalContents.keys(),
+    ...getOriginalContents().keys(),
   ].map(filePath => relative(cwd, filePath))
 }
 
@@ -42,6 +50,7 @@ export function getReleaseFiles(cwd: string): string[] {
  */
 export function restoreReleaseFiles(cwd: string): string[] {
   const restored = getReleaseFiles(cwd)
+  const originalContents = getOriginalContents()
 
   for (const [filePath, content] of originalContents) {
     if (content === null) {
@@ -64,5 +73,5 @@ export function restoreReleaseFiles(cwd: string): string[] {
  * run, or once they are committed.
  */
 export function resetReleaseFiles(): void {
-  originalContents.clear()
+  getOriginalContents().clear()
 }

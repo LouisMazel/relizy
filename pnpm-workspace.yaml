@@ -3,6 +3,8 @@
 minimumReleaseAgeExclude:
   - '@maz-ui/*'
   - maz-ui
+  - '@relizy/core@2.3.0'
+  - relizy@2.2.1
 
 packages:
   - .

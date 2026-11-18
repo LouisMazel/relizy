@@ -32,7 +32,7 @@ The guide: [GitLab CI](https://relizy.dev/guide/gitlab-ci).
 
 ### Preview the release before the merge
 
-The `merge-preview` component adds a `merge-preview` job to the merge request pipelines: a comment tells what the merge releases (versions, tags, dist-tag, what the merge request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview): give it the `release-type` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...). `GITLAB_TOKEN` is needed: the `CI_JOB_TOKEN` cannot comment nor set a status.
+The `merge-preview` component adds a `merge-preview` job to the merge request pipelines: a comment tells what the merge releases (versions, tags, dist-tag, what the merge request brings), and the job fails when the release of the merge would fail: require a successful pipeline to block such a merge. Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview): give it the `release-type` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...). `GITLAB_TOKEN` is needed: the `CI_JOB_TOKEN` cannot comment.
 
 ```yaml
 include:
@@ -40,22 +40,23 @@ include:
   - component: gitlab.com/relizy/relizy/merge-preview@2
 ```
 
-Its inputs: `stage` (`test`), `image`, `release-type`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
+Its inputs: `stage` (`test`), `image`, `release-type`, `profile`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
 
 ## Inputs
 
-| Input               | Default                | Description                                                                          |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------ |
-| `stage`             | `deploy`               | Stage of the job                                                                     |
-| `image`             | `node:lts`             | Node.js image of the job                                                             |
-| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                  |
-| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence) |
-| `args`              |                        | More arguments for `relizy release`, e.g. `--tag beta --preid beta`                  |
-| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again           |
-| `setup`             | `true`                 | Install the package manager and the dependencies                                     |
-| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                       |
-| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                     |
-| `working-directory` | `.`                    | Directory of the project                                                             |
+| Input               | Default                | Description                                                                                                                         |
+| ------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
+| `stage`             | `deploy`               | Stage of the job                                                                                                                    |
+| `image`             | `node:lts`             | Node.js image of the job                                                                                                            |
+| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                                 |
+| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                                |
+| `profile`           |                        | A [release profile](https://relizy.dev/config/profiles) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later) |
+| `args`              |                        | More arguments for `relizy release`, e.g. `--tag beta --preid beta`                                                                 |
+| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                                          |
+| `setup`             | `true`                 | Install the package manager and the dependencies                                                                                    |
+| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                                      |
+| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                                    |
+| `working-directory` | `.`                    | Directory of the project                                                                                                            |
 
 ## Outputs
 

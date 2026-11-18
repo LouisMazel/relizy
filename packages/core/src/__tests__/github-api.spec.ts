@@ -1,4 +1,4 @@
-import { createGithubRelease } from '../github-api'
+import { createGithubPullRequest, createGithubRelease, findGithubPullRequest } from '../github-api'
 
 const release = {
   tag_name: 'v1.0.0',
@@ -88,6 +88,51 @@ describe('Given createGithubRelease', () => {
       }, release))
         .rejects
         .toThrow('[POST] "https://api.github.com/repos/user/repo/releases": 422 Unprocessable Entity {"message":"Validation Failed"}')
+    })
+  })
+})
+
+describe('Given the pull requests of GitHub', () => {
+  const config = {
+    repo: { domain: 'github.com', repo: 'acme/lib' },
+    tokens: { github: 'test-token' },
+  }
+
+  describe('When an open pull request merges the branch', () => {
+    it('Then findGithubPullRequest gives it, searched by owner and base', async () => {
+      const fetchMock = mockFetch({
+        json: () => Promise.resolve([
+          { number: 12, html_url: 'https://github.com/acme/lib/pull/12', title: 'sync' },
+        ]),
+      })
+
+      expect(await findGithubPullRequest(config, { head: 'main', base: 'develop' })).toEqual({ number: 12, html_url: 'https://github.com/acme/lib/pull/12', title: 'sync' })
+      expect(fetchMock).toHaveBeenCalledWith('https://api.github.com/repos/acme/lib/pulls?state=open&head=acme%3Amain&base=develop', expect.objectContaining({ method: 'GET', body: undefined }))
+    })
+  })
+
+  describe('When there is none', () => {
+    it('Then findGithubPullRequest gives undefined', async () => {
+      mockFetch({
+        json: () => Promise.resolve([]),
+      })
+
+      expect(await findGithubPullRequest(config, { head: 'main', base: 'develop' })).toBeUndefined()
+    })
+  })
+
+  describe('When a pull request is created', () => {
+    it('Then createGithubPullRequest posts it', async () => {
+      const pullRequest = { title: 'chore(release): sync develop with main', head: 'main', base: 'develop' }
+      const fetchMock = mockFetch({
+        json: () => Promise.resolve({ number: 13, html_url: 'https://github.com/acme/lib/pull/13', title: pullRequest.title }),
+      })
+
+      expect(await createGithubPullRequest(config, pullRequest)).toEqual({ number: 13, html_url: 'https://github.com/acme/lib/pull/13', title: pullRequest.title })
+      expect(fetchMock).toHaveBeenCalledWith('https://api.github.com/repos/acme/lib/pulls', expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify(pullRequest),
+      }))
     })
   })
 })

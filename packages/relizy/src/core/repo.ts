@@ -3,9 +3,10 @@ import type { GitCommit, MonorepoConfig, PackageBase, PrivatePackages, ReadPacka
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { getPackageCommits as coreGetPackageCommits, readPackageJson as coreReadPackageJson, readPackages as coreReadPackages, determineReleaseType, getPackageDependencies, getPackageNewVersion, GLOB_IGNORE, globDirsAbsolute } from '@relizy/core'
+import { getPackageCommits as coreGetPackageCommits, readPackageJson as coreReadPackageJson, readPackages as coreReadPackages, determineReleaseType, getPackageDependencies, getPackageNewVersion, getWorkspacePackages, GLOB_IGNORE, globDirsAbsolute } from '@relizy/core'
 import fastGlob from 'fast-glob'
 import { planPackages } from './bump-plan'
+import { getMonorepoPackagePatterns } from './groups'
 import { reconcileFromTag } from './rewritten-tags'
 import { resolveTags } from './tags'
 
@@ -270,6 +271,22 @@ export async function getPackages({
 }
 
 /**
+ * Paths of every package of the workspace, released or not: the packages of
+ * the config or of the version groups, the ignored ones, `commitlint.packages`
+ * and the workspace of the package manager (apps)
+ */
+function getWorkspacePaths(config: ResolvedRelizyConfig): string[] {
+  return getWorkspacePackages({
+    cwd: config.cwd,
+    patterns: [
+      ...(getMonorepoPackagePatterns(config) ?? []),
+      ...(config.monorepo?.ignored ?? []),
+      ...(config.commitlint?.packages ?? []),
+    ],
+  }).map(pkg => pkg.path)
+}
+
+/**
  * The conventional commits of a package between two refs, see
  * `getPackageCommits()` of `@relizy/core`: the types, scopes, packages, moved
  * packages and private packages of the config apply, and a `from` tag a
@@ -281,6 +298,7 @@ export function getPackageCommits({
   to,
   config,
   changelog,
+  repositoryCommits = false,
   dryRun = false,
 }: {
   pkg: ReadPackage
@@ -288,6 +306,11 @@ export function getPackageCommits({
   to: string
   config: ResolvedRelizyConfig
   changelog: boolean
+  /**
+   * The root of a monorepo also gets the commits changing no package of the
+   * workspace (CI, scripts, the lockfile): for its changelog, they never bump
+   */
+  repositoryCommits?: boolean
   dryRun?: boolean
 }): Promise<GitCommit[]> {
   return coreGetPackageCommits({
@@ -297,12 +320,16 @@ export function getPackageCommits({
     cwd: config.cwd,
     types: config.types,
     changelog,
+    includeDeps: config.includeDepsCommits,
     scopeMap: config.scopeMap,
     monorepo: {
       packages: config.monorepo?.packages,
       ignored: config.monorepo?.ignored,
       privatePackages: getPrivatePackagesMode(config),
       movedPackages: config.monorepo?.movedPackages,
+      workspacePaths: repositoryCommits && pkg.path === config.cwd
+        ? getWorkspacePaths(config)
+        : undefined,
     },
     reconcileFrom: reconciledFrom => reconcileFromTag({
       from: reconciledFrom,

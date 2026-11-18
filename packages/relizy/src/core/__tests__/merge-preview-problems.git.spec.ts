@@ -130,7 +130,7 @@ describe('Given the release of the merge of a pull request', () => {
       plan: planOf('1.1.0'),
       context,
       commitlint: 'auto',
-    })).toEqual({ problems: [], warnings: [] })
+    })).toEqual({ problems: [], commitlint: [], warnings: [] })
   })
 
   it('When the version is already published, Then the publish would fail', async () => {
@@ -163,6 +163,7 @@ describe('Given the release of the merge of a pull request', () => {
     }))
       .toEqual({
         problems: [],
+        commitlint: [],
         warnings: ['Could not check whether app@1.1.0 is already published'],
       })
   })
@@ -254,21 +255,22 @@ describe('Given the release of the merge of a pull request', () => {
     })
   })
 
-  it('When the project uses the commitlint of relizy, Then a commit failing it is a problem', async () => {
+  it('When the project uses the commitlint of relizy, Then a commit failing it is a warning apart, not a problem', async () => {
     setup(`commitlint: { rules: { 'subject-case': ['error', 'lower-case'] } }`)
     git('commit', '--quiet', '--allow-empty', '-m', 'fix: The Bug')
     context.headSha = git('rev-parse', 'HEAD')
     context.commits = [context.headSha, ...context.commits]
     const config = await loadRelizyConfig()
 
-    const { problems } = await checkMergePreview({
+    const { problems, commitlint } = await checkMergePreview({
       config,
       plan: planOf('1.1.0'),
       context,
       commitlint: 'auto',
     })
 
-    expect(problems).toEqual([
+    expect(problems).toEqual([])
+    expect(commitlint).toEqual([
       {
         kind: 'commitlint',
         message: expect.stringMatching(/^[0-9a-f]{7} "fix: The Bug": /),
@@ -287,16 +289,61 @@ describe('Given the release of the merge of a pull request', () => {
       plan: planOf('1.1.0'),
       context,
       commitlint: 'auto',
-    })).problems).toEqual([])
-    expect((await checkMergePreview({
+    })).commitlint).toEqual([])
+    expect(await checkMergePreview({
       config,
       plan: planOf('1.1.0'),
       context,
       commitlint: true,
-    })).problems).toEqual([
+    })).toMatchObject({
+      problems: [],
+      commitlint: [
+        {
+          kind: 'commitlint',
+          message: expect.stringMatching(/"not conventional": /),
+        },
+      ],
+    })
+  })
+
+  it('When the squash commit fails the commitlint, Then it is a warning, said conditional when the merge method is left open', async () => {
+    setup(`commitlint: { rules: { 'subject-case': ['error', 'lower-case'] } }`)
+    const config = await loadRelizyConfig()
+    const squash = {
+      hashes: context.commits,
+      commit: {
+        message: 'feat: The App (#3)',
+        body: '',
+        shortHash: 'abc1234',
+        author: { name: 'Dev', email: 'dev@example.com' },
+      },
+    }
+
+    const sure = await checkMergePreview({
+      config,
+      plan: planOf('1.1.0', { mode: 'squash', reason: 'test', squash }),
+      context,
+      commitlint: true,
+    })
+    const open = await checkMergePreview({
+      config,
+      plan: planOf('1.1.0', { mode: 'both', reason: 'test', squash }),
+      context,
+      commitlint: true,
+    })
+
+    expect(sure.problems).toEqual([])
+    expect(sure.commitlint).toEqual([
       {
         kind: 'commitlint',
-        message: expect.stringMatching(/"not conventional": /),
+        message: expect.stringMatching(/^the squash commit "feat: The App \(#3\)": /),
+      },
+    ])
+    expect(open.problems).toEqual([])
+    expect(open.commitlint).toEqual([
+      {
+        kind: 'commitlint',
+        message: expect.stringMatching(/^If you squash merge: the squash commit "feat: The App \(#3\)": /),
       },
     ])
   })

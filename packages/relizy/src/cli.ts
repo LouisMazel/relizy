@@ -6,10 +6,10 @@ import { readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import process from 'node:process'
 import { fileURLToPath } from 'node:url'
-import { logger, printBanner } from '@maz-ui/node'
+import { AGENT_TARGETS, logger, printBanner } from '@maz-ui/node'
 import { getCIName, isInCI } from '@relizy/core'
 import { Command, InvalidArgumentError, Option } from 'commander'
-import { bump, changelog, commitlint, init, INIT_STEPS, mergePreview, prComment, providerRelease, publish, release, social } from './commands'
+import { bump, changelog, commitlint, init, INIT_STEPS, mcpInit, mcpUpdate, mergePreview, prComment, providerRelease, publish, release, social, sync } from './commands'
 import { isErrorReported, isRelizyCancelError } from './core/errors'
 import { setDryRunOptions } from './core/progress'
 import { enableCliUi } from './core/release-ui'
@@ -63,7 +63,7 @@ async function warnOutdatedAgentRules(command: Command): Promise<void> {
       return
     }
 
-    const { findOutdatedRules } = await import('./mcp/agents')
+    const { findOutdatedRules } = await import('./core/agents')
     const outdated = findOutdatedRules(process.cwd())
 
     if (outdated.length > 0) {
@@ -82,8 +82,9 @@ program.hook('preAction', async (_program, actionCommand) => {
   })
 })
 
+/** The release type of the flags, none without one: `bump.type` of the config (or of the profile) decides */
 function getReleaseType(options: any) {
-  let type: BumpOptions['type'] = 'release'
+  let type: BumpOptions['type']
 
   if (options.major)
     type = 'major'
@@ -146,6 +147,14 @@ function privatePackagesOption() {
   return new Option('--private-packages <mode>', 'What to do with the private packages, overrides monorepo.privatePackages (release: version them, never publish them)').choices(['ignore', 'release'])
 }
 
+function syncModeOption() {
+  return new Option('--sync-mode <mode>', 'How the branches get the release, overrides sync.mode: push them, or open a pull request').choices(['push', 'pull-request'])
+}
+
+function prCommentModeOption() {
+  return new Option('--pr-comment-mode <mode>', 'How the pull request is commented, overrides prComment.mode: update the comment, add one, or add one and delete the previous').choices(['update', 'append', 'recreate'])
+}
+
 function slackFormatOption() {
   return new Option('--slack-format <format>', 'Changelog of the Slack message, overrides social.slack.changelog').choices(['full', 'summary', 'none'])
 }
@@ -174,7 +183,8 @@ program
   .name('relizy')
   .description('Release management tool for monorepos and standalone packages')
   .version(version)
-  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test)')
+  .option('--config <name>', 'Config file name (without .config.ts - e.g. changelog-test), or the path of the config file (absolute, or relative to the project, with its extension)')
+  .option('--profile <name>', 'Release profile of the config (`profiles`): its options come over the config file and under the flags (e.g. beta, canary)')
   .option('--no-safety-check', 'Skip safety check')
   .option('--log-level <level>', 'Set log level (silent, error, warning, normal, default, debug, trace, verbose), instead of the logLevel of the config')
   .option('--dry-run', 'Preview changes without writing files, creating tags, commits or publishing')
@@ -214,6 +224,7 @@ program
         yes: options.yes,
         suffix: options.suffix,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         canary: options.canary,
         privatePackages: options.privatePackages,
@@ -245,6 +256,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         privatePackages: options.privatePackages,
       })
@@ -277,6 +289,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -307,6 +320,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -344,6 +358,7 @@ program
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -445,7 +460,7 @@ mcp
         process.chdir(options.cwd)
       }
 
-      const { startStdioServer } = await import('./mcp')
+      const { startStdioServer } = await import('./core/mcp')
       await startStdioServer({
         cwd: process.cwd(),
       })
@@ -460,17 +475,15 @@ mcp
 
 mcp
   .command('init')
-  .description('Configure the AI agents of the project for relizy: rules (Claude Code, AGENTS.md) and MCP server (.mcp.json, Cursor, VS Code)')
-  .option('--targets <agents>', 'Comma-separated agents: claude, agents-md, cursor, vscode (default: the detected ones, else claude,agents-md)', parseGroupNames)
+  .description('Configure the AI agents of the project for relizy: rules (Claude Code rule, AGENTS.md) and MCP server')
+  .option('--targets <agents>', `Comma-separated agents: ${AGENT_TARGETS.join(', ')} (default: asked in a terminal, else the detected ones, else claude,agents-md)`, parseGroupNames)
   .option('--no-rules', 'Only register the MCP server, without the rules')
   .option('--no-mcp', 'Only write the rules, without the MCP server')
   .option('--no-prepare', 'Do not add relizy mcp update to the prepare script of the package.json')
   .option('--remove', 'Remove what relizy mcp init added')
   .action(async (options) => {
     try {
-      const { mcpInit } = await import('./mcp')
-
-      mcpInit({
+      await mcpInit({
         targets: options.targets,
         rules: options.rules,
         mcp: options.mcp,
@@ -490,10 +503,8 @@ mcp
 mcp
   .command('update')
   .description('Update the relizy rules of the AI agents already set up in the project, when they changed (used in the prepare script)')
-  .action(async () => {
+  .action(() => {
     try {
-      const { mcpUpdate } = await import('./mcp')
-
       mcpUpdate({
         dryRun: program.opts().dryRun,
       })
@@ -509,17 +520,46 @@ mcp
 program
   .command('pr-comment')
   .description('Post or re-post a PR comment with release information')
-  .action(async () => {
+  .addOption(prCommentModeOption())
+  .action(async (options) => {
     try {
       await prComment({
+        prCommentMode: options.prCommentMode,
         prNumber: program.opts().prNumber,
         dryRun: program.opts().dryRun,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
       })
     }
     catch (error) {
       exitWithError('Failed to post PR comment -', error)
+    }
+  })
+
+program
+  .command('sync')
+  .description('Merge the released branch into the branches of the rules of sync that match it and push them, or open a pull request into each one (as relizy release does once pushed)')
+  .option('--to <branch...>', 'The branches to merge into, instead of the rules of sync')
+  .option('--from <branch>', 'The released branch, merged from its remote (default: the current branch)')
+  .addOption(syncModeOption())
+  .action(async (options) => {
+    try {
+      await sync({
+        branches: options.to,
+        mode: options.syncMode,
+        from: options.from,
+        dryRun: program.opts().dryRun,
+        logLevel: program.opts().logLevel,
+        configName: program.opts().config,
+        profile: program.opts().profile,
+        safetyCheck: hasCliFlag('--no-safety-check')
+          ? false
+          : undefined,
+      })
+    }
+    catch (error) {
+      exitWithError('Failed to sync the branches -', error)
     }
   })
 
@@ -551,7 +591,9 @@ mergePreviewCommand
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .addOption(privatePackagesOption())
   .option('--no-comment', 'Do not comment the pull request')
+  .addOption(prCommentModeOption())
   .option('--no-check', 'Do not set the commit status')
+  .option('--no-commitlint', 'Do not lint the commits of the pull request')
   .option('--report-json <file>', 'Write the report of the preview to this JSON file')
   .option('--report-markdown <file>', 'Write the preview to this markdown file, e.g. for an artifact of GitLab CI')
   .action(async (options) => {
@@ -580,12 +622,17 @@ mergePreviewCommand
         comment: hasCliFlag('--no-comment')
           ? false
           : undefined,
+        prCommentMode: options.prCommentMode,
         check: hasCliFlag('--no-check')
+          ? false
+          : undefined,
+        commitlint: hasCliFlag('--no-commitlint')
           ? false
           : undefined,
         prNumber: program.opts().prNumber,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         report: getReportOverride(options),
       })
@@ -641,6 +688,10 @@ program
   .option('--provider <provider>', 'Git provider (github or gitlab)')
   .option('--no-social', 'Skip social media posting')
   .option('--no-pr-comment', 'Skip PR comment posting')
+  .addOption(prCommentModeOption())
+  .option('--sync <branch...>', 'Merge the released branch into these branches once pushed, instead of the rules of sync (e.g. --sync develop)')
+  .option('--no-sync', 'Do not merge the released branch into the branches of sync.rules')
+  .addOption(syncModeOption())
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
@@ -703,6 +754,7 @@ program
         force: options.force,
         yes: options.yes,
         configName: program.opts().config,
+        profile: program.opts().profile,
         groups: program.opts().group,
         safetyCheck: hasCliFlag('--no-safety-check')
           ? false
@@ -713,6 +765,14 @@ program
         prComment: hasCliFlag('--no-pr-comment')
           ? false
           : undefined,
+        sync: hasCliFlag('--no-sync')
+          ? false
+          : undefined,
+        syncBranches: Array.isArray(options.sync)
+          ? options.sync
+          : undefined,
+        syncMode: options.syncMode,
+        prCommentMode: options.prCommentMode,
         prNumber: program.opts().prNumber,
         ai: hasCliFlag('--ai')
           ? true

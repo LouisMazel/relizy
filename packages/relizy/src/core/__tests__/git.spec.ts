@@ -147,6 +147,7 @@ describe('Given createCommitAndTags function', () => {
       changelogTitle: '{{oldVersion}}...{{newVersion}}',
     }
     config.release = {
+      canary: false,
       gitTag: true,
       commit: true,
       publish: true,
@@ -157,6 +158,7 @@ describe('Given createCommitAndTags function', () => {
       noVerify: false,
       social: true,
       prComment: true,
+      sync: true,
     }
     config.signTags = false
     bumpedPackages = []
@@ -780,6 +782,7 @@ describe('Given pushCommitAndTags function', () => {
       bump: { type: 'patch' },
     })
     config.release = {
+      canary: false,
       gitTag: true,
       commit: true,
       publish: true,
@@ -790,6 +793,7 @@ describe('Given pushCommitAndTags function', () => {
       noVerify: false,
       social: true,
       prComment: true,
+      sync: true,
     }
     vi.mocked(runGit).mockResolvedValue('')
   })

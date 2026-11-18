@@ -179,7 +179,7 @@ describe('Given getGitDiff', () => {
         '--no-pager',
         'log',
         'v1.0.0...HEAD',
-        '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%n%b',
+        '--pretty=%x1E%s%x1F%h%x1F%an%x1F%ae%x1F%H%n%b',
         '--name-status',
       ],
       { cwd: '/repo' },
@@ -200,6 +200,18 @@ describe('Given getGitDiff', () => {
     getGitDiff(undefined, 'HEAD', '/repo')
 
     expect(mockRunSync.mock.calls[0]![0].slice(0, 3)).toEqual(['--no-pager', 'log', 'HEAD'])
+  })
+
+  it('Then gives the full hash of each commit with its short one', () => {
+    mockRunSync.mockReturnValue([
+      '\x1Efeat: add x\x1Fa1b2c3d\x1FJane\x1Fjane@example.com\x1Fa1b2c3d4e5f60718293a4b5c6d7e8f9012345678',
+      '',
+      'M\tsrc/x.ts',
+    ].join('\n'))
+
+    const [commit] = getGitDiff('v1.0.0', 'HEAD', '/repo')
+
+    expect(commit).toMatchObject({ shortHash: 'a1b2c3d', hash: 'a1b2c3d4e5f60718293a4b5c6d7e8f9012345678' })
   })
 
   it('Then keeps the co-author trailers and changed files of a GitHub squash merge', () => {

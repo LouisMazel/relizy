@@ -36,23 +36,23 @@ relizy mcp --cwd apps/web
 
 Configures the AI agents of the project for Relizy:
 
-- the **rules** (how to commit and release with Relizy): `.claude/rules/relizy.md` for Claude Code, and a `relizy` section of `AGENTS.md`, read by Codex, Cursor, Copilot and others;
-- the **MCP server**: a `relizy` entry in `.mcp.json` (Claude Code), `.cursor/mcp.json` (Cursor) and `.vscode/mcp.json` (GitHub Copilot);
+- the **rules** (how to commit and release with Relizy): `.claude/rules/relizy.md` for Claude Code, and a `relizy` section of `AGENTS.md`, read by the other agents;
+- the **MCP server**: a `relizy` entry in the MCP config of each agent, `.mcp.json` (Claude Code), `.cursor/mcp.json` (Cursor), `.vscode/mcp.json` (GitHub Copilot), `.gemini/settings.json` (Gemini CLI), `opencode.json` (OpenCode), `.junie/mcp/mcp.json` (JetBrains Junie), `.devin/mcp_config.json` (Windsurf and Devin), `.warp/.mcp.json` (Warp), `.kiro/settings/mcp.json` (Kiro), `.roo/mcp.json` (Roo Code);
 - the **`prepare` script** of the root `package.json`: [`relizy mcp update`](#relizy-mcp-update), appended to an existing script, so the rules are kept up to date at each install.
 
 ```bash
 relizy mcp init
 ```
 
-It configures the agents detected in the project (`.claude/`, `CLAUDE.md`, `.mcp.json`, `.cursor/`, `.vscode/mcp.json`, `.github/copilot-instructions.md`, `AGENTS.md`, `.codex/`, `.windsurf/`, `GEMINI.md`...), or Claude Code and `AGENTS.md` when none is detected.
+In a terminal, it asks which agents you use, the ones detected in the project checked (`.claude/`, `CLAUDE.md`, `.cursor/`, `.vscode/mcp.json`, `.github/copilot-instructions.md`, `AGENTS.md`, `.codex/`, `.windsurf/`, `GEMINI.md`...). Without a terminal (or in CI), it configures the detected agents, or Claude Code and `AGENTS.md` when none is detected. `AGENTS.md` is always written for an agent other than Claude Code: it holds their rules.
 
-The MCP entries start the installed Relizy through the package manager of the project (`pnpm exec relizy mcp`, `yarn run relizy mcp`, `bun x --no-install relizy mcp`, `npx --no-install relizy mcp`) when Relizy is a dependency of the project, else `npx -y relizy@<version> mcp`. Codex and Windsurf only read `AGENTS.md`: add the command printed by `relizy mcp init` to their MCP config.
+The MCP entries start the installed Relizy through the package manager of the project (`pnpm exec relizy mcp`, `yarn run relizy mcp`, `bun x --no-install relizy mcp`, `npx --no-install relizy mcp`) when Relizy is a dependency of the project, else `npx -y relizy@<version> mcp`. Codex, Cline and Zed only read `AGENTS.md`: add the command printed by `relizy mcp init` to their MCP config.
 
 It only writes what it owns: a file it did not generate, rules edited by hand and MCP entries written by hand are left untouched. The rules are only rewritten when their content changes: the `prepare` script updates them at each install (see [Keeping the Agents Up to Date](./../guide/ai-agents.md#keeping-the-agents-up-to-date)), or run `relizy mcp init` again after an upgrade.
 
 ### --targets
 
-Comma-separated agents to configure: `claude`, `agents-md`, `cursor`, `vscode`.
+Comma-separated agents to configure, without asking: `claude`, `agents-md` (Codex, Cline, Zed and the other agents reading `AGENTS.md`), `cursor`, `vscode` (GitHub Copilot), `gemini`, `opencode`, `junie`, `windsurf` (Windsurf and Devin), `warp`, `kiro`, `roo`.
 
 ```bash
 relizy mcp init --targets claude,cursor

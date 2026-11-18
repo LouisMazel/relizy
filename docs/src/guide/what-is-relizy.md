@@ -39,7 +39,8 @@ See [Version Modes](./version-modes.md).
 - GitHub and GitLab releases: [`relizy provider-release`](./../cli/provider-release.md), run by `relizy release`.
 - [Social posts](./social-media.md): release announcements on [Twitter (X)](./social-media.md#twitter), [Slack](./social-media.md#slack) and [Microsoft Teams](./social-media.md#microsoft-teams).
 - [PR comment](./pr-comment.md): a summary of the release on the pull request or merge request it comes from.
-- [Merge preview](./merge-preview.md): before the merge, what it releases, in a comment and a commit status that fails when the release of the merge would fail.
+- [Branch sync](./branch-sync.md): after a release from `main`, `main` merged into `develop` (git flow), pushed or as a pull request.
+- [Merge preview](./merge-preview.md): before the merge, what it releases, in a comment and a check that fails when the release of the merge would fail.
 - [Release report](./../config/release.md#report): the summary of the release in the CI, and in a file with `--report-json`, `--report-dotenv` or `--report-markdown`.
 - [AI release notes](./ai-changelog.md): the provider releases and the social posts rewritten by an AI model.
 - [`relizy commitlint`](./../commitlint/index.md): lints the commit messages, with a preview of their changelog entry.

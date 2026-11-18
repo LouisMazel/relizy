@@ -32,7 +32,16 @@ export function assertBumpConfirmable({ command, yes, ciName }: {
    */
   ciName?: string | null
 }): void {
-  if (yes || process.stdin.isTTY) {
+  if (yes) {
+    return
+  }
+
+  // Stdout only carries the events: the prompt would write in them
+  if (process.env.RELIZY_REPORTER === 'json') {
+    throw new Error(`relizy ${command} asks to confirm the new versions, but RELIZY_REPORTER=json keeps stdout for the events: run "relizy ${command} --yes" to confirm them in advance (or answer with onConfirm from the API)`)
+  }
+
+  if (process.stdin.isTTY) {
     return
   }
 

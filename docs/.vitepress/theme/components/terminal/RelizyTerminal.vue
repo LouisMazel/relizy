@@ -1,6 +1,5 @@
 <script lang="ts" setup>
 import type { Action, Box, CiGroup, Line, Segment, Tone } from './scenarios'
-import { MazArrowPath } from '@maz-ui/icons/raw/MazArrowPath'
 import MazBtn from 'maz-ui/components/MazBtn'
 import MazTabsBar from 'maz-ui/components/MazTabsBar'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
@@ -354,7 +353,7 @@ const lineNumbers = computed(() => {
       <MazBtn
         size="sm"
         color="transparent"
-        :start-icon="MazArrowPath"
+        start-icon="arrow-path"
         :disabled="playing && scenario !== 'ci' && rows.length === 0"
         @click="play"
       >

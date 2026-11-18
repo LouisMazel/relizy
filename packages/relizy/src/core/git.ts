@@ -3,7 +3,7 @@ import type { ResolvedRelizyConfig } from './config'
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { createGitCommit, createGitTags, formatRepoTag, getGitStatus, getIndependentTag, hasLernaJson, isInCI, parseGitStatus, pushGitChanges, runGitSync } from '@relizy/core'
+import { createGitCommit, createGitTags, formatRepoTag, getGitStatus, getHeadCommit, getIndependentTag, hasLernaJson, isInCI, parseGitStatus, pushGitChanges, runGitSync } from '@relizy/core'
 import { ensurePushAccess } from './ci'
 import { loadRelizyConfig } from './config'
 import { RelizyCancelError } from './errors'
@@ -12,6 +12,7 @@ import { getRootGroupBumpResult } from './groups'
 import { askConfirm } from './prompts'
 import { getReleaseFiles, resetReleaseFiles, restoreReleaseFiles } from './release-files'
 import { readPackageJson } from './repo'
+import { recordReleaseCommit } from './step-data'
 import { executeHook, getHookContext } from './utils'
 
 /** The files a release writes and commits */
@@ -270,6 +271,17 @@ export async function createCommitAndTags({
       dryRun,
       cwd: internalConfig.cwd,
       logger,
+    })
+
+    recordReleaseCommit({
+      ...(dryRun
+        ? {}
+        : {
+            hash: getHeadCommit(internalConfig.cwd),
+          }),
+      message: commitBody
+        ? `${commitMessage}\n\n${commitBody}`
+        : commitMessage,
     })
 
     if (!dryRun) {

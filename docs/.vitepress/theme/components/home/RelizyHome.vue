@@ -1,30 +1,9 @@
 <script lang="ts" setup>
-import { MazArrowRight } from '@maz-ui/icons/raw/MazArrowRight'
-import { MazGithub as MazGithubRaw } from '@maz-ui/icons/raw/MazGithub'
-import { MazBeaker } from '@maz-ui/icons/static/MazBeaker'
-import { MazChatBubbleLeftRight } from '@maz-ui/icons/static/MazChatBubbleLeftRight'
-import { MazCheckBadge } from '@maz-ui/icons/static/MazCheckBadge'
-import { MazCloudArrowUp } from '@maz-ui/icons/static/MazCloudArrowUp'
-import { MazCodeBracket } from '@maz-ui/icons/static/MazCodeBracket'
-import { MazCommandLine } from '@maz-ui/icons/static/MazCommandLine'
-import { MazCpuChip } from '@maz-ui/icons/static/MazCpuChip'
-import { MazCube } from '@maz-ui/icons/static/MazCube'
-import { MazDocumentText } from '@maz-ui/icons/static/MazDocumentText'
-import { MazEye } from '@maz-ui/icons/static/MazEye'
-import { MazGithub } from '@maz-ui/icons/static/MazGithub'
-import { MazLockClosed } from '@maz-ui/icons/static/MazLockClosed'
-import { MazLogoNpm } from '@maz-ui/icons/static/MazLogoNpm'
-import { MazLogoTwitter } from '@maz-ui/icons/static/MazLogoTwitter'
-import { MazMegaphone } from '@maz-ui/icons/static/MazMegaphone'
-import { MazRocketLaunch } from '@maz-ui/icons/static/MazRocketLaunch'
-import { MazShieldCheck } from '@maz-ui/icons/static/MazShieldCheck'
-import { MazSparkles } from '@maz-ui/icons/static/MazSparkles'
-import { MazSquares2x2 } from '@maz-ui/icons/static/MazSquares2x2'
-import { MazTag } from '@maz-ui/icons/static/MazTag'
 import MazBadge from 'maz-ui/components/MazBadge'
 import MazBtn from 'maz-ui/components/MazBtn'
 import MazCardSpotlight from 'maz-ui/components/MazCardSpotlight'
 import MazCodeHighlight from 'maz-ui/components/MazCodeHighlight'
+import MazIcon from 'maz-ui/components/MazIcon'
 import MazTabsBar from 'maz-ui/components/MazTabsBar'
 import { ref } from 'vue'
 import RelizyTerminal from '../terminal/RelizyTerminal.vue'
@@ -40,49 +19,49 @@ import HomeModes from './HomeModes.vue'
 
 const pipeline = [
   {
-    icon: MazTag,
+    icon: 'tag',
     title: 'Versions',
     text: 'From your Conventional Commits, dependents included',
     href: '/cli/bump',
   },
   {
-    icon: MazDocumentText,
+    icon: 'document-text',
     title: 'Changelogs',
     text: 'One per package, and the root one',
     href: '/guide/changelog',
   },
   {
-    icon: MazCube,
+    icon: 'cube',
     title: 'Publish',
     text: 'npm, pnpm, yarn or bun, any registry',
     href: '/cli/publish',
   },
   {
-    icon: MazCodeBracket,
+    icon: 'code-bracket',
     title: 'Commit & tag',
     text: 'The release commit and its tags',
     href: '/config/commit-templates',
   },
   {
-    icon: MazCloudArrowUp,
+    icon: 'cloud-arrow-up',
     title: 'Push',
     text: 'Guarded against a stale branch',
     href: '/config/release',
   },
   {
-    icon: MazRocketLaunch,
+    icon: 'rocket-launch',
     title: 'Releases',
     text: 'GitHub or GitLab, notes rewritten by AI',
     href: '/cli/provider-release',
   },
   {
-    icon: MazMegaphone,
+    icon: 'megaphone',
     title: 'Announce',
     text: 'One post on X, on Slack, on Teams',
     href: '/guide/social-media',
   },
   {
-    icon: MazChatBubbleLeftRight,
+    icon: 'chat-bubble-left-right',
     title: 'PR comment',
     text: 'The summary of the release',
     href: '/guide/pr-comment',
@@ -90,17 +69,17 @@ const pipeline = [
 ]
 
 const ecosystem = [
-  { name: 'npm', icon: MazLogoNpm },
-  { name: 'pnpm' },
-  { name: 'yarn' },
-  { name: 'bun' },
-  { name: 'GitHub', icon: MazGithub },
-  { name: 'GitLab' },
-  { name: 'X', icon: MazLogoTwitter },
-  { name: 'Slack' },
-  { name: 'Microsoft Teams' },
-  { name: 'Claude Code', icon: MazSparkles },
-  { name: 'AI SDK', icon: MazSparkles },
+  { name: 'npm', icon: 'logo-npm' },
+  { name: 'pnpm', icon: 'logo-pnpm' },
+  { name: 'yarn', icon: 'logo-yarn' },
+  { name: 'bun', icon: 'logo-bun' },
+  { name: 'GitHub', icon: 'github' },
+  { name: 'GitLab', icon: 'logo-gitlab' },
+  { name: 'X', icon: 'logo-x' },
+  { name: 'Slack', icon: 'logo-slack' },
+  { name: 'Microsoft Teams', icon: 'logo-microsoft-teams' },
+  { name: 'Claude Code', icon: 'logo-claude' },
+  { name: 'AI SDK', icon: 'logo-vercel' },
 ]
 
 /** The config shown on the page */
@@ -199,16 +178,16 @@ const ciFeatures = [
         </p>
 
         <div class="mt-10 flex animate-rise flex-wrap items-center justify-center gap-3 [animation-delay:240ms]">
-          <MazBtn href="/guide/getting-started" size="lg" :end-icon="MazArrowRight">
+          <MazBtn href="/guide/getting-started" size="lg" end-icon="arrow-right">
             Get started
           </MazBtn>
-          <MazBtn href="https://github.com/LouisMazel/relizy" size="lg" color="contrast" outlined :start-icon="MazGithubRaw">
+          <MazBtn href="https://github.com/LouisMazel/relizy" size="lg" color="contrast" outlined start-icon="github">
             Star on GitHub
           </MazBtn>
         </div>
 
         <div class="mt-6 animate-rise [animation-delay:320ms]">
-          <HomeCopyCommand command="pnpm add -D relizy" />
+          <HomeCopyCommand command="npx relizy init" />
         </div>
       </div>
     </section>
@@ -225,7 +204,7 @@ const ciFeatures = [
       </p>
       <ul class="mx-auto mt-6 flex max-w-5xl flex-wrap items-center justify-center gap-x-8 gap-y-4">
         <li v-for="tool in ecosystem" :key="tool.name" class="flex items-center gap-2 text-base font-semibold text-muted transition-colors duration-(--duration-fast) hover:text-foreground">
-          <component :is="tool.icon" v-if="tool.icon" class="size-5" />
+          <MazIcon :icon="tool.icon" class="size-5" />
           {{ tool.name }}
         </li>
       </ul>
@@ -252,7 +231,7 @@ const ciFeatures = [
               <a :href="step.href" class="group flex h-full flex-col">
                 <div class="flex items-center gap-3">
                   <span class="inline-flex size-9 items-center justify-center rounded-lg bg-linear-to-br from-primary to-secondary text-primary-foreground">
-                    <component :is="step.icon" class="size-5" />
+                    <MazIcon :icon="step.icon" class="size-5" />
                   </span>
                   <span class="font-mono text-xs text-muted">0{{ index + 1 }}</span>
                   <span aria-hidden="true" class="ml-auto text-muted transition-[translate,color] duration-(--duration-fast) group-hover:translate-x-1 group-hover:text-primary">→</span>
@@ -290,10 +269,10 @@ const ciFeatures = [
             </div>
           </dl>
           <div class="mt-8 flex flex-wrap gap-3">
-            <MazBtn href="/guide/github-actions#the-relizy-action" color="contrast" outlined :start-icon="MazGithubRaw">
+            <MazBtn href="/guide/github-actions#the-relizy-action" color="contrast" outlined start-icon="github">
               GitHub Action
             </MazBtn>
-            <MazBtn href="/guide/gitlab-ci#the-relizy-component" color="transparent" :end-icon="MazArrowRight">
+            <MazBtn href="/guide/gitlab-ci#the-relizy-component" color="transparent" end-icon="arrow-right">
               GitLab component
             </MazBtn>
           </div>
@@ -330,14 +309,14 @@ const ciFeatures = [
         </div>
 
         <div class="mt-16 grid gap-4 lap-s:grid-cols-3">
-          <HomeFeatureCard :icon="MazSquares2x2" title="Monorepos, your way" href="/guide/version-modes" link="Version modes" class="lap-s:row-span-2">
+          <HomeFeatureCard icon="squares-2x2" title="Monorepos, your way" href="/guide/version-modes" link="Version modes" class="lap-s:row-span-2">
             Three version modes, dependents bumped with their dependencies, and <a href="/guide/version-groups" class="text-primary hover:underline">version groups</a> to release several sets of packages in one run.
             <template #visual>
               <HomeModes />
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazSparkles" title="Release notes written by AI" href="/guide/ai-changelog" link="AI changelogs">
+          <HomeFeatureCard icon="sparkles" title="Release notes written by AI" href="/guide/ai-changelog" link="AI changelogs">
             Claude Code or any AI SDK model rewrites the notes and the posts. References, links and contributors are kept, nothing is invented.
             <template #visual>
               <div class="grid gap-2 font-mono text-xs">
@@ -351,7 +330,7 @@ const ciFeatures = [
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazShieldCheck" title="Commits linted like your releases" href="/commitlint/" link="Commit linting">
+          <HomeFeatureCard icon="shield-check" title="Commits linted like your releases" href="/commitlint/" link="Commit linting">
             <code class="text-primary">relizy commitlint</code> uses your config: every commit shows its effect on the next release, every problem how to fix it.
             <template #visual>
               <div class="rounded-lg bg-terminal p-3 font-mono text-xs leading-relaxed text-terminal-fg">
@@ -364,23 +343,23 @@ const ciFeatures = [
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazEye" title="Preview before you ship" href="/cli/commands#global-options" link="Dry run">
+          <HomeFeatureCard icon="eye" title="Preview before you ship" href="/cli/commands#global-options" link="Dry run">
             <code class="text-primary">--dry-run</code> shows the versions, the changelogs, the release notes, the posts and the PR comment, without committing, publishing nor posting anything. The AI is only called with <code class="text-primary">--ai-preview</code>.
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazCommandLine" title="Made for your CI" href="/guide/ci-cd" link="CI/CD setup">
+          <HomeFeatureCard icon="command-line" title="Made for your CI" href="/guide/ci-cd" link="CI/CD setup">
             Collapsible logs on GitHub Actions and GitLab CI, a summary of the run, and outputs for the next steps.
             <template #visual>
               <pre class="overflow-x-auto rounded-lg bg-terminal p-3 font-mono text-xs text-terminal-fg"><span class="text-terminal-dim">- if: </span>steps.release.outputs.<span class="text-terminal-cyan">released</span> == <span class="text-terminal-green">'true'</span></pre>
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazChatBubbleLeftRight" title="The summary, everywhere" href="/guide/pr-comment" link="PR comments" wide class="lap-s:col-span-2">
+          <HomeFeatureCard icon="chat-bubble-left-right" title="The summary, everywhere" href="/guide/pr-comment" link="PR comments" wide class="lap-s:col-span-2">
             The end of the terminal, the summary of the CI run and the comment of the pull request: the same summary, with the links of what the release created.
             <template #visual>
               <div class="rounded-xl border border-divider bg-surface p-4 text-sm">
                 <p class="flex items-center gap-2 text-xs text-muted">
-                  <MazGithub class="size-4" /> relizy-bot commented
+                  <MazIcon icon="github" class="size-4" /> relizy-bot commented
                 </p>
                 <p class="mt-2 font-semibold">
                   🚀 Released acme 2.4.0
@@ -403,11 +382,11 @@ const ciFeatures = [
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazLockClosed" title="Private projects too" href="/guide/private-projects" link="Private projects">
+          <HomeFeatureCard icon="lock-closed" title="Private projects too" href="/guide/private-projects" link="Private projects">
             Version your apps, APIs and internal monorepos: changelogs, tags and releases, nothing published.
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazBeaker" title="Canary releases" href="/guide/prereleases#canary-releases" link="Canary releases">
+          <HomeFeatureCard icon="beaker" title="Canary releases" href="/guide/prereleases#canary-releases" link="Canary releases">
             Publish a test version of any branch, rolled back once published.
             <template #visual>
               <p class="inline-block rounded-md bg-surface px-2 py-1 font-mono text-xs text-primary">
@@ -416,11 +395,11 @@ const ciFeatures = [
             </template>
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazCpuChip" title="Ready for AI agents" href="/guide/ai-agents" link="AI agents">
+          <HomeFeatureCard icon="cpu-chip" title="Ready for AI agents" href="/guide/ai-agents" link="AI agents">
             <code class="text-primary">relizy mcp</code> lets Claude Code, Cursor or Codex preview a release, lint a commit and read the docs, read-only.
           </HomeFeatureCard>
 
-          <HomeFeatureCard :icon="MazCheckBadge" title="Know what a merge releases" href="/guide/merge-preview" link="Merge preview">
+          <HomeFeatureCard icon="check-badge" title="Know what a merge releases" href="/guide/merge-preview" link="Merge preview">
             Each pull request tells what its merge releases, and its check fails when the release would fail.
             <template #visual>
               <p class="flex items-center gap-2 rounded-md bg-surface px-2 py-1 font-mono text-xs">
@@ -449,7 +428,7 @@ const ciFeatures = [
             <MazBtn href="/config/overview" color="contrast" outlined>
               Explore the config
             </MazBtn>
-            <MazBtn href="/guide/ai-agents" color="transparent" :end-icon="MazArrowRight">
+            <MazBtn href="/guide/ai-agents" color="transparent" end-icon="arrow-right">
               Set up AI agents
             </MazBtn>
           </div>
@@ -475,8 +454,8 @@ const ciFeatures = [
               <code class="text-primary">relizy init</code> detects your setup. <code class="text-primary">relizy release</code> does the rest.
             </p>
             <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
-              <HomeCopyCommand command="pnpm dlx relizy init" />
-              <MazBtn href="/guide/getting-started" size="lg" :end-icon="MazArrowRight">
+              <HomeCopyCommand command="npx relizy init" />
+              <MazBtn href="/guide/getting-started" size="lg" end-icon="arrow-right">
                 Read the guide
               </MazBtn>
             </div>
@@ -502,7 +481,10 @@ const ciFeatures = [
     <!-- Footer -->
     <footer class="border-t border-divider px-6 py-10">
       <div class="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted tab-m:flex-row">
-        <p>Released under the MIT License · © Louis Mazel</p>
+        <p>
+          Released under the MIT License · ©
+          <a href="https://www.loicmazuel.com/" target="_blank" class="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">Loïc Mazuel</a>
+        </p>
         <p>
           Designed with
           <a href="https://maz-ui.com" target="_blank" class="font-semibold text-foreground underline-offset-4 hover:text-primary hover:underline">maz-ui</a>,

@@ -31,7 +31,7 @@ include:
   - component: gitlab.com/relizy/relizy/release@2
 ```
 
-- **Release type**: choose it in the form of Build > Pipelines > Run pipeline (`RELEASE_TYPE`, `auto` releases the bump computed from the commits), or as a variable of the manual job before running it. With the push trigger, `init` gives `when: on_success` to the component, and no `RELEASE_TYPE`.
+- **Release type**: choose it in the form of Build > Pipelines > Run pipeline (`RELEASE_TYPE`, `auto` passes no type flag: [`bump.type`](./../config/bump.md#type) of the config or of the profile applies, else the bump computed from the commits), or as a variable of the manual job before running it. With the push trigger, `init` gives `when: on_success` to the component, and no `RELEASE_TYPE`.
 - **Rules**: only on the default branch, and never on the release commit pushed by Relizy (the `skip-commit` input follows your [`templates.commitMessage`](./../config/commit-templates.md)). The tag pipelines have no `CI_COMMIT_BRANCH`: the job does not run there either.
 - **Stage**: `deploy` is a default stage of GitLab. When your `.gitlab-ci.yml` declares its own `stages:`, add `deploy` to them, or change the `stage` input.
 - **Build**: `publish.buildCmd` builds the packages before publishing (set by `init` from your `build` script).
@@ -56,18 +56,19 @@ include:
       args: --tag beta --preid beta
 ```
 
-| Input               | Default                | Description                                                                          |
-| ------------------- | ---------------------- | ------------------------------------------------------------------------------------ |
-| `stage`             | `deploy`               | Stage of the job                                                                     |
-| `image`             | `node:lts`             | Node.js image of the job                                                             |
-| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                  |
-| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence) |
-| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`          |
-| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again           |
-| `setup`             | `true`                 | Install the package manager and the dependencies                                     |
-| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                       |
-| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                     |
-| `working-directory` | `.`                    | Directory of the project                                                             |
+| Input               | Default                | Description                                                                                                              |
+| ------------------- | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `stage`             | `deploy`               | Stage of the job                                                                                                         |
+| `image`             | `node:lts`             | Node.js image of the job                                                                                                 |
+| `when`              | `manual`               | `manual` on demand, `on_success` at each push on the default branch                                                      |
+| `release-type`      | `auto`                 | `auto`, `patch`, `minor`, `major`, `prerelease`... (`RELEASE_TYPE` takes precedence)                                     |
+| `profile`           |                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...), as `--profile` (relizy 2.3.0 or later) |
+| `args`              |                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--dry-run`                                              |
+| `skip-commit`       | `^chore\(release\): `  | Regular expression of the release commit, which does not run the job again                                               |
+| `setup`             | `true`                 | Install the package manager and the dependencies                                                                         |
+| `package-manager`   | from the lockfile      | `npm`, `pnpm`, `yarn` or `bun`                                                                                           |
+| `relizy-version`    | the one of the project | Version of relizy, else the one of the component                                                                         |
+| `working-directory` | `.`                    | Directory of the project                                                                                                 |
 
 `@2` follows the latest relizy 2, `@2.3.0` stays on a version. The job is named `release`: a `release:` job of your `.gitlab-ci.yml` changes its other keys (`tags`, `cache`, `artifacts`...).
 
@@ -133,6 +134,8 @@ GitLab checks out the commit with the job token, which cannot push by default. B
 relizy cannot push the release commit and tags to "origin" from GitLab CI: the job token cannot push.
 Fix: add a GITLAB_TOKEN CI/CD variable (an access token with the "write_repository" and "api" scopes), or allow the job token to push in Settings > CI/CD > Job token permissions.
 ```
+
+When `GITLAB_TOKEN` is set but cannot push either (expired, without the `write_repository` scope, or a role that cannot push), the error says so: check the token, not the job token.
 
 Instead of pushing with `GITLAB_TOKEN`, you can allow the job token to push (Settings > CI/CD > Job token permissions, Allow Git push requests to the repository): its push starts no pipeline. A push with `GITLAB_TOKEN` starts the pipelines of the release commit and of the tags, which the rules of the `release` job skip.
 
@@ -204,7 +207,7 @@ release:
 
 ### Preview the Release on Merge Requests
 
-The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
+The `merge-preview` component adds a job to the merge request pipelines into the default branch, which runs [`relizy merge-preview`](./../cli/merge-preview.md): a comment tells what the merge releases, and the job fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
 
 ```yaml
 include:
@@ -233,3 +236,7 @@ canary:
 ```
 
 The merge requests of forks run in the pipelines of the fork, without the variables of your project: they get no canary.
+
+### Merge the Release into develop
+
+With a git flow, add the rule `sync: { rules: [{ from: 'main', to: ['develop'] }] }`: the release job of `main` merges it into `develop` once pushed, with `GITLAB_TOKEN` when the job token cannot push. No job of your own: see [Branch Sync](./branch-sync.md).

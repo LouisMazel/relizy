@@ -101,7 +101,7 @@ export function useReleaseGroupsRepository() {
         componentsVersionOnDisk: readVersion('packages/components'),
         dryRun,
       })
-      return Promise.resolve()
+      return Promise.resolve(['published' as const])
     })
     // The versions not published by the release (e.g. @scope/theme@6.18.0) are on the registry
     vi.mocked(isVersionPublished).mockResolvedValue(true)

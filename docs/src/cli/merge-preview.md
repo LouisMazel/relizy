@@ -20,7 +20,7 @@ relizy merge-preview init [--yes]
 It computes the release of the merge as `relizy release` will run it on the target branch, and writes nothing: no version, changelog, commit, tag, push, publish nor hook. In the pipeline of a pull request, it:
 
 - comments the pull request with the versions, the tags and the dist-tag the merge releases, and what the pull request brings;
-- sets the commit status `relizy/merge-preview`: `failure` when the release of the merge would fail (a version or a tag already taken, a squash commit that is not a Conventional Commit, the commitlint of the project);
+- on GitHub, sets the commit status `relizy/merge-preview`: `failure` when the release of the merge would fail (a version or a tag already taken, a squash commit that is not a Conventional Commit). The commits failing the commitlint of the project are only warnings;
 - exits with an error when the release of the merge would fail.
 
 Outside a pull request pipeline, it previews the next release of the current branch in the terminal. See [Merge Preview](./../guide/merge-preview.md).
@@ -47,7 +47,9 @@ Give it the options of the release job that change the release: the preview of `
 | `--token <token>`                                        | GitHub or GitLab token, for the comment and the commit status                                                    | [`tokens`](./../config/overview.md#tokens)                            |
 | `--publish-token <token>`                                | Registry token, for the versions already published                                                               | [`tokens.registry`](./../config/overview.md#tokens)                   |
 | `--no-comment`                                           | Do not comment the pull request                                                                                  | [`mergePreview.comment`](./../config/merge-preview.md#comment)        |
-| `--no-check`                                             | Do not set the commit status `relizy/merge-preview`                                                              | [`mergePreview.check`](./../config/merge-preview.md#check)            |
+| `--pr-comment-mode <mode>`                               | `recreate`: post the comment again at the bottom of the pull request at each run, instead of updating it         | [`prComment.mode`](./../config/pr-comment.md#mode)                    |
+| `--no-check`                                             | Do not set the commit status `relizy/merge-preview` (set on GitHub only by default)                              | [`mergePreview.check`](./../config/merge-preview.md#check)            |
+| `--no-commitlint`                                        | Do not lint the commits of the pull request                                                                      | [`mergePreview.commitlint`](./../config/merge-preview.md#commitlint)  |
 | `--report-json <file>`, `--report-markdown <file>`       | Write the report of the preview, or its markdown, to this file                                                   | [`release.report`](./../config/release.md#report)                     |
 
 The [global options](./commands.md) apply: `--config`, `--group`, `--pr-number` (the pull request to comment, when relizy cannot find it), `--log-level`.

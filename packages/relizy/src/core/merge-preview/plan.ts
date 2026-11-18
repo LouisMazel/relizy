@@ -1,6 +1,7 @@
 import type { BumpResult, PackageBase } from '../../types'
 import type { ResolvedRelizyConfig } from '../config'
 import type { ReleaseOverview } from '../release-overview'
+import type { PreviewChangelog } from '../release-preview'
 import type { MergePreviewContext } from './context'
 import type { MergePreviewSquash } from './squash'
 import { withSimulatedSquash } from '@relizy/core'
@@ -38,6 +39,8 @@ export interface MergePreviewOutcome {
   overview?: ReleaseOverview
   /** The released packages, with their reason */
   packages: MergePreviewPackage[]
+  /** The changelog entries of the release, when asked (`changelog` of `mergePreview()`) */
+  changelogs?: PreviewChangelog[]
 }
 
 /** What the merge of the pull request releases */
@@ -80,10 +83,11 @@ function toPreviewPackage(pkg: PackageBase & { oldVersion: string }, context?: M
   }
 }
 
-async function planOutcome({ config, context, planBump }: {
+async function planOutcome({ config, context, planBump, planChangelogs }: {
   config: ResolvedRelizyConfig
   context?: MergePreviewContext
   planBump: () => Promise<BumpResult>
+  planChangelogs?: (bumpResult: BumpResult) => Promise<PreviewChangelog[]>
 }): Promise<MergePreviewOutcome> {
   const bumpResult = await planBump()
   if (!bumpResult.bumped) {
@@ -94,6 +98,10 @@ async function planOutcome({ config, context, planBump }: {
     bumpResult,
     overview: getReleaseOverview({ config, bumpResult }),
     packages: bumpResult.bumpedPackages.map(pkg => toPreviewPackage(pkg, context)).toSorted((a, b) => a.name.localeCompare(b.name)),
+    // Read from the same commits as the bump: with the squash commit when it is simulated
+    ...(planChangelogs
+      ? { changelogs: await planChangelogs(bumpResult) }
+      : {}),
   }
 }
 
@@ -108,17 +116,29 @@ function getVersionsKey(outcome: MergePreviewOutcome): string {
  * when the merge squashes, on the commits otherwise, and both when the merge
  * method is unknown (the squash kept when it releases other versions).
  */
-export async function planMergePreview({ config, context, squash, planBump }: {
+export async function planMergePreview({ config, context, squash, planBump, planChangelogs }: {
   config: ResolvedRelizyConfig
   /** The pull request and its merge, none outside a pull request pipeline: the next release */
   context?: MergePreviewContext
   squash: MergePreviewSquash
   /** The bump of the release, planned without writing (`planBumps` of `relizy bump`) */
   planBump: () => Promise<BumpResult>
+  /** The changelog entries of a bump, without writing: none when not asked */
+  planChangelogs?: (bumpResult: BumpResult) => Promise<PreviewChangelog[]>
 }): Promise<MergePreviewPlan> {
   const plan = (simulateSquash: boolean) => simulateSquash && squash.squash
-    ? withSimulatedSquash(squash.squash, () => planOutcome({ config, context, planBump }))
-    : planOutcome({ config, context, planBump })
+    ? withSimulatedSquash(squash.squash, () => planOutcome({
+        config,
+        context,
+        planBump,
+        planChangelogs,
+      }))
+    : planOutcome({
+        config,
+        context,
+        planBump,
+        planChangelogs,
+      })
 
   if (squash.mode === 'squash') {
     return { squash, outcome: await plan(true) }

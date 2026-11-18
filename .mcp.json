@@ -10,11 +10,10 @@
     },
     "relizy": {
       "type": "stdio",
-      "command": "pnpm",
+      "command": "npx",
       "args": [
-        "exec",
-        "tsx",
-        "src/cli.ts",
+        "-y",
+        "relizy@2.2.1",
         "mcp"
       ]
     }

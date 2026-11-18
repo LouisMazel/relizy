@@ -1,9 +1,9 @@
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync } from 'node:fs'
-import { join, relative, sep } from 'node:path'
+import { join } from 'node:path'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { clearGitCache } from '@relizy/core'
+import { clearGitCache, getPosixRelativePath } from '@relizy/core'
 import { getExecCommand } from './npm-registry'
 import { reportProgress, reportStepNote } from './progress'
 
@@ -66,7 +66,7 @@ function readRootDependencies(cwd: string): Record<string, unknown> {
  * The changelogs, relative to `cwd` and quoted, for the command line
  */
 function quoteFiles(cwd: string, files: string[]): string {
-  return files.map(file => `"${relative(cwd, file).split(sep).join('/')}"`).join(' ')
+  return files.map(file => `"${getPosixRelativePath(cwd, file)}"`).join(' ')
 }
 
 /**

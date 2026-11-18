@@ -19,7 +19,7 @@ An agent cannot guess what the next release will do: which packages, which versi
 npx relizy mcp init
 ```
 
-It writes the Relizy rules for your agents and registers the MCP server in their configs: see [`relizy mcp init`](./../cli/mcp.md#relizy-mcp-init) for the files and the options. `relizy init` offers the same step when the project already uses an AI agent.
+It writes the Relizy rules for your agents and registers the MCP server in their configs: see [`relizy mcp init`](./../cli/mcp.md#relizy-mcp-init) for the files and the options. `relizy init` offers the same step.
 
 Install Relizy as a devDependency of the project: the agents then start the installed version in about a second, at the version of your lockfile.
 
@@ -27,10 +27,10 @@ Install Relizy as a devDependency of the project: the agents then start the inst
 
 | Tool                | What it answers                                                                                                                                                                                                                                     |
 | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `preview_release`   | What the next release bumps: the version of each package and group, and why (its commits, a bumped dependency, a peer range rejecting the new version, another version group)                                                                       |
-| `preview_changelog` | The changelog entries the release would write                                                                                                                                                                                                       |
+| `preview_release`   | What the next release bumps: the version of each package and group, and why (its commits, a bumped dependency, a peer range rejecting the new version, another version group), for a [profile](./../config/profiles.md) with `profile`              |
+| `preview_changelog` | The changelog entries the release would write, for a profile with `profile`                                                                                                                                                                         |
 | `lint_commit`       | Lints a message before committing: problems and fixes, suggested header, bump, packages and changelog entry. Also lints the commits of a branch                                                                                                     |
-| `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release and resolved config (secrets masked)                                                                                                                                 |
+| `get_project`       | Config files, version mode or groups, packages, last tag, steps of the release, release profiles and resolved config (secrets masked)                                                                                                               |
 | `get_config_option` | Type, default and description of any option of `relizy.config.ts`                                                                                                                                                                                   |
 | `search_docs`       | Search in the guides, the config, the CLI, the commitlint docs and the API of `@relizy/core`                                                                                                                                                        |
 | `get_doc`           | Read a page of the docs (`core/<domain>` for `@relizy/core`: each export with its signature, options and example), or some of its sections                                                                                                          |
@@ -124,7 +124,7 @@ Rules you edited by hand are no longer updated: delete the file (or the `AGENTS.
 
 The rules written by `relizy mcp init`:
 
-<!--@include: ./../../../packages/relizy/src/mcp/content/rules.md-->
+<!--@include: ./../../../packages/relizy/src/core/mcp/content/rules.md-->
 
 ## Troubleshooting
 

@@ -18,7 +18,11 @@ relizy pr-comment
 
 Comments the versions, the tags, the packages and the install commands of the project, read from the `package.json` files (see [The Comment of `relizy pr-comment`](./../guide/pr-comment.md#the-comment-of-relizy-pr-comment)). `relizy release` posts the summary of the release instead. Without pull request, the command warns and posts nothing.
 
-The command has no option of its own. The [global options](./commands.md) apply:
+Its option:
+
+- `--pr-comment-mode <mode>`: `update` the previous comment, `append` a new one, or `recreate` it (a new comment, the previous one deleted), over [`prComment.mode`](./../config/pr-comment.md#mode).
+
+The [global options](./commands.md) apply:
 
 - `--pr-number <number>`: the pull request or merge request to comment, when relizy cannot find it (a pull request from a fork, a GitLab merged results pipeline, see [Finding the Pull Request](./../guide/pr-comment.md#finding-the-pull-request));
 - `--dry-run`: find the pull request (the API of the provider is called) and show the comment, without posting it;

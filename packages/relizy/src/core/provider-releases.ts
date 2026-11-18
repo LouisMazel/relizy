@@ -282,6 +282,7 @@ export async function postProviderReleases(provider: ReleaseProvider, options: P
 
     const config = await loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         from: options.from,
@@ -305,7 +306,7 @@ export async function postProviderReleases(provider: ReleaseProvider, options: P
         dryRun,
         bumpResult: options.bumpResult,
         force,
-        suffix: options.suffix,
+        suffix: options.suffix ?? config.bump.suffix,
       })
     }
 
@@ -327,7 +328,7 @@ export async function postProviderReleases(provider: ReleaseProvider, options: P
     const rootPackage = options.bumpResult?.rootPackage || await getRootPackage({
       config,
       force,
-      suffix: options.suffix,
+      suffix: options.suffix ?? config.bump.suffix,
       changelog: true,
       from,
       to,

@@ -1,3 +1,4 @@
+import process from 'node:process'
 import { confirm, isCancel, select, text } from '@clack/prompts'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { setInteractiveTerminal } from '../../../tests/mocks'
@@ -82,6 +83,20 @@ describe('Given the prompts', () => {
         .toThrow('"Release?" needs an answer, but the terminal is not interactive: run with --yes to confirm it in advance')
 
       restore()
+    })
+
+    it('Then fails with RELIZY_REPORTER=json even in a terminal: stdout carries the events', () => {
+      const restore = setInteractiveTerminal(true)
+      process.env.RELIZY_REPORTER = 'json'
+
+      try {
+        expect(() => assertInteractivePrompt({ message: 'OTP?', whenNotInteractive: 'pass the one-time password with --otp' }))
+          .toThrow('"OTP?" needs an answer, but RELIZY_REPORTER=json keeps stdout for the events: pass the one-time password with --otp')
+      }
+      finally {
+        delete process.env.RELIZY_REPORTER
+        restore()
+      }
     })
 
     it('Then lets the prompt run in an interactive terminal', () => {

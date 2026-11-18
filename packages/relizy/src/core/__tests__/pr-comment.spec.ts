@@ -687,7 +687,7 @@ describe('Given postPrComment function', () => {
 
   const commentBody = '## Release\n\n<!-- relizy-pr-comment -->\nSome content'
 
-  function createGitHubConfig(mode: 'append' | 'update' = 'append') {
+  function createGitHubConfig(mode: 'append' | 'update' | 'recreate' = 'append') {
     return createMockConfig({
       repo: {
         provider: 'github',
@@ -814,6 +814,83 @@ describe('Given postPrComment function', () => {
     })
   })
 
+  describe('When mode is recreate and existing comment is found', () => {
+    function mockResponses(createOk = true) {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { id: 100, body: 'unrelated comment' },
+            { id: 200, body: `Some text\n${PR_COMMENT_MARKER}\nOld content` },
+          ]),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: createOk,
+          json: () => Promise.resolve({ id: 300 }),
+          text: () => Promise.resolve('Forbidden'),
+        } as Response)
+      if (createOk) {
+        vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response)
+      }
+    }
+
+    it('Then posts a new comment, then deletes the previous one', async () => {
+      mockResponses()
+
+      const result = await postPrComment({
+        config: createGitHubConfig('recreate'),
+        pr: githubPr,
+        body: commentBody,
+      })
+
+      expect(result).toBe(true)
+      expect(vi.mocked(fetch).mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
+        ['https://api.github.com/repos/user/repo/issues/42/comments?per_page=100', 'GET'],
+        ['https://api.github.com/repos/user/repo/issues/42/comments', 'POST'],
+        ['https://api.github.com/repos/user/repo/issues/comments/200', 'DELETE'],
+      ])
+    })
+
+    it('Then keeps the previous comment when the new one fails to post', async () => {
+      mockResponses(false)
+
+      const result = await postPrComment({
+        config: createGitHubConfig('recreate'),
+        pr: githubPr,
+        body: commentBody,
+      })
+
+      expect(result).toBe(false)
+      expect(fetch).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+    })
+  })
+
+  describe('When mode is recreate and no existing comment is found', () => {
+    it('Then posts a new comment and deletes nothing', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { id: 100, body: 'unrelated comment' },
+          ]),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 300 }),
+        } as Response)
+
+      const result = await postPrComment({
+        config: createGitHubConfig('recreate'),
+        pr: githubPr,
+        body: commentBody,
+      })
+
+      expect(result).toBe(true)
+      expect(fetch).toHaveBeenCalledTimes(2)
+      expect(fetch).not.toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ method: 'DELETE' }))
+    })
+  })
+
   describe('When the pull request has a merge preview and a comment of a canary', () => {
     const comments = [
       { id: 100, body: `${PR_COMMENT_MARKER}\nCanary` },
@@ -870,6 +947,37 @@ describe('Given postPrComment function', () => {
         method: 'PATCH',
         body: JSON.stringify({ body: commentBody }),
       }))
+    })
+
+    it('Then the merge preview posts its comment again and deletes its previous one in recreate mode', async () => {
+      mockComments()
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response)
+
+      await postPrComment({
+        config: createGitHubConfig('recreate'),
+        pr: githubPr,
+        body: `${MERGE_PREVIEW_MARKER}\nNew preview`,
+        marker: MERGE_PREVIEW_MARKER,
+      })
+
+      expect(vi.mocked(fetch).mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
+        ['https://api.github.com/repos/user/repo/issues/42/comments?per_page=100', 'GET'],
+        ['https://api.github.com/repos/user/repo/issues/42/comments', 'POST'],
+        ['https://api.github.com/repos/user/repo/issues/comments/200', 'DELETE'],
+      ])
+    })
+
+    it('Then the release of the merge replaces the merge preview in recreate mode', async () => {
+      mockComments()
+      vi.mocked(fetch).mockResolvedValueOnce({ ok: true } as Response)
+
+      await postPrComment({
+        config: createGitHubConfig('recreate'),
+        pr: { ...githubPr, ofCommit: true },
+        body: commentBody,
+      })
+
+      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/issues/comments/200', expect.objectContaining({ method: 'DELETE' }))
     })
   })
 
@@ -1029,6 +1137,44 @@ describe('Given postPrComment function', () => {
         expect.stringContaining('merge_requests/10/notes'),
         expect.objectContaining({ method: 'POST' }),
       )
+    })
+  })
+
+  describe('When provider is gitlab and mode is recreate', () => {
+    it('Then posts a new note, then deletes the previous one', async () => {
+      vi.mocked(fetch)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve([
+            { id: 55, body: `${PR_COMMENT_MARKER}\nOld content` },
+          ]),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+          json: () => Promise.resolve({ id: 56 }),
+        } as Response)
+        .mockResolvedValueOnce({
+          ok: true,
+        } as Response)
+
+      const config = createMockConfig({
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'test-token' },
+        prComment: { mode: 'recreate' },
+      })
+
+      const result = await postPrComment({
+        config,
+        pr: { number: 10, url: 'https://gitlab.com/user/repo/-/merge_requests/10', provider: 'gitlab' },
+        body: commentBody,
+      })
+
+      expect(result).toBe(true)
+      expect(vi.mocked(fetch).mock.calls.map(([url, init]) => [url, init?.method])).toEqual([
+        ['https://gitlab.com/api/v4/projects/user%2Frepo/merge_requests/10/notes?per_page=100', 'GET'],
+        ['https://gitlab.com/api/v4/projects/user%2Frepo/merge_requests/10/notes', 'POST'],
+        ['https://gitlab.com/api/v4/projects/user%2Frepo/merge_requests/10/notes/55', 'DELETE'],
+      ])
     })
   })
 

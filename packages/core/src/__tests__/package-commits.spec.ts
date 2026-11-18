@@ -262,4 +262,21 @@ describe('Given isAllowedCommit function', () => {
       changelog: true,
     })).toBe(true)
   })
+
+  it('Then keeps the chore(deps) commits with includeDeps, never the chore(release) ones', () => {
+    const type = { title: 'Chore', semver: 'patch' as const }
+
+    expect(isAllowedCommit({
+      commit: { ...feat, type: 'chore', scope: 'deps' },
+      type,
+      changelog: false,
+      includeDeps: true,
+    })).toBe(true)
+    expect(isAllowedCommit({
+      commit: { ...feat, type: 'chore', scope: 'release' },
+      type,
+      changelog: true,
+      includeDeps: true,
+    })).toBe(false)
+  })
 })

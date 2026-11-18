@@ -1,4 +1,4 @@
-import type { GitProvider } from '../types'
+import type { GitProvider, PrCommentMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, getCurrentGitBranch, GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from '@relizy/core'
@@ -433,6 +433,36 @@ async function updateGitHubComment({
   return true
 }
 
+async function deleteGitHubComment({
+  token,
+  repo,
+  commentId,
+  domain,
+}: {
+  token: string
+  repo: string
+  commentId: number
+  domain?: string
+}): Promise<boolean> {
+  const url = `${getGitHubApiBase(domain)}/repos/${repo}/issues/comments/${commentId}`
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github.v3+json',
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to delete the previous PR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
 export function getGitLabApiBase(domain?: string): string {
   const gitlabDomain = domain || 'gitlab.com'
   return `https://${gitlabDomain}/api/v4`
@@ -540,6 +570,38 @@ async function updateGitLabComment({
   return true
 }
 
+async function deleteGitLabComment({
+  token,
+  repo,
+  mrNumber,
+  noteId,
+  domain,
+}: {
+  token: string
+  repo: string
+  mrNumber: number
+  noteId: number
+  domain?: string
+}): Promise<boolean> {
+  const projectPath = encodeURIComponent(repo)
+  const url = `${getGitLabApiBase(domain)}/projects/${projectPath}/merge_requests/${mrNumber}/notes/${noteId}`
+
+  const response = await fetch(url, {
+    method: 'DELETE',
+    headers: {
+      'PRIVATE-TOKEN': token,
+    },
+  })
+
+  if (!response.ok) {
+    const errorText = await response.text()
+    logger.warn(`Failed to delete the previous MR comment (${response.status}): ${errorText}`)
+    return false
+  }
+
+  return true
+}
+
 async function postGitLabMrComment({
   token,
   repo,
@@ -553,33 +615,33 @@ async function postGitLabMrComment({
   repo: string
   pr: PullRequestInfo
   body: string
-  mode: string
+  mode: PrCommentMode
   domain?: string
   markers: string[]
 }): Promise<boolean> {
-  if (mode === 'update') {
-    const existingNoteId = await findExistingGitLabComment({
-      token,
-      repo,
-      mrNumber: pr.number,
-      domain,
-      markers,
-    })
-
-    if (existingNoteId) {
-      const updated = await updateGitLabComment({
+  const existingNoteId = mode === 'append'
+    ? null
+    : await findExistingGitLabComment({
         token,
         repo,
         mrNumber: pr.number,
-        noteId: existingNoteId,
-        body,
         domain,
+        markers,
       })
-      if (updated) {
-        logger.success(`Updated comment on MR !${pr.number}`)
-      }
-      return updated
+
+  if (mode === 'update' && existingNoteId) {
+    const updated = await updateGitLabComment({
+      token,
+      repo,
+      mrNumber: pr.number,
+      noteId: existingNoteId,
+      body,
+      domain,
+    })
+    if (updated) {
+      logger.success(`Updated comment on MR !${pr.number}`)
     }
+    return updated
   }
 
   const created = await createGitLabComment({
@@ -592,6 +654,18 @@ async function postGitLabMrComment({
   if (created) {
     logger.success(`Posted comment on MR !${pr.number}`)
   }
+
+  // Deleted once the new one is posted: a failed post keeps the previous comment
+  if (created && existingNoteId) {
+    await deleteGitLabComment({
+      token,
+      repo,
+      mrNumber: pr.number,
+      noteId: existingNoteId,
+      domain,
+    })
+  }
+
   return created
 }
 
@@ -608,32 +682,32 @@ async function postGitHubPrComment({
   repo: string
   pr: PullRequestInfo
   body: string
-  mode: string
+  mode: PrCommentMode
   domain?: string
   markers: string[]
 }): Promise<boolean> {
-  if (mode === 'update') {
-    const existingCommentId = await findExistingGitHubComment({
-      token,
-      repo,
-      prNumber: pr.number,
-      domain,
-      markers,
-    })
-
-    if (existingCommentId) {
-      const updated = await updateGitHubComment({
+  const existingCommentId = mode === 'append'
+    ? null
+    : await findExistingGitHubComment({
         token,
         repo,
-        commentId: existingCommentId,
-        body,
+        prNumber: pr.number,
         domain,
+        markers,
       })
-      if (updated) {
-        logger.success(`Updated comment on PR #${pr.number}`)
-      }
-      return updated
+
+  if (mode === 'update' && existingCommentId) {
+    const updated = await updateGitHubComment({
+      token,
+      repo,
+      commentId: existingCommentId,
+      body,
+      domain,
+    })
+    if (updated) {
+      logger.success(`Updated comment on PR #${pr.number}`)
     }
+    return updated
   }
 
   const created = await createGitHubComment({
@@ -646,15 +720,27 @@ async function postGitHubPrComment({
   if (created) {
     logger.success(`Posted comment on PR #${pr.number}`)
   }
+
+  // Deleted once the new one is posted: a failed post keeps the previous comment
+  if (created && existingCommentId) {
+    await deleteGitHubComment({
+      token,
+      repo,
+      commentId: existingCommentId,
+      domain,
+    })
+  }
+
   return created
 }
 
 /**
- * Post the comment of a release on its pull request, or update the comment
- * holding its marker (`prComment.mode: 'update'`). The release of a merge
+ * Post the comment of a release on its pull request, update the comment
+ * holding its marker (`prComment.mode: 'update'`), or post a new one and
+ * delete the previous (`'recreate'`). The release of a merge
  * rewrites the merge preview of the pull request: the prediction becomes the
- * result. The merge preview updates its own comment, apart from the comments
- * of the releases (canary, prerelease).
+ * result. The merge preview updates (or recreates) its own comment, apart
+ * from the comments of the releases (canary, prerelease).
  */
 export async function postPrComment({
   config,
@@ -671,8 +757,10 @@ export async function postPrComment({
   const repo = config.repo?.repo
   const domain = config.repo?.domain
   const isMergePreview = marker === MERGE_PREVIEW_MARKER
-  // The merge preview is always updated in place: it is recomputed at each push
-  const mode = isMergePreview ? 'update' : config.prComment.mode
+  // The merge preview keeps a single comment, recomputed at each push: updated in place, or recreated
+  const mode: PrCommentMode = isMergePreview && config.prComment.mode === 'append'
+    ? 'update'
+    : config.prComment.mode
   const markers = !isMergePreview && pr.ofCommit
     ? [MERGE_PREVIEW_MARKER, marker]
     : [marker]

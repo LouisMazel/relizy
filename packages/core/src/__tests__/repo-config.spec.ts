@@ -117,6 +117,27 @@ describe('Given getRepoConfig', () => {
     })
   })
 
+  describe('When the repository is in subgroups (GitLab)', () => {
+    const nested = { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'group/sub1/sub2/sub3/my-project' }
+
+    it.each([
+      { input: 'git@gitlab.example.com:group/sub1/sub2/sub3/my-project.git', output: nested },
+      { input: 'git@gitlab.example.com:group/sub1/sub2/sub3/my-project', output: nested },
+      { input: 'https://gitlab.example.com/group/sub1/sub2/sub3/my-project.git', output: nested },
+      { input: 'ssh://git@gitlab.example.com/group/sub1/sub2/sub3/my-project.git', output: nested },
+      {
+        input: 'git@gitlab.example.com:my.group/sub.team/my.project.git',
+        output: { domain: 'gitlab.example.com', provider: 'gitlab', repo: 'my.group/sub.team/my.project' },
+      },
+      {
+        input: 'gitlab:group/sub/project',
+        output: { domain: 'gitlab.com', provider: 'gitlab', repo: 'group/sub/project' },
+      },
+    ])('Then $input keeps the whole path', ({ input, output }) => {
+      expect(getRepoConfig(input)).toStrictEqual(output)
+    })
+  })
+
   describe('When the URL is empty or invalid', () => {
     it('Then everything is undefined', () => {
       const empty = { provider: undefined, repo: undefined, domain: undefined }
@@ -125,6 +146,8 @@ describe('Given getRepoConfig', () => {
       expect(getRepoConfig(undefined)).toStrictEqual(empty)
       expect(getRepoConfig('')).toStrictEqual(empty)
       expect(getRepoConfig('unjs')).toStrictEqual(empty)
+      // A bare shorthand is `owner/name`: GitHub has no subgroups
+      expect(getRepoConfig('group/sub/project')).toStrictEqual(empty)
     })
   })
 })
@@ -224,6 +247,38 @@ describe('Given resolveRepoConfig', () => {
       execSync('git init -q && git remote add origin git@gitlab.com:unjs/changelogen.git', { cwd: root })
 
       expect(await resolveRepoConfig(root)).toStrictEqual(gitlab)
+    })
+  })
+
+  describe('When the origin remote is in GitLab subgroups', () => {
+    it('Then it keeps the whole path', async () => {
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ name: 'a' }))
+      execSync('git init -q && git remote add origin git@gitlab.example.com:group/sub1/sub2/my-project.git', { cwd: root })
+
+      expect(await resolveRepoConfig(root)).toStrictEqual({ provider: 'gitlab', repo: 'group/sub1/sub2/my-project', domain: 'gitlab.example.com' })
+    })
+  })
+
+  describe('When the repository is found but not recognized', () => {
+    it('Then it warns with the source and the URL', async () => {
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ repository: 'unjs' }))
+      const logger = {
+        warn: vi.fn(),
+      }
+
+      expect(await resolveRepoConfig(root, { logger })).toStrictEqual({ provider: undefined, repo: undefined, domain: undefined })
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('the `repository` field of package.json (unjs)'))
+    })
+
+    it('Then it does not warn when the repository is recognized', async () => {
+      writeFileSync(join(root, 'package.json'), JSON.stringify({ repository: 'unjs/changelogen' }))
+      const logger = {
+        warn: vi.fn(),
+      }
+
+      await resolveRepoConfig(root, { logger })
+
+      expect(logger.warn).not.toHaveBeenCalled()
     })
   })
 

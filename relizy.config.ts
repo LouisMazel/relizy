@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import process from 'node:process'
 import { defineConfig } from './packages/relizy/src'
-import { generateAgentDocs } from './packages/relizy/src/mcp/knowledge/generate'
+import { generateAgentDocs } from './packages/relizy/src/core/mcp/knowledge/generate'
 
 export default defineConfig({
   // The name of the published package, not the one of the private root of the repository
@@ -67,10 +67,19 @@ export default defineConfig({
     twitter: { enabled: true },
   },
   prComment: {
-    mode: 'update',
+    mode: 'recreate',
   },
   commitlint: {
     scopes: ['docs', 'release', 'deps'],
+  },
+  // A release of main (Release Latest) is merged into develop, with its tags
+  sync: {
+    rules: [
+      {
+        from: 'main',
+        to: ['develop'],
+      },
+    ],
   },
   mergePreview: {
     // The pull requests are merged with a merge commit, never squashed

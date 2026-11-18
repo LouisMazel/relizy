@@ -2,6 +2,7 @@ import type { BumpResultTruthy, HookConfig, HookContext, PackageBase } from '../
 import type { ResolvedRelizyConfig } from './config'
 import { execPromise, logger } from '@maz-ui/node'
 import { clearGitCache } from '@relizy/core'
+import { isRelizyCancelError } from './errors'
 import { reportProgress } from './progress'
 import { getReleaseOverview } from './release-overview'
 import { getPackages } from './repo'
@@ -19,6 +20,20 @@ export function getHookContext(config: ResolvedRelizyConfig, bumpResult: BumpRes
 }
 
 /**
+ * The error of a hook, with the hook it comes from: `before:publish hook failed: ...`
+ */
+function getHookError(hook: keyof HookConfig, error: unknown): unknown {
+  if (isRelizyCancelError(error)) {
+    return error
+  }
+
+  const message = error instanceof Error
+    ? error.message
+    : String(error)
+  return new Error(`${hook} hook failed: ${message}`, { cause: error })
+}
+
+/**
  * Execute a hook
  */
 export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizyConfig, dryRun: boolean, params?: any) {
@@ -31,7 +46,13 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
 
   if (typeof hookInput === 'function') {
     logger.info(`Executing hook ${hook}`)
-    const result = await hookInput(config, dryRun, params)
+    let result
+    try {
+      result = await hookInput(config, dryRun, params)
+    }
+    catch (error) {
+      throw getHookError(hook, error)
+    }
     // A hook can commit, tag or check out
     clearGitCache()
 
@@ -53,6 +74,8 @@ export async function executeHook(hook: keyof HookConfig, config: ResolvedRelizy
       cwd: config.cwd,
       noStderr: true,
       noStdout: true,
+    }).catch((error) => {
+      throw getHookError(hook, error)
     })
     clearGitCache()
 

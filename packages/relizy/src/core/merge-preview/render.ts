@@ -149,6 +149,9 @@ function formatFooter(result: MergePreviewResult): string {
   return `<sub>${parts.join(' · ')}</sub>`
 }
 
+const COMMITLINT_TITLE = 'Commits not following the commit convention'
+const COMMITLINT_NOTE = 'They fail the commitlint of the project, not the release: they do not block the merge.'
+
 /**
  * The merge preview in markdown: the comment of the pull request, the summary
  * of the CI job
@@ -175,6 +178,10 @@ export function formatMergePreviewMarkdown(result: MergePreviewResult): string {
       ? 'The release of the merge would fail'
       : 'The next release would fail'
     lines.push('', `#### ❌ ${failing}`, '', ...checks.problems.map(problem => `- ${problem.message}`))
+  }
+
+  if (checks.commitlint.length > 0) {
+    lines.push('', `#### ⚠️ ${COMMITLINT_TITLE}`, '', COMMITLINT_NOTE, '', ...checks.commitlint.map(problem => `- ${problem.message}`))
   }
 
   if (checks.warnings.length > 0) {
@@ -277,8 +284,9 @@ function getTerminalFooter(result: MergePreviewResult): string {
 
 /**
  * The merge preview in the terminal: a box per version group (and per merge
- * method when it changes the release), the problems, the warnings, and where it
- * was computed. The markdown is for the pull request and the CI job summary.
+ * method when it changes the release), the problems, the commits failing the
+ * commitlint, the warnings, and where it was computed. The markdown is for the
+ * pull request and the CI job summary.
  */
 export function getMergePreviewTerminalOutput(result: MergePreviewResult): Required<Pick<CommandOutcome, 'notes' | 'warnings' | 'details'>> {
   const { plan, checks } = result
@@ -317,6 +325,14 @@ export function getMergePreviewTerminalOutput(result: MergePreviewResult): Requi
         : 'The next release would fail',
       lines: checks.problems.map(problem => `✖ ${problem.message}`),
       failed: true,
+    })
+  }
+
+  if (checks.commitlint.length > 0) {
+    notes.push({
+      title: COMMITLINT_TITLE,
+      lines: checks.commitlint.map(problem => `▲ ${problem.message}`),
+      footer: [COMMITLINT_NOTE],
     })
   }
 

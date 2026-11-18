@@ -3,8 +3,37 @@ import type { BumpResultTruthy, ChangelogConfig, ChangelogOptions, PackageBase }
 import { logger } from '@maz-ui/node'
 import { aggregateIndependentChangelogs, plural, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, executeFormatCmd, executeHook, generateChangelog, getPackagesOrBumpedPackages, getReleaseTargets, getRootPackage, loadRelizyConfig, readPackageJson, resolveTags, writeChangelogToFile } from '../core'
+import { runWithEvents } from '../core/events'
+import { relativePath } from '../core/package-sets'
 import { showPreview } from '../core/progress'
+import { clearChangelogFiles, recordChangelogFile, takeChangelogFiles } from '../core/step-data'
 import { runCommand } from './run-command'
+
+/**
+ * Write the changelog entry of a package (only shown in dry-run), recorded for
+ * the data of the step: its path
+ */
+function writeChangelog({ config, pkg, changelog, dryRun }: {
+  config: ResolvedRelizyConfig
+  pkg: Parameters<typeof writeChangelogToFile>[0]['pkg']
+  changelog: string
+  dryRun: boolean
+}): string {
+  const path = writeChangelogToFile({
+    cwd: config.cwd,
+    pkg,
+    changelog,
+    dryRun,
+  })
+
+  recordChangelogFile({
+    file: relativePath(config.cwd, path),
+    packageName: pkg.name,
+    content: changelog,
+  })
+
+  return path
+}
 
 async function generateIndependentRootChangelog({
   packages,
@@ -46,8 +75,8 @@ async function generateIndependentRootChangelog({
     throw new Error('Failed to read root package.json')
   }
 
-  const changelogPath = writeChangelogToFile({
-    cwd: config.cwd,
+  const changelogPath = writeChangelog({
+    config,
     pkg: rootPackageRead,
     changelog: aggregatedChangelog,
     dryRun,
@@ -119,8 +148,8 @@ async function generateSimpleRootChangelog({
     newVersion,
   })
 
-  const changelogPath = writeChangelogToFile({
-    cwd: config.cwd,
+  const changelogPath = writeChangelog({
+    config,
     changelog: rootChangelog,
     pkg: rootPackage,
     dryRun,
@@ -211,8 +240,8 @@ async function generateChangelogs({
 
     const changelog = await getPackageChangelog(pkg)
 
-    written.push(writeChangelogToFile({
-      cwd: config.cwd,
+    written.push(writeChangelog({
+      config,
       pkg,
       changelog,
       dryRun,
@@ -231,7 +260,7 @@ async function generateChangelogs({
 
 export function changelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return withGitCache(() => runChangelog(options))
+  return runWithEvents(options.onProgress, () => withGitCache(() => runChangelog(options)))
 }
 
 function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
@@ -243,6 +272,7 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
     options,
     loadConfig: () => loadRelizyConfig({
       configFile: options.configName,
+      profile: options.profile,
       baseConfig: options.config,
       overrides: {
         from: options.from,
@@ -264,10 +294,13 @@ function runChangelog(options: Partial<ChangelogOptions> = {}): Promise<void> {
       await executeHook('before:changelog', config, dryRun, hookContext)
 
       const generatedCount = await ui.step({
+        name: 'changelog',
         running: 'Writing the changelogs',
         done: count => count === 0
           ? 'No changelog to write'
           : `${plural(count, 'changelog')} written`,
+        data: takeChangelogFiles,
+        failedData: takeChangelogFiles,
         run: () => writeChangelogs({ config, options, dryRun }),
       })
 
@@ -292,6 +325,7 @@ async function writeChangelogs({ config, options, dryRun }: {
   dryRun: boolean
 }): Promise<number> {
   logger.start('Start generating changelogs')
+  clearChangelogFiles()
 
   assertVersionGroupsOption({ config, groups: options.groups })
 
@@ -312,7 +346,7 @@ async function writeChangelogs({ config, options, dryRun }: {
       bumpResult: target.bumpResult,
       dryRun,
       force: options.force ?? false,
-      suffix: options.suffix,
+      suffix: options.suffix ?? target.config.bump.suffix,
     }))
   }
 

@@ -6,7 +6,7 @@ import { basename, join } from 'node:path'
 import { detectGitProvider, getPackageManagerWorkspaces, getPackageManagerWorkspaceSources, GLOB_IGNORE } from '@relizy/core'
 import fastGlob from 'fast-glob'
 import * as semver from 'semver'
-import { addAgentRulesCommand } from '../mcp/agents'
+import { addAgentRulesCommand } from './agents'
 import { findChangelogFormatter } from './changelog-format'
 import { HOOK_INSTALL_COMMAND } from './commitlint'
 import { getDefaultConfig } from './config'
@@ -621,18 +621,23 @@ export function updateRootPackageJson({ cwd, fields = {}, scripts = {} }: {
 }
 
 /** Command installing relizy as a dev dependency of the root package */
-export function getInstallCommand(detection: ProjectDetection): string {
+/** The command adding relizy to the devDependencies of the root package.json, at `version` when given */
+export function getInstallCommand(detection: ProjectDetection, version?: string): string {
+  const relizy = version
+    ? `relizy@^${version}`
+    : 'relizy'
+
   switch (detection.packageManager) {
     case 'pnpm':
       return existsSync(join(detection.cwd, 'pnpm-workspace.yaml'))
-        ? 'pnpm add -D -w relizy'
-        : 'pnpm add -D relizy'
+        ? `pnpm add -D -w ${relizy}`
+        : `pnpm add -D ${relizy}`
     case 'yarn':
-      return 'yarn add -D relizy'
+      return `yarn add -D ${relizy}`
     case 'bun':
-      return 'bun add -d relizy'
+      return `bun add -d ${relizy}`
     default:
-      return 'npm install -D relizy'
+      return `npm install -D ${relizy}`
   }
 }
 

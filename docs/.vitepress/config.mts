@@ -2,6 +2,7 @@ import type { HeadConfig, PageData, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CSS_ID, generateCSS } from '@maz-ui/themes/utils'
+import { MazUiIcons } from '@maz-ui/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
@@ -60,6 +61,7 @@ const guideSidebar = [
       { text: 'GitHub Actions', link: '/guide/github-actions' },
       { text: 'GitLab CI', link: '/guide/gitlab-ci' },
       { text: 'Merge Preview', link: '/guide/merge-preview' },
+      { text: 'Branch Sync', link: '/guide/branch-sync' },
       { text: 'Trusted Publishing (OIDC)', link: '/guide/trusted-publishing' },
     ],
   },
@@ -90,12 +92,14 @@ const configSidebar = [
       { text: 'Bump', link: '/config/bump' },
       { text: 'Changelog', link: '/config/changelog' },
       { text: 'Publish', link: '/config/publish' },
+      { text: 'Profiles', link: '/config/profiles' },
       { text: 'Templates', link: '/config/commit-templates' },
       { text: 'Hooks', link: '/config/hooks' },
       { text: 'AI', link: '/config/ai' },
       { text: 'Social', link: '/config/social' },
       { text: 'PR Comment', link: '/config/pr-comment' },
       { text: 'Merge Preview', link: '/config/merge-preview' },
+      { text: 'Sync', link: '/config/sync' },
     ],
   },
 ]
@@ -112,6 +116,7 @@ const cliSidebar = [
       { text: 'publish', link: '/cli/publish' },
       { text: 'provider-release', link: '/cli/provider-release' },
       { text: 'social', link: '/cli/social' },
+      { text: 'sync', link: '/cli/sync' },
       { text: 'pr-comment', link: '/cli/pr-comment' },
       { text: 'merge-preview', link: '/cli/merge-preview' },
       { text: 'commitlint', link: '/commitlint/cli' },
@@ -145,10 +150,15 @@ const apiSidebar = [
       { text: 'publish()', link: '/api/publish' },
       { text: 'providerRelease()', link: '/api/provider-release' },
       { text: 'social()', link: '/api/social' },
+      { text: 'sync()', link: '/api/sync' },
       { text: 'prComment()', link: '/api/pr-comment' },
       { text: 'mergePreview()', link: '/api/merge-preview' },
       { text: 'commitlint()', link: '/api/commitlint' },
       { text: 'loadRelizyConfig()', link: '/api/load-relizy-config' },
+      { text: 'previewRelease()', link: '/api/preview-release' },
+      { text: 'getConfigOptions()', link: '/api/config-options' },
+      { text: 'checkMigration()', link: '/api/check-migration' },
+      { text: 'Progress events', link: '/api/progress-events' },
     ],
   },
 ]
@@ -213,7 +223,7 @@ export default defineConfig({
     ],
     [
       'meta',
-      { name: 'author', content: 'Louis Mazel' },
+      { name: 'author', content: 'Loïc Mazuel' },
     ],
     [
       'meta',
@@ -273,8 +283,9 @@ export default defineConfig({
         'description': 'Seamless and automated release manager for monorepos and single packages',
         'author': {
           '@type': 'Person',
-          'name': 'Louis Mazel',
-          'url': 'https://github.com/LouisMazel',
+          'name': 'Loïc Mazuel',
+          'url': 'https://www.loicmazuel.com/',
+          'sameAs': ['https://github.com/LouisMazel'],
         },
       }),
     ],
@@ -299,7 +310,8 @@ export default defineConfig({
         },
         'author': {
           '@type': 'Person',
-          'name': 'Louis Mazel',
+          'name': 'Loïc Mazuel',
+          'url': 'https://www.loicmazuel.com/',
         },
       }),
     ],
@@ -424,7 +436,7 @@ export default defineConfig({
         ],
         [
           'meta',
-          { property: 'article:author', content: 'Louis Mazel' },
+          { property: 'article:author', content: 'Loïc Mazuel' },
         ],
       )
     }
@@ -543,7 +555,16 @@ export default defineConfig({
       tailwindcss(),
       // llms.txt, llms-full.txt and a .md file per page, read by the AI assistants
       llmstxt({ title: 'Relizy', domain: SITE_URL }),
+      // The icons by name (`icon="x-mark"`), with the logos of theme/icons
+      MazUiIcons({
+        dir: resolve(import.meta.dirname, 'theme/icons'),
+        dts: resolve(import.meta.dirname, 'theme/maz-icons.d.ts'),
+      }),
     ],
+    optimizeDeps: {
+      exclude: ['@maz-ui/icons'],
+      include: ['maz-ui/**/*', '@maz-ui/themes/**/*', '@maz-ui/translations'],
+    },
     build: {
       target: 'esnext',
       minify: 'esbuild',

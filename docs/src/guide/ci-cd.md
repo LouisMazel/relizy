@@ -21,7 +21,7 @@ On GitHub and GitLab, [`relizy init`](./../cli/init.md#release-workflow) writes 
 
 On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the install of the dependencies, the [tokens](#tokens), credentials allowed to push, and `npx relizy release --yes`. Relizy reads the branch of a detached HEAD from the variables of CircleCI, Bitbucket Pipelines, Buildkite, Drone, Travis CI, Azure Pipelines and Jenkins too.
 
-`relizy init` also offers the [merge preview](./merge-preview.md) of the pull requests: [`relizy merge-preview`](./../cli/merge-preview.md) runs in their pipeline, with the options of the release job, comments what the merge releases and sets a commit status that fails when the release of the merge would fail.
+`relizy init` also offers the [merge preview](./merge-preview.md) of the pull requests: [`relizy merge-preview`](./../cli/merge-preview.md) runs in their pipeline, with the options of the release job, comments what the merge releases and fails when the release of the merge would fail (with a commit status on GitHub).
 
 ## What Relizy Handles in CI
 
@@ -36,6 +36,7 @@ On another CI, the job needs Node `^22.23.4 || ^24.22.1 || >=26.12.1`, the insta
 - **Git identity**: without `user.name` and `user.email` in the git config of the job, nor `GIT_AUTHOR_NAME`/`GIT_COMMITTER_NAME`, the release commit and the tags are made by the person who started the release, with the noreply email their provider links to their profile (`12446546+octocat@users.noreply.github.com`, `42-jdoe@users.noreply.gitlab.com`). A bot, an access token, or a CI that does not tell, gets `relizy[bot] <noreply@relizy.dev>`. Set the git config or the `GIT_AUTHOR_*` and `GIT_COMMITTER_*` variables to choose another identity.
 - **npm token**: Relizy writes it to a temporary `.npmrc` of the project (restored right after) for npm, pnpm and bun, and checks it (`whoami`, npm and pnpm) before the bump. Nothing to write by hand.
 - **Push access**: before publishing anything, Relizy checks that the release commit and the tags can be pushed (`git push --dry-run`), as a push failing after the publish would leave versions on the registry without their commit nor their tags. A dry run checks it too, except on a pull request, see [The Push Is Refused](#the-push-is-refused). On GitLab, it pushes with `GITLAB_TOKEN` when the job token cannot. The rules of protected branches are only checked by the real push: see [Protected Branches](#protected-branches).
+- **Git flow**: after a release from `main`, a rule of `sync.rules` merges it into `develop` (or opens a pull request), with the same push access: see [Branch Sync](./branch-sync.md).
 - **Concurrent pushes**: commits pushed to the branch during the release are handled, see [Branch Safety](./../cli/release.md#branch-safety). The dry run of a pull request whose branch received new commits after it started only warns: the run of the latest commit previews the release with them.
 
 ## Tokens

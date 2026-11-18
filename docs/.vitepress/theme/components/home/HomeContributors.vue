@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { MazGithub } from '@maz-ui/icons/static/MazGithub'
-import { MazLogoTwitter } from '@maz-ui/icons/static/MazLogoTwitter'
 import MazAvatar from 'maz-ui/components/MazAvatar'
 import MazCardSpotlight from 'maz-ui/components/MazCardSpotlight'
+import MazIcon from 'maz-ui/components/MazIcon'
 
 /**
  * The contributors of the repository, from ungh.cc
@@ -90,6 +89,7 @@ const contributors = await fetchContributors()
         target="_blank"
         size="2.5rem"
         bordered
+        loading="lazy"
       />
 
       <p class="pt-2 text-base font-semibold tracking-tight wrap-break-word text-foreground">
@@ -104,10 +104,10 @@ const contributors = await fetchContributors()
 
       <div class="mt-2 flex items-center gap-2 text-muted">
         <a :href="githubLink" target="_blank" :aria-label="`${username} on GitHub`" class="flex size-6 items-center justify-center transition-colors duration-(--duration-fast) hover:text-primary">
-          <MazGithub class="size-full" />
+          <MazIcon icon="github" class="size-full" />
         </a>
         <a v-if="twitterLink" :href="twitterLink" target="_blank" :aria-label="`${username} on X`" class="flex size-6 items-center justify-center transition-colors duration-(--duration-fast) hover:text-primary">
-          <MazLogoTwitter class="size-full" />
+          <MazIcon icon="logo-x" class="size-full" />
         </a>
       </div>
     </MazCardSpotlight>
