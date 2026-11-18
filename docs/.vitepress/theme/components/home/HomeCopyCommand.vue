@@ -1,6 +1,4 @@
 <script lang="ts" setup>
-import { MazCheck } from '@maz-ui/icons/raw/MazCheck'
-import { MazClipboardDocument } from '@maz-ui/icons/raw/MazClipboardDocument'
 import MazBtn from 'maz-ui/components/MazBtn'
 import { ref } from 'vue'
 
@@ -32,7 +30,7 @@ async function copy() {
       color="transparent"
 
       fab
-      :icon="copied ? MazCheck : MazClipboardDocument"
+      :icon="copied ? 'check' : 'clipboard-document'"
       :aria-label="copied ? 'Copied' : `Copy ${command}`"
       @click="copy"
     />

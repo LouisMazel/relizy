@@ -2,6 +2,7 @@ import type { HeadConfig, PageData, UserConfig } from 'vitepress'
 import { unlinkSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { CSS_ID, generateCSS } from '@maz-ui/themes/utils'
+import { MazUiIcons } from '@maz-ui/vite-plugin'
 import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, postcssIsolateStyles } from 'vitepress'
 import llmstxt from 'vitepress-plugin-llms'
@@ -552,6 +553,11 @@ export default defineConfig({
       tailwindcss(),
       // llms.txt, llms-full.txt and a .md file per page, read by the AI assistants
       llmstxt({ title: 'Relizy', domain: SITE_URL }),
+      // The icons by name (`icon="x-mark"`), with the logos of theme/icons
+      MazUiIcons({
+        dir: resolve(import.meta.dirname, 'theme/icons'),
+        dts: resolve(import.meta.dirname, 'theme/maz-icons.d.ts'),
+      }),
     ],
     optimizeDeps: {
       exclude: ['@maz-ui/icons'],

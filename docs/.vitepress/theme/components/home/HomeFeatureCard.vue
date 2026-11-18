@@ -1,13 +1,14 @@
 <script lang="ts" setup>
-import type { Component } from 'vue'
+import type { MazIconString } from 'maz-ui'
 import MazCardSpotlight from 'maz-ui/components/MazCardSpotlight'
+import MazIcon from 'maz-ui/components/MazIcon'
 
 /**
  * A feature of the homepage: what it does, a visual, and the page of the docs
  */
 
 defineProps<{
-  icon: Component
+  icon: MazIconString
   title: string
   /** The page of the docs */
   href: string
@@ -21,7 +22,7 @@ defineProps<{
 <template>
   <MazCardSpotlight color="primary" class="size-full" :content-class="wide ? 'grid h-full items-center gap-8 tab-m:grid-cols-2' : 'flex h-full flex-col'">
     <div class="flex h-full flex-col">
-      <span class="feature-icon"><component :is="icon" class="size-5" /></span>
+      <span class="feature-icon"><MazIcon :icon="icon" class="size-5" /></span>
       <h3 class="text-lg font-semibold tracking-tight text-foreground">
         {{ title }}
       </h3>
