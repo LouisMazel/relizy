@@ -415,10 +415,12 @@ export interface MonorepoConfig {
    * to ignore - matched the same way as `packages`. Ignored packages are
    * excluded from bump, changelog, publish, provider-release and pr-comment.
    *
-   * In `unified`/`selective` mode, the root version bump and the root changelog
-   * only count the commits of the released packages: a commit changing only
-   * ignored packages, private packages left out by `privatePackages` or files
-   * outside every package (CI, scripts) does not bump the repository.
+   * In `unified`/`selective` mode, the root version bump only counts the
+   * commits of the released packages: a commit changing only ignored packages,
+   * private packages left out by `privatePackages` or files outside every
+   * package (CI, scripts) does not bump the repository. The root changelog
+   * lists the commits of the released packages and the ones changing files
+   * outside every package.
    * @default []
    */
   ignored?: string[]
@@ -2168,6 +2170,15 @@ export interface RelizyConfig {
     title: string
     semver?: SemverBumpType
   } | false>
+
+  /**
+   * Keep the `chore(deps)` commits (the dependency updates of Renovate,
+   * Dependabot...) like the other `chore` commits: in the changelogs, and in
+   * the bump when `chore` has a `semver`. The `chore(release)` commits are
+   * always left out.
+   * @default false
+   */
+  includeDepsCommits?: boolean
 
   /**
    * Current working directory

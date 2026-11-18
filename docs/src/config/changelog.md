@@ -1,7 +1,7 @@
 ---
 title: Changelog Configuration
-description: Reference of the changelog options - root changelog, commit bodies, format command, commit types and the contributors.
-keywords: changelog config, rootChangelog, includeCommitBody, formatCmd, commit types, types, excludeAuthors, noAuthors, hideAuthorEmail, contributors
+description: Reference of the changelog options - root changelog, commit bodies, format command, commit types, dependency updates and the contributors.
+keywords: changelog config, rootChangelog, includeCommitBody, formatCmd, commit types, types, includeDepsCommits, chore(deps), Renovate, Dependabot, excludeAuthors, noAuthors, hideAuthorEmail, contributors
 category: Configuration
 tags: [config, changelog, commits, types, contributors]
 ---
@@ -83,6 +83,23 @@ The commit types: the title of their section in the changelog and the bump they 
 | `ci`       | `🤖 CI`            | none    |
 
 The entries are merged by type: an entry of the config replaces the default entry of its type entirely (`docs: { title: 'Docs' }` no longer bumps a patch), the other default types are kept. `false` leaves the commits of the type out of the changelog and of the bump. The sections follow the order of `types`: the default types first, then the types added by the config. `relizy commitlint` accepts these types (see [`type-enum`](./../commitlint/rules.md#type-enum)).
+
+## includeDepsCommits
+
+- **Type:** `boolean`
+- **Default:** `false`
+
+Keep the `chore(deps)` commits, the dependency updates of Renovate or Dependabot, like the other `chore` commits: listed in the changelogs, and bumping when `chore` has a `semver`. They are left out by default, as the `chore(release)` commits always are (a breaking one is kept).
+
+Renovate's `config:recommended` commits the updates of `dependencies` as `fix(deps)`, which are already listed and bump a patch, and the other updates (dev dependencies, lockfile) as `chore(deps)`. Turn it on when all the updates should show up:
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  includeDepsCommits: true,
+})
+```
 
 ## excludeAuthors
 

@@ -81,6 +81,7 @@ export function lintCommitMessage(message: string, options: LintCommitMessageOpt
           ? undefined
           : type,
         changelog: false,
+        includeDeps: config.includeDepsCommits,
       })) {
         return undefined
       }

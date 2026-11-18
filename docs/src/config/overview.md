@@ -40,7 +40,7 @@ An array of the config replaces the default one instead of being merged with it:
 | ------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------------- |
 | `monorepo`                                                                                                                                       | [Monorepo](./monorepo.md)               |
 | `bump`                                                                                                                                           | [Bump](./bump.md)                       |
-| `changelog`, `types`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                                           | [Changelog](./changelog.md)             |
+| `changelog`, `types`, `includeDepsCommits`, `excludeAuthors`, `noAuthors`, `hideAuthorEmail`                                                     | [Changelog](./changelog.md)             |
 | `publish`                                                                                                                                        | [Publish](./publish.md)                 |
 | `profiles`                                                                                                                                       | [Profiles](./profiles.md)               |
 | `release`                                                                                                                                        | [Release](./release.md)                 |

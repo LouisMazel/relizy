@@ -40,6 +40,7 @@ export const CONFIG_DOC_IDS: Record<string, string> = {
   noAuthors: 'config/changelog',
   hideAuthorEmail: 'config/changelog',
   types: 'config/changelog',
+  includeDepsCommits: 'config/changelog',
 }
 
 const MAX_DEPTH = 5

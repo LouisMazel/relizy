@@ -48,7 +48,7 @@ Each release adds a section at the top of the `CHANGELOG.md` of the package, und
 
 - **Title**: the previous and the new tag, `v0.0.0` for a first release. Change it with [`templates.changelogTitle`](./../config/commit-templates.md) (<code v-pre>{{oldVersion}}</code>, <code v-pre>{{newVersion}}</code>, <code v-pre>{{date}}</code>).
 - **Compare link**: to the compare page of GitHub, GitLab or Bitbucket, when the repository is known (set with [`repo`](./../config/overview.md#repo), else read from the `repository` field of the closest `package.json`, else from the `origin` remote).
-- **Sections**: one per commit type, in the order of [`types`](./../config/changelog.md#types), with the titles of the [default types](./semver-convention.md). A type without `semver` (`chore`, `test`, `ci`...) is listed without bumping, a type set to `false` is left out. The `chore(deps)` and `chore(release)` commits are left out, unless breaking.
+- **Sections**: one per commit type, in the order of [`types`](./../config/changelog.md#types), with the titles of the [default types](./semver-convention.md). A type without `semver` (`chore`, `test`, `ci`...) is listed without bumping, a type set to `false` is left out. The `chore(release)` commits are left out, and the `chore(deps)` ones unless [`includeDepsCommits`](./../config/changelog.md#includedepscommits), except the breaking ones.
 - **Scope**: shown in bold before the description.
 - **References**: the pull requests and issues of the commit message (`#42`), or else the commit hash, linked when the repository is known.
 - **Breaking changes**: a commit with `!` or a `BREAKING CHANGE:` footer is prefixed with `⚠️`, and listed again, with its body, under `#### ⚠️ Breaking Changes`.
@@ -72,11 +72,11 @@ The section lists the authors of the commits and their co-authors (`Co-authored-
 
 ## Files Written
 
-| Mode                    | Package changelogs                        | Root `CHANGELOG.md`                                                                   |
-| ----------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------- |
-| Standalone              | -                                         | The changelog of the package                                                          |
-| `unified` / `selective` | One per released package, its own commits | The commits of the released packages                                                  |
-| `independent`           | One per released package, its own commits | The sections of the released packages, under `**Multiple Packages Updated** - <date>` |
+| Mode                    | Package changelogs                        | Root `CHANGELOG.md`                                                                     |
+| ----------------------- | ----------------------------------------- | --------------------------------------------------------------------------------------- |
+| Standalone              | -                                         | The changelog of the package                                                            |
+| `unified` / `selective` | One per released package, its own commits | The commits of the released packages, and the ones outside every package (CI, lockfile) |
+| `independent`           | One per released package, its own commits | The sections of the released packages, under `**Multiple Packages Updated** - <date>`   |
 
 [`changelog.rootChangelog: false`](./../config/changelog.md#rootchangelog) (or `--no-root-changelog`) skips the root `CHANGELOG.md` of a monorepo. With [version groups](./version-groups.md), each group writes its changelogs, and `changelog.rootChangelog: false` on a group keeps it out of the root one.
 

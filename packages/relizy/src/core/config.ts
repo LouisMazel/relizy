@@ -37,6 +37,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       style: { title: '🎨 Styles' },
       ci: { title: '🤖 CI' },
     } as NonNullable<RelizyConfig['types']>,
+    includeDepsCommits: false,
     templates: {
       // commitMessage & commitBody are resolved dynamically in loadRelizyConfig based on monorepo.versionMode.
       commitMessage: undefined as string | undefined,

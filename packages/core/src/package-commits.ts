@@ -64,15 +64,17 @@ export function isCommitInPackage(commit: GitCommit, packageRelativePath: string
 }
 
 /**
- * Whether a commit of the given type is kept: the `chore(deps)` and
- * `chore(release)` commits are not (unless breaking), a type given as an
- * object is kept when it triggers a bump (`semver`) or, with `changelog`, when
- * it has a `title`, a boolean type is kept as is, an unknown type is not.
+ * Whether a commit of the given type is kept: the `chore(release)` commits are
+ * not, nor the `chore(deps)` ones without `includeDeps` (a breaking one is
+ * always kept), a type given as an object is kept when it triggers a bump
+ * (`semver`) or, with `changelog`, when it has a `title`, a boolean type is
+ * kept as is, an unknown type is not.
  *
  * @param options - The options
  * @param options.commit - The parsed commit
  * @param options.type - The configuration of the commit type: an object with `title` and optional `semver`, a boolean, or undefined for an unknown type
  * @param options.changelog - Whether the types with a `title` only (no bump) count
+ * @param options.includeDeps - Keep the `chore(deps)` commits (the dependency updates of Renovate, Dependabot...), `false` by default
  * @returns True when the commit is kept
  * @example
  * ```ts
@@ -85,14 +87,16 @@ export function isAllowedCommit({
   commit,
   type,
   changelog,
+  includeDeps = false,
 }: {
   commit: GitCommit
   type?: { title: string, semver?: SemverBumpType } | boolean
   changelog: boolean
+  includeDeps?: boolean
 }): boolean {
   if (
     commit.type === 'chore'
-    && ['deps', 'release'].includes(commit.scope)
+    && (commit.scope === 'release' || (commit.scope === 'deps' && !includeDeps))
     && !commit.isBreaking
   ) {
     return false
@@ -204,6 +208,13 @@ export interface PackageCommitsMonorepo {
   privatePackages?: PrivatePackages
   /** Packages moved from a directory to another, `old path: new path`, for the moves git does not detect */
   movedPackages?: Record<string, string>
+  /**
+   * Relative POSIX paths of every package of the workspace, released or not
+   * (ignored and private packages, apps, other version groups). When given,
+   * the root also gets the commits changing files outside all of them (CI,
+   * scripts, the lockfile)
+   */
+  workspacePaths?: string[]
 }
 
 /**
@@ -256,9 +267,10 @@ export function resolveReleasedPackagePaths({
  * a package when it changes a file under its directory (or one of its former
  * directories, see `getPreviousPackagePaths`) or an entry of a catalog the
  * package references. The root package of a monorepo gets the commits of its
- * released packages, the root of a single package project gets every commit.
- * Only the commits whose type is in `types` and passes `isAllowedCommit` are
- * kept.
+ * released packages, and with `monorepo.workspacePaths` the commits changing
+ * no workspace package; the root of a single package project gets every
+ * commit. Only the commits whose type is in `types` and passes
+ * `isAllowedCommit` are kept.
  *
  * `from` is a ref, or `NEW_PACKAGE_MARKER` for a package without a previous
  * release, whose first commit then starts the range.
@@ -273,6 +285,7 @@ export function resolveReleasedPackagePaths({
  * @param options.cwd - Root of the repository
  * @param options.types - The commit types kept, by type name
  * @param options.changelog - Whether the types with a title only (no bump) count
+ * @param options.includeDeps - Keep the `chore(deps)` commits, see `isAllowedCommit`
  * @param options.scopeMap - Renames the scopes of the commits
  * @param options.monorepo - The monorepo settings; without `packages`, the project is a single package
  * @param options.reconcileFrom - Gives the ref to start at from a `from` ref, e.g. to recover from a tag a rebase left orphaned
@@ -300,6 +313,7 @@ export async function getPackageCommits({
   cwd,
   types,
   changelog,
+  includeDeps,
   scopeMap,
   monorepo,
   reconcileFrom,
@@ -317,6 +331,8 @@ export async function getPackageCommits({
   types: Record<string, { title: string, semver?: SemverBumpType } | boolean | undefined>
   /** The commits of a type with a title only count too */
   changelog: boolean
+  /** Keep the `chore(deps)` commits, see `isAllowedCommit` */
+  includeDeps?: boolean
   /** Renames the scopes of the commits (`{ ui: 'components' }`) */
   scopeMap?: Record<string, string>
   /** The monorepo settings; without `packages`, the project is a single package */
@@ -377,9 +393,9 @@ export async function getPackageCommits({
 
   const packageRelativePath = getPosixRelativePath(cwd, pkg.path)
 
-  // The root of a monorepo gets the commits of its released packages only: a
-  // commit changing no package (CI, scripts, an ignored or private app) releases
-  // nothing. The root of a single package project gets every commit.
+  // The root of a monorepo gets the commits of its released packages: a commit
+  // changing no released package (CI, scripts, an ignored or private app)
+  // releases nothing. The root of a single package project gets every commit.
   const isMonorepoRoot = isRootPackage && !!monorepo?.packages?.length
   const directories = isRootPackage
     ? isMonorepoRoot
@@ -408,6 +424,18 @@ export async function getPackageCommits({
     }
   }
 
+  // With `workspacePaths`, the root of a monorepo also gets the commits changing
+  // files outside every package of the workspace (CI, scripts, the lockfile)
+  const workspaceDirectories = isMonorepoRoot && monorepo?.workspacePaths
+    ? monorepo.workspacePaths.map(path => ({
+        path,
+        previousPaths: getPreviousPaths(path),
+      }))
+    : undefined
+  const isRepositoryCommit = (commit: GitCommit) => !!workspaceDirectories
+    && getCommitChangedFiles(commit).length > 0
+    && !workspaceDirectories.some(({ path, previousPaths }) => isCommitInPackage(commit, path, previousPaths))
+
   if (directories.length > 0) {
     // The catalogs changed by the commits, read at once
     prefetchCatalogChanges({
@@ -422,7 +450,7 @@ export async function getPackageCommits({
   const commits = allCommits.filter((commit) => {
     const type = types[commit.type]
 
-    if (!isAllowedCommit({ commit, type, changelog })) {
+    if (!isAllowedCommit({ commit, type, changelog, includeDeps })) {
       return false
     }
 
@@ -448,11 +476,20 @@ export async function getPackageCommits({
       cwd,
     }))
 
-    if (!isInPackages && isRootPackage) {
+    if (isInPackages) {
+      return true
+    }
+
+    if (isRepositoryCommit(commit)) {
+      logger?.debug?.(`Commit "${commit.message}" changes no workspace package, kept for the root`)
+      return true
+    }
+
+    if (isRootPackage) {
       logger?.debug?.(`Commit "${commit.message}" changes no released package, excluded from root`)
     }
 
-    return isInPackages
+    return false
   })
 
   logger?.debug?.(`Found ${commits.length} commit(s) for ${pkg.name} from ${from} to ${to}`)

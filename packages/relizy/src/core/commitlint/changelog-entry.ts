@@ -5,7 +5,7 @@ import { createRequire } from 'node:module'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { logger } from '@maz-ui/node'
-import { buildChangelogBody, getChangelogTitle } from '@relizy/core'
+import { buildChangelogBody, getChangelogTitle, isAllowedCommit } from '@relizy/core'
 import { fromMarkdown } from 'mdast-util-from-markdown'
 import { gfmFromMarkdown } from 'mdast-util-gfm'
 import { gfm } from 'micromark-extension-gfm'
@@ -16,7 +16,12 @@ import { gfm } from 'micromark-extension-gfm'
  */
 export function renderChangelogEntry(commit: GitCommit, config: ResolvedRelizyConfig): string | undefined {
   const title = getChangelogTitle(commit.type, config.types)
-  if (!title) {
+  if (!title || !isAllowedCommit({
+    commit,
+    type: config.types[commit.type],
+    changelog: true,
+    includeDeps: config.includeDepsCommits,
+  })) {
     return undefined
   }
   return buildChangelogBody({
