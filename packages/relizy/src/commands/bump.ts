@@ -4,7 +4,7 @@ import type { BumpOptions, BumpResult, BumpResultTruthy, ConfirmPlan, ConfirmPla
 import { logger } from '@maz-ui/node'
 
 import { capReleaseTypeForZeroMajor, checkGitStatusIfDirty, determineReleaseType, determineSemverChange, fetchGitTags, formatRepoTag, getCanaryVersion, getCIName, getDependencyReleaseType, getIndependentTag, getOutOfRangePeers, getPackageDependencies, getPackageNewVersion, getShortCommitSha, isBreakingVersionChange, withGitCache } from '@relizy/core'
-import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, pinCanaryWorkspaceDependencies, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
+import { assertVersionGroupsOption, confirmBump, confirmDirtyGitStatus, describeBumpResult, displayBump, executeHook, getBumpedIndependentPackages, getBumpResultDetails, getHookContext, getPackageCommits, getPackages, getPublishedRef, getRootPackage, getVersionGroupTitle, hasVersionGroups, loadRelizyConfig, mergeGroupBumpResults, pinCanaryWorkspaceDependencies, readPackageJson, readPackages, readWorkspacePackages, resetReleaseFiles, resolveTags, resolveVersionGroups, updateLernaVersion, writeVersion } from '../core'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { RelizyCancelError } from '../core/errors'
 import { getAppHandlers, runWithEvents } from '../core/events'
@@ -123,10 +123,15 @@ function getPlannedRootVersion({
  * on a package of another version group making a breaking change its published
  * range rejects. The packages of the group itself are left out: they get the
  * version of the group, whose jumps (`1.5.0` to the root version `6.19.2`) are
- * not breaking changes.
+ * not breaking changes. The ranges are the published ones, at the last release
+ * of each package: a peer dependency added since then breaks no consumer.
  */
-function hasExternalBreakingPeer(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined): boolean {
-  return Boolean(externalBumps?.size) && packages.some(pkg => getOutOfRangePeers({ packagePath: pkg.path, bumped: externalBumps! }).some(isBreakingVersionChange))
+function hasExternalBreakingPeer(packages: PackageBase[], externalBumps: Map<string, VersionChange> | undefined, config: ResolvedRelizyConfig): boolean {
+  return Boolean(externalBumps?.size) && packages.some(pkg => getOutOfRangePeers({
+    packagePath: pkg.path,
+    ref: getPublishedRef(pkg, config),
+    bumped: externalBumps!,
+  }).some(isBreakingVersionChange))
 }
 
 /**
@@ -152,7 +157,7 @@ function getBreakingPeerRootVersion({
   force: boolean
   suffix: string | undefined
 }): string | undefined {
-  if (force || !plannedVersion || !hasExternalBreakingPeer(packages, externalBumps)) {
+  if (force || !plannedVersion || !hasExternalBreakingPeer(packages, externalBumps, config)) {
     return undefined
   }
 
@@ -658,7 +663,7 @@ async function planCanaryMode({
   // A package released with a peer dependency of another group making a breaking change bumps the group as for a breaking commit
   const peerReleaseType = getBreakingPeerReleaseType(currentVersion, config.bump.capZeroMajor)
 
-  if (releaseType !== 'major' && releaseType !== peerReleaseType && hasExternalBreakingPeer(packages, externalBumps)) {
+  if (releaseType !== 'major' && releaseType !== peerReleaseType && hasExternalBreakingPeer(packages, externalBumps, config)) {
     canaryVersion = getCanaryVersion({
       currentVersion,
       releaseType: peerReleaseType,

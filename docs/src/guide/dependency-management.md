@@ -25,6 +25,8 @@ A package is a dependent of a released package when it lists it in one of the fi
 
 The prereleases are checked as npm does: `^2.0.0` rejects `2.1.0-beta.0`.
 
+The range is the one of the last release of the dependent, read from its `package.json` at its last tag: a dependency added or a range changed since then does not count until the dependent is released, and a dependent never released is not released for its ranges.
+
 The dependents are followed transitively, each released dependent being checked in turn as a dependency:
 
 ```text
@@ -90,6 +92,8 @@ A peer dependency declared as `workspace:*` is published as the exact version of
 @myorg/core   2.0.0 → 3.0.0   breaking commit
 @myorg/ui     1.5.0 → 2.0.0   peer "@myorg/core": "workspace:^", published as "^2.0.0"
 ```
+
+The range checked is always the published one, from the `package.json` of the package at its last release. A peer dependency added since then rejects nothing: `@myorg/icons@5.7.0` published without a peer on `@myorg/loader` gets a minor for its `feat` commits, even when it now declares `"@myorg/loader": "workspace:^"` and the loader goes from `0.1.0` to `0.2.0`.
 
 An explicit release type (`--patch`, `--minor`, `--major`) applies as is: it does not turn into a major for a breaking peer dependency.
 

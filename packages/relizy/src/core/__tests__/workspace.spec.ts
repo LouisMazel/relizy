@@ -374,14 +374,14 @@ describe('Given the peer dependencies of the packages not released', () => {
     rmSync(cwd, { recursive: true, force: true })
   })
 
-  it('Then warns about them', () => {
+  it('Then warns about them', async () => {
     writePackage('packages/nav', {
       name: 'nav',
       version: '1.2.0',
       peerDependencies: { components: 'workspace:*' },
     })
 
-    reportStalePeerDependents({
+    await reportStalePeerDependents({
       config,
       bumpedPackages: [components],
       publishedPackages: [components],
@@ -391,7 +391,7 @@ describe('Given the peer dependencies of the packages not released', () => {
     expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('bump.outOfRangePeers: \'bump\''))
   })
 
-  it('Then throws with outOfRangePeers: error', () => {
+  it('Then throws with outOfRangePeers: error', async () => {
     writePackage('packages/nav', {
       name: 'nav',
       version: '1.2.0',
@@ -399,23 +399,24 @@ describe('Given the peer dependencies of the packages not released', () => {
     })
     config.bump.outOfRangePeers = 'error'
 
-    expect(() => reportStalePeerDependents({
+    await expect(reportStalePeerDependents({
       config,
       bumpedPackages: [components],
       publishedPackages: [components],
     }))
+      .rejects
       .toThrow('  - nav: components "6.19.1" does not accept 6.20.0')
     expect(logger.warn).not.toHaveBeenCalled()
   })
 
-  it('Then does not warn when nothing is stale or when the check is disabled', () => {
+  it('Then does not warn when nothing is stale or when the check is disabled', async () => {
     writePackage('packages/nav', {
       name: 'nav',
       version: '1.2.0',
       peerDependencies: { components: 'workspace:*' },
     })
 
-    reportStalePeerDependents({
+    await reportStalePeerDependents({
       config,
       bumpedPackages: [components],
       publishedPackages: [
@@ -424,7 +425,7 @@ describe('Given the peer dependencies of the packages not released', () => {
       ],
     })
     config.publish.checkWorkspaceDependencies = false
-    reportStalePeerDependents({
+    await reportStalePeerDependents({
       config,
       bumpedPackages: [components],
       publishedPackages: [components],

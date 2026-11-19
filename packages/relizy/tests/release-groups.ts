@@ -60,6 +60,30 @@ monorepo: {
 `)
 }
 
+const RELEASE_TAGS = ['v6.19.1', '@scope/nav@1.2.0', '@scope/login@2.0.0']
+
+/**
+ * Change the released state: the changes are made in the commit of the initial
+ * release (its tags move with it), the commits made after it are replayed. The
+ * packages are then published with these changes.
+ */
+export function amendRelease(changes: () => void) {
+  const commits = git('rev-list', '--reverse', 'v6.19.1..HEAD').split('\n').filter(Boolean)
+
+  git('reset', '--hard', 'v6.19.1')
+  changes()
+  git('add', '-A')
+  git('commit', '--amend', '--no-edit', '--no-verify')
+
+  for (const tag of RELEASE_TAGS) {
+    git('tag', '-f', '-a', tag, '-m', tag)
+  }
+
+  for (const commit of commits) {
+    git('cherry-pick', commit)
+  }
+}
+
 /**
  * A new repository for each test, the current directory of the test
  */
@@ -83,9 +107,9 @@ export function useReleaseGroupsRepository() {
 
     git('add', '-A')
     git('commit', '--no-verify', '-m', 'chore: init')
-    git('tag', '-a', 'v6.19.1', '-m', 'v6.19.1')
-    git('tag', '-a', '@scope/nav@1.2.0', '-m', '@scope/nav@1.2.0')
-    git('tag', '-a', '@scope/login@2.0.0', '-m', '@scope/login@2.0.0')
+    for (const tag of RELEASE_TAGS) {
+      git('tag', '-a', tag, '-m', tag)
+    }
 
     commitFile('packages/components/button.js', 'feat(components): add a button')
     // A breaking change in the independent group must not bump the major of the selective group

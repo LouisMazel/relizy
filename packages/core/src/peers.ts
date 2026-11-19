@@ -2,6 +2,9 @@ import type { PackageBase, ReadPackage } from './types'
 import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import * as semver from 'semver'
+import { cachedGitRead } from './git-cache'
+import { tryGitSync } from './git-exec'
+import { NEW_PACKAGE_MARKER } from './tags'
 
 /** Dependency fields of a `package.json` */
 export type DependencyField = 'dependencies' | 'devDependencies' | 'peerDependencies'
@@ -134,6 +137,46 @@ export function isBreakingVersionChange({ oldVersion, newVersion }: VersionChang
 }
 
 /**
+ * The `package.json` of a package, in the working tree or at `ref`, undefined
+ * when it does not exist there. A ref git cannot resolve (outside a
+ * repository, tags not fetched) falls back to the working tree.
+ */
+function readPackageJsonContent(packagePath: string, ref: string | undefined): string | undefined {
+  if (ref === undefined) {
+    const packageJsonPath = join(packagePath, 'package.json')
+
+    return existsSync(packageJsonPath)
+      ? readFileSync(packageJsonPath, 'utf-8')
+      : undefined
+  }
+
+  if (ref === NEW_PACKAGE_MARKER) {
+    return undefined
+  }
+
+  const released = cachedGitRead({
+    key: ['show', ref, 'package.json'],
+    cwd: packagePath,
+    read: () => tryGitSync(['show', `${ref}:./package.json`], { cwd: packagePath }),
+  })
+
+  if (released !== undefined) {
+    return released
+  }
+
+  const refExists = tryGitSync([
+    'rev-parse',
+    '--verify',
+    '--quiet',
+    `${ref}^{commit}`,
+  ], { cwd: packagePath }) !== undefined
+
+  return refExists
+    ? undefined
+    : readPackageJsonContent(packagePath, undefined)
+}
+
+/**
  * Dependency whose published range rejects the new version of the dependency.
  */
 export interface OutOfRangeDependency extends VersionChange {
@@ -172,11 +215,18 @@ export interface OutOfRangePeer extends OutOfRangeDependency {
  * A specifier that is not a semver range (`catalog:`, `link:`...) is returned
  * with a null `range`: it cannot be checked.
  *
+ * With `ref`, the ranges are the ones the package was published with: its
+ * `package.json` at its last release. A dependency added since then rejects
+ * nothing, no consumer has its range, and a package never released (no
+ * `package.json` at `ref`, or `NEW_PACKAGE_MARKER`) has nothing out of range.
+ * A `ref` git cannot resolve falls back to the working tree.
+ *
  * @param options - The options
  * @param options.packagePath - Directory of the package, whose `package.json` is read
  * @param options.bumped - The versions before and after the bump, by package name
  * @param options.fields - The dependency fields to check
- * @returns The dependencies to flag, in the order of `fields`; empty when nothing is bumped, no field is given or the package has no `package.json`
+ * @param options.ref - Ref of the last release of the package (its last tag, see `resolveFromTag`): its `package.json` is read at this ref instead of the working tree
+ * @returns The dependencies to flag, in the order of `fields`; empty when nothing is bumped, no field is given, the package has no `package.json` or was never released at `ref`
  * @throws When the `package.json` is not valid JSON
  * @example
  * ```ts
@@ -187,24 +237,33 @@ export interface OutOfRangePeer extends OutOfRangeDependency {
  *   fields: ['peerDependencies'],
  * })
  * // [{ dependency: 'core', field: 'peerDependencies', range: '^1.2.0', oldVersion: '1.2.0', newVersion: '2.0.0' }]
+ *
+ * // the same, with the ranges of its last release, tagged `my-lib@1.0.0`
+ * getOutOfRangeDependencies({ packagePath, bumped, fields: ['peerDependencies'], ref: 'my-lib@1.0.0' })
  * ```
  */
 export function getOutOfRangeDependencies({
   packagePath,
   bumped,
   fields,
+  ref,
 }: {
   packagePath: string
   bumped: Map<string, VersionChange>
   fields: DependencyField[]
+  ref?: string
 }): OutOfRangeDependency[] {
-  const packageJsonPath = join(packagePath, 'package.json')
-
-  if (bumped.size === 0 || fields.length === 0 || !existsSync(packageJsonPath)) {
+  if (bumped.size === 0 || fields.length === 0) {
     return []
   }
 
-  const packageJson = JSON.parse(readFileSync(packageJsonPath, 'utf-8')) as Partial<Record<DependencyField, Record<string, string>>>
+  const content = readPackageJsonContent(packagePath, ref)
+
+  if (content === undefined) {
+    return []
+  }
+
+  const packageJson = JSON.parse(content) as Partial<Record<DependencyField, Record<string, string>>>
   const outOfRange: OutOfRangeDependency[] = []
 
   for (const field of fields) {
@@ -240,6 +299,7 @@ export function getOutOfRangeDependencies({
  * @param options - The options
  * @param options.packagePath - Directory of the package, whose `package.json` is read
  * @param options.bumped - The versions before and after the bump, by package name
+ * @param options.ref - Ref of the last release of the package: its published `package.json` is read at this ref (see `getOutOfRangeDependencies`)
  * @returns The peers to flag, empty when none
  * @throws When the `package.json` is not valid JSON
  * @example
@@ -252,14 +312,17 @@ export function getOutOfRangeDependencies({
 export function getOutOfRangePeers({
   packagePath,
   bumped,
+  ref,
 }: {
   packagePath: string
   bumped: Map<string, VersionChange>
+  ref?: string
 }): OutOfRangePeer[] {
   return getOutOfRangeDependencies({
     packagePath,
     bumped,
     fields: ['peerDependencies'],
+    ref,
   })
     .filter((peer): peer is OutOfRangePeer => peer.range !== null)
 }
@@ -305,12 +368,16 @@ export interface StaleDependent extends OutOfRangePeer {
  * `strict-peer-dependencies`. The private packages are left out.
  *
  * The published range is computed from the version the dependency had before
- * the release, so only the ranges the release breaks are reported.
+ * the release, so only the ranges the release breaks are reported. With
+ * `refs`, it is read from the `package.json` of the dependent at its last
+ * release (see `getOutOfRangeDependencies`): a peer dependency added since then
+ * is not reported.
  *
  * @param options - The options
  * @param options.workspacePackages - Every package of the workspace
  * @param options.bumpedPackages - Packages bumped by the run, with their version before and after
  * @param options.publishedPackages - Packages published by the run, which are not reported
+ * @param options.refs - Ref of the last release of each dependent, by name; the dependents without one are read in the working tree
  * @returns One entry per stale peer range, with the `dependent` package name; empty when nothing is bumped. Only packages bumped to a different version count, and dependents that are private or in `publishedPackages` are skipped
  * @throws When the `package.json` of a dependent is not valid JSON
  * @example
@@ -324,6 +391,7 @@ export function findStalePeerDependents({
   workspacePackages,
   bumpedPackages,
   publishedPackages,
+  refs,
 }: {
   /**
    * Every package of the workspace
@@ -337,6 +405,10 @@ export function findStalePeerDependents({
    * Packages published by the run
    */
   publishedPackages: PackageBase[]
+  /**
+   * Ref of the last release of each dependent (its last tag), by name
+   */
+  refs?: Map<string, string>
 }): StaleDependent[] {
   const bumped = new Map(bumpedPackages
     .filter(pkg => pkg.newVersion && pkg.newVersion !== pkg.oldVersion)
@@ -354,6 +426,10 @@ export function findStalePeerDependents({
     ...workspacePackages,
   ]
     .filter(dependent => !dependent.private && !published.has(dependent.name))
-    .flatMap(dependent => getOutOfRangePeers({ packagePath: dependent.path, bumped })
+    .flatMap(dependent => getOutOfRangePeers({
+      packagePath: dependent.path,
+      bumped,
+      ref: refs?.get(dependent.name),
+    })
       .map(peer => ({ dependent: dependent.name, ...peer })))
 }
