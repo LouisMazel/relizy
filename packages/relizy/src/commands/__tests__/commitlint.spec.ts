@@ -226,7 +226,7 @@ describe('Given commitlint command', () => {
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
       commitFiles('Merge branch \'feature\'', { 'packages/nuxt/other.ts': 'b' })
       commitFiles('chore(release): bump version to 1.1.0', { 'package.json': '{ "name": "root", "version": "1.1.0", "private": true }' })
-      commitFiles('fix: Typo', { 'packages/core/index.ts': 'c' })
+      commitFiles('fix(core): Typo', { 'packages/core/index.ts': 'c' })
 
       const result = await commitlint({
         config: createConfig(),
@@ -238,14 +238,14 @@ describe('Given commitlint command', () => {
         '✔ <hash> feat(nuxt) → minor bump, 🚀 Enhancements',
         '○ <hash> Merge branch \'feature\' (ignored)',
         '○ <hash> chore(release): bump version to 1.1.0 (ignored)',
-        '✖ <hash> fix: Typo',
+        '✖ <hash> fix(core): Typo',
         '',
         '  ✖ subject-case        The subject starts with an uppercase letter',
         '                        → start it lowercase, relizy capitalizes it in the changelog',
         '  ✖ subject-meaningful  The subject "Typo" does not describe the change',
         '                        → describe what changed, in at least 2 words or 15 characters',
         '',
-        '  Suggested header: fix: typo',
+        '  Suggested header: fix(core): typo',
         '                    still to fix: subject-meaningful',
         '',
         '─'.repeat(72),
@@ -560,7 +560,7 @@ describe('Given commitlint command', () => {
     beforeEach(() => {
       git('tag', 'v1.0.0')
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
-      commitFiles('fix: Typo', { 'packages/core/index.ts': 'b' })
+      commitFiles('fix(core): Typo', { 'packages/core/index.ts': 'b' })
     })
 
     it('Then prints a JSON report for programs and AI agents', async () => {
@@ -575,7 +575,7 @@ describe('Given commitlint command', () => {
       expect(report).toEqual(expect.objectContaining({ valid: false, errorCount: 2, warningCount: 0 }))
       expect(report.entries.map((entry: { header: string, valid: boolean }) => [entry.header, entry.valid])).toEqual([
         ['feat(nuxt): add the module options', true],
-        ['fix: Typo', false],
+        ['fix(core): Typo', false],
       ])
       expect(report.entries[1].problems[0]).toEqual(expect.objectContaining({ rule: 'subject-case', fix: 'start it lowercase, relizy capitalizes it in the changelog' }))
       expect(report.howToFix).toEqual([
@@ -603,7 +603,7 @@ describe('Given commitlint command', () => {
         config: createConfig(),
       })
 
-      expect(output[0]).toMatch(/^✖ [0-9a-f]{7} fix: Typo$/)
+      expect(output[0]).toMatch(/^✖ [0-9a-f]{7} fix\(core\): Typo$/)
       expect(output.some(line => line.includes('feat(nuxt)'))).toBe(false)
     })
 
@@ -617,7 +617,7 @@ describe('Given commitlint command', () => {
       })
 
       expect(output.filter(line => line.startsWith('::'))).toEqual([
-        expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-case\)::fix: Typo%0AThe subject starts with an uppercase letter%0A→ /),
+        expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-case\)::fix\(core\): Typo%0AThe subject starts with an uppercase letter%0A→ /),
         expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-meaningful\)::/),
       ])
     })

@@ -380,30 +380,38 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When requiring the scope', () => {
-    const withRule = (value?: CommitlintBuiltInRules['scope-required']) => ({
+    const withRule = (value: CommitlintBuiltInRules['scope-required']) => ({
       commitlint: {
         rules: {
-          'scope-required': value
-            ? ['error', value] as const
-            : 'error' as const,
+          'scope-required': ['error', value] as const,
           'single-package': 'off' as const,
         },
       },
     })
 
-    it('Then does not require it by default', async () => {
-      expect(await rulesOf('feat: add a new thing')).toEqual([])
+    it('Then requires it by default for a bumping commit touching a package', async () => {
+      expect(await problemsOf('feat: add a new thing', {
+        config: {
+          commitlint: {
+            rules: { 'single-package': 'off' },
+          },
+        },
+        files: ['packages/nuxt/src/index.ts'],
+      }))
+        .toEqual([
+          { message: 'The scope is missing on a minor commit touching @maz-ui/nuxt', fix: 'add the scope of the package: "feat(nuxt): add a new thing"' },
+        ])
     })
 
-    it('Then requires it always when enabled without value', async () => {
+    it('Then requires it on every commit with "always"', async () => {
       expect(await problemsOf('chore: tidy the scripts up', {
-        config: withRule(),
+        config: withRule('always'),
       }))
         .toEqual([
           { message: 'The scope is missing', fix: 'add one, e.g. "chore(core): tidy the scripts up"' },
         ])
       expect(await rulesOf('chore(core): tidy the scripts up', {
-        config: withRule(),
+        config: withRule('always'),
       })).toEqual([])
     })
 
@@ -484,14 +492,12 @@ describe('Given lintCommitMessage function', () => {
         ])
       })
 
-      it('Then requires it for every bumping commit in standalone mode', async () => {
-        expect(await problemsOf('fix: correct a bug in the parser', {
+      it('Then does not require it in standalone mode', async () => {
+        expect(await rulesOf('fix: correct a bug in the parser', {
           config: withRule('when-bumping'),
+          files: ['src/parser.ts'],
           packages: [],
-        }))
-          .toEqual([
-            { message: 'The scope is missing on a commit that bumps the version (patch)', fix: 'add one, e.g. "fix(core): correct a bug in the parser"' },
-          ])
+        })).toEqual([])
       })
     })
   })
@@ -563,6 +569,11 @@ describe('Given lintCommitMessage function', () => {
     it('Then explains the exceptScopes when the commit has no scope', async () => {
       expect(await problemsOf('fix: correct the exports', {
         files: TWO_PACKAGES,
+        config: {
+          commitlint: {
+            rules: { 'scope-required': 'off' },
+          },
+        },
       })).toEqual([
         {
           message: 'The patch commit releases 2 packages: @maz-ui/nuxt, core',
