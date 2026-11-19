@@ -45,7 +45,7 @@ export interface CommitlintBuiltInRules {
   'scope-enum': never
   /**
    * The scope is required (`'always'`), forbidden (`'never'`), or required on
-   * the commits bumping a version (`'when-bumping'`).
+   * the commits bumping a version and touching a released package (`'when-bumping'`).
    * @default ['off', 'always']
    */
   'scope-required': 'always' | 'never' | 'when-bumping'
@@ -54,6 +54,12 @@ export interface CommitlintBuiltInRules {
    * @default 'error'
    */
   'scope-matches-files': never
+  /**
+   * A commit bumping a version touches a single released package. The commits
+   * whose scope is in `exceptScopes` can touch several: the value replaces the default list.
+   * @default ['error', { exceptScopes: ['deps'] }]
+   */
+  'single-package': { exceptScopes?: string[] }
   /**
    * The subject starts with a lowercase letter. Off by default: the changelog
    * capitalizes the subject anyway.
@@ -150,6 +156,8 @@ export interface CommitlintCommit {
   files?: string[]
   /** Names of the workspace packages touched by `files` */
   packages?: string[]
+  /** Names of the released workspace packages touched by `files` (see `WorkspacePackage.released`) */
+  releasedPackages?: string[]
   /** Hash of the commit, when linting a range */
   hash?: string
 }

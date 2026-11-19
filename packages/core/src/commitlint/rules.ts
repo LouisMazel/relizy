@@ -280,15 +280,16 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
           { message: `The scope is missing on a commit that bumps the version (${commit.bump})`, fix: `add one, e.g. "${commit.type}(core): ${commit.subject}"` },
         ]
       }
-      // Unknown files (e.g. during a rebase): nothing to compare
-      if (!commit.packages || commit.packages.length === 0) {
+      // Unknown files (e.g. during a rebase) or no released package: nothing to designate
+      const released = commit.releasedPackages ?? []
+      if (released.length === 0) {
         return []
       }
-      const scope = findPackageByScope(commit.packages[0]!, packages)?.scopes[0] ?? 'package'
+      const scope = findPackageByScope(released[0]!, packages)?.scopes[0] ?? 'package'
       return [
         {
-          message: `The scope is missing on a ${commit.bump} commit touching ${formatPackageNames(commit.packages)}`,
-          fix: commit.packages.length > 1
+          message: `The scope is missing on a ${commit.bump} commit touching ${formatPackageNames(released)}`,
+          fix: released.length > 1
             ? `add the scope of the main package, e.g. "${commit.type}(${scope}): ${commit.subject}", or split the commit per package`
             : `add the scope of the package: "${commit.type}(${scope}): ${commit.subject}"`,
         },
@@ -310,6 +311,29 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
         : { message: 'it only touches files outside the packages', fix: 'use a scope describing these files, or no scope' }
       return [
         { message: `The scope "${commit.scope}" designates ${pkg.path}, but ${touched.message}`, fix: touched.fix },
+      ]
+    },
+  },
+  'single-package': {
+    severity: 'error',
+    value: {
+      exceptScopes: ['deps'],
+    },
+    conventionalOnly: true,
+    check: ({ commit, value }) => {
+      const { exceptScopes = [] } = (value ?? {}) as { exceptScopes?: string[] }
+      const released = commit.releasedPackages ?? []
+      if (!commit.bump || released.length <= 1 || exceptScopes.includes(commit.scope)) {
+        return []
+      }
+      const allowed = commit.scope
+        ? `add "${commit.scope}" to the exceptScopes of the rule`
+        : 'give it a scope listed in the exceptScopes of the rule'
+      return [
+        {
+          message: `The ${commit.bump} commit releases ${released.length} packages: ${formatPackageNames(released)}`,
+          fix: `split the commit per package, or for a transverse change, ${allowed}`,
+        },
       ]
     },
   },

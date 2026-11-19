@@ -13,6 +13,12 @@ export interface WorkspacePackage {
   path: string
   /** Scopes designating the package: short name, full name and folder name */
   scopes: string[]
+  /**
+   * `false` when the tool never releases the package (a private app, an ignored package):
+   * `scope-required` and `single-package` only count the released packages
+   * @default true
+   */
+  released?: boolean
 }
 
 /** `@maz-ui/nuxt` → `nuxt` */

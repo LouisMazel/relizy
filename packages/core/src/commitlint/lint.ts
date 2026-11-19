@@ -249,6 +249,9 @@ function buildCommit({ parts, gitCommit, bump, files, hash, packages }: {
     packages: files
       ? getPackagesOfFiles(files, packages)
       : undefined,
+    releasedPackages: files
+      ? getPackagesOfFiles(files, packages.filter(pkg => pkg.released !== false))
+      : undefined,
     hash,
   }
 }
