@@ -313,6 +313,41 @@ describe('Given formatTextReport function', () => {
     expect(formatTextReport(report)).toContain('⚠ 1 commit checked, all valid, with 1 warning')
   })
 
+  it('Then explains under the verdict why errors are reported as warnings', () => {
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa', {
+          problems: [
+            { ...SUBJECT_CASE, severity: 'warn' },
+          ],
+        }),
+      ],
+      notes: ['squash merge (mergePreview.squash is true): the merge only keeps the pull request title, the problems of its commits are warnings'],
+    }
+
+    const lines = formatTextReport(report)
+
+    expect(lines.slice(lines.indexOf('⚠ 1 commit checked, all valid, with 1 warning'), lines.indexOf('⚠ 1 commit checked, all valid, with 1 warning') + 3)).toEqual([
+      '⚠ 1 commit checked, all valid, with 1 warning',
+      '  Note:  squash merge (mergePreview.squash is true): the merge only keeps the pull request title,',
+      '         the problems of its commits are warnings',
+    ])
+  })
+
+  it('Then gives the notes in the JSON report', () => {
+    const report: CommitlintReport = {
+      mode: 'range',
+      entries: [
+        commitEntry('aaaaaaa'),
+      ],
+      notes: ['merge method unknown'],
+    }
+
+    expect(JSON.parse(formatJsonReport(report)).notes).toEqual(['merge method unknown'])
+    expect(JSON.parse(formatJsonReport({ ...report, notes: undefined }))).not.toHaveProperty('notes')
+  })
+
   it.each([
     [
       'one invalid commit',

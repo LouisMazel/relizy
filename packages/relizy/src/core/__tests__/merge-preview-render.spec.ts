@@ -1,4 +1,5 @@
 import type { MergePreviewOutcome } from '../merge-preview/plan'
+import type { MergePreviewChecks } from '../merge-preview/problems'
 import type { MergePreviewResult } from '../merge-preview/render'
 import { stripVTControlCharacters } from 'node:util'
 import { formatMergePreviewMarkdown, getMergePreviewStatusDescription, getMergePreviewTerminalOutput } from '../merge-preview/render'
@@ -191,8 +192,71 @@ describe('Given the merge preview of a pull request', () => {
       },
     }))
 
-    expect(markdown).toContain('#### ⚠️ Commits not following the commit convention\n\nThey fail the commitlint of the project, not the release: they do not block the merge.\n\n- 6148a2c "feat: 3.1.0": The subject "3.1.0" is too short')
+    expect(markdown).toContain('#### ⚠️ Commits not following the commit convention\n\nThey fail `relizy commitlint`, not the release: the merge preview does not fail on them.\n\n- 6148a2c "feat: 3.1.0": The subject "3.1.0" is too short')
     expect(markdown).not.toContain('would fail')
+  })
+
+  describe('When a squash merge drops commits failing the commitlint', () => {
+    const checks = (commitlint: MergePreviewChecks['commitlint']): MergePreviewChecks => ({ problems: [], commitlint, warnings: [] })
+    const squashCommit = { kind: 'commitlint', message: 'the squash commit "feat: The app (#4)": The subject starts with an uppercase letter', merge: 'kept' } as const
+    const dropped = { kind: 'commitlint', message: 'def4567 "wip": The subject "wip" does not describe the change', merge: 'dropped' } as const
+
+    it('Then lists the squash commit, and folds the dropped commits', () => {
+      expect(formatMergePreviewMarkdown(resultOf({
+        checks: checks([dropped, squashCommit]),
+      }))).toContain([
+        '#### ⚠️ Commits not following the commit convention',
+        '',
+        'They fail `relizy commitlint`, not the release: the merge preview does not fail on them.',
+        '',
+        '- the squash commit "feat: The app (#4)": The subject starts with an uppercase letter',
+        '',
+        '<details><summary>1 commit not kept by the squash merge</summary>',
+        '',
+        '- def4567 "wip": The subject "wip" does not describe the change',
+        '',
+        '</details>',
+      ].join('\n'))
+    })
+
+    it('Then only folds them when the squash commit passes', () => {
+      expect(formatMergePreviewMarkdown(resultOf({
+        checks: checks([dropped]),
+      }))).toContain([
+        'They fail `relizy commitlint`, not the release: the merge preview does not fail on them.',
+        '',
+        '<details><summary>1 commit not kept by the squash merge</summary>',
+      ].join('\n'))
+    })
+
+    it('Then lists the commits kept before the squash commit of an open merge method', () => {
+      const markdown = formatMergePreviewMarkdown(resultOf({
+        checks: checks([
+          { kind: 'commitlint', message: 'If you squash merge: the squash commit "feat: The app (#4)": The subject starts with an uppercase letter', merge: 'squash' },
+          { kind: 'commitlint', message: 'def4567 "wip": The subject "wip" does not describe the change', merge: 'kept' },
+        ]),
+      }))
+
+      expect(markdown).toContain('- def4567 "wip": The subject "wip" does not describe the change\n- If you squash merge: the squash commit')
+      expect(markdown).not.toContain('<details>')
+    })
+
+    it('Then shows the dropped commits apart in the terminal', () => {
+      const { notes } = getMergePreviewTerminalOutput(resultOf({
+        checks: checks([dropped, squashCommit]),
+      }))
+
+      expect(notes.filter(note => note.title.startsWith('Commits not following')).map(note => [note.title, note.lines])).toEqual([
+        [
+          'Commits not following the commit convention',
+          ['▲ the squash commit "feat: The app (#4)": The subject starts with an uppercase letter'],
+        ],
+        [
+          'Commits not following the commit convention, not kept by the squash merge',
+          ['▲ def4567 "wip": The subject "wip" does not describe the change'],
+        ],
+      ])
+    })
   })
 
   it('When it is a merge request of GitLab, Then names it so', () => {

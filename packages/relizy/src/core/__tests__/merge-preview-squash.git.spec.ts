@@ -4,7 +4,7 @@ import { getGitDiff, withSimulatedSquash } from '@relizy/core'
 import { createGitRepository } from '../../../../../tests/git-repository'
 import { applySimulatedSquash } from '../../../../core/src/squash-simulation'
 import { createMockConfig } from '../../../tests/mocks'
-import { getSquashCommit, resolveMergePreviewSquash } from '../merge-preview/squash'
+import { detectMergeSquash, getSquashCommit, isSquashTitleFromCommit, resolveMergePreviewSquash } from '../merge-preview/squash'
 
 const repositories: GitRepository[] = []
 
@@ -353,5 +353,110 @@ describe('Given the merge method of the pull request', () => {
       cwd: repo.cwd,
     }))
       .toEqual({ mode: 'commits', reason: 'the pull request has no commit' })
+  })
+})
+
+describe('Given the squash detection shared with relizy commitlint', () => {
+  const config = createMockConfig({
+    bump: { type: 'release' },
+    repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' },
+    tokens: { github: 'gh-token', gitlab: 'gl-token' },
+  })
+  const pullRequest = {
+    provider: 'github',
+    kind: 'pull request',
+    number: 12,
+    targetBranch: 'main',
+  } as const
+
+  describe('When mergePreview.squash is set', () => {
+    it.each([
+      [
+        true,
+        { squash: true, reason: 'mergePreview.squash is true' },
+      ],
+      [
+        false,
+        { squash: false, reason: 'mergePreview.squash is false' },
+      ],
+    ])('Then tells it is %s without the API', async (option, detection) => {
+      const fetch = mockFetch({})
+
+      expect(await detectMergeSquash({ config, pullRequest, option })).toEqual(detection)
+      expect(fetch).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When mergePreview.squash is auto', () => {
+    it('Then reads the merge methods of the repository', async () => {
+      mockFetch({
+        '/repos/test/repo': {
+          allow_squash_merge: true,
+          allow_merge_commit: false,
+          allow_rebase_merge: false,
+          squash_merge_commit_title: 'PR_TITLE',
+        },
+        '/pulls/12': { auto_merge: null },
+      })
+
+      expect(await detectMergeSquash({ config, pullRequest, option: 'auto' })).toEqual(expect.objectContaining({
+        squash: true,
+        reason: 'the repository only allows squash merges',
+        title: 'PR_TITLE',
+      }))
+    })
+
+    it('Then does not know without a token', async () => {
+      expect(await detectMergeSquash({
+        config: createMockConfig({
+          repo: { provider: 'github', domain: 'github.com', repo: 'test/repo' },
+          tokens: {},
+        }),
+        pullRequest,
+        option: 'auto',
+      })).toEqual({ reason: 'the pull request could not be read from the API' })
+    })
+  })
+
+  describe('When the pull request has a single commit', () => {
+    it.each([
+      ['github', 1, undefined, true],
+      [
+        'github',
+        1,
+        'COMMIT_OR_PR_TITLE',
+        true,
+      ],
+      ['github', 1, 'PR_TITLE', false],
+      ['github', 2, undefined, false],
+      ['gitlab', 1, undefined, false],
+    ] as const)('Then the squash of a %s pull request of %s commit with the %s title setting takes its message: %s', (provider, commitCount, title, expected) => {
+      expect(isSquashTitleFromCommit({
+        provider,
+        commitCount,
+        settings: { title },
+      })).toBe(expected)
+    })
+
+    it('Then the squash of the merge preview says it takes the message of the commit', async () => {
+      const { repo, context } = setup()
+      const only = {
+        ...context(),
+        commits: [context().commits[0]!],
+      }
+
+      expect(await resolveMergePreviewSquash({
+        config,
+        context: only,
+        option: true,
+        cwd: repo.cwd,
+      })).toMatchObject({ mode: 'squash', titleFromCommit: true })
+      expect((await resolveMergePreviewSquash({
+        config,
+        context: context(),
+        option: true,
+        cwd: repo.cwd,
+      })).titleFromCommit).toBeUndefined()
+    })
   })
 })

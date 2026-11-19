@@ -380,29 +380,38 @@ describe('Given lintCommitMessage function', () => {
   })
 
   describe('When requiring the scope', () => {
-    const withRule = (value?: CommitlintBuiltInRules['scope-required']) => ({
+    const withRule = (value: CommitlintBuiltInRules['scope-required']) => ({
       commitlint: {
         rules: {
-          'scope-required': value
-            ? ['error', value] as const
-            : 'error' as const,
+          'scope-required': ['error', value] as const,
+          'single-package': 'off' as const,
         },
       },
     })
 
-    it('Then does not require it by default', async () => {
-      expect(await rulesOf('feat: add a new thing')).toEqual([])
+    it('Then requires it by default for a bumping commit touching a package', async () => {
+      expect(await problemsOf('feat: add a new thing', {
+        config: {
+          commitlint: {
+            rules: { 'single-package': 'off' },
+          },
+        },
+        files: ['packages/nuxt/src/index.ts'],
+      }))
+        .toEqual([
+          { message: 'The scope is missing on a minor commit touching @maz-ui/nuxt', fix: 'add the scope of the package: "feat(nuxt): add a new thing"' },
+        ])
     })
 
-    it('Then requires it always when enabled without value', async () => {
+    it('Then requires it on every commit with "always"', async () => {
       expect(await problemsOf('chore: tidy the scripts up', {
-        config: withRule(),
+        config: withRule('always'),
       }))
         .toEqual([
           { message: 'The scope is missing', fix: 'add one, e.g. "chore(core): tidy the scripts up"' },
         ])
       expect(await rulesOf('chore(core): tidy the scripts up', {
-        config: withRule(),
+        config: withRule('always'),
       })).toEqual([])
     })
 
@@ -442,10 +451,24 @@ describe('Given lintCommitMessage function', () => {
         ],
         ['unknown files', 'fix: correct the root script', undefined],
         ['no staged file', 'fix: correct the root script', []],
+        [
+          'a commit touching an unreleased package only',
+          'fix: correct the docs page',
+          ['apps/docs/index.md'],
+        ],
       ])('Then does not require it for %s', async (_, message, files) => {
         expect(await rulesOf(message, {
           config: withRule('when-bumping'),
           files,
+          packages: [
+            ...PACKAGES,
+            {
+              name: 'docs',
+              path: 'apps/docs',
+              scopes: ['docs'],
+              released: false,
+            },
+          ],
         })).toEqual([])
       })
 
@@ -469,14 +492,12 @@ describe('Given lintCommitMessage function', () => {
         ])
       })
 
-      it('Then requires it for every bumping commit in standalone mode', async () => {
-        expect(await problemsOf('fix: correct a bug in the parser', {
+      it('Then does not require it in standalone mode', async () => {
+        expect(await rulesOf('fix: correct a bug in the parser', {
           config: withRule('when-bumping'),
+          files: ['src/parser.ts'],
           packages: [],
-        }))
-          .toEqual([
-            { message: 'The scope is missing on a commit that bumps the version (patch)', fix: 'add one, e.g. "fix(core): correct a bug in the parser"' },
-          ])
+        })).toEqual([])
       })
     })
   })
@@ -524,9 +545,103 @@ describe('Given lintCommitMessage function', () => {
         config: {
           commitlint: {
             scopes: ['ci'],
+            rules: { 'single-package': 'off' },
           },
         },
       })).toEqual([])
+    })
+  })
+
+  describe('When keeping a commit in a single package', () => {
+    const TWO_PACKAGES = ['packages/nuxt/index.ts', 'packages/core/index.ts']
+
+    it('Then fails when a bumping commit releases several packages', async () => {
+      expect(await problemsOf('fix(nuxt): correct the exports', {
+        files: TWO_PACKAGES,
+      })).toEqual([
+        {
+          message: 'The patch commit releases 2 packages: @maz-ui/nuxt, core',
+          fix: 'split the commit per package, or for a transverse change, add "nuxt" to the exceptScopes of the rule',
+        },
+      ])
+    })
+
+    it('Then explains the exceptScopes when the commit has no scope', async () => {
+      expect(await problemsOf('fix: correct the exports', {
+        files: TWO_PACKAGES,
+        config: {
+          commitlint: {
+            rules: { 'scope-required': 'off' },
+          },
+        },
+      })).toEqual([
+        {
+          message: 'The patch commit releases 2 packages: @maz-ui/nuxt, core',
+          fix: 'split the commit per package, or for a transverse change, give it a scope listed in the exceptScopes of the rule',
+        },
+      ])
+    })
+
+    it.each([
+      ['a commit without bump', 'chore: tidy the packages up', TWO_PACKAGES],
+      [
+        'a commit releasing one package',
+        'fix(nuxt): correct the exports',
+        ['packages/nuxt/index.ts', 'apps/docs/index.md'],
+      ],
+      ['a dependency upgrade', 'fix(deps): update the dependencies', TWO_PACKAGES],
+      ['unknown files', 'fix(nuxt): correct the exports', undefined],
+    ])('Then passes for %s', async (_, message, files) => {
+      expect(await rulesOf(message, {
+        files,
+        packages: [
+          ...PACKAGES,
+          {
+            name: 'docs',
+            path: 'apps/docs',
+            scopes: ['docs'],
+            released: false,
+          },
+        ],
+        config: {
+          commitlint: {
+            scopes: ['deps'],
+          },
+        },
+      })).toEqual([])
+    })
+
+    it('Then allows the transverse commits of the scopes of exceptScopes, which replace the default ones', async () => {
+      const config: DeepPartial<RelizyConfig> = {
+        commitlint: {
+          scopes: ['deps', 'exports'],
+          rules: {
+            'single-package': [
+              'error',
+              {
+                exceptScopes: ['exports'],
+              },
+            ],
+          },
+        },
+      }
+
+      expect(await rulesOf('fix(exports): correct the conditions', { files: TWO_PACKAGES, config })).toEqual([])
+      expect(await rulesOf('fix(deps): update the dependencies', { files: TWO_PACKAGES, config })).toEqual(['single-package'])
+    })
+
+    it('Then only warns when configured as a warning', async () => {
+      const result = await lint('fix(nuxt): correct the exports', {
+        files: TWO_PACKAGES,
+        config: {
+          commitlint: {
+            rules: { 'single-package': 'warn' },
+          },
+        },
+      })
+
+      expect(result.valid).toBe(true)
+      expect(result.problems.map(problem => problem.severity)).toEqual(['warn'])
     })
   })
 

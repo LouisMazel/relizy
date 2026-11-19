@@ -132,7 +132,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
   it('When nothing blocks the release, Then comments what the merge releases and sets a success status, without writing anything', async () => {
     const fetch = mockApi()
 
-    const report = await mergePreview()
+    const report = await mergePreview({ check: true })
 
     expect(report).toMatchObject({
       status: 'released',
@@ -165,7 +165,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
     const fetch = mockApi()
     origin.git('tag', '-a', 'v1.1.0', '-m', 'v1.1.0')
 
-    await expect(mergePreview()).rejects.toThrow(MergePreviewError)
+    await expect(mergePreview({ check: true })).rejects.toThrow(MergePreviewError)
 
     const [status] = calls(fetch, 'POST', `/statuses/${headSha}`)
     expect(status).toMatchObject({
@@ -177,7 +177,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
 
   describe('When a commit of the pull request fails the commitlint of the project', () => {
     beforeEach(() => {
-      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', noAuthors: true, publish: { packageManager: 'npm' }, commitlint: {} }\n`)
+      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', noAuthors: true, publish: { packageManager: 'npm' }, commitlint: {}, mergePreview: { check: true, commitlint: 'auto' } }\n`)
       git('add', '-A')
       git('commit', '--quiet', '-m', 'feat: 3.1.0')
       headSha = git('rev-parse', 'HEAD')
@@ -201,6 +201,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
         {
           kind: 'commitlint',
           message: expect.stringMatching(/^[0-9a-f]{7} "feat: 3\.1\.0": The subject "3\.1\.0" is too short/),
+          merge: 'kept',
         },
       ])
       expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
@@ -209,6 +210,15 @@ describe('Given the merge preview of a GitHub pull request', () => {
       const [comment] = calls(fetch, 'POST', '/issues/7/comments')
       expect(comment.body).toContain('#### ⚠️ Commits not following the commit convention')
       expect(comment.body).not.toContain('would fail')
+    })
+
+    it('Then does not lint the commits by default, the commitlint job does', async () => {
+      mockApi()
+      writeFileSync(join(cwd, 'relizy.config.mjs'), `export default { logLevel: 'silent', noAuthors: true, publish: { packageManager: 'npm' }, commitlint: {} }\n`)
+
+      const report = await mergePreview({ comment: false })
+
+      expect(report.mergePreview?.commitlint).toEqual([])
     })
 
     it('Then the commitlint option turns the lint off for the run', async () => {
@@ -281,6 +291,15 @@ describe('Given the merge preview of a GitHub pull request', () => {
     })
   })
 
+  it('When nothing is configured, Then comments without commit status: the job fails on its own', async () => {
+    const fetch = mockApi()
+
+    const report = await mergePreview()
+
+    expect(calls(fetch, 'POST', '/statuses/')).toEqual([])
+    expect(report.mergePreview?.posted).toEqual({ comment: true, status: false })
+  })
+
   it('When the comment and the status are disabled, Then calls no API for them', async () => {
     const fetch = mockApi()
 
@@ -351,7 +370,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
   it('When it comments and sets the status, Then the report tells what was posted', async () => {
     mockApi()
 
-    const report = await mergePreview()
+    const report = await mergePreview({ check: true })
 
     expect(report.mergePreview?.posted).toEqual({ comment: true, status: true })
     expect(report.mergePreview).not.toHaveProperty('changelogs')
@@ -407,7 +426,7 @@ describe('Given the merge preview of a GitHub pull request', () => {
     vi.stubEnv('GITHUB_REPOSITORY', 'test/repo')
     vi.stubEnv('GITHUB_RUN_ID', '42')
 
-    await mergePreview({ comment: false })
+    await mergePreview({ comment: false, check: true })
 
     expect(calls(fetch, 'POST', `/statuses/${headSha}`)).toEqual([
       expect.objectContaining({ target_url: 'https://github.com/test/repo/actions/runs/42' }),

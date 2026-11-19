@@ -20,17 +20,17 @@ function commitlint(options?: CommitlintOptions): Promise<CommitlintRunResult>
 
 The flags of [`relizy commitlint`](./../commitlint/cli.md), camelCased:
 
-| Option                             | Description                                                                                                        |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| `message`                          | Lint this message                                                                                                  |
-| `edit`                             | Lint the message of the commit being created: a file path, or `true` for `.git/COMMIT_EDITMSG`                     |
-| `from`, `to`                       | The range to lint. Default: from the merge-base of the pull/merge request in CI, else from the last tag, to `HEAD` |
-| `title`                            | In the CI of a pull/merge request, also lint its title. Default: [`commitlint.title`](./../commitlint/config.md)   |
-| `preview`                          | Add the changelog entry of each commit to the report                                                               |
-| `format`                           | `'text'` (default) or `'json'`                                                                                     |
-| `quiet`                            | In the text format, only print the commits with problems, and the summary                                          |
-| `install`                          | Write the `commit-msg` hook, `force` to replace an existing one                                                    |
-| `configName`, `config`, `logLevel` | See the [shared options](./usage.md#shared-options)                                                                |
+| Option                             | Description                                                                                                                                                                    |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `message`                          | Lint this message                                                                                                                                                              |
+| `edit`                             | Lint the message of the commit being created: a file path, or `true` for `.git/COMMIT_EDITMSG`                                                                                 |
+| `from`, `to`                       | The range to lint. Default: from the merge-base of the pull/merge request in CI, else from the last tag, to `HEAD`                                                             |
+| `title`                            | In the CI of a pull/merge request, how to lint its title: `'auto'`, `'error'`, `'warn'`, `'off'`, or a boolean. Default: [`commitlint.title`](./../commitlint/config.md#title) |
+| `preview`                          | Add the changelog entry of each commit to the report                                                                                                                           |
+| `format`                           | `'text'` (default) or `'json'`                                                                                                                                                 |
+| `quiet`                            | In the text format, only print the commits with problems, and the summary                                                                                                      |
+| `install`                          | Write the `commit-msg` hook, `force` to replace an existing one                                                                                                                |
+| `configName`, `config`, `logLevel` | See the [shared options](./usage.md#shared-options)                                                                                                                            |
 
 It returns `results` (one `CommitlintResult` per linted message), `errorCount`, `warningCount`, the `report` (unset with `install`) and the installed `hook` (with `install`). See [CommitlintOptions](./../typedoc/interfaces/CommitlintOptions.md) and [CommitlintRunResult](./../typedoc/interfaces/CommitlintRunResult.md).
 

@@ -71,12 +71,14 @@ jobs:
 - **AI rewrites**: the `claude` CLI, installed with `claude-code-oauth-token`.
 - **Relizy**: the version of your `package.json`, else the version of the action (`relizy-version` forces one).
 - **Release**: `relizy release --yes`, with the release type, the tokens and the `args` you give, and the [outputs](#outputs-and-summary) of the release.
+- **Other commands**: `command` runs another command of the CLI with the same setup and tokens: `merge-preview`, `commitlint`, `bump`, `changelog`, `publish`, `provider-release`, `social`, `sync` or `pr-comment`, with its options in `args`. `release-type` applies to `release`, `bump` and `merge-preview` only, `profile` to every command, the outputs to `release` only.
 
 | Input                                                                                              | Default                                | Description                                                                                                                                                    |
 | -------------------------------------------------------------------------------------------------- | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `command`                                                                                          | `release`                              | The relizy command: `release`, `merge-preview`, `commitlint`, or another command of the CLI                                                                    |
 | `release-type`                                                                                     | `auto`                                 | `auto` (no type flag: `bump.type` of the config or the profile, else the commits), `patch`, `minor`, `major`, `prerelease`, `prepatch`, `preminor`, `premajor` |
 | `profile`                                                                                          |                                        | A [release profile](./../config/profiles.md) of the config (`beta`, `canary`...): `profile: beta` is `--profile beta` (relizy 2.3.0 or later)                  |
-| `args`                                                                                             |                                        | More arguments for `relizy release`: `--tag beta --preid beta`, `--config standalone`, `--dry-run`                                                             |
+| `args`                                                                                             |                                        | More arguments for the command: `--tag beta --preid beta`, `--config standalone`, `--dry-run` for `relizy release`, `--title` for `relizy commitlint`          |
 | `github-token`                                                                                     | <code v-pre>${{ github.token }}</code> | GitHub releases, push and PR comment                                                                                                                           |
 | `npm-token`                                                                                        |                                        | npm publishing, not needed with trusted publishing                                                                                                             |
 | `slack-token`, `teams-webhook-url`                                                                 |                                        | [Slack posts, Teams cards](./social-media.md)                                                                                                                  |
@@ -221,12 +223,24 @@ on:
 
 ### Preview the Release on Pull Requests
 
-A second workflow, on the pull requests, runs the action with `merge-preview: true` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
+A second workflow, on the pull requests, runs the action with `command: merge-preview` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the job fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
 
 ```yaml
 - uses: relizy/action@v2
   with:
-    merge-preview: true
+    command: merge-preview
+```
+
+The `merge-preview: true` input of relizy 2.3 and before still works, with a deprecation warning.
+
+### Lint the Commits of Pull Requests
+
+`command: commitlint` runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the pull request, with your config: the job fails on a commit the release would misread, and each problem is an annotation on the pull request. The title is linted too, from the merge method (see [`commitlint.title`](./../commitlint/config.md#title)): `args: --title` lints it as errors whatever the merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
+
+```yaml
+- uses: relizy/action@v2
+  with:
+    command: commitlint
 ```
 
 ### Merge the Release into develop

@@ -2,7 +2,7 @@ import type { ResolvedRelizyConfig } from '../config'
 import type { MergePreviewContext } from './context'
 import type { MergePreviewOutcome, MergePreviewPlan } from './plan'
 import { getCommitsInRange, getWorkspacePackages, parseGitCommit, tryGit } from '@relizy/core'
-import { hasRelizyCommitMsgHook, lintCommitMessage } from '../commitlint'
+import { getTitleMode, hasRelizyCommitMsgHook, lintCommitMessage } from '../commitlint'
 import { isSetInUserConfig } from '../config'
 import { getReleaseTagNames } from '../git'
 import { resolveRegistryTargetsForPackage } from '../npm-registry'
@@ -17,6 +17,13 @@ import { isVersionPublished } from '../npm-versions'
 export interface MergePreviewProblem {
   kind: 'version-taken' | 'tag-taken' | 'squash-title' | 'commitlint' | 'error'
   message: string
+  /**
+   * What the merge does with a `commitlint` commit: `kept` lands on the
+   * target branch, `squash` only lands with a squash merge (the squash commit
+   * when the merge method is left open), `dropped` does not land (a commit of
+   * a squash merge)
+   */
+  merge?: 'kept' | 'squash' | 'dropped'
 }
 
 export interface MergePreviewChecks {
@@ -136,7 +143,10 @@ function checkSquashTitle(plan: MergePreviewPlan, context: MergePreviewContext, 
  * Lint the commits of the pull request, and the commit of its squash merge,
  * with the commitlint of relizy: when `mergePreview.commitlint` is
  * true, or `auto` and the project uses it (a `commitlint` option in its
- * config, or a commit-msg hook running `relizy commitlint`)
+ * config, or a commit-msg hook running `relizy commitlint`). As
+ * `relizy commitlint`, the squash commit is not linted with
+ * `commitlint.title: 'off'`, nor when it takes the message of the only commit
+ * (linted itself), and the commits a squash merge drops are marked.
  */
 async function checkCommitlint({ config, plan, context, option, checks }: {
   config: ResolvedRelizyConfig
@@ -154,9 +164,10 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
 
   const packages = getWorkspacePackages(config)
   const commits = getCommitsInRange({ from: context.targetSha, to: context.headSha, cwd: config.cwd })
-  const squash = canSquash(plan)
+  const squash = canSquash(plan) && !plan.squash.titleFromCommit && getTitleMode(config.commitlint?.title) !== 'off'
     ? plan.squash.squash
     : undefined
+  const dropped = plan.squash.mode === 'squash' && !plan.squash.titleFromCommit
   const entries = [
     ...(squash
       ? [
@@ -190,13 +201,21 @@ async function checkCommitlint({ config, plan, context, option, checks }: {
     })
     const errors = result.problems.filter(problem => problem.severity === 'error')
     if (errors.length > 0) {
-      // A merge commit or a rebase does not create the squash commit
-      const prefix = entry.squash && plan.squash.mode !== 'squash'
+      // A merge commit or a rebase does not create the squash commit, a squash merge drops the commits
+      let merge: NonNullable<MergePreviewProblem['merge']> = 'kept'
+      if (entry.squash && plan.squash.mode !== 'squash') {
+        merge = 'squash'
+      }
+      else if (!entry.squash && dropped) {
+        merge = 'dropped'
+      }
+      const prefix = merge === 'squash'
         ? 'If you squash merge: '
         : ''
       checks.commitlint.push({
         kind: 'commitlint',
         message: `${prefix}${entry.label} "${entry.message.split('\n')[0]}": ${errors.map(problem => problem.message).join('; ')}`,
+        merge,
       })
     }
   }
