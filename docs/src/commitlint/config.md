@@ -20,7 +20,7 @@ export default defineConfig({
     scopes: ['ci', 'deps', 'release'],
     rules: {
       'header-max-length': ['error', 200],
-      'scope-required': ['error', 'when-bumping'],
+      'scope-required': ['error', 'always'],
     },
     ignores: [/^Initial commit$/],
     title: 'error',

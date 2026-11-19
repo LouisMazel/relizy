@@ -2083,7 +2083,7 @@ export interface CommitlintConfig {
   scopes?: string[]
   /**
    * Level and value of the built-in and custom rules.
-   * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'when-bumping'] }
+   * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'always'] }
    */
   rules?: CommitlintRulesConfig
   /**

@@ -18,7 +18,7 @@ Set the level (`'error'`, `'warn'`, `'off'`) and the value of a rule in [`commit
 | [`header-max-length`](#header-max-length)       | `error` | `500`                            | Yes                       |
 | [`type-enum`](#type-enum)                       | `error` | Extra types                      |                           |
 | [`scope-enum`](#scope-enum)                     | `error` |                                  |                           |
-| [`scope-required`](#scope-required)             | `off`   | `'always'`                       |                           |
+| [`scope-required`](#scope-required)             | `error` | `'when-bumping'`                 |                           |
 | [`scope-matches-files`](#scope-matches-files)   | `error` |                                  |                           |
 | [`single-package`](#single-package)             | `error` | `{ exceptScopes: ['deps'] }`     |                           |
 | [`subject-case`](#subject-case)                 | `off`   |                                  |                           |
@@ -95,18 +95,26 @@ Without workspace package nor `commitlint.scopes` (a single package), any scope 
 
 ### `scope-required`
 
-Require a scope. Off by default. The value is:
+Require a scope. The value is:
 
-- `'always'` (default value): every commit needs a scope;
-- `'never'`: no commit can have a scope;
-- `'when-bumping'`: only the commits that bump a version and touch a released package need a scope, and the fix gives the scope of the package. A released package is one Relizy releases with this config: the private packages (with [`privatePackages: 'ignore'`](./../config/monorepo.md#privatepackages)), the [ignored](./../config/monorepo.md#ignored) ones and the apps never count. Without workspace package, every commit that bumps a version.
+- `'when-bumping'` (default value): only the commits that bump a version and touch a released package need a scope, and the fix gives the scope of the package. A released package is one Relizy releases with this config: the private packages (with [`privatePackages: 'ignore'`](./../config/monorepo.md#privatepackages)), the [ignored](./../config/monorepo.md#ignored) ones and the apps never count. Without workspace package (a single package), no commit needs a scope;
+- `'always'`: every commit needs a scope;
+- `'never'`: no commit can have a scope.
+
+| Commit                         | Files                         | Result                      |
+| ------------------------------ | ----------------------------- | --------------------------- |
+| `fix: correct the types`       | `packages/nuxt/src/module.ts` | fails: `fix(nuxt): ...`     |
+| `fix(nuxt): correct the types` | `packages/nuxt/src/module.ts` | passes                      |
+| `chore: update the CI`         | `.github/workflows/ci.yml`    | passes: no bump             |
+| `fix: correct the script`      | `scripts/build.ts`            | passes: no released package |
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   commitlint: {
-    rules: { 'scope-required': ['error', 'when-bumping'] },
+    // Every commit needs a scope, or turn the rule off with 'off'
+    rules: { 'scope-required': ['error', 'always'] },
   },
 })
 ```

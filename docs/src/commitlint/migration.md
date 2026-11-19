@@ -39,12 +39,12 @@ The rules take the ESLint format, `'error'` or `['error', value]`, and accept th
 
 Other common rules:
 
-| commitlint rule | Relizy equivalent                                                                                                          |
-| --------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `scope-enum`    | [`scope-enum`](./rules.md#scope-enum), from your packages, `scopeMap` and [`commitlint.scopes`](./config.md#scopes)        |
-| `scope-case`    | [`header-format`](./rules.md#header-format) (no spaces) and [`scope-enum`](./rules.md#scope-enum)                          |
-| `scope-empty`   | [`scope-required`](./rules.md#scope-required), with `'when-bumping'` to require it only on the commits that bump a version |
-| Any other rule  | A [custom rule](./custom-rules.md)                                                                                         |
+| commitlint rule | Relizy equivalent                                                                                                        |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `scope-enum`    | [`scope-enum`](./rules.md#scope-enum), from your packages, `scopeMap` and [`commitlint.scopes`](./config.md#scopes)      |
+| `scope-case`    | [`header-format`](./rules.md#header-format) (no spaces) and [`scope-enum`](./rules.md#scope-enum)                        |
+| `scope-empty`   | [`scope-required`](./rules.md#scope-required): on the commits that bump a version by default, `'always'` on every commit |
+| Any other rule  | A [custom rule](./custom-rules.md)                                                                                       |
 
 Relizy adds rules commitlint has no equivalent for: [`scope-matches-files`](./rules.md#scope-matches-files), [`subject-meaningful`](./rules.md#subject-meaningful), [`body-no-headings`](./rules.md#body-no-headings), [`body-markdown`](./rules.md#body-markdown), [`body-changelog-lint`](./rules.md#body-changelog-lint), [`body-breaking-change`](./rules.md#body-breaking-change), [`no-breaking`](./rules.md#no-breaking) and [`no-ai-attribution`](./rules.md#no-ai-attribution).
 
