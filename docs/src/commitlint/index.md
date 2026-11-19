@@ -20,13 +20,13 @@ tags: [commitlint, conventional-commits, git-hooks, husky, ci-cd, github-actions
 
 ## What it checks
 
-| Area             | Checks                                                                                                           |
-| ---------------- | ---------------------------------------------------------------------------------------------------------------- |
-| Header           | `type(scope)!: subject` format, known type, header length, subject period and meaning (and case, opt-in)         |
-| Scopes           | Workspace packages, `scopeMap` keys and your list, required scope (opt-in), scope matching the changed files     |
-| Body             | Blank line after the header, no markdown heading, valid markdown, changelog entry that keeps the changelog valid |
-| Breaking changes | Only `!` or a `BREAKING CHANGE:` footer can trigger a major bump                                                 |
-| AI attribution   | No AI co-author, session trailer or "Generated with" line                                                        |
+| Area             | Checks                                                                                                                                        |
+| ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
+| Header           | `type(scope)!: subject` format, known type, header length, subject period and meaning (and case, opt-in)                                      |
+| Scopes           | Workspace packages, `scopeMap` keys and your list, required scope (opt-in), scope matching the changed files, one released package per commit |
+| Body             | Blank line after the header, no markdown heading, valid markdown, changelog entry that keeps the changelog valid                              |
+| Breaking changes | Only `!` or a `BREAKING CHANGE:` footer can trigger a major bump                                                                              |
+| AI attribution   | No AI co-author, session trailer or "Generated with" line                                                                                     |
 
 Every rule can be tuned or disabled, and you can write your own: see [Rules](./rules.md) and [Custom Rules](./custom-rules.md). No config is required to start; see [Configuration](./config.md) to tune it.
 

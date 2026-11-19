@@ -108,4 +108,55 @@ describe('Given the workspace packages read from the config', () => {
 
     expect(getWorkspacePackages(config).map(pkg => pkg.name).sort()).toEqual(['@maz-ui/nuxt', 'core'])
   })
+
+  describe('When marking the packages the config releases', () => {
+    function releasedOf(config: ReturnType<typeof createMockConfig>) {
+      return Object.fromEntries(getWorkspacePackages(config).map(pkg => [pkg.name, pkg.released]))
+    }
+
+    it('Then leaves out the private packages by default', () => {
+      expect(releasedOf(createMockConfig({
+        cwd,
+        monorepo: {
+          packages: ['packages/*', 'apps/web'],
+        },
+      }))).toEqual({
+        '@maz-ui/nuxt': true,
+        'core': true,
+        'web-app': false,
+      })
+    })
+
+    it('Then marks the private packages with privatePackages: release', () => {
+      expect(releasedOf(createMockConfig({
+        cwd,
+        monorepo: {
+          packages: ['packages/*', 'apps/web'],
+          privatePackages: 'release',
+        },
+      }))).toEqual({
+        '@maz-ui/nuxt': true,
+        'core': true,
+        'web-app': true,
+      })
+    })
+
+    it('Then leaves out the ignored packages and the ones of commitlint.packages', () => {
+      expect(releasedOf(createMockConfig({
+        cwd,
+        monorepo: {
+          packages: ['packages/*'],
+          ignored: ['packages/core-lib'],
+        },
+        commitlint: {
+          packages: ['apps/*'],
+        },
+      }))).toEqual({
+        '@maz-ui/nuxt': true,
+        'core': false,
+        'playground': false,
+        'web-app': false,
+      })
+    })
+  })
 })

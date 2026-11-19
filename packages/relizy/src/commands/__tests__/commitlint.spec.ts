@@ -265,7 +265,10 @@ describe('Given commitlint command', () => {
       const result = await commitlint({
         from: 'v1.0.0',
         config: createConfig({
-          commitlint: { title: true },
+          commitlint: {
+            title: true,
+            rules: { 'single-package': 'off' },
+          },
         }),
       })
 
