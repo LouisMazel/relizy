@@ -51,6 +51,16 @@ function hasCliFlag(flag: string): boolean {
   return process.argv.includes(flag)
 }
 
+/** `true` with `--<name>`, `false` with `--no-<name>`, `undefined` without them: the config decides */
+function getCliSwitch(name: string): boolean | undefined {
+  if (hasCliFlag(`--no-${name}`)) {
+    return false
+  }
+  return hasCliFlag(`--${name}`)
+    ? true
+    : undefined
+}
+
 /** One line when the agent rules of the project are outdated: local runs only, never in the `mcp`, `init` and `commitlint` commands (run at each commit), never fails */
 async function warnOutdatedAgentRules(command: Command): Promise<void> {
   try {
@@ -592,7 +602,9 @@ mergePreviewCommand
   .addOption(privatePackagesOption())
   .option('--no-comment', 'Do not comment the pull request')
   .addOption(prCommentModeOption())
+  .option('--check', 'Set the commit status relizy/merge-preview (default: mergePreview.check)')
   .option('--no-check', 'Do not set the commit status')
+  .option('--commitlint', 'Lint the commits of the pull request, as warnings (default: mergePreview.commitlint)')
   .option('--no-commitlint', 'Do not lint the commits of the pull request')
   .option('--report-json <file>', 'Write the report of the preview to this JSON file')
   .option('--report-markdown <file>', 'Write the preview to this markdown file, e.g. for an artifact of GitLab CI')
@@ -623,12 +635,8 @@ mergePreviewCommand
           ? false
           : undefined,
         prCommentMode: options.prCommentMode,
-        check: hasCliFlag('--no-check')
-          ? false
-          : undefined,
-        commitlint: hasCliFlag('--no-commitlint')
-          ? false
-          : undefined,
+        check: getCliSwitch('check'),
+        commitlint: getCliSwitch('commitlint'),
         prNumber: program.opts().prNumber,
         logLevel: program.opts().logLevel,
         configName: program.opts().config,
