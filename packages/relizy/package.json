@@ -85,7 +85,7 @@
     }
   },
   "dependencies": {
-    "@clack/prompts": "^1.8.1",
+    "@clack/prompts": "^1.9.0",
     "@maz-ui/node": "5.7.0",
     "@maz-ui/utils": "5.7.0",
     "@relizy/core": "workspace:^",
