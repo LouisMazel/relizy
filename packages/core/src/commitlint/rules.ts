@@ -253,8 +253,8 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
     },
   },
   'scope-required': {
-    severity: 'off',
-    value: 'always',
+    severity: 'error',
+    value: 'when-bumping',
     conventionalOnly: true,
     check: ({ commit, packages, value }) => {
       if (value === 'never') {
@@ -272,17 +272,9 @@ export const BUILT_IN_RULES: Record<CommitlintRuleName, RuleDefinition> = {
           { message: 'The scope is missing', fix: `add one, e.g. "${commit.type}(core): ${commit.subject}"` },
         ]
       }
-      if (!commit.bump) {
-        return []
-      }
-      if (packages.length === 0) {
-        return [
-          { message: `The scope is missing on a commit that bumps the version (${commit.bump})`, fix: `add one, e.g. "${commit.type}(core): ${commit.subject}"` },
-        ]
-      }
-      // Unknown files (e.g. during a rebase) or no released package: nothing to designate
+      // No bump, a single package, unknown files (e.g. during a rebase) or no released package: nothing to designate
       const released = commit.releasedPackages ?? []
-      if (released.length === 0) {
+      if (!commit.bump || released.length === 0) {
         return []
       }
       const scope = findPackageByScope(released[0]!, packages)?.scopes[0] ?? 'package'

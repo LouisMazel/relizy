@@ -46,7 +46,7 @@ export interface CommitlintBuiltInRules {
   /**
    * The scope is required (`'always'`), forbidden (`'never'`), or required on
    * the commits bumping a version and touching a released package (`'when-bumping'`).
-   * @default ['off', 'always']
+   * @default ['error', 'when-bumping']
    */
   'scope-required': 'always' | 'never' | 'when-bumping'
   /**
