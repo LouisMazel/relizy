@@ -1,5 +1,19 @@
 # Changelog
 
+## @relizy/core@2.5.0-beta.1 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.5.0-beta.0...@relizy/core@2.5.0-beta.1)
+
+### 🩹 Fixes
+
+- **core:** Read the ranges a package was published with at its last release ([77bdaeb](https://github.com/LouisMazel/relizy/commit/77bdaeb))
+
+  `getOutOfRangeDependencies()` and `getOutOfRangePeers()` take a `ref` option, the last release of the package: its ranges are read from its `package.json` at this ref, a dependency added since then rejects nothing and a package never released has nothing out of range. `findStalePeerDependents()` takes the `refs` of the dependents.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.5.0-beta.0 (2026-11-19)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0...@relizy/core@2.5.0-beta.0)

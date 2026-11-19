@@ -1,5 +1,19 @@
 # Changelog
 
+## v2.4.0-beta.1 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.4.0-beta.0...v2.4.0-beta.1)
+
+### 🩹 Fixes
+
+- **relizy:** Check the peer and dependency ranges as published, not as in the working tree ([9564afc](https://github.com/LouisMazel/relizy/commit/9564afc))
+
+  A peer dependency added since the last release of a package no longer makes a minor of its dependency break the package. The ranges are read from its `package.json` at its last tag, and a package never released has nothing out of range. The stale peer warning of the release follows the same rule.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.4.0-beta.0 (2026-11-19)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0...v2.4.0-beta.0)
