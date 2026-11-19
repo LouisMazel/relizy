@@ -356,8 +356,8 @@ importers:
         specifier: ^1.32.2
         version: 1.32.2(supports-color@7.2.0)(zod@4.6.7)
       '@slack/web-api':
-        specifier: 8.3.0
-        version: 8.3.0
+        specifier: 8.4.0
+        version: 8.4.0
       '@types/mdast':
         specifier: ^4.0.4
         version: 4.0.4
@@ -1973,8 +1973,8 @@ packages:
     resolution: {integrity: sha512-11r2kM9Zy/UlaV6OwPibZueVlyNJ5xtHEHK/iYDnPLyhQcxRtsifNAwNhJ1Lm0nszW4jrWCHThXCHCNJC/hvqg==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
-  '@slack/web-api@8.3.0':
-    resolution: {integrity: sha512-rGHDZggzG658Uc4yebenp3rVfVVToL0w8aOis40EfrstZCxg8FWS+ECGDIkw498Q9jxF/LVKgGbPfUeYntTrUQ==}
+  '@slack/web-api@8.4.0':
+    resolution: {integrity: sha512-SZSa8Xqz0jkvGfw9lLKQt17u44Xi5+O2QRMFo6f2vTEP0fPS+ThxOR0++AwJAPOkf3PKxA7lLmrL9Y4Y2J693w==}
     engines: {node: '>= 20', npm: '>=9.6.4'}
 
   '@sonarsource/analyzer-commons-configurations@2.31.0-5284':
@@ -6520,7 +6520,7 @@ snapshots:
 
   '@slack/types@3.3.0': {}
 
-  '@slack/web-api@8.3.0':
+  '@slack/web-api@8.4.0':
     dependencies:
       '@slack/logger': 5.0.0
       '@slack/types': 3.3.0
