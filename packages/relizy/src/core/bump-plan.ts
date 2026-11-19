@@ -2,7 +2,7 @@ import type { DependencyField, OutOfRangeDependency, VersionChange } from '@reli
 import type { PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
-import { describeOutOfRange, determineReleaseType, expandPackagesToBumpWithDependents, getDependencyReleaseType, getOutOfRangeDependencies, getPackageNewVersion, isBreakingVersionChange, isChangedPreid, isGraduating } from '@relizy/core'
+import { describeOutOfRange, determineReleaseType, expandPackagesToBumpWithDependents, getDependencyReleaseType, getOutOfRangeDependencies, getPackageNewVersion, isBreakingVersionChange, isChangedPreid, isGraduating, NEW_PACKAGE_MARKER } from '@relizy/core'
 
 /**
  * The planning of the bumps of `getPackages()`: the release type of each
@@ -51,6 +51,18 @@ function getPackageReleaseType({
     breakingPeer,
     logger,
   })
+}
+
+/**
+ * Ref of the last release of a package, whose `package.json` has the ranges it
+ * was published with: its `fromTag`. Without a repository tag compatible with
+ * its version, a package of a unified/selective config may still have been
+ * published: undefined, its ranges are read in the working tree.
+ */
+export function getPublishedRef(pkg: PackageBase, config: ResolvedRelizyConfig): string | undefined {
+  return pkg.fromTag === NEW_PACKAGE_MARKER && config.monorepo?.versionMode !== 'independent'
+    ? undefined
+    : pkg.fromTag
 }
 
 /**
@@ -176,7 +188,8 @@ export function computeNewVersions({
  * new version (`seeds`) of a peer dependency (with `bumpOutOfRange`) or of a
  * field of `dependencyFields` (a specifier that is not a semver range counts
  * as out of range there), and the bumped packages whose
- * peer dependency makes a breaking change (`breaking`). Only a peer dependency
+ * peer dependency makes a breaking change (`breaking`). The ranges are the
+ * published ones, at the last release of each package (`getPublishedRef`). Only a peer dependency
  * breaks the consumers of the package: a dependency is installed for it.
  */
 function findOutOfRangeDependents({
@@ -184,11 +197,13 @@ function findOutOfRangeDependents({
   bumped,
   bumpOutOfRange,
   dependencyFields,
+  config,
 }: {
   packages: Map<string, PackageBase>
   bumped: Map<string, VersionChange>
   bumpOutOfRange: boolean
   dependencyFields: Set<DependencyField>
+  config: ResolvedRelizyConfig
 }) {
   const seeds: { pkg: PackageBase, outOfRange: OutOfRangeDependency }[] = []
   const breaking: { pkg: PackageBase, dependency: string }[] = []
@@ -203,7 +218,12 @@ function findOutOfRangeDependents({
       continue
     }
 
-    const outOfRange = getOutOfRangeDependencies({ packagePath: pkg.path, bumped, fields })
+    const outOfRange = getOutOfRangeDependencies({
+      packagePath: pkg.path,
+      ref: getPublishedRef(pkg, config),
+      bumped,
+      fields,
+    })
     const seed = outOfRange.find(isSeed)
     const breakingPeer = outOfRange.find(dependency => dependency.field === 'peerDependencies' && dependency.range !== null && isBreakingVersionChange(dependency))
 
@@ -263,6 +283,7 @@ export function bumpPeerDependents({
       bumped,
       bumpOutOfRange,
       dependencyFields,
+      config: versionContext.config,
     })
 
     if (seeds.length === 0 && breaking.length === 0) {

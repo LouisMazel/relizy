@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { commitFile, git, readVersion, releaseRepo, useReleaseGroupsRepository, writeConfig, writeJson } from '../../../tests/release-groups'
+import { amendRelease, commitFile, git, readVersion, releaseRepo, useReleaseGroupsRepository, writeConfig, writeJson } from '../../../tests/release-groups'
 import { loadRelizyConfig } from '../../core'
 import { publishPackage } from '../../core/npm'
 import { askConfirm } from '../../core/prompts'
@@ -55,7 +55,7 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then bumps the packages with a workspace:* peer dependency, in every group, without following the peer dependencies', async () => {
       // @scope/kit is in the selective group, @scope/nav in the independent one
-      commitChanges('chore: add the kit', () => writeJson('packages/kit', {
+      amendRelease(() => writeJson('packages/kit', {
         name: '@scope/kit',
         version: '6.19.1',
         peerDependencies: { '@scope/components': 'workspace:*' },
@@ -100,7 +100,7 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then does not bump a package whose workspace:^ range accepts the new version', async () => {
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+      amendRelease(() => writeJson('shared/nav', {
         name: '@scope/nav',
         version: '1.2.0',
         peerDependencies: { '@scope/components': 'workspace:^' },
@@ -114,10 +114,124 @@ describe('Given a release with version groups on a real git repository', () => {
       warn.mockRestore()
     })
 
+    describe('When the peer dependency is not in the published package.json', () => {
+      it('Then bumps a group from its commits when a 0.x peer dependency added since its release gets a minor', async () => {
+        // The issue: @scope/kit was published without peer dependency on @scope/login, then in 0.x
+        amendRelease(() => {
+          writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1' })
+          writeJson('shared/login', { name: '@scope/login', version: '0.1.0' })
+        })
+        git('tag', '-a', '@scope/login@0.1.0', '-m', '@scope/login@0.1.0', 'v6.19.1^{commit}')
+        commitChanges('feat(kit): support the login', () => writeJson('packages/kit', {
+          name: '@scope/kit',
+          version: '6.19.1',
+          peerDependencies: { '@scope/login': 'workspace:^' },
+          peerDependenciesMeta: {
+            '@scope/login': { optional: true },
+          },
+        }))
+        commitFile('shared/login/form.js', 'feat(login): add a form')
+        const config = await loadRelizyConfig()
+
+        const { result } = await planBumps({ config, dryRun: true })
+        const kit = result.bumped
+          ? result.bumpedPackages.find(pkg => pkg.name === '@scope/kit')
+          : undefined
+
+        expect(result.bumped && result.bumpedPackages.find(pkg => pkg.name === '@scope/login')?.newVersion).toBe('0.2.0')
+        expect(kit).toEqual(expect.objectContaining({ newVersion: '6.20.0', reason: 'commits' }))
+        expect(kit?.breakingPeerDependency).toBeUndefined()
+        expect(kit?.outOfRangeDependency).toBeUndefined()
+
+        await release({ yes: true })
+
+        expect(readVersion('.')).toBe('6.20.0')
+        expect(readVersion('packages/kit')).toBe('6.20.0')
+      })
+
+      it('Then gives a minor, not a major, to a group whose new peer dependency of another group makes a breaking change', async () => {
+        amendRelease(() => writeJson('packages/kit', { name: '@scope/kit', version: '6.19.1' }))
+        commitChanges('feat(kit): support the login', () => writeJson('packages/kit', {
+          name: '@scope/kit',
+          version: '6.19.1',
+          peerDependencies: { '@scope/login': 'workspace:^' },
+          peerDependenciesMeta: {
+            '@scope/login': { optional: true },
+          },
+        }))
+        commitFile('shared/login/form.js', 'feat(login)!: new form API')
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/login')).toBe('3.0.0')
+        expect(readVersion('.')).toBe('6.20.0')
+        expect(readVersion('packages/kit')).toBe('6.20.0')
+      })
+
+      it('Then does not bump a package never released, nor warns about it', async () => {
+        commitChanges('chore: add the kit', () => writeJson('packages/kit', {
+          name: '@scope/kit',
+          version: '6.19.1',
+          peerDependencies: { '@scope/components': 'workspace:*' },
+        }))
+        const warn = vi.spyOn(logger, 'warn')
+
+        await release({ yes: true })
+
+        expect(readVersion('packages/components')).toBe('6.20.0')
+        expect(readVersion('packages/kit')).toBe('6.19.1')
+        expect(warn).not.toHaveBeenCalledWith(expect.stringContaining('@scope/kit'))
+        warn.mockRestore()
+      })
+
+      it('Then checks a range changed since the release as it was published', async () => {
+        // Published with `^6.19.1`, which accepts 6.20.0: the exact range set since then is not published yet
+        amendRelease(() => writeJson('shared/nav', {
+          name: '@scope/nav',
+          version: '1.2.0',
+          peerDependencies: { '@scope/components': 'workspace:^' },
+        }))
+        commitChanges('chore: exact peer', () => writeJson('shared/nav', {
+          name: '@scope/nav',
+          version: '1.2.0',
+          peerDependencies: { '@scope/components': 'workspace:*' },
+        }))
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/nav')).toBe('1.2.0')
+      })
+
+      it('Then bumps a package whose published range rejects the new version, though its range was widened since', async () => {
+        commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+          name: '@scope/nav',
+          version: '1.2.0',
+          peerDependencies: { '@scope/components': 'workspace:^' },
+        }))
+        const config = await loadRelizyConfig()
+
+        const { result } = await planBumps({ config, dryRun: true })
+        const nav = result.bumped
+          ? result.bumpedPackages.find(pkg => pkg.name === '@scope/nav')
+          : undefined
+
+        expect(nav?.outOfRangeDependency).toEqual({
+          name: '@scope/components',
+          field: 'peerDependencies',
+          range: '6.19.1',
+          newVersion: '6.20.0',
+        })
+      })
+    })
+
     describe('When the dependency makes a breaking change', () => {
       function setupNav({ version = '1.2.0', headerOptions = '' }: { version?: string, headerOptions?: string } = {}) {
         git('reset', '--hard', 'HEAD~1')
-        commitChanges('chore: caret peer', () => {
+        // A version without tag starts at the commit that sets it
+        const change = version === '1.2.0'
+          ? amendRelease
+          : (changes: () => void) => commitChanges('chore: caret peer', changes)
+        change(() => {
           writeJson('shared/nav', {
             name: '@scope/nav',
             version,
@@ -202,7 +316,7 @@ describe('Given a release with version groups on a real git repository', () => {
 
     describe('When a package depends on a package of another group with bump.dependents: out-of-range', () => {
       beforeEach(() => {
-        commitChanges('chore: caret dependency', () => {
+        amendRelease(() => {
           writeJson('shared/nav', {
             name: '@scope/nav',
             version: '1.2.0',
@@ -227,11 +341,25 @@ describe('Given a release with version groups on a real git repository', () => {
         expect(readVersion('packages/components')).toBe('7.0.0')
         expect(readVersion('shared/nav')).toBe('1.2.1')
       })
+
+      it('Then does not release the package whose dependency was added since its release', async () => {
+        commitChanges('chore: add the login', () => writeJson('shared/nav', {
+          name: '@scope/nav',
+          version: '1.2.0',
+          dependencies: { '@scope/components': 'workspace:^', '@scope/login': 'workspace:*' },
+        }))
+        commitFile('shared/login/form.js', 'feat(login): add a form')
+
+        await release({ yes: true })
+
+        expect(readVersion('shared/login')).toBe('2.1.0')
+        expect(readVersion('shared/nav')).toBe('1.2.0')
+      })
     })
 
     describe('When a package of the selective group has a peer dependency on a package of the independent group making a breaking change', () => {
       beforeEach(() => {
-        commitChanges('chore: add the kit', () => writeJson('packages/kit', {
+        amendRelease(() => writeJson('packages/kit', {
           name: '@scope/kit',
           version: '6.19.1',
           peerDependencies: { '@scope/login': 'workspace:^' },
@@ -273,7 +401,7 @@ describe('Given a release with version groups on a real git repository', () => {
 
     it('Then publishes a major canary of a package whose peer dependency makes a breaking change', async () => {
       git('reset', '--hard', 'HEAD~1')
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+      amendRelease(() => writeJson('shared/nav', {
         name: '@scope/nav',
         version: '1.2.0',
         peerDependencies: { '@scope/components': 'workspace:^' },
@@ -288,7 +416,7 @@ describe('Given a release with version groups on a real git repository', () => {
     })
 
     it('Then publishes the canary version of a package whose workspace:^ range rejects the canary of its dependency', async () => {
-      commitChanges('chore: caret peer', () => writeJson('shared/nav', {
+      amendRelease(() => writeJson('shared/nav', {
         name: '@scope/nav',
         version: '1.2.0',
         peerDependencies: { '@scope/components': 'workspace:^' },

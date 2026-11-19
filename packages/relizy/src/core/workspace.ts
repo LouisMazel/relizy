@@ -1,7 +1,7 @@
 import type { PackageBase, ReadPackage } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import { logger } from '@maz-ui/node'
-import { readWorkspacePackages as coreReadWorkspacePackages, findStalePeerDependents, parseWorkspaceSpecifier, PUBLISH_DEPENDENCY_FIELDS, readDependencyFields } from '@relizy/core'
+import { readWorkspacePackages as coreReadWorkspacePackages, findStalePeerDependents, formatRepoTag, getIndependentTag, parseWorkspaceSpecifier, PUBLISH_DEPENDENCY_FIELDS, readDependencyFields, tagExists } from '@relizy/core'
 import { getMonorepoPackagePatterns } from './groups'
 import { resolveRegistryTargetsForPackage } from './npm-registry'
 import { isVersionPublished } from './npm-versions'
@@ -206,11 +206,38 @@ function reportUnresolvedWorkspaceDependencies(unresolved: UnresolvedWorkspaceDe
 }
 
 /**
+ * The tag of the release of the current version of each package: `name@version`,
+ * else the repository tag of the version (`v1.2.0`). The packages without one
+ * are left out.
+ */
+async function getReleaseRefs(config: ResolvedRelizyConfig, packages: ReadPackage[]): Promise<Map<string, string>> {
+  const refs = new Map<string, string>()
+
+  for (const pkg of packages) {
+    const tags = [
+      getIndependentTag({ name: pkg.name, version: pkg.version }),
+      formatRepoTag(config.templates.tagBody, pkg.version),
+    ]
+
+    for (const tag of tags) {
+      if (await tagExists(tag, config.cwd)) {
+        refs.set(pkg.name, tag)
+        break
+      }
+    }
+  }
+
+  return refs
+}
+
+/**
  * Report the packages not released whose published peer dependency ranges
  * reject the new versions (see `findStalePeerDependents` of `@relizy/core`): an error with
- * `bump.outOfRangePeers: 'error'`, a warning otherwise.
+ * `bump.outOfRangePeers: 'error'`, a warning otherwise. Not being released,
+ * a package was last published with its current version: its ranges are read
+ * at the tag of this version.
  */
-export function reportStalePeerDependents(options: {
+export async function reportStalePeerDependents(options: {
   config: ResolvedRelizyConfig
   /**
    * Packages bumped by this run, with their version before and after the bump
@@ -220,15 +247,20 @@ export function reportStalePeerDependents(options: {
    * Packages published by this run
    */
   publishedPackages: PackageBase[]
-}): void {
+}): Promise<void> {
   if (options.config.publish.checkWorkspaceDependencies === false) {
     return
   }
 
+  const published = new Set(options.publishedPackages.map(pkg => pkg.name))
+  const workspacePackages = [
+    ...readWorkspacePackages(options.config).values(),
+  ]
   const stale = findStalePeerDependents({
-    workspacePackages: readWorkspacePackages(options.config).values(),
+    workspacePackages,
     bumpedPackages: options.bumpedPackages,
     publishedPackages: options.publishedPackages,
+    refs: await getReleaseRefs(options.config, workspacePackages.filter(pkg => !pkg.private && !published.has(pkg.name))),
   })
 
   if (stale.length === 0) {
