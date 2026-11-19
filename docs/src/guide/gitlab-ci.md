@@ -217,13 +217,11 @@ include:
 
 ### Lint the Commits of Merge Requests
 
-The `commitlint` component adds a `commitlint` job to the merge request pipelines, which runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the merge request, with your config: the job fails on a commit the release would misread. `args: --title` also lints the title of the merge request, the commit of a squash merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
+The `commitlint` component adds a `commitlint` job to the merge request pipelines, which runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the merge request, with your config: the job fails on a commit the release would misread. The title of the merge request is linted too, from the merge method (see [`commitlint.title`](./../commitlint/config.md#title)): `args: --title` lints it as errors whatever the merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
 
 ```yaml
 include:
   - component: gitlab.com/relizy/relizy/commitlint@2
-    inputs:
-      args: --title
 ```
 
 Its inputs: `stage` (`test`), `image`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`.

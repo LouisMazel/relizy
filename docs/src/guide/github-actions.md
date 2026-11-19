@@ -223,7 +223,7 @@ on:
 
 ### Preview the Release on Pull Requests
 
-A second workflow, on the pull requests, runs the action with `command: merge-preview` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the commit status `relizy/merge-preview` fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
+A second workflow, on the pull requests, runs the action with `command: merge-preview` ([`relizy merge-preview`](./../cli/merge-preview.md) instead of `relizy release`): a comment tells what the merge releases, and the job fails when the release of the merge would fail. Nothing is written nor published. `relizy init` offers it, `relizy merge-preview init` adds it to a project already set up; see [Merge Preview](./merge-preview.md).
 
 ```yaml
 - uses: relizy/action@v2
@@ -235,7 +235,7 @@ The `merge-preview: true` input of relizy 2.3 and before still works, with a dep
 
 ### Lint the Commits of Pull Requests
 
-`command: commitlint` runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the pull request, with your config: the job fails on a commit the release would misread, and each problem is an annotation on the pull request. `args: --title` also lints the title, the commit of a squash merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
+`command: commitlint` runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the pull request, with your config: the job fails on a commit the release would misread, and each problem is an annotation on the pull request. The title is linted too, from the merge method (see [`commitlint.title`](./../commitlint/config.md#title)): `args: --title` lints it as errors whatever the merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
 
 ```yaml
 - uses: relizy/action@v2

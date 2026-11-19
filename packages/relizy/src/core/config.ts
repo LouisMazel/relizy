@@ -142,7 +142,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       customRules: {},
       ignores: [],
       defaultIgnores: true,
-      title: false,
+      title: 'auto',
       changelogLinter: 'auto',
     } as Required<Omit<CommitlintConfig, 'helpUrl'>> & Pick<CommitlintConfig, 'helpUrl'>,
     social: {

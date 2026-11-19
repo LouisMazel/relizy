@@ -21,6 +21,8 @@ export interface CommitlintReport {
   /** File of the message being created, in `edit` mode */
   messageFile?: string
   helpUrl?: string
+  /** Why some errors are reported as warnings, e.g. the commits a squash merge does not keep */
+  notes?: string[]
 }
 
 export interface CommitlintSummary {
@@ -337,6 +339,14 @@ export function formatTextReport(report: CommitlintReport, { colors = false, qui
     lines.push('')
   }
   lines.push(styles.dim('─'.repeat(Math.min(getWidth(), 72))), formatVerdict(report, styles))
+  const noteIndent = ' '.repeat(9)
+  for (const note of report.notes ?? []) {
+    wrap(note, getWidth() - noteIndent.length, getWidth() - noteIndent.length).forEach((line, index) => {
+      lines.push(`${index === 0
+        ? '  Note:  '
+        : noteIndent}${line}`)
+    })
+  }
 
   const links = getRuleLinks(report)
   const column = Math.max(0, ...links.map(link => link.rule.length)) + 2
@@ -393,6 +403,7 @@ export function formatJsonReport(report: CommitlintReport): string {
     valid: summary.errorCount === 0,
     ...summary,
     ...(report.helpUrl && { helpUrl: report.helpUrl }),
+    ...(report.notes?.length && { notes: report.notes }),
     entries: report.entries.map(entry => ({
       kind: getEntryKind(entry, report),
       ...(entry.result.commit.hash && { hash: entry.result.commit.hash }),

@@ -10,7 +10,7 @@ spec:
       description: Image of the commitlint job, a Node.js image
     args:
       default: ''
-      description: More arguments for relizy commitlint, e.g. "--title" to also lint the title of the merge request (the commit of a squash merge) or "--quiet"
+      description: More arguments for relizy commitlint, e.g. "--title" to lint the title of the merge request as errors whatever the merge method, or "--quiet"
     setup:
       type: boolean
       default: true

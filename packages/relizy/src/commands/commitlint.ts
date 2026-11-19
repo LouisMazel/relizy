@@ -1,11 +1,12 @@
 import type { LogLevel } from '@maz-ui/node'
-import type { CommitlintResult } from '@relizy/core'
-import type { CommitlintReport, CommitlintSummary, InstalledHook, ReportEntry, ResolvedRelizyConfig } from '../core'
+import type { CommitlintResult, PullRequestTitle } from '@relizy/core'
+import type { CommitlintReport, CommitlintSummary, InstalledHook, PullRequestLint, ReportEntry, ResolvedRelizyConfig } from '../core'
+import type { CommitlintTitleMode } from '../types'
 import { relative } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { assertRefAvailable, ensureFullHistory, getCommentChar, getCommitMessageFile, getCommitsInRange, getPullRequestTitle, getStagedFiles, readCommitMessageFile, resolveDefaultRangeStart, stripGitComments, tryGitSync } from '@relizy/core'
-import { COMMIT_MSG_HOOK_COMMAND, formatGithubAnnotations, formatJsonReport, formatTextReport, getWorkspacePackages, installCommitMsgHook, lintCommitMessage, loadRelizyConfig, renderChangelogEntry, shouldUseColors, summarizeResults } from '../core'
+import { COMMIT_MSG_HOOK_COMMAND, detectMergeSquash, formatGithubAnnotations, formatJsonReport, formatTextReport, getMergePreviewPullRequest, getTitleMode, getWorkspacePackages, installCommitMsgHook, isSquashTitleFromCommit, lintCommitMessage, loadRelizyConfig, renderChangelogEntry, resolvePullRequestLint, shouldUseColors, summarizeResults, toWarnings } from '../core'
 
 export interface CommitlintOptions {
   /**
@@ -26,11 +27,11 @@ export interface CommitlintOptions {
    */
   to?: string
   /**
-   * In the CI of a pull/merge request, also lint its title, which becomes the
-   * commit message of a squash merge
+   * In the CI of a pull/merge request, how to lint its title, which becomes the
+   * commit message of a squash merge (see `CommitlintTitleMode`): `true` is `'error'`, `false` is `'off'`
    * @default config.commitlint.title
    */
-  title?: boolean
+  title?: CommitlintTitleMode | boolean
   /** Print the changelog entry of each commit */
   preview?: boolean
   /**
@@ -64,6 +65,48 @@ function print(lines: string[]) {
   for (const line of lines) {
     process.stdout.write(`${line}\n`)
   }
+}
+
+/**
+ * How to lint the title and the commits of the pull/merge request of the CI
+ * job: with `commitlint.title: 'auto'`, from the merge method read from the
+ * provider (`mergePreview.squash`)
+ */
+async function getPullRequestLint({ config, mode, kind, from, to = 'HEAD' }: {
+  config: ResolvedRelizyConfig
+  mode: CommitlintTitleMode
+  /** Kind of the pull/merge request whose title is linted */
+  kind?: PullRequestTitle['kind']
+  from?: string
+  to?: string
+}): Promise<PullRequestLint> {
+  const pullRequest = mode === 'auto'
+    ? getMergePreviewPullRequest()
+    : undefined
+  if (!pullRequest) {
+    return resolvePullRequestLint({ mode, kind })
+  }
+
+  const detection = await detectMergeSquash({ config, pullRequest, option: config.mergePreview?.squash ?? 'auto' })
+  const squash = detection.squash === undefined
+    ? 'merge method unknown'
+    : `squash merge: ${detection.squash}`
+  logger.debug(`commitlint: ${squash} (${detection.reason})`)
+  const commitCount = Number(tryGitSync([
+    'rev-list',
+    '--no-merges',
+    '--count',
+    from
+      ? `${from}..${to}`
+      : to,
+  ], { cwd: config.cwd }) ?? 0)
+
+  return resolvePullRequestLint({
+    mode,
+    detection,
+    titleFromCommit: isSquashTitleFromCommit({ provider: pullRequest.provider, commitCount, settings: detection }),
+    kind: pullRequest.kind,
+  })
 }
 
 async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyConfig): Promise<CommitlintReport> {
@@ -126,16 +169,38 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
   const commits = getCommitsInRange({ from, to: options.to, cwd: config.cwd })
   const entries: ReportEntry[] = []
 
+  const mode = getTitleMode(options.title ?? config.commitlint?.title)
+  const title = mode === 'off'
+    ? undefined
+    : getPullRequestTitle()
+  const lint = await getPullRequestLint({
+    config,
+    mode,
+    kind: title?.kind,
+    from,
+    to: options.to,
+  })
+  // What a merge may not keep only warns: the note tells why, when it turns errors into warnings
+  let downgraded = false
+  const withSeverity = (result: CommitlintResult, severity: 'error' | 'warn'): CommitlintResult => {
+    if (severity === 'error') {
+      return result
+    }
+    const warned = toWarnings(result)
+    downgraded ||= warned !== result
+    return warned
+  }
+
   // The title becomes the commit message of a squash merge, with every file of the pull request
-  const pullRequest = (options.title ?? config.commitlint?.title)
-    ? getPullRequestTitle()
-    : undefined
+  const pullRequest = lint.title === 'off'
+    ? undefined
+    : title
   if (pullRequest) {
     const files = [
       ...new Set(commits.flatMap(commit => commit.files)),
     ]
     entries.push({
-      result: await lintCommitMessage(pullRequest.title, { config, packages, files }),
+      result: withSeverity(await lintCommitMessage(pullRequest.title, { config, packages, files }), lint.title as 'error' | 'warn'),
       label: pullRequest.kind === 'merge request'
         ? 'MR title'
         : 'PR title',
@@ -144,12 +209,12 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
 
   for (const commit of commits) {
     entries.push({
-      result: await lintCommitMessage(commit.message, {
+      result: withSeverity(await lintCommitMessage(commit.message, {
         config,
         packages,
         files: commit.files,
         hash: commit.hash,
-      }),
+      }), lint.commits),
       label: commit.hash.slice(0, 7),
     })
   }
@@ -160,6 +225,11 @@ async function lintMessages(options: CommitlintOptions, config: ResolvedRelizyCo
     from,
     titleKind: pullRequest?.kind,
     helpUrl,
+    ...(downgraded && lint.note
+      ? {
+          notes: [lint.note],
+        }
+      : {}),
   }
 }
 

@@ -21,7 +21,7 @@ inputs:
     required: false
     default: ''
   args:
-    description: 'More arguments for the command, e.g. "--tag beta --preid beta" or "--config standalone" for relizy release, "--title" for relizy commitlint'
+    description: 'More arguments for the command, e.g. "--tag beta --preid beta" or "--config standalone" for relizy release, "--quiet" for relizy commitlint'
     required: false
     default: ''
   merge-preview:

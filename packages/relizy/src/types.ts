@@ -2042,6 +2042,20 @@ export type HookConfig = {
 export type CommitlintCustomRuleContext = CoreCommitlintCustomRuleContext<ResolvedRelizyConfig>
 
 /**
+ * How `relizy commitlint` lints the title of a pull/merge request, which becomes
+ * the commit message of a squash merge:
+ * - `auto`: from the merge method (`mergePreview.squash`, read from the provider
+ *   with a token): a squash merge lints the title as errors and the commits as
+ *   warnings (the merge does not keep them), a merge without squash does not
+ *   lint the title, an unknown method lints it as warnings. On GitHub, the
+ *   squash of a single commit takes its message, not the title: the title is not linted;
+ * - `error`: lints the title, its problems fail the check;
+ * - `warn`: lints the title, its problems never fail the check;
+ * - `off`: does not lint the title.
+ */
+export type CommitlintTitleMode = 'auto' | 'error' | 'warn' | 'off'
+
+/**
  * A rule written as a function. Returns `true` when the commit is valid, an
  * error message (or `false`) otherwise, or a commitlint-style `[valid, message?]`
  * tuple so `commitlint-plugin-function-rules` rules can be copied as is. It
@@ -2085,11 +2099,14 @@ export interface CommitlintConfig {
    */
   defaultIgnores?: boolean
   /**
-   * In the CI of a pull/merge request, also lint its title, which becomes the
-   * commit message of a squash merge. Overridden by `--title` and `--no-title`.
-   * @default false
+   * In the CI of a pull/merge request, lint its title, which becomes the
+   * commit message of a squash merge: `'auto'` reads the merge method from
+   * the provider, `'error'` and `'warn'` always lint it at this level, `'off'`
+   * never lints it (see `CommitlintTitleMode`). `true` is `'error'`, `false`
+   * is `'off'`. Overridden by `--title` and `--no-title`.
+   * @default 'auto'
    */
-  title?: boolean
+  title?: CommitlintTitleMode | boolean
   /**
    * Tool checking the changelog entry of a commit, as written in the
    * changelogs (`body-changelog-lint`): the whole entry with ESLint, its code

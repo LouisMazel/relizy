@@ -17,6 +17,8 @@ const CI_VARIABLES = [
   'GITHUB_ACTIONS',
   'GITLAB_CI',
   'CI_MERGE_REQUEST_TITLE',
+  'CI_MERGE_REQUEST_TARGET_BRANCH_NAME',
+  'CI_MERGE_REQUEST_IID',
   'CI_MERGE_REQUEST_DIFF_BASE_SHA',
   'FORCE_COLOR',
   'NO_COLOR',
@@ -296,11 +298,11 @@ describe('Given commitlint command', () => {
 
     it.each([
       [
-        'does not lint',
+        'lints',
         'by default',
         undefined,
         undefined,
-        false,
+        true,
       ],
       [
         'lints',
@@ -390,6 +392,167 @@ describe('Given commitlint command', () => {
         config: createConfig(),
       })).results).toEqual([])
       expect(output).toEqual(['No commit to lint'])
+    })
+  })
+
+  describe('When linting the title of a pull or merge request with commitlint.title: auto', () => {
+    beforeEach(() => {
+      git('tag', 'v1.0.0')
+      commitFiles('feat(nuxt): Add the module options', { 'packages/nuxt/module.ts': 'a' })
+    })
+
+    function stubMergeRequest() {
+      vi.stubEnv('GITLAB_CI', 'true')
+      vi.stubEnv('CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'main')
+      vi.stubEnv('CI_MERGE_REQUEST_IID', '3')
+      vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'feat(nuxt): Add the options of the module')
+    }
+
+    function stubPullRequest() {
+      const eventPath = join(cwd, '.git', 'event.json')
+      writeFileSync(eventPath, JSON.stringify({
+        pull_request: { number: 3, title: 'feat(nuxt): Add the options of the module' },
+      }))
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('GITHUB_BASE_REF', 'main')
+      vi.stubEnv('GITHUB_EVENT_PATH', eventPath)
+    }
+
+    const severities = (result: Awaited<ReturnType<typeof commitlint>>) => result.results.map(entry => [
+      entry.commit.header,
+      entry.problems.map(problem => problem.severity),
+    ])
+
+    it('Then lints the title as warnings when the merge method is unknown', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig(),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['warn'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.errorCount).toBe(1)
+      expect(result.report?.notes).toEqual(['merge method unknown (the merge request could not be read from the API): the merge request title becomes the commit of a squash merge, its problems are warnings'])
+      expect(output).toContain('  Note:  merge method unknown (the merge request could not be read from the API): the merge request')
+    })
+
+    it('Then lints the title as errors and the commits as warnings with a squash merge', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['error'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['warn'],
+        ],
+      ])
+      expect(result.results[1]?.valid).toBe(true)
+      expect(result.report?.notes).toEqual(['squash merge (mergePreview.squash is true): the merge only keeps the merge request title, the problems of its commits are warnings'])
+    })
+
+    it('Then does not lint the title without squash merge', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: false },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.report?.notes).toBeUndefined()
+    })
+
+    it('Then lints the title at the level of commitlint.title when it is set, without note', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+          commitlint: { title: 'warn' },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['warn'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.report?.notes).toBeUndefined()
+    })
+
+    it('Then does not lint the title of a GitHub pull request squashing its only commit, which keeps its message', async () => {
+      stubPullRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+    })
+
+    it('Then lints the title of a GitHub pull request squashing several commits', async () => {
+      stubPullRequest()
+      commitFiles('fix(nuxt): correct the module options', { 'packages/nuxt/module.ts': 'b' })
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['error'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['warn'],
+        ],
+        ['fix(nuxt): correct the module options', []],
+      ])
     })
   })
 

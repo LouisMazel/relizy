@@ -48,7 +48,7 @@ The guide: [GitHub Actions](https://relizy.dev/guide/github-actions).
 
 ### Preview the release before the merge
 
-The same action, with `command: merge-preview`, on the pull requests: a comment tells what the merge releases (versions, tags, dist-tag, what the pull request brings), and the commit status `relizy/merge-preview` fails when the release of the merge would fail (a version or a tag already taken, a squash title that is not a Conventional Commit...; the commits failing the commitlint of the project are only warnings). Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview) instead of `relizy release`: give it the `release-type` and the `profile` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...).
+The same action, with `command: merge-preview`, on the pull requests: a comment tells what the merge releases (versions, tags, dist-tag, what the pull request brings), and the job fails when the release of the merge would fail (a version or a tag already taken, a squash title that is not a Conventional Commit...). Nothing is written nor published. It runs [`relizy merge-preview`](https://relizy.dev/cli/merge-preview) instead of `relizy release`: give it the `release-type` and the `profile` of the release job and, in `args`, its options that change the release (`--preid`, `--tag`, `--no-publish`...).
 
 ```yaml
 name: Merge preview
@@ -78,7 +78,7 @@ The guide: [Merge preview](https://relizy.dev/guide/merge-preview). The `merge-p
 
 ### Lint the commits of pull requests
 
-`command: commitlint` runs [`relizy commitlint`](https://relizy.dev/commitlint/cli) on the commits of the pull request, with your config: the job fails on a commit the release would misread, and each problem is an annotation on the pull request. `args: --title` also lints the title, the commit of a squash merge.
+`command: commitlint` runs [`relizy commitlint`](https://relizy.dev/commitlint/cli) on the commits of the pull request, with your config: the job fails on a commit the release would misread, and each problem is an annotation on the pull request. The title is linted too, from the merge method (see [`commitlint.title`](https://relizy.dev/commitlint/config#title)): `args: --title` lints it as errors whatever the merge.
 
 ```yaml
 name: Commit messages

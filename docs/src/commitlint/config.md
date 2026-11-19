@@ -23,7 +23,7 @@ export default defineConfig({
       'scope-required': ['error', 'when-bumping'],
     },
     ignores: [/^Initial commit$/],
-    title: true,
+    title: 'error',
     helpUrl: 'https://example.com/our-commit-guidelines',
   },
 })
@@ -102,10 +102,35 @@ Ignore the merge commits (`Merge ...`), the `fixup!`, `squash!` and `amend!` com
 
 ## `title`
 
-- **Type:** `boolean`
-- **Default:** `false`
+- **Type:** `'auto' | 'error' | 'warn' | 'off' | boolean`
+- **Default:** `'auto'`
 
-In the CI of a pull or merge request, also lint its title. Enable it when your pull or merge requests are **squash merged**: the title becomes the message of the commit that lands on the target branch, the one Relizy reads for the bump and the changelog. With merge commits or rebases, the commits count and the title can stay free. `--title` and `--no-title` override it for a run.
+How to lint the title of a pull or merge request, in its CI. A **squash merge** turns the title into the commit that lands on the target branch, the one Relizy reads for the bump and the changelog, and drops the commits of the pull request. A merge commit or a rebase keeps the commits, and the title stays free.
+
+| Value     | Title                                 | Commits                              |
+| --------- | ------------------------------------- | ------------------------------------ |
+| `'auto'`  | From the merge method, see below      | Errors, warnings with a squash merge |
+| `'error'` | Linted, its problems fail the check   | Errors                               |
+| `'warn'`  | Linted, its problems are only printed | Errors                               |
+| `'off'`   | Not linted                            | Errors                               |
+
+`true` is `'error'` and `false` is `'off'`. With `'auto'`, Relizy reads the merge method as the [merge preview](./../guide/merge-preview.md) does: [`mergePreview.squash`](./../config/merge-preview.md#squash) when it is set, otherwise the provider, with the token of the job (`GITHUB_TOKEN`, `GITLAB_TOKEN`):
+
+| What Relizy knows of the merge                                                                  | Title      | Commits  |
+| ----------------------------------------------------------------------------------------------- | ---------- | -------- |
+| Squash merge: the repository only allows it, an auto-merge squashes, the merge request squashes | Errors     | Warnings |
+| No squash merge: the repository does not allow it, the merge request does not squash            | Not linted | Errors   |
+| Unknown: several merge methods allowed, chosen at the merge, or no token                        | Warnings   | Errors   |
+
+What lands on the target branch fails the check, what may land is only reported: nobody is blocked by a title that will not be a commit, nor by commits a squash drops. On GitHub, the squash of a pull request with a single commit takes the message of this commit (the default `COMMIT_OR_PR_TITLE` setting), not the title: the title is not linted. The report tells why errors are printed as warnings:
+
+```text
+⚠ 2 commits checked, all valid, with 1 warning
+  Note:  merge method unknown (the repository allows several merge methods): the pull request
+         title becomes the commit of a squash merge, its problems are warnings
+```
+
+Set `'error'` when your pull requests are always squash merged and the job has no token, `'off'` when they never are. `--title [mode]` and `--no-title` override it for a run.
 
 On GitHub Actions, add `edited` to the `pull_request` types so that a new title is linted: see [Lint the commits of a pull request](./index.md#lint-the-commits-of-a-pull-request).
 
