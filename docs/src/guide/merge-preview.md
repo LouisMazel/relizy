@@ -29,7 +29,7 @@ Relizy does not guess which pipeline releases: the CI says it, by running the pr
 
 ### GitHub Actions
 
-The [relizy action](./github-actions.md) with `merge-preview: true`, on the pull requests into the branch that releases:
+The [relizy action](./github-actions.md) with `command: merge-preview`, on the pull requests into the branch that releases:
 
 ```yaml
 name: Merge preview
@@ -58,7 +58,7 @@ jobs:
           fetch-depth: 0
       - uses: relizy/action@v2
         with:
-          merge-preview: true
+          command: merge-preview
           # The release-type and the profile of the release job, and its options that change the release, e.g.:
           # profile: beta
           # args: --config web

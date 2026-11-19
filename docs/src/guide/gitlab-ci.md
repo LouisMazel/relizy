@@ -215,6 +215,19 @@ include:
   - component: gitlab.com/relizy/relizy/merge-preview@2
 ```
 
+### Lint the Commits of Merge Requests
+
+The `commitlint` component adds a `commitlint` job to the merge request pipelines, which runs [`relizy commitlint`](./../commitlint/cli.md) on the commits of the merge request, with your config: the job fails on a commit the release would misread. `args: --title` also lints the title of the merge request, the commit of a squash merge. See [Commitlint](./../commitlint/index.md#lint-the-commits-of-a-pull-request).
+
+```yaml
+include:
+  - component: gitlab.com/relizy/relizy/commitlint@2
+    inputs:
+      args: --title
+```
+
+Its inputs: `stage` (`test`), `image`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`.
+
 ### Canary Release on Merge Requests
 
 Publish a test version of each merge request (`1.3.0-0.canary-a3f4b2c` on the `canary` dist-tag), and comment it on the merge request. Nothing is committed nor pushed (see [Canary Releases](./prereleases.md#canary-releases)). The component only releases the default branch: the canary job is written out.

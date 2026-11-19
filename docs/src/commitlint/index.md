@@ -91,35 +91,30 @@ name: Commit messages
 
 on:
   pull_request:
-    # `edited`: lint again when the title changes, with commitlint.title
+    # `edited`: lint the title again when it changes (commitlint.title)
     types: [opened, synchronize, reopened, edited]
 
 jobs:
   commitlint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: relizy/action@v2
         with:
-          node-version: 22
-      - run: npm ci
-      - run: npx relizy commitlint
+          command: commitlint
 ```
 
 ```yaml [GitLab CI]
 # .gitlab-ci.yml
-commitlint:
-  image: node:22
-  rules:
-    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
-  script:
-    - npm ci
-    - npx relizy commitlint
+include:
+  - component: gitlab.com/relizy/relizy/commitlint@2
 ```
 
 :::
 
-If your pull or merge requests are **squash merged**, their title becomes the commit Relizy reads for the bump and the changelog: lint it too with [`commitlint.title: true`](./config.md#title) or `--title`. In GitHub Actions, each problem is also reported as an annotation on the pull request.
+The [relizy action](./../guide/github-actions.md#lint-the-commits-of-pull-requests) and the [`commitlint` component](./../guide/gitlab-ci.md#lint-the-commits-of-merge-requests) set up your package manager and your dependencies, and pass their `args` to the command (`args: --title --quiet`). Without them, install your dependencies and run `npx relizy commitlint` in the job.
+
+The title of the pull or merge request is linted too, as its merge uses it: a **squash merge** turns it into the commit Relizy reads for the bump and the changelog, and drops the commits. By default ([`commitlint.title: 'auto'`](./config.md#title)), Relizy reads the merge method from your provider: the title fails the check when the merge squashes for sure and only warns when the merge method is chosen at the merge, and the commits only warn when the squash drops them. In GitHub Actions, each problem is also reported as an annotation on the pull request.
 
 ## Read the output
 

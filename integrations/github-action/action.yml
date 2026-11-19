@@ -1,6 +1,6 @@
 # Synced to github.com/relizy/action at each release of relizy: edit it in github.com/LouisMazel/relizy
 name: Relizy Release
-description: 'Ship every release in one step: versions, changelogs, npm publishing and GitHub releases, from your commits'
+description: 'Ship every release in one step: versions, changelogs, npm publishing and GitHub releases, from your commits, and run any relizy command'
 author: LouisMazel
 
 branding:
@@ -8,8 +8,12 @@ branding:
   color: purple
 
 inputs:
+  command:
+    description: 'The relizy command to run: release, merge-preview (on a pull_request event: previews what the merge releases, writes nothing), commitlint (on a pull_request event: lints the commits of the pull request), or any other command of the CLI (bump, changelog, publish, provider-release, social, sync, pr-comment). Its options go in args'
+    required: false
+    default: release
   release-type:
-    description: 'Release type: auto (no type flag: bump.type of the config or of the profile, else the bump of the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
+    description: 'Release type of the release, bump and merge-preview commands: auto (no type flag: bump.type of the config or of the profile, else the bump of the commits), patch, minor, major, prerelease, prepatch, preminor or premajor'
     required: false
     default: auto
   profile:
@@ -17,11 +21,11 @@ inputs:
     required: false
     default: ''
   args:
-    description: 'More arguments for relizy release (relizy merge-preview with merge-preview: true), e.g. "--tag beta --preid beta" or "--config standalone"'
+    description: 'More arguments for the command, e.g. "--tag beta --preid beta" or "--config standalone" for relizy release, "--title" for relizy commitlint'
     required: false
     default: ''
   merge-preview:
-    description: 'true on a pull_request event: previews what the merge releases (comment and commit status relizy/merge-preview on the pull request), writes nothing, fails when the release of the merge would fail. Runs relizy merge-preview instead of relizy release: give it the release-type and the profile of the release job and, in args, its options that change the release (--preid, --tag, --no-publish...)'
+    description: 'Deprecated: use command: merge-preview'
     required: false
     default: 'false'
   github-token:
@@ -221,9 +225,10 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
+        RELIZY_COMMAND: ${{ inputs.command }}
         RELEASE_TYPE: ${{ inputs.release-type }}
-        RELEASE_PROFILE: ${{ inputs.profile }}
-        RELEASE_ARGS: ${{ inputs.args }}
+        RELIZY_PROFILE: ${{ inputs.profile }}
+        RELIZY_ARGS: ${{ inputs.args }}
         MERGE_PREVIEW: ${{ inputs.merge-preview }}
         PACKAGE_MANAGER: ${{ steps.detect.outputs.package-manager }}
         RELIZY_VERSION: ${{ inputs.relizy-version }}
@@ -240,16 +245,36 @@ runs:
         RELIZY_CLAUDE_CODE_OAUTH_TOKEN: ${{ inputs.claude-code-oauth-token }}
         RELIZY_ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
       run: |
+        command="$RELIZY_COMMAND"
+        if [ "$MERGE_PREVIEW" = "true" ]; then
+          echo "::warning::The merge-preview input is deprecated: use command: merge-preview"
+          if [ "$command" != release ] && [ "$command" != merge-preview ]; then
+            echo "::error::merge-preview: true runs relizy merge-preview, it cannot run with command: $command"; exit 1
+          fi
+          command=merge-preview
+        fi
+        if [[ ! "$command" =~ ^[a-z][a-z-]*$ ]]; then
+          echo "::error::Invalid command \"$command\": a command of relizy, e.g. release, merge-preview or commitlint"; exit 1
+        fi
         case "$RELEASE_TYPE" in
           auto) flag="" ;;
-          patch|minor|major|prerelease|prepatch|preminor|premajor) flag="--$RELEASE_TYPE" ;;
+          patch|minor|major|prerelease|prepatch|preminor|premajor)
+            case "$command" in
+              release|bump|merge-preview) flag="--$RELEASE_TYPE" ;;
+              *) echo "::error::release-type only applies to the release, bump and merge-preview commands, not to $command"; exit 1 ;;
+            esac
+            ;;
           *) echo "::error::Unknown release-type \"$RELEASE_TYPE\": auto, patch, minor, major, prerelease, prepatch, preminor or premajor"; exit 1 ;;
         esac
-        if [ -n "$RELEASE_PROFILE" ]; then
-          if [[ ! "$RELEASE_PROFILE" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            echo "::error::Invalid profile \"$RELEASE_PROFILE\": letters, digits, dots, dashes and underscores only"; exit 1
+        # No prompt in a CI
+        case "$command" in
+          release|bump) flag="--yes $flag" ;;
+        esac
+        if [ -n "$RELIZY_PROFILE" ]; then
+          if [[ ! "$RELIZY_PROFILE" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "::error::Invalid profile \"$RELIZY_PROFILE\": letters, digits, dots, dashes and underscores only"; exit 1
           fi
-          flag="$flag --profile $RELEASE_PROFILE"
+          flag="$flag --profile $RELIZY_PROFILE"
         fi
         # The relizy of the project, else the version of this action
         if [ -n "$RELIZY_VERSION" ]; then
@@ -267,8 +292,4 @@ runs:
           relizy="npx --yes relizy@latest"
         fi
         # shellcheck disable=SC2086
-        if [ "$MERGE_PREVIEW" = "true" ]; then
-          $relizy merge-preview $flag $RELEASE_ARGS
-        else
-          $relizy release --yes $flag $RELEASE_ARGS
-        fi
+        $relizy "$command" $flag $RELIZY_ARGS
