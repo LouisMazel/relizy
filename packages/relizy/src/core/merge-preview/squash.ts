@@ -1,7 +1,7 @@
 import type { SimulatedSquash } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../config'
 import type { ProviderApi } from './api'
-import type { MergePreviewContext } from './context'
+import type { MergePreviewContext, MergePreviewPullRequest } from './context'
 import { logger } from '@maz-ui/node'
 import { runGitSync } from '@relizy/core'
 import { getProviderApi } from './api'
@@ -19,15 +19,18 @@ export interface MergePreviewSquash {
   reason: string
   /** The commit of the squash merge, unless the mode is `commits` */
   squash?: SimulatedSquash
+  /** The squash commit takes the message of the only commit of the pull request, not its title (see `isSquashTitleFromCommit`) */
+  titleFromCommit?: boolean
 }
 
 /** How GitHub writes the commit of a squash merge, from the settings of the repository */
-interface SquashMessageSettings {
+export interface SquashMessageSettings {
   title?: 'PR_TITLE' | 'COMMIT_OR_PR_TITLE'
   body?: 'PR_BODY' | 'COMMIT_MESSAGES' | 'BLANK'
 }
 
-interface SquashDetection extends SquashMessageSettings {
+/** Whether the merge of a pull request squashes its commits, and how GitHub writes the squash commit */
+export interface MergeSquashDetection extends SquashMessageSettings {
   /** Undefined when only the merge will tell */
   squash?: boolean
   reason: string
@@ -45,7 +48,7 @@ interface GitHubPull {
   auto_merge?: { merge_method?: 'merge' | 'squash' | 'rebase' } | null
 }
 
-async function detectGitHubSquash(api: ProviderApi, number: number): Promise<SquashDetection> {
+async function detectGitHubSquash(api: ProviderApi, number: number): Promise<MergeSquashDetection> {
   const [repository, pull] = await Promise.all([
     api.request<GitHubRepository>('GET', ''),
     api.request<GitHubPull>('GET', `/pulls/${number}`),
@@ -76,7 +79,7 @@ interface GitLabMergeRequest {
   squash_on_merge?: boolean
 }
 
-async function detectGitLabSquash(api: ProviderApi, iid: number): Promise<SquashDetection> {
+async function detectGitLabSquash(api: ProviderApi, iid: number): Promise<MergeSquashDetection> {
   const [project, mergeRequest] = await Promise.all([
     api.request<GitLabProject>('GET', ''),
     api.request<GitLabMergeRequest>('GET', `/merge_requests/${iid}`),
@@ -96,8 +99,7 @@ async function detectGitLabSquash(api: ProviderApi, iid: number): Promise<Squash
   return { reason: 'the merge request does not tell whether it squashes its commits' }
 }
 
-async function detectSquash({ config, context }: { config: ResolvedRelizyConfig, context: MergePreviewContext }): Promise<SquashDetection> {
-  const { pullRequest } = context
+async function detectSquash({ config, pullRequest }: { config: ResolvedRelizyConfig, pullRequest: MergePreviewPullRequest }): Promise<MergeSquashDetection> {
   const api = getProviderApi(config, pullRequest.provider)
   if (!api || !pullRequest.number) {
     return { reason: `the ${pullRequest.kind} could not be read from the API` }
@@ -117,6 +119,42 @@ async function detectSquash({ config, context }: { config: ResolvedRelizyConfig,
 }
 
 /**
+ * Whether the merge of the pull request squashes its commits: forced by
+ * `mergePreview.squash`, otherwise read from the provider (auto-merge, merge
+ * methods of the repository, squash option of the merge request). `squash` is
+ * undefined when only the merge will tell, or when the provider cannot be read
+ * (no token).
+ */
+export async function detectMergeSquash({ config, pullRequest, option }: {
+  config: ResolvedRelizyConfig
+  pullRequest: MergePreviewPullRequest
+  /** `mergePreview.squash` */
+  option: 'auto' | boolean
+}): Promise<MergeSquashDetection> {
+  if (option === false) {
+    return { squash: false, reason: 'mergePreview.squash is false' }
+  }
+  if (option === true) {
+    return { squash: true, reason: 'mergePreview.squash is true' }
+  }
+
+  return await detectSquash({ config, pullRequest })
+}
+
+/**
+ * True when a squash merge takes the message of the only commit of the pull
+ * request, not its title: GitHub with the `COMMIT_OR_PR_TITLE` setting, its default
+ */
+export function isSquashTitleFromCommit({ provider, commitCount, settings = {} }: {
+  provider: MergePreviewPullRequest['provider']
+  /** Commits of the pull request, merge commits left out */
+  commitCount: number
+  settings?: SquashMessageSettings
+}): boolean {
+  return provider === 'github' && commitCount === 1 && (settings.title ?? 'COMMIT_OR_PR_TITLE') === 'COMMIT_OR_PR_TITLE'
+}
+
+/**
  * The commit a squash merge creates: the title of the pull request (the
  * message of its only commit with the `COMMIT_OR_PR_TITLE` setting of GitHub),
  * the body GitHub writes, every file the pull request changes. None without
@@ -125,9 +163,8 @@ async function detectSquash({ config, context }: { config: ResolvedRelizyConfig,
 export function getSquashCommit({ context, settings = {}, cwd }: { context: MergePreviewContext, settings?: SquashMessageSettings, cwd: string }): SimulatedSquash | undefined {
   const { pullRequest, commits, headSha, targetSha } = context
   const github = pullRequest.provider === 'github'
-  const titleSetting = settings.title ?? 'COMMIT_OR_PR_TITLE'
   const bodySetting = settings.body ?? 'COMMIT_MESSAGES'
-  const onlyCommit = commits.length === 1 && github && titleSetting === 'COMMIT_OR_PR_TITLE'
+  const onlyCommit = isSquashTitleFromCommit({ provider: pullRequest.provider, commitCount: commits.length, settings })
     ? commits[0]
     : undefined
 
@@ -200,9 +237,7 @@ export async function resolveMergePreviewSquash({ config, context, option, cwd }
     return { mode: 'commits', reason: 'mergePreview.squash is false' }
   }
 
-  const detection: SquashDetection = option === true
-    ? { squash: true, reason: 'mergePreview.squash is true' }
-    : await detectSquash({ config, context })
+  const detection = await detectMergeSquash({ config, pullRequest: context.pullRequest, option })
 
   if (detection.squash === false) {
     return { mode: 'commits', reason: detection.reason }
@@ -217,5 +252,8 @@ export async function resolveMergePreviewSquash({ config, context, option, cwd }
     mode: detection.squash ? 'squash' : 'both',
     reason: detection.reason,
     squash,
+    ...(isSquashTitleFromCommit({ provider: context.pullRequest.provider, commitCount: context.commits.length, settings: detection })
+      ? { titleFromCommit: true }
+      : {}),
   }
 }

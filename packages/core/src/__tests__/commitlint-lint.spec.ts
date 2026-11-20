@@ -158,12 +158,34 @@ describe('Given lintCommitMessage function', () => {
       expect(result.valid).toBe(true)
     })
 
+    it('Then lists the released packages touched, the packages without released: false', async () => {
+      const result = await lintCommitMessage('fix(nuxt): correct the module and its docs', {
+        types: TYPES,
+        packages: [
+          ...PACKAGES,
+          {
+            name: 'docs',
+            path: 'apps/docs',
+            scopes: ['docs'],
+            released: false,
+          },
+        ],
+        files: ['packages/nuxt/src/module.ts', 'apps/docs/nuxt.md'],
+        getBump,
+      })
+
+      expect(result.valid).toBe(true)
+      expect(result.commit.packages).toEqual(['@maz-ui/nuxt', 'docs'])
+      expect(result.commit.releasedPackages).toEqual(['@maz-ui/nuxt'])
+    })
+
     it('Then has no bump without getBump, and no hash reference without hash', async () => {
       const result = await lintCommitMessage('feat: add the module options', { types: TYPES })
 
       expect(result.commit.bump).toBeUndefined()
       expect(result.commit.references).toEqual([])
       expect(result.commit.packages).toBeUndefined()
+      expect(result.commit.releasedPackages).toBeUndefined()
     })
 
     it('Then reads the hash of the commit being linted', async () => {

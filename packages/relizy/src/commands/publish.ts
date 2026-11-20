@@ -514,7 +514,7 @@ async function getCheckedPackagesToPublish({ config, options, dryRun }: {
   })
 
   if (options.bumpResult) {
-    reportStalePeerDependents({
+    await reportStalePeerDependents({
       config,
       bumpedPackages: options.bumpResult.bumpedPackages,
       publishedPackages,

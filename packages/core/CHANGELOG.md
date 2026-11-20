@@ -1,5 +1,47 @@
 # Changelog
 
+## @relizy/core@2.5.0-beta.1 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.5.0-beta.0...@relizy/core@2.5.0-beta.1)
+
+### 🩹 Fixes
+
+- **core:** Read the ranges a package was published with at its last release ([77bdaeb](https://github.com/LouisMazel/relizy/commit/77bdaeb))
+
+  `getOutOfRangeDependencies()` and `getOutOfRangePeers()` take a `ref` option, the last release of the package: its ranges are read from its `package.json` at this ref, a dependency added since then rejects nothing and a package never released has nothing out of range. `findStalePeerDependents()` takes the `refs` of the dependents.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
+## @relizy/core@2.5.0-beta.0 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.4.0...@relizy/core@2.5.0-beta.0)
+
+### 🚀 Features
+
+- **core:** Add the single-package commitlint rule and the released packages of a commit ([331b79c](https://github.com/LouisMazel/relizy/commit/331b79c))
+- **core:** Require a scope by default on the commits releasing a package ([cb20993](https://github.com/LouisMazel/relizy/commit/cb20993))
+
+  `scope-required` is `['error', 'when-bumping']` by default, and `when-bumping` no longer requires a scope outside a monorepo.
+
+### 📦 Build
+
+- **deps:** Update 8 of my packages ([ea7eb70](https://github.com/LouisMazel/relizy/commit/ea7eb70))
+
+  - @maz-ui/eslint-config 5.6.0-beta.0 -> 5.6.0
+  - @maz-ui/icons 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/node 5.7.0-beta.1 -> 5.7.0
+  - @maz-ui/themes 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/translations 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/utils 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/vite-plugin 5.7.0-beta.7 -> 5.7.0
+  - maz-ui 5.7.0-beta.7 -> 5.7.0
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## @relizy/core@2.4.0 (2026-11-18)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/@relizy/core@2.3.0...@relizy/core@2.4.0)

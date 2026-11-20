@@ -83,8 +83,9 @@ export default defineConfig({
   },
   mergePreview: {
     // The pull requests are merged with a merge commit, never squashed
-    squash: false,
+    squash: 'auto',
   },
+
   hooks: {
     // The CI builds before the bump: the docs bundle of the MCP server (agent-docs/) gets the new version
     'success:bump': () => {

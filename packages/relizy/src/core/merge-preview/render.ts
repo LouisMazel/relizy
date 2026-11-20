@@ -2,8 +2,9 @@ import type { ReleaseOverviewGroup } from '../release-overview'
 import type { CommandNote, CommandOutcome } from '../release-ui'
 import type { MergePreviewContext } from './context'
 import type { MergePreviewCommit, MergePreviewOutcome, MergePreviewPackage, MergePreviewPlan } from './plan'
-import type { MergePreviewChecks } from './problems'
+import type { MergePreviewChecks, MergePreviewProblem } from './problems'
 import type { MergePreviewSquashMode } from './squash'
+import { plural } from '@relizy/core'
 import { MERGE_PREVIEW_MARKER } from '../pr-comment'
 import { describeCommitCounts, formatPackageRows } from '../release-ui'
 
@@ -150,7 +151,23 @@ function formatFooter(result: MergePreviewResult): string {
 }
 
 const COMMITLINT_TITLE = 'Commits not following the commit convention'
-const COMMITLINT_NOTE = 'They fail the commitlint of the project, not the release: they do not block the merge.'
+const COMMITLINT_NOTE = 'They fail `relizy commitlint`, not the release: the merge preview does not fail on them.'
+const DROPPED_TITLE = 'not kept by the squash merge'
+
+/**
+ * The commits failing the commitlint by what the merge does with them: the
+ * ones landing on the target branch, then the squash commit of an open merge
+ * method, apart from the commits a squash merge drops
+ */
+function groupCommitlint(problems: MergePreviewProblem[]): { landing: MergePreviewProblem[], dropped: MergePreviewProblem[] } {
+  return {
+    landing: [
+      ...problems.filter(problem => !problem.merge || problem.merge === 'kept'),
+      ...problems.filter(problem => problem.merge === 'squash'),
+    ],
+    dropped: problems.filter(problem => problem.merge === 'dropped'),
+  }
+}
 
 /**
  * The merge preview in markdown: the comment of the pull request, the summary
@@ -181,7 +198,14 @@ export function formatMergePreviewMarkdown(result: MergePreviewResult): string {
   }
 
   if (checks.commitlint.length > 0) {
-    lines.push('', `#### ⚠️ ${COMMITLINT_TITLE}`, '', COMMITLINT_NOTE, '', ...checks.commitlint.map(problem => `- ${problem.message}`))
+    const { landing, dropped } = groupCommitlint(checks.commitlint)
+    lines.push('', `#### ⚠️ ${COMMITLINT_TITLE}`, '', COMMITLINT_NOTE)
+    if (landing.length > 0) {
+      lines.push('', ...landing.map(problem => `- ${problem.message}`))
+    }
+    if (dropped.length > 0) {
+      lines.push('', `<details><summary>${plural(dropped.length, 'commit')} ${DROPPED_TITLE}</summary>`, '', ...dropped.map(problem => `- ${problem.message}`), '', '</details>')
+    }
   }
 
   if (checks.warnings.length > 0) {
@@ -329,11 +353,21 @@ export function getMergePreviewTerminalOutput(result: MergePreviewResult): Requi
   }
 
   if (checks.commitlint.length > 0) {
-    notes.push({
-      title: COMMITLINT_TITLE,
-      lines: checks.commitlint.map(problem => `▲ ${problem.message}`),
-      footer: [COMMITLINT_NOTE],
-    })
+    const { landing, dropped } = groupCommitlint(checks.commitlint)
+    if (landing.length > 0) {
+      notes.push({
+        title: COMMITLINT_TITLE,
+        lines: landing.map(problem => `▲ ${problem.message}`),
+        footer: [COMMITLINT_NOTE],
+      })
+    }
+    if (dropped.length > 0) {
+      notes.push({
+        title: `${COMMITLINT_TITLE}, ${DROPPED_TITLE}`,
+        lines: dropped.map(problem => `▲ ${problem.message}`),
+        footer: [COMMITLINT_NOTE],
+      })
+    }
   }
 
   return {

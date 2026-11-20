@@ -1,5 +1,60 @@
 # Changelog
 
+## v2.4.0-beta.1 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.4.0-beta.0...v2.4.0-beta.1)
+
+### 🩹 Fixes
+
+- **relizy:** Check the peer and dependency ranges as published, not as in the working tree ([9564afc](https://github.com/LouisMazel/relizy/commit/9564afc))
+
+  A peer dependency added since the last release of a package no longer makes a minor of its dependency break the package. The ranges are read from its `package.json` at its last tag, and a package never released has nothing out of range. The stale peer warning of the release follows the same rule.
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
+## v2.4.0-beta.0 (2026-11-19)
+
+[compare changes](https://github.com/LouisMazel/relizy/compare/v2.3.0...v2.4.0-beta.0)
+
+### 🚀 Features
+
+- **relizy:** Write the command input of the relizy action in the merge preview workflow of relizy init ([6e7455a](https://github.com/LouisMazel/relizy/commit/6e7455a))
+
+  The workflow uses `command: merge-preview` instead of the deprecated `merge-preview: true`, and a workflow running another command of the action (`command: commitlint`) is no longer taken for the release.
+
+- **relizy:** Fail the commits releasing several packages with the single-package rule ([77e11dc](https://github.com/LouisMazel/relizy/commit/77e11dc))
+- **relizy:** Lint the title of the pull request from its merge method ([6f0cd5c](https://github.com/LouisMazel/relizy/commit/6f0cd5c))
+- **relizy:** Align the merge preview with the merge method and turn its check and commitlint off by default ([c4ea39c](https://github.com/LouisMazel/relizy/commit/c4ea39c))
+
+  `mergePreview.check` and `mergePreview.commitlint` are off by default.
+
+### 📖 Documentation
+
+- **relizy:** Document the default of the scope-required rule ([2af9bb7](https://github.com/LouisMazel/relizy/commit/2af9bb7))
+
+### 📦 Build
+
+- **deps:** Update 8 of my packages ([ea7eb70](https://github.com/LouisMazel/relizy/commit/ea7eb70))
+
+  - @maz-ui/eslint-config 5.6.0-beta.0 -> 5.6.0
+  - @maz-ui/icons 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/node 5.7.0-beta.1 -> 5.7.0
+  - @maz-ui/themes 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/translations 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/utils 5.7.0-beta.7 -> 5.7.0
+  - @maz-ui/vite-plugin 5.7.0-beta.7 -> 5.7.0
+  - maz-ui 5.7.0-beta.7 -> 5.7.0
+
+### 🧪 Tests
+
+- **relizy:** Cover the default of the scope-required rule ([da692da](https://github.com/LouisMazel/relizy/commit/da692da))
+
+### ❤️ Contributors
+
+- LouisMazel ([@LouisMazel](https://github.com/LouisMazel))
+
 ## v2.3.0 (2026-11-18)
 
 [compare changes](https://github.com/LouisMazel/relizy/compare/v2.2.1...v2.3.0)

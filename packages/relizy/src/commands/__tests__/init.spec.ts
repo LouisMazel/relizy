@@ -581,7 +581,7 @@ describe('Given init command', () => {
 
       expect(result.workflow).toEqual({ file: '.github/workflows/release.yml' })
       expect(result.mergePreview).toEqual({ file: '.github/workflows/merge-preview.yml' })
-      expect(read('.github/workflows/merge-preview.yml')).toContain('          merge-preview: true\n')
+      expect(read('.github/workflows/merge-preview.yml')).toContain('          command: merge-preview\n')
       const workflow = read('.github/workflows/release.yml')
       expect(workflow).toContain('  workflow_dispatch:\n')
       // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
@@ -625,7 +625,7 @@ describe('Given init command', () => {
       }))
       expect(result.hook).toBeUndefined()
       expect(result.workflow).toBeUndefined()
-      expect(read('.github/workflows/merge-preview.yml')).toContain('          merge-preview: true\n')
+      expect(read('.github/workflows/merge-preview.yml')).toContain('          command: merge-preview\n')
       expect(read('.github/workflows/release.yml')).toBe('name: Mine\n')
       expect(read('relizy.config.ts')).toBe('export default {}')
       expect(readJson('package.json').scripts?.release).toBeUndefined()

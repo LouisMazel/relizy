@@ -2,7 +2,7 @@
 
 Ship every release in one job: versions, changelogs, npm publishing and GitLab releases, from your commits, with [relizy](https://relizy.dev).
 
-The `release` component adds a `release` job: it installs your package manager and your dependencies, runs `relizy release` and gives its outputs to the next jobs.
+The `release` component adds a `release` job: it installs your package manager and your dependencies, runs `relizy release` and gives its outputs to the next jobs. The `merge-preview` and `commitlint` components add the jobs of the merge requests.
 
 > This project is synced from [LouisMazel/relizy](https://github.com/LouisMazel/relizy/tree/main/integrations/gitlab-component) at each release: open issues and merge requests there.
 
@@ -41,6 +41,17 @@ include:
 ```
 
 Its inputs: `stage` (`test`), `image`, `release-type`, `profile`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Merge preview](https://relizy.dev/guide/merge-preview).
+
+### Lint the commits of merge requests
+
+The `commitlint` component adds a `commitlint` job to the merge request pipelines: it runs [`relizy commitlint`](https://relizy.dev/commitlint/cli) on the commits of the merge request, with your config, and fails on a commit the release would misread. The title of the merge request is linted too, from the merge method (see [`commitlint.title`](https://relizy.dev/commitlint/config#title)): `args: --title` lints it as errors whatever the merge.
+
+```yaml
+include:
+  - component: gitlab.com/relizy/relizy/commitlint@2
+```
+
+Its inputs: `stage` (`test`), `image`, `args`, `setup`, `package-manager`, `relizy-version` and `working-directory`, as the ones of `release`. The guide: [Commitlint](https://relizy.dev/commitlint/#lint-the-commits-of-a-pull-request).
 
 ## Inputs
 

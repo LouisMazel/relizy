@@ -178,14 +178,14 @@ describe('Given the merge preview of the release workflow', () => {
     expect(getWorkflowFile({ ...options, provider: 'gitlab', gitlabCom: true }, '/nonexistent').content).not.toContain('merge-preview')
   })
 
-  it('When it is wanted on GitHub, Then runs the action with merge-preview on the pull requests into the default branch', () => {
+  it('When it is wanted on GitHub, Then runs the action with the merge-preview command on the pull requests into the default branch', () => {
     const file = getMergePreviewWorkflowFile({ ...options, mergePreview: true, publish: true }, '/nonexistent')!
 
     expect(file.path).toBe('.github/workflows/merge-preview.yml')
     expect(file.content).toContain('on:\n  pull_request:\n    branches: [main]\n    # edited: a new title (the commit of a squash merge) or a new base\n    types: [opened, synchronize, reopened, edited]\n')
     expect(file.content).toContain('      statuses: write\n')
     // A public package is checked on npmjs.com without token
-    expect(file.content.endsWith('      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n')).toBe(true)
+    expect(file.content.endsWith('      - uses: relizy/action@v2\n        with:\n          command: merge-preview\n')).toBe(true)
     expect(file.content).not.toContain('NPM_TOKEN')
   })
 
@@ -198,7 +198,7 @@ describe('Given the merge preview of the release workflow', () => {
     }, '/nonexistent')!
 
     // eslint-disable-next-line no-template-curly-in-string -- an expression of GitHub Actions
-    expect(file.content).toContain('          merge-preview: true\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
+    expect(file.content).toContain('          command: merge-preview\n          npm-token: ${{ secrets.NPM_TOKEN }}\n')
   })
 
   it('When the GitLab release job is kept, Then writes the merge preview in its own file: the include of the component on gitlab.com, else the job', () => {
@@ -335,6 +335,22 @@ describe('Given the CI files of a project', () => {
 
     expect(findCiSetup(cwd, 'github')).toEqual({ release: '.github/workflows/release.yml', mergePreview: '.github/workflows/merge-preview.yml' })
     expect(findCiSetup(cwd, 'gitlab')).toEqual({})
+  })
+
+  it('When a GitHub workflow runs another command of the relizy action, Then it is not the release, and the deprecated merge-preview input is still found', () => {
+    write('.github/workflows/commitlint.yml', 'jobs:\n  commitlint:\n    steps:\n      - uses: relizy/action@v2\n        with:\n          command: commitlint\n')
+
+    expect(findCiSetup(cwd, 'github')).toEqual({})
+
+    write('.github/workflows/merge-preview.yml', 'jobs:\n  merge-preview:\n    steps:\n      - uses: relizy/action@v2\n        with:\n          merge-preview: true\n')
+    write('.github/workflows/release.yml', 'jobs:\n  release:\n    steps:\n      - uses: relizy/action@v2\n        with:\n          command: release\n')
+
+    expect(findCiSetup(cwd, 'github')).toEqual({ release: '.github/workflows/release.yml', mergePreview: '.github/workflows/merge-preview.yml' })
+
+    write('.github/workflows/ci.yml', 'jobs:\n  commitlint:\n    steps:\n      - uses: relizy/action@v2\n        with:\n          command: commitlint\n  release:\n    steps:\n      - uses: actions/checkout@v7\n      - uses: relizy/action@v2\n')
+    rmSync(join(cwd, '.github/workflows/release.yml'))
+
+    expect(findCiSetup(cwd, 'github')).toEqual({ release: '.github/workflows/ci.yml', mergePreview: '.github/workflows/merge-preview.yml' })
   })
 
   it('When .gitlab-ci.yml exists, Then puts the job in its own file, with the include unless .gitlab-ci.yml has it', () => {

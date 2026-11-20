@@ -21,7 +21,7 @@ The command lints, in this order of precedence:
 
 1. the message given with `--message`;
 2. the commit being created with `--edit`, in a `commit-msg` hook;
-3. otherwise, a range of commits (`--from` / `--to`), and the title of the pull or merge request in CI when [`commitlint.title`](./config.md#title) or `--title` enables it.
+3. otherwise, a range of commits (`--from` / `--to`), and the title of the pull or merge request in CI, as [`commitlint.title`](./config.md#title) or `--title` says.
 
 With `--install`, nothing is linted: the command writes the hook. To set it up, see [Commit linting](./index.md#lint-the-commit-being-created).
 
@@ -35,7 +35,7 @@ The changed files, used by the [scope rules](./rules.md#scope-matches-files), ar
 | `--edit [file]`       | Lint the message of the commit being created: the file given to the `commit-msg` hook, `.git/COMMIT_EDITMSG` by default. The comment lines of git and the diff of `git commit --verbose` are ignored |
 | `--from <ref>`        | Lint the commits after this ref. Default: see [default range](#default-range)                                                                                                                        |
 | `--to <ref>`          | Last commit of the range. Default: `HEAD`                                                                                                                                                            |
-| `--title`             | In the CI of a pull or merge request, also lint its title. Default: [`commitlint.title`](./config.md#title)                                                                                          |
+| `--title [mode]`      | In the CI of a pull or merge request, how to lint its title: `auto`, `error`, `warn` or `off` (`error` without value). Default: [`commitlint.title`](./config.md#title)                              |
 | `--no-title`          | Do not lint the title, whatever `commitlint.title`                                                                                                                                                   |
 | `--preview`           | Print the changelog entry of each commit, as Relizy will write it                                                                                                                                    |
 | `--quiet`             | Only print the commits with problems, and the summary (text format)                                                                                                                                  |

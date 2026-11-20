@@ -20,15 +20,15 @@ export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'prei
    */
   comment?: boolean
   /**
-   * Override of `mergePreview.check` for this run (`auto`: on GitHub only). With `comment: false` too, the preview is
+   * Override of `mergePreview.check` for this run (off by default, `auto`: on GitHub only). With `comment: false` too, the preview is
    * only computed: nothing is posted on the pull request. The report is still written where
    * `release.report` says (in GitHub Actions: the outputs and the summary of the job, unless
    * `release.report.github: false`)
    */
   check?: 'auto' | boolean
   /**
-   * Override of `mergePreview.commitlint` for this run: `false` does not lint
-   * the commits of the pull request
+   * Override of `mergePreview.commitlint` for this run (off by default): `true` lints
+   * the commits of the pull request, as warnings
    */
   commitlint?: 'auto' | boolean
   /**
@@ -183,7 +183,7 @@ async function computePreview({ config, options, settings, ui }: {
         config,
         plan,
         context,
-        commitlint: settings.commitlint ?? 'auto',
+        commitlint: settings.commitlint ?? false,
       }),
     })
   }
@@ -220,7 +220,7 @@ async function commentPullRequest({ config, context, markdown, prNumber }: { con
  * merge preview already fails the pipeline of GitLab
  */
 function shouldSetStatus(settings: MergePreviewConfig, context: MergePreviewContext): boolean {
-  const check = settings.check ?? 'auto'
+  const check = settings.check ?? false
 
   return check === 'auto'
     ? context.pullRequest.provider === 'github'

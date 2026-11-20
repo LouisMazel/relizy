@@ -17,6 +17,8 @@ const CI_VARIABLES = [
   'GITHUB_ACTIONS',
   'GITLAB_CI',
   'CI_MERGE_REQUEST_TITLE',
+  'CI_MERGE_REQUEST_TARGET_BRANCH_NAME',
+  'CI_MERGE_REQUEST_IID',
   'CI_MERGE_REQUEST_DIFF_BASE_SHA',
   'FORCE_COLOR',
   'NO_COLOR',
@@ -224,7 +226,7 @@ describe('Given commitlint command', () => {
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
       commitFiles('Merge branch \'feature\'', { 'packages/nuxt/other.ts': 'b' })
       commitFiles('chore(release): bump version to 1.1.0', { 'package.json': '{ "name": "root", "version": "1.1.0", "private": true }' })
-      commitFiles('fix: Typo', { 'packages/core/index.ts': 'c' })
+      commitFiles('fix(core): Typo', { 'packages/core/index.ts': 'c' })
 
       const result = await commitlint({
         config: createConfig(),
@@ -236,14 +238,14 @@ describe('Given commitlint command', () => {
         '✔ <hash> feat(nuxt) → minor bump, 🚀 Enhancements',
         '○ <hash> Merge branch \'feature\' (ignored)',
         '○ <hash> chore(release): bump version to 1.1.0 (ignored)',
-        '✖ <hash> fix: Typo',
+        '✖ <hash> fix(core): Typo',
         '',
         '  ✖ subject-case        The subject starts with an uppercase letter',
         '                        → start it lowercase, relizy capitalizes it in the changelog',
         '  ✖ subject-meaningful  The subject "Typo" does not describe the change',
         '                        → describe what changed, in at least 2 words or 15 characters',
         '',
-        '  Suggested header: fix: typo',
+        '  Suggested header: fix(core): typo',
         '                    still to fix: subject-meaningful',
         '',
         '─'.repeat(72),
@@ -265,7 +267,10 @@ describe('Given commitlint command', () => {
       const result = await commitlint({
         from: 'v1.0.0',
         config: createConfig({
-          commitlint: { title: true },
+          commitlint: {
+            title: true,
+            rules: { 'single-package': 'off' },
+          },
         }),
       })
 
@@ -293,11 +298,11 @@ describe('Given commitlint command', () => {
 
     it.each([
       [
-        'does not lint',
+        'lints',
         'by default',
         undefined,
         undefined,
-        false,
+        true,
       ],
       [
         'lints',
@@ -390,11 +395,172 @@ describe('Given commitlint command', () => {
     })
   })
 
+  describe('When linting the title of a pull or merge request with commitlint.title: auto', () => {
+    beforeEach(() => {
+      git('tag', 'v1.0.0')
+      commitFiles('feat(nuxt): Add the module options', { 'packages/nuxt/module.ts': 'a' })
+    })
+
+    function stubMergeRequest() {
+      vi.stubEnv('GITLAB_CI', 'true')
+      vi.stubEnv('CI_MERGE_REQUEST_TARGET_BRANCH_NAME', 'main')
+      vi.stubEnv('CI_MERGE_REQUEST_IID', '3')
+      vi.stubEnv('CI_MERGE_REQUEST_TITLE', 'feat(nuxt): Add the options of the module')
+    }
+
+    function stubPullRequest() {
+      const eventPath = join(cwd, '.git', 'event.json')
+      writeFileSync(eventPath, JSON.stringify({
+        pull_request: { number: 3, title: 'feat(nuxt): Add the options of the module' },
+      }))
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('GITHUB_BASE_REF', 'main')
+      vi.stubEnv('GITHUB_EVENT_PATH', eventPath)
+    }
+
+    const severities = (result: Awaited<ReturnType<typeof commitlint>>) => result.results.map(entry => [
+      entry.commit.header,
+      entry.problems.map(problem => problem.severity),
+    ])
+
+    it('Then lints the title as warnings when the merge method is unknown', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig(),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['warn'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.errorCount).toBe(1)
+      expect(result.report?.notes).toEqual(['merge method unknown (the merge request could not be read from the API): the merge request title becomes the commit of a squash merge, its problems are warnings'])
+      expect(output).toContain('  Note:  merge method unknown (the merge request could not be read from the API): the merge request')
+    })
+
+    it('Then lints the title as errors and the commits as warnings with a squash merge', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['error'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['warn'],
+        ],
+      ])
+      expect(result.results[1]?.valid).toBe(true)
+      expect(result.report?.notes).toEqual(['squash merge (mergePreview.squash is true): the merge only keeps the merge request title, the problems of its commits are warnings'])
+    })
+
+    it('Then does not lint the title without squash merge', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: false },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.report?.notes).toBeUndefined()
+    })
+
+    it('Then lints the title at the level of commitlint.title when it is set, without note', async () => {
+      stubMergeRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+          commitlint: { title: 'warn' },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['warn'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+      expect(result.report?.notes).toBeUndefined()
+    })
+
+    it('Then does not lint the title of a GitHub pull request squashing its only commit, which keeps its message', async () => {
+      stubPullRequest()
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the module options',
+          ['error'],
+        ],
+      ])
+    })
+
+    it('Then lints the title of a GitHub pull request squashing several commits', async () => {
+      stubPullRequest()
+      commitFiles('fix(nuxt): correct the module options', { 'packages/nuxt/module.ts': 'b' })
+
+      const result = await commitlint({
+        from: 'v1.0.0',
+        config: createConfig({
+          mergePreview: { squash: true },
+        }),
+      })
+
+      expect(severities(result)).toEqual([
+        [
+          'feat(nuxt): Add the options of the module',
+          ['error'],
+        ],
+        [
+          'feat(nuxt): Add the module options',
+          ['warn'],
+        ],
+        ['fix(nuxt): correct the module options', []],
+      ])
+    })
+  })
+
   describe('When choosing the output', () => {
     beforeEach(() => {
       git('tag', 'v1.0.0')
       commitFiles('feat(nuxt): add the module options', { 'packages/nuxt/module.ts': 'a' })
-      commitFiles('fix: Typo', { 'packages/core/index.ts': 'b' })
+      commitFiles('fix(core): Typo', { 'packages/core/index.ts': 'b' })
     })
 
     it('Then prints a JSON report for programs and AI agents', async () => {
@@ -409,7 +575,7 @@ describe('Given commitlint command', () => {
       expect(report).toEqual(expect.objectContaining({ valid: false, errorCount: 2, warningCount: 0 }))
       expect(report.entries.map((entry: { header: string, valid: boolean }) => [entry.header, entry.valid])).toEqual([
         ['feat(nuxt): add the module options', true],
-        ['fix: Typo', false],
+        ['fix(core): Typo', false],
       ])
       expect(report.entries[1].problems[0]).toEqual(expect.objectContaining({ rule: 'subject-case', fix: 'start it lowercase, relizy capitalizes it in the changelog' }))
       expect(report.howToFix).toEqual([
@@ -437,7 +603,7 @@ describe('Given commitlint command', () => {
         config: createConfig(),
       })
 
-      expect(output[0]).toMatch(/^✖ [0-9a-f]{7} fix: Typo$/)
+      expect(output[0]).toMatch(/^✖ [0-9a-f]{7} fix\(core\): Typo$/)
       expect(output.some(line => line.includes('feat(nuxt)'))).toBe(false)
     })
 
@@ -451,7 +617,7 @@ describe('Given commitlint command', () => {
       })
 
       expect(output.filter(line => line.startsWith('::'))).toEqual([
-        expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-case\)::fix: Typo%0AThe subject starts with an uppercase letter%0A→ /),
+        expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-case\)::fix\(core\): Typo%0AThe subject starts with an uppercase letter%0A→ /),
         expect.stringMatching(/^::error title=Commit [0-9a-f]{7} \(subject-meaningful\)::/),
       ])
     })

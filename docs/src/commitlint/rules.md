@@ -1,7 +1,7 @@
 ---
 title: Commit linting rules
 description: Every built-in rule of relizy commitlint, its default level and value, what it reports and how to configure it.
-keywords: relizy commitlint rules, header-format, header-max-length, type-enum, scope-enum, scope-required, scope-matches-files, subject-case, subject-full-stop, subject-meaningful, body-leading-blank, body-no-headings, body-markdown, body-changelog-lint, body-breaking-change, no-breaking, no-ai-attribution
+keywords: relizy commitlint rules, header-format, header-max-length, type-enum, scope-enum, scope-required, scope-matches-files, single-package, subject-case, subject-full-stop, subject-meaningful, body-leading-blank, body-no-headings, body-markdown, body-changelog-lint, body-breaking-change, no-breaking, no-ai-attribution
 category: Commitlint
 tags: [commitlint, rules, conventional-commits, configuration]
 ---
@@ -18,8 +18,9 @@ Set the level (`'error'`, `'warn'`, `'off'`) and the value of a rule in [`commit
 | [`header-max-length`](#header-max-length)       | `error` | `500`                            | Yes                       |
 | [`type-enum`](#type-enum)                       | `error` | Extra types                      |                           |
 | [`scope-enum`](#scope-enum)                     | `error` |                                  |                           |
-| [`scope-required`](#scope-required)             | `off`   | `'always'`                       |                           |
+| [`scope-required`](#scope-required)             | `error` | `'when-bumping'`                 |                           |
 | [`scope-matches-files`](#scope-matches-files)   | `error` |                                  |                           |
+| [`single-package`](#single-package)             | `error` | `{ exceptScopes: ['deps'] }`     |                           |
 | [`subject-case`](#subject-case)                 | `off`   |                                  |                           |
 | [`subject-full-stop`](#subject-full-stop)       | `error` |                                  |                           |
 | [`subject-meaningful`](#subject-meaningful)     | `error` | `{ minWords: 2, minLength: 15 }` |                           |
@@ -94,18 +95,26 @@ Without workspace package nor `commitlint.scopes` (a single package), any scope 
 
 ### `scope-required`
 
-Require a scope. Off by default. The value is:
+Require a scope. The value is:
 
-- `'always'` (default value): every commit needs a scope;
-- `'never'`: no commit can have a scope;
-- `'when-bumping'`: only the commits that bump a version and touch a workspace package need a scope, and the fix gives the scope of the package. Without workspace package, every commit that bumps a version.
+- `'when-bumping'` (default value): only the commits that bump a version and touch a released package need a scope, and the fix gives the scope of the package. A released package is one Relizy releases with this config: the private packages (with [`privatePackages: 'ignore'`](./../config/monorepo.md#privatepackages)), the [ignored](./../config/monorepo.md#ignored) ones and the apps never count. Without workspace package (a single package), no commit needs a scope;
+- `'always'`: every commit needs a scope;
+- `'never'`: no commit can have a scope.
+
+| Commit                         | Files                         | Result                      |
+| ------------------------------ | ----------------------------- | --------------------------- |
+| `fix: correct the types`       | `packages/nuxt/src/module.ts` | fails: `fix(nuxt): ...`     |
+| `fix(nuxt): correct the types` | `packages/nuxt/src/module.ts` | passes                      |
+| `chore: update the CI`         | `.github/workflows/ci.yml`    | passes: no bump             |
+| `fix: correct the script`      | `scripts/build.ts`            | passes: no released package |
 
 ```ts
 import { defineConfig } from 'relizy'
 
 export default defineConfig({
   commitlint: {
-    rules: { 'scope-required': ['error', 'when-bumping'] },
+    // Every commit needs a scope, or turn the rule off with 'off'
+    rules: { 'scope-required': ['error', 'always'] },
   },
 })
 ```
@@ -124,6 +133,46 @@ Fails when the scope designates a package that the commit does not touch. Relizy
 ```
 
 The changed files are the staged files with `--edit` and `--message`, and the files of each commit in a range. Nothing is reported when they are unknown.
+
+### `single-package`
+
+A commit that bumps a version releases a single package. Relizy links a commit to the packages of its files: a commit touching several released packages lands in the changelog of each of them, with the same subject, and bumps them all. Split it, one commit per package, for precise bumps and changelogs.
+
+| Commit                           | Changed files                          | Result                    |
+| -------------------------------- | -------------------------------------- | ------------------------- |
+| `fix(nuxt): correct the options` | `packages/nuxt`                        | ✔                         |
+| `fix(nuxt): correct the options` | `packages/nuxt`, `apps/docs` (private) | ✔                         |
+| `fix(nuxt): correct the exports` | `packages/nuxt`, `packages/core`       | ✖ releases 2 packages     |
+| `fix(deps): update the parser`   | `packages/nuxt`, `packages/core`       | ✔ scope in `exceptScopes` |
+| `chore: update the build tools`  | `packages/nuxt`, `packages/core`       | ✔ no bump                 |
+
+```text
+✖ fix(nuxt): correct the exports
+
+  ✖ single-package  The patch commit releases 2 packages: @maz-ui/nuxt, core
+                    → split the commit per package, or for a transverse change, add "nuxt"
+                      to the exceptScopes of the rule
+```
+
+Only the released packages count, as for [`scope-required`](#scope-required). The commits whose scope is in `exceptScopes` can release several packages: `deps` by default, for the dependency updates (Renovate, Dependabot). Your list replaces the default one, keep `deps` in it if you need it. A scope of `exceptScopes` must also be [allowed](#scope-enum), e.g. in [`commitlint.scopes`](./config.md#scopes):
+
+```ts
+import { defineConfig } from 'relizy'
+
+export default defineConfig({
+  commitlint: {
+    scopes: ['deps', 'exports'],
+    rules: {
+      // fix(exports): ... can release several packages
+      'single-package': ['error', { exceptScopes: ['deps', 'exports'] }],
+    },
+  },
+})
+```
+
+When your project often has transverse changes, report them without failing with `'single-package': 'warn'`, or turn the rule off with `'single-package': 'off'`.
+
+A squash merge turns the pull request into a single commit, with every file of the pull request: the title of a pull request touching several released packages fails the rule, as the commit it becomes. With [`commitlint.title: 'auto'`](./config.md#title), it fails the check only when the merge squashes for sure, and only warns when the merge method is chosen at the merge.
 
 ## Subject
 

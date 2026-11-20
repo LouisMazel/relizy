@@ -235,11 +235,13 @@ export interface MergePreviewConfig {
   comment?: boolean
   /**
    * Set the commit status `relizy/merge-preview` on the last commit of the
-   * pull request: failed when the release of the merge would fail, to require
-   * it in the protection of the branch (`--no-check` disables it). `auto` sets
-   * it on GitHub only: on GitLab, the job of the merge preview already fails
-   * the pipeline, a commit status would fail it a second time
-   * @default 'auto'
+   * pull request: failed when the release of the merge would fail, success
+   * with the released versions (`--check` and `--no-check` override it). Off
+   * by default: the job of the merge preview already fails when the release
+   * would fail, require the job in the protection of the branch. `auto` sets
+   * it on GitHub only: on GitLab, a commit status would fail the pipeline a
+   * second time
+   * @default false
    */
   check?: 'auto' | boolean
   /**
@@ -247,8 +249,10 @@ export interface MergePreviewConfig {
    * with `relizy commitlint`: `auto` when the project uses it, a `commitlint`
    * option in its config or a commit-msg hook running `relizy commitlint`.
    * The commits failing it are warnings, they never fail the check: the
-   * release does not lint the commits (`--no-commitlint` disables it)
-   * @default 'auto'
+   * release does not lint the commits, and it is too late to reword them.
+   * Off by default: run `relizy commitlint` in its own job to fail on them
+   * (`--commitlint` and `--no-commitlint` override it)
+   * @default false
    */
   commitlint?: 'auto' | boolean
   /**
@@ -548,7 +552,8 @@ export interface BumpConfig {
    * - `out-of-range`: only when the range it was published with rejects the new
    *   version of the dependency (`workspace:*` on every bump, `workspace:^` on a
    *   major, a minor in `0.x` or a prerelease). A specifier that is not a semver
-   *   range (`catalog:`, `link:`, `npm:`...) counts as out of range.
+   *   range (`catalog:`, `link:`, `npm:`...) counts as out of range. The range
+   *   is read from its `package.json` at its last release, as for `outOfRangePeers`.
    * - `always`: on every bump of the dependency, e.g. for a package that
    *   bundles its dependency.
    * @default 'out-of-range'
@@ -578,6 +583,11 @@ export interface BumpConfig {
    * version is out of its range; `workspace:^` only on a major, or on a
    * prerelease (npm rejects `6.20.0-beta.0` for `^6.19.1`). Its consumers would
    * get peer dependency errors (npm) or warnings (pnpm).
+   *
+   * The published range is read from the `package.json` of the package at its
+   * last release (its last tag): a peer dependency added since then rejects
+   * nothing (no consumer has it), a range changed since then is checked as it
+   * was published, and a package never released has nothing out of range.
    *
    * - `bump`: bump the package, so it is released with an up-to-date range: a
    *   patch, or a major when the dependency makes a breaking change. The packages
@@ -2042,6 +2052,20 @@ export type HookConfig = {
 export type CommitlintCustomRuleContext = CoreCommitlintCustomRuleContext<ResolvedRelizyConfig>
 
 /**
+ * How `relizy commitlint` lints the title of a pull/merge request, which becomes
+ * the commit message of a squash merge:
+ * - `auto`: from the merge method (`mergePreview.squash`, read from the provider
+ *   with a token): a squash merge lints the title as errors and the commits as
+ *   warnings (the merge does not keep them), a merge without squash does not
+ *   lint the title, an unknown method lints it as warnings. On GitHub, the
+ *   squash of a single commit takes its message, not the title: the title is not linted;
+ * - `error`: lints the title, its problems fail the check;
+ * - `warn`: lints the title, its problems never fail the check;
+ * - `off`: does not lint the title.
+ */
+export type CommitlintTitleMode = 'auto' | 'error' | 'warn' | 'off'
+
+/**
  * A rule written as a function. Returns `true` when the commit is valid, an
  * error message (or `false`) otherwise, or a commitlint-style `[valid, message?]`
  * tuple so `commitlint-plugin-function-rules` rules can be copied as is. It
@@ -2065,7 +2089,7 @@ export interface CommitlintConfig {
   scopes?: string[]
   /**
    * Level and value of the built-in and custom rules.
-   * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'when-bumping'] }
+   * @example { 'header-max-length': ['error', 200], 'scope-required': ['error', 'always'] }
    */
   rules?: CommitlintRulesConfig
   /**
@@ -2085,11 +2109,14 @@ export interface CommitlintConfig {
    */
   defaultIgnores?: boolean
   /**
-   * In the CI of a pull/merge request, also lint its title, which becomes the
-   * commit message of a squash merge. Overridden by `--title` and `--no-title`.
-   * @default false
+   * In the CI of a pull/merge request, lint its title, which becomes the
+   * commit message of a squash merge: `'auto'` reads the merge method from
+   * the provider, `'error'` and `'warn'` always lint it at this level, `'off'`
+   * never lints it (see `CommitlintTitleMode`). `true` is `'error'`, `false`
+   * is `'off'`. Overridden by `--title` and `--no-title`.
+   * @default 'auto'
    */
-  title?: boolean
+  title?: CommitlintTitleMode | boolean
   /**
    * Tool checking the changelog entry of a commit, as written in the
    * changelogs (`body-changelog-lint`): the whole entry with ESLint, its code

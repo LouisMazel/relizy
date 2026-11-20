@@ -342,7 +342,7 @@ function getGithubMergePreviewSteps(options: WorkflowOptions): string[] {
       '      # Computes the release of the merge, writes nothing, fails when the release would fail',
       `      - uses: ${GITHUB_ACTION}`,
       '        with:',
-      '          merge-preview: true',
+      '          command: merge-preview',
       // A private registry tells whether a version is already published with a token only
       ...(options.registryNeedsToken
         ? [`          npm-token: ${secretExpression('NPM_TOKEN')}`]
@@ -679,8 +679,13 @@ export function findCiSetup(cwd: string, provider: CiProvider): { release?: stri
   const setup: { release?: string, mergePreview?: string } = {}
 
   for (const { file, code } of findCiFiles(cwd, provider)) {
-    const mergePreview = /relizy merge-preview|relizy\/merge-preview@|merge-preview: true/.test(code)
-    const release = /relizy release|relizy\/release@/.test(code) || (provider === 'github' && code.includes('relizy/action@') && !mergePreview)
+    // `merge-preview: true`: the deprecated input of the relizy action
+    const mergePreview = /relizy merge-preview|relizy\/merge-preview@|merge-preview: true|command: ['"]?merge-preview\b/.test(code)
+    // A step of the relizy action runs relizy release unless its inputs give another command
+    const actionSteps = provider === 'github'
+      ? code.split('uses: relizy/action@').slice(1).map(step => step.split(/\n *- /)[0]!)
+      : []
+    const release = /relizy release|relizy\/release@/.test(code) || actionSteps.some(step => !/merge-preview: true|command: ['"]?(?!release\b)[a-z]/.test(step))
     setup.release ??= release
       ? file
       : undefined

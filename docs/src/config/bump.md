@@ -115,6 +115,8 @@ What to do with a package not bumped while the range of one of its peer dependen
 | `workspace:^`   | `^6.19.1`    | a major or a prerelease               |
 | `^6.0.0`        | `^6.0.0`     | a major or a prerelease               |
 
+The published range is read from the `package.json` of the package at its last release (its last tag, the one its commits are read from), never from the working tree: a peer dependency added since then rejects nothing (no consumer has it), a range changed since then is checked as it was published, and a package never released has nothing out of range. The same goes for [`dependents`](#dependents) and for the breaking changes below.
+
 - `bump`: the package is bumped as a dependent and released with an up-to-date range; its own dependents follow, across [version groups](./../guide/version-groups.md#dependencies-between-groups) too. The packages outside of the release (a group not targeted by `--group`) are reported with a warning before publishing.
 - `warn`: the package is not bumped, relizy warns before publishing.
 - `error`: the release fails before publishing anything.

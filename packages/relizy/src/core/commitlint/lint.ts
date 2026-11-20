@@ -3,6 +3,8 @@ import type { ResolvedRelizyConfig } from '../config'
 import { logger } from '@maz-ui/node'
 import { determineSemverChange, getWorkspacePackages as findWorkspacePackages, isAllowedCommit, lintCommitMessage as lintMessage } from '@relizy/core'
 import { DEFAULT_RELEASE_COMMIT_MESSAGES } from '../format'
+import { getMonorepoPackagePatterns } from '../groups'
+import { getPrivatePackagesMode, readPackages } from '../repo'
 import { getChangelogLinter, renderChangelogEntry } from './changelog-entry'
 
 export interface LintCommitMessageOptions {
@@ -37,17 +39,30 @@ function getReleaseCommitMessages(config: ResolvedRelizyConfig): string[] {
  * Packages of the monorepo, private ones included, as scopes: the ones relizy releases (`monorepo.packages`,
  * the packages of the groups), the workspace of the package manager and
  * `commitlint.packages`. `monorepo.ignored` is not applied: an ignored package
- * is released by another config, it is still a valid scope.
+ * is released by another config, it is still a valid scope. The packages this
+ * config releases are marked `released`, with the same filters as the release
+ * (`monorepo.ignored`, `monorepo.privatePackages`).
  */
 export function getWorkspacePackages(config: ResolvedRelizyConfig): WorkspacePackage[] {
+  const patterns = getMonorepoPackagePatterns(config)
+  const released = new Set(patterns
+    ? readPackages({
+        cwd: config.cwd,
+        patterns,
+        ignored: config.monorepo?.ignored,
+        privatePackages: getPrivatePackagesMode(config),
+      }).map(pkg => pkg.name)
+    : [])
   return findWorkspacePackages({
     cwd: config.cwd,
     patterns: [
-      ...(config.monorepo?.packages ?? []),
-      ...(config.monorepo?.groups ?? []).flatMap(group => group.packages),
+      ...(patterns ?? []),
       ...(config.commitlint?.packages ?? []),
     ],
-  })
+  }).map(pkg => ({
+    ...pkg,
+    released: released.has(pkg.name),
+  }))
 }
 
 /**

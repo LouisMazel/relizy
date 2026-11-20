@@ -274,6 +274,7 @@ describe('Given the release of the merge of a pull request', () => {
       {
         kind: 'commitlint',
         message: expect.stringMatching(/^[0-9a-f]{7} "fix: The Bug": /),
+        merge: 'kept',
       },
     ])
   })
@@ -301,6 +302,7 @@ describe('Given the release of the merge of a pull request', () => {
         {
           kind: 'commitlint',
           message: expect.stringMatching(/"not conventional": /),
+          merge: 'kept',
         },
       ],
     })
@@ -337,6 +339,7 @@ describe('Given the release of the merge of a pull request', () => {
       {
         kind: 'commitlint',
         message: expect.stringMatching(/^the squash commit "feat: The App \(#3\)": /),
+        merge: 'kept',
       },
     ])
     expect(open.problems).toEqual([])
@@ -344,8 +347,77 @@ describe('Given the release of the merge of a pull request', () => {
       {
         kind: 'commitlint',
         message: expect.stringMatching(/^If you squash merge: the squash commit "feat: The App \(#3\)": /),
+        merge: 'squash',
       },
     ])
+  })
+
+  describe('When the commits and the squash commit fail the commitlint', () => {
+    const squashOf = (hashes: string[]) => ({
+      hashes,
+      commit: {
+        message: 'feat: the app (#3)',
+        body: '',
+        shortHash: 'abc1234',
+        author: { name: 'Dev', email: 'dev@example.com' },
+      },
+    })
+
+    async function checkWith({ title, squash }: { title?: string, squash: Omit<MergePreviewPlan['squash'], 'squash'> }) {
+      const titleOption = title === undefined
+        ? ''
+        : `title: '${title}', `
+      setup(`commitlint: { ${titleOption}rules: { 'subject-meaningful': ['error', { minWords: 5, minLength: 100 }] } }`)
+      const config = await loadRelizyConfig()
+      const checks = await checkMergePreview({
+        config,
+        plan: planOf('1.1.0', {
+          ...squash,
+          squash: squashOf(context.commits),
+        }),
+        context,
+        commitlint: true,
+      })
+      return checks.commitlint.map(problem => [
+        problem.merge,
+        problem.message.replace(/\b[0-9a-f]{7}\b/g, '<hash>').replace(/": .*$/, '"'),
+      ])
+    }
+
+    it('Then tells the commits a squash merge drops', async () => {
+      expect(await checkWith({
+        squash: { mode: 'squash', reason: 'test' },
+      })).toEqual([
+        ['kept', 'the squash commit "feat: the app (#3)"'],
+        ['dropped', '<hash> "feat: the feature"'],
+      ])
+    })
+
+    it('Then keeps the commits as is when the merge method is left open', async () => {
+      expect(await checkWith({
+        squash: { mode: 'both', reason: 'test' },
+      })).toEqual([
+        ['squash', 'If you squash merge: the squash commit "feat: the app (#3)"'],
+        ['kept', '<hash> "feat: the feature"'],
+      ])
+    })
+
+    it('Then does not lint the squash commit with commitlint.title: off', async () => {
+      expect(await checkWith({
+        title: 'off',
+        squash: { mode: 'squash', reason: 'test' },
+      })).toEqual([
+        ['dropped', '<hash> "feat: the feature"'],
+      ])
+    })
+
+    it('Then lints the only commit once when the squash commit takes its message', async () => {
+      expect(await checkWith({
+        squash: { mode: 'squash', reason: 'test', titleFromCommit: true },
+      })).toEqual([
+        ['kept', '<hash> "feat: the feature"'],
+      ])
+    })
   })
 
   it('When the preview is computed without the last commits of the target branch, Then warns', async () => {
