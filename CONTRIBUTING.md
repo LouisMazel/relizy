@@ -37,6 +37,8 @@ Thank you for considering contributing to Relizy! We appreciate your interest in
     - [Examples](#examples)
     - [Git Hooks](#git-hooks)
   - [Adding an AI Provider](#adding-an-ai-provider)
+  - [Local Models](#local-models)
+    - [Commit Classifier Dataset](#commit-classifier-dataset)
   - [Pull Request Process](#pull-request-process)
     - [Before Submitting](#before-submitting)
     - [Submitting the PR](#submitting-the-pr)
@@ -195,7 +197,8 @@ relizy/
 │   │   │   └── **/__tests__/   # Specs, *.git.spec.ts on real git repositories
 │   │   ├── agent-docs/         # Docs bundle of the MCP server, generated (gitignored, published)
 │   │   ├── bin/relizy.mjs      # CLI executable entry point
-│   │   ├── scripts/            # Generation of agent-docs, AI evaluations, peer dependency check
+│   │   ├── scripts/            # Generation of agent-docs, AI evaluations, peer dependency check,
+│   │   │                       #   dataset of the commit classifier
 │   │   └── tests/              # Mocks and test helpers of relizy
 │   └── core/                   # @relizy/core: the generic building blocks (workspaces, catalogs,
 │       └── src/                #   registries, git helpers, GitHub/GitLab providers)
@@ -374,6 +377,43 @@ The AI rewrites go through a small registry of providers behind one interface (`
 3. Add its name to `AIProviderName` and its options to `AIConfig.providers` in `src/types.ts`, then document them in `docs/src/config/ai.md` (`knowledge.spec.ts` checks it).
 
 The prompts, the fallbacks and the call sites need no change.
+
+## Local Models
+
+Relizy is getting small models that run on the machine of the user, without cloud or API key. The first one, a commit classifier, will label the commits of the repositories that do not follow the conventional commits (`feature`, `fix`, `refacto`, `doc`, `perf`, `test`, `build`, `ci`, `chore`, `breaking`). Their training tooling lives in `packages/relizy/scripts/`, it is not part of the published package.
+
+### Commit Classifier Dataset
+
+The training examples come from the history of repositories that already use the conventional commits: the type of each commit is the label, and the model learns to find it from the rest.
+
+```bash
+# One or more repositories, or folders whose direct subdirectories are repositories
+pnpm dataset:commits ../maz-ui ../relizy ~/dev --out commits.dataset.jsonl
+```
+
+The script reads `git log --all --no-merges` of each repository (bare clones work) and writes one JSON line per conventional commit:
+
+```json
+{ "repo": "maz-ui", "hash": "81ff1b9…", "message": "the development warnings no longer throw without bundler", "files": ["packages/maz-ui/src/components/MazAvatar.vue", "packages/maz-ui/src/utils/warnDeprecated.ts"], "stats": { "filesChanged": 2, "insertions": 5, "deletions": 2, "binaryFiles": 0 }, "label": "fix", "type": "fix" }
+```
+
+- `message`: the subject without its type, scope, `!`, emoji and references (`(#12)`, `#12`, `GH-12`, `!12`, `closes #12`, pull request URLs), so the model cannot read the answer in its input. The body is left out, `BREAKING CHANGE:` would give the label away
+- `files` and `stats`: the paths touched (the new one for a rename) and the totals of `--numstat`
+- `label`: from the type (`feat` → `feature`, `refactor` → `refacto`, `docs` → `doc`, `style` → `chore`, `deps` → `build`...), `breaking` for a `!` or a `BREAKING CHANGE:` whatever the type; `type` keeps the type as written, to revise the mapping
+- `suspect` (only when it applies): the label contradicts the files, a likely wrong type: `code-label-on-docs-only` (a `feat`, `fix`, `refactor` or `perf` on Markdown only), `code-label-on-dependencies-only` (the same, or a `docs`, on `package.json` and lockfiles only), `test-without-test-files`, `ci-without-ci-files`. A `docs` commit changing code is not suspect: a JSDoc, a comment or the site of the docs are docs too
+
+Then it prints the number of examples per label, with the suspect ones, and the ignored commits by reason: not conventional, type outside the mapping (the most frequent ones are listed: add them to `TYPE_TO_LABEL` of `scripts/commit-classifier/dataset.ts` when they make sense), release commits (`chore(release): …`, `release: 1.2.0`), message empty once cleaned, mass changes, and commits already read from another repository (forks, copies). The `*.dataset.jsonl` files are gitignored.
+
+The labels are only as good as the discipline of the history, so check it before training:
+
+| Option                  | Default           | Effect                                                                                                                           |
+| ----------------------- | ----------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| `--since <date>`        | the whole history | Only the commits after the date, for every repository                                                                            |
+| `--since <repo>=<date>` |                   | The same for one repository (the name of its directory), e.g. `maz-ui=2022-01-01` when its conventions start in 2022; repeatable |
+| `--max-files <n>`       | `100`             | A commit touching more files is a mass change (formatting, move, generated files) and gives no example; `0` for no limit         |
+| `--strict`              | off               | Leaves the `suspect` examples out instead of keeping them flagged                                                                |
+
+Well-kept public repositories add examples to the rare labels (`perf`, `breaking`, `build`): clone them (`git clone --bare`) next to yours and pass their folder. Check their license first, the dataset holds their messages and paths.
 
 ## Pull Request Process
 

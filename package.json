@@ -16,6 +16,7 @@
     "dev": "nx run-many -t dev --exclude=docs",
     "relizy": "tsx packages/relizy/src/cli.ts",
     "rly": "tsx packages/relizy/src/cli.ts",
+    "dataset:commits": "tsx packages/relizy/scripts/commit-classifier/extract.ts",
     "typecheck": "nx run-many -t typecheck --exclude=docs",
     "lint": "nx run-many -t lint",
     "lint:fix": "nx run-many -t lint:fix",

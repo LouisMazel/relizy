@@ -12,3 +12,4 @@ relizy-sync.2026-11-06.private-key.pem
 relizy-gitlab-deploy-key
 relizy-gitlab-deploy-key.pub
 .nx/
+*.dataset.jsonl
