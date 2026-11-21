@@ -293,11 +293,13 @@ export function findSuspicion(label: CommitLabel, files: string[]): Suspicion | 
 }
 
 /** Dependency, release and CI bots: their messages are generated, not written */
-const BOT_REGEX = /\[bot\]|^(?:renovate|dependabot|greenkeeper|snyk-bot|github-actions|semantic-release-bot|allcontributors|imgbot|pre-commit-ci|mergify|codecov)\b/i
+const BOT_NAME_REGEX = /\[bot\]|\b(?:ro)?bot\b|^(?:renovate|dependabot|greenkeeper|github-actions|allcontributors|imgbot|pre-commit-ci|mergify|codecov)\b/i
+/** `angular-robot@google.com`, `bot@renovateapp.com`, `41898282+github-actions[bot]@users.noreply.github.com` */
+const BOT_EMAIL_REGEX = /\[bot\]|(?:^|[-_.+])(?:ro)?bots?@|^(?:renovate|dependabot|github-actions)\b/i
 
-/** A commit written by a bot, from its author name or email */
+/** A commit written by a bot (Renovate, Dependabot, a project robot...), from its author name or email */
 export function isBotCommit(commit: Pick<LoggedCommit, 'authorName' | 'authorEmail'>): boolean {
-  return BOT_REGEX.test(commit.authorName) || BOT_REGEX.test(commit.authorEmail)
+  return BOT_NAME_REGEX.test(commit.authorName) || BOT_EMAIL_REGEX.test(commit.authorEmail)
 }
 
 /** Options of `extractExample()` */

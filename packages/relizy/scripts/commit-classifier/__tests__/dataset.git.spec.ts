@@ -172,6 +172,8 @@ describe('Given extractExample', () => {
       ['renovate[bot]', 'bot@renovateapp.com'],
       ['dependabot[bot]', '49699333+dependabot[bot]@users.noreply.github.com'],
       ['github-actions', 'actions@github.com'],
+      ['Angular Robot', 'angular-robot@google.com'],
+      ['Renovate Bot', 'bot@renovateapp.com'],
     ])('Then a commit of %s is skipped as bot', (authorName, authorEmail) => {
       const commit = {
         ...logged('chore(deps): update vite to v7'),
@@ -180,6 +182,19 @@ describe('Given extractExample', () => {
       }
 
       expect(extractExample(commit, 'repo')).toEqual({ kind: 'skipped', reason: 'bot' })
+    })
+
+    it.each([
+      ['Abbott Lee', 'abbott@example.com'],
+      ['Robert Boto', 'robert.boto@example.com'],
+    ])('Then a commit of %s, a person, is kept', (authorName, authorEmail) => {
+      const commit = {
+        ...logged('fix: a bug'),
+        authorName,
+        authorEmail,
+      }
+
+      expect(extractExample(commit, 'repo').kind).toBe('example')
     })
 
     it('Then a commit about releasing that is not a release commit is kept', () => {

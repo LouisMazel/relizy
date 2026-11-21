@@ -1,7 +1,7 @@
 import type { CommitExample } from '../dataset'
 import { toLoggedCommit } from '../commitsuite'
 import { detectLicense, isPermissive, resolveRepositoryLicense } from '../licenses'
-import { chooseTestRepositories, countLabels, dedupeExamples, detectLanguage } from '../split'
+import { balanceExamples, chooseTestRepositories, countLabels, dedupeExamples, detectLanguage } from '../split'
 
 function example(repo: string, hash: string, message = `message ${hash}`, label: CommitExample['label'] = 'fix'): CommitExample {
   return {
@@ -203,5 +203,61 @@ describe('Given countLabels and detectLanguage', () => {
         files: ['README.md'],
       },
     ])).toBe('unknown')
+  })
+})
+
+describe('Given balanceExamples', () => {
+  const big = Array.from({ length: 50 }, (_, index) => example('acme/big', `big-${index}`))
+  const small = Array.from({ length: 4 }, (_, index) => example('acme/small', `small-${index}`))
+  const rare = Array.from({ length: 3 }, (_, index) => example('acme/big', `perf-${index}`, `perf ${index}`, 'perf'))
+
+  describe('When a label is above the cap', () => {
+    it('Then it is cut to the cap, the small repositories whole and the big one taking the rest', () => {
+      const balanced = balanceExamples([
+        ...big,
+        ...small,
+        ...rare,
+      ], { maxPerLabel: 10, maxRepoShare: 1 })
+      const fixes = balanced.filter(item => item.label === 'fix')
+
+      expect(fixes).toHaveLength(10)
+      expect(fixes.filter(item => item.repo === 'acme/small')).toHaveLength(4)
+      expect(fixes.filter(item => item.repo === 'acme/big')).toHaveLength(6)
+    })
+  })
+
+  describe('When one repository holds most of a label', () => {
+    it('Then it gives at most maxRepoShare of it', () => {
+      const others = Array.from({ length: 20 }, (_, index) => example(`acme/repo-${index}`, `other-${index}`))
+      const balanced = balanceExamples([
+        ...big,
+        ...others,
+      ], { maxPerLabel: 100, maxRepoShare: 0.1 })
+
+      expect(balanced.filter(item => item.repo === 'acme/big')).toHaveLength(7)
+      expect(balanced).toHaveLength(27)
+    })
+  })
+
+  describe('When a label is under the cap', () => {
+    it('Then it is kept whole, and the draw is the same for the same seed', () => {
+      const balanced = balanceExamples([
+        ...big,
+        ...small,
+        ...rare,
+      ], { maxPerLabel: 10, maxRepoShare: 1 })
+
+      expect(balanced.filter(item => item.label === 'perf')).toHaveLength(3)
+      expect(balanceExamples([
+        ...big,
+        ...small,
+        ...rare,
+      ], { maxPerLabel: 10, maxRepoShare: 1 })).toEqual(balanced)
+      expect(balanceExamples([
+        ...big,
+        ...small,
+        ...rare,
+      ], { maxPerLabel: 10, maxRepoShare: 1, seed: 'other' }).map(item => item.hash)).not.toEqual(balanced.map(item => item.hash))
+    })
   })
 })

@@ -130,3 +130,49 @@ export function detectLanguage(examples: Iterable<Pick<CommitExample, 'files'>>)
   }
   return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] ?? 'unknown'
 }
+
+export interface BalanceOptions {
+  /** Examples kept per label at most */
+  maxPerLabel: number
+  /** Share of a label one repository can give at most, 0.1 by default; 1 for no limit */
+  maxRepoShare?: number
+  /** Changes the examples drawn, for another sample of the same data */
+  seed?: string
+}
+
+/**
+ * Undersamples the big labels to `maxPerLabel` examples and keeps the small
+ * ones whole. Inside a label, the examples are shared fairly between the
+ * repositories (water-filling: a small repository keeps all its examples, the
+ * big ones share the rest equally), and one repository gives at most
+ * `maxRepoShare` of a label, rare labels included, so one large project does
+ * not impose its style; inside a repository, they are drawn in a stable order.
+ */
+export function balanceExamples(examples: CommitExample[], { maxPerLabel, maxRepoShare = 0.1, seed = 'relizy' }: BalanceOptions): CommitExample[] {
+  const byLabel = new Map<CommitLabel, Map<string, CommitExample[]>>()
+  for (const example of examples) {
+    const byRepo = byLabel.get(example.label) ?? new Map<string, CommitExample[]>()
+    const list = byRepo.get(example.repo) ?? []
+    list.push(example)
+    byRepo.set(example.repo, list)
+    byLabel.set(example.label, byRepo)
+  }
+
+  const kept: CommitExample[] = []
+  for (const byRepo of byLabel.values()) {
+    const groups = [
+      ...byRepo.values(),
+    ].sort((a, b) => a.length - b.length)
+    const size = groups.reduce((sum, group) => sum + group.length, 0)
+    const perRepo = Math.max(1, Math.ceil(Math.min(maxPerLabel, size) * maxRepoShare))
+    let remaining = maxPerLabel
+    groups.forEach((group, index) => {
+      const take = Math.min(group.length, perRepo, Math.floor(remaining / (groups.length - index)))
+      remaining -= take
+      kept.push(...[...group]
+        .sort((a, b) => hash(seed, a.hash).localeCompare(hash(seed, b.hash)))
+        .slice(0, take))
+    })
+  }
+  return kept.sort((a, b) => hash(seed, a.hash).localeCompare(hash(seed, b.hash)))
+}

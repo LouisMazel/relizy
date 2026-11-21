@@ -7,7 +7,7 @@ import { parseArgs } from 'node:util'
 import { logger } from '@maz-ui/node'
 import { COMMIT_LABELS } from './dataset'
 import { isPermissive, readRemoteRepositoryLicense, resolveRepositoryLicense } from './licenses'
-import { chooseTestRepositories, countLabels, dedupeExamples, detectLanguage } from './split'
+import { balanceExamples, chooseTestRepositories, countLabels, dedupeExamples, detectLanguage } from './split'
 
 /**
  * Merges the outputs of `extract.ts` and `import-commitsuite.ts` into the
@@ -34,11 +34,16 @@ const { values, positionals } = parseArgs({
     'test-share': { type: 'string', default: '0.15' },
     'test-repo': { type: 'string', multiple: true, default: [] },
     'seed': { type: 'string', default: 'relizy' },
+    'max-per-label': { type: 'string', default: '15000' },
+    'max-repo-share': { type: 'string', default: '0.1' },
+    'keep-suspect': { type: 'boolean', default: false },
   },
 })
 
 const testShare = Number(values['test-share'])
-if (positionals.length === 0 || !(testShare > 0 && testShare < 1)) {
+const maxPerLabel = Number(values['max-per-label'])
+const maxRepoShare = Number(values['max-repo-share'])
+if (positionals.length === 0 || !(testShare > 0 && testShare < 1) || !Number.isInteger(maxPerLabel) || maxPerLabel < 0 || !(maxRepoShare > 0 && maxRepoShare <= 1)) {
   logger.error(USAGE)
   process.exit(1)
 }
@@ -123,19 +128,44 @@ const testRepos = chooseTestRepositories(countByRepo, {
   ].filter(isOwn),
 })
 
-const train: CommitExample[] = []
+// The suspect examples likely carry a wrong type: out of both sets, unless --keep-suspect
+const fullTrain: CommitExample[] = []
 const test: CommitExample[] = []
+let suspects = 0
 for (const [repo, examples] of byRepo) {
   if (excludedRepos.has(repo)) {
     continue
   }
-  (testRepos.has(repo)
-    ? test
-    : train).push(...examples)
+  for (const example of examples) {
+    if (example.suspect && !values['keep-suspect']) {
+      suspects++
+      continue
+    }
+    (testRepos.has(repo)
+      ? test
+      : fullTrain).push(example)
+  }
 }
 
-writeFileSync(join(outDir, 'train.dataset.jsonl'), train.map(example => JSON.stringify(example)).join('\n').concat('\n'))
-writeFileSync(join(outDir, 'test.dataset.jsonl'), test.map(example => JSON.stringify(example)).join('\n').concat('\n'))
+// Only the training set is balanced: the test set keeps the real distribution, measured by macro-F1
+const train = maxPerLabel > 0
+  ? balanceExamples(fullTrain, { maxPerLabel, maxRepoShare, seed: values.seed })
+  : fullTrain
+
+function writeExamples(name: string, examples: CommitExample[]) {
+  writeFileSync(join(outDir, name), examples.map(example => JSON.stringify(example)).join('\n').concat('\n'))
+}
+const keptByRepo = new Map<string, number>()
+for (const example of [
+  ...train,
+  ...test,
+]) {
+  keptByRepo.set(example.repo, (keptByRepo.get(example.repo) ?? 0) + 1)
+}
+
+writeExamples('train.full.dataset.jsonl', fullTrain)
+writeExamples('train.dataset.jsonl', train)
+writeExamples('test.dataset.jsonl', test)
 
 const manifest = {
   generatedAt: new Date().toISOString(),
@@ -158,6 +188,7 @@ const manifest = {
     licenseFiles: licenses[repo]?.files.map(file => file.path),
     language: detectLanguage(examples),
     examples: examples.length,
+    kept: keptByRepo.get(repo) ?? 0,
     split: excludedRepos.has(repo)
       ? 'excluded'
       : testRepos.has(repo)
@@ -168,7 +199,8 @@ const manifest = {
 }
 writeFileSync(join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`)
 
-// Report, before any balancing
+// Report: the training set before and after balancing, the test set
+const fullTrainCounts = countLabels(fullTrain)
 const trainCounts = countLabels(train)
 const testCounts = countLabels(test)
 const width = Math.max(...COMMIT_LABELS.map(label => label.length))
@@ -180,11 +212,14 @@ function percent(count: number, total: number) {
 }
 
 logger.log('')
-logger.log(`  ${'label'.padEnd(width)}  ${pad('train')}  ${pad('%', 7)}  ${pad('test')}  ${pad('%', 7)}`)
-for (const label of [...COMMIT_LABELS].sort((a, b) => trainCounts[b] - trainCounts[a])) {
-  logger.log(`  ${label.padEnd(width)}  ${pad(trainCounts[label])}  ${pad(percent(trainCounts[label], train.length))}  ${pad(testCounts[label])}  ${pad(percent(testCounts[label], test.length))}`)
+logger.log(`  ${'label'.padEnd(width)}  ${pad('full')}  ${pad('%', 7)}  ${pad('train')}  ${pad('%', 7)}  ${pad('test')}  ${pad('%', 7)}`)
+for (const label of [...COMMIT_LABELS].sort((a, b) => fullTrainCounts[b] - fullTrainCounts[a])) {
+  logger.log(`  ${label.padEnd(width)}  ${pad(fullTrainCounts[label])}  ${pad(percent(fullTrainCounts[label], fullTrain.length))}  ${pad(trainCounts[label])}  ${pad(percent(trainCounts[label], train.length))}  ${pad(testCounts[label])}  ${pad(percent(testCounts[label], test.length))}`)
 }
-logger.log(`  ${'total'.padEnd(width)}  ${pad(train.length)}  ${pad('')}  ${pad(test.length)}`)
+logger.log(`  ${'total'.padEnd(width)}  ${pad(fullTrain.length)}  ${pad('')}  ${pad(train.length)}  ${pad('')}  ${pad(test.length)}`)
+logger.log(`  (full: training set before balancing; train: at most ${maxPerLabel || 'all'} per label and ${maxRepoShare * 100} % of a label per repository; suspect examples left out: ${values['keep-suspect']
+  ? 'none, kept'
+  : suspects})`)
 logger.log('')
 const exclusionReasons = new Map<string, number>()
 for (const reason of excludedRepos.values()) {
@@ -195,4 +230,4 @@ logger.log(`Repositories: ${countByRepo.size - testRepos.size} train, ${testRepo
 logger.log(`Duplicates dropped: ${duplicates}; examples of excluded repositories: ${[
   ...excludedRepos.keys(),
 ].reduce((sum, repo) => sum + byRepo.get(repo)!.length, 0)}`)
-logger.success(`Written to ${outDir}: train.dataset.jsonl, test.dataset.jsonl, manifest.json, licenses.json`)
+logger.success(`Written to ${outDir}: train.dataset.jsonl, train.full.dataset.jsonl, test.dataset.jsonl, manifest.json, licenses.json`)
