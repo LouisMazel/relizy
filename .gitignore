@@ -13,3 +13,4 @@ relizy-gitlab-deploy-key
 relizy-gitlab-deploy-key.pub
 .nx/
 *.dataset.jsonl
+commit-classifier-dataset/

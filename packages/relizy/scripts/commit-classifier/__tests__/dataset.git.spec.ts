@@ -107,6 +107,7 @@ describe('Given extractExample', () => {
         kind: 'example',
         example: {
           repo: 'maz-ui',
+          source: 'git',
           hash: 'a'.repeat(40),
           message: 'add a button',
           files: ['src/button.vue'],
@@ -118,6 +119,7 @@ describe('Given extractExample', () => {
           },
           label: 'feature',
           type: 'feat',
+          breaking: false,
         },
       })
     })
@@ -142,15 +144,15 @@ describe('Given extractExample', () => {
 
   describe('When the commit is breaking', () => {
     it.each([
-      ['feat!: drop node 18', ''],
-      ['fix(core): rename an option', 'BREAKING CHANGE: the option is renamed'],
-    ])('Then "%s" is labelled breaking and keeps its type', (subject, body) => {
+      ['feat!: drop node 18', '', 'feature'],
+      ['fix(core): rename an option', 'BREAKING CHANGE: the option is renamed', 'fix'],
+    ])('Then "%s" keeps the label %s of its type and is flagged breaking', (subject, body, label) => {
       const result = extractExample(logged(subject, body), 'repo')
 
-      expect(result.kind === 'example' && [result.example.label, result.example.type]).toEqual([
-        'breaking',
-        subject.slice(0, subject.search(/[(!]/)),
-      ])
+      expect(result).toMatchObject({
+        kind: 'example',
+        example: { label, breaking: true },
+      })
     })
   })
 
@@ -164,6 +166,20 @@ describe('Given extractExample', () => {
       ['fix: (#12)', 'empty-message'],
     ])('Then "%s" is skipped as %s', (subject, reason) => {
       expect(extractExample(logged(subject), 'repo')).toMatchObject({ kind: 'skipped', reason })
+    })
+
+    it.each([
+      ['renovate[bot]', 'bot@renovateapp.com'],
+      ['dependabot[bot]', '49699333+dependabot[bot]@users.noreply.github.com'],
+      ['github-actions', 'actions@github.com'],
+    ])('Then a commit of %s is skipped as bot', (authorName, authorEmail) => {
+      const commit = {
+        ...logged('chore(deps): update vite to v7'),
+        authorName,
+        authorEmail,
+      }
+
+      expect(extractExample(commit, 'repo')).toEqual({ kind: 'skipped', reason: 'bot' })
     })
 
     it('Then a commit about releasing that is not a release commit is kept', () => {

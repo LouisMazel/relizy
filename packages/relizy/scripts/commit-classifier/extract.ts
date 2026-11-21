@@ -21,7 +21,7 @@ import { COMMIT_LABELS, extractExample, getGitLogArgs, parseCommitLog } from './
  *
  * Quality of the labels: the old history of a repository often predates its
  * conventions. `--since` keeps the commits after a date, for every repository
- * or for one (`<repo>=<date>`, the name of its directory); `--max-files`
+ * or for one (`<repo>=<date>`, `owner/name` or `name`); `--max-files`
  * drops the mass changes (100 files by default, 0 for no limit); the examples
  * whose label contradicts their files are flagged `suspect`, and `--strict`
  * leaves them out.
@@ -71,6 +71,13 @@ function findRepositories(path: string): string[] {
     .filter(child => statSync(child).isDirectory() && isGitRepository(child))
 }
 
+/** `owner/name` from the `origin` remote of a GitHub, GitLab... clone, else the name of the directory */
+function getRepositoryName(repository: string): string {
+  const url = tryGitSync(['remote', 'get-url', 'origin'], { cwd: repository })
+  const match = url?.match(/[/:]([^/:]+\/[^/]+?)(?:\.git)?\/?$/)
+  return match?.[1] ?? basename(repository).replace(/\.git$/, '')
+}
+
 const repositories = [
   ...new Set(positionals.flatMap(findRepositories)),
 ]
@@ -81,6 +88,7 @@ if (repositories.length === 0) {
 
 const labelCounts = Object.fromEntries(COMMIT_LABELS.map(label => [label, 0])) as Record<CommitLabel, number>
 const skipCounts: Record<SkipReason | 'duplicate', number> = {
+  'bot': 0,
   'not-conventional': 0,
   'unknown-type': 0,
   'release': 0,
@@ -95,8 +103,8 @@ const seenHashes = new Set<string>()
 const out = createWriteStream(values.out)
 
 for (const repository of repositories) {
-  const repo = basename(repository).replace(/\.git$/, '')
-  const since = sinceByRepo.get(repo) ?? defaultSince
+  const repo = getRepositoryName(repository)
+  const since = sinceByRepo.get(repo) ?? sinceByRepo.get(repo.split('/').pop()!) ?? defaultSince
   const commits = parseCommitLog(runGitSync(getGitLogArgs({ since }), { cwd: repository, trim: false }))
   let examples = 0
 

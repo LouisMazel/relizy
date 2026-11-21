@@ -8,7 +8,11 @@ import { parseGitCommit } from '@relizy/core'
  * files touched, the diff stats) and the label taken from the type.
  */
 
-/** Labels the classifier predicts */
+/**
+ * Labels the classifier predicts. A breaking change is not a label: it is
+ * found by the static analysis of the public API, the example keeps the label
+ * of its type and `breaking: true`.
+ */
 export const COMMIT_LABELS = [
   'feature',
   'fix',
@@ -19,7 +23,6 @@ export const COMMIT_LABELS = [
   'build',
   'ci',
   'chore',
-  'breaking',
 ] as const
 
 export type CommitLabel = typeof COMMIT_LABELS[number]
@@ -49,8 +52,10 @@ export const TYPE_TO_LABEL: Record<string, CommitLabel> = {
 
 /** One example of the dataset, one JSON line of the output */
 export interface CommitExample {
-  /** Repository the commit comes from (name of its directory) */
+  /** Repository the commit comes from: `owner/name` when known, else the name of its directory; the train and test sets are split by repository */
   repo: string
+  /** Where the commit was read: `git` (a local clone) or a third-party dataset (`commitsuite`) */
+  source: string
   /** Full hash of the commit */
   hash: string
   /** The subject without type, scope, `!`, emoji and references to PRs or issues */
@@ -63,6 +68,8 @@ export interface CommitExample {
   label: CommitLabel
   /** Conventional type as written in the commit, kept to revise the mapping */
   type: string
+  /** `!` in the header or `BREAKING CHANGE:` in the body: kept for information, not a label */
+  breaking: boolean
   /** Why the label looks wrong for the files touched (see `findSuspicion()`), absent when it looks right */
   suspect?: Suspicion
 }
@@ -100,7 +107,7 @@ export interface LoggedCommit {
 }
 
 /** Why a commit gave no example */
-export type SkipReason = 'not-conventional' | 'unknown-type' | 'release' | 'empty-message' | 'too-many-files'
+export type SkipReason = 'bot' | 'not-conventional' | 'unknown-type' | 'release' | 'empty-message' | 'too-many-files'
 
 export type ExtractResult
   = | { kind: 'example', example: CommitExample }
@@ -285,14 +292,28 @@ export function findSuspicion(label: CommitLabel, files: string[]): Suspicion | 
   return undefined
 }
 
+/** Dependency, release and CI bots: their messages are generated, not written */
+const BOT_REGEX = /\[bot\]|^(?:renovate|dependabot|greenkeeper|snyk-bot|github-actions|semantic-release-bot|allcontributors|imgbot|pre-commit-ci|mergify|codecov)\b/i
+
+/** A commit written by a bot, from its author name or email */
+export function isBotCommit(commit: Pick<LoggedCommit, 'authorName' | 'authorEmail'>): boolean {
+  return BOT_REGEX.test(commit.authorName) || BOT_REGEX.test(commit.authorEmail)
+}
+
 /** Options of `extractExample()` */
 export interface ExtractOptions {
+  /** Where the commit was read, `git` by default */
+  source?: string
   /** Above this number of files, the commit is a mass change (formatting, move, lockfile) and gives no example; 0 for no limit */
   maxFiles?: number
 }
 
 /** Turns one logged commit into an example, or says why it gives none */
-export function extractExample(commit: LoggedCommit, repo: string, { maxFiles = 0 }: ExtractOptions = {}): ExtractResult {
+export function extractExample(commit: LoggedCommit, repo: string, { maxFiles = 0, source = 'git' }: ExtractOptions = {}): ExtractResult {
+  if (isBotCommit(commit)) {
+    return { kind: 'skipped', reason: 'bot' }
+  }
+
   const raw: RawGitCommit = {
     message: commit.subject,
     body: commit.body,
@@ -326,21 +347,21 @@ export function extractExample(commit: LoggedCommit, repo: string, { maxFiles = 
   }
 
   const files = commit.files.map(file => file.path)
-  const label: CommitLabel = parsed.isBreaking
-    ? 'breaking'
-    : typeLabel
+  const label = typeLabel
   const suspect = findSuspicion(label, files)
 
   return {
     kind: 'example',
     example: {
       repo,
+      source,
       hash: commit.hash,
       message,
       files,
       stats: computeDiffStats(commit.files),
       label,
       type,
+      breaking: parsed.isBreaking,
       ...(suspect && { suspect }),
     },
   }
