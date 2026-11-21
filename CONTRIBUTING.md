@@ -412,7 +412,7 @@ pnpm dataset:build clones.dataset.jsonl commitsuite.dataset.jsonl --own LouisMaz
 - `label`: from the type (`feat` → `feature`, `refactor` → `refacto`, `docs` → `doc`, `style` → `chore`, `deps` → `build`...); `type` keeps the type as written, to revise the mapping; `breaking` is `true` for a `!` or a `BREAKING CHANGE:`, for information only
 - `suspect` (only when it applies): the label contradicts the files, a likely wrong type: `code-label-on-docs-only` (a `feat`, `fix`, `refactor` or `perf` on Markdown only), `code-label-on-dependencies-only` (the same, or a `docs`, on `package.json` and lockfiles only), `test-without-test-files`, `ci-without-ci-files`. A `docs` commit changing code is not suspect: a JSDoc, a comment or the site of the docs are docs too
 
-Then it prints the number of examples per label, with the suspect ones, and the ignored commits by reason: written by a bot (Renovate, Dependabot, GitHub Actions...), not conventional, type outside the mapping (the most frequent ones are listed: add them to `TYPE_TO_LABEL` of `scripts/commit-classifier/dataset.ts` when they make sense), release commits (`chore(release): …`, `release: 1.2.0`), message empty once cleaned, mass changes, and commits already read from another repository (forks, copies). The `*.dataset.jsonl` files are gitignored.
+Then it prints the number of examples per label, with the suspect ones, and the ignored commits by reason: written by a bot (Renovate, Dependabot, GitHub Actions, a project robot such as `angular-robot`...), not conventional, type outside the mapping (the most frequent ones are listed: add them to `TYPE_TO_LABEL` of `scripts/commit-classifier/dataset.ts` when they make sense), release commits (`chore(release): …`, `release: 1.2.0`), message empty once cleaned, mass changes, and commits already read from another repository (forks, copies). The `*.dataset.jsonl` files are gitignored.
 
 The labels are only as good as the discipline of the history, so check it before training:
 
@@ -434,11 +434,13 @@ Well-kept public repositories add examples to the rare labels (`perf`, `build`, 
 
 `dataset:build` merges the outputs of both steps and writes in `--out-dir` (`commit-classifier-dataset/` by default, gitignored):
 
-- `train.dataset.jsonl` and `test.dataset.jsonl`: the test set is made of whole repositories (15 % of the examples, `--test-share`), drawn in a stable order (`--seed`), never a repository bigger than a quarter of it; `--test-repo owner/name` forces one in. The repositories of `--own` owners stay in the training set
+- `test.dataset.jsonl`: whole repositories (15 % of the examples, `--test-share`), drawn in a stable order (`--seed`), never a repository bigger than a quarter of it; `--test-repo owner/name` forces one in. The repositories of `--own` owners stay in the training set. It keeps the real distribution of the labels, to measure the macro-F1 on repositories the model has never seen
+- `train.full.dataset.jsonl`: all the other examples, before balancing
+- `train.dataset.jsonl`: the training set, balanced: each label is cut to `--max-per-label` examples (15000; `0` for no balancing) and the small labels are kept whole; inside a label, the examples are shared fairly between the repositories, and one repository gives at most `--max-repo-share` of it (10 %), so a large project does not impose its style
 - `manifest.json`: each repository with its URL, sources, license and license files, main language, number of examples and split (`train`, `test`, or `excluded` with the reason), and the third-party datasets used
 - `licenses.json`: the cache of the licenses, read from the license files at the root of each repository (a shallow clone without blobs, so the checks are quick and need no GitHub token). Kept: MIT, Apache 2.0, BSD and ISC. Excluded: copyleft (GPL, AGPL, LGPL, MPL, SSPL, BSL, EPL, EUPL), another or an unreadable license, no license file. A repository with several license files is kept only when all of them are permissive. The repositories of `--own` owners are kept whatever their license
 
-The same commit read from two sources, or the same change committed again (cherry-pick), is kept once. The script then prints the count per label for the training and the test sets, before any balancing. The licenses of the software cover the code, not clearly the commit metadata: the permissive repositories reduce the risk, they do not remove it.
+The same commit read from two sources, or the same change committed again (cherry-pick), is kept once. The `suspect` examples are left out of both sets (`--keep-suspect` keeps them). The script then prints the count per label of the training set before and after balancing, and of the test set. The licenses of the software cover the code, not clearly the commit metadata: the permissive repositories reduce the risk, they do not remove it.
 
 ## Pull Request Process
 
