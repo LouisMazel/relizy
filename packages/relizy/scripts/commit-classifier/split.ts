@@ -134,7 +134,7 @@ export function detectLanguage(examples: Iterable<Pick<CommitExample, 'files'>>)
 export interface BalanceOptions {
   /** Examples kept per label at most */
   maxPerLabel: number
-  /** Share of a label one repository can give at most, 0.1 by default; 1 for no limit */
+  /** Share of the examples of a label, before the cut, one repository can give at most, 0.1 by default; 1 for no limit */
   maxRepoShare?: number
   /** Changes the examples drawn, for another sample of the same data */
   seed?: string
