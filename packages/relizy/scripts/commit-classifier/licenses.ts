@@ -33,7 +33,8 @@ export interface RepositoryLicense {
 const LICENSE_FILE_REGEX = /^(?:licen[cs]e|copying|unlicense)(?:[-._].*)?$/i
 /** Lists of the licenses of the dependencies (`LICENSE-3rdparty.csv`, `LICENSE-THIRD-PARTY`), not the license of the repository */
 const THIRD_PARTY_LISTING_REGEX = /(?:3rd|third)[-_.]?party|dependencies/i
-const DATA_FILE_REGEX = /\.(?:csv|json|ya?ml)$/i
+/** Data about the licenses (a dependency list, an SPDX document), not a license text */
+const DATA_FILE_REGEX = /\.(?:csv|json|ya?ml|spdx)$/i
 
 /**
  * Recognizes a license from the text of its file. Copyleft wins over the

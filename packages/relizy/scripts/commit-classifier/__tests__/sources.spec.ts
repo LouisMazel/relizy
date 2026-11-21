@@ -67,6 +67,14 @@ describe('Given resolveRepositoryLicense', () => {
       ])).toBe('none')
     })
 
+    it('Then an SPDX document next to the license texts is metadata, not a license', () => {
+      expect(resolveRepositoryLicense([
+        { path: 'LICENSE-APACHE-2.0', license: 'Apache-2.0' },
+        { path: 'LICENSE-MIT', license: 'MIT' },
+        { path: 'LICENSE.spdx', license: 'other' },
+      ])).toBe('Apache-2.0')
+    })
+
     it('Then an unknown file next to a permissive one is not trusted', () => {
       expect(resolveRepositoryLicense([
         { path: 'LICENSE', license: 'MIT' },
