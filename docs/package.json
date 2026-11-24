@@ -24,7 +24,7 @@
     "@maz-ui/icons": "5.8.1",
     "@maz-ui/themes": "5.8.1",
     "maz-ui": "5.8.1",
-    "vue": "^3.5.44"
+    "vue": "^3.5.46"
   },
   "devDependencies": {
     "@maz-ui/translations": "5.8.1",
