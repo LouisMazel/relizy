@@ -97,7 +97,7 @@
     "mdast-util-gfm": "^3.1.0",
     "micromark-extension-gfm": "^3.0.0",
     "micromatch": "^4.0.8",
-    "oxc-parser": "^0.157.0",
+    "oxc-parser": "^0.159.0",
     "semver": "^7.8.6"
   },
   "devDependencies": {
