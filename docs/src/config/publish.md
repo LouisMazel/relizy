@@ -27,7 +27,7 @@ The released packages are published in dependency order (see [`bump.dependencyTy
 ## packageManager
 
 - **Type:** `'npm' | 'pnpm' | 'yarn' | 'bun'`
-- **Default:** detected from the `packageManager` field of the root `package.json`, then the lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`), then the package manager running relizy, else `npm`
+- **Default:** detected from the `packageManager` field of the root `package.json`, then the lockfile (`pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`, `bun.lockb`, `bun.lock`), then the package manager running relizy, else `npm`
 
 Package manager of the publish command (`yarn npm publish` with Yarn Berry).
 

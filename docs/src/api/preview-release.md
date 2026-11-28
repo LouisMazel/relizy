@@ -82,6 +82,7 @@ interface PreviewStep {
   label: string
   enabled: boolean
   disabledBy?: string // `release.social`, `release.canary`
+  reason?: string // why a step whose option is on does nothing, as the release says it: `no platform enabled`
 }
 
 interface PreviewCommit {
@@ -103,6 +104,8 @@ interface PreviewChangelog {
 ```
 
 `reason: 'dependency'` comes with `dependency`: the chain of dependencies leading to the package, the version group releasing the dependency when it is another one, and for a version out of the published range of the package (a peer dependency, a `workspace:*`...) the range, the field and the new version. `breakingPeerDependency` names a peer dependency making a breaking change that the published range of the package rejects. The step names are the ones of the [hooks](./../config/hooks.md) and of the [progress events](./progress-events.md).
+
+A step is enabled when `relizy release` runs it with this config. The social posts decide as the release does: with `release.social` on, the step is disabled when no platform is enabled (`disabledBy: 'social'`, `reason: 'no platform enabled'`), when the versions stay staged awaiting approval (`publish.approve: false`, or in CI), or when every enabled platform leaves out a release of prereleases (`onlyStable`, `reason: 'slack: prerelease'`). The `content` of a changelog is the entry the release writes, with [`templates.emptyChangelogContent`](./../config/commit-templates.md#emptychangelogcontent) for a package released without commit of its own.
 
 ## Examples
 
