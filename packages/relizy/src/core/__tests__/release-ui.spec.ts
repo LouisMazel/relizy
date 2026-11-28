@@ -340,6 +340,31 @@ describe('Given the CI output', () => {
     expect(lines()).toContain('▲ Uncommitted changes')
   })
 
+  it('Then shows plain lines in another CI, without groups nor sections', async () => {
+    const { ui } = await load({ CI: 'true', NO_COLOR: '1' }, { cli: true })
+    const commandUi = ui.createCommandUi({
+      command: 'bump',
+      title: 'relizy bump',
+      dryRun: false,
+      cwd,
+    })
+
+    await commandUi.step({
+      running: 'Computing the versions',
+      done: () => 'relizy 1.0.0 → 2.0.0',
+      run: () => Promise.resolve(),
+    })
+
+    const text = output.join('')
+    expect(text).not.toContain('::group::')
+    expect(text).not.toContain('section_start')
+    expect(lines()).toEqual([
+      'relizy bump · ci',
+      '▸ Computing the versions',
+      expect.stringMatching(/^✔ relizy 1\.0\.0 → 2\.0\.0 {2}\d+ms$/),
+    ])
+  })
+
   it('Then tells a skipped step, a failed step and the error once, marked as reported', async () => {
     const { ui, errors } = await load({ GITHUB_ACTIONS: 'true', NO_COLOR: '1' }, { cli: true })
     const commandUi = ui.createCommandUi({

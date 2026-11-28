@@ -496,6 +496,30 @@ describe('Given the renderers of the release report', () => {
     })).toBe('1 rewrite by ai-sdk in 800ms')
   })
 
+  it('Then gives the outputs of a failed release, with its failed step', () => {
+    expect(getReleaseReportOutputs({
+      ...nothing,
+      status: 'failed',
+      error: 'npm publish failed',
+      failedStep: 'Publish',
+    })).toMatchInlineSnapshot(`
+      {
+        "branch": "",
+        "commit": "",
+        "dist_tags": "",
+        "failed_steps": "",
+        "install": "",
+        "packages": "",
+        "released": "false",
+        "status": "failed",
+        "synced_branches": "",
+        "tags": "",
+        "urls": "",
+        "version": "",
+      }
+    `)
+  })
+
   it('Then gives the outputs of the release', () => {
     expect(getReleaseReportOutputs(released)).toEqual({
       released: 'true',
