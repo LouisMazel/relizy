@@ -1,7 +1,9 @@
 import type { GitProvider, PrCommentMode } from '../types'
 import type { ResolvedRelizyConfig } from './config'
+import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { detectGitProvider, getCurrentGitBranch, getGitlabAuthHeader, GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from '@relizy/core'
+import { readGitHubEvent } from './merge-preview/context'
 
 /**
  * The auth header of the merge request requests: `PRIVATE-TOKEN`, or
@@ -158,11 +160,21 @@ function buildPrOverrideInfo(provider: GitProvider, prNumber: number, repo: stri
   return null
 }
 
+/** A pull request of a commit, with where it merges and whether it is merged */
+interface CommitPullRequest extends PullRequestInfo {
+  merged: boolean
+  targetBranch?: string
+}
+
+function toPullRequestInfo({ merged: _merged, targetBranch: _targetBranch, ...pr }: CommitPullRequest): PullRequestInfo {
+  return pr
+}
+
 /**
- * The pull request of a commit, merged or not: the release of a merge on the
+ * The pull requests of a commit, merged or not: the release of a merge on the
  * default branch comments the pull request it merged
  */
-async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+async function listGitHubPrsOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<CommitPullRequest[] | null> {
   const url = `${getGitHubApiBase(domain)}/repos/${repo}/commits/${sha}/pulls`
 
   logger.debug(`Querying GitHub API for the pull requests of the commit: ${url}`)
@@ -179,22 +191,22 @@ async function findGitHubPrOfCommit({ token, repo, sha, domain }: { token: strin
     return null
   }
 
-  const [pr] = await response.json() as Array<{ number: number, html_url: string }>
+  const pulls = await response.json() as Array<{ number: number, html_url: string, merged_at?: string | null, base?: { ref?: string } }>
 
-  return pr
-    ? {
-        number: pr.number,
-        url: pr.html_url,
-        provider: 'github',
-        ofCommit: true,
-      }
-    : null
+  return pulls.map(pr => ({
+    number: pr.number,
+    url: pr.html_url,
+    provider: 'github',
+    ofCommit: true,
+    merged: Boolean(pr.merged_at),
+    targetBranch: pr.base?.ref,
+  }))
 }
 
 /**
- * The merge request of a commit, merged or not
+ * The merge requests of a commit, merged or not
  */
-async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<PullRequestInfo | null> {
+async function listGitLabMrsOfCommit({ token, repo, sha, domain }: { token: string, repo: string, sha: string, domain?: string }): Promise<CommitPullRequest[] | null> {
   const url = `https://${domain || 'gitlab.com'}/api/v4/projects/${encodeURIComponent(repo)}/repository/commits/${sha}/merge_requests`
 
   logger.debug(`Querying GitLab API for the merge requests of the commit: ${url}`)
@@ -210,28 +222,55 @@ async function findGitLabMrOfCommit({ token, repo, sha, domain }: { token: strin
     return null
   }
 
-  const [mr] = await response.json() as Array<{ iid: number, web_url: string }>
+  const mergeRequests = await response.json() as Array<{ iid: number, web_url: string, state?: string, target_branch?: string }>
 
-  return mr
-    ? {
-        number: mr.iid,
-        url: mr.web_url,
-        provider: 'gitlab',
-        ofCommit: true,
-      }
-    : null
+  return mergeRequests.map(mr => ({
+    number: mr.iid,
+    url: mr.web_url,
+    provider: 'gitlab',
+    ofCommit: true,
+    merged: mr.state === 'merged',
+    targetBranch: mr.target_branch,
+  }))
 }
 
-function findPrOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<PullRequestInfo | null> {
-  if (provider === 'github') {
-    return findGitHubPrOfCommit({ token, repo, sha, domain })
+async function listPrsOfCommit(provider: GitProvider, token: string, repo: string, sha: string, domain?: string): Promise<CommitPullRequest[]> {
+  try {
+    const list = provider === 'github'
+      ? await listGitHubPrsOfCommit({ token, repo, sha, domain })
+      : provider === 'gitlab'
+        ? await listGitLabMrsOfCommit({ token, repo, sha, domain })
+        : null
+
+    return list ?? []
+  }
+  catch (error) {
+    logger.warn(`Could not read the pull requests of the commit ${sha}: ${error}`)
+    return []
+  }
+}
+
+/**
+ * The pull request of a GitHub Actions run started by its merge (`pull_request`
+ * event, `closed` action, merged): the one the release of the merge comments
+ */
+function getMergedPullRequestOfEvent(env: NodeJS.ProcessEnv = process.env): PullRequestInfo | null {
+  if (env.GITHUB_ACTIONS !== 'true' || !env.GITHUB_EVENT_NAME?.startsWith('pull_request')) {
+    return null
   }
 
-  if (provider === 'gitlab') {
-    return findGitLabMrOfCommit({ token, repo, sha, domain })
+  const event = readGitHubEvent(env)
+  const pullRequest = event?.pull_request
+  if (event?.action !== 'closed' || pullRequest?.merged !== true || !Number.isInteger(pullRequest.number) || typeof pullRequest.html_url !== 'string') {
+    return null
   }
 
-  return Promise.resolve(null)
+  return {
+    number: pullRequest.number,
+    url: pullRequest.html_url,
+    provider: 'github',
+    ofCommit: true,
+  }
 }
 
 function findPrForProvider(provider: GitProvider, token: string, repo: string, branch: string, domain?: string): Promise<PullRequestInfo | null> {
@@ -257,6 +296,46 @@ function getProviderToken(config: ResolvedRelizyConfig, provider: GitProvider): 
   }
 
   return undefined
+}
+
+/**
+ * The pull request of a branch and of a commit: the one merged into the
+ * branch by the commit (the release of a merge), else the open one of the
+ * branch, else the first one of the commit
+ */
+async function findReleasePullRequest({ provider, token, repo, domain, branch, sha }: { provider: GitProvider, token: string, repo: string, domain?: string, branch?: string, sha?: string }): Promise<PullRequestInfo | null> {
+  const onBranch = Boolean(branch)
+  const ofCommit = sha
+    ? await listPrsOfCommit(provider, token, repo, sha, domain)
+    : []
+
+  // The release of a merge: the pull request merged into the branch, before an
+  // open pull request from the branch (the one syncing main into develop)
+  const mergedIntoBranch = onBranch
+    ? ofCommit.find(pr => pr.merged && pr.targetBranch === branch)
+    : undefined
+  if (mergedIntoBranch) {
+    logger.debug(`Using the pull request merged into ${branch} by the commit ${sha}: #${mergedIntoBranch.number}`)
+    return toPullRequestInfo(mergedIntoBranch)
+  }
+
+  if (onBranch) {
+    logger.debug(`Detecting PR for branch: ${branch}`)
+    const pr = await findPrForProvider(provider, token, repo, branch!, domain)
+
+    if (pr || !sha) {
+      return pr
+    }
+  }
+
+  logger.debug(`No open PR for the branch, looking for the PR of the commit ${sha}`)
+
+  // A detached HEAD: the pull request the commit merged, else the first one
+  const pr = ofCommit.find(candidate => candidate.merged) ?? ofCommit[0]
+
+  return pr
+    ? toPullRequestInfo(pr)
+    : null
 }
 
 export async function detectPullRequest({
@@ -290,6 +369,15 @@ export async function detectPullRequest({
     return buildPrOverrideInfo(provider, prNumber, repo, domain)
   }
 
+  // A workflow run by the merge of a pull request (`pull_request: closed`)
+  const merged = provider === 'github'
+    ? getMergedPullRequestOfEvent()
+    : null
+  if (merged) {
+    logger.debug(`Using the pull request merged by the event: #${merged.number}`)
+    return merged
+  }
+
   const branch = getCurrentGitBranch(config.cwd)
   const onBranch = Boolean(branch) && branch !== 'HEAD'
 
@@ -311,18 +399,16 @@ export async function detectPullRequest({
     return null
   }
 
-  if (onBranch) {
-    logger.debug(`Detecting PR for branch: ${branch}`)
-    const pr = await findPrForProvider(provider, token, repo, branch, domain)
-
-    if (pr || !sha) {
-      return pr
-    }
-  }
-
-  logger.debug(`No open PR for the branch, looking for the PR of the commit ${sha}`)
-
-  return await findPrOfCommit(provider, token, repo, sha!, domain)
+  return await findReleasePullRequest({
+    provider,
+    token,
+    repo,
+    domain,
+    branch: onBranch
+      ? branch
+      : undefined,
+    sha,
+  })
 }
 
 /**
