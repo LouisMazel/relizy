@@ -143,6 +143,135 @@ const detailed: ReleaseReport = {
   },
 }
 
+describe('Given a release that published without staging', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({
+      now: new Date('2026-11-28T01:44:00Z'),
+      toFake: ['Date'],
+    })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('Then keeps its text, markdown and outputs, byte for byte', () => {
+    expect(formatReleaseReportText(detailed)).toMatchInlineSnapshot(`
+      "Release completed
+
+      Version: 2.0.0
+      Tag(s): v2.0.0
+      Changelog: Done
+      Publish: relizy@2.0.0
+      Commit and tags: v2.0.0
+      Push: Done
+      Provider release: 1 release on github
+      Social media: Skipped"
+    `)
+    expect(formatReleaseReportMarkdown(detailed)).toMatchInlineSnapshot(`
+      "## 🚀 Released relizy \`2.0.0\`
+
+      | Step | Result |
+      | --- | --- |
+      | **Content** | 11 features · 7 fixes · 7 breaking · 2 contributors |
+      | ✅ **Changelog** | done |
+      | ✅ **Publish** | [relizy@2.0.0](https://www.npmjs.com/package/relizy/v/2.0.0) · latest · registry.npmjs.org |
+      | ✅ **Commit and tags** | a1b2c3d · v2.0.0 |
+      | ✅ **Push** | main → origin/main |
+      | ✅ **Provider release** | 1 release on github<br>[v2.0.0](https://github.com/user/relizy/releases/tag/v2.0.0) |
+      | ✨ **AI** | 2 rewrites by claude-code in 31.2s · 12.4k tokens · $0.042 |
+      | **Install** | \`pnpm add relizy@2.0.0\` |
+
+      ### Packages
+
+      | Package | Version |
+      | --- | --- |
+      | \`relizy\` | \`1.14.3\` → \`2.0.0\` |
+
+      <sub>\`main\` · 2026-11-28 01:44 UTC · by [relizy](https://relizy.dev)</sub>
+      "
+    `)
+    expect(getReleaseReportOutputs(detailed)).toMatchInlineSnapshot(`
+      {
+        "branch": "main",
+        "commit": "a1b2c3d",
+        "dist_tags": "latest",
+        "failed_steps": "",
+        "install": "pnpm add relizy@2.0.0",
+        "package_relizy_version": "2.0.0",
+        "packages": "relizy@2.0.0",
+        "released": "true",
+        "status": "released",
+        "synced_branches": "",
+        "tags": "v2.0.0",
+        "urls": "https://www.npmjs.com/package/relizy/v/2.0.0,https://github.com/user/relizy/releases/tag/v2.0.0",
+        "version": "2.0.0",
+      }
+    `)
+  })
+})
+
+describe('Given a release that staged versions', () => {
+  const stagedRelease: ReleaseReport = {
+    ...detailed,
+    publish: {
+      tags: ['latest'],
+      registries: ['registry.npmjs.org'],
+      staged: [
+        {
+          name: 'relizy',
+          version: '2.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'a1',
+        },
+        {
+          name: '@relizy/core',
+          version: '2.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'b2',
+          approved: true,
+        },
+      ],
+      auth: 'oidc',
+    },
+  }
+
+  it('Then gives the outputs of the staging, the versions not approved awaiting', () => {
+    expect(getReleaseReportOutputs(stagedRelease)).toEqual(expect.objectContaining({
+      staged: 'true',
+      stage_ids: 'a1,b2',
+      awaiting_approval: 'relizy@2.0.0',
+      publish_auth: 'oidc',
+      install: '',
+    }))
+  })
+
+  it('Then tells what awaits approval and how to approve it, in text and markdown', () => {
+    const awaiting = 'relizy@2.0.0, not installable until approved: relizy stage approve --all, or https://www.npmjs.com/settings'
+    expect(formatReleaseReportText(stagedRelease)).toContain(`Awaiting approval: ${awaiting}`)
+    expect(formatReleaseReportMarkdown(stagedRelease)).toContain(`| **Awaiting approval** | ${awaiting} |`)
+  })
+
+  it('Then tells nothing once every staged version is approved', () => {
+    const approved = {
+      ...stagedRelease,
+      publish: {
+        ...stagedRelease.publish!,
+        staged: stagedRelease.publish!.staged!.map(version => ({ ...version, approved: true })),
+      },
+    }
+
+    expect(formatReleaseReportText(approved)).not.toContain('Awaiting approval')
+    expect(getReleaseReportOutputs(approved)).toEqual(expect.objectContaining({ staged: 'true', awaiting_approval: '' }))
+  })
+
+  it('Then has no output of the staging without staged version', () => {
+    expect(Object.keys(getReleaseReportOutputs(detailed))).not.toContain('staged')
+  })
+})
+
 describe('Given the renderers of the release report', () => {
   it('Then renders a release as text for the terminal', () => {
     expect(formatReleaseReportText(released)).toBe([

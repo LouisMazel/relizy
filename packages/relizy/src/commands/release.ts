@@ -4,15 +4,18 @@ import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult, SyncResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
+import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, filterOutPrivatePackages, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
 import { createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
+import { describeApproval, runApprovalStep } from '../core/approve'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess } from '../core/ci'
 import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
-import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
+import { runTrustedPublishingPreflight } from '../core/publish-checks'
+import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish, isAwaitingApproval } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
+import { describePublishOutcome, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
 import { changelog } from './changelog'
@@ -150,6 +153,8 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
         args: options.args,
         packageManager: options.packageManager,
         safetyCheckTimeout: options.safetyCheckTimeout,
+        staged: options.staged,
+        approve: options.approve,
       },
       release: {
         commit: options.commit,
@@ -411,6 +416,20 @@ async function releaseSafetyCheck({
   logger.success('Safety checks passed')
 }
 
+/** A publish failed after staging versions: they stay staged, never rejected by relizy */
+function warnStagedBeforeFailure(): void {
+  const staged = getStagedVersions()
+  if (staged.length === 0) {
+    return
+  }
+
+  const versions = staged.map(version => `${version.name}@${version.version}`).join(', ')
+  const names = [
+    ...new Set(staged.map(version => version.name)),
+  ].join(' ')
+  logger.warn(`Staged before the failure, still awaiting approval: ${versions}. Approve them with "relizy stage approve", or reject them with "relizy stage reject ${names}"`)
+}
+
 /** The published versions: `relizy@2.0.0`, or their count */
 function describePublished(packages: PublishResponse['publishedPackages']): string {
   return packages.length === 1
@@ -423,6 +442,7 @@ export function release(options: Partial<ReleaseOptions> = {}): Promise<ReleaseR
   return runWithEvents(options.onProgress, () => withGitCache(() => runRelease(options)), {
     onConfirm: options.onConfirm,
     onOtp: options.onOtp,
+    onPrompt: options.onPrompt,
     command: 'release',
   })
 }
@@ -437,6 +457,10 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
   const config = await getReleaseConfig(options)
   const isCanary = config.release.canary === true
+
+  if (options.staged === true) {
+    markStagedExplicit()
+  }
 
   if (isCanary) {
     logger.info('Canary mode enabled')
@@ -620,6 +644,15 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       return report
     }
 
+    // The trusted publishing pre-flight needs the packages the bump plans:
+    // warnings only, before anything is published
+    if (config.release.publish) {
+      await runTrustedPublishingPreflight({
+        config,
+        packages: filterOutPrivatePackages(bumpResult.bumpedPackages),
+      })
+    }
+
     if (config.release.commit) {
       await guardBeforePublish({
         config,
@@ -679,16 +712,56 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Publish'
     let publishResponse: PublishResponse | undefined
 
+    /** The approval of the staged versions, then the facts that follow it: the install command and the pages of the approved versions */
+    const approveAndRecord = async () => {
+      currentStep = 'Approval'
+      const data = await runApprovalStep({
+        ui,
+        config,
+        dryRun,
+        packages: bumpResult.bumpedPackages,
+      })
+      if (!data) {
+        return
+      }
+
+      const approved = data.packages.filter(pkg => pkg.status === 'approved')
+      steps.push({
+        name: 'approve',
+        status: approved.length > 0
+          ? 'done'
+          : data.packages.some(pkg => pkg.status === 'failed')
+            ? 'failed'
+            : 'skipped',
+        detail: describeApproval(data),
+      })
+
+      if (facts.publish && publishResponse) {
+        const staged = getStagedVersions()
+        facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
+        links.push(...getNpmLinks({
+          config,
+          packages: publishResponse.publishedPackages.filter(pkg => approved.some(version => version.name === pkg.name && version.version === (pkg.newVersion || pkg.version))),
+        }))
+      }
+    }
+
     if (config.release.publish) {
       publishResponse = await ui.step({
         name: 'publish',
         title: 'Publish packages to registry',
-        running: 'Publishing the packages',
+        running: getPublishStepLabel(getStagingShare({
+          config,
+          packages: filterOutPrivatePackages(bumpResult.bumpedPackages),
+        })),
         done: (response) => {
           const packages = response?.publishedPackages.map(pkg => `${pkg.name}@${pkg.newVersion ?? pkg.version}`).join(', ')
           const tag = config.publish.tag
             ? ` (${config.publish.tag})`
             : ''
+          if (packages && getStagedVersions().length > 0) {
+            return `${describePublishOutcome(response!.publishedPackages, 'Published')}${tag}`
+          }
           return packages
             ? `Published ${packages}${tag}`
             : 'Nothing to publish'
@@ -718,7 +791,8 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
               groups: options.groups,
             })
 
-            if (isCanary) {
+            // With staging, the approval of a canary comes first: its versions are in the files rolled back
+            if (isCanary && !isStagingConfigured(config)) {
               logger.debug('Canary publish done, rolling back modified files...')
               await rollbackModifiedFiles({ config })
             }
@@ -728,6 +802,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           catch (error) {
             logger.fail('Publish failed, rolling back modified files...')
             await rollbackModifiedFiles({ config })
+            warnStagedBeforeFailure()
             throw error
           }
         },
@@ -758,10 +833,24 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         await rollbackModifiedFiles({ config })
       }
     }
-    addStep('publish', Boolean(config.release.publish), publishResponse && describePublished(publishResponse.publishedPackages))
+    // A canary has no push: its staged versions are approved right after the publish, then its files rolled back
+    if (isCanary && publishResponse && isStagingConfigured(config)) {
+      await approveAndRecord()
+      logger.debug('Canary publish done, rolling back modified files...')
+      await rollbackModifiedFiles({ config })
+    }
+
+    const staged = getStagedVersions()
+    addStep('publish', Boolean(config.release.publish), publishResponse && (staged.length > 0
+      ? describePublishOutcome(publishResponse.publishedPackages, 'Published')
+      : describePublished(publishResponse.publishedPackages)))
     if (publishResponse) {
-      facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages })
-      links.push(...getNpmLinks({ config, packages: publishResponse.publishedPackages }))
+      facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
+      // No page for a staged version: it is not on npm until approved
+      links.push(...getNpmLinks({
+        config,
+        packages: publishResponse.publishedPackages.filter(pkg => !isAwaitingApproval(pkg, staged)),
+      }))
     }
 
     currentStep = 'Commit'
@@ -945,10 +1034,24 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       addStep('providerRelease', Boolean(config.release.providerRelease), `${plural(postedReleases.length, 'release')} on ${provider}`)
     }
 
+    if (!isCanary && publishResponse) {
+      await approveAndRecord()
+    }
+
     currentStep = 'Social media'
     let socialResults: SocialResult | undefined
 
-    if (config.release.social && isAnySocialPlatformEnabled(config)) {
+    const awaitingApproval = getStagedVersions().filter(version => !version.approved)
+    if (config.release.social && isAnySocialPlatformEnabled(config) && awaitingApproval.length > 0) {
+      // A post would announce versions nobody can install yet
+      ui.skip({
+        name: 'social',
+        title: 'Post release to social media',
+        label: 'Social posts',
+        reason: 'versions awaiting approval: run "relizy social" once approved',
+      })
+    }
+    else if (config.release.social && isAnySocialPlatformEnabled(config)) {
       socialResults = await ui.step({
         name: 'social',
         title: 'Post release to social media',

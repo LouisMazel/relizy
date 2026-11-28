@@ -1,4 +1,5 @@
-import type { ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
+import type { PublishAuthMode, StagedEntry, TrustResult } from '@relizy/core'
+import type { AppPrompt, ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
 import { AsyncLocalStorage } from 'node:async_hooks'
@@ -12,8 +13,9 @@ import { AsyncLocalStorage } from 'node:async_hooks'
 
 /**
  * What a step of a command does, as the hooks name them: `checks`, `bump`, `changelog`, `publish`,
- * `commit-and-tag`, `push`, `provider-release`, `social`, `sync`, `pr-comment`, and `merge-preview` for the
- * steps of `relizy merge-preview`. A name can come with several steps: `relizy publish` alone runs
+ * `commit-and-tag`, `push`, `provider-release`, `approve` (the staged versions, added in relizy 2.5),
+ * `social`, `sync`, `pr-comment`, `merge-preview` for the steps of `relizy merge-preview`, and `list`,
+ * `reject`, `trust` for `relizy stage` and `relizy trust` (added in relizy 2.5). A name can come with several steps: `relizy publish` alone runs
  * three `publish` steps (the check of the packages, their build, their publish), the merge preview
  * one `merge-preview` step per part of the preview
  */
@@ -83,14 +85,19 @@ export interface PublishStepPackage {
   name: string
   version: string
   /**
-   * `skipped`: the version is already on the registry (`publish.skipExistingVersions`).
-   * In dry-run, `published` is a simulated publish: see `dryRun` of `PublishStepData`
+   * `skipped`: the version is already on the registry (`publish.skipExistingVersions`), or already staged (reason `already staged`).
+   * `staged`: uploaded to the npm staging area, not installable until approved (`publish.staged`); added in relizy 2.5, handle it when switching on the status.
+   * In dry-run, `published` and `staged` are simulated: see `dryRun` of `PublishStepData`
    */
-  status: 'published' | 'skipped' | 'failed'
-  /** Its page on npmjs.com, once published */
+  status: 'published' | 'skipped' | 'failed' | 'staged'
+  /** Its page on npmjs.com, once published (never for a staged version: it is not on npm until approved) */
   url?: string
   /** Why it is skipped or failed */
   reason?: string
+  /** The id of the stage of a staged version, when npm gave it */
+  stageId?: string
+  /** Its dist-tag, when the project stages (a run can mix tags) */
+  tag?: string
 }
 
 /** What the publish published, in publish order */
@@ -102,6 +109,8 @@ export interface PublishStepData {
   /** A simulation: nothing was published, `published` means it would be (and no `url`) */
   dryRun: boolean
   packages: PublishStepPackage[]
+  /** How the publish authenticated (`oidc`, `token`, `npmrc`), only when the run staged a version */
+  auth?: PublishAuthMode
 }
 
 /** The release commit and its tags */
@@ -157,6 +166,34 @@ export interface PrCommentStepData {
   url?: string
 }
 
+/** A version of the approval or the rejection of the staged versions */
+export interface ApproveStepPackage {
+  name: string
+  version: string
+  stageId?: string
+  /** `rejected` for `relizy stage reject` */
+  status: 'approved' | 'rejected' | 'skipped' | 'failed'
+  /** Why it is skipped or failed: `ci`, `oidc`, `not interactive`, `disabled`, `declined`, `dry run`, `validating`, `web-auth`, `dependency <name> not approved`... */
+  reason?: string
+  /** With `web-auth`: where to approve on the web */
+  url?: string
+}
+
+/** What the approval (`approve`) or the rejection (`reject`) of the staged versions did */
+export interface ApproveStepData {
+  packages: ApproveStepPackage[]
+}
+
+/** The staged versions listed by `relizy stage list` */
+export interface StageListStepData {
+  versions: StagedEntry[]
+}
+
+/** What `relizy trust` set up, one result per package */
+export interface TrustStepData {
+  packages: TrustResult[]
+}
+
 /** The data of each step, by name of the step */
 export interface StepDataMap {
   'checks': ChecksStepData
@@ -169,6 +206,10 @@ export interface StepDataMap {
   'social': SocialStepData
   'sync': SyncResult
   'pr-comment': PrCommentStepData
+  'approve': ApproveStepData
+  'reject': ApproveStepData
+  'list': StageListStepData
+  'trust': TrustStepData
 }
 
 /** The data of a step, whatever the step */
@@ -356,6 +397,8 @@ export type RelizyEventListener = ((event: RelizyEvent) => void) | ((event: Reli
 export interface AppHandlers {
   onConfirm?: (plan: ConfirmPlan) => boolean | Promise<boolean>
   onOtp?: (request: OtpRequest) => string | Promise<string>
+  /** The questions of the staged versions and of the trust setup, never the validation of the bump plan */
+  onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
   /** The command the application ran: `release` for the bump run by a release */
   command?: 'release' | 'bump'
 }
@@ -405,6 +448,7 @@ export function runWithEvents<T>(listener: RelizyEventListener | undefined, run:
     handlers: {
       onConfirm: handlers.onConfirm ?? inherited.onConfirm,
       onOtp: handlers.onOtp ?? inherited.onOtp,
+      onPrompt: handlers.onPrompt ?? inherited.onPrompt,
       command: inherited.command ?? handlers.command,
     },
   }, run)

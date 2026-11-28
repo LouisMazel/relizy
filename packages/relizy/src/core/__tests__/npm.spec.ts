@@ -5,7 +5,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import path, { join } from 'node:path'
 import process from 'node:process'
 import { execPromise, logger } from '@maz-ui/node'
-import { getIndependentTag, isInCI, isPrerelease } from '@relizy/core'
+import { getIndependentTag, isInCI, isPrerelease, packAndUpload, withGitCache } from '@relizy/core'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { RelizyCancelError } from '../errors'
@@ -13,6 +13,8 @@ import { runWithEvents } from '../events'
 import { determinePublishTag, getAuthCommand, publishPackage } from '../npm'
 import { detectPackageManager, getNpmRegistry, resolveRegistryTargetsForPackage, withRegistryNpmrc } from '../npm-registry'
 import { askText } from '../prompts'
+import { getAlreadyStagedVersions, getStagedVersions, markStagedExplicit } from '../staging'
+import { recordPublishedPackage } from '../step-data'
 
 vi.mock('node:child_process')
 vi.mock('node:fs')
@@ -43,6 +45,7 @@ vi.mock('@relizy/core', async (importActual) => {
     ...actual,
     isPrerelease: vi.fn(),
     getIndependentTag: vi.fn(),
+    packAndUpload: vi.fn(),
   }
 })
 
@@ -930,6 +933,499 @@ describe('Given publishPackage function', () => {
     cwdSpy.mockRestore()
     chdirSpy.mockRestore()
     vi.unstubAllGlobals()
+  })
+
+  describe('When publishing without staging', () => {
+    const GITHUB_OIDC = { GITHUB_ACTIONS: 'true', ACTIONS_ID_TOKEN_REQUEST_URL: 'https://token.example', ACTIONS_ID_TOKEN_REQUEST_TOKEN: 'request-token' }
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it.each([
+      ['npm', false, 'npm publish --tag latest --registry https://registry.npmjs.org/ --access public --yes --provenance'],
+      ['pnpm', false, 'pnpm publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --provenance'],
+      ['npm', true, 'npm publish --tag latest --registry https://registry.npmjs.org/ --access public --yes --provenance --dry-run'],
+      ['pnpm', true, 'pnpm publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --provenance --dry-run'],
+      ['yarn', false, 'yarn publish --tag latest --registry https://registry.npmjs.org/ --access public --non-interactive --provenance'],
+      ['bun', false, 'bun publish --tag latest --registry https://registry.npmjs.org/ --access public --provenance'],
+    ] as const)('Then keeps the %s command (dry run: %s) and its options', async (packageManager, dryRun, command) => {
+      config.publish = {
+        ...config.publish,
+        registry: 'https://registry.npmjs.org/',
+        access: 'public',
+        args: ['--provenance'],
+      }
+
+      await publishPackage({ pkg, config, packageManager, dryRun })
+
+      expect(execPromise).toHaveBeenCalledTimes(1)
+      expect(execPromise).toHaveBeenCalledWith(command, {
+        noStderr: true,
+        noStdout: true,
+        noSuccess: true,
+        noError: true,
+        logLevel: config.logLevel,
+        cwd: '/packages/test',
+      })
+    })
+
+    it('Then still skips the command of yarn and bun in a dry run, also under trusted publishing', async () => {
+      for (const [key, value] of Object.entries(GITHUB_OIDC)) {
+        vi.stubEnv(key, value)
+      }
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: true,
+      })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: true,
+      })
+
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+
+    it('Then keeps the native publish of bun and yarn classic with a token, even when an ID token is obtainable', async () => {
+      for (const [key, value] of Object.entries(GITHUB_OIDC)) {
+        vi.stubEnv(key, value)
+      }
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: false,
+      })
+      await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: false,
+      })
+
+      expect(vi.mocked(execPromise).mock.calls.map(call => call[0])).toEqual([
+        'bun publish --tag latest --registry https://registry.npmjs.org/',
+        'yarn publish --tag latest --registry https://registry.npmjs.org/ --non-interactive',
+      ])
+    })
+  })
+
+  describe('When the versions are staged', () => {
+    const STAGE_ID = '2f1c7b8e-1d2a-4c5b-9e8f-0a1b2c3d4e5f'
+
+    beforeEach(() => {
+      config.publish = {
+        ...config.publish,
+        registry: 'https://registry.npmjs.org/',
+        access: 'public',
+        staged: true,
+      }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+      vi.mocked(execPromise).mockResolvedValue({
+        stdout: JSON.stringify({
+          'test-package': { name: 'test-package', stageId: STAGE_ID },
+        }),
+        stderr: '',
+      })
+      vi.mocked(packAndUpload).mockResolvedValue({ stdout: `+ test-package@1.0.1 (staged with id ${STAGE_ID})`, tarball: '/cache/package.tgz' })
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    /** Runs in a run of its own, as a command does: the staged versions are kept in its state */
+    function inRun<T>(run: () => Promise<T>): Promise<T> {
+      return runWithEvents(undefined, () => withGitCache(run))
+    }
+
+    it('Then stages with npm, without one-time password, and records the stage id', async () => {
+      config.publish.otp = '123456'
+
+      const { statuses, staged } = await inRun(async () => ({
+        statuses: await publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        }),
+        staged: getStagedVersions(),
+      }))
+
+      expect(statuses).toEqual(['staged'])
+      expect(execPromise).toHaveBeenCalledWith('npm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --json', expect.objectContaining({ cwd: '/packages/test', noStdout: true }))
+      expect(staged).toEqual([
+        {
+          name: 'test-package',
+          version: '1.0.1',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: STAGE_ID,
+        },
+      ])
+    })
+
+    it('Then stages with pnpm 11.3 or later by itself, and packs with older pnpm, yarn and bun', async () => {
+      vi.mocked(execSync).mockReturnValue('11.3.0\n' as never)
+      await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: false,
+      }))
+      expect(execPromise).toHaveBeenCalledWith('pnpm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --no-git-checks --json', expect.anything())
+
+      vi.mocked(execSync).mockReturnValue('10.18.0\n' as never)
+      const statuses = await inRun(async () => [
+        ...await publishPackage({
+          pkg,
+          config,
+          packageManager: 'pnpm',
+          dryRun: false,
+        }),
+        ...await publishPackage({
+          pkg,
+          config,
+          packageManager: 'bun',
+          dryRun: false,
+        }),
+        ...await publishPackage({
+          pkg,
+          config,
+          packageManager: 'yarn',
+          dryRun: false,
+        }),
+      ])
+
+      expect(statuses).toEqual(['staged', 'staged', 'staged'])
+      expect(vi.mocked(packAndUpload).mock.calls.map(call => [
+        call[0].packageManager,
+        call[0].staged,
+        call[0].tag,
+        call[0].otp,
+      ])).toEqual([
+        ['pnpm', true, 'latest', undefined],
+        ['bun', true, 'latest', undefined],
+        ['yarn', true, 'latest', undefined],
+      ])
+    })
+
+    it('Then stages the versions of the listed tags only, and publishes the others directly', async () => {
+      config.publish.staged = {
+        tags: ['latest'],
+      }
+      pkg.newVersion = '1.1.0-beta.0'
+      vi.mocked(isPrerelease).mockReturnValue(true)
+
+      const statuses = await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))
+
+      expect(statuses).toEqual(['published'])
+      expect(execPromise).toHaveBeenCalledWith(expect.stringMatching(/^npm publish --tag next /), expect.anything())
+    })
+
+    it('Then publishes directly on a registry other than npmjs, said once per run', async () => {
+      config.publish.registry = 'https://npm.pkg.github.com/'
+
+      const statuses = await inRun(async () => [
+        ...await publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        }),
+        ...await publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        }),
+      ])
+
+      expect(statuses).toEqual(['published', 'published'])
+      expect(vi.mocked(logger.info).mock.calls.filter(call => call[0] === 'https://npm.pkg.github.com/: staging is npmjs only, published directly')).toHaveLength(1)
+    })
+
+    it('Then publishes a canary directly, unless its tag is listed or --staged is given', async () => {
+      config.release = { ...config.release, canary: true }
+      config.publish.tag = 'canary'
+
+      expect(await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))).toEqual(['published'])
+      expect(logger.info).toHaveBeenCalledWith('Canaries are published directly: list their tag in publish.staged.tags, or pass --staged, to stage them')
+
+      config.publish.staged = {
+        tags: ['canary'],
+      }
+      expect(await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))).toEqual(['staged'])
+
+      config.publish.staged = true
+      expect(await inRun(() => {
+        markStagedExplicit()
+        return publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        })
+      })).toEqual(['staged'])
+    })
+
+    it('Then passes --dry-run to the stage, with the version written for it, and packs a dry run of bun', async () => {
+      await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: true,
+      }))
+      expect(execPromise).toHaveBeenCalledWith('npm stage publish --tag latest --registry https://registry.npmjs.org/ --access public --json --dry-run', expect.anything())
+      expect(writeFileSync).toHaveBeenCalledWith('/packages/test/package.json', expect.stringContaining('"version": "1.0.1"'), 'utf8')
+
+      vi.mocked(writeFileSync).mockClear()
+      await inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: true,
+      }))
+      expect(packAndUpload).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'bun', staged: true, dryRun: true }))
+      expect(writeFileSync).toHaveBeenCalledWith('/packages/test/package.json', expect.stringContaining('"version": "1.0.1"'), 'utf8')
+    })
+
+    it('Then refuses a version that may only be staged, before any one-time password', async () => {
+      config.publish.staged = false
+      vi.mocked(execPromise).mockRejectedValue(new Error('npm error code E403\nnpm error 403 Forbidden - PUT https://registry.npmjs.org/test-package - E_STAGE_REQUIRED: two-factor authentication or staging required'))
+
+      const error = await inRun(() => {
+        recordPublishedPackage({ name: 'dep', version: '2.0.0', status: 'published' })
+        return publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        }).catch(caught => caught)
+      })
+
+      expect(error).toMatchObject({ code: 'E_STAGE_REQUIRED', packageName: 'test-package', tag: 'latest' })
+      expect(error.message).toBe('npm refused to publish test-package@1.0.1 directly with tag "latest": this token only allows staging. Stage this tag (publish.staged: { tags: [\'latest\'] }, or --staged), or allow direct publish ("relizy trust" with direct publish for this workflow, or a token allowed to publish). This run already published: dep@2.0.0.')
+      expect(askText).not.toHaveBeenCalled()
+      expect(execPromise).toHaveBeenCalledTimes(1)
+    })
+
+    it('Then tells the trusted publisher configuration that only allows staging', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      config.publish.staged = false
+      config.tokens = { ...config.tokens, registry: undefined }
+      vi.mocked(execPromise).mockRejectedValue(new Error('403 Forbidden - E_STAGE_REQUIRED'))
+
+      await expect(inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))).rejects.toThrow('the trusted publisher configuration of this workflow only allows staging')
+    })
+
+    it('Then reads the OIDC denial of npm as a configuration that only allows staging, or not staging (observed with pnpm)', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      config.tokens = { ...config.tokens, registry: undefined }
+      const denied = new Error('Command failed: pnpm publish\nFailed to publish package test-package@1.0.1 (status 403 Forbidden): {"error":"OIDC permission denied for this action"}')
+
+      config.publish.staged = false
+      vi.mocked(execPromise).mockRejectedValue(denied)
+      await expect(inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'pnpm',
+        dryRun: false,
+      })))
+        .rejects
+        .toMatchObject({
+          code: 'E_STAGE_REQUIRED',
+          message: expect.stringContaining('the trusted publisher configuration of this workflow only allows staging'),
+        })
+
+      config.publish.staged = true
+      vi.mocked(execPromise).mockRejectedValue(denied)
+      await expect(inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })))
+        .rejects
+        .toThrow('does not allow staged publish. Run "relizy trust"')
+    })
+
+    it('Then fails on a version already staged, or skips it with skipExistingVersions', async () => {
+      vi.mocked(execPromise).mockRejectedValue(new Error('npm error code E409\nnpm error 409 Conflict - Cannot publish over previously staged version'))
+
+      await expect(inRun(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })))
+        .rejects
+        .toMatchObject({
+          code: 'E_ALREADY_STAGED',
+          message: expect.stringContaining('is already staged, awaiting approval: approve it with "relizy stage approve test-package"'),
+        })
+
+      config.publish.skipExistingVersions = true
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('{}', { status: 404 })))
+      const { statuses, already } = await inRun(async () => ({
+        statuses: await publishPackage({
+          pkg,
+          config,
+          packageManager: 'npm',
+          dryRun: false,
+        }),
+        already: getAlreadyStagedVersions(),
+      }))
+      expect(statuses).toEqual(['skipped'])
+      expect(already).toEqual([
+        {
+          name: 'test-package',
+          version: '1.0.1',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+        },
+      ])
+    })
+  })
+
+  describe('When npm refuses a second stage of a version (observed on npmjs)', () => {
+    const conflict = new Error('npm error code E409\nnpm error 409 Conflict - POST https://registry.npmjs.org/-/stage/package/test-package - Cannot stage previously published version "1.0.1".')
+
+    beforeEach(() => {
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/', staged: true }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+    })
+
+    it('Then tells it is already staged when the packument does not have it', async () => {
+      vi.mocked(execPromise).mockImplementation(((command: string) => command.includes(' view ')
+        ? Promise.resolve({ stdout: '', stderr: '' })
+        : Promise.reject(conflict)) as typeof execPromise)
+
+      await expect(runWithEvents(undefined, () => withGitCache(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))))
+        .rejects
+        .toMatchObject({ code: 'E_ALREADY_STAGED' })
+    })
+
+    it('Then tells it is already published when the packument has it', async () => {
+      vi.mocked(execPromise).mockImplementation(((command: string) => command.includes(' view ')
+        ? Promise.resolve({ stdout: '"1.0.1"', stderr: '' })
+        : Promise.reject(conflict)) as typeof execPromise)
+
+      await expect(runWithEvents(undefined, () => withGitCache(() => publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))))
+        .rejects
+        .toThrow('Version test-package@1.0.1 already exists on the registry')
+    })
+  })
+
+  describe('When bun or yarn classic publish under trusted publishing, which they cannot do', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then packs the package and publishes the tarball with npm, the case that failed before', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: undefined }
+      vi.mocked(packAndUpload).mockResolvedValue({ stdout: '{}', tarball: '/cache/package.tgz' })
+
+      expect(await publishPackage({
+        pkg,
+        config,
+        packageManager: 'bun',
+        dryRun: false,
+      })).toEqual(['published'])
+      expect(await publishPackage({
+        pkg,
+        config,
+        packageManager: 'yarn',
+        dryRun: false,
+      })).toEqual(['published'])
+      expect(packAndUpload).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'bun', staged: false }))
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+  })
+
+  describe('When npm did not trust the job, under trusted publishing', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then turns the misleading ENEEDAUTH into the fix', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: undefined }
+      vi.mocked(execPromise).mockRejectedValue(new Error('npm error code ENEEDAUTH\nnpm error need auth This command requires you to be logged in'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))
+        .rejects
+        .toThrow(/^Failed to publish test-package@1\.0\.1: npm does not trust this job to publish test-package.*Run "relizy trust"/)
+    })
+
+    it('Then keeps ENEEDAUTH as is with a token', async () => {
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+      const error = new Error('npm error code ENEEDAUTH')
+      vi.mocked(execPromise).mockRejectedValue(error)
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toBe(error)
+    })
   })
 
   describe('When publishing successfully', () => {

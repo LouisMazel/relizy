@@ -1,3 +1,4 @@
+import type { PublishAuthMode, StagedVersion } from '@relizy/core'
 import type { ReleaseReportConfig, SyncResult } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { MergePreviewPackage, MergePreviewProblem, MergePreviewPullRequest, MergePreviewSquashMode } from './merge-preview'
@@ -7,11 +8,11 @@ import { appendFileSync, mkdirSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
-import { formatDuration, formatUtcDate, plural } from '@relizy/core'
+import { formatDuration, formatUtcDate, getStagedApprovalUrl, plural } from '@relizy/core'
 import { describeAIUsage } from './progress'
 import { getReleaseLines } from './release-overview'
 
-export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'sync' | 'providerRelease' | 'social' | 'prComment'
+export type ReleaseStepName = 'changelog' | 'publish' | 'commit' | 'push' | 'sync' | 'providerRelease' | 'approve' | 'social' | 'prComment'
 
 export interface ReleaseStepReport {
   name: ReleaseStepName
@@ -63,9 +64,17 @@ export interface ReleasePublish {
    */
   registries: string[]
   /**
-   * Command installing the published versions, up to 3 packages
+   * Command installing the published versions, up to 3 packages: the installable ones only, never a version still staged
    */
   install?: string
+  /**
+   * The versions staged by the run (`publish.staged`), `approved` once the approval step approved them. Absent when nothing was staged
+   */
+  staged?: StagedVersion[]
+  /**
+   * How the publish authenticated (`oidc`, `token`, `npmrc`), only when the run staged a version
+   */
+  auth?: PublishAuthMode
 }
 
 export interface ReleaseAI {
@@ -199,6 +208,7 @@ const STEP_LABELS: Record<ReleaseStepName, string> = {
   push: 'Push',
   sync: 'Branch sync',
   providerRelease: 'Provider release',
+  approve: 'Approval',
   social: 'Social media',
   prComment: 'PR comment',
 }
@@ -215,6 +225,7 @@ const LASTING_STEPS = new Set<ReleaseStepName>([
   'push',
   'sync',
   'providerRelease',
+  'approve',
   'social',
 ])
 
@@ -409,7 +420,28 @@ export function getReleaseSummary(report: ReleaseReport, { versions = true }: { 
     entries.push({ label: 'Install', value: report.publish.install, code: true })
   }
 
+  const awaiting = getAwaitingApproval(report)
+  if (awaiting) {
+    entries.push({ label: 'Awaiting approval', value: awaiting })
+  }
+
   return entries
+}
+
+/** The staged versions not approved yet, with how to approve them, `undefined` when none */
+export function getAwaitingApproval(report: ReleaseReport): string | undefined {
+  const pending = (report.publish?.staged ?? []).filter(version => !version.approved)
+  if (pending.length === 0) {
+    return undefined
+  }
+
+  const url = getStagedApprovalUrl({ registry: pending[0]!.registry })
+  const versions = pending.length <= RELEASE_NAME_MAX_VERSIONS + 1
+    ? pending.map(version => `${version.name}@${version.version}`).join(', ')
+    : plural(pending.length, 'version')
+  return `${versions}, not installable until approved: relizy stage approve --all${url
+    ? `, or ${url}`
+    : ''}`
 }
 
 function describeStepText(step: ReleaseStepReport): string {
@@ -448,6 +480,11 @@ export function formatReleaseReportText(report: ReleaseReport): string {
   }
 
   lines.push(...report.steps.map(step => `${STEP_LABELS[step.name]}: ${describeStepText(step)}`))
+
+  const awaiting = getAwaitingApproval(report)
+  if (awaiting) {
+    lines.push(`Awaiting approval: ${awaiting}`)
+  }
 
   return lines.join('\n').trim()
 }
@@ -640,7 +677,8 @@ function toOutputName(name: string): string {
  * `packages` (comma-separated `name@version`), `branch`, `commit`,
  * `dist_tags`, `urls` (what the release created), `install`,
  * `synced_branches` (the branches that have the release, or its pull request,
- * after the sync) and `failed_steps` (the steps that failed without stopping it). When the
+ * after the sync) and `failed_steps` (the steps that failed without stopping it). With staged
+ * versions, also `staged`, `stage_ids`, `awaiting_approval` and `publish_auth`. When the
  * release happened, also `group_<name>_version` for each `unified`/`selective`
  * version group and `package_<name>_version` for each released package
  */
@@ -672,7 +710,27 @@ export function getReleaseReportOutputs(report: ReleaseReport): Record<string, s
     install: report.publish?.install ?? '',
     synced_branches: report.sync?.branches.filter(branch => !['conflict', 'failed'].includes(branch.status)).map(branch => branch.branch).join(',') ?? '',
     failed_steps: report.steps.filter(step => step.status === 'failed').map(step => step.name).join(','),
+    ...getStagedOutputs(report),
     ...versions,
+  }
+}
+
+/**
+ * Only when the run staged a version, so a run without staging keeps exactly
+ * its outputs: `staged` (`true`), `stage_ids`, `awaiting_approval` (the
+ * versions not approved yet) and `publish_auth`
+ */
+function getStagedOutputs(report: ReleaseReport): Record<string, string> {
+  const staged = report.publish?.staged ?? []
+  if (staged.length === 0) {
+    return {}
+  }
+
+  return {
+    staged: 'true',
+    stage_ids: staged.flatMap(version => version.stageId ?? []).join(','),
+    awaiting_approval: staged.filter(version => !version.approved).map(version => `${version.name}@${version.version}`).join(','),
+    publish_auth: report.publish?.auth ?? '',
   }
 }
 

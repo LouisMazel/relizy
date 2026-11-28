@@ -1,10 +1,11 @@
 import type { RelizyEvent } from '../../core/events'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertTrustedPublishingNpm, sortPackagesForPublish } from '@relizy/core'
+import { assertPublishNpmVersion, assertTrustedPublishingNpm, sortPackagesForPublish } from '@relizy/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, loadRelizyConfig, publishPackage, readPackageJson, readPackages } from '../../core'
+import { recordStagedVersion } from '../../core/staging'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -42,6 +43,7 @@ vi.mock('@relizy/core', async (importActual) => {
     ...actual,
     sortPackagesForPublish: vi.fn(),
     assertTrustedPublishingNpm: vi.fn(),
+    assertPublishNpmVersion: vi.fn(),
   }
 })
 vi.mock('../../core/repo', async (importActual) => {
@@ -214,15 +216,37 @@ describe('Given publishSafetyCheck function', () => {
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Trusted publishing (OIDC) from GitHub Actions'))
     })
 
-    it('Then warns about a package that is not on npm yet', async () => {
-      fetchSpy.mockResolvedValue(new Response('{}', { status: 404 }))
+    it('Then warns about a package to publish that is not on npm yet, after the exchange of the pre-flight', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(new Response('{"value":"id-token"}', { status: 200 }))
+        .mockResolvedValueOnce(new Response('{"message":"not found"}', { status: 404 }))
+        .mockResolvedValueOnce(new Response('{}', { status: 404 }))
 
+      await publishSafetyCheck({
+        config: npmConfig(),
+        packages: [
+          createMockPackageInfo({
+            name: 'pkg',
+            version: '1.0.0',
+            path: '/project',
+            commits: [],
+            dependencies: [],
+          }),
+        ],
+      })
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/pkg', expect.objectContaining({ method: 'POST' }))
+      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
+    })
+
+    it('Then leaves the packages to the pre-flight of the release before the bump', async () => {
       await publishSafetyCheck({
         config: npmConfig(),
       })
 
-      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('Not on npm yet'))
     })
 
     it('Then authenticates as usual with a token, the fallback of npm', async () => {
@@ -252,7 +276,113 @@ describe('Given publishSafetyCheck function', () => {
 
       await expect(publishSafetyCheck({
         config: npmConfig(),
-      })).rejects.toThrow(/no npm token found\. Set NPM_TOKEN, or publish with trusted publishing/)
+      })).rejects.toThrow(/no npm token found\. Publish with trusted publishing \(OIDC\), without token: give the job the "id-token: write" permission and run "relizy trust".*, or set NPM_TOKEN/)
+    })
+  })
+
+  describe('When publishing without staging', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then keeps one whoami for a CI job whose token is only in its .npmrc', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', '')
+      vi.mocked(execPromise).mockResolvedValue({ stdout: '', stderr: '' })
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager: 'npm',
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: undefined },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(vi.mocked(execPromise).mock.calls.map(call => call[0])).toEqual(['npm whoami --registry https://registry.npmjs.org/'])
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(assertTrustedPublishingNpm).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
+    })
+
+    it('Then checks the npm that uploads the tarball of bun under trusted publishing, which bun cannot do', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager: 'bun',
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: undefined },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(assertPublishNpmVersion).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'bun', staged: false, route: 'pack-and-upload' }))
+      expect(execPromise).not.toHaveBeenCalled()
+    })
+
+    it('Then checks the npm of the staging before the bump: an error when every version is staged, a warning when only some may be', async () => {
+      const config = (staged: any) => createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'bun',
+          registry: 'https://registry.npmjs.org/',
+          staged,
+        },
+        tokens: { registry: 'npm_token' },
+        safetyCheck: true,
+      })
+      vi.mocked(assertPublishNpmVersion).mockImplementation(() => {
+        throw new Error('Staging a version needs npm 11.15.0 or later')
+      })
+
+      await expect(publishSafetyCheck({
+        config: config(true),
+      })).rejects.toThrow('needs npm 11.15.0')
+      await publishSafetyCheck({
+        config: config({
+          tags: ['latest'],
+        }),
+      })
+      expect(logger.warn).toHaveBeenCalledWith('Staging a version needs npm 11.15.0 or later')
+      vi.mocked(assertPublishNpmVersion).mockReset()
+    })
+
+    it.each(['yarn', 'bun'] as const)('Then runs nothing for %s with a token', async (packageManager) => {
+      const fetchSpy = vi.spyOn(globalThis, 'fetch')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager,
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: 'npm_token' },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(execPromise).not.toHaveBeenCalled()
+      expect(fetchSpy).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
     })
   })
 
@@ -842,6 +972,224 @@ describe('Given publish command followed by an application', () => {
           ],
         },
       })
+    })
+  })
+
+  describe('When the packages are published without staging', () => {
+    it('Then keeps every event of the publish, byte for byte', async () => {
+      vi.mocked(publishPackage)
+        .mockResolvedValueOnce(['published'])
+        .mockResolvedValueOnce(['skipped'])
+      const events: RelizyEvent[] = []
+
+      await publish({
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.map(({ time: _time, ...event }) => 'durationMs' in event
+        ? { ...event, durationMs: 0 }
+        : event)).toMatchInlineSnapshot(`
+          [
+            {
+              "command": "publish",
+              "dryRun": false,
+              "title": "relizy publish",
+              "type": "command:start",
+            },
+            {
+              "label": "Checking the packages to publish",
+              "step": "publish",
+              "type": "step:start",
+            },
+            {
+              "details": [],
+              "durationMs": 0,
+              "label": "Checking the packages to publish",
+              "message": "pkg-a@1.1.0, pkg-b@2.1.0 to publish",
+              "step": "publish",
+              "type": "step:done",
+            },
+            {
+              "label": "Publishing the packages",
+              "step": "publish",
+              "type": "step:start",
+            },
+            {
+              "ai": false,
+              "message": "Publishing pkg-a@1.1.0 (1/2)",
+              "type": "progress",
+            },
+            {
+              "item": {
+                "name": "pkg-a@1.1.0",
+                "status": "running",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "item": {
+                "name": "pkg-a@1.1.0",
+                "status": "done",
+                "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "ai": false,
+              "message": "Publishing pkg-b@2.1.0 (2/2)",
+              "type": "progress",
+            },
+            {
+              "item": {
+                "name": "pkg-b@2.1.0",
+                "status": "running",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "item": {
+                "detail": "version already on the registry",
+                "name": "pkg-b@2.1.0",
+                "status": "skipped",
+              },
+              "step": "publish",
+              "type": "step:item",
+            },
+            {
+              "data": {
+                "dryRun": false,
+                "packages": [
+                  {
+                    "name": "pkg-a",
+                    "status": "published",
+                    "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+                    "version": "1.1.0",
+                  },
+                  {
+                    "name": "pkg-b",
+                    "reason": "version already on the registry",
+                    "status": "skipped",
+                    "version": "2.1.0",
+                  },
+                ],
+                "registry": "https://registry.npmjs.org/",
+                "tag": "beta",
+              },
+              "details": [],
+              "durationMs": 0,
+              "label": "Publishing the packages",
+              "message": "Published pkg-a@1.1.0, pkg-b@2.1.0 (beta)",
+              "step": "publish",
+              "type": "step:done",
+            },
+            {
+              "durationMs": 0,
+              "failed": false,
+              "links": [
+                {
+                  "label": "pkg-a@1.1.0",
+                  "step": "publish",
+                  "url": "https://www.npmjs.com/package/pkg-a/v/1.1.0",
+                },
+                {
+                  "label": "pkg-b@2.1.0",
+                  "step": "publish",
+                  "url": "https://www.npmjs.com/package/pkg-b/v/2.1.0",
+                },
+              ],
+              "message": "Published pkg-a@1.1.0, pkg-b@2.1.0 (beta)",
+              "nothing": false,
+              "type": "command:complete",
+              "warnings": [],
+            },
+          ]
+        `)
+    })
+  })
+
+  describe('When the project stages the stable versions', () => {
+    it('Then follows each staged package, gives its stage id and tag, and tells what awaits approval', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          staged: {
+            packages: ['pkg-a'],
+          },
+        },
+        tokens: { registry: 'npm_token' },
+      }))
+      vi.mocked(publishPackage)
+        .mockImplementationOnce(() => {
+          recordStagedVersion({
+            name: 'pkg-a',
+            version: '1.1.0',
+            tag: 'latest',
+            registry: 'https://registry.npmjs.org/',
+            stageId: 'a1',
+          })
+          return Promise.resolve(['staged'])
+        })
+        .mockResolvedValueOnce(['published'])
+      const events: RelizyEvent[] = []
+
+      await publish({
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.find(event => event.type === 'step:start' && event.label !== 'Checking the packages to publish')).toMatchObject({ label: 'Publishing and staging the packages' })
+      expect(events.filter(event => event.type === 'step:item').map(event => event.item)).toEqual([
+        { name: 'pkg-a@1.1.0', status: 'running' },
+        { name: 'pkg-a@1.1.0', status: 'done', detail: 'staged, awaiting approval' },
+        { name: 'pkg-b@2.1.0', status: 'running' },
+        { name: 'pkg-b@2.1.0', status: 'done', url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0' },
+      ])
+      expect(publishedStep(events)).toMatchObject({
+        message: 'Published pkg-b@2.1.0, staged pkg-a@1.1.0',
+        data: {
+          auth: 'token',
+          packages: [
+            {
+              name: 'pkg-a',
+              version: '1.1.0',
+              status: 'staged',
+              stageId: 'a1',
+              tag: 'latest',
+            },
+            {
+              name: 'pkg-b',
+              version: '2.1.0',
+              status: 'published',
+              tag: 'latest',
+              url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0',
+            },
+          ],
+        },
+      })
+      expect(events.at(-1)).toMatchObject({
+        type: 'command:complete',
+        links: [
+          { label: 'pkg-b@2.1.0', url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0' },
+        ],
+      })
+    })
+
+    it('Then passes --staged to the run, which stages its canaries too', async () => {
+      vi.mocked(publishPackage).mockResolvedValue(['published'])
+      await publish({
+        staged: true,
+        onProgress: () => {},
+      })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          publish: expect.objectContaining({ staged: true }),
+        }),
+      }))
     })
   })
 

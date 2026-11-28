@@ -225,6 +225,22 @@ describe('Given the init helpers', () => {
       expect(buildInitConfig(detection, answers(detection))).toEqual({})
     })
 
+    it('Then writes publish.staged only when staging is chosen', () => {
+      writePackage('.', { name: 'lib', version: '1.0.0' })
+      const detection = {
+        ...detectProject({ cwd }),
+        provider: 'github' as const,
+      }
+
+      expect(buildInitConfig(detection, answers(detection, { staged: 'none' }))).toEqual({})
+      expect(buildInitConfig(detection, answers(detection, { staged: 'stable' })).publish).toEqual({
+        staged: {
+          tags: ['latest'],
+        },
+      })
+      expect(buildInitConfig(detection, answers(detection, { staged: 'all' })).publish).toEqual({ staged: true })
+    })
+
     it('Then takes the default answers from the default config, so changing a default changes init', () => {
       writePackage('.', { name: 'lib', version: '1.0.0' })
       const defaults = getDefaultConfig()

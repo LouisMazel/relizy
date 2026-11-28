@@ -114,6 +114,44 @@ describe('Given a selective monorepo with commits since its last release', () =>
       expect(steps.push).toMatchObject({ enabled: false, disabledBy: 'release.commit' })
     })
 
+    it('Then lists the approval after the provider release when the project stages, and after the publish of a canary', async () => {
+      const names = (preview: Awaited<ReturnType<typeof previewRelease>>) => preview.steps.map(step => step.name)
+
+      const staged = await previewRelease({
+        overrides: {
+          publish: { staged: true },
+        },
+      })
+      expect(names(staged).slice(names(staged).indexOf('provider-release'), names(staged).indexOf('provider-release') + 2)).toEqual(['provider-release', 'approve'])
+      expect(staged.steps.find(step => step.name === 'approve')).toMatchObject({ enabled: true, label: 'Approve the staged versions' })
+      expect(staged.sets[0]!.packages.find(pkg => pkg.name === 'a')!.publish).toEqual({ distTag: 'latest', staged: true })
+      expect((await previewRelease({
+        overrides: {
+          publish: {
+            staged: {
+              tags: ['next'],
+            },
+          },
+        },
+      })).sets[0]!.packages.find(pkg => pkg.name === 'a')!.publish).toEqual({ distTag: 'latest', staged: false })
+      expect((await previewRelease()).sets[0]!.packages.find(pkg => pkg.name === 'a')).not.toHaveProperty('publish')
+
+      const never = await previewRelease({
+        overrides: {
+          publish: { staged: true, approve: false },
+        },
+      })
+      expect(never.steps.find(step => step.name === 'approve')).toMatchObject({ enabled: false, disabledBy: 'publish.approve' })
+
+      const canary = await previewRelease({
+        profile: 'canary',
+        overrides: {
+          publish: { staged: true },
+        },
+      })
+      expect(names(canary).slice(names(canary).indexOf('publish'), names(canary).indexOf('publish') + 2)).toEqual(['publish', 'approve'])
+    }, 30_000)
+
     it('Then turns the sync on only when a rule of sync matches the current branch', async () => {
       const syncStep = async (from: string) => (await previewRelease({
         overrides: {

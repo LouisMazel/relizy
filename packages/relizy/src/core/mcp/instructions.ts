@@ -20,7 +20,8 @@ Use them whenever you commit, prepare or explain a release, or change the relizy
 4. Code using @relizy/core: its API reference (signatures, options, examples by domain) is in the docs: search_docs("<function or need>"), then get_doc({ id: "core/<domain>", sections: ["<name>"] }) (core/overview lists the domains).
 
 Rules:
-- Never run relizy release, bump, publish, changelog, provider-release, social, sync, pr-comment nor merge-preview without the explicit approval of the user: they write, commit, tag, push, publish or comment. Use --dry-run to show what they would do. Most projects release from their CI.
+- Never run relizy release, bump, publish, changelog, provider-release, social, sync, pr-comment, merge-preview, stage approve, stage reject nor trust without the explicit approval of the user: they write, commit, tag, push, publish, comment, approve or reject staged versions with the 2FA of the user (reject is final), or write the trusted publishers of npm. Use --dry-run to show what they would do. Most projects release from their CI.
+- With publish.staged, a released version is not installable until approved: check list_staged_versions() before saying it is out.
 - Never edit the versions of the package.json files, the CHANGELOG.md files nor the release tags by hand: relizy computes them from the commits.
 - One package (or one concern) per commit in a monorepo: the files of a commit decide the packages it bumps.
 - Git flow: sync.rules (get_doc({ id: "guide/branch-sync" })) merges the released branch into others after the release, e.g. { from: 'main', to: ['develop'] }: only the releases of a branch matched by a rule sync, never write a CI job for it.

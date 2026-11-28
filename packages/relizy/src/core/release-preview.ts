@@ -5,7 +5,7 @@ import type { MergePreviewProblem } from './merge-preview'
 import type { PackageSet } from './package-sets'
 import type { ReleaseStepId } from './steps'
 import { logger } from '@maz-ui/node'
-import { aggregateIndependentChangelogs, fetchGitTags } from '@relizy/core'
+import { aggregateIndependentChangelogs, fetchGitTags, getPublishTag } from '@relizy/core'
 import * as semver from 'semver'
 import { planBumps } from '../commands/bump'
 import { CANARY_OFF_OPTIONS, getReleaseConfig } from '../commands/release'
@@ -18,6 +18,7 @@ import { readPackageSets, relativePath } from './package-sets'
 import { getReleaseOverview } from './release-overview'
 import { readPackageJson } from './repo'
 import { resetRewrittenTagCache } from './rewritten-tags'
+import { getStagingShare } from './staging'
 import { RELEASE_STEP_LABELS } from './steps'
 
 /** A commit that explains a bump */
@@ -66,6 +67,8 @@ export interface PreviewPackage {
   }
   /** A peer dependency making a breaking change that the published range of the package rejects */
   breakingPeerDependency?: string
+  /** With `publish.staged`: the dist-tag of the version and whether it is staged (awaiting approval) or published directly */
+  publish?: { distTag: string, staged: boolean }
 }
 
 export interface PreviewSet {
@@ -306,6 +309,19 @@ function toPreviewPackage({ pkg, plan, set, tag }: {
       : {}),
     reason,
     commits: commits.map(toPreviewCommit),
+    ...(plan.config.publish.staged && !pkg.private
+      ? {
+          publish: {
+            distTag: getPublishTag(newVersion, plan.config.publish.tag),
+            staged: getStagingShare({
+              config: plan.config,
+              packages: [
+                { ...pkg, newVersion },
+              ],
+            }) !== 'none',
+          },
+        }
+      : {}),
     ...(reason === 'dependency'
       ? {
           dependency: {
@@ -430,6 +446,28 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
     }
   }
 
+  // With publish.staged only: every release of today keeps its steps
+  const approve: PreviewStep[] = config.publish.staged
+    ? [
+        {
+          name: 'approve',
+          label: RELEASE_STEP_LABELS.approve,
+          ...(release.publish === false
+            ? state('publish')
+            : config.publish.approve === false
+              ? { enabled: false, disabledBy: 'publish.approve' }
+              : { enabled: true }),
+        },
+      ]
+    : []
+  // A canary has no push: its approval comes right after the publish
+  const afterPublish = release.canary
+    ? approve
+    : []
+  const afterProviderRelease = release.canary
+    ? []
+    : approve
+
   return [
     { name: 'bump', label: RELEASE_STEP_LABELS.bump, enabled: true },
     {
@@ -442,6 +480,7 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS.publish,
       ...state('publish'),
     },
+    ...afterPublish,
     {
       name: 'commit-and-tag',
       label: RELEASE_STEP_LABELS['commit-and-tag'],
@@ -465,6 +504,7 @@ function getSteps(config: ResolvedRelizyConfig, { syncs }: { syncs: boolean }): 
       label: RELEASE_STEP_LABELS['provider-release'],
       ...state('providerRelease'),
     },
+    ...afterProviderRelease,
     {
       name: 'social',
       label: RELEASE_STEP_LABELS.social,

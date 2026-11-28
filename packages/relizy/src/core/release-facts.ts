@@ -1,9 +1,11 @@
+import type { StagedVersion } from '@relizy/core'
 import type { BumpResultTruthy, GitCommit, PackageBase, PostedRelease } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { AIRewrite, ReleaseLink } from './progress'
 import type { ReleaseAI, ReleaseContent, ReleaseGit, ReleasePublish, ReleaseStepReport } from './release-report'
 import { collectContributorNames, getCurrentGitBranch, getGitUpstream, getPublishTag, getShortCommitSha } from '@relizy/core'
-import { detectPackageManager, resolveRegistryTargetsForPackages } from './npm-registry'
+import { buildLegacyRegistryTarget, detectPackageManager, resolveRegistryTargetsForPackages } from './npm-registry'
+import { getTargetPublishAuth } from './publish-checks'
 import { getReleaseUrl } from './social'
 
 /**
@@ -91,7 +93,7 @@ function getVersion(pkg: PackageBase): string {
 /**
  * The dist-tags, the registries and the install command of the published packages
  */
-export function getReleasePublish({ config, packages }: { config: ResolvedRelizyConfig, packages: PackageBase[] }): ReleasePublish | undefined {
+export function getReleasePublish({ config, packages, staged = [] }: { config: ResolvedRelizyConfig, packages: PackageBase[], staged?: StagedVersion[] }): ReleasePublish | undefined {
   if (packages.length === 0) {
     return undefined
   }
@@ -99,14 +101,16 @@ export function getReleasePublish({ config, packages }: { config: ResolvedRelizy
   const targets = resolveRegistryTargetsForPackages(packages, config)
   const tags = new Set(packages.map(pkg => getPublishTag(getVersion(pkg), config.publish.tag)))
   const registries = new Set(targets.map(target => getRegistryHost(target.registry)))
+  // A staged version is not installable until approved
+  const installable = packages.filter(pkg => !isAwaitingApproval(pkg, staged))
 
   let install: string | undefined
-  if (packages.length <= INSTALL_MAX_PACKAGES) {
+  if (installable.length > 0 && installable.length <= INSTALL_MAX_PACKAGES) {
     const packageManager = config.publish.packageManager ?? detectPackageManager(config.cwd)
     const command = packageManager === 'npm'
       ? 'npm install'
       : `${packageManager} add`
-    const versions = packages.map(pkg => `${pkg.name}@${getVersion(pkg)}`)
+    const versions = installable.map(pkg => `${pkg.name}@${getVersion(pkg)}`)
     install = `${command} ${versions.join(' ')}`
   }
 
@@ -116,7 +120,18 @@ export function getReleasePublish({ config, packages }: { config: ResolvedRelizy
     ...(install
       ? { install }
       : {}),
+    ...(staged.length > 0
+      ? {
+          staged: staged.map(version => ({ ...version })),
+          auth: getTargetPublishAuth(config, buildLegacyRegistryTarget(config)).mode,
+        }
+      : {}),
   }
+}
+
+/** The version of the package is staged and not approved yet */
+export function isAwaitingApproval(pkg: PackageBase, staged: StagedVersion[]): boolean {
+  return staged.some(version => !version.approved && version.name === pkg.name && version.version === getVersion(pkg))
 }
 
 /**

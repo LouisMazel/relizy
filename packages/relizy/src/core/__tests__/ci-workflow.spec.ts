@@ -105,8 +105,11 @@ describe('Given the release job of a project on gitlab.com', () => {
     expect(getWorkflowFile({ ...gitlab, releaseCommitPrefix: '' }, '/nonexistent').content).toContain('      skip-commit: \'^$\'\n')
   })
 
-  it('Then lists the CI/CD variables to create, read by the component under the same names', () => {
-    expect(getWorkflowFile({ ...gitlab, publish: true }, '/nonexistent').content).toContain('Settings > CI/CD > Variables): GITLAB_TOKEN, NPM_TOKEN\n')
+  it('Then lists the CI/CD variables to create, read by the component under the same names, NPM_TOKEN only when the registry needs it', () => {
+    const { content } = getWorkflowFile({ ...gitlab, publish: true }, '/nonexistent')
+    expect(content).toContain('Settings > CI/CD > Variables): GITLAB_TOKEN\n')
+    expect(content).toContain('# NPM_TOKEN: optional, only without trusted publishing (npx relizy trust) or for the first publish of a new package\n')
+    expect(getWorkflowFile({ ...gitlab, publish: true, registryNeedsToken: true }, '/nonexistent').content).toContain('Settings > CI/CD > Variables): GITLAB_TOKEN, NPM_TOKEN\n')
   })
 })
 
@@ -121,7 +124,7 @@ describe('Given a workflow that publishes to npm', () => {
     const { content } = getWorkflowFile({ ...options, provider: 'gitlab', publish: true }, '/nonexistent')
 
     expect(content).toContain('  id_tokens:\n    NPM_ID_TOKEN:\n      aud: npm:registry.npmjs.org\n')
-    expect(content).toContain('    - npm install -g npm@latest\n')
+    expect(content).toContain('    - |\n      node -e "const [a, b] = process.argv[1].split(\'.\').map(Number); process.exit(a > 11 || (a === 11 && b >= 15) ? 0 : 1)" "$(npm --version)" || npm install -g npm@11 || echo "Could not update npm to 11: staged publishing needs npm 11.15.0 or later"\n')
   })
 
   it('Then gives neither without publishing', () => {
@@ -144,7 +147,13 @@ describe('Given the release job of a self-managed GitLab', () => {
       provider: 'gitlab',
       publish: true,
       slack: true,
-    })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN', 'SLACK_TOKEN'])
+    })).toEqual(['GITLAB_TOKEN', 'SLACK_TOKEN'])
+    expect(getWorkflowSecrets({
+      ...options,
+      provider: 'gitlab',
+      publish: true,
+      registryNeedsToken: true,
+    })).toEqual(['GITLAB_TOKEN', 'NPM_TOKEN'])
   })
 
   it('Then asks the URL of the Teams workflow in base64, as a masked variable refuses its characters', () => {
@@ -259,7 +268,7 @@ describe('Given the workflows run with the relizy CLI', () => {
 
     expect(content).not.toContain('relizy/action')
     expect(content).toContain('      - uses: pnpm/action-setup@v6\n      - uses: actions/setup-node@v7\n        with:\n          node-version-file: .nvmrc\n          cache: pnpm\n      - run: pnpm install --frozen-lockfile\n')
-    expect(content).toContain('      - run: npm install -g npm@latest\n')
+    expect(content).toContain('      - run: |\n          node -e "const [a, b] = process.argv[1].split(\'.\').map(Number); process.exit(a > 11 || (a === 11 && b >= 15) ? 0 : 1)" "$(npm --version)" || npm install -g npm@11 || echo "Could not update npm to 11: staged publishing needs npm 11.15.0 or later"\n')
     // eslint-disable-next-line no-template-curly-in-string -- expressions of GitHub Actions
     expect(content).toContain('      - id: release\n        env:\n          GITHUB_TOKEN: ${{ github.token }}\n          RELIZY_NPM_TOKEN: ${{ secrets.NPM_TOKEN }}\n          RELEASE_TYPE: ${{ inputs.release }}\n        run: |\n')
     expect(content).toContain('          pnpm exec relizy release --yes $flag\n')

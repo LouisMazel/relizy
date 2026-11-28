@@ -1,13 +1,19 @@
 import type { TrustedPublishingProvider } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../core'
+import type { PublishStepPackage, StepItem } from '../core/events'
+import type { PublishTargetStatus } from '../core/npm'
+import type { CommandNote } from '../core/release-ui'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getTrustedPublishing, isInCI, isNpmjsRegistry, isPackageOnRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, normalizeRegistryKey, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
-import { runWithEvents } from '../core/events'
+import { assertPublishNpmVersion, assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getPublishRoute, getPublishTag, getStagedApprovalUrl, getTrustedPublishing, isInCI, isNpmjsRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
+import { runApprovalStep } from '../core/approve'
+import { getEventContext, runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
+import { getTargetPublishAuth, getTargetRegistry, reportPublishAuth, runTrustedPublishingPreflight } from '../core/publish-checks'
 import { getNpmLinks } from '../core/release-facts'
+import { clearStagedVersions, describePublishOutcome, getAlreadyStagedVersions, getPublishStepLabel, getStagedVersions, getStagingShare, isStagedPackage, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { clearPublishedPackages, emitStepItem, recordPublishedPackage, takePublishStepData } from '../core/step-data'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 import { runCommand } from './run-command'
@@ -79,60 +85,109 @@ async function checkRegistryAuth({
 }
 
 /**
- * Without token in a CI job, the way to publish to npm: a token, or trusted
- * publishing (the job then lacks its OIDC permission)
+ * Without token in a CI job, the way to publish to npm: trusted publishing
+ * first (the job then lacks its OIDC permission), a token second
  */
 function getMissingTokenHint(config: ResolvedRelizyConfig, registryTarget: RegistryTarget): string {
   if (registryTarget.token || !isInCI() || !isNpmjsRegistry(registryTarget.registry || getNpmRegistry(config.cwd))) {
     return ''
   }
 
-  return ': no npm token found. Set NPM_TOKEN, or publish with trusted publishing (OIDC), without token: https://relizy.dev/guide/trusted-publishing'
+  return ': no npm token found. Publish with trusted publishing (OIDC), without token: give the job the "id-token: write" permission and run "relizy trust" (https://relizy.dev/guide/trusted-publishing), or set NPM_TOKEN'
 }
 
 /**
  * Trusted publishing needs no token, so no `whoami`: the npm of the job must
- * do the OIDC exchange, and a package must already be on npm (OIDC cannot
- * create it)
+ * do the OIDC exchange. Whether npm trusts the job for each package (and
+ * whether the package exists: OIDC cannot create it) is the pre-flight, on the
+ * packages the run publishes only.
  */
-async function checkTrustedPublishing({
+function checkTrustedPublishing({
   config,
-  registry,
   registryLabel,
   provider,
-  packages,
 }: {
   config: ResolvedRelizyConfig
-  registry: string
   registryLabel: string
   provider: TrustedPublishingProvider
-  packages: Pick<PackageBase, 'name'>[]
 }) {
   logger.info(`Trusted publishing (OIDC) from ${provider}${registryLabel}: no npm token needed`)
   assertTrustedPublishingNpm({ packageManager: config.publish.packageManager, cwd: config.cwd, provider })
+}
 
-  const registryKey = normalizeRegistryKey(registry)
-  const names = packages
-    .filter(pkg => resolveRegistryTargetsForPackage(pkg, config).some(target => normalizeRegistryKey(target.registry || registry) === registryKey))
-    .map(pkg => pkg.name)
-  const timeoutMs = config.publish.safetyCheckTimeout ?? 15000
-  const onRegistry = await Promise.all(names.map(name => isPackageOnRegistry({ name, registry, timeoutMs, logger })))
-  const newPackages = names.filter((_, index) => onRegistry[index] === false)
-
-  if (newPackages.length > 0) {
-    logger.warn(
-      `Not on npm yet: ${newPackages.join(', ')}. Trusted publishing cannot create a package: `
-      + 'publish its first version with an npm token (NPM_TOKEN), then add its trusted publisher on npmjs.com. '
-      + 'See https://relizy.dev/guide/trusted-publishing',
-    )
+/**
+ * The npm that uploads the packed tarball of bun and yarn classic, which
+ * cannot do the trusted publishing exchange themselves
+ */
+function checkUploadNpm({ config, packages }: { config: ResolvedRelizyConfig, packages: Pick<PackageBase, 'name'>[] }) {
+  for (const registryTarget of resolveRegistryTargetsForPackages(packages, config)) {
+    const auth = getTargetPublishAuth(config, registryTarget)
+    const route = getPublishRoute({
+      packageManager: config.publish.packageManager,
+      cwd: config.cwd,
+      staged: false,
+      authMode: auth.mode,
+    })
+    if (route === 'pack-and-upload') {
+      assertPublishNpmVersion({
+        packageManager: config.publish.packageManager,
+        cwd: config.cwd,
+        staged: false,
+        route,
+      })
+    }
   }
+}
+
+/**
+ * The npm a staged publish needs (npm 11.15.0, also for the upload of yarn,
+ * bun and pnpm before 11.3), before the bump, when the tags are not known
+ * yet: an error when every version is staged, a warning when only some may be
+ */
+function checkStagingTools({ config, packages }: { config: ResolvedRelizyConfig, packages: Pick<PackageBase, 'name'>[] }) {
+  if (!isStagingConfigured(config)) {
+    return
+  }
+
+  for (const registryTarget of resolveRegistryTargetsForPackages(packages, config)) {
+    if (!isNpmjsRegistry(getTargetRegistry(config, registryTarget))) {
+      continue
+    }
+
+    const route = getPublishRoute({
+      packageManager: config.publish.packageManager,
+      cwd: config.cwd,
+      staged: true,
+      authMode: getTargetPublishAuth(config, registryTarget).mode,
+    })
+    try {
+      assertPublishNpmVersion({
+        packageManager: config.publish.packageManager,
+        cwd: config.cwd,
+        staged: true,
+        route,
+      })
+    }
+    catch (error) {
+      if (config.publish.staged === true && !config.release.canary) {
+        throw error
+      }
+      logger.warn(getErrorMessage(error))
+    }
+    return
+  }
+}
+
+/** Every version this run publishes may be staged: no direct publish with a token */
+function stagesEveryVersion(config: ResolvedRelizyConfig): boolean {
+  return config.publish.staged === true && !config.release.canary
 }
 
 /**
  * The packages of the workspace that can be published, before the bump tells
  * which ones the release publishes
  */
-function readPublishablePackages(config: ResolvedRelizyConfig): Pick<PackageBase, 'name'>[] {
+export function readPublishablePackages(config: ResolvedRelizyConfig): Pick<PackageBase, 'name'>[] {
   return filterOutPrivatePackages(readPackages({
     cwd: config.cwd,
     patterns: getMonorepoPackagePatterns(config),
@@ -157,10 +212,18 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
 
   logger.debug('Start checking auth config to package registry')
 
+  // Every package manager: the auth notes, the npm of the routes, the pre-flight
+  reportPublishAuth({ config, packages: packagesToCheck, directPublish: !stagesEveryVersion(config) })
+  checkUploadNpm({ config, packages: packagesToCheck })
+  checkStagingTools({ config, packages: packagesToCheck })
+
   const isPnpmOrNpm = config.publish.packageManager === 'pnpm' || config.publish.packageManager === 'npm'
 
   if (!isPnpmOrNpm) {
     logger.debug(`Skipping authentication to package registry because "${config.publish.packageManager}" is not supported`)
+    if (packages) {
+      await runTrustedPublishingPreflight({ config, packages })
+    }
     return
   }
 
@@ -178,17 +241,21 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     const provider = getTrustedPublishing({ registry, token: registryTarget.token })
 
     if (provider) {
-      await checkTrustedPublishing({
+      checkTrustedPublishing({
         config,
-        registry,
         registryLabel,
         provider,
-        packages: packagesToCheck,
       })
       continue
     }
 
     await checkRegistryAuth({ config, registryTarget, registryLabel })
+  }
+
+  // The packages the run publishes are known (relizy publish): `release`
+  // runs the pre-flight itself, once the bump told them
+  if (packages) {
+    await runTrustedPublishingPreflight({ config, packages })
   }
 }
 
@@ -289,7 +356,7 @@ function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<strin
 
 export function publish(options: Partial<PublishOptions> = {}) {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp })
+  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt })
 }
 
 function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishResponse | undefined> {
@@ -316,6 +383,8 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
           args: options.args,
           packageManager: options.packageManager,
           safetyCheckTimeout: options.safetyCheckTimeout,
+          staged: options.staged,
+          approve: options.approve,
         },
         tokens: { registry: options.token },
         logLevel: options.logLevel,
@@ -323,6 +392,10 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       },
     }),
     run: async ({ config, dryRun, ui, hookContext }) => {
+      if (options.staged === true) {
+        markStagedExplicit()
+      }
+
       logger.debug(`Package manager: ${config.publish.packageManager}`)
       logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -362,38 +435,69 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       const distTag = config.publish.tag
         ? ` (${config.publish.tag})`
         : ''
+      const stagingShare = getStagingShare({ config, packages: toPublish })
       await ui.step({
         name: 'publish',
-        running: 'Publishing the packages',
-        done: () => `Published ${describePackages(toPublish)}${distTag}`,
+        running: getPublishStepLabel(stagingShare),
+        done: () => `${describePublishOutcome(toPublish, 'Published')}${distTag}`,
         data: () => takePublishStepData(config, { dryRun }),
         failedData: () => takePublishStepData(config, { dryRun }),
         run: async () => {
           clearPublishedPackages()
+          clearStagedVersions()
 
           for await (const [index, pkg] of toPublish.entries()) {
             const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
             const position = toPublish.length > 1
               ? ` (${index + 1}/${toPublish.length})`
               : ''
-            logger.debug(`Publishing ${tag}...`)
-            reportProgress(`Publishing ${tag}${position}`)
+            const verb = getStagingShare({
+              config,
+              packages: [pkg],
+            }) === 'all'
+              ? 'Staging'
+              : 'Publishing'
+            logger.debug(`${verb} ${tag}...`)
+            reportProgress(`${verb} ${tag}${position}`)
             await publishAndRecord({ pkg, config, dryRun })
           }
         },
       })
 
       if (!dryRun) {
-        logger.info('Package(s) have been published to npm registry')
+        logger.info(getStagedVersions().length > 0
+          ? 'Package(s) have been staged or published to the registry, the staged ones await approval'
+          : 'Package(s) have been published to npm registry')
       }
 
       logger.success('Publishing packages completed!')
 
       await executeHook('success:publish', config, dryRun, hookContext)
 
+      // Run alone: the approval of what it staged. In a release, the release approves after the push
+      if (!getEventContext()?.nested) {
+        await runApprovalStep({
+          ui,
+          config,
+          dryRun,
+          packages: toPublish,
+        })
+      }
+
+      const staged = getStagedVersions().filter(version => !version.approved)
       ui.complete({
-        message: `${dryRun ? 'Simulated publication of' : 'Published'} ${describePackages(toPublish)}${distTag}`,
-        links: getNpmLinks({ config, packages: toPublish }),
+        message: `${describePublishOutcome(toPublish, dryRun ? 'Simulated publication of' : 'Published')}${distTag}`,
+        links: getNpmLinks({
+          config,
+          packages: toPublish.filter(pkg => !isStagedPackage(pkg, staged)),
+        }),
+        ...(staged.length > 0
+          ? {
+              notes: [
+                getAwaitingApprovalNote({ config, staged }),
+              ],
+            }
+          : {}),
       })
 
       return {
@@ -401,6 +505,60 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       } satisfies PublishResponse
     },
   })
+}
+
+/** The object without its `undefined` fields: the data stays byte for byte the same without them */
+function withoutUndefined<T extends object>(value: T): { [Key in keyof T]: Exclude<T[Key], undefined> } {
+  return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as { [Key in keyof T]: Exclude<T[Key], undefined> }
+}
+
+/** What the publish of a package did, for the data of the step and its live item */
+function getPublishedEntry({ pkg, config, dryRun, statuses }: {
+  pkg: PackageBase
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  statuses: PublishTargetStatus[]
+}): { entry: PublishStepPackage, item: Omit<StepItem, 'name'> } {
+  const version = pkg.newVersion || pkg.version
+  // Already on every registry
+  const skipped = statuses.length > 0 && statuses.every(status => status === 'skipped')
+  const staged = statuses.includes('staged')
+  const stagedVersion = getStagedVersions().find(candidate => candidate.name === pkg.name && candidate.version === version)
+  const url = dryRun || skipped || staged
+    ? undefined
+    : getNpmLinks({
+      config,
+      packages: [pkg],
+    })[0]?.url
+  const alreadyStaged = skipped && getAlreadyStagedVersions().some(candidate => candidate.name === pkg.name && candidate.version === version)
+  const reason = alreadyStaged
+    ? 'already staged'
+    : 'version already on the registry'
+  const tag = isStagingConfigured(config)
+    ? stagedVersion?.tag ?? getPublishTag(version, config.publish.tag)
+    : undefined
+  const status = staged
+    ? 'staged'
+    : skipped ? 'skipped' : 'published'
+
+  return {
+    entry: withoutUndefined({
+      name: pkg.name,
+      version,
+      status,
+      url,
+      reason: skipped ? reason : undefined,
+      stageId: stagedVersion?.stageId,
+      tag,
+    }),
+    item: withoutUndefined({
+      status: skipped ? 'skipped' : 'done',
+      url,
+      detail: staged
+        ? 'staged, awaiting approval'
+        : skipped ? reason : undefined,
+    }),
+  }
 }
 
 /**
@@ -418,37 +576,10 @@ async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, con
       packageManager: config.publish.packageManager,
       dryRun,
     })
-    // Already on every registry
-    const skipped = statuses.length > 0 && statuses.every(status => status === 'skipped')
-    const url = dryRun || skipped
-      ? undefined
-      : getNpmLinks({
-        config,
-        packages: [pkg],
-      })[0]?.url
-    const reason = 'version already on the registry'
+    const { entry, item } = getPublishedEntry({ pkg, config, dryRun, statuses })
 
-    recordPublishedPackage({
-      name: pkg.name,
-      version,
-      status: skipped ? 'skipped' : 'published',
-      ...(url
-        ? { url }
-        : {}),
-      ...(skipped
-        ? { reason }
-        : {}),
-    })
-    emitStepItem('publish', {
-      name,
-      status: skipped ? 'skipped' : 'done',
-      ...(url
-        ? { url }
-        : {}),
-      ...(skipped
-        ? { detail: reason }
-        : {}),
-    })
+    recordPublishedPackage(entry)
+    emitStepItem('publish', { name, ...item })
   }
   catch (error) {
     const reason = getErrorMessage(error)
@@ -460,6 +591,20 @@ async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, con
     })
     emitStepItem('publish', { name, status: 'failed', detail: reason })
     throw error
+  }
+}
+
+/** What still awaits approval, and how to approve it */
+export function getAwaitingApprovalNote({ config, staged }: { config: ResolvedRelizyConfig, staged: { name: string, version: string, registry: string }[] }): CommandNote {
+  const url = getStagedApprovalUrl({ registry: staged[0]?.registry ?? getNpmRegistry(config.cwd) })
+  return {
+    title: 'Awaiting approval, not installable yet',
+    lines: staged.map(version => `${version.name}@${version.version}`),
+    footer: [
+      `Approve with "relizy stage approve --all"${url
+        ? `, or on ${url}`
+        : ''}`,
+    ],
   }
 }
 

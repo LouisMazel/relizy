@@ -94,6 +94,8 @@ export interface InitAnswers {
   access?: 'public' | 'restricted'
   registry?: string
   buildCmd?: string
+  /** Stage the versions for approval (`publish.staged`): none (the default), the stable releases, every version */
+  staged?: 'none' | 'stable' | 'all'
   twitter: boolean
   slack: boolean
   slackChannel?: string
@@ -460,6 +462,13 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
       ...(answers.access && { access: answers.access }),
       ...(answers.registry && !isPublicNpmRegistry(answers.registry) && { registry: answers.registry }),
       ...(answers.buildCmd && { buildCmd: answers.buildCmd }),
+      // Off by default: only written when asked
+      ...(answers.staged === 'stable' && {
+        staged: {
+          tags: ['latest'],
+        },
+      }),
+      ...(answers.staged === 'all' && { staged: true }),
     }
     if (Object.keys(publish).length > 0) {
       config.publish = publish
