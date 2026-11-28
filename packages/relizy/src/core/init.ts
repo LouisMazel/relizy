@@ -1,4 +1,4 @@
-import type { BumpConfig, GitProvider, PackageManager, PrCommentMode, RelizyConfig, VersionMode } from '../types'
+import type { BumpConfig, GitProvider, PackageManager, PrCommentMode, RelizyConfig, RelizyProfile, VersionMode } from '../types'
 import type { ChangelogFormatter } from './changelog-format'
 import type { ResolvedRelizyConfig } from './config'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
@@ -79,6 +79,32 @@ export type InitAITarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 /**
  * Answers of `relizy init`, detected values when a question is not asked.
  */
+/** A channel `relizy init` writes as a profile: prereleases under `alpha`, `beta` or `rc`, canaries of a commit under `canary` */
+export type InitProfile = 'alpha' | 'beta' | 'rc' | 'canary'
+
+/** The profiles `relizy init` writes, as in the guide of the prereleases */
+export const INIT_PROFILES: Record<InitProfile, RelizyProfile> = {
+  alpha: {
+    description: 'Prerelease under the alpha dist-tag',
+    bump: { type: 'prerelease', preid: 'alpha' },
+    publish: { tag: 'alpha' },
+  },
+  beta: {
+    description: 'Prerelease under the beta dist-tag',
+    bump: { type: 'prerelease', preid: 'beta' },
+    publish: { tag: 'beta' },
+  },
+  rc: {
+    description: 'Release candidate under the rc dist-tag',
+    bump: { type: 'prerelease', preid: 'rc' },
+    publish: { tag: 'rc' },
+  },
+  canary: {
+    description: 'Canary of the current commit under the canary dist-tag, without commit nor tag',
+    release: { canary: true },
+  },
+}
+
 export interface InitAnswers {
   goal: InitGoal
   /** Package globs to release, empty in standalone mode */
@@ -96,6 +122,8 @@ export interface InitAnswers {
   buildCmd?: string
   /** Stage the versions for approval (`publish.staged`): none (the default), the stable releases, every version */
   staged?: 'none' | 'stable' | 'all'
+  /** The other channels to release on, written as profiles (`relizy release --profile <name>`): none by default */
+  profiles?: InitProfile[]
   twitter: boolean
   slack: boolean
   slackChannel?: string
@@ -472,6 +500,10 @@ export function buildInitConfig(detection: ProjectDetection, answers: InitAnswer
     }
     if (Object.keys(publish).length > 0) {
       config.publish = publish
+    }
+
+    if (answers.profiles?.length) {
+      config.profiles = Object.fromEntries(answers.profiles.map(profile => [profile, INIT_PROFILES[profile]]))
     }
   }
 
