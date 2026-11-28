@@ -1,7 +1,7 @@
 ---
 title: release
 description: Run the whole release in one command - bump, changelog, publish, commit, tag, push, provider release, social posts, branch sync and PR comment.
-keywords: relizy release, release workflow, release steps, npm publish, git tag, changelog, github release, gitlab release, canary
+keywords: relizy release, staged publishing, approve, release workflow, release steps, npm publish, git tag, changelog, github release, gitlab release, canary
 category: CLI Reference
 tags: [cli, release, workflow, publish, steps]
 ---
@@ -36,9 +36,10 @@ Then the steps run in this order:
 | 5   | Push                          | Pushes the commit and the tags                                                                                                                                                                                                                                                                     | `--no-push`, `--no-commit`              |
 | 6   | Branch sync                   | Merges the released branch into the branches of the [rules of sync](./../config/sync.md#rules) that match it and pushes them, or opens a pull request into each one, right after the push. Only when a rule matches and the release commit is pushed, see [Branch Sync](./../guide/branch-sync.md) | `--no-sync`, `--no-push`, `--no-commit` |
 | 7   | Provider release              | Creates the GitHub or GitLab releases                                                                                                                                                                                                                                                              | `--no-provider-release`                 |
-| 8   | Social                        | Posts on X (Twitter) and Slack, when a platform is enabled in [`social`](./../config/social.md)                                                                                                                                                                                                    | `--no-social`                           |
-| 9   | PR comment                    | Comments the pull request or merge request of the release                                                                                                                                                                                                                                          | `--no-pr-comment`                       |
-| 10  | Summary and `success:release` | Shows the summary, writes the [report](./../config/release.md#report), runs the `success:release` hook                                                                                                                                                                                             | -                                       |
+| 8   | Approve                       | Only with [`publish.staged`](./../config/publish.md#staged): approves the versions the release staged, with one 2FA. Skipped in CI, see [Staged publishing](./../guide/staged-publishing.md#approving)                                                                                             | `--no-approve`                          |
+| 9   | Social                        | Posts on X (Twitter) and Slack, when a platform is enabled in [`social`](./../config/social.md)                                                                                                                                                                                                    | `--no-social`                           |
+| 10  | PR comment                    | Comments the pull request or merge request of the release                                                                                                                                                                                                                                          | `--no-pr-comment`                       |
+| 11  | Summary and `success:release` | Shows the summary, writes the [report](./../config/release.md#report), runs the `success:release` hook                                                                                                                                                                                             | -                                       |
 
 `--no-commit` skips the commit, the tags and the push. `--no-git-tag` only skips the tags: the commit is still created and pushed. Each step but the PR comment runs its `before:*`, `success:*` and `error:*` [hooks](./../config/hooks.md).
 
@@ -80,6 +81,10 @@ The packages are published **before** the release commit and its tags are pushed
 | `--otp <code>`                                           | One-time password of the registry (2FA)                                                                     | [`publish.otp`](./../config/publish.md#otp)                                   |
 | `--publish-token <token>`                                | Registry token, for npm, pnpm and bun                                                                       | [`tokens.registry`](./../config/overview.md#tokens)                           |
 | `--skip-existing-versions`                               | Skip the packages whose version is already on the registry instead of failing                               | [`publish.skipExistingVersions`](./../config/publish.md#skipexistingversions) |
+| `--staged`                                               | Stage the versions on npm for approval instead of publishing them, canaries included                        | [`publish.staged`](./../config/publish.md#staged)                             |
+| `--no-staged`                                            | Publish the versions directly, without staging                                                              | [`publish.staged`](./../config/publish.md#staged)                             |
+| `--approve`                                              | Approve the versions the run staged without asking, with one 2FA                                            | [`publish.approve`](./../config/publish.md#approve)                           |
+| `--no-approve`                                           | Never approve the versions the run staged: approve them later                                               | [`publish.approve`](./../config/publish.md#approve)                           |
 | `--no-commit`                                            | Do not commit, tag nor push                                                                                 | [`release.commit`](./../config/release.md#steps)                              |
 | `--no-git-tag`                                           | Do not create the tags                                                                                      | [`release.gitTag`](./../config/release.md#steps)                              |
 | `--no-verify`                                            | Commit with `git commit --no-verify` (skip the git hooks)                                                   | [`release.noVerify`](./../config/release.md#steps)                            |
@@ -106,7 +111,7 @@ On GitHub Actions, the outputs of the step and the summary of the run are writte
 `--canary` publishes a temporary version of the current commit, `{nextVersion}-0.canary-{sha}` (e.g. `1.3.0-0.canary-a3f4b2c`), with the `canary` dist-tag:
 
 - it skips the changelog, the commit, the tags, the push, the provider release and the social posts;
-- it keeps the checks, the publication and the PR comment;
+- it keeps the checks, the publication and the PR comment, and a canary is never staged unless its tag is in [`publish.staged`](./../config/publish.md#staged) or `--staged` is given;
 - it restores the `package.json` files once published (right away with `--no-publish`);
 - the version comes from the commits: the type flags, `--force` and `--suffix` are ignored;
 - `--preid` changes the identifier (`1.3.0-0.snapshot-a3f4b2c`), `--tag` the dist-tag, `--skip-existing-versions` makes a re-run on the same commit succeed.
@@ -140,6 +145,7 @@ relizy release --yes --sync develop
 
 ## See Also
 
+- [`relizy stage`](./stage.md): approve the staged versions later
 - [`relizy merge-preview`](./merge-preview.md): before the merge of a pull request, what its release will be
 - [bump](./bump.md), [changelog](./changelog.md), [publish](./publish.md), [provider-release](./provider-release.md), [social](./social.md), [sync](./sync.md), [pr-comment](./pr-comment.md): each step alone
 - [Release config](./../config/release.md)

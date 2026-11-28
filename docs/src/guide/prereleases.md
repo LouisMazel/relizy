@@ -176,6 +176,10 @@ npm install my-package@1.3.0-0.canary-a3f4b2c
 
 The `latest` dist-tag is never changed by a canary.
 
+### Canaries and Staged Publishing
+
+With [`publish.staged`](./../config/publish.md#staged), a canary is never staged by `staged: true`: it has no push and is run again often, and an unapproved staged version would block the next run on the same commit. A canary is staged only when `staged.tags` lists its tag (`['latest', 'canary']`), or with `--staged` on its run. See [Staged publishing](./staged-publishing.md#what-is-staged).
+
 ### Canary in CI
 
 A canary job on each pull request publishes the version and comments it on the pull request:
