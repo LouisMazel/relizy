@@ -5,7 +5,7 @@
 - Only code relizy itself uses; a function that needs the resolved config or the CLI output of relizy stays in `packages/relizy`, its adapter passes plain parameters
 - Reports go through an optional `CoreLogger` parameter, never a logger import; stdout is never written
 - `src/index.ts` lists every export, `src/__tests__/index.spec.ts` guards the list
-- Every export has a JSDoc (description, `@param`, `@returns`, `@example`): the `core/*` pages of the MCP server of relizy are generated from `index.ts` and these comments, and `knowledge.spec.ts` of relizy fails on an export without description or a function with undocumented parameters; a new export also needs its domain in `packages/relizy/src/mcp/knowledge/core-api.ts`
+- Every export has a JSDoc (description, `@param`, `@returns`, `@example`): the `core/*` pages of the MCP server of relizy are generated from `index.ts` and these comments, and `knowledge.spec.ts` of relizy fails on an export without description or a function with undocumented parameters; a new export also needs its domain in `packages/relizy/src/core/mcp/knowledge/core-api.ts`
 - Tests that mock a function called inside core must target its file by path (`vi.mock('../../../../core/src/git-refs')` from relizy), since the calls inside core do not go through the `@relizy/core` entry
 
 ## Modules
