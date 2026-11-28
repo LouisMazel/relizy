@@ -356,7 +356,7 @@ function getPlannedVersions(bumpResult: BumpResultTruthy | undefined): Map<strin
 
 export function publish(options: Partial<PublishOptions> = {}) {
   // One git cache for the run: the same refs and ranges are read for each package and each step
-  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt })
+  return runWithEvents(options.onProgress, () => withGitCache(() => runPublish(options)), { onOtp: options.onOtp, onPrompt: options.onPrompt, onWebAuth: options.onWebAuth })
 }
 
 function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishResponse | undefined> {

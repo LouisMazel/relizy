@@ -1,4 +1,4 @@
-import type { PublishAuthMode, StagedEntry, TrustResult } from '@relizy/core'
+import type { PublishAuthMode, StagedEntry, TrustResult, WebAuthHandler } from '@relizy/core'
 import type { AppPrompt, ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
@@ -399,6 +399,8 @@ export interface AppHandlers {
   onOtp?: (request: OtpRequest) => string | Promise<string>
   /** The questions of the staged versions and of the trust setup, never the validation of the bump plan */
   onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /** Shows the web 2FA page of a security-key account (approval, rejection, trust setup) */
+  onWebAuth?: WebAuthHandler
   /** The command the application ran: `release` for the bump run by a release */
   command?: 'release' | 'bump'
 }
@@ -449,6 +451,7 @@ export function runWithEvents<T>(listener: RelizyEventListener | undefined, run:
       onConfirm: handlers.onConfirm ?? inherited.onConfirm,
       onOtp: handlers.onOtp ?? inherited.onOtp,
       onPrompt: handlers.onPrompt ?? inherited.onPrompt,
+      onWebAuth: handlers.onWebAuth ?? inherited.onWebAuth,
       command: inherited.command ?? handlers.command,
     },
   }, run)

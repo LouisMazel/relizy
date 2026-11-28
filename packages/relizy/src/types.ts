@@ -1,4 +1,4 @@
-import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedEntry, StagedPublishing, TrustResult } from '@relizy/core'
+import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedEntry, StagedPublishing, TrustResult, WebAuthHandler } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
 import type { ApproveStepPackage, RelizyEventListener } from './core/events'
@@ -208,10 +208,16 @@ export interface StageOptions {
    * @default false
    */
   dryRun?: boolean
-  /** Gives the 2FA code (`purpose: 'approve'` or `'reject'`), once for the batch */
+  /** Gives the 2FA code (`purpose: 'approve'` or `'reject'`) once npm needs one it cannot get on the web, once for the batch */
   onOtp?: (request: OtpRequest) => string | Promise<string>
   /** Confirms the rejection (`reject-staged`): without it and without terminal, nothing is rejected */
   onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /**
+   * Shows the web 2FA page of npm to the person (security key, passkey, or a code typed on the page), for
+   * the publish and the approval: the run goes on once validated. Checking "skip 2FA for the next 5 minutes"
+   * on the page, when npm offers it, covers the whole batch. Without it, the CLI opens the page in the browser
+   */
+  onWebAuth?: WebAuthHandler
   /** Receives the progress of the run, as typed events */
   onProgress?: RelizyEventListener
   /** Name of the config file to use (`relizy.<name>.config.ts`) */
@@ -261,6 +267,12 @@ export interface TrustOptions {
   onOtp?: (request: OtpRequest) => string | Promise<string>
   /** Confirms the replacements (`replace-trust`) and the write of `publish.staged` (`write-config`) */
   onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /**
+   * Shows the web 2FA page of npm to the person (security key, passkey, or a code typed on the page), for
+   * the publish and the approval: the run goes on once validated. Checking "skip 2FA for the next 5 minutes"
+   * on the page, when npm offers it, covers the whole batch. Without it, the CLI opens the page in the browser
+   */
+  onWebAuth?: WebAuthHandler
   /** Receives the progress of the run, as typed events */
   onProgress?: RelizyEventListener
   /** Name of the config file to use (`relizy.<name>.config.ts`) */
@@ -1175,7 +1187,7 @@ export interface PublishOptions extends PublishConfig {
    * asked once per registry, then reused for the next packages. An empty password (or none) cancels
    * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
    * by it fails the publish. For an application asking in its own interface. Also asked for the approval
-   * of the staged versions (`purpose: 'approve'`, once for the batch)
+   * of the staged versions (`purpose: 'approve'`, once for the batch, only when npm needs a code it cannot get on the web)
    */
   onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
@@ -1183,6 +1195,12 @@ export interface PublishOptions extends PublishConfig {
    * (`approve-staged`, with `publish.approve: 'prompt'`). Without it and without terminal, nothing is approved
    */
   onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /**
+   * Shows the web 2FA page of npm to the person (security key, passkey, or a code typed on the page), for
+   * the publish and the approval: the run goes on once validated. Checking "skip 2FA for the next 5 minutes"
+   * on the page, when npm offers it, covers the whole batch. Without it, the CLI opens the page in the browser
+   */
+  onWebAuth?: WebAuthHandler
   /**
    * Custom suffix for prerelease versions - replace the last .X with .suffix (e.g. 1.0.0-beta.0 -> 1.0.0-beta.suffix)
    */
@@ -1346,7 +1364,7 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * asked once per registry, then reused for the next packages. An empty password (or none) cancels
    * the publish (a `RelizyCancelError`; the packages published before stay published), an error thrown
    * by it fails the publish. For an application asking in its own interface. Also asked for the approval
-   * of the staged versions (`purpose: 'approve'`, once for the batch)
+   * of the staged versions (`purpose: 'approve'`, once for the batch, only when npm needs a code it cannot get on the web)
    */
   onOtp?: (request: OtpRequest) => string | Promise<string>
   /**
@@ -1354,6 +1372,12 @@ export interface ReleaseOptions extends ReleaseConfig, BumpConfig, ChangelogConf
    * (`approve-staged`, with `publish.approve: 'prompt'`). Without it and without terminal, nothing is approved
    */
   onPrompt?: (request: AppPrompt) => boolean | Promise<boolean>
+  /**
+   * Shows the web 2FA page of npm to the person (security key, passkey, or a code typed on the page), for
+   * the publish and the approval: the run goes on once validated. Checking "skip 2FA for the next 5 minutes"
+   * on the page, when npm offers it, covers the whole batch. Without it, the CLI opens the page in the browser
+   */
+  onWebAuth?: WebAuthHandler
   /**
    * Config already resolved by `loadRelizyConfig()`: used as is instead of loading the config file
    * (the profile, the `overrides` and the options of the call still apply over it)

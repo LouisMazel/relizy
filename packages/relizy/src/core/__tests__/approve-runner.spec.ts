@@ -1,9 +1,10 @@
 import { spawn } from 'node:child_process'
-import { EventEmitter } from 'node:events'
 import process from 'node:process'
-import { execPromise } from '@maz-ui/node'
-import { createInteractiveNpmRunner, createOtpAsker, describeApproval, getApprovalBlocker, isInteractiveTerminal } from '../approve'
+import { logger } from '@maz-ui/node'
+import { describeApproval, getApprovalBlocker } from '../approve'
+import { runWithEvents } from '../events'
 import { askText } from '../prompts'
+import { createOtpAsker, getWebAuthHandler, isInteractiveTerminal, openNpmPage } from '../two-factor'
 
 vi.mock('node:child_process', () => ({
   spawn: vi.fn(),
@@ -19,21 +20,7 @@ function setTerminal(tty: boolean) {
   Object.defineProperty(process.stdout, 'isTTY', { value: tty, configurable: true })
 }
 
-function fakeChild() {
-  const child = Object.assign(new EventEmitter(), {
-    kill: vi.fn(),
-  })
-  vi.mocked(spawn).mockReturnValue(child as never)
-  return child
-}
-
-const options = {
-  cwd: '/tmp',
-  env: { NPM_TOKEN: '' },
-  timeoutMs: 1000,
-}
-
-describe('Given the interactive npm runner of the approval', () => {
+describe('Given the 2FA of the approval', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     vi.stubEnv('RELIZY_REPORTER', '')
@@ -46,45 +33,41 @@ describe('Given the interactive npm runner of the approval', () => {
     setTerminal(false)
   })
 
-  it('Then runs the calls that need the 2FA in the terminal, and the reads without it', async () => {
-    const runner = createInteractiveNpmRunner()
-    vi.mocked(execPromise).mockResolvedValue({ stdout: '[]', stderr: '' })
-    expect(await runner(['stage', 'list', 'pkg', '--json'], options)).toEqual({ stdout: '[]' })
-    expect(execPromise).toHaveBeenCalledWith('npm stage list pkg --json', expect.objectContaining({
-      cwd: '/tmp',
-      env: { NPM_TOKEN: '' },
-      timeout: 1000,
-    }))
+  it('Then shows the web 2FA page to the app, else in the output with the 5 minutes tip', async () => {
+    const onWebAuth = vi.fn()
+    await runWithEvents(undefined, () => getWebAuthHandler()({ url: 'https://www.npmjs.com/auth/cli/0661', purpose: 'approve' }), { onWebAuth })
+    expect(onWebAuth).toHaveBeenCalledWith({ url: 'https://www.npmjs.com/auth/cli/0661', purpose: 'approve' })
 
-    const child = fakeChild()
-    const approving = runner(['stage', 'approve', 'a1'], options)
-    child.emit('exit', 0)
-    expect(await approving).toEqual({ stdout: '' })
-    expect(spawn).toHaveBeenCalledWith('npm', ['stage', 'approve', 'a1'], expect.objectContaining({ stdio: 'inherit', cwd: '/tmp' }))
+    const info = vi.spyOn(logger, 'info').mockImplementation(() => {})
+    await getWebAuthHandler()({ url: 'https://www.npmjs.com/auth/cli/0662', purpose: 'trust' })
+    expect(info).toHaveBeenCalledWith(expect.stringMatching(/^Validate on npm\nTo set up trusted publishing, validate with your security key, passkey or code:\nhttps:\/\/www\.npmjs\.com\/auth\/cli\/0662\n\nCheck "skip 2FA for the next 5 minutes"/))
   })
 
-  it('Then fails on an exit code, an error and a timeout, and refuses an unsafe argument', async () => {
-    const runner = createInteractiveNpmRunner()
+  it('Then opens the npm page in the browser only in a terminal outside a CI', () => {
+    const unref = vi.fn()
+    vi.mocked(spawn).mockReturnValue({
+      on: vi.fn(),
+      unref,
+    } as never)
+    vi.stubEnv('CI', '')
+    vi.stubEnv('GITHUB_ACTIONS', '')
+    vi.stubEnv('GITHUB_WORKFLOW', '')
+    vi.stubEnv('CONTINUOUS_INTEGRATION', '')
+    vi.stubEnv('BUILD_ID', '')
 
-    const failed = fakeChild()
-    const exit = runner(['trust', 'github', 'pkg'], options)
-    failed.emit('exit', 1)
-    await expect(exit).rejects.toThrow('npm trust github exited with code 1')
-
-    const broken = fakeChild()
-    const error = runner(['stage', 'reject', 'a1'], options)
-    broken.emit('error', new Error('ENOENT'))
-    await expect(error).rejects.toThrow('ENOENT')
-
-    vi.useFakeTimers()
-    const stuck = fakeChild()
-    const timeout = runner(['stage', 'approve', 'a1'], options)
-    timeout.catch(() => {})
-    await vi.advanceTimersByTimeAsync(1000)
-    await expect(timeout).rejects.toMatchObject({ killed: true })
-    expect(stuck.kill).toHaveBeenCalled()
-
-    await expect(runner(['stage', 'approve', 'a1; rm'], options)).rejects.toThrow('Unsafe argument')
+    expect(openNpmPage('https://www.npmjs.com/auth/cli/0661')).toBe(false)
+    setTerminal(true)
+    expect(openNpmPage('https://evil.example/auth')).toBe(false)
+    expect(openNpmPage('https://www.npmjs.com/auth/cli/0661')).toBe(true)
+    expect(spawn).toHaveBeenCalledWith(expect.any(String), expect.arrayContaining(['https://www.npmjs.com/auth/cli/0661']), { detached: true, stdio: 'ignore' })
+    expect(unref).toHaveBeenCalled()
+    vi.stubEnv('BROWSER', 'none')
+    expect(openNpmPage('https://www.npmjs.com/auth/cli/0661')).toBe(false)
+    vi.stubEnv('BROWSER', '')
+    vi.mocked(spawn).mockImplementationOnce(() => {
+      throw new Error('spawn failed')
+    })
+    expect(openNpmPage('https://www.npmjs.com/auth/cli/0661')).toBe(false)
   })
 
   it('Then asks the code in the terminal, and tells when a person can answer', async () => {
@@ -106,7 +89,14 @@ describe('Given the interactive npm runner of the approval', () => {
   })
 
   it('Then is blocked under trusted publishing, and tells a partial approval', () => {
-    vi.stubEnv('CI', '')
+    for (const key of [
+      'CI',
+      'GITHUB_WORKFLOW',
+      'CONTINUOUS_INTEGRATION',
+      'BUILD_ID',
+    ]) {
+      vi.stubEnv(key, '')
+    }
     vi.stubEnv('GITHUB_ACTIONS', '')
     vi.stubEnv('GITLAB_CI', '')
     vi.stubEnv('NPM_ID_TOKEN', '')

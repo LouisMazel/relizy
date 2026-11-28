@@ -12,8 +12,10 @@ import { buildLegacyRegistryTarget, getNpmRegistry, normalizeRegistryKey, resolv
 import { isVersionPublished } from './npm-versions'
 import { askText, assertInteractivePrompt } from './prompts'
 import { getTargetPublishAuth, getTargetRegistry, getTrustedPublisherMismatchMessage } from './publish-checks'
+import { promptInReleaseUi } from './release-ui'
 import { getStagedVersions, isVersionStaged, recordAlreadyStagedVersion, recordStagedVersion } from './staging'
 import { peekPublishedPackages } from './step-data'
+import { getPublishWebAuthHandler } from './two-factor'
 
 // Store OTP per registry for the session to avoid re-prompting for each package
 const sessionOtpByRegistry = new Map<string, string>()
@@ -47,7 +49,7 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
       reject(new Error('OTP input timeout'))
     }, timeout)
 
-    askText({ message })
+    promptInReleaseUi(() => askText({ message }))
       .then((otp) => {
         clearTimeout(timer)
         resolve(otp)
@@ -255,8 +257,16 @@ async function runTargetCommand({ options, pkg, plan }: {
 }): Promise<'published' | 'staged'> {
   const { tag, registry, staged, route } = plan
 
+  const onWebAuth = getPublishWebAuthHandler(registry)
+
   if (route === 'pack-and-upload') {
-    const { stdout } = await packAndUpload({ ...options, staged })
+    const { stdout } = await packAndUpload({
+      ...options,
+      staged,
+      ...(onWebAuth
+        ? { onWebAuth }
+        : {}),
+    })
     return staged
       ? recordStaged({ pkg, tag, registry, stdout })
       : 'published'
@@ -267,7 +277,22 @@ async function runTargetCommand({ options, pkg, plan }: {
     return recordStaged({ pkg, tag, registry, stdout })
   }
 
-  await publishToRegistry(options)
+  if (!onWebAuth) {
+    await publishToRegistry(options)
+    return 'published'
+  }
+
+  try {
+    await publishToRegistry({ ...options, onWebAuth })
+  }
+  catch (error) {
+    // pnpm, yarn and bun give no web 2FA link without a terminal: npm uploads what they pack
+    if (options.packageManager === 'npm' || options.dryRun || !isOtpError(error)) {
+      throw error
+    }
+    logger.debug(`${options.packageNameAndVersion}: the registry asks a one-time password, uploading the package with npm for the web 2FA`)
+    await packAndUpload({ ...options, staged: false, onWebAuth })
+  }
   return 'published'
 }
 

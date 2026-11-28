@@ -181,6 +181,15 @@ export function enableCliUi(): void {
   }
 }
 
+/**
+ * A command printing its result as JSON (`relizy stage list --json`): its
+ * output and its logs go to stderr, stdout only carries the JSON
+ */
+export function moveCliUiToStderr(): void {
+  process.env.RELIZY_REPORTER = 'classic'
+  redirectLogsToStderr()
+}
+
 /** Stdout only carries the JSON events: the logs before the output starts go to stderr */
 function redirectLogsToStderr(): void {
   setLogReporters([
@@ -1426,6 +1435,31 @@ export function getBumpResultDetails(result: BumpResult, yes: boolean | undefine
   return result.bumped && result.bumpedPackages.length > 1 && yes
     ? describeBumpedPackages(result.bumpedPackages)
     : []
+}
+
+/**
+ * Runs a question of the terminal (clack) within the step output: the spinner
+ * pauses while it is asked, then goes on
+ */
+export function promptInReleaseUi<T>(run: () => Promise<T>): Promise<T> {
+  return activeUi
+    ? activeUi.prompt(run)
+    : run()
+}
+
+/**
+ * Shows what the person must act on now (a link to open while the step
+ * waits): in a box above the spinner of the step output, in the logs otherwise
+ */
+export async function showNowInReleaseUi({ title, lines }: { title: string, lines: string[] }): Promise<void> {
+  if (activeUi instanceof PrettyUi) {
+    await activeUi.prompt(() => {
+      note(lines.join('\n'), title)
+      return Promise.resolve()
+    })
+    return
+  }
+  logger.info([title, ...lines].join('\n'))
 }
 
 /**

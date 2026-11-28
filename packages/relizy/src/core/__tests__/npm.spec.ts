@@ -1648,6 +1648,41 @@ describe('Given publishPackage function', () => {
       expect(error.message).toContain('OTP input cancelled')
     })
 
+    it('Then uploads with npm for the web 2FA when pnpm asks a one-time password in a terminal', async () => {
+      vi.mocked(isInCI).mockReturnValue(false)
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', '')
+      vi.stubEnv('GITLAB_CI', '')
+      vi.stubEnv('CIRCLECI', '')
+      vi.stubEnv('RELIZY_REPORTER', '')
+      Object.defineProperty(process.stdin, 'isTTY', { value: true, configurable: true })
+      Object.defineProperty(process.stdout, 'isTTY', { value: true, configurable: true })
+      config.publish.registry = 'https://registry.npmjs.org/'
+      vi.mocked(execPromise).mockRejectedValueOnce(new Error('ERR_PNPM_OTP_NON_INTERACTIVE provide the --otp option'))
+      vi.mocked(packAndUpload).mockResolvedValueOnce({ stdout: '', tarball: '/repo/pkg.tgz' })
+
+      try {
+        const statuses = await publishPackage({
+          pkg,
+          config,
+          packageManager: 'pnpm',
+          dryRun: false,
+        })
+
+        expect(statuses).toEqual(['published'])
+        expect(packAndUpload).toHaveBeenCalledWith(expect.objectContaining({
+          staged: false,
+          packageManager: 'pnpm',
+          onWebAuth: expect.any(Function),
+        }))
+        expect(askText).not.toHaveBeenCalled()
+      }
+      finally {
+        Object.defineProperty(process.stdin, 'isTTY', { value: false, configurable: true })
+        Object.defineProperty(process.stdout, 'isTTY', { value: false, configurable: true })
+        vi.unstubAllEnvs()
+      }
+    })
+
     it('Then throws error in CI environment', async () => {
       vi.mocked(isInCI).mockReturnValue(true)
       vi.mocked(execPromise).mockRejectedValue(new Error('OTP required'))

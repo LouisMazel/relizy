@@ -1,95 +1,22 @@
-import type { ApproveResult, NpmCommandRunner, StagedVersion } from '@relizy/core'
-import type { AppPrompt, OtpRequest, PackageBase } from '../types'
+import type { ApproveResult, StagedVersion } from '@relizy/core'
+import type { AppPrompt, PackageBase } from '../types'
 import type { ResolvedRelizyConfig } from './config'
 import type { ApproveStepData, ApproveStepPackage } from './events'
 import type { ReleaseUi } from './release-ui'
-import { spawn } from 'node:child_process'
-import process from 'node:process'
-import { execPromise, logger } from '@maz-ui/node'
+import { logger } from '@maz-ui/node'
 import { approveStagedVersions, getTrustedPublishingProvider, isInCI, listStagedVersions } from '@relizy/core'
 import { getAppHandlers } from './events'
-import { askConfirm, askText } from './prompts'
+import { reportProgress } from './progress'
+import { askConfirm } from './prompts'
+import { promptInReleaseUi } from './release-ui'
 import { getAlreadyStagedVersions, getStagedVersions, isStagingConfigured, markStagedApproved } from './staging'
+import { createOtpAsker, getWebAuthHandler, isInteractiveTerminal } from './two-factor'
 
 /**
  * The approval of the staged versions, with the npm login and the 2FA of the
  * person: the questions (terminal or `onPrompt`), the code (terminal or
  * `onOtp`), and npm run in the terminal for the web 2FA of security keys
  */
-
-/** A person can answer in this terminal: stdin and stdout are TTYs, and stdout does not carry the JSON events */
-export function isInteractiveTerminal(): boolean {
-  return process.env.RELIZY_REPORTER !== 'json' && Boolean(process.stdin.isTTY) && Boolean(process.stdout.isTTY)
-}
-
-/** The npm subcommands that may need the 2FA of the person */
-function needsTerminal(args: string[]): boolean {
-  return (args[0] === 'stage' && (args[1] === 'approve' || args[1] === 'reject'))
-    || (args[0] === 'trust' && args[1] !== 'list')
-}
-
-const SAFE_ARG = /^[\w@./:%+=-]+$/
-
-/**
- * Runs npm for the approval: the calls that may need the 2FA run in the
- * terminal (stdin, stdout and stderr inherited: npm only opens its web 2FA, or
- * asks its code, when both are TTYs), the reads run without it to give their
- * JSON. The result of a call run in the terminal is read back by the caller.
- */
-export function createInteractiveNpmRunner(): NpmCommandRunner {
-  return async (args, { cwd, env, timeoutMs }) => {
-    for (const arg of args) {
-      if (!SAFE_ARG.test(arg)) {
-        throw new Error(`Unsafe argument for npm: ${arg}`)
-      }
-    }
-
-    if (!needsTerminal(args)) {
-      const result = await execPromise(`npm ${args.join(' ')}`, {
-        cwd,
-        env,
-        timeout: timeoutMs,
-        maxBuffer: 64 * 1024 * 1024,
-        noStdout: true,
-        noStderr: true,
-        noSuccess: true,
-        noError: true,
-      })
-      return { stdout: result?.stdout ?? '' }
-    }
-
-    await new Promise<void>((resolve, reject) => {
-      const child = spawn('npm', args, {
-        cwd,
-        env: {
-          ...process.env,
-          ...env,
-        },
-        stdio: 'inherit',
-        shell: process.platform === 'win32',
-      })
-      const timer = setTimeout(() => {
-        child.kill()
-        reject(Object.assign(new Error(`npm ${args.slice(0, 2).join(' ')} timed out after ${timeoutMs}ms`), { killed: true }))
-      }, timeoutMs)
-      child.on('error', (error) => {
-        clearTimeout(timer)
-        reject(error)
-      })
-      child.on('exit', (code) => {
-        clearTimeout(timer)
-        if (code === 0) {
-          resolve()
-        }
-        else {
-          reject(new Error(`npm ${args.slice(0, 2).join(' ')} exited with code ${code}`))
-        }
-      })
-    })
-
-    return { stdout: '' }
-  }
-}
 
 /**
  * Asks an application (`onPrompt`) or the person in the terminal; without
@@ -105,52 +32,17 @@ export async function askStagedQuestion({ request, message }: { request: AppProm
     return 'not interactive'
   }
 
-  return askConfirm({ message, initialValue: true })
-}
-
-/**
- * Asks the 2FA code of a batch: from `onOtp`, else from the terminal; empty in
- * the terminal lets npm ask itself (or open its web 2FA)
- */
-export function createOtpAsker({ registry, purpose, otp }: { registry: string, purpose: NonNullable<OtpRequest['purpose']>, otp?: string }) {
-  let given = otp
-  return async ({ count }: { count: number }): Promise<string | undefined> => {
-    if (given) {
-      const code = given
-      given = undefined
-      return code
-    }
-
-    const { onOtp } = getAppHandlers()
-    if (onOtp) {
-      const code: unknown = await onOtp({ registry, purpose, count })
-      return typeof code === 'string' && code.trim()
-        ? code.trim()
-        : undefined
-    }
-
-    if (!isInteractiveTerminal()) {
-      return undefined
-    }
-
-    const code = await askText({
-      message: `2FA code of npm for ${count} version${count > 1
-        ? 's'
-        : ''} (leave empty to approve in the browser with a security key)`,
-    }).catch(() => '')
-    return code.trim() || undefined
-  }
+  return promptInReleaseUi(() => askConfirm({ message, initialValue: true }))
 }
 
 /**
  * The stage ids npm did not print (a version staged by an earlier run and
  * skipped as already staged, an output without id), read from the staging area
  */
-async function resolveStageIds({ config, versions, registry, runner }: {
+async function resolveStageIds({ config, versions, registry }: {
   config: ResolvedRelizyConfig
   versions: StagedVersion[]
   registry: string
-  runner?: NpmCommandRunner
 }): Promise<StagedVersion[]> {
   const missing = versions.filter(version => !version.stageId)
   if (missing.length === 0) {
@@ -163,7 +55,6 @@ async function resolveStageIds({ config, versions, registry, runner }: {
     packageNames: [
       ...new Set(missing.map(version => version.name)),
     ],
-    runner,
     logger,
   })
   return versions.map((version) => {
@@ -261,12 +152,10 @@ export async function approveRunVersions({ config, versions, dependencies, appro
   }
 
   const registry = versions[0]?.registry ?? ''
-  const runner = isInteractiveTerminal()
-    ? createInteractiveNpmRunner()
-    : undefined
+  const onWebAuth = getWebAuthHandler()
 
   try {
-    const resolved = await resolveStageIds({ config, versions, registry, runner })
+    const resolved = await resolveStageIds({ config, versions, registry })
     const withId = resolved.filter(version => version.stageId)
     const withoutId = resolved.filter(version => !version.stageId)
 
@@ -280,7 +169,8 @@ export async function approveRunVersions({ config, versions, dependencies, appro
         dependencies: dependencies.get(version.name) ?? [],
       })),
       getOtp: createOtpAsker({ registry, purpose: 'approve' }),
-      runner,
+      onValidating: ({ name, version }) => reportProgress(`npm is scanning ${name}@${version} for malware, waiting (up to 5 minutes)`),
+      onWebAuth,
       logger,
     })
 

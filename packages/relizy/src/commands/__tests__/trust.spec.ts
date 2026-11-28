@@ -213,6 +213,7 @@ describe('Given relizy trust', () => {
           },
         ]
       : []))
+    vi.mocked(listTrustedPublishers).mockRejectedValueOnce(new Error('npm error code EOTP one-time password'))
     const onOtp = vi.fn().mockResolvedValue('123456')
 
     const response = await run({ onOtp })
@@ -319,7 +320,7 @@ describe('Given relizy trust', () => {
     await expect(run()).rejects.toThrow('No release workflow found')
   })
 
-  it('Then sets up a GitLab project and a CircleCI pipeline, and asks the code again when npm refuses it', async () => {
+  it('Then sets up a GitLab project and a CircleCI pipeline, and asks the code once npm needs it', async () => {
     vi.mocked(readReleaseWorkflows).mockResolvedValue([
       {
         provider: 'gitlab',
@@ -335,13 +336,13 @@ describe('Given relizy trust', () => {
     vi.mocked(listTrustedPublishers)
       .mockRejectedValueOnce(new Error('npm error code EOTP one-time password'))
       .mockResolvedValue([])
-    const onOtp = vi.fn().mockResolvedValueOnce('111111').mockResolvedValueOnce('222222')
+    const onOtp = vi.fn().mockResolvedValueOnce('222222')
 
     const gitlab = await run({
       packages: ['@s/core'],
       onOtp,
     })
-    expect(onOtp).toHaveBeenCalledTimes(2)
+    expect(onOtp).toHaveBeenCalledTimes(1)
     expect(createTrustedPublisher).toHaveBeenCalledWith(expect.objectContaining({
       source: {
         type: 'gitlab',
@@ -397,5 +398,27 @@ describe('Given relizy trust', () => {
     await expect(run({
       packages: ['nope'],
     })).rejects.toThrow('Not a public package of the project: nope')
+  })
+
+  it('Then keeps a direct publish configuration to which npm added the staged publish', async () => {
+    vi.mocked(listTrustedPublishers).mockResolvedValue([
+      {
+        id: 't1',
+        type: 'github',
+        file: 'release.yml',
+        repository: 'acme/repo',
+        allowPublish: true,
+        allowStagePublish: true,
+        raw: {},
+      },
+    ])
+
+    const response = await run({
+      packages: ['@s/core'],
+      otp: '1',
+    })
+
+    expect(response.results[0]!.status).toBe('exists')
+    expect(createTrustedPublisher).not.toHaveBeenCalled()
   })
 })
