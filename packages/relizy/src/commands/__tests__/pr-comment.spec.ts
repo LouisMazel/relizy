@@ -391,6 +391,98 @@ describe('Given prComment command', () => {
       expect(readPackages).not.toHaveBeenCalled()
     })
 
+    it('Then the pull request merged by the release gets what it released: versions, tags, links, install, versions awaiting approval', async () => {
+      const report: ReleaseReport = {
+        status: 'released',
+        released: true,
+        dryRun: false,
+        canary: false,
+        release: {
+          projectName: 'acme',
+          groups: [
+            {
+              name: '',
+              title: 'acme',
+              versionMode: 'selective',
+              version: '2.0.0',
+              oldVersion: '1.4.0',
+              tag: 'v2.0.0',
+              packages: [
+                {
+                  name: '@acme/core',
+                  oldVersion: '1.4.0',
+                  newVersion: '2.0.0',
+                  tag: 'v2.0.0',
+                  private: false,
+                },
+                {
+                  name: '@acme/ui',
+                  oldVersion: '1.4.0',
+                  newVersion: '2.0.0',
+                  tag: 'v2.0.0',
+                  private: false,
+                },
+              ],
+            },
+          ],
+        },
+        version: '2.0.0',
+        tags: ['v2.0.0'],
+        steps: [
+          {
+            name: 'publish',
+            status: 'done',
+            detail: '2 packages',
+            links: [
+              { label: '@acme/core@2.0.0', url: 'https://www.npmjs.com/package/@acme/core/v/2.0.0' },
+            ],
+          },
+          {
+            name: 'providerRelease',
+            status: 'done',
+            links: [
+              { label: 'v2.0.0', url: 'https://github.com/user/repo/releases/tag/v2.0.0' },
+            ],
+          },
+        ],
+        publish: {
+          tags: ['latest'],
+          registries: ['registry.npmjs.org'],
+          install: 'pnpm add @acme/core@2.0.0',
+          staged: [
+            {
+              name: '@acme/core',
+              version: '2.0.0',
+              tag: 'latest',
+              registry: 'https://registry.npmjs.org/',
+              stageId: 'a1',
+              approved: true,
+            },
+            {
+              name: '@acme/ui',
+              version: '2.0.0',
+              tag: 'latest',
+              registry: 'https://registry.npmjs.org/',
+              stageId: 'b2',
+            },
+          ],
+        },
+      }
+
+      await prComment({
+        releaseContext: { status: 'success', report },
+      })
+
+      const { body } = vi.mocked(postPrComment).mock.calls[0]![0]
+      expect(body).toContain('`1.4.0` → `2.0.0`')
+      expect(body).toContain('v2.0.0')
+      expect(body).toContain('https://www.npmjs.com/package/@acme/core/v/2.0.0')
+      expect(body).toContain('https://github.com/user/repo/releases/tag/v2.0.0')
+      expect(body).toContain('pnpm add @acme/core@2.0.0')
+      expect(body).toContain('@acme/ui@2.0.0, not installable until approved: relizy stage approve --all')
+      expect(body).not.toContain('@acme/core@2.0.0, not installable')
+    })
+
     it('Then posts no-release comment', async () => {
       await prComment({
         releaseContext: { status: 'no-release' },
