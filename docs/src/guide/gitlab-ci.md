@@ -184,7 +184,7 @@ notify-ui:
       fi
 ```
 
-GitLab CI has no summary of the run: write it to a markdown file and expose it as an artifact of the merge request, or read it in the [MR comment](./pr-comment.md).
+GitLab CI has no summary of the run: write it to a markdown file and expose it as an artifact of the merge request, or read it in the [MR comment](./pr-comment.md), posted on the merge request the release merged.
 
 ```yaml
 include:

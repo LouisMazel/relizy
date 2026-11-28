@@ -720,9 +720,10 @@ mergePreviewCommand
   .option('--token <token>', 'Git token (github or gitlab)')
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .addOption(privatePackagesOption())
+  .option('--comment', 'Comment the pull request of --pr-number outside its pipeline (only printed otherwise)')
   .option('--no-comment', 'Do not comment the pull request')
   .addOption(prCommentModeOption())
-  .option('--check', 'Set the commit status relizy/merge-preview (default: mergePreview.check)')
+  .option('--check', 'Set the commit status relizy/merge-preview (default: mergePreview.check in the pipeline of the pull request, off outside)')
   .option('--no-check', 'Do not set the commit status')
   .option('--commitlint', 'Lint the commits of the pull request, as warnings (default: mergePreview.commitlint)')
   .option('--no-commitlint', 'Do not lint the commits of the pull request')
@@ -751,9 +752,7 @@ mergePreviewCommand
         token: options.token,
         publishToken: options.publishToken,
         privatePackages: options.privatePackages,
-        comment: hasCliFlag('--no-comment')
-          ? false
-          : undefined,
+        comment: getCliSwitch('comment'),
         prCommentMode: options.prCommentMode,
         check: getCliSwitch('check'),
         commitlint: getCliSwitch('commitlint'),

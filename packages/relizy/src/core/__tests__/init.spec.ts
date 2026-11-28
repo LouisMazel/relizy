@@ -261,6 +261,14 @@ describe('Given the init helpers', () => {
       expect(Object.keys(buildInitConfig(detection, answers(detection, {
         profiles: ['alpha', 'beta', 'rc'],
       })).profiles ?? {})).toEqual(['alpha', 'beta', 'rc'])
+      // stable names the default channel, and graduates a prerelease
+      expect(buildInitConfig(detection, answers(detection, {
+        profiles: ['stable'],
+      })).profiles?.stable).toEqual({
+        description: 'Stable release under the latest dist-tag, also to graduate a prerelease',
+        bump: { type: 'release' },
+        publish: { tag: 'latest' },
+      })
       expect(buildInitConfig(detection, answers(detection, {
         profiles: ['rc'],
       })).profiles?.rc).toEqual({

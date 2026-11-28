@@ -31,6 +31,13 @@ describe('Given the release workflow of GitHub Actions', () => {
     expect(content).toContain('      - id: release\n        uses: relizy/action@v2\n        with:\n          release-type: ${{ inputs.release }}\n')
   })
 
+  it('When the release comments its pull request, Then only then the job may write the pull requests', () => {
+    expect(getWorkflowFile(options, '/nonexistent').content).not.toContain('pull-requests: write')
+
+    const { content } = getWorkflowFile({ ...options, prComment: true }, '/nonexistent')
+    expect(content).toContain('      pull-requests: write\n      issues: write\n')
+  })
+
   it('When released at each push, Then runs on the default branch, without input', () => {
     const { content } = getWorkflowFile({ ...options, trigger: 'push', branch: 'develop' }, '/nonexistent')
 

@@ -16,11 +16,13 @@ import { getReleaseConfig } from './release'
 export interface MergePreviewOptions extends Pick<ReleaseOptions, 'type' | 'preid' | 'suffix' | 'from' | 'to' | 'force' | 'publish' | 'commit' | 'gitTag' | 'providerRelease'
   | 'registry' | 'tag' | 'token' | 'publishToken' | 'privatePackages' | 'prNumber' | 'logLevel' | 'configName' | 'profile' | 'config' | 'overrides' | 'onProgress' | 'groups' | 'report' | 'prCommentMode'> {
   /**
-   * Override of `mergePreview.comment` for this run
+   * Override of `mergePreview.comment` for this run. Outside the pipeline of the
+   * pull request (`prNumber` from an app or a terminal), nothing is posted
+   * unless it is `true`: the preview is only printed and reported
    */
   comment?: boolean
   /**
-   * Override of `mergePreview.check` for this run (off by default, `auto`: on GitHub only). With `comment: false` too, the preview is
+   * Override of `mergePreview.check` for this run (off by default, `auto`: on GitHub only; outside the pipeline of the pull request, set only when `true`). With `comment: false` too, the preview is
    * only computed: nothing is posted on the pull request. The report is still written where
    * `release.report` says (in GitHub Actions: the outputs and the summary of the job, unless
    * `release.report.github: false`)
@@ -85,6 +87,8 @@ interface ComputedPreview {
   checks: MergePreviewChecks
   /** Why the pull request of `prNumber` is not commented outside its pipeline */
   notPosted?: string
+  /** The pull request of `prNumber`, read from the API outside its pipeline */
+  outsideCi?: boolean
 }
 
 /** `#7` on GitHub, `!7` on GitLab */
@@ -156,6 +160,7 @@ async function computePreview({ config, options, settings, ui }: {
       const outsideCi = await readPullRequestOutsideCi({ config, prNumber: options.prNumber, ui })
       pullRequest = outsideCi.pullRequest
       computed.notPosted = outsideCi.reason
+      computed.outsideCi = true
     }
 
     if (pullRequest) {
@@ -262,6 +267,22 @@ async function commentPullRequest({ config, context, markdown, prNumber }: { con
     body: markdown,
     marker: MERGE_PREVIEW_MARKER,
   })
+}
+
+/** Why the comment is not posted outside the pipeline of the pull request, when it was not asked */
+const NOT_ASKED_REASON = 'not asked: outside the pipeline of the pull request, the preview is posted with --comment (comment: true)'
+
+/**
+ * Outside the pipeline of the pull request (an app, a terminal), only what the
+ * run asks is posted: `comment: true` (`--comment`), `check` (`--check`),
+ * never the settings of the config, which are the ones of the CI job
+ */
+function getAskedSettings(settings: MergePreviewConfig, options: MergePreviewOptions): MergePreviewConfig {
+  return {
+    ...settings,
+    comment: options.comment === true,
+    check: options.check ?? false,
+  }
 }
 
 /**
@@ -450,7 +471,7 @@ async function runMergePreview(options: MergePreviewOptions): Promise<ReleaseRep
 
 async function previewMerge({ config, options, ui }: { config: ResolvedRelizyConfig, options: MergePreviewOptions, ui: ReleaseUi }): Promise<ReleaseReport> {
   const settings = getSettings(config, options)
-  const { context, plan, checks, notPosted } = await computePreview({ config, options, settings, ui })
+  const { context, plan, checks, notPosted, outsideCi } = await computePreview({ config, options, settings, ui })
 
   const outcome = plan?.outcome
   const version = outcome?.bumpResult.bumped
@@ -467,12 +488,15 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
     branch: context?.pullRequest.targetBranch ?? getBranch(config.cwd),
   }
 
+  const asked = outsideCi
+    ? getAskedSettings(settings, options)
+    : settings
   const posted = context
     ? await postOnPullRequest({
         config,
         context,
         result,
-        settings,
+        settings: asked,
         prNumber: options.prNumber,
         ui,
       })
@@ -483,6 +507,10 @@ async function previewMerge({ config, options, ui }: { config: ResolvedRelizyCon
           ? { reason: notPosted }
           : {}),
       }
+
+  if (context && outsideCi && !asked.comment && !posted.status && !posted.reason) {
+    posted.reason = NOT_ASKED_REASON
+  }
 
   const report = getReport(result, config, posted)
   writeReleaseReport({ config, report })

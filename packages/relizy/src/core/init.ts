@@ -79,11 +79,16 @@ export type InitAITarget = 'providerRelease' | 'twitter' | 'slack' | 'teams'
 /**
  * Answers of `relizy init`, detected values when a question is not asked.
  */
-/** A channel `relizy init` writes as a profile: prereleases under `alpha`, `beta` or `rc`, canaries of a commit under `canary` */
-export type InitProfile = 'alpha' | 'beta' | 'rc' | 'canary'
+/** A channel `relizy init` writes as a profile: stable versions under `latest`, prereleases under `alpha`, `beta` or `rc`, canaries of a commit under `canary` */
+export type InitProfile = 'stable' | 'alpha' | 'beta' | 'rc' | 'canary'
 
 /** The profiles `relizy init` writes, as in the guide of the prereleases */
 export const INIT_PROFILES: Record<InitProfile, RelizyProfile> = {
+  stable: {
+    description: 'Stable release under the latest dist-tag, also to graduate a prerelease',
+    bump: { type: 'release' },
+    publish: { tag: 'latest' },
+  },
   alpha: {
     description: 'Prerelease under the alpha dist-tag',
     bump: { type: 'prerelease', preid: 'alpha' },

@@ -55,7 +55,7 @@ Without pull request, the comment is skipped with the warning `No PR/MR detected
 The comment uses the token of the provider releases (`tokens.github` or `tokens.gitlab`): see [Tokens](./../config/overview.md#tokens). On GitLab, the job token (`CI_JOB_TOKEN`) cannot comment the merge requests: set `GITLAB_TOKEN`.
 
 - **GitHub**: the token needs the permission to comment the pull requests. With the `GITHUB_TOKEN` of GitHub Actions, grant `pull-requests: write` to the job (see [GitHub Actions](./github-actions.md)).
-- **GitLab**: the token is sent in the `PRIVATE-TOKEN` header: use a project or personal access token with the `api` scope (see [GitLab CI](./gitlab-ci.md)).
+- **GitLab**: a project or personal access token with the `api` scope, sent in the `PRIVATE-TOKEN` header (see [GitLab CI](./gitlab-ci.md)); the OAuth token of `glab auth login` is sent in `Authorization: Bearer`.
 
 A self-hosted instance is reached on the domain of `repo` (`https://<domain>/api/v3` for GitHub Enterprise, `https://<domain>/api/v4` for GitLab).
 
@@ -64,7 +64,7 @@ A self-hosted instance is reached on the domain of `repo` (`https://<domain>/api
 With `relizy release`, the comment is the **summary of the release**, the same as the end of the terminal output and the summary of the GitHub Actions run (see [`release.report`](./../config/release.md#report)):
 
 - a title: `🚀 Released <name> <version>` (up to 2 versions, else the count of the released packages: `🚀 Released 13 packages of <projectName>`), `🧪 Dry run: <name> <version>`, `ℹ️ Nothing to release` or `❌ Release failed` with the error;
-- a short recap: what the release contains (`3 features · 2 fixes · 1 contributor`), each step that ran with its status and the links of what it created (npm pages, provider releases, tweet; counted beyond 2), the skipped steps left out, the AI rewrites and the install command. The versions and the tags are in the tables of the packages;
+- a short recap: what the release contains (`3 features · 2 fixes · 1 contributor`), each step that ran with its status and the links of what it created (npm pages, provider releases, tweet; counted beyond 2), the skipped steps left out, the AI rewrites, the install command and the [staged versions](./staged-publishing.md) awaiting approval. The versions and the tags are in the tables of the packages;
 - the packages and their versions: one table, or one per [version group](./version-groups.md) titled with its `title`, its version and its version mode, the `unified`/`selective` group first;
 - a footer: the branch, the date, and a link to Relizy.
 

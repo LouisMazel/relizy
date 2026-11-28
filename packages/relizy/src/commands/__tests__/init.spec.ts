@@ -120,7 +120,7 @@ describe('Given init command', () => {
       expect(changes).toContain(`install  relizy in the devDependencies (${command})`)
     })
 
-    it('Then a failed install does not stop init, and tells the command to run', async () => {
+    it('Then a failed install does not stop init, tells the command to run, and writes nothing that runs relizy', async () => {
       vi.mocked(execPromise).mockRejectedValueOnce(new Error('network error'))
 
       const result = await init({ cwd, yes: true })
@@ -129,30 +129,53 @@ describe('Given init command', () => {
       expect(vi.mocked(spinner)).not.toHaveBeenCalled()
       expect(result.written).toBe(true)
       expect(vi.mocked(log.warn)).toHaveBeenCalledWith(`relizy not installed - network error (run pnpm add -D -w relizy@^${readOwnVersion()})`)
+      // The prepare script and the hook would stop the installs and the commits
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
+      expect(readJson('package.json').scripts.release).toBe('relizy release')
+      expect(existsSync(join(cwd, '.git/hooks/commit-msg'))).toBe(false)
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith('relizy is not installed: the commit-msg hook and the prepare script are not written, they would stop the commits and "pnpm install" - install relizy, then run "npx relizy init" again')
       expect(vi.mocked(outro)).toHaveBeenCalledWith(expect.stringContaining('relizy is ready'))
     })
 
-    it('Then pnpm stopping on build scripts awaiting approval restores the files it changed, and tells the commands to run', async () => {
-      write('pnpm-lock.yaml', 'lockfileVersion: 9.0\n')
-      vi.mocked(execPromise).mockImplementationOnce(() => {
-        // As pnpm: relizy written in the package.json and the lockfile, then the error
-        writePackage('.', {
-          ...readJson('package.json'),
-          devDependencies: { relizy: '^2.0.0' },
-        })
-        write('pnpm-lock.yaml', 'lockfileVersion: 9.0\nrelizy\n')
-        return Promise.reject(new Error('Command failed: pnpm add -D -w relizy\n ERR_PNPM_IGNORED_BUILDS  Ignored build scripts: esbuild'))
+    /** pnpm stopping on the build scripts of esbuild, as pnpm 12: relizy written in the package.json and the lockfile, then the error */
+    function stopOnIgnoredBuilds() {
+      writePackage('.', {
+        ...readJson('package.json'),
+        devDependencies: { relizy: '^2.0.0' },
       })
+      write('pnpm-lock.yaml', 'lockfileVersion: 9.0\nrelizy\n')
+      return Promise.reject(new Error('Command failed: pnpm add -D -w relizy\nError: ERR_PNPM_IGNORED_BUILDS\n  Ignored build scripts: esbuild'))
+    }
+
+    it('Then pnpm stopping on build scripts of other dependencies awaiting approval installs relizy without approving them', async () => {
+      write('pnpm-lock.yaml', 'lockfileVersion: 9.0\n')
+      vi.mocked(execPromise).mockImplementationOnce(stopOnIgnoredBuilds)
+
+      const result = await init({ cwd, yes: true })
+
+      const command = `pnpm add -D -w relizy@^${readOwnVersion()}`
+      expect(vi.mocked(execPromise)).toHaveBeenCalledWith(`${command} --config.strict-dep-builds=false`, expect.objectContaining({ cwd }))
+      expect(result.written).toBe(true)
+      expect(readJson('package.json').scripts.prepare).toBe('relizy commitlint --install')
+      expect(existsSync(join(cwd, '.git/hooks/commit-msg'))).toBe(true)
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith('Build scripts of other dependencies of the project await the approval of pnpm (relizy has none): run "pnpm approve-builds", "pnpm install" stops on them until then')
+    })
+
+    it('Then pnpm failing again restores the files it changed, and writes nothing that runs relizy', async () => {
+      write('pnpm-lock.yaml', 'lockfileVersion: 9.0\n')
+      vi.mocked(execPromise).mockImplementationOnce(stopOnIgnoredBuilds).mockImplementationOnce(stopOnIgnoredBuilds)
 
       const result = await init({ cwd, yes: true })
 
       const command = `pnpm add -D -w relizy@^${readOwnVersion()}`
       expect(result.written).toBe(true)
       expect(readJson('package.json').devDependencies).toBeUndefined()
-      // The scripts of relizy stay: they run once the install succeeds
       expect(readJson('package.json').scripts.release).toBe('relizy release')
+      expect(readJson('package.json').scripts.prepare).toBeUndefined()
       expect(read('pnpm-lock.yaml')).toBe('lockfileVersion: 9.0\n')
-      expect(vi.mocked(log.warn)).toHaveBeenCalledWith(`relizy not installed - pnpm stopped on build scripts of dependencies of the project awaiting approval (ERR_PNPM_IGNORED_BUILDS), package.json and pnpm-lock.yaml restored: run "pnpm approve-builds", then "${command}"`)
+      expect(existsSync(join(cwd, '.git/hooks/commit-msg'))).toBe(false)
+      expect(vi.mocked(log.warn)).toHaveBeenCalledWith(expect.stringMatching(/^relizy not installed - .*ERR_PNPM_IGNORED_BUILDS/s))
+      expect(vi.mocked(log.warn).mock.calls.flat().join('\n')).toContain(`(run "pnpm approve-builds", then "${command}")`)
     })
 
     it('Then it is not installed again when it is already a dependency', async () => {
