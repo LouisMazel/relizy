@@ -1,6 +1,9 @@
 import type { PullRequestInfo } from '../pr-comment'
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { logger } from '@maz-ui/node'
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { runGitSync } from '../../../../core/src/git-exec'
 import { createMockConfig } from '../../../tests/mocks'
 import { detectPullRequest, findGitHubPR, findGitLabMR, MERGE_PREVIEW_MARKER, postPrComment, PR_COMMENT_MARKER } from '../pr-comment'
@@ -341,36 +344,44 @@ describe('Given findGitLabMR function', () => {
 })
 
 describe('Given detectPullRequest function', () => {
+  const githubConfig = () => createMockConfig({
+    repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
+    tokens: { github: 'test-token' },
+  })
+
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
   describe('When the branch has no open pull request, after a merge', () => {
-    const githubConfig = () => createMockConfig({
-      repo: { provider: 'github', domain: 'github.com', repo: 'user/repo' },
-      tokens: { github: 'test-token' },
-    })
+    /** Answers the API by URL: the open pull requests of the branch, the pull requests of the commit */
+    function mockApi(routes: Record<string, unknown[]>) {
+      vi.mocked(fetch).mockImplementation((input) => {
+        const url = String(input)
+        const route = Object.keys(routes).find(suffix => url.includes(suffix))
+        return Promise.resolve({
+          ok: true,
+          json: () => Promise.resolve(route
+            ? routes[route]
+            : []),
+        } as Response)
+      })
+    }
 
     it('Then finds the GitHub pull request of the commit', async () => {
       vi.mocked(runGitSync).mockReturnValue('main')
-      vi.mocked(fetch)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve([]),
-        } as Response)
-        .mockResolvedValueOnce({
-          ok: true,
-          json: () => Promise.resolve([
-            { number: 12, html_url: 'https://github.com/user/repo/pull/12' },
-          ]),
-        } as Response)
+      mockApi({
+        '/commits/abc123/pulls': [
+          { number: 12, html_url: 'https://github.com/user/repo/pull/12' },
+        ],
+      })
 
       const result = await detectPullRequest({
         config: githubConfig(),
         sha: 'abc123',
       })
 
-      expect(fetch).toHaveBeenLastCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
+      expect(fetch).toHaveBeenCalledWith('https://api.github.com/repos/user/repo/commits/abc123/pulls', expect.anything())
       expect(result).toEqual({
         number: 12,
         url: 'https://github.com/user/repo/pull/12',
@@ -405,20 +416,204 @@ describe('Given detectPullRequest function', () => {
 
     it('Then keeps the open pull request of the branch first', async () => {
       vi.mocked(runGitSync).mockReturnValue('feat/parser')
-      vi.mocked(fetch).mockResolvedValueOnce({
-        ok: true,
-        json: () => Promise.resolve([
+      mockApi({
+        // The commit is in the open pull request of the branch, not merged
+        '/commits/abc123/pulls': [
+          {
+            number: 3,
+            html_url: 'https://github.com/user/repo/pull/3',
+            merged_at: null,
+            base: { ref: 'main' },
+          },
+        ],
+        '/pulls?': [
           { number: 3, html_url: 'https://github.com/user/repo/pull/3' },
-        ]),
-      } as Response)
+        ],
+      })
 
       const result = await detectPullRequest({
         config: githubConfig(),
         sha: 'abc123',
       })
 
+      expect(result).toEqual({ number: 3, url: 'https://github.com/user/repo/pull/3', provider: 'github' })
+    })
+
+    it('Then without commit, only asks the open pull request of the branch', async () => {
+      vi.mocked(runGitSync).mockReturnValue('feat/parser')
+      mockApi({
+        '/pulls?': [
+          { number: 3, html_url: 'https://github.com/user/repo/pull/3' },
+        ],
+      })
+
+      const result = await detectPullRequest({
+        config: githubConfig(),
+      })
+
       expect(fetch).toHaveBeenCalledTimes(1)
       expect(result?.number).toBe(3)
+    })
+
+    it('Then prefers the pull request merged into the branch over an open one from the branch (main into develop)', async () => {
+      vi.mocked(runGitSync).mockReturnValue('main')
+      mockApi({
+        '/commits/abc123/pulls': [
+          {
+            number: 30,
+            html_url: 'https://github.com/user/repo/pull/30',
+            merged_at: null,
+            base: { ref: 'develop' },
+          },
+          {
+            number: 12,
+            html_url: 'https://github.com/user/repo/pull/12',
+            merged_at: '2026-11-27T10:00:00Z',
+            base: { ref: 'main' },
+          },
+        ],
+        '/pulls?': [
+          { number: 30, html_url: 'https://github.com/user/repo/pull/30' },
+        ],
+      })
+
+      const result = await detectPullRequest({
+        config: githubConfig(),
+        sha: 'abc123',
+      })
+
+      expect(result).toEqual({
+        number: 12,
+        url: 'https://github.com/user/repo/pull/12',
+        provider: 'github',
+        ofCommit: true,
+      })
+    })
+
+    it('Then prefers the GitLab merge request merged into the branch', async () => {
+      vi.mocked(runGitSync).mockReturnValue('main')
+      mockApi({
+        '/repository/commits/abc123/merge_requests': [
+          {
+            iid: 30,
+            web_url: 'https://gitlab.com/user/repo/-/merge_requests/30',
+            state: 'opened',
+            target_branch: 'develop',
+          },
+          {
+            iid: 12,
+            web_url: 'https://gitlab.com/user/repo/-/merge_requests/12',
+            state: 'merged',
+            target_branch: 'main',
+          },
+        ],
+        'merge_requests?state=opened': [
+          { iid: 30, web_url: 'https://gitlab.com/user/repo/-/merge_requests/30' },
+        ],
+      })
+      const config = createMockConfig({
+        repo: { provider: 'gitlab', domain: 'gitlab.com', repo: 'user/repo' },
+        tokens: { gitlab: 'glpat-token' },
+      })
+
+      const result = await detectPullRequest({ config, sha: 'abc123' })
+
+      expect(result).toMatchObject({ number: 12, provider: 'gitlab', ofCommit: true })
+    })
+
+    it('Then prefers the merged pull request of the commit on a detached HEAD', async () => {
+      vi.mocked(runGitSync).mockReturnValue('HEAD')
+      mockApi({
+        '/commits/abc123/pulls': [
+          {
+            number: 30,
+            html_url: 'https://github.com/user/repo/pull/30',
+            merged_at: null,
+            base: { ref: 'develop' },
+          },
+          {
+            number: 12,
+            html_url: 'https://github.com/user/repo/pull/12',
+            merged_at: '2026-11-27T10:00:00Z',
+            base: { ref: 'main' },
+          },
+        ],
+      })
+
+      expect(await detectPullRequest({
+        config: githubConfig(),
+        sha: 'abc123',
+      })).toMatchObject({ number: 12 })
+    })
+
+    it('Then finds nothing without pull request, without error', async () => {
+      vi.mocked(runGitSync).mockReturnValue('main')
+      mockApi({})
+
+      expect(await detectPullRequest({
+        config: githubConfig(),
+        sha: 'abc123',
+      })).toBeNull()
+    })
+  })
+
+  describe('When a GitHub Actions run is started by the merge of a pull request (pull_request: closed)', () => {
+    let dir: string
+
+    beforeEach(() => {
+      dir = mkdtempSync(join(tmpdir(), 'relizy-pr-event-'))
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('GITHUB_EVENT_NAME', 'pull_request')
+    })
+
+    afterEach(() => {
+      vi.unstubAllEnvs()
+      rmSync(dir, { recursive: true, force: true })
+    })
+
+    function useEvent(event: unknown) {
+      const path = join(dir, 'event.json')
+      writeFileSync(path, JSON.stringify(event))
+      vi.stubEnv('GITHUB_EVENT_PATH', path)
+    }
+
+    const config = githubConfig
+
+    it('Then comments the merged pull request of the event, without API call', async () => {
+      useEvent({
+        action: 'closed',
+        pull_request: { number: 42, merged: true, html_url: 'https://github.com/user/repo/pull/42' },
+      })
+
+      const result = await detectPullRequest({
+        config: config(),
+        sha: 'abc123',
+      })
+
+      expect(fetch).not.toHaveBeenCalled()
+      expect(result).toEqual({
+        number: 42,
+        url: 'https://github.com/user/repo/pull/42',
+        provider: 'github',
+        ofCommit: true,
+      })
+    })
+
+    it('Then a pull request closed without merge is not used', async () => {
+      useEvent({
+        action: 'closed',
+        pull_request: { number: 42, merged: false, html_url: 'https://github.com/user/repo/pull/42' },
+      })
+      vi.mocked(runGitSync).mockReturnValue('feature')
+      vi.mocked(fetch).mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve([]),
+      } as Response)
+
+      expect(await detectPullRequest({
+        config: config(),
+        sha: 'abc123',
+      })).toBeNull()
     })
   })
 
