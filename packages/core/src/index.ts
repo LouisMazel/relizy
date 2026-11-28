@@ -40,6 +40,7 @@ export type { GithubApiConfig, GithubPullRequest, GithubPullRequestInput, Github
 export { createGitlabMergeRequest, createGitlabRelease, findGitlabMergeRequest, getGitlabReleasePayload, getGitlabReleasesUrl } from './gitlab'
 export type { GitlabMergeRequest, GitlabMergeRequestInput, GitlabRelease, GitlabReleaseResponse } from './gitlab'
 export { getGitlabAuthHeader, GITLAB_JOB_TOKEN_MR_COMMENT_WARNING, isGitlabJobToken } from './gitlab-auth'
+export { getGlabCliToken } from './glab-cli'
 export { GLOB_IGNORE } from './glob'
 export { buildChangelogBody, buildCompareLink, buildContributors, collectContributorNames } from './markdown'
 export type { ChangelogAuthorsOptions, ChangelogBodyOptions } from './markdown'
