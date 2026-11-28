@@ -196,9 +196,11 @@ export interface ReleaseMergePreview {
    */
   changelogs?: PreviewChangelog[]
   /**
-   * The pull request was commented (`comment`), and its commit status set (`check`)
+   * The pull request was commented (`comment`), and its commit status set (`check`).
+   * `reason`: why the pull request asked was not commented (no token, forge unknown,
+   * not found, HEAD not its last commit outside its pipeline, refused by the API)
    */
-  posted: { comment: boolean, status: boolean }
+  posted: { comment: boolean, status: boolean, reason?: string }
 }
 
 const STEP_LABELS: Record<ReleaseStepName, string> = {

@@ -6,7 +6,7 @@ import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
 import { formatJson } from '@maz-ui/utils/helpers/formatJson'
-import { getEnvNpmToken, getGhCliToken, getRepoConfig, isInCI, redactSecrets, resolveRepoConfig } from '@relizy/core'
+import { getEnvNpmToken, getGhCliToken, getGlabCliToken, getRepoConfig, isInCI, redactSecrets, resolveRepoConfig } from '@relizy/core'
 
 import { loadConfig, setupDotenv } from 'c12'
 import { createDefu } from 'defu'
@@ -360,6 +360,14 @@ async function resolveConfig(
     config.tokens.github = getGhCliToken(config.repo.domain)
     if (config.tokens.github) {
       logger.debug('GitHub token: the one of the GitHub CLI (gh auth token)')
+    }
+  }
+
+  // A local run without GITLAB_TOKEN: the token of the GitLab CLI, when it is logged in
+  if (config.tokens && !config.tokens.gitlab && config.repo?.provider === 'gitlab' && !isInCI()) {
+    config.tokens.gitlab = getGlabCliToken(config.repo.domain)
+    if (config.tokens.gitlab) {
+      logger.debug('GitLab token: the one of the GitLab CLI (glab config get token)')
     }
   }
 

@@ -90,6 +90,7 @@ const MODULE_DOMAINS: Record<string, string> = {
   'gitlab': 'providers',
   'gitlab-auth': 'providers',
   'gh-cli': 'providers',
+  'glab-cli': 'providers',
   'repo-config': 'providers',
   'ci': 'ci-utils',
   'ci-env': 'ci-utils',
