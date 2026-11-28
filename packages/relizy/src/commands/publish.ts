@@ -3,10 +3,11 @@ import type { ResolvedRelizyConfig } from '../core'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getTrustedPublishing, isInCI, isNpmjsRegistry, isPackageOnRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
-import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, normalizeRegistryKey, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackage, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
+import { assertPublishNpmVersion, assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getPublishRoute, getTrustedPublishing, isInCI, isNpmjsRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
+import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
 import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
+import { getTargetPublishAuth, reportPublishAuth, runTrustedPublishingPreflight } from '../core/publish-checks'
 import { getNpmLinks } from '../core/release-facts'
 import { clearPublishedPackages, emitStepItem, recordPublishedPackage, takePublishStepData } from '../core/step-data'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
@@ -79,52 +80,57 @@ async function checkRegistryAuth({
 }
 
 /**
- * Without token in a CI job, the way to publish to npm: a token, or trusted
- * publishing (the job then lacks its OIDC permission)
+ * Without token in a CI job, the way to publish to npm: trusted publishing
+ * first (the job then lacks its OIDC permission), a token second
  */
 function getMissingTokenHint(config: ResolvedRelizyConfig, registryTarget: RegistryTarget): string {
   if (registryTarget.token || !isInCI() || !isNpmjsRegistry(registryTarget.registry || getNpmRegistry(config.cwd))) {
     return ''
   }
 
-  return ': no npm token found. Set NPM_TOKEN, or publish with trusted publishing (OIDC), without token: https://relizy.dev/guide/trusted-publishing'
+  return ': no npm token found. Publish with trusted publishing (OIDC), without token: give the job the "id-token: write" permission and run "relizy trust" (https://relizy.dev/guide/trusted-publishing), or set NPM_TOKEN'
 }
 
 /**
  * Trusted publishing needs no token, so no `whoami`: the npm of the job must
- * do the OIDC exchange, and a package must already be on npm (OIDC cannot
- * create it)
+ * do the OIDC exchange. Whether npm trusts the job for each package (and
+ * whether the package exists: OIDC cannot create it) is the pre-flight, on the
+ * packages the run publishes only.
  */
-async function checkTrustedPublishing({
+function checkTrustedPublishing({
   config,
-  registry,
   registryLabel,
   provider,
-  packages,
 }: {
   config: ResolvedRelizyConfig
-  registry: string
   registryLabel: string
   provider: TrustedPublishingProvider
-  packages: Pick<PackageBase, 'name'>[]
 }) {
   logger.info(`Trusted publishing (OIDC) from ${provider}${registryLabel}: no npm token needed`)
   assertTrustedPublishingNpm({ packageManager: config.publish.packageManager, cwd: config.cwd, provider })
+}
 
-  const registryKey = normalizeRegistryKey(registry)
-  const names = packages
-    .filter(pkg => resolveRegistryTargetsForPackage(pkg, config).some(target => normalizeRegistryKey(target.registry || registry) === registryKey))
-    .map(pkg => pkg.name)
-  const timeoutMs = config.publish.safetyCheckTimeout ?? 15000
-  const onRegistry = await Promise.all(names.map(name => isPackageOnRegistry({ name, registry, timeoutMs, logger })))
-  const newPackages = names.filter((_, index) => onRegistry[index] === false)
-
-  if (newPackages.length > 0) {
-    logger.warn(
-      `Not on npm yet: ${newPackages.join(', ')}. Trusted publishing cannot create a package: `
-      + 'publish its first version with an npm token (NPM_TOKEN), then add its trusted publisher on npmjs.com. '
-      + 'See https://relizy.dev/guide/trusted-publishing',
-    )
+/**
+ * The npm that uploads the packed tarball of bun and yarn classic, which
+ * cannot do the trusted publishing exchange themselves
+ */
+function checkUploadNpm({ config, packages }: { config: ResolvedRelizyConfig, packages: Pick<PackageBase, 'name'>[] }) {
+  for (const registryTarget of resolveRegistryTargetsForPackages(packages, config)) {
+    const auth = getTargetPublishAuth(config, registryTarget)
+    const route = getPublishRoute({
+      packageManager: config.publish.packageManager,
+      cwd: config.cwd,
+      staged: false,
+      authMode: auth.mode,
+    })
+    if (route === 'pack-and-upload') {
+      assertPublishNpmVersion({
+        packageManager: config.publish.packageManager,
+        cwd: config.cwd,
+        staged: false,
+        route,
+      })
+    }
   }
 }
 
@@ -157,10 +163,17 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
 
   logger.debug('Start checking auth config to package registry')
 
+  // Every package manager: the auth notes, the npm of the routes, the pre-flight
+  reportPublishAuth({ config, packages: packagesToCheck })
+  checkUploadNpm({ config, packages: packagesToCheck })
+
   const isPnpmOrNpm = config.publish.packageManager === 'pnpm' || config.publish.packageManager === 'npm'
 
   if (!isPnpmOrNpm) {
     logger.debug(`Skipping authentication to package registry because "${config.publish.packageManager}" is not supported`)
+    if (packages) {
+      await runTrustedPublishingPreflight({ config, packages })
+    }
     return
   }
 
@@ -178,17 +191,21 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
     const provider = getTrustedPublishing({ registry, token: registryTarget.token })
 
     if (provider) {
-      await checkTrustedPublishing({
+      checkTrustedPublishing({
         config,
-        registry,
         registryLabel,
         provider,
-        packages: packagesToCheck,
       })
       continue
     }
 
     await checkRegistryAuth({ config, registryTarget, registryLabel })
+  }
+
+  // The packages the run publishes are known (relizy publish): `release`
+  // runs the pre-flight itself, once the bump told them
+  if (packages) {
+    await runTrustedPublishingPreflight({ config, packages })
   }
 }
 

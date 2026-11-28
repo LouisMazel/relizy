@@ -1016,6 +1016,44 @@ describe('Given publishPackage function', () => {
     })
   })
 
+  describe('When npm did not trust the job, under trusted publishing', () => {
+    afterEach(() => {
+      vi.unstubAllEnvs()
+    })
+
+    it('Then turns the misleading ENEEDAUTH into the fix', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: undefined }
+      vi.mocked(execPromise).mockRejectedValue(new Error('npm error code ENEEDAUTH\nnpm error need auth This command requires you to be logged in'))
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      }))
+        .rejects
+        .toThrow(/^Failed to publish test-package@1\.0\.1: npm does not trust this job to publish test-package.*Run "relizy trust"/)
+    })
+
+    it('Then keeps ENEEDAUTH as is with a token', async () => {
+      config.publish = { ...config.publish, registry: 'https://registry.npmjs.org/' }
+      config.tokens = { ...config.tokens, registry: 'npm_token' }
+      const error = new Error('npm error code ENEEDAUTH')
+      vi.mocked(execPromise).mockRejectedValue(error)
+
+      await expect(publishPackage({
+        pkg,
+        config,
+        packageManager: 'npm',
+        dryRun: false,
+      })).rejects.toBe(error)
+    })
+  })
+
   describe('When publishing successfully', () => {
     it('Then publishes package with correct tag', async () => {
       await publishPackage({

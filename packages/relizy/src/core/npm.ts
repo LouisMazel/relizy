@@ -10,6 +10,7 @@ import { getAppHandlers } from './events'
 import { buildLegacyRegistryTarget, getNpmRegistry, normalizeRegistryKey, resolveRegistryTargetsForPackage } from './npm-registry'
 import { isVersionPublished } from './npm-versions'
 import { askText, assertInteractivePrompt } from './prompts'
+import { getTargetPublishAuth, getTrustedPublisherMismatchMessage } from './publish-checks'
 
 // Store OTP per registry for the session to avoid re-prompting for each package
 const sessionOtpByRegistry = new Map<string, string>()
@@ -60,21 +61,31 @@ function promptOtpWithTimeout(timeout: number = 90000): Promise<string> {
 
 /**
  * The error a failed publish throws: an actionable one when the registry
- * refused a restricted scoped package, else the original one (logged)
+ * refused a restricted scoped package or when npm did not trust the job
+ * (trusted publishing), else the original one (logged)
  */
 function getPublishFailure({
   error,
   pkg,
+  config,
   registryTarget,
   packageNameAndVersion,
   registryLabel,
 }: {
   error: unknown
   pkg: PackageBase
+  config: ResolvedRelizyConfig
   registryTarget: RegistryTarget
   packageNameAndVersion: string
   registryLabel: string
 }): unknown {
+  // npm swallows a failed trusted publishing exchange, then fails with a misleading ENEEDAUTH
+  if (/ENEEDAUTH/i.test(String((error as { message?: unknown })?.message ?? error)) && getTargetPublishAuth(config, registryTarget).mode === 'oidc') {
+    return new Error(`Failed to publish ${packageNameAndVersion}${registryLabel}: ${getTrustedPublisherMismatchMessage({
+      packages: [pkg.name],
+    })}`, { cause: error })
+  }
+
   if (isPaymentRequiredError(error) && pkg.name.startsWith('@') && registryTarget.access !== 'public') {
     return new Error(
       `Failed to publish ${packageNameAndVersion}${registryLabel}: the registry requires a paid plan to publish a private package (402 Payment Required). `
@@ -254,6 +265,7 @@ async function publishToRegistryTarget({
         throw getPublishFailure({
           error,
           pkg,
+          config,
           registryTarget,
           packageNameAndVersion,
           registryLabel,

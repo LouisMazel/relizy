@@ -4,13 +4,14 @@ import type { AIRewrite, ReleaseLink } from '../core/progress'
 import type { GitProvider, HookContext, PostedRelease, PublishResponse, ReleaseContext, ReleaseOptions, SocialResult, SyncResult } from '../types'
 import { logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
+import { assertBranchUpToDateWithRemote, assertReleaseTagsAvailable, BranchBehindRemoteError, filterOutPrivatePackages, getCIName, getGitPushTarget, getHeadCommit, getPullRequestOutdatedWarning, getPullRequestPushWarning, isPullRequestRun, plural, prepareCiRepository, withGitCache } from '@relizy/core'
 import { createCommandUi, createCommitAndTags, describeBumpResult, describeSyncResult, executeHook, getBumpResultDetails, getHookContext, getReleaseTagNames, getSyncSource, getSyncTargets, hasSyncFailures, isFancyUi, isRelizyCancelError, loadRelizyConfig, mergeConfig, pushCommitAndTags, rollbackModifiedFiles, syncBranches, syncSafetyCheck, writeReleaseReport } from '../core'
 import { applyAIOverride } from '../core/ai'
 import { assertBumpConfirmable } from '../core/bump-prompt'
 import { ensurePushAccess } from '../core/ci'
 import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
+import { runTrustedPublishingPreflight } from '../core/publish-checks'
 import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
@@ -618,6 +619,15 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       writeReleaseReport({ config, report })
 
       return report
+    }
+
+    // The trusted publishing pre-flight needs the packages the bump plans:
+    // warnings only, before anything is published
+    if (config.release.publish) {
+      await runTrustedPublishingPreflight({
+        config,
+        packages: filterOutPrivatePackages(bumpResult.bumpedPackages),
+      })
     }
 
     if (config.release.commit) {

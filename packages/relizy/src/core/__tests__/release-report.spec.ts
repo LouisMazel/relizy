@@ -145,7 +145,10 @@ const detailed: ReleaseReport = {
 
 describe('Given a release that published without staging', () => {
   beforeEach(() => {
-    vi.useFakeTimers({ now: new Date('2026-11-28T01:44:00Z'), toFake: ['Date'] })
+    vi.useFakeTimers({
+      now: new Date('2026-11-28T01:44:00Z'),
+      toFake: ['Date'],
+    })
   })
 
   afterEach(() => {

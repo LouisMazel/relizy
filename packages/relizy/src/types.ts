@@ -937,7 +937,7 @@ export interface PublishConfig {
    */
   buildCmd?: string
   /**
-   * Authenticate to each registry the packages need (`whoami`) before publishing
+   * Check, before publishing, what each registry the packages need will accept: the login or token (`whoami`, npm and pnpm), the npm of trusted publishing (OIDC) and whether npm trusts the job for each package published (warnings only), the npm a staged publish needs, the notes on tokens (direct publishing with granular tokens ends in January 2027)
    * @default true
    */
   safetyCheck?: boolean

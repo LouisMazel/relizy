@@ -1,6 +1,6 @@
 import type { RelizyEvent } from '../../core/events'
 import { execPromise, logger } from '@maz-ui/node'
-import { assertTrustedPublishingNpm, sortPackagesForPublish } from '@relizy/core'
+import { assertPublishNpmVersion, assertTrustedPublishingNpm, sortPackagesForPublish } from '@relizy/core'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
@@ -42,6 +42,7 @@ vi.mock('@relizy/core', async (importActual) => {
     ...actual,
     sortPackagesForPublish: vi.fn(),
     assertTrustedPublishingNpm: vi.fn(),
+    assertPublishNpmVersion: vi.fn(),
   }
 })
 vi.mock('../../core/repo', async (importActual) => {
@@ -214,15 +215,37 @@ describe('Given publishSafetyCheck function', () => {
       expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Trusted publishing (OIDC) from GitHub Actions'))
     })
 
-    it('Then warns about a package that is not on npm yet', async () => {
-      fetchSpy.mockResolvedValue(new Response('{}', { status: 404 }))
+    it('Then warns about a package to publish that is not on npm yet, after the exchange of the pre-flight', async () => {
+      fetchSpy
+        .mockResolvedValueOnce(new Response('{"value":"id-token"}', { status: 200 }))
+        .mockResolvedValueOnce(new Response('{"message":"not found"}', { status: 404 }))
+        .mockResolvedValueOnce(new Response('{}', { status: 404 }))
 
+      await publishSafetyCheck({
+        config: npmConfig(),
+        packages: [
+          createMockPackageInfo({
+            name: 'pkg',
+            version: '1.0.0',
+            path: '/project',
+            commits: [],
+            dependencies: [],
+          }),
+        ],
+      })
+
+      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/-/npm/v1/oidc/token/exchange/package/pkg', expect.objectContaining({ method: 'POST' }))
+      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
+      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
+    })
+
+    it('Then leaves the packages to the pre-flight of the release before the bump', async () => {
       await publishSafetyCheck({
         config: npmConfig(),
       })
 
-      expect(fetchSpy).toHaveBeenCalledWith('https://registry.npmjs.org/pkg', expect.anything())
-      expect(logger.warn).toHaveBeenCalledWith(expect.stringContaining('Not on npm yet: pkg'))
+      expect(fetchSpy).not.toHaveBeenCalled()
+      expect(logger.warn).not.toHaveBeenCalledWith(expect.stringContaining('Not on npm yet'))
     })
 
     it('Then authenticates as usual with a token, the fallback of npm', async () => {
@@ -252,7 +275,7 @@ describe('Given publishSafetyCheck function', () => {
 
       await expect(publishSafetyCheck({
         config: npmConfig(),
-      })).rejects.toThrow(/no npm token found\. Set NPM_TOKEN, or publish with trusted publishing/)
+      })).rejects.toThrow(/no npm token found\. Publish with trusted publishing \(OIDC\), without token: give the job the "id-token: write" permission and run "relizy trust".*, or set NPM_TOKEN/)
     })
   })
 
@@ -285,6 +308,29 @@ describe('Given publishSafetyCheck function', () => {
       expect(fetchSpy).not.toHaveBeenCalled()
       expect(assertTrustedPublishingNpm).not.toHaveBeenCalled()
       fetchSpy.mockRestore()
+    })
+
+    it('Then checks the npm that uploads the tarball of bun under trusted publishing, which bun cannot do', async () => {
+      vi.stubEnv('GITHUB_ACTIONS', 'true')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_URL', 'https://token.example')
+      vi.stubEnv('ACTIONS_ID_TOKEN_REQUEST_TOKEN', 'request-token')
+
+      await publishSafetyCheck({
+        config: createMockConfig({
+          bump: { type: 'patch' },
+          publish: {
+            safetyCheck: true,
+            args: [],
+            packageManager: 'bun',
+            registry: 'https://registry.npmjs.org/',
+          },
+          tokens: { registry: undefined },
+          safetyCheck: true,
+        }),
+      })
+
+      expect(assertPublishNpmVersion).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'bun', staged: false, route: 'pack-and-upload' }))
+      expect(execPromise).not.toHaveBeenCalled()
     })
 
     it.each(['yarn', 'bun'] as const)('Then runs nothing for %s with a token', async (packageManager) => {
