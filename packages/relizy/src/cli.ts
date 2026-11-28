@@ -286,9 +286,12 @@ program
   .option('--build-cmd <cmd>', 'Command to build packages before publish (e.g. "pnpm build")')
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
+  .option('--staged', 'Stage the versions on npm for approval instead of publishing them, canaries included (like publish.staged: true)')
+  .option('--no-staged', 'Publish the versions directly, without staging (like publish.staged: false)')
   .action(async (options) => {
     try {
       await publish({
+        staged: getCliSwitch('staged'),
         registry: options.registry,
         tag: options.tag,
         access: options.access,
@@ -703,6 +706,8 @@ program
   .option('--yes', 'Skip confirmation prompt about bumping packages')
   .option('--publish-token <token>', 'Registry token, instead of tokens.registry (npm, pnpm and bun)')
   .option('--skip-existing-versions', 'Skip packages whose version already exists on the registry instead of failing')
+  .option('--staged', 'Stage the versions on npm for approval instead of publishing them, canaries included (like publish.staged: true)')
+  .option('--no-staged', 'Publish the versions directly, without staging (like publish.staged: false)')
   .option('--canary', 'Publish a canary release from the current commit')
   .addOption(privatePackagesOption())
   .option('--ai', 'Force-enable AI for release notes and social posts')
@@ -715,6 +720,7 @@ program
     try {
       await release({
         type: getReleaseType(options),
+        staged: getCliSwitch('staged'),
         preid: options.preid,
         suffix: options.suffix,
         canary: options.canary,

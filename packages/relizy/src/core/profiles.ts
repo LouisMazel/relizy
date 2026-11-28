@@ -134,6 +134,8 @@ export const PROFILE_OPTIONS: Record<ProfileOptionsSection, Record<string, Optio
     registries: null,
     skipExistingVersions: 'boolean',
     checkWorkspaceDependencies: 'boolean',
+    // true, false or { tags, packages }: checked by assertValidStaged
+    staged: null,
   },
   release: {
     canary: 'boolean',

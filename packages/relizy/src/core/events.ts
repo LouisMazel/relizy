@@ -1,3 +1,4 @@
+import type { PublishAuthMode } from '@relizy/core'
 import type { ConfirmPlan, GitProvider, OtpRequest, SyncResult } from '../types'
 import type { ReleaseReport } from './release-report'
 import type { CommandStepId } from './steps'
@@ -83,14 +84,19 @@ export interface PublishStepPackage {
   name: string
   version: string
   /**
-   * `skipped`: the version is already on the registry (`publish.skipExistingVersions`).
-   * In dry-run, `published` is a simulated publish: see `dryRun` of `PublishStepData`
+   * `skipped`: the version is already on the registry (`publish.skipExistingVersions`), or already staged (reason `already staged`).
+   * `staged`: uploaded to the npm staging area, not installable until approved (`publish.staged`); added in relizy 2.5, handle it when switching on the status.
+   * In dry-run, `published` and `staged` are simulated: see `dryRun` of `PublishStepData`
    */
-  status: 'published' | 'skipped' | 'failed'
-  /** Its page on npmjs.com, once published */
+  status: 'published' | 'skipped' | 'failed' | 'staged'
+  /** Its page on npmjs.com, once published (never for a staged version: it is not on npm until approved) */
   url?: string
   /** Why it is skipped or failed */
   reason?: string
+  /** The id of the stage of a staged version, when npm gave it */
+  stageId?: string
+  /** Its dist-tag, when the project stages (a run can mix tags) */
+  tag?: string
 }
 
 /** What the publish published, in publish order */
@@ -102,6 +108,8 @@ export interface PublishStepData {
   /** A simulation: nothing was published, `published` means it would be (and no `url`) */
   dryRun: boolean
   packages: PublishStepPackage[]
+  /** How the publish authenticated (`oidc`, `token`, `npmrc`), only when the run staged a version */
+  auth?: PublishAuthMode
 }
 
 /** The release commit and its tags */

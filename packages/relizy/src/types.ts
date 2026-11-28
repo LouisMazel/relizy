@@ -1,4 +1,4 @@
-import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType } from '@relizy/core'
+import type { BumpReleaseType, CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommit, CommitlintCustomRuleOutcome, CommitlintRuleConfig, CommitlintRuleLevel, CommitlintRuleName, CommitlintRulesConfig, CommitlintCustomRule as CoreCommitlintCustomRule, CommitlintCustomRuleContext as CoreCommitlintCustomRuleContext, GitCommit, GitCommitAuthor, GitProvider, PackageBase, PackageManager, PrivatePackages, RawGitCommit, ReadPackage, Reference, RegistryTarget, RepoConfig, SemverBumpType, StagedPublishing } from '@relizy/core'
 import type { CallSettings, LanguageModel } from 'ai'
 import type { ReleaseOverview, ReleaseReport, RelizyConfigOverrides, ResolvedRelizyConfig, RootPackage } from './core'
 import type { RelizyEventListener } from './core/events'
@@ -18,7 +18,7 @@ export type { CommitlintBuiltInRules, CommitlintChangelogLinter, CommitlintCommi
 /**
  * PACKAGE, REPOSITORY AND REGISTRY TYPES, declared in `@relizy/core`
  */
-export type { BumpReleaseType, GitProvider, PackageBase, PackageManager, PrivatePackages, ReadPackage, RegistryTarget, RepoConfig }
+export type { BumpReleaseType, GitProvider, PackageBase, PackageManager, PrivatePackages, ReadPackage, RegistryTarget, RepoConfig, StagedPublishing }
 
 /**
  * OTHERS
@@ -978,6 +978,17 @@ export interface PublishConfig {
    * @default true
    */
   checkWorkspaceDependencies?: boolean
+  /**
+   * Upload the versions to the npm staging area instead of publishing them: a maintainer approves each one with 2FA before it is installable (`relizy stage approve`, the approval step of `relizy release`, or npmjs.com).
+   * - `false`: publish directly.
+   * - `true`: stage every version, except canaries.
+   * - `{ tags, packages }`: stage the versions that match every filter given. `tags`: dist-tags (`['latest']`: stable releases staged, prereleases direct). `packages`: names or globs (`['@scope/core', '@scope/plugin-*']`).
+   *
+   * Only npmjs stages: on other registries the versions are published directly. A canary is staged only when `tags` lists its tag, or with `--staged` on its run. A profile with `staged: { tags }` over a config with `staged: { packages }` keeps both filters: set the whole object or a boolean to replace it. Pass `--staged` or `--no-staged` to decide for one run.
+   * @default false
+   * @see https://relizy.dev/guide/staged-publishing
+   */
+  staged?: StagedPublishing
 }
 
 export interface PublishOptions extends PublishConfig {

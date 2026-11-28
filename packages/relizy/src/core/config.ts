@@ -1,7 +1,7 @@
 import type { LogLevel } from '@maz-ui/node'
 import type { DeepPartial } from '@maz-ui/utils/ts-helpers/DeepPartial'
 import type { ReleaseType } from 'semver'
-import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, SyncConfig, SyncRule, TeamsCardsMode } from '../types'
+import type { AIConfig, BumpConfig, ChangelogConfig, CommitlintConfig, HookConfig, MergePreviewConfig, MonorepoConfig, PrCommentConfig, PublishConfig, ReleaseConfig, RelizyConfig, SocialChangelog, SocialConfig, StagedPublishing, SyncConfig, SyncRule, TeamsCardsMode } from '../types'
 import { extname, isAbsolute, resolve } from 'node:path'
 import process from 'node:process'
 import { logger } from '@maz-ui/node'
@@ -78,6 +78,7 @@ export function getDefaultConfig(cwd = process.cwd()) {
       // config type stays assignable to true when overridden by config/CLI.
       skipExistingVersions: false as boolean,
       checkWorkspaceDependencies: true as boolean,
+      staged: false as StagedPublishing,
       packageManager: detectPackageManager(cwd),
     } satisfies PublishConfig,
     tokens: {
@@ -286,6 +287,31 @@ function assertValidSyncRules(config: ResolvedConfig): void {
       throw new ConfigOptionError(`${path}.to`, `${path}.to must list the branches to merge "${rule.from}" into: { from: '${rule.from}', to: ['develop'] }`)
     }
   })
+}
+
+/**
+ * `publish.staged` is `true`, `false` or `{ tags, packages }` with at least
+ * one list of non-empty strings: an empty object would stage everything by
+ * mistake
+ */
+function assertValidStaged(config: ResolvedConfig): void {
+  const staged: unknown = config.publish?.staged
+  const forms = 'publish.staged must be true, false or { tags: [\'latest\'], packages: [\'@scope/*\'] } (at least one of the two lists)'
+
+  if (staged === undefined || typeof staged === 'boolean') {
+    return
+  }
+
+  if (typeof staged !== 'object' || staged === null || Array.isArray(staged)) {
+    throw new ConfigOptionError('publish.staged', forms)
+  }
+
+  const { tags, packages, ...rest } = staged as Record<string, unknown>
+  const isList = (value: unknown) => Array.isArray(value) && value.length > 0 && value.every(item => typeof item === 'string' && item.length > 0)
+
+  if (Object.keys(rest).length > 0 || (tags === undefined && packages === undefined) || (tags !== undefined && !isList(tags)) || (packages !== undefined && !isList(packages))) {
+    throw new ConfigOptionError('publish.staged', forms)
+  }
 }
 
 function setupLogger(logLevel?: LogLevel) {
@@ -617,6 +643,7 @@ export async function loadRelizyConfig(options?: LoadRelizyConfigOptions): Promi
   assertNoRemovedOptions(results.config)
   assertValidTagBody(results.config)
   assertValidSyncRules(results.config)
+  assertValidStaged(results.config)
   validateVersionGroups(results.config as ResolvedRelizyConfig)
 
   logger.verbose('User config:', formatJson(results.config.changelog))

@@ -211,6 +211,67 @@ describe('Given a release that published without staging', () => {
   })
 })
 
+describe('Given a release that staged versions', () => {
+  const stagedRelease: ReleaseReport = {
+    ...detailed,
+    publish: {
+      tags: ['latest'],
+      registries: ['registry.npmjs.org'],
+      staged: [
+        {
+          name: 'relizy',
+          version: '2.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'a1',
+        },
+        {
+          name: '@relizy/core',
+          version: '2.0.0',
+          tag: 'latest',
+          registry: 'https://registry.npmjs.org/',
+          stageId: 'b2',
+          approved: true,
+        },
+      ],
+      auth: 'oidc',
+    },
+  }
+
+  it('Then gives the outputs of the staging, the versions not approved awaiting', () => {
+    expect(getReleaseReportOutputs(stagedRelease)).toEqual(expect.objectContaining({
+      staged: 'true',
+      stage_ids: 'a1,b2',
+      awaiting_approval: 'relizy@2.0.0',
+      publish_auth: 'oidc',
+      install: '',
+    }))
+  })
+
+  it('Then tells what awaits approval and how to approve it, in text and markdown', () => {
+    const awaiting = 'relizy@2.0.0, not installable until approved: relizy stage approve --all, or https://www.npmjs.com/settings'
+    expect(formatReleaseReportText(stagedRelease)).toContain(`Awaiting approval: ${awaiting}`)
+    expect(formatReleaseReportMarkdown(stagedRelease)).toContain(`| **Awaiting approval** | ${awaiting} |`)
+  })
+
+  it('Then tells nothing once every staged version is approved', () => {
+    const approved = {
+      ...stagedRelease,
+      publish: {
+        ...stagedRelease.publish!,
+        staged: stagedRelease.publish!.staged!.map(version => ({ ...version, approved: true })),
+      },
+    }
+
+    expect(formatReleaseReportText(approved)).not.toContain('Awaiting approval')
+    expect(getReleaseReportOutputs(approved)).toEqual(expect.objectContaining({ staged: 'true', awaiting_approval: '' }))
+  })
+
+  it('Then has no output of the staging without staged version', () => {
+    expect(Object.keys(getReleaseReportOutputs(detailed))).not.toContain('staged')
+  })
+})
+
 describe('Given the renderers of the release report', () => {
   it('Then renders a release as text for the terminal', () => {
     expect(formatReleaseReportText(released)).toBe([

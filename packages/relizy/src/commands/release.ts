@@ -12,14 +12,15 @@ import { ensurePushAccess } from '../core/ci'
 import { runWithEvents } from '../core/events'
 import { takeReleaseFacts } from '../core/progress'
 import { runTrustedPublishingPreflight } from '../core/publish-checks'
-import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish } from '../core/release-facts'
+import { attachStepLinks, getNpmLinks, getProviderReleaseLinks, getReleaseAI, getReleaseContent, getReleaseGit, getReleasePublish, isAwaitingApproval } from '../core/release-facts'
 import { describeTags } from '../core/release-report'
+import { getPublishStepLabel, getStagedVersions, getStagingShare, markStagedExplicit } from '../core/staging'
 import { getBumpStepData, getProviderReleaseStepData, getSocialStepData, takeChangelogFiles, takeCommitAndTagStepData, takePrCommentStepData, takePublishStepData } from '../core/step-data'
 import { bump } from './bump'
 import { changelog } from './changelog'
 import { tryPostPrComment } from './pr-comment'
 import { describeProviderReleaseResult, providerRelease, providerReleaseSafetyCheck } from './provider-release'
-import { publish, publishSafetyCheck } from './publish'
+import { describePublishOutcome, publish, publishSafetyCheck } from './publish'
 
 import { describeSocialResult, isAnySocialPlatformEnabled, social, socialSafetyCheck } from './social'
 
@@ -151,6 +152,7 @@ function loadReleaseConfig(options: Partial<ReleaseOptions>) {
         args: options.args,
         packageManager: options.packageManager,
         safetyCheckTimeout: options.safetyCheckTimeout,
+        staged: options.staged,
       },
       release: {
         commit: options.commit,
@@ -412,6 +414,20 @@ async function releaseSafetyCheck({
   logger.success('Safety checks passed')
 }
 
+/** A publish failed after staging versions: they stay staged, never rejected by relizy */
+function warnStagedBeforeFailure(): void {
+  const staged = getStagedVersions()
+  if (staged.length === 0) {
+    return
+  }
+
+  const versions = staged.map(version => `${version.name}@${version.version}`).join(', ')
+  const names = [
+    ...new Set(staged.map(version => version.name)),
+  ].join(' ')
+  logger.warn(`Staged before the failure, still awaiting approval: ${versions}. Approve them with "relizy stage approve", or reject them with "relizy stage reject ${names}"`)
+}
+
 /** The published versions: `relizy@2.0.0`, or their count */
 function describePublished(packages: PublishResponse['publishedPackages']): string {
   return packages.length === 1
@@ -438,6 +454,10 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
 
   const config = await getReleaseConfig(options)
   const isCanary = config.release.canary === true
+
+  if (options.staged === true) {
+    markStagedExplicit()
+  }
 
   if (isCanary) {
     logger.info('Canary mode enabled')
@@ -693,12 +713,18 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
       publishResponse = await ui.step({
         name: 'publish',
         title: 'Publish packages to registry',
-        running: 'Publishing the packages',
+        running: getPublishStepLabel(getStagingShare({
+          config,
+          packages: filterOutPrivatePackages(bumpResult.bumpedPackages),
+        })),
         done: (response) => {
           const packages = response?.publishedPackages.map(pkg => `${pkg.name}@${pkg.newVersion ?? pkg.version}`).join(', ')
           const tag = config.publish.tag
             ? ` (${config.publish.tag})`
             : ''
+          if (packages && getStagedVersions().length > 0) {
+            return `${describePublishOutcome(response!.publishedPackages, 'Published')}${tag}`
+          }
           return packages
             ? `Published ${packages}${tag}`
             : 'Nothing to publish'
@@ -738,6 +764,7 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
           catch (error) {
             logger.fail('Publish failed, rolling back modified files...')
             await rollbackModifiedFiles({ config })
+            warnStagedBeforeFailure()
             throw error
           }
         },
@@ -768,10 +795,17 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
         await rollbackModifiedFiles({ config })
       }
     }
-    addStep('publish', Boolean(config.release.publish), publishResponse && describePublished(publishResponse.publishedPackages))
+    const staged = getStagedVersions()
+    addStep('publish', Boolean(config.release.publish), publishResponse && (staged.length > 0
+      ? describePublishOutcome(publishResponse.publishedPackages, 'Published')
+      : describePublished(publishResponse.publishedPackages)))
     if (publishResponse) {
-      facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages })
-      links.push(...getNpmLinks({ config, packages: publishResponse.publishedPackages }))
+      facts.publish = getReleasePublish({ config, packages: publishResponse.publishedPackages, staged })
+      // No page for a staged version: it is not on npm until approved
+      links.push(...getNpmLinks({
+        config,
+        packages: publishResponse.publishedPackages.filter(pkg => !isAwaitingApproval(pkg, staged)),
+      }))
     }
 
     currentStep = 'Commit'
@@ -958,7 +992,17 @@ async function runRelease(options: Partial<ReleaseOptions> = {}): Promise<Releas
     currentStep = 'Social media'
     let socialResults: SocialResult | undefined
 
-    if (config.release.social && isAnySocialPlatformEnabled(config)) {
+    const awaitingApproval = getStagedVersions().filter(version => !version.approved)
+    if (config.release.social && isAnySocialPlatformEnabled(config) && awaitingApproval.length > 0) {
+      // A post would announce versions nobody can install yet
+      ui.skip({
+        name: 'social',
+        title: 'Post release to social media',
+        label: 'Social posts',
+        reason: 'versions awaiting approval: run "relizy social" once approved',
+      })
+    }
+    else if (config.release.social && isAnySocialPlatformEnabled(config)) {
       socialResults = await ui.step({
         name: 'social',
         title: 'Post release to social media',

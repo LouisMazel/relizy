@@ -553,6 +553,60 @@ describe('Given loadRelizyConfig function', () => {
     })
   })
 
+  describe('When publish.staged is set', () => {
+    function loadWithStaged(staged: unknown) {
+      vi.mocked(loadConfig).mockResolvedValue({
+        config: {
+          cwd: '/project',
+          publish: { staged },
+        },
+        _configFile: 'relizy.config.ts',
+      } as any)
+      return loadRelizyConfig()
+    }
+
+    it('Then accepts a boolean, the tags, the packages or both', async () => {
+      for (const staged of [
+        true,
+        false,
+        {
+          tags: ['latest'],
+        },
+        {
+          packages: ['@scope/*'],
+        },
+        {
+          tags: ['latest'],
+          packages: ['@scope/core'],
+        },
+      ]) {
+        await expect(loadWithStaged(staged)).resolves.toBeDefined()
+      }
+    })
+
+    it('Then fails with the accepted forms for anything else', async () => {
+      for (const staged of [
+        {},
+        'yes',
+        [],
+        { tags: [] },
+        {
+          tags: [''],
+        },
+        { tags: 'latest' },
+        {
+          packages: [1],
+        },
+        {
+          tags: ['latest'],
+          other: true,
+        },
+      ]) {
+        await expect(loadWithStaged(staged)).rejects.toThrow('publish.staged must be true, false or { tags: [\'latest\'], packages: [\'@scope/*\'] } (at least one of the two lists)')
+      }
+    })
+  })
+
   describe('When templates.tagBody repeats {{newVersion}}', () => {
     it('Then fails, as the version could not be read back from the tags', async () => {
       vi.mocked(loadConfig).mockResolvedValue({

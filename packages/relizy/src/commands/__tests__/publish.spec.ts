@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { captureCliOutput } from '../../../tests/cli-output'
 import { anyHookContext, createMockConfig, createMockPackageInfo } from '../../../tests/mocks'
 import { checkWorkspaceDependencies, executeHook, getPackagesOrBumpedPackages, loadRelizyConfig, publishPackage, readPackageJson, readPackages } from '../../core'
+import { recordStagedVersion } from '../../core/staging'
 import { publish, publishSafetyCheck } from '../publish'
 
 vi.mock('../../core/config', async () => {
@@ -331,6 +332,35 @@ describe('Given publishSafetyCheck function', () => {
 
       expect(assertPublishNpmVersion).toHaveBeenCalledWith(expect.objectContaining({ packageManager: 'bun', staged: false, route: 'pack-and-upload' }))
       expect(execPromise).not.toHaveBeenCalled()
+    })
+
+    it('Then checks the npm of the staging before the bump: an error when every version is staged, a warning when only some may be', async () => {
+      const config = (staged: any) => createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          safetyCheck: true,
+          args: [],
+          packageManager: 'bun',
+          registry: 'https://registry.npmjs.org/',
+          staged,
+        },
+        tokens: { registry: 'npm_token' },
+        safetyCheck: true,
+      })
+      vi.mocked(assertPublishNpmVersion).mockImplementation(() => {
+        throw new Error('Staging a version needs npm 11.15.0 or later')
+      })
+
+      await expect(publishSafetyCheck({
+        config: config(true),
+      })).rejects.toThrow('needs npm 11.15.0')
+      await publishSafetyCheck({
+        config: config({
+          tags: ['latest'],
+        }),
+      })
+      expect(logger.warn).toHaveBeenCalledWith('Staging a version needs npm 11.15.0 or later')
+      vi.mocked(assertPublishNpmVersion).mockReset()
     })
 
     it.each(['yarn', 'bun'] as const)('Then runs nothing for %s with a token', async (packageManager) => {
@@ -1077,6 +1107,89 @@ describe('Given publish command followed by an application', () => {
             },
           ]
         `)
+    })
+  })
+
+  describe('When the project stages the stable versions', () => {
+    it('Then follows each staged package, gives its stage id and tag, and tells what awaits approval', async () => {
+      vi.mocked(loadRelizyConfig).mockResolvedValue(createMockConfig({
+        bump: { type: 'patch' },
+        publish: {
+          packageManager: 'npm',
+          registry: 'https://registry.npmjs.org/',
+          staged: {
+            packages: ['pkg-a'],
+          },
+        },
+        tokens: { registry: 'npm_token' },
+      }))
+      vi.mocked(publishPackage)
+        .mockImplementationOnce(() => {
+          recordStagedVersion({
+            name: 'pkg-a',
+            version: '1.1.0',
+            tag: 'latest',
+            registry: 'https://registry.npmjs.org/',
+            stageId: 'a1',
+          })
+          return Promise.resolve(['staged'])
+        })
+        .mockResolvedValueOnce(['published'])
+      const events: RelizyEvent[] = []
+
+      await publish({
+        onProgress: event => events.push(event),
+      })
+
+      expect(events.find(event => event.type === 'step:start' && event.label !== 'Checking the packages to publish')).toMatchObject({ label: 'Publishing and staging the packages' })
+      expect(events.filter(event => event.type === 'step:item').map(event => event.item)).toEqual([
+        { name: 'pkg-a@1.1.0', status: 'running' },
+        { name: 'pkg-a@1.1.0', status: 'done', detail: 'staged, awaiting approval' },
+        { name: 'pkg-b@2.1.0', status: 'running' },
+        { name: 'pkg-b@2.1.0', status: 'done', url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0' },
+      ])
+      expect(publishedStep(events)).toMatchObject({
+        message: 'Published pkg-b@2.1.0, staged pkg-a@1.1.0',
+        data: {
+          auth: 'token',
+          packages: [
+            {
+              name: 'pkg-a',
+              version: '1.1.0',
+              status: 'staged',
+              stageId: 'a1',
+              tag: 'latest',
+            },
+            {
+              name: 'pkg-b',
+              version: '2.1.0',
+              status: 'published',
+              tag: 'latest',
+              url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0',
+            },
+          ],
+        },
+      })
+      expect(events.at(-1)).toMatchObject({
+        type: 'command:complete',
+        links: [
+          { label: 'pkg-b@2.1.0', url: 'https://www.npmjs.com/package/pkg-b/v/2.1.0' },
+        ],
+      })
+    })
+
+    it('Then passes --staged to the run, which stages its canaries too', async () => {
+      vi.mocked(publishPackage).mockResolvedValue(['published'])
+      await publish({
+        staged: true,
+        onProgress: () => {},
+      })
+
+      expect(loadRelizyConfig).toHaveBeenCalledWith(expect.objectContaining({
+        overrides: expect.objectContaining({
+          publish: expect.objectContaining({ staged: true }),
+        }),
+      }))
     })
   })
 

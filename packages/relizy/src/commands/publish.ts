@@ -1,14 +1,18 @@
 import type { TrustedPublishingProvider } from '@relizy/core'
 import type { ResolvedRelizyConfig } from '../core'
+import type { PublishStepPackage, StepItem } from '../core/events'
+import type { PublishTargetStatus } from '../core/npm'
+import type { CommandNote } from '../core/release-ui'
 import type { BumpResultTruthy, PackageBase, PublishOptions, PublishResponse, RegistryTarget } from '../types'
 import { execPromise, logger } from '@maz-ui/node'
 import { getErrorMessage } from '@maz-ui/utils/helpers/getErrorMessage'
-import { assertPublishNpmVersion, assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getPublishRoute, getTrustedPublishing, isInCI, isNpmjsRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
+import { assertPublishNpmVersion, assertTrustedPublishingNpm, filterOutPrivatePackages, getIndependentTag, getPublishRoute, getPublishTag, getStagedApprovalUrl, getTrustedPublishing, isInCI, isNpmjsRegistry, sortPackagesForPublish, withGitCache } from '@relizy/core'
 import { assertVersionGroupsOption, checkWorkspaceDependencies, executeBuildCmd, getAuthCommand, getMonorepoPackagePatterns, getNpmRegistry, getReleaseTargets, hasVersionGroups, loadRelizyConfig, publishPackage, readPackageJson, readPackages, reportStalePeerDependents, resolveRegistryTargetsForPackages, withRegistryNpmrc } from '../core'
 import { runWithEvents } from '../core/events'
 import { reportProgress } from '../core/progress'
-import { getTargetPublishAuth, reportPublishAuth, runTrustedPublishingPreflight } from '../core/publish-checks'
+import { getTargetPublishAuth, getTargetRegistry, reportPublishAuth, runTrustedPublishingPreflight } from '../core/publish-checks'
 import { getNpmLinks } from '../core/release-facts'
+import { clearStagedVersions, getAlreadyStagedVersions, getPublishStepLabel, getStagedVersions, getStagingShare, isStagingConfigured, markStagedExplicit } from '../core/staging'
 import { clearPublishedPackages, emitStepItem, recordPublishedPackage, takePublishStepData } from '../core/step-data'
 import { executeHook, getPackagesOrBumpedPackages } from '../core/utils'
 import { runCommand } from './run-command'
@@ -135,6 +139,50 @@ function checkUploadNpm({ config, packages }: { config: ResolvedRelizyConfig, pa
 }
 
 /**
+ * The npm a staged publish needs (npm 11.15.0, also for the upload of yarn,
+ * bun and pnpm before 11.3), before the bump, when the tags are not known
+ * yet: an error when every version is staged, a warning when only some may be
+ */
+function checkStagingTools({ config, packages }: { config: ResolvedRelizyConfig, packages: Pick<PackageBase, 'name'>[] }) {
+  if (!isStagingConfigured(config)) {
+    return
+  }
+
+  for (const registryTarget of resolveRegistryTargetsForPackages(packages, config)) {
+    if (!isNpmjsRegistry(getTargetRegistry(config, registryTarget))) {
+      continue
+    }
+
+    const route = getPublishRoute({
+      packageManager: config.publish.packageManager,
+      cwd: config.cwd,
+      staged: true,
+      authMode: getTargetPublishAuth(config, registryTarget).mode,
+    })
+    try {
+      assertPublishNpmVersion({
+        packageManager: config.publish.packageManager,
+        cwd: config.cwd,
+        staged: true,
+        route,
+      })
+    }
+    catch (error) {
+      if (config.publish.staged === true && !config.release.canary) {
+        throw error
+      }
+      logger.warn(getErrorMessage(error))
+    }
+    return
+  }
+}
+
+/** Every version this run publishes may be staged: no direct publish with a token */
+function stagesEveryVersion(config: ResolvedRelizyConfig): boolean {
+  return config.publish.staged === true && !config.release.canary
+}
+
+/**
  * The packages of the workspace that can be published, before the bump tells
  * which ones the release publishes
  */
@@ -164,8 +212,9 @@ export async function publishSafetyCheck({ config, packages }: { config: Resolve
   logger.debug('Start checking auth config to package registry')
 
   // Every package manager: the auth notes, the npm of the routes, the pre-flight
-  reportPublishAuth({ config, packages: packagesToCheck })
+  reportPublishAuth({ config, packages: packagesToCheck, directPublish: !stagesEveryVersion(config) })
   checkUploadNpm({ config, packages: packagesToCheck })
+  checkStagingTools({ config, packages: packagesToCheck })
 
   const isPnpmOrNpm = config.publish.packageManager === 'pnpm' || config.publish.packageManager === 'npm'
 
@@ -333,6 +382,7 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
           args: options.args,
           packageManager: options.packageManager,
           safetyCheckTimeout: options.safetyCheckTimeout,
+          staged: options.staged,
         },
         tokens: { registry: options.token },
         logLevel: options.logLevel,
@@ -340,6 +390,10 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       },
     }),
     run: async ({ config, dryRun, ui, hookContext }) => {
+      if (options.staged === true) {
+        markStagedExplicit()
+      }
+
       logger.debug(`Package manager: ${config.publish.packageManager}`)
       logger.debug(`Version mode: ${config.monorepo?.versionMode || 'standalone'}`)
 
@@ -379,38 +433,59 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       const distTag = config.publish.tag
         ? ` (${config.publish.tag})`
         : ''
+      const stagingShare = getStagingShare({ config, packages: toPublish })
       await ui.step({
         name: 'publish',
-        running: 'Publishing the packages',
-        done: () => `Published ${describePackages(toPublish)}${distTag}`,
+        running: getPublishStepLabel(stagingShare),
+        done: () => `${describePublishOutcome(toPublish, 'Published')}${distTag}`,
         data: () => takePublishStepData(config, { dryRun }),
         failedData: () => takePublishStepData(config, { dryRun }),
         run: async () => {
           clearPublishedPackages()
+          clearStagedVersions()
 
           for await (const [index, pkg] of toPublish.entries()) {
             const tag = getIndependentTag({ name: pkg.name, version: pkg.newVersion || pkg.version })
             const position = toPublish.length > 1
               ? ` (${index + 1}/${toPublish.length})`
               : ''
-            logger.debug(`Publishing ${tag}...`)
-            reportProgress(`Publishing ${tag}${position}`)
+            const verb = getStagingShare({
+              config,
+              packages: [pkg],
+            }) === 'all'
+              ? 'Staging'
+              : 'Publishing'
+            logger.debug(`${verb} ${tag}...`)
+            reportProgress(`${verb} ${tag}${position}`)
             await publishAndRecord({ pkg, config, dryRun })
           }
         },
       })
 
       if (!dryRun) {
-        logger.info('Package(s) have been published to npm registry')
+        logger.info(getStagedVersions().length > 0
+          ? 'Package(s) have been staged or published to the registry, the staged ones await approval'
+          : 'Package(s) have been published to npm registry')
       }
 
       logger.success('Publishing packages completed!')
 
       await executeHook('success:publish', config, dryRun, hookContext)
 
+      const staged = getStagedVersions()
       ui.complete({
-        message: `${dryRun ? 'Simulated publication of' : 'Published'} ${describePackages(toPublish)}${distTag}`,
-        links: getNpmLinks({ config, packages: toPublish }),
+        message: `${describePublishOutcome(toPublish, dryRun ? 'Simulated publication of' : 'Published')}${distTag}`,
+        links: getNpmLinks({
+          config,
+          packages: toPublish.filter(pkg => !isStagedPackage(pkg, staged)),
+        }),
+        ...(staged.length > 0
+          ? {
+              notes: [
+                getAwaitingApprovalNote({ config, staged }),
+              ],
+            }
+          : {}),
       })
 
       return {
@@ -418,6 +493,60 @@ function runPublish(options: Partial<PublishOptions> = {}): Promise<PublishRespo
       } satisfies PublishResponse
     },
   })
+}
+
+/** The object without its `undefined` fields: the data stays byte for byte the same without them */
+function withoutUndefined<T extends object>(value: T): { [Key in keyof T]: Exclude<T[Key], undefined> } {
+  return Object.fromEntries(Object.entries(value).filter(([, field]) => field !== undefined)) as { [Key in keyof T]: Exclude<T[Key], undefined> }
+}
+
+/** What the publish of a package did, for the data of the step and its live item */
+function getPublishedEntry({ pkg, config, dryRun, statuses }: {
+  pkg: PackageBase
+  config: ResolvedRelizyConfig
+  dryRun: boolean
+  statuses: PublishTargetStatus[]
+}): { entry: PublishStepPackage, item: Omit<StepItem, 'name'> } {
+  const version = pkg.newVersion || pkg.version
+  // Already on every registry
+  const skipped = statuses.length > 0 && statuses.every(status => status === 'skipped')
+  const staged = statuses.includes('staged')
+  const stagedVersion = getStagedVersions().find(candidate => candidate.name === pkg.name && candidate.version === version)
+  const url = dryRun || skipped || staged
+    ? undefined
+    : getNpmLinks({
+      config,
+      packages: [pkg],
+    })[0]?.url
+  const alreadyStaged = skipped && getAlreadyStagedVersions().some(candidate => candidate.name === pkg.name && candidate.version === version)
+  const reason = alreadyStaged
+    ? 'already staged'
+    : 'version already on the registry'
+  const tag = isStagingConfigured(config)
+    ? stagedVersion?.tag ?? getPublishTag(version, config.publish.tag)
+    : undefined
+  const status = staged
+    ? 'staged'
+    : skipped ? 'skipped' : 'published'
+
+  return {
+    entry: withoutUndefined({
+      name: pkg.name,
+      version,
+      status,
+      url,
+      reason: skipped ? reason : undefined,
+      stageId: stagedVersion?.stageId,
+      tag,
+    }),
+    item: withoutUndefined({
+      status: skipped ? 'skipped' : 'done',
+      url,
+      detail: staged
+        ? 'staged, awaiting approval'
+        : skipped ? reason : undefined,
+    }),
+  }
 }
 
 /**
@@ -435,37 +564,10 @@ async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, con
       packageManager: config.publish.packageManager,
       dryRun,
     })
-    // Already on every registry
-    const skipped = statuses.length > 0 && statuses.every(status => status === 'skipped')
-    const url = dryRun || skipped
-      ? undefined
-      : getNpmLinks({
-        config,
-        packages: [pkg],
-      })[0]?.url
-    const reason = 'version already on the registry'
+    const { entry, item } = getPublishedEntry({ pkg, config, dryRun, statuses })
 
-    recordPublishedPackage({
-      name: pkg.name,
-      version,
-      status: skipped ? 'skipped' : 'published',
-      ...(url
-        ? { url }
-        : {}),
-      ...(skipped
-        ? { reason }
-        : {}),
-    })
-    emitStepItem('publish', {
-      name,
-      status: skipped ? 'skipped' : 'done',
-      ...(url
-        ? { url }
-        : {}),
-      ...(skipped
-        ? { detail: reason }
-        : {}),
-    })
+    recordPublishedPackage(entry)
+    emitStepItem('publish', { name, ...item })
   }
   catch (error) {
     const reason = getErrorMessage(error)
@@ -477,6 +579,44 @@ async function publishAndRecord({ pkg, config, dryRun }: { pkg: PackageBase, con
     })
     emitStepItem('publish', { name, status: 'failed', detail: reason })
     throw error
+  }
+}
+
+function isStagedPackage(pkg: PackageBase, staged: { name: string, version: string }[]): boolean {
+  return staged.some(version => version.name === pkg.name && version.version === (pkg.newVersion || pkg.version))
+}
+
+/**
+ * What the publish did: `Published a@1.0.0`, or with staging `Published
+ * a@1.0.0, staged b@1.0.0` and `Staged b@1.0.0`
+ */
+export function describePublishOutcome(packages: PackageBase[], verb: string): string {
+  const staged = getStagedVersions()
+  if (staged.length === 0) {
+    return `${verb} ${describePackages(packages)}`
+  }
+
+  const direct = packages.filter(pkg => !isStagedPackage(pkg, staged))
+  const stagedPackages = packages.filter(pkg => isStagedPackage(pkg, staged))
+  const stagedVerb = verb === 'Published'
+    ? 'Staged'
+    : `${verb.replace(/ publication of$/, ' staging of')}`
+  return direct.length > 0
+    ? `${verb} ${describePackages(direct)}, staged ${describePackages(stagedPackages)}`
+    : `${stagedVerb} ${describePackages(stagedPackages)}`
+}
+
+/** What still awaits approval, and how to approve it */
+export function getAwaitingApprovalNote({ config, staged }: { config: ResolvedRelizyConfig, staged: { name: string, version: string, registry: string }[] }): CommandNote {
+  const url = getStagedApprovalUrl({ registry: staged[0]?.registry ?? getNpmRegistry(config.cwd) })
+  return {
+    title: 'Awaiting approval, not installable yet',
+    lines: staged.map(version => `${version.name}@${version.version}`),
+    footer: [
+      `Approve with "relizy stage approve --all"${url
+        ? `, or on ${url}`
+        : ''}`,
+    ],
   }
 }
 
