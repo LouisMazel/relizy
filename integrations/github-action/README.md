@@ -120,7 +120,16 @@ The guide: [Commitlint](https://relizy.dev/commitlint/#lint-the-commits-of-a-pul
 
 ## Outputs
 
-The outputs of `relizy release`: `released`, `status`, `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`, `install`, `failed_steps`, `summary` (markdown) and `report` (JSON: `fromJSON(steps.release.outputs.report)`). See [the outputs](https://relizy.dev/guide/github-actions#outputs-and-summary).
+The outputs of `relizy release`: `released`, `status`, `version`, `tags`, `packages`, `branch`, `commit`, `dist_tags`, `urls`, `install`, `failed_steps`, `summary` (markdown) and `report` (JSON: `fromJSON(steps.release.outputs.report)`). With staged publishing (`publish.staged`), also `staged` (`'true'`, absent when nothing was staged), `stage_ids`, `awaiting_approval` and `publish_auth`: `released` is then not "installable", the versions await an approval (`relizy stage approve --all`, never in CI). See [the outputs](https://relizy.dev/guide/github-actions#outputs-and-summary).
+
+```yaml
+- uses: relizy/action@v2
+  id: release
+  with:
+    args: --staged
+- if: steps.release.outputs.staged == 'true'
+  run: echo "Approve ${{ steps.release.outputs.awaiting_approval }} with relizy stage approve --all"
+```
 
 ## Versions
 
